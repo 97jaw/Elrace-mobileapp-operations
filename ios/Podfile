@@ -1,0 +1,110 @@
+# Uncomment this line to define a global platform for your project
+platform :ios, '16.0'
+
+# CocoaPods analytics sends network stats synchronously affecting flutter build latency.
+ENV['COCOAPODS_DISABLE_STATS'] = 'true'
+
+project 'Runner', {
+  'Debug' => :debug,
+  'Profile' => :release,
+  'Release' => :release,
+}
+
+def flutter_root
+  generated_xcode_build_settings_path = File.expand_path(File.join('..', 'Flutter', 'Generated.xcconfig'), __FILE__)
+  unless File.exist?(generated_xcode_build_settings_path)
+    raise "#{generated_xcode_build_settings_path} must exist. If you're running pod install manually, make sure flutter pub get is executed first"
+  end
+
+  File.foreach(generated_xcode_build_settings_path) do |line|
+    matches = line.match(/FLUTTER_ROOT\=(.*)/)
+    return matches[1].strip if matches
+  end
+  raise "FLUTTER_ROOT not found in #{generated_xcode_build_settings_path}. Try deleting Generated.xcconfig, then run flutter pub get"
+end
+
+require File.expand_path(File.join('packages', 'flutter_tools', 'bin', 'podhelper'), flutter_root)
+
+flutter_ios_podfile_setup
+
+require_relative 'patches/unify_pod_excluded_archs'
+
+pre_install do |_installer|
+  files = unify_simulator_excluded_archs('arm64')
+  unless files.empty?
+    puts "Podfile: unified EXCLUDED_ARCHS on #{files.length} plugin podspec(s)"
+  end
+end
+
+target 'Runner' do
+  use_frameworks!
+
+  flutter_install_all_ios_pods File.dirname(File.realpath(__FILE__))
+  target 'RunnerTests' do
+    inherit! :search_paths
+  end
+end
+
+post_install do |installer|
+  # Xcode 16+ requires pod targets >= 12.0; use 13.0 for workmanager / BGTaskScheduler.
+  deployment_target = '13.0'
+  # ML Kit + TensorFlowLite ship different simulator arch exclusions; unify to silence
+  # "Can't merge user_target_xcconfig ... EXCLUDED_ARCHS" during pod install.
+  simulator_excluded_archs = 'arm64'
+
+  installer.pods_project.build_configurations.each do |config|
+    config.build_settings['EXCLUDED_ARCHS[sdk=iphonesimulator*]'] = simulator_excluded_archs
+  end
+
+  installer.pods_project.targets.each do |target|
+    flutter_additional_ios_build_settings(target)
+    target.build_configurations.each do |config|
+      config.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = deployment_target
+      config.build_settings['EXCLUDED_ARCHS[sdk=iphonesimulator*]'] = simulator_excluded_archs
+      config.build_settings['GCC_PREPROCESSOR_DEFINITIONS'] ||= [
+        '$(inherited)',
+        'PERMISSION_CAMERA=1',
+        'PERMISSION_MICROPHONE=1',
+        'PERMISSION_LOCATION=1',
+        'PERMISSION_NOTIFICATIONS=1',
+        'PERMISSION_PHOTOS=1',
+      ]
+    end
+
+    # Privacy manifests must not be compile sources (geocoding_ios, volume_controller).
+    target.build_phases.each do |build_phase|
+      next unless build_phase.respond_to?(:files)
+
+      build_phase.files.to_a.each do |build_file|
+        path = build_file.file_ref&.path
+        next unless path&.end_with?('PrivacyInfo.xcprivacy')
+
+        build_phase.remove_build_file(build_file)
+      end
+    end
+  end
+
+  require_relative 'patches/apply_camera_avfoundation_patch'
+  camera_avfoundation_default_camera_paths(installer).each do |swift_path|
+    patch_default_camera(swift_path)
+  end
+
+  require_relative 'patches/apply_safe_device_patch'
+  safe_device_jailbreak_detection_paths(installer).each do |m_path|
+    patch_safe_device_jailbreak_detection(m_path)
+  end
+
+  installer.aggregate_targets.each do |aggregate_target|
+    aggregate_target.user_project.native_targets.each do |native_target|
+      native_target.build_configurations.each do |config|
+        config.build_settings['EXCLUDED_ARCHS[sdk=iphonesimulator*]'] =
+          simulator_excluded_archs
+      end
+    end
+  end
+
+  patch_generated_pod_xcconfigs(installer, simulator_excluded_archs)
+
+  require_relative 'patches/patch_pods_frameworks_script'
+  patch_pods_runner_frameworks_script(installer)
+end

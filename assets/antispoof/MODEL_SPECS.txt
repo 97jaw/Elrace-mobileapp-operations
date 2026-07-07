@@ -1,0 +1,2 @@
+MiniFASNetV2: asset=minifasnet_v2_2.7_80x80.tflite, input=80x80 RGB, crop_scale=2.7, classes=3 [live, print, replay], sha256=ec7d4de1488c0cd16c7ba483acf080206e34d9a9c47d47bde5a683963b351d4f, bytes=1765580
+MiniFASNetV1SE: asset=minifasnet_v1se_4.0_80x80.tflite, input=80x80 RGB, crop_scale=4.0, classes=3 [live, print, replay], sha256=02f12c07ac80d2adc3495921bd62700ff5c530c9ce0104f23e15c56e67b671a2, bytes=1765856

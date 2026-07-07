@@ -1,0 +1,171 @@
+
+plugins {
+
+
+
+    id "com.android.application"
+    // START: FlutterFire Configuration
+    id 'com.google.gms.google-services'
+    // END: FlutterFire Configuration
+    id "kotlin-android"
+    // The Flutter Gradle Plugin must be applied after the Android and Kotlin Gradle plugins.
+    id "dev.flutter.flutter-gradle-plugin"
+}
+
+// Load local.properties (for flutter.versionCode and flutter.versionName)
+def localProperties = new Properties()
+def localPropertiesFile = rootProject.file("local.properties")
+if (localPropertiesFile.exists()) {
+    localProperties.load(new FileInputStream(localPropertiesFile))
+}
+
+// Load key.properties (for signing config)
+def keystoreProperties = new Properties()
+def keystorePropertiesFile = rootProject.file("key.properties")
+if (keystorePropertiesFile.exists()) {
+    keystoreProperties.load(new FileInputStream(keystorePropertiesFile))
+}
+
+def readSigningValue = { String propertyKey, String envKey ->
+    def fromFile = keystoreProperties.getProperty(propertyKey)
+    if (fromFile != null && !fromFile.trim().isEmpty()) {
+        return fromFile.trim()
+    }
+
+    def fromEnv = System.getenv(envKey)
+    if (fromEnv != null && !fromEnv.trim().isEmpty()) {
+        return fromEnv.trim()
+    }
+
+    return null
+}
+
+def keystoreStoreFile = readSigningValue('storeFile', 'ANDROID_KEYSTORE_PATH')
+def keystoreStorePassword = readSigningValue('storePassword', 'ANDROID_KEYSTORE_PASSWORD')
+def keystoreKeyAlias = readSigningValue('keyAlias', 'ANDROID_KEY_ALIAS')
+def keystoreKeyPassword = readSigningValue('keyPassword', 'ANDROID_KEY_PASSWORD')
+
+def missingSigningFields = []
+if (keystoreStoreFile == null) missingSigningFields << 'storeFile (or ANDROID_KEYSTORE_PATH)'
+if (keystoreStorePassword == null) missingSigningFields << 'storePassword (or ANDROID_KEYSTORE_PASSWORD)'
+if (keystoreKeyAlias == null) missingSigningFields << 'keyAlias (or ANDROID_KEY_ALIAS)'
+if (keystoreKeyPassword == null) missingSigningFields << 'keyPassword (or ANDROID_KEY_PASSWORD)'
+
+def hasReleaseSigning = missingSigningFields.isEmpty()
+def keystoreFileExists = hasReleaseSigning && file(keystoreStoreFile).exists()
+
+def isReleaseTaskRequested = gradle.startParameter.taskNames.any { taskName ->
+    taskName.toLowerCase().contains("release")
+}
+
+if (isReleaseTaskRequested && (!hasReleaseSigning || !keystoreFileExists)) {
+    def failureReasons = []
+    if (!hasReleaseSigning) {
+        failureReasons << "Missing signing values: ${missingSigningFields.join(', ')}"
+    }
+    if (hasReleaseSigning && !keystoreFileExists) {
+        failureReasons << "Keystore file not found at: ${keystoreStoreFile}"
+    }
+
+    throw new GradleException(
+        """
+Release signing is not configured.
+${failureReasons.join('\n')}
+
+Configure one of these:
+1) Create android/key.properties from android/key.properties.example and fill real values.
+2) Or set env vars: ANDROID_KEYSTORE_PATH, ANDROID_KEYSTORE_PASSWORD, ANDROID_KEY_ALIAS, ANDROID_KEY_PASSWORD.
+""".trim()
+    )
+}
+
+
+
+def flutterVersionCode = localProperties.getProperty("flutter.versionCode")
+if (flutterVersionCode == null) {
+    flutterVersionCode = "60"
+}
+
+def flutterVersionName = localProperties.getProperty("flutter.versionName")
+if (flutterVersionName == null) {
+    flutterVersionName = "1.0.8"
+}
+
+android {
+    namespace = "com.el_race.app"
+    compileSdk = 36
+    ndkVersion = flutter.ndkVersion
+
+    compileOptions {
+        sourceCompatibility = JavaVersion.VERSION_17
+        targetCompatibility = JavaVersion.VERSION_17
+        coreLibraryDesugaringEnabled true
+    }
+     kotlinOptions {
+        jvmTarget = '17'
+    }
+    defaultConfig {
+        // TODO: Specify your own unique Application ID (https://developer.android.com/studio/build/application-id.html).
+        applicationId = "com.el_race.app"
+        // You can update the following values to match your application needs.
+        // For more information, see: https://docs.flutter.dev/deployment/android#reviewing-the-gradle-build-configuration.
+        minSdkVersion 24
+        targetSdk = flutter.targetSdkVersion
+        versionCode = flutterVersionCode.toInteger()
+        versionName = flutterVersionName
+        multiDexEnabled true
+    }
+    signingConfigs {
+        release {
+            if (hasReleaseSigning) {
+                storeFile file(keystoreStoreFile)
+                storePassword keystoreStorePassword
+                keyAlias keystoreKeyAlias
+                keyPassword keystoreKeyPassword
+            }
+        }
+    }
+
+
+    buildTypes {
+        debug {
+            // TODO: Add your own signing config for the release build.
+            // Signing with the debug keys for now, so flutter run --release works.
+            signingConfig = signingConfigs.debug
+            minifyEnabled false
+            shrinkResources false
+        }
+        release {
+            signingConfig = signingConfigs.release
+            minifyEnabled false
+            shrinkResources false
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+        }
+    }
+}
+
+flutter {
+    source = "../.."
+}
+
+configurations.all {
+    // Exclude duplicate rootbeer library
+    exclude group: 'com.github.scottyab', module: 'rootbeer'
+}
+
+android.packagingOptions {
+    pickFirst 'lib/arm64-v8a/libtoolChecker.so'
+    pickFirst 'lib/armeabi-v7a/libtoolChecker.so'
+    pickFirst 'lib/x86/libtoolChecker.so'
+    pickFirst 'lib/x86_64/libtoolChecker.so'
+}
+
+dependencies {
+    implementation 'androidx.core:core-splashscreen:1.0.1'
+    coreLibraryDesugaring 'com.android.tools:desugar_jdk_libs:2.1.5'
+    implementation 'androidx.multidex:multidex:2.0.1'
+    implementation("com.google.firebase:firebase-analytics")
+    implementation 'com.google.firebase:firebase-crashlytics:18.3.2'
+    implementation 'com.google.firebase:firebase-messaging:23.1.0'
+    // TensorFlow Lite dependencies removed - now handled by tflite_flutter plugin
+}

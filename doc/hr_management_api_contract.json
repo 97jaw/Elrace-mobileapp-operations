@@ -1,0 +1,312 @@
+{
+  "document": "HR Management — Module 1 API contract (mobile ↔ backend)",
+  "version": "1.0",
+  "lastUpdated": "2026-05-10",
+  "scope": "HR Requests + asset submits wired in lib/core/hr_management/network/hr_api_client.dart. Excludes Attendance, Payslip, Recruitment, Performance modules.",
+  "baseUrl": "https://erp.elrace.com",
+  "auth": "Same as rest of app (session/Bearer on Dio). Authenticated user determines scope server-side.",
+  "contentType": "application/json",
+  "responseEnvelope": {
+    "description": "All endpoints return this shape (HrApiEnvelope)",
+    "fields": {
+      "success": { "type": "boolean", "required": true },
+      "data": { "type": "object | array | null", "required": false },
+      "error": { "type": "string | null", "required": false },
+      "ui_status": { "type": "string | null", "required": false }
+    },
+    "exampleSuccess": {
+      "success": true,
+      "data": {},
+      "error": null,
+      "ui_status": null
+    },
+    "exampleError": {
+      "success": false,
+      "data": null,
+      "error": "Human readable message",
+      "ui_status": null
+    }
+  },
+  "roleSelection": {
+    "description": "Mobile chooses Employee vs Manager vs HR Manager UI from login flags; backend must still enforce authorization.",
+    "source": "lib/core/hr_management/hr_effective_view.dart",
+    "flags": [
+      { "flag": "is_hr_manager", "view": "hrManager", "listEndpoint": "team_requests with full scope" },
+      { "flag": "is_management || is_pm", "view": "manager", "listEndpoint": "team_requests for team" },
+      { "flag": "default", "view": "employee", "listEndpoint": "my_requests" }
+    ]
+  },
+  "endpoints": [
+    {
+      "id": "my_requests",
+      "method": "GET",
+      "path": "/api/hr/my_requests",
+      "description": "Employee — own HR request rows for list and 'My own requests' tab.",
+      "queryParameters": {
+        "optionalFuture": ["status", "limit", "offset"]
+      },
+      "responseDataType": "array",
+      "itemSchema": {
+        "id": { "type": "string", "required": true, "notes": "Stable record id (Odoo id or composite)" },
+        "reference": { "type": "string", "required": true, "notes": "Display ref e.g. HR/LV/2026/0142; alias referenceNumber accepted" },
+        "type": { "type": "string", "required": true, "notes": "Human-readable request type" },
+        "ui_status": { "type": "string", "required": true, "notes": "PENDING | APPROVED | REJECTED | DRAFT (uppercase recommended)" },
+        "submitted_at": { "type": "string", "required": false },
+        "secondary_line": { "type": "string", "required": false, "notes": "Card subtitle e.g. date range" },
+        "relative_submitted": { "type": "string", "required": false, "notes": "e.g. Submitted 2d ago" },
+        "sequence": { "type": "integer", "required": false, "notes": "Higher = newer for sorting" },
+        "employee_name": { "type": "string", "required": false, "notes": "Usually omitted for my_requests" },
+        "employee_role_line": { "type": "string", "required": false },
+        "employee_number": { "type": "string", "required": false },
+        "department": { "type": "string", "required": false }
+      }
+    },
+    {
+      "id": "team_requests",
+      "method": "GET",
+      "path": "/api/hr/team_requests",
+      "description": "Manager / HR manager — team queue rows.",
+      "queryParameters": {
+        "optionalFuture": ["department", "status", "type"]
+      },
+      "responseDataType": "array",
+      "itemSchema": "Same as my_requests item; include employee_name, employee_role_line, employee_number, department where applicable."
+    },
+    {
+      "id": "request_detail",
+      "method": "GET",
+      "path": "/api/hr/request_detail",
+      "queryParameters": {
+        "id": { "type": "string", "required": true, "notes": "Request id from list" },
+        "manager": { "type": "boolean", "required": true, "notes": "true when opened from team queue" }
+      },
+      "responseDataType": "object",
+      "objectSchema": {
+        "summary": { "type": "object", "required": true, "notes": "Same shape as list item" },
+        "submitted_at_display": { "type": "string", "required": true },
+        "detail_rows": {
+          "type": "array",
+          "required": true,
+          "items": { "label": "string", "value": "string" }
+        },
+        "timeline": {
+          "type": "array",
+          "required": true,
+          "items": {
+            "title": "string",
+            "subtitle": "string | null",
+            "state": "COMPLETED | CURRENT | PENDING"
+          }
+        },
+        "attachments": {
+          "type": "array",
+          "required": false,
+          "items": { "name": "string", "url": "string | null" }
+        },
+        "comments": {
+          "type": "array",
+          "required": false,
+          "items": { "author": "string", "text": "string", "timestamp": "string | null" }
+        },
+        "is_leave_type": { "type": "boolean", "required": false },
+        "available_leave_balance": { "type": "string", "required": false, "notes": "Optional when manager + leave" },
+        "subject_employee": {
+          "type": "object | null",
+          "required": false,
+          "notes": "When manager context viewing another employee",
+          "fields": {
+            "name": "string",
+            "position_department": "string",
+            "employee_id": "string",
+            "email": "string | null",
+            "phone": "string | null"
+          }
+        }
+      }
+    },
+    {
+      "id": "team_requests_search",
+      "method": "GET",
+      "path": "/api/hr/team_requests/search",
+      "description": "Paginated / filtered archive search (manager older requests screen).",
+      "queryParameters": {
+        "q": { "type": "string", "required": false, "default": "" },
+        "department": { "type": "string", "required": false },
+        "type": { "type": "string", "required": false, "notes": "Request type filter" },
+        "status": { "type": "string", "required": false, "notes": "omit or all for no filter" },
+        "offset": { "type": "integer", "required": false, "default": 0 },
+        "limit": { "type": "integer", "required": false, "default": 20 }
+      },
+      "responseDataType": "array",
+      "itemSchema": "Same as team_requests list item"
+    },
+    {
+      "id": "asset_request",
+      "method": "POST",
+      "path": "/api/hr/asset_request",
+      "description": "Submit car rent, car allowance, or SIM request.",
+      "requestBody": {
+        "topLevel": {
+          "kind": {
+            "type": "string",
+            "required": true,
+            "enum": ["car_rent", "car_allowance", "sim"]
+          },
+          "payload": "Merged into body: all fields below are siblings of kind (Flutter sends { kind, ...fields })."
+        },
+        "variants": {
+          "car_rent": {
+            "purpose": "string",
+            "from": "string (ISO8601)",
+            "to": "string (ISO8601)",
+            "pickup": "string",
+            "dropoff": "string",
+            "vehicle": "string",
+            "distance_km": "integer | null",
+            "justification": "string",
+            "attachment": "string | null"
+          },
+          "car_allowance": {
+            "allowance_type": "string",
+            "amount_aed": "string",
+            "effective_from": "string (ISO8601)",
+            "justification": "string",
+            "mulkiya": "string | null",
+            "license": "string | null"
+          },
+          "sim": {
+            "reason": "string",
+            "plan": "string",
+            "required_by": "string (ISO8601)",
+            "justification": "string",
+            "phone": "string",
+            "attachment": "string | null"
+          }
+        }
+      },
+      "responseDataSuccess": {
+        "minimum": { "reference": "string", "notes": "Human-readable new reference e.g. HR/CR/2026/0089" }
+      },
+      "notes": [
+        "attachment fields are filenames only in v1; recommend separate multipart upload endpoint later."
+      ]
+    }
+  ],
+  "notImplementedMobileYet": {
+    "description": "UI placeholders; no HrApiClient calls today — suggested contracts for Phase 2",
+    "suggestions": [
+      {
+        "action": "cancel_request",
+        "method": "POST",
+        "path": "/api/hr/request_cancel",
+        "body": { "id": "string" }
+      },
+      {
+        "action": "edit_draft",
+        "method": "PUT",
+        "path": "/api/hr/request_draft",
+        "body": { "id": "string", "fields": "object" }
+      },
+      {
+        "action": "duplicate",
+        "method": "POST",
+        "path": "/api/hr/request_duplicate",
+        "body": { "id": "string" }
+      },
+      {
+        "action": "manager_approve_reject",
+        "method": "POST",
+        "path": "/api/hr/request_action",
+        "body": { "id": "string", "action": "approve | reject", "comment": "string | null" }
+      },
+      {
+        "action": "attachment_upload",
+        "method": "POST",
+        "path": "/api/hr/attachment",
+        "body": "multipart/form-data",
+        "response": { "name": "string", "url": "string" }
+      }
+    ]
+  },
+  "outOfScopeThisClient": {
+    "leave_job_mission_permission_effective_date": "Existing screens under lib/ui/presentation/my_request/ — separate Odoo routes; audit separately.",
+    "manager_dashboard_charts": "Mock data in app; no REST endpoints in hr_api_client yet.",
+    "pdf_export": "Generated on device from detail payload; no server PDF required for parity."
+  },
+  "mobileIntegration": {
+    "clientClass": "lib/core/hr_management/network/hr_api_client.dart",
+    "toggleMock": "lib/core/hr_management/providers/hr_management_providers.dart — set useMock: false when APIs are ready",
+    "models": [
+      "lib/core/hr_management/models/hr_request_summary.dart",
+      "lib/core/hr_management/models/hr_request_detail.dart",
+      "lib/core/hr_management/network/hr_api_envelope.dart"
+    ]
+  },
+  "exampleListItem": {
+    "id": "1",
+    "reference": "HR/LV/2026/0142",
+    "type": "Annual Leave",
+    "ui_status": "PENDING",
+    "submitted_at": "12 May 2026",
+    "secondary_line": "12 May → 16 May (5 days)",
+    "relative_submitted": "Submitted 2d ago",
+    "sequence": 100,
+    "employee_name": "Aisha Al-Mansoori",
+    "employee_role_line": "Senior Engineer · R&D",
+    "employee_number": "EMP-2401",
+    "department": "R&D"
+  },
+  "exampleDetailPayload": {
+    "summary": {
+      "id": "1",
+      "reference": "HR/LV/2026/0142",
+      "type": "Annual Leave",
+      "ui_status": "PENDING",
+      "submitted_at": "12 May 2026",
+      "secondary_line": "12 May → 16 May (5 days)",
+      "relative_submitted": "Submitted 2d ago",
+      "sequence": 100
+    },
+    "submitted_at_display": "12 May 2026 · Submitted 2d ago",
+    "detail_rows": [
+      { "label": "Request type", "value": "Annual Leave" },
+      { "label": "From date", "value": "12 May 2026" },
+      { "label": "To date", "value": "16 May 2026" },
+      { "label": "Number of days", "value": "5" },
+      { "label": "Reason", "value": "..." }
+    ],
+    "timeline": [
+      { "title": "Submitted", "subtitle": "12 May 2026", "state": "COMPLETED" },
+      { "title": "To Approve (Manager)", "subtitle": null, "state": "CURRENT" }
+    ],
+    "attachments": [],
+    "comments": [],
+    "is_leave_type": true,
+    "available_leave_balance": "18 days",
+    "subject_employee": {
+      "name": "Aisha Al-Mansoori",
+      "position_department": "Senior Engineer · R&D",
+      "employee_id": "EMP-2401",
+      "email": "aisha@example.com",
+      "phone": "+971 50 000 0000"
+    }
+  },
+  "exampleAssetRequestCarRent": {
+    "kind": "car_rent",
+    "purpose": "Business Trip",
+    "from": "2026-05-12T09:00:00.000",
+    "to": "2026-05-16T17:00:00.000",
+    "pickup": "HQ",
+    "dropoff": "Client site",
+    "vehicle": "Sedan",
+    "distance_km": 120,
+    "justification": "Client meetings",
+    "attachment": "supporting_doc.pdf"
+  },
+  "exampleAssetRequestSubmitResponse": {
+    "success": true,
+    "data": { "reference": "HR/CR/2026/0089" },
+    "error": null,
+    "ui_status": "PENDING"
+  }
+}

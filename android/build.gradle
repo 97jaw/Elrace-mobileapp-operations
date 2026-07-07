@@ -1,0 +1,77 @@
+allprojects {
+    repositories {
+        google()
+        mavenCentral()
+    }
+    tasks.withType(JavaCompile).configureEach {
+        options.compilerArgs << "-Xlint:none"
+    }
+}
+subprojects {
+    afterEvaluate { project ->
+        if (project.hasProperty('android')) {
+            project.android {
+                if (namespace == null) {
+                    namespace project.group
+                }
+                
+                // Plugin modules must use compileSdk ≥ 36 so packages like sqflite_android
+                // (VERSION_CODES.BAKLAVA, Locale.of, Thread.threadId) compile. :app sets its own in app/build.gradle.
+                if (project.name != 'app') {
+                    compileSdkVersion 36
+                }
+                
+                // Ensure consistent JVM target across all plugins
+                compileOptions {
+                    sourceCompatibility JavaVersion.VERSION_17
+                    targetCompatibility JavaVersion.VERSION_17
+                }
+            }
+            
+            // Set Kotlin JVM target for all subprojects
+            project.tasks.withType(org.jetbrains.kotlin.gradle.tasks.KotlinCompile).configureEach {
+                kotlinOptions {
+                    jvmTarget = '17'
+                }
+            }
+
+            // flutter_inappwebview_android can fail R8 minification with missing
+            // internal classes in release; disable minify for that module.
+            if (project.name == 'flutter_inappwebview_android') {
+                project.android.buildTypes {
+                    release {
+                        minifyEnabled false
+                        shrinkResources false
+                    }
+                }
+            }
+        }
+    }
+}
+rootProject.buildDir = '../build'
+
+subprojects {
+    project.buildDir = "${rootProject.buildDir}/${project.name}"
+}
+subprojects {
+    project.evaluationDependsOn(':app')
+}
+
+tasks.register("clean", Delete) {
+    delete rootProject.buildDir
+}
+
+// Pin AndroidX to versions compatible with AGP / compileSdk 36.
+// Some transitive dependencies resolve to newer AndroidX artifacts
+// that require AGP 8.9.1+ and compileSdk 36.
+subprojects {
+    configurations.all {
+        resolutionStrategy {
+            force 'androidx.core:core:1.15.0'
+            force 'androidx.core:core-ktx:1.15.0'
+            force 'androidx.activity:activity:1.9.3'
+            force 'androidx.activity:activity-ktx:1.9.3'
+            force 'androidx.browser:browser:1.8.0'
+        }
+    }
+}
