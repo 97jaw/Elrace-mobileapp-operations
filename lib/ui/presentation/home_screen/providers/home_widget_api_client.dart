@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 
+import 'package:el_race/core/home/home_widget_visibility.dart';
 import 'package:el_race/core/utils/shared_pref.dart';
 import 'package:el_race/ui/presentation/home_screen/providers/home_widget_session_cache.dart';
 import 'package:http/http.dart' as http;
@@ -14,8 +15,31 @@ class HomeWidgetApiClient {
 
   static Future<void>? _inFlight;
 
-  /// Fetches all home category widgets in one parallel round-trip (deduped).
-  static Future<void> refreshIfStale({bool force = false}) async {
+  static const _fetchOrder = <_WidgetFetch>[
+    _WidgetFetch(HomeWidgetCode.attendance, 'attendance'),
+    _WidgetFetch(HomeWidgetCode.hrms, 'hrms'),
+    _WidgetFetch(HomeWidgetCode.timesheet, 'timesheet'),
+    _WidgetFetch(HomeWidgetCode.myProjects, 'my_projects'),
+    _WidgetFetch(HomeWidgetCode.siteManagement, 'site_management'),
+    _WidgetFetch(HomeWidgetCode.myReports, 'my_reports'),
+    _WidgetFetch(HomeWidgetCode.lpo, 'lpo'),
+    _WidgetFetch(HomeWidgetCode.notes, 'notes'),
+    _WidgetFetch(HomeWidgetCode.taskManagement, 'task_management'),
+    _WidgetFetch(HomeWidgetCode.tickets, 'tickets'),
+    _WidgetFetch(HomeWidgetCode.pettyCash, 'petty_cash'),
+    _WidgetFetch(HomeWidgetCode.myDocuments, 'my_documents'),
+    _WidgetFetch(HomeWidgetCode.media, 'media'),
+    _WidgetFetch(null, 'prayer_times'),
+  ];
+
+  /// Fetches home category widgets in one parallel round-trip (deduped).
+  ///
+  /// When [onlyCodes] is set, skips disabled category widgets (prayer times
+  /// is always fetched).
+  static Future<void> refreshIfStale({
+    bool force = false,
+    Set<HomeWidgetCode>? onlyCodes,
+  }) async {
     if (!force && HomeWidgetSessionCache.isFresh) return;
 
     if (_inFlight != null) {
@@ -23,48 +47,65 @@ class HomeWidgetApiClient {
       return;
     }
 
-    _inFlight = _fetchAll().whenComplete(() => _inFlight = null);
+    _inFlight = _fetchAll(onlyCodes: onlyCodes).whenComplete(() => _inFlight = null);
     await _inFlight;
   }
 
-  static Future<void> _fetchAll() async {
+  static Future<void> _fetchAll({Set<HomeWidgetCode>? onlyCodes}) async {
     final token = SharedPref.getLoginDataOrNull()?.result?.token;
     if (token == null || token.isEmpty) return;
 
-    final results = await Future.wait([
-      _post('$_base/widgets/attendance/data', token),
-      _post('$_base/widgets/hrms/data', token),
-      _post('$_base/widgets/timesheet/data', token),
-      _post('$_base/widgets/my_projects/data', token),
-      _post('$_base/widgets/site_management/data', token),
-      _post('$_base/widgets/my_reports/data', token),
-      _post('$_base/widgets/lpo/data', token),
-      _post('$_base/widgets/notes/data', token),
-      _post('$_base/widgets/task_management/data', token),
-      _post('$_base/widgets/tickets/data', token),
-      _post('$_base/widgets/petty_cash/data', token),
-      _post('$_base/widgets/my_documents/data', token),
-      _post('$_base/widgets/media/data', token),
-      _post('$_base/widgets/prayer_times/data', token),
-    ]);
+    final targets = _fetchOrder.where((entry) {
+      if (entry.code == null) return true;
+      if (onlyCodes == null) return true;
+      return onlyCodes.contains(entry.code);
+    }).toList();
+
+    if (targets.isEmpty) return;
+
+    final results = await Future.wait(
+      targets.map((entry) => _post('$_base/widgets/${entry.path}/data', token)),
+    );
+
+    for (var i = 0; i < targets.length; i++) {
+      _applyResult(targets[i].path, results[i]);
+    }
 
     if (results.any((r) => r != null)) {
-      HomeWidgetSessionCache.store(
-        attendanceRaw: results[0],
-        hrmsRaw: results[1],
-        timesheetRaw: results[2],
-        myProjectsRaw: results[3],
-        siteManagementRaw: results[4],
-        myReportsRaw: results[5],
-        lpoRaw: results[6],
-        notesRaw: results[7],
-        taskManagementRaw: results[8],
-        ticketsRaw: results[9],
-        pettyCashRaw: results[10],
-        myDocumentsRaw: results[11],
-        mediaRaw: results[12],
-        prayerTimesRaw: results[13],
-      );
+      HomeWidgetSessionCache.markFetched();
+    }
+  }
+
+  static void _applyResult(String path, Map<String, dynamic>? raw) {
+    switch (path) {
+      case 'attendance':
+        if (raw != null) HomeWidgetSessionCache.attendanceRaw = raw;
+      case 'hrms':
+        if (raw != null) HomeWidgetSessionCache.hrmsRaw = raw;
+      case 'timesheet':
+        if (raw != null) HomeWidgetSessionCache.timesheetRaw = raw;
+      case 'my_projects':
+        if (raw != null) HomeWidgetSessionCache.myProjectsRaw = raw;
+      case 'site_management':
+        if (raw != null) HomeWidgetSessionCache.siteManagementRaw = raw;
+      case 'my_reports':
+        if (raw != null) HomeWidgetSessionCache.myReportsRaw = raw;
+      case 'lpo':
+        if (raw != null) HomeWidgetSessionCache.lpoRaw = raw;
+      case 'notes':
+        if (raw != null) HomeWidgetSessionCache.notesRaw = raw;
+      case 'task_management':
+        if (raw != null) HomeWidgetSessionCache.taskManagementRaw = raw;
+      case 'tickets':
+        if (raw != null) HomeWidgetSessionCache.ticketsRaw = raw;
+      case 'petty_cash':
+        if (raw != null) HomeWidgetSessionCache.pettyCashRaw = raw;
+      case 'my_documents':
+        if (raw != null) HomeWidgetSessionCache.myDocumentsRaw = raw;
+      case 'media':
+        if (raw != null) HomeWidgetSessionCache.mediaRaw = raw;
+      case 'prayer_times':
+        if (raw != null) HomeWidgetSessionCache.prayerTimesRaw = raw;
     }
   }
 
@@ -102,4 +143,11 @@ class HomeWidgetApiClient {
       return null;
     }
   }
+}
+
+class _WidgetFetch {
+  const _WidgetFetch(this.code, this.path);
+
+  final HomeWidgetCode? code;
+  final String path;
 }

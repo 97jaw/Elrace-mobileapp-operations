@@ -165,6 +165,63 @@ class SharedPref {
     return data['loginResponse'] as LoginResponseModel?;
   }
 
+  /// Merge pull-to-refresh visibility flags into cached login `default_widgets`.
+  static Future<bool> mergeDefaultWidgetsVisibility(
+    Map<String, dynamic> widgetsData,
+  ) async {
+    final loginJson = sharedPreferences.getString('loginResponse') ??
+        sharedPreferences.getString('LOGIN_RESPONSE');
+    if (loginJson == null || loginJson.isEmpty) return false;
+
+    try {
+      final decoded = jsonDecode(loginJson);
+      if (decoded is! Map<String, dynamic>) return false;
+
+      final result = decoded['result'];
+      if (result is! Map<String, dynamic>) return false;
+
+      final data = result['data'];
+      if (data is! Map<String, dynamic>) return false;
+
+      final defaultWidgets = data['default_widgets'];
+      late final Map<String, dynamic> existingData;
+      if (defaultWidgets is Map && defaultWidgets['data'] is Map) {
+        existingData = Map<String, dynamic>.from(defaultWidgets['data'] as Map);
+      } else {
+        existingData = <String, dynamic>{};
+        data['default_widgets'] = {'data': existingData};
+      }
+
+      for (final entry in widgetsData.entries) {
+        final incoming = entry.value;
+        if (incoming is! Map) continue;
+
+        final existing = existingData[entry.key];
+        if (existing is Map) {
+          final merged = Map<String, dynamic>.from(existing);
+          if (incoming.containsKey('is_disabled')) {
+            merged['is_disabled'] = incoming['is_disabled'];
+          }
+          if (incoming['widget_number'] != null) {
+            merged['widget_number'] = incoming['widget_number'];
+          }
+          existingData[entry.key] = merged;
+        } else {
+          existingData[entry.key] = Map<String, dynamic>.from(incoming);
+        }
+      }
+
+      if (defaultWidgets is Map) {
+        defaultWidgets['data'] = existingData;
+      }
+
+      await sharedPreferences.setString('loginResponse', jsonEncode(decoded));
+      return true;
+    } catch (_) {
+      return false;
+    }
+  }
+
   static Map<String, dynamic> checkLoginAndRegistration() {
     final isRegistered = sharedPreferences.getBool('isRegistered') ?? false;
 

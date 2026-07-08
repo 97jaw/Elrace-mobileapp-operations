@@ -1,3 +1,4 @@
+import 'package:el_race/core/home/home_widget_visibility.dart';
 import 'package:el_race/core/utils/shared_pref.dart';
 import 'package:el_race/core/hr_management/routing/hr_route_names.dart';
 import 'package:el_race/ui/presentation/PettyCash/PettyCashScreen.dart';
@@ -858,77 +859,162 @@ class _ListViewWidgetsState extends State<ListViewWidgets> {
   }
 
   Widget _buildCategorizedWidgets() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        if (!widget.hideFeaturedHeader)
+    final visibility = HomeWidgetVisibility.fromLoginPref();
+
+    final children = <Widget>[];
+
+    if (visibility.hasVisibleHr) {
+      if (!widget.hideFeaturedHeader) {
+        children.add(
           Padding(
             padding: EdgeInsets.only(bottom: 10.h),
             child: const HrCategorySectionHeader(),
           ),
-        SizedBox(
-          height: 140.h,
-          child: Row(
-            children: [
-              const Expanded(child: HrCategoryAttendanceCard()),
-              SizedBox(width: 10.w),
-              const Expanded(child: HrCategoryHrmsCard()),
-            ],
+        );
+      }
+      if (visibility.isVisible(HomeWidgetCode.attendance) ||
+          visibility.isVisible(HomeWidgetCode.hrms)) {
+        children.add(
+          SizedBox(
+            height: 140.h,
+            child: Row(
+              children: [
+                if (visibility.isVisible(HomeWidgetCode.attendance))
+                  const Expanded(child: HrCategoryAttendanceCard()),
+                if (visibility.isVisible(HomeWidgetCode.attendance) &&
+                    visibility.isVisible(HomeWidgetCode.hrms))
+                  SizedBox(width: 10.w),
+                if (visibility.isVisible(HomeWidgetCode.hrms))
+                  const Expanded(child: HrCategoryHrmsCard()),
+              ],
+            ),
           ),
-        ),
-        SizedBox(height: 10.h),
-        const HrCategoryTimesheetCard(),
-        SizedBox(height: 14.h),
+        );
+        children.add(SizedBox(height: 10.h));
+      }
+      if (visibility.isVisible(HomeWidgetCode.timesheet)) {
+        children.add(const HrCategoryTimesheetCard());
+      }
+      children.add(SizedBox(height: 14.h));
+    }
+
+    if (visibility.hasVisibleProjects) {
+      children.addAll([
         const ProjectsCategorySectionHeader(),
         SizedBox(height: 10.h),
-        const ProjectsCategoryMyProjectsCard(),
-        SizedBox(height: 10.h),
-        SizedBox(
-          height: 140.h,
-          child: Row(
-            children: [
-              const Expanded(child: ProjectsCategorySiteManagementCard()),
-              SizedBox(width: 10.w),
-              const Expanded(child: ProjectsCategoryMyReportsCard()),
-            ],
+      ]);
+      if (visibility.isVisible(HomeWidgetCode.myProjects)) {
+        children.addAll([
+          const ProjectsCategoryMyProjectsCard(),
+          SizedBox(height: 10.h),
+        ]);
+      }
+      if (visibility.isVisible(HomeWidgetCode.siteManagement) ||
+          visibility.isVisible(HomeWidgetCode.myReports)) {
+        children.add(
+          SizedBox(
+            height: 140.h,
+            child: Row(
+              children: [
+                if (visibility.isVisible(HomeWidgetCode.siteManagement))
+                  const Expanded(child: ProjectsCategorySiteManagementCard()),
+                if (visibility.isVisible(HomeWidgetCode.siteManagement) &&
+                    visibility.isVisible(HomeWidgetCode.myReports))
+                  SizedBox(width: 10.w),
+                if (visibility.isVisible(HomeWidgetCode.myReports))
+                  const Expanded(child: ProjectsCategoryMyReportsCard()),
+              ],
+            ),
           ),
-        ),
-        SizedBox(height: 14.h),
+        );
+      }
+      children.add(SizedBox(height: 14.h));
+    }
+
+    if (visibility.hasVisiblePurchase) {
+      children.addAll([
         const PurchaseCategorySectionHeader(),
         SizedBox(height: 10.h),
         const PurchaseCategoryLpoCard(),
         SizedBox(height: 14.h),
+      ]);
+    }
+
+    if (visibility.hasVisibleProductivity) {
+      children.addAll([
         const ProductivityCategorySectionHeader(),
         SizedBox(height: 10.h),
-        SizedBox(
-          height: 150.h,
-          child: const ProductivityCategoryTaskManagementCard(),
-        ),
-        SizedBox(height: 10.h),
-        Row(
-          children: [
-            const Expanded(child: ProductivityCategoryNotesCard()),
-            SizedBox(width: 10.w),
-            const Expanded(child: ProductivityCategoryTicketsCard()),
-          ],
-        ),
-        SizedBox(height: 14.h),
+      ]);
+      if (visibility.isVisible(HomeWidgetCode.taskManagement)) {
+        children.add(
+          SizedBox(
+            height: 150.h,
+            child: const ProductivityCategoryTaskManagementCard(),
+          ),
+        );
+        children.add(SizedBox(height: 10.h));
+      }
+      if (visibility.isVisible(HomeWidgetCode.notes) ||
+          visibility.isVisible(HomeWidgetCode.tickets)) {
+        children.add(
+          Row(
+            children: [
+              if (visibility.isVisible(HomeWidgetCode.notes))
+                const Expanded(child: ProductivityCategoryNotesCard()),
+              if (visibility.isVisible(HomeWidgetCode.notes) &&
+                  visibility.isVisible(HomeWidgetCode.tickets))
+                SizedBox(width: 10.w),
+              if (visibility.isVisible(HomeWidgetCode.tickets))
+                const Expanded(child: ProductivityCategoryTicketsCard()),
+            ],
+          ),
+        );
+      }
+      children.add(SizedBox(height: 14.h));
+    }
+
+    if (visibility.hasVisibleFinance) {
+      children.addAll([
         const FinanceCategorySectionHeader(),
         SizedBox(height: 10.h),
         const FinanceCategoryPettyCashCard(),
         SizedBox(height: 14.h),
+      ]);
+    }
+
+    final showDocs = visibility.isVisible(HomeWidgetCode.myDocuments);
+    final showMedia = visibility.isVisible(HomeWidgetCode.media);
+    if (showDocs || showMedia) {
+      children.addAll([
         const LibraryCategorySectionHeader(),
         SizedBox(height: 10.h),
-        const LibraryCategoryMyDocumentsCard(),
-        SizedBox(height: 10.h),
-        const LibraryCategoryMediaCard(),
-        SizedBox(height: 10.h),
-        const LibraryCategoryPrayerTimesCard(),
-        SizedBox(height: 14.h),
-        const ComingSoonCategorySectionHeader(),
-        SizedBox(height: 10.h),
-        const ComingSoonCategoryElraceAiCard(),
-      ],
+      ]);
+      if (showDocs) {
+        children.addAll([
+          const LibraryCategoryMyDocumentsCard(),
+          SizedBox(height: 10.h),
+        ]);
+      }
+      if (showMedia) {
+        children.addAll([
+          const LibraryCategoryMediaCard(),
+          SizedBox(height: 10.h),
+        ]);
+      }
+    }
+    // Prayer Times is always-on (not role-gated in the wizard).
+    children.add(const LibraryCategoryPrayerTimesCard());
+    children.add(SizedBox(height: 14.h));
+
+    children.addAll([
+      const ComingSoonCategorySectionHeader(),
+      SizedBox(height: 10.h),
+      const ComingSoonCategoryElraceAiCard(),
+    ]);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: children,
     );
   }
 

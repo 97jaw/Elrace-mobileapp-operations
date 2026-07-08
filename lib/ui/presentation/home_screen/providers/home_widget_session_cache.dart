@@ -25,6 +25,10 @@ class HomeWidgetSessionCache {
     return DateTime.now().difference(fetchedAt!) < ttl;
   }
 
+  static void markFetched() {
+    fetchedAt = DateTime.now();
+  }
+
   static void store({
     Map<String, dynamic>? attendanceRaw,
     Map<String, dynamic>? hrmsRaw,

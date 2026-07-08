@@ -158,10 +158,12 @@ class _ProfileBottomSheetBodyState extends State<_ProfileBottomSheetBody> {
   }
 
   Future<void> _logout() async {
+    // Capture root context before closing the sheet — after pop(), this widget
+    // is unmounted and its BuildContext must not be used for logout.
+    final rootContext = navKey.currentContext ?? context;
     Navigator.of(context).pop();
     await Future<void>.delayed(const Duration(milliseconds: 200));
-    if (!mounted) return;
-    await ProfileLogoutHelper.confirmAndLogout(context);
+    await ProfileLogoutHelper.confirmAndLogout(rootContext);
   }
 
   @override

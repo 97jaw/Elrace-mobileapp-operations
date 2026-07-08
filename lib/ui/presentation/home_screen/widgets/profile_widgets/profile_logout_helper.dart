@@ -9,6 +9,7 @@ import 'package:el_race/ui/presentation/attendance_reports/attendance_reports_se
 import 'package:el_race/ui/presentation/home_screen/bloc/home_bloc.dart';
 import 'package:el_race/ui/presentation/home_screen/screens/home_screen.dart';
 import 'package:el_race/ui/presentation/signin/sign_in_screen.dart';
+import 'package:el_race/utils/di.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart' show ProviderScope;
@@ -17,12 +18,18 @@ import 'package:flutter_translate/flutter_translate.dart';
 class ProfileLogoutHelper {
   ProfileLogoutHelper._();
 
+  static BuildContext? _rootContext(BuildContext context) {
+    return navKey.currentContext ?? context;
+  }
+
   static Future<void> confirmAndLogout(BuildContext context) async {
-    final dialogContext = navKey.currentContext ?? context;
+    final root = _rootContext(context);
+    if (root == null || !root.mounted) return;
 
     final shouldLogout = await showDialog<bool>(
-      context: dialogContext,
+      context: root,
       barrierDismissible: false,
+      useRootNavigator: true,
       builder: (ctx) => AlertDialog(
         title: Text(
           translate('profile.logout_confirmation_title'),
@@ -57,10 +64,13 @@ class ProfileLogoutHelper {
 
     if (shouldLogout != true) return;
 
-    final loadingContext = navKey.currentContext ?? context;
-    showDialog(
-      context: loadingContext,
+    final nav = navKey.currentState;
+    if (nav == null) return;
+
+    showDialog<void>(
+      context: root,
       barrierDismissible: false,
+      useRootNavigator: true,
       builder: (ctx) => const PopScope(
         canPop: false,
         child: Center(
@@ -77,9 +87,11 @@ class ProfileLogoutHelper {
       } catch (_) {}
 
       try {
-        await context.read<UaepassAuthCubit>().logout().timeout(
-              const Duration(seconds: 5),
-            );
+        if (sl.isRegistered<UaepassAuthCubit>()) {
+          await sl<UaepassAuthCubit>().logout().timeout(
+                const Duration(seconds: 5),
+              );
+        }
       } catch (_) {}
 
       try {
@@ -91,21 +103,28 @@ class ProfileLogoutHelper {
     } catch (_) {
     } finally {
       try {
-        context.read<HomeBloc>().add(const ChangeCurrentIndex(index: 1));
-      } catch (_) {}
+        sl<HomeBloc>().add(const ChangeCurrentIndex(index: 1));
+      } catch (_) {
+        try {
+          root.read<HomeBloc>().add(const ChangeCurrentIndex(index: 1));
+        } catch (_) {}
+      }
 
       try {
-        final c = ProviderScope.containerOf(context, listen: false);
+        final c = ProviderScope.containerOf(root, listen: false);
         resetTimesheetSession(c);
         c.invalidate(attendanceSessionProvider);
       } catch (_) {}
 
       HomeScreenPage.resetAuthSession();
 
-      final navContext = navKey.currentContext ?? context;
-      Navigator.pushAndRemoveUntil(
-        navContext,
-        MaterialPageRoute(builder: (context) => const SignInScreen()),
+      // Dismiss loading overlay before replacing the navigation stack.
+      if (nav.canPop()) {
+        nav.pop();
+      }
+
+      nav.pushAndRemoveUntil(
+        MaterialPageRoute(builder: (_) => const SignInScreen()),
         (route) => false,
       );
     }

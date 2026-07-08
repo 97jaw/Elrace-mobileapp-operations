@@ -10,8 +10,10 @@ import 'package:el_race/ui/presentation/home_screen/widgets/home_news_card.dart'
 import 'package:el_race/ui/presentation/home_screen/widgets/home_widgets_panel.dart';
 import 'package:el_race/ui/presentation/home_screen/widgets/mid_section_scroll_lock.dart';
 import 'package:el_race/ui/presentation/home_screen/widgets/my_actions_section.dart';
+import 'package:el_race/ui/presentation/home_screen/providers/home_widget_refresh_service.dart';
 import 'package:el_race/utils/Util.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:provider/provider.dart';
 
@@ -60,14 +62,20 @@ class _MainHomeContentWidgetState extends State<MainHomeContentWidget> {
   }
 
   Future<void> _onRefresh() async {
-    await DefaultCacheManager().emptyCache();
-    if (!mounted) return;
-    await Util.fetchHomeScreenData(context);
-    await context.read<SliderProvider>().refresh();
-    await AttendanceStatusSyncService.refreshFromServer(
-      reason: 'pull_to_refresh',
-    );
-    await HomeCityHelper.fetchCity(force: true);
+    final container = ProviderScope.containerOf(context);
+    final futures = <Future<void>>[
+      HomeWidgetRefreshService.refresh(container),
+      DefaultCacheManager().emptyCache(),
+      AttendanceStatusSyncService.refreshFromServer(
+        reason: 'pull_to_refresh',
+      ),
+      HomeCityHelper.fetchCity(force: true),
+    ];
+    if (mounted) {
+      futures.add(Future(() => Util.fetchHomeScreenData(context)));
+      futures.add(context.read<SliderProvider>().refresh());
+    }
+    await Future.wait(futures);
     if (mounted) {
       setState(() {});
       WidgetsBinding.instance.addPostFrameCallback((_) {
