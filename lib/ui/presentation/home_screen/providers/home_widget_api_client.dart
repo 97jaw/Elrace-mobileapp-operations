@@ -22,6 +22,9 @@ class HomeWidgetApiClient {
     _WidgetFetch(HomeWidgetCode.myProjects, 'my_projects'),
     _WidgetFetch(HomeWidgetCode.siteManagement, 'site_management'),
     _WidgetFetch(HomeWidgetCode.myReports, 'my_reports'),
+    _WidgetFetch(HomeWidgetCode.clients, 'clients'),
+    _WidgetFetch(HomeWidgetCode.vendors, 'vendors'),
+    _WidgetFetch(HomeWidgetCode.subContractors, 'sub_contractors'),
     _WidgetFetch(HomeWidgetCode.lpo, 'lpo'),
     _WidgetFetch(HomeWidgetCode.notes, 'notes'),
     _WidgetFetch(HomeWidgetCode.taskManagement, 'task_management'),
@@ -90,6 +93,12 @@ class HomeWidgetApiClient {
         if (raw != null) HomeWidgetSessionCache.siteManagementRaw = raw;
       case 'my_reports':
         if (raw != null) HomeWidgetSessionCache.myReportsRaw = raw;
+      case 'clients':
+        if (raw != null) HomeWidgetSessionCache.clientsRaw = raw;
+      case 'vendors':
+        if (raw != null) HomeWidgetSessionCache.vendorsRaw = raw;
+      case 'sub_contractors':
+        if (raw != null) HomeWidgetSessionCache.subContractorsRaw = raw;
       case 'lpo':
         if (raw != null) HomeWidgetSessionCache.lpoRaw = raw;
       case 'notes':

@@ -29,5 +29,18 @@ void main() {
       const v = HomeWidgetVisibility(null);
       expect(v.isVisible(HomeWidgetCode.media), isTrue);
     });
+
+    test('clients vendors category respects is_disabled when configured', () {
+      final v = HomeWidgetVisibility(
+        WidgetsData(
+          clientsWidget: WidgetInfo(isDisabled: false),
+          vendorsWidget: WidgetInfo(isDisabled: true),
+          subContractorsWidget: WidgetInfo(isDisabled: true),
+        ),
+      );
+      expect(v.hasVisibleClientsVendors, isTrue);
+      expect(v.isVisible(HomeWidgetCode.clients), isTrue);
+      expect(v.isVisible(HomeWidgetCode.vendors), isFalse);
+    });
   });
 }

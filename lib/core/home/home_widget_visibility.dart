@@ -9,6 +9,9 @@ enum HomeWidgetCode {
   myProjects,
   siteManagement,
   myReports,
+  clients,
+  vendors,
+  subContractors,
   lpo,
   taskManagement,
   notes,
@@ -49,6 +52,18 @@ class HomeWidgetVisibility {
       isVisible(HomeWidgetCode.siteManagement) ||
       isVisible(HomeWidgetCode.myReports);
 
+  /// Clients & Vendors — prefer login `is_disabled`; fall back to management
+  /// role until backend keys are present on older sessions.
+  bool get hasVisibleClientsVendors {
+    final configured = _data?.clientsWidget != null ||
+        _data?.vendorsWidget != null ||
+        _data?.subContractorsWidget != null;
+    if (!configured) return _isManagementFallback();
+    return isVisible(HomeWidgetCode.clients) ||
+        isVisible(HomeWidgetCode.vendors) ||
+        isVisible(HomeWidgetCode.subContractors);
+  }
+
   bool get hasVisiblePurchase => isVisible(HomeWidgetCode.lpo);
 
   bool get hasVisibleProductivity =>
@@ -76,6 +91,12 @@ class HomeWidgetVisibility {
         return _data?.siteManagementWidget;
       case HomeWidgetCode.myReports:
         return _data?.myReportsWidget;
+      case HomeWidgetCode.clients:
+        return _data?.clientsWidget;
+      case HomeWidgetCode.vendors:
+        return _data?.vendorsWidget;
+      case HomeWidgetCode.subContractors:
+        return _data?.subContractorsWidget;
       case HomeWidgetCode.lpo:
         return _data?.lpoWidget;
       case HomeWidgetCode.taskManagement:
@@ -91,5 +112,13 @@ class HomeWidgetVisibility {
       case HomeWidgetCode.media:
         return _data?.mediaWidget;
     }
+  }
+
+  bool _isManagementFallback() {
+    final data = SharedPref.getLoginData().result?.data;
+    if (data == null) return false;
+    if (data.isManagement == true) return true;
+    final caps = data.roleCapabilities;
+    return caps != null && caps['x_is_management'] == true;
   }
 }

@@ -8,6 +8,9 @@ class HomeWidgetSessionCache {
   static Map<String, dynamic>? myProjectsRaw;
   static Map<String, dynamic>? siteManagementRaw;
   static Map<String, dynamic>? myReportsRaw;
+  static Map<String, dynamic>? clientsRaw;
+  static Map<String, dynamic>? vendorsRaw;
+  static Map<String, dynamic>? subContractorsRaw;
   static Map<String, dynamic>? lpoRaw;
   static Map<String, dynamic>? notesRaw;
   static Map<String, dynamic>? taskManagementRaw;
@@ -36,6 +39,9 @@ class HomeWidgetSessionCache {
     Map<String, dynamic>? myProjectsRaw,
     Map<String, dynamic>? siteManagementRaw,
     Map<String, dynamic>? myReportsRaw,
+    Map<String, dynamic>? clientsRaw,
+    Map<String, dynamic>? vendorsRaw,
+    Map<String, dynamic>? subContractorsRaw,
     Map<String, dynamic>? lpoRaw,
     Map<String, dynamic>? notesRaw,
     Map<String, dynamic>? taskManagementRaw,
@@ -62,6 +68,15 @@ class HomeWidgetSessionCache {
     }
     if (myReportsRaw != null) {
       HomeWidgetSessionCache.myReportsRaw = myReportsRaw;
+    }
+    if (clientsRaw != null) {
+      HomeWidgetSessionCache.clientsRaw = clientsRaw;
+    }
+    if (vendorsRaw != null) {
+      HomeWidgetSessionCache.vendorsRaw = vendorsRaw;
+    }
+    if (subContractorsRaw != null) {
+      HomeWidgetSessionCache.subContractorsRaw = subContractorsRaw;
     }
     if (lpoRaw != null) {
       HomeWidgetSessionCache.lpoRaw = lpoRaw;
@@ -97,6 +112,9 @@ class HomeWidgetSessionCache {
     myProjectsRaw = null;
     siteManagementRaw = null;
     myReportsRaw = null;
+    clientsRaw = null;
+    vendorsRaw = null;
+    subContractorsRaw = null;
     lpoRaw = null;
     notesRaw = null;
     taskManagementRaw = null;

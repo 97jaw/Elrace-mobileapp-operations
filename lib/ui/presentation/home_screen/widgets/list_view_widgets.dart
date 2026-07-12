@@ -7,6 +7,8 @@ import 'package:el_race/ui/presentation/home_screen/services/widget_service.dart
 import 'package:el_race/ui/presentation/home_screen/widgets/card_tile.dart';
 import 'package:el_race/ui/presentation/home_screen/widgets/custom_bullet_point.dart';
 import 'package:el_race/ui/presentation/home_screen/widgets/hr_category_section_header.dart';
+import 'package:el_race/ui/presentation/home_screen/widgets/clients_vendors_category_section_header.dart';
+import 'package:el_race/ui/presentation/home_screen/widgets/clients_vendors_category_widgets.dart';
 import 'package:el_race/ui/presentation/home_screen/widgets/projects_category_section_header.dart';
 import 'package:el_race/ui/presentation/home_screen/widgets/finance_category_section_header.dart';
 import 'package:el_race/ui/presentation/home_screen/widgets/finance_category_widgets.dart';
@@ -929,6 +931,24 @@ class _ListViewWidgetsState extends State<ListViewWidgets> {
         );
       }
       children.add(SizedBox(height: 14.h));
+    }
+
+    if (visibility.hasVisibleClientsVendors) {
+      children.add(const ClientsVendorsCategorySectionHeader());
+      children.add(SizedBox(height: 10.h));
+      if (visibility.isVisible(HomeWidgetCode.clients)) {
+        children.add(const ClientsVendorsCategoryClientsCard());
+        children.add(SizedBox(height: 14.h));
+      }
+      if (visibility.isVisible(HomeWidgetCode.vendors)) {
+        children.add(const ClientsVendorsCategoryVendorsCard());
+        children.add(SizedBox(height: 14.h));
+      }
+      if (visibility.isVisible(HomeWidgetCode.subContractors)) {
+        children.add(const ClientsVendorsCategorySubContractorsCard());
+        children.add(SizedBox(height: 14.h));
+      }
+      children.add(SizedBox(height: 6.h));
     }
 
     if (visibility.hasVisiblePurchase) {

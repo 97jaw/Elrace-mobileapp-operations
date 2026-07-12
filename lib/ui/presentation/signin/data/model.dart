@@ -95,6 +95,11 @@ class Data {
   final int? companyId;
   final int? branchId;
   final int? partnerId;
+  final String? email;
+  final String? phone;
+
+  /// City / branch label from login (`branch` in API).
+  final String? branch;
   final String? leaveBalance;
   final String? webBaseUrl;
   final UserCompanies? userCompanies;
@@ -167,6 +172,9 @@ class Data {
     this.companyId,
     this.branchId,
     this.partnerId,
+    this.email,
+    this.phone,
+    this.branch,
     this.leaveBalance,
     this.webBaseUrl,
     this.userCompanies,
@@ -278,6 +286,16 @@ class Data {
                 ? int.tryParse(json["branch_id"])
                 : null),
         partnerId: json["partner_id"],
+        email: _stringOrNull(json["email"] ?? json["work_email"]),
+        phone: _stringOrNull(
+          json["phone"] ??
+              json["mobile_phone"] ??
+              json["mobile"] ??
+              json["work_phone"],
+        ),
+        branch: _stringOrNull(
+          json["branch"] ?? json["city_name"] ?? json["city"],
+        ),
         leaveBalance: _stringOrNull(
           json["leave_balance"] ??
               json["leaveBalance"] ??
@@ -364,6 +382,9 @@ class Data {
         "company_id": companyId,
         "branch_id": branchId,
         "partner_id": partnerId,
+        "email": email,
+        "phone": phone,
+        "branch": branch,
         "leave_balance": leaveBalance,
         "web.base.url": webBaseUrl,
         "user_companies": userCompanies?.toJson(),
@@ -629,6 +650,9 @@ class WidgetsData {
   final WidgetInfo? ticketsWidget;
   final WidgetInfo? pettyCashWidget;
   final WidgetInfo? prayerTimesWidget;
+  final WidgetInfo? clientsWidget;
+  final WidgetInfo? vendorsWidget;
+  final WidgetInfo? subContractorsWidget;
 
   WidgetsData({
     this.attendanceWidget,
@@ -647,6 +671,9 @@ class WidgetsData {
     this.ticketsWidget,
     this.pettyCashWidget,
     this.prayerTimesWidget,
+    this.clientsWidget,
+    this.vendorsWidget,
+    this.subContractorsWidget,
   });
 
   factory WidgetsData.fromJson(Map<String, dynamic> json) => WidgetsData(
@@ -711,6 +738,18 @@ class WidgetsData {
             ? null
             : WidgetInfo.fromJson(
                 json["prayer_times_widget"] as Map<String, dynamic>),
+        clientsWidget: json["clients_widget"] == null
+            ? null
+            : WidgetInfo.fromJson(
+                json["clients_widget"] as Map<String, dynamic>),
+        vendorsWidget: json["vendors_widget"] == null
+            ? null
+            : WidgetInfo.fromJson(
+                json["vendors_widget"] as Map<String, dynamic>),
+        subContractorsWidget: json["sub_contractors_widget"] == null
+            ? null
+            : WidgetInfo.fromJson(
+                json["sub_contractors_widget"] as Map<String, dynamic>),
       );
 
   Map<String, dynamic> toJson() => {
@@ -730,6 +769,9 @@ class WidgetsData {
         "tickets_widget": ticketsWidget?.toJson(),
         "petty_cash_widget": pettyCashWidget?.toJson(),
         "prayer_times_widget": prayerTimesWidget?.toJson(),
+        "clients_widget": clientsWidget?.toJson(),
+        "vendors_widget": vendorsWidget?.toJson(),
+        "sub_contractors_widget": subContractorsWidget?.toJson(),
       };
 }
 
