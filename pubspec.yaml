@@ -177,7 +177,6 @@ flutter:
     - assets/gif/
     - assets/newapp/
     - assets/newapp/newicon/
-    - assets/images/business_card/
     - assets/images/clients_vendors/
     - assets/fonts/arbicsupport.ttf
     - assets/mobilefacenet_512.tflite
