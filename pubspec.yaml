@@ -146,7 +146,7 @@ dependency_overrides:
 flutter_launcher_icons:
   android: true
   ios: true
-  image_path: "assets/png/app-icon.png"
+  image_path: "assets/png/app-icon1.png"
   remove_alpha_ios: true
 
 # For information on the generic Dart part of this file, see the
