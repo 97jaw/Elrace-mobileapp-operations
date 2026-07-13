@@ -1,0 +1,46 @@
+---
+description: GitFlow branching — main as master; feature/develop/release/hotfix
+alwaysApply: true
+---
+
+# Git branching (GitFlow)
+
+This repo uses **GitFlow**. The production branch is named **`main`** (treat it as **master** in GitFlow docs). Do **not** rename `main` to `master`.
+
+## Branch map
+
+| Role | Branch name | Purpose |
+|------|-------------|---------|
+| Production (master) | `main` | Production-ready releases only; tag releases (`1.0.0`, `1.0.1`, …) |
+| Integration | `develop` | Day-to-day integration; merge verified features here |
+| Feature | `feature/<short-name>` | One feature / UX change; branch from `develop`, merge back to `develop` |
+| Release | `release/<version>` | Release prep from `develop`; bugfixes only; merge to `main` **and** `develop`, then tag |
+| Hotfix | `hotfix/<version-or-issue>` | Urgent production fix from `main`; merge to `main` **and** `develop`, then tag |
+
+## Before any development (mandatory)
+
+1. Confirm current branch with `git status` / `git branch`.
+2. **Do not start feature work on `main`.**
+3. Update integration: `git checkout develop && git pull origin develop`.
+4. Create a feature branch: `git checkout -b feature/<short-name>`.
+5. Develop and commit on that feature branch only.
+6. When done: merge (or open PR) **into `develop`**, not directly into `main`.
+
+## Release flow
+
+1. From stable `develop`: `git checkout -b release/<version>`.
+2. Only release fixes / version bumps on `release/*`.
+3. Merge `release/*` → `main`, tag on `main`, then merge `release/*` → `develop`.
+
+## Hotfix flow
+
+1. From `main`: `git checkout -b hotfix/<version-or-issue>`.
+2. Fix, then merge → `main` (tag) **and** → `develop`.
+
+## Agent rules
+
+- Before coding a new task, switch to / create the correct branch per above.
+- Never commit feature work straight to `main` unless the user explicitly requests a hotfix/release exception.
+- Prefer branch names: `feature/...`, `release/...`, `hotfix/...` (lowercase, kebab-case).
+- Do not force-push `main` or `develop`.
+- If `develop` is missing locally, create it from `main` and push with `-u` only when the user wants the GitFlow setup applied.
