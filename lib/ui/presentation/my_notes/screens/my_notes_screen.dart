@@ -1,4 +1,3 @@
-import 'package:el_race/ui/presentation/home_screen/screens/main_screens.dart';
 import 'package:el_race/ui/presentation/productivity/theme/productivity_theme.dart';
 import 'package:el_race/ui/presentation/productivity/widgets/productivity_screen_shell.dart';
 import 'package:el_race/ui/presentation/my_notes/widgets/notes_ai_coming_soon_section.dart';
@@ -16,14 +15,13 @@ class MyNotesScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     return ProductivityScreenShell(
       title: translate('home.my_notes'),
-      bottomNavigationBar: const CustomBottomNavBar(isMain: false),
       body: SingleChildScrollView(
         physics: const BouncingScrollPhysics(),
         padding: EdgeInsets.fromLTRB(
           16.w,
           8.h,
           16.w,
-          kBottomNavigationBarHeight + context.systemBottomInset + 20.h,
+          context.systemBottomInset + 20.h,
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,

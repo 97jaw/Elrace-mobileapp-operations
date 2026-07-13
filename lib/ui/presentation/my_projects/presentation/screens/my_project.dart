@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:el_race/core/ui/device_ui_capability.dart';
 import 'package:el_race/core/utils/shared_pref.dart';
 import 'package:el_race/ui/presentation/my_projects/data/datasources/project_remote_datasource.dart';
 import 'package:el_race/ui/presentation/my_projects/data/models/project_manager_filter_item.dart';
@@ -348,22 +349,23 @@ class _MyProjectState extends State<MyProject> {
           : _domainAgreements.isNotEmpty);
 
   void _openStatusFilter(ProjectsStatusFilterKind kind) {
+    if (kind == ProjectsStatusFilterKind.invoiced) return;
+
     final labels = ProjectsStatusFilterLabels(
       inProgress: translate('projects_dashboard.in_progress'),
       completed: translate('projects_dashboard.completed'),
-      invoiced: translate('projects_dashboard.invoiced'),
     );
 
     final title = switch (kind) {
       ProjectsStatusFilterKind.inProgress => labels.inProgress,
       ProjectsStatusFilterKind.completed => labels.completed,
-      ProjectsStatusFilterKind.invoiced => labels.invoiced,
+      ProjectsStatusFilterKind.invoiced => labels.completed,
     };
 
     final statusCompute = switch (kind) {
       ProjectsStatusFilterKind.inProgress => 'in_progress',
       ProjectsStatusFilterKind.completed => 'completed',
-      ProjectsStatusFilterKind.invoiced => 'invoiced',
+      ProjectsStatusFilterKind.invoiced => 'completed',
     };
 
     final bloc = _buildProjectsBloc();
@@ -494,96 +496,105 @@ class _MyProjectState extends State<MyProject> {
   }
 
   Widget _buildDashboardBody() {
+    final agreementsCount = _domainAgreements.length;
+    final panelCollapsedH = ProjectsAgreementsExpandablePanel.collapsedHeight(
+      context,
+      hasAgreements: agreementsCount > 0 || _isLoading,
+      agreementCount: agreementsCount,
+    );
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        const ProjectsGlassChromeHeader(),
-        Flexible(
-          fit: FlexFit.loose,
+        const ProjectsGlassChromeHeader(
+          transparentGlassBar: true,
+        ),
+        Expanded(
           child: Stack(
-            fit: StackFit.expand,
+            alignment: Alignment.bottomCenter,
             children: [
-              RefreshIndicator(
-                color: ProjectsDashboardTheme.maroon,
-                backgroundColor: ProjectsDashboardTheme.greyPanel,
-                onRefresh: _loadDashboard,
-                child: ListView(
-                  physics: _agreementsBackdropVisible
-                      ? const NeverScrollableScrollPhysics()
-                      : const AlwaysScrollableScrollPhysics(
-                          parent: BouncingScrollPhysics(),
-                        ),
-                  padding: EdgeInsets.zero,
-                  children: [
-                    AnimatedOpacity(
-                      opacity: _showContent ? 1 : 0.88,
-                      duration: const Duration(milliseconds: 350),
-                      curve: Curves.easeOut,
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: [
-                          ProjectsSectionFrame(
-                            child: ProjectsToolbarIconsRow(
-                              viewMode: _viewMode,
-                              onDashboardTap: () => setState(
-                                () => _viewMode = ProjectsViewMode.dashboard,
+              Positioned.fill(
+                child: RefreshIndicator(
+                  color: ProjectsDashboardTheme.maroon,
+                  backgroundColor: ProjectsDashboardTheme.greyPanel,
+                  onRefresh: _loadDashboard,
+                  child: ListView(
+                    physics: _agreementsBackdropVisible
+                        ? const NeverScrollableScrollPhysics()
+                        : const AlwaysScrollableScrollPhysics(
+                            parent: BouncingScrollPhysics(),
+                          ),
+                    // Keep content clear of the pinned agreements panel.
+                    padding: EdgeInsets.only(bottom: panelCollapsedH + 8.h),
+                    children: [
+                      AnimatedOpacity(
+                        opacity: _showContent ? 1 : 0.88,
+                        duration: const Duration(milliseconds: 350),
+                        curve: Curves.easeOut,
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            ProjectsSectionFrame(
+                              child: ProjectsToolbarIconsRow(
+                                viewMode: _viewMode,
+                                onDashboardTap: () => setState(
+                                  () =>
+                                      _viewMode = ProjectsViewMode.dashboard,
+                                ),
+                                onMapsTap: _openPortfolioMapScreen,
+                                onGroupByTap: _openGroupByHub,
+                                onDocumentsTap: _openProjectDocumentsHub,
+                                onAiTap: _openAiAssistant,
                               ),
-                              onMapsTap: _openPortfolioMapScreen,
-                              onGroupByTap: _openGroupByHub,
-                              onDocumentsTap: _openProjectDocumentsHub,
-                              onAiTap: _openAiAssistant,
                             ),
-                          ),
-                          SizedBox(height: 10.h),
-                          ProjectsMetallicKpiRow(
-                            stats: _boxStats,
-                            isLoading: _isLoading,
-                            agreementsLabel: translate(
-                              'projects_dashboard.agreements',
+                            SizedBox(height: 10.h),
+                            ProjectsMetallicKpiRow(
+                              stats: _boxStats,
+                              isLoading: _isLoading,
+                              agreementsLabel: translate(
+                                'projects_dashboard.agreements',
+                              ),
+                              totalProjectsLabel: translate(
+                                'projects_dashboard.total_projects',
+                              ),
                             ),
-                            totalProjectsLabel: translate(
-                              'projects_dashboard.total_projects',
-                            ),
-                          ),
-                          ClientInProgressBarChart(
-                            clients: _clientBars,
-                            isLoading: _chartLoading || _isLoading,
-                            title: translate(
-                              'projects_dashboard.client_engagement',
-                            ),
-                            yearPickerTitle: translate(
-                              'projects_dashboard.select_year',
-                            ),
-                            yearAllLabel: translate(
-                              'projects_dashboard.filter_all',
-                            ),
-                            selectedYear: _selectedYear,
-                            availableYears: _availableYears,
-                            onYearChanged: (y) =>
-                                setState(() => _selectedYear = y),
-                          ),
-                          if (_showProjectStatusSection)
-                            ProjectsStatusFilterSection(
-                              stats: _statusStats,
+                            ClientInProgressBarChart(
+                              clients: _clientBars,
                               isLoading: _chartLoading || _isLoading,
-                              labels: ProjectsStatusFilterLabels(
-                                inProgress: translate(
-                                  'projects_dashboard.in_progress',
-                                ),
-                                completed: translate(
-                                  'projects_dashboard.completed',
-                                ),
-                                invoiced: translate(
-                                  'projects_dashboard.invoiced',
-                                ),
+                              title: translate(
+                                'projects_dashboard.client_engagement',
                               ),
-                              onFilterTap: _openStatusFilter,
+                              yearPickerTitle: translate(
+                                'projects_dashboard.select_year',
+                              ),
+                              yearAllLabel: translate(
+                                'projects_dashboard.filter_all',
+                              ),
+                              selectedYear: _selectedYear,
+                              availableYears: _availableYears,
+                              onYearChanged: (y) =>
+                                  setState(() => _selectedYear = y),
                             ),
-                        ],
+                            if (_showProjectStatusSection)
+                              ProjectsStatusFilterSection(
+                                stats: _statusStats,
+                                isLoading: _chartLoading || _isLoading,
+                                labels: ProjectsStatusFilterLabels(
+                                  inProgress: translate(
+                                    'projects_dashboard.in_progress',
+                                  ),
+                                  completed: translate(
+                                    'projects_dashboard.completed',
+                                  ),
+                                ),
+                                onFilterTap: _openStatusFilter,
+                              ),
+                          ],
+                        ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
               ),
               Positioned.fill(
@@ -591,7 +602,9 @@ class _MyProjectState extends State<MyProject> {
                   ignoring: !_agreementsBackdropVisible,
                   child: AnimatedOpacity(
                     opacity: _agreementsBackdropVisible ? 1 : 0,
-                    duration: const Duration(milliseconds: 220),
+                    duration: DeviceUiCapability.adaptiveDuration(
+                      const Duration(milliseconds: 220),
+                    ),
                     curve: Curves.easeOut,
                     child: GestureDetector(
                       onTap: _agreementsPanelController.collapse,
@@ -602,21 +615,27 @@ class _MyProjectState extends State<MyProject> {
                   ),
                 ),
               ),
+              // Pinned to bottom (outside scroll) so header drag / arrow toggle work.
+              Positioned(
+                left: 0,
+                right: 0,
+                bottom: 0,
+                child: ProjectsAgreementsExpandablePanel(
+                  agreements: _domainAgreements,
+                  controller: _agreementsPanelController,
+                  onAgreementTap: _openAgreement,
+                  title: translate('projects_dashboard.agreements_section'),
+                  emptyMessage: translate('projects_dashboard.no_agreements'),
+                  isLoading: _isLoading,
+                  onExpansionChanged: (expanded) {
+                    if (expanded != _agreementsBackdropVisible) {
+                      setState(() => _agreementsBackdropVisible = expanded);
+                    }
+                  },
+                ),
+              ),
             ],
           ),
-        ),
-        ProjectsAgreementsExpandablePanel(
-          agreements: _domainAgreements,
-          controller: _agreementsPanelController,
-          onAgreementTap: _openAgreement,
-          title: translate('projects_dashboard.agreements_section'),
-          emptyMessage: translate('projects_dashboard.no_agreements'),
-          isLoading: _isLoading,
-          onExpansionChanged: (expanded) {
-            if (expanded != _agreementsBackdropVisible) {
-              setState(() => _agreementsBackdropVisible = expanded);
-            }
-          },
         ),
       ],
     );

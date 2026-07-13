@@ -117,20 +117,15 @@ class UserRepo {
     return response!;
   }
 
-  setLoginResponse(LoginResponseModel? loginResponse) async {
+  setLoginResponse(
+    LoginResponseModel? loginResponse, {
+    Map<String, dynamic>? rawJson,
+  }) async {
     if (loginResponse != null) {
-      // print('\n💾 ========== SAVING LOGIN RESPONSE ==========');
       SharedPreferences sharedPreferences =
           await SharedPreferences.getInstance();
-      String userData = json.encode(loginResponse.toJson());
-      await sharedPreferences.setString('loginResponse', userData);
-
-      // print('✅ Login response saved to SharedPreferences');
-      // print('📦 Saved Data:');
-      // print(const JsonEncoder.withIndent('  ').convert(loginResponse.toJson()));
-      // print('💾 ========== SAVE COMPLETE ==========\n');
-    } else {
-      // print('⚠️ Attempted to save NULL login response');
+      final payload = rawJson ?? loginResponse.toJson();
+      await sharedPreferences.setString('loginResponse', json.encode(payload));
     }
   }
 

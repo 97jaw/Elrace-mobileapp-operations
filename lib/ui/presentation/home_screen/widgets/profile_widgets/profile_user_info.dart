@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:el_race/core/utils/shared_pref.dart';
+import 'package:el_race/ui/presentation/home_screen/widgets/home_city_helper.dart';
 import 'package:el_race/ui/presentation/signin/data/model.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_translate/flutter_translate.dart';
@@ -52,6 +53,14 @@ class ProfileUserInfo {
     return _clean(raw[key]?.toString());
   }
 
+  static String? _readFirst(Iterable<String> keys) {
+    for (final key in keys) {
+      final v = _raw(key);
+      if (v != null) return v;
+    }
+    return null;
+  }
+
   static String displayName() {
     final data = _data;
     final candidates = [
@@ -72,8 +81,10 @@ class ProfileUserInfo {
   static String? displayJobTitle() {
     return _clean(_data?.jobTitle) ??
         _clean(_data?.designation) ??
+        _clean(_data?.job_id) ??
         _raw('job_title') ??
-        _raw('job_name');
+        _raw('job_name') ??
+        _raw('job_id');
   }
 
   static String? displayJobId() => _clean(_data?.job_id);
@@ -108,6 +119,9 @@ class ProfileUserInfo {
   }
 
   static String? displayBranch() {
+    final fromModel = _clean(_data?.branch);
+    if (fromModel != null) return fromModel;
+
     final branches = _data?.userBranches?.allowedBranch;
     final branchId = _data?.branchId;
     if (branches != null && branchId != null) {
@@ -117,8 +131,56 @@ class ProfileUserInfo {
         }
       }
     }
-    return _raw('branch_name') ?? _raw('branch');
+    return _readFirst(['branch_name', 'branch', 'city', 'city_name']);
   }
+
+  static String? displayEmail() {
+    final fromModel = _clean(_data?.email);
+    if (fromModel != null) return fromModel;
+
+    final fromRaw = _readFirst([
+      'email',
+      'work_email',
+      'personal_email',
+      'official_email',
+      'mail',
+    ]);
+    if (fromRaw != null) return fromRaw;
+
+    final username = displayUsername();
+    if (username != null && username.contains('@')) return username;
+    return null;
+  }
+
+  static String? displayPhone() {
+    final fromModel = _clean(_data?.phone);
+    if (fromModel != null) return fromModel;
+
+    return _readFirst([
+      'phone',
+      'phone_number',
+      'mobile_phone',
+      'mobile',
+      'mobile_number',
+      'work_phone',
+      'emp_phone',
+      'telephone',
+    ]);
+  }
+
+  static String? displayLocation() {
+    return displayBranch() ??
+        _readFirst(['location', 'location_name']) ??
+        _homeCityFallback();
+  }
+
+  static String? _homeCityFallback() {
+    final city = HomeCityHelper.cachedCity.trim();
+    if (city.isEmpty || city == '...') return null;
+    return city;
+  }
+
+  static String displayWebsite() => 'www.elrace.com';
 
   static String? displayLeaveBalance() {
     final v = _clean(_data?.leaveBalance);

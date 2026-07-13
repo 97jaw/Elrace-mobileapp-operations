@@ -40,8 +40,7 @@ class _RfqScreenState extends State<RfqScreen>
       error: actionsError,
       onRefresh: refreshActions,
       onRetry: retryInitialActionsLoad,
-      onItemTap: (item) =>
-          MyActionsDetailNavigation.open(context, MyActionsModule.rfq, item),
+      onItemTap: (_) {},
       filter: _filter,
       onFilterChanged: (f) => setState(() => _filter = f),
       subtitleBuilder: MyActionsDetailNavigation.rfqSubtitle,
@@ -49,8 +48,7 @@ class _RfqScreenState extends State<RfqScreen>
         context: context,
         module: MyActionsModule.rfq,
         filter: _filter,
-        onItemTap: (item) =>
-            MyActionsDetailNavigation.open(context, MyActionsModule.rfq, item),
+        onItemTap: (_) {},
         subtitleBuilder: MyActionsDetailNavigation.rfqSubtitle,
       ),
     );

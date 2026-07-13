@@ -1202,7 +1202,7 @@ class _MyDocumentsScreenState extends State<MyDocumentsScreen> {
             crossAxisCount: 2,
             crossAxisSpacing: 12.w,
             mainAxisSpacing: 12.h,
-            mainAxisExtent: 270.h,
+            mainAxisExtent: 188.h,
           ),
           itemBuilder: (context, index) {
             final item = _filteredDocs()[index];
@@ -1246,7 +1246,8 @@ class _MyDocumentsScreenState extends State<MyDocumentsScreen> {
                 child: Padding(
                   padding: EdgeInsets.all(10.w),
                   child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
+                    mainAxisAlignment: MainAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
                     children: [
                       SizedBox(
                         height: 90.h,
@@ -1265,8 +1266,8 @@ class _MyDocumentsScreenState extends State<MyDocumentsScreen> {
                       Text(
                         displayName,
                         textAlign: TextAlign.center,
-                        maxLines: null,
-                        overflow: TextOverflow.visible,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
                         style: GoogleFonts.poppins(
                           fontSize: 13.sp,
                           fontWeight: FontWeight.w700,
@@ -2125,7 +2126,7 @@ class _MyDocumentsScreenState extends State<MyDocumentsScreen> {
                                   horizontal: 10.w,
                                 ),
                                 child: Column(
-                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  mainAxisAlignment: MainAxisAlignment.start,
                                   crossAxisAlignment: CrossAxisAlignment.center,
                                   mainAxisSize: MainAxisSize.min,
                                   children: [
@@ -2283,12 +2284,11 @@ class _MyDocumentsScreenState extends State<MyDocumentsScreen> {
                         ),
                       );
                     },
-                    gridDelegate:
-                        const SliverGridDelegateWithFixedCrossAxisCount(
+                    gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
                       crossAxisCount: 2,
-                      crossAxisSpacing: 12,
-                      mainAxisSpacing: 12,
-                      childAspectRatio: 0.78,
+                      crossAxisSpacing: 12.w,
+                      mainAxisSpacing: 12.h,
+                      mainAxisExtent: 188.h,
                     ),
                   ),
                 ),

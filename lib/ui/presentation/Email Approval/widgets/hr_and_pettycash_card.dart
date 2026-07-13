@@ -5,6 +5,8 @@ import 'package:el_race/ui/presentation/Email%20Approval/screens/hr_details_scre
 import 'package:el_race/ui/presentation/Email%20Approval/screens/pettycash_details_screen.dart';
 import 'package:el_race/ui/presentation/Email%20Approval/utils/approval_display_helpers.dart';
 import 'package:el_race/ui/presentation/Email%20Approval/utils/approval_photo_cache.dart';
+import 'package:el_race/ui/presentation/Email%20Approval/utils/hr_approval_display.dart';
+import 'package:el_race/ui/presentation/Email%20Approval/utils/petty_cash_approval_display.dart';
 import 'package:el_race/ui/presentation/Email%20Approval/widgets/approval_list_avatar.dart';
 import 'package:el_race/utils/safe_insets.dart';
 import 'package:flutter/foundation.dart';
@@ -26,22 +28,17 @@ class HrAndPettycashCard extends StatelessWidget {
     return ApprovalDisplayHelpers.formatAmountWithAed(raw);
   }
 
-  String _titleCase(String value) {
-    final trimmed = value.trim();
-    if (trimmed.isEmpty) return '';
-    return trimmed[0].toUpperCase() + trimmed.substring(1).toLowerCase();
-  }
-
   Widget _buildHrCard({
     required dynamic item,
     required String reqNo,
     required String requestType,
+    required String leaveSubtype,
     required String employeeName,
     required String empCode,
     required String date,
   }) {
     return Container(
-      height: 150.w,
+      height: 158.w,
       width: 350.w,
       margin: EdgeInsets.symmetric(horizontal: 10.w, vertical: 5.w),
       decoration: BoxDecoration(
@@ -89,6 +86,18 @@ class HrAndPettycashCard extends StatelessWidget {
                       ),
                     ),
                   ),
+                  if (date.isNotEmpty)
+                    Align(
+                      alignment: Alignment.centerRight,
+                      child: Text(
+                        date,
+                        style: GoogleFonts.poppins(
+                          fontSize: 9.5.sp,
+                          fontWeight: FontWeight.w500,
+                          color: const Color(0xFF8C939C),
+                        ),
+                      ),
+                    ),
                   Center(
                     child: Padding(
                       padding: EdgeInsets.symmetric(horizontal: 38.w),
@@ -118,19 +127,29 @@ class HrAndPettycashCard extends StatelessWidget {
                 mainAxisAlignment: MainAxisAlignment.start,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Center(
-                    child: Text(
-                      'EMPLOYEE REQUEST',
-                      textAlign: TextAlign.center,
-                      style: GoogleFonts.poppins(
-                        fontSize: 12.4.sp,
-                        fontWeight: FontWeight.w900,
-                        color: const Color(0xFF0E0E10),
-                      ),
-                      maxLines: null,
-                      overflow: TextOverflow.visible,
+                  Text(
+                    requestType,
+                    style: GoogleFonts.poppins(
+                      fontSize: 12.4.sp,
+                      fontWeight: FontWeight.w800,
+                      color: const Color(0xFF0E0E10),
                     ),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
                   ),
+                  if (leaveSubtype.trim().isNotEmpty) ...[
+                    SizedBox(height: 4.w),
+                    Text(
+                      leaveSubtype,
+                      style: GoogleFonts.poppins(
+                        fontSize: 11.sp,
+                        fontWeight: FontWeight.w600,
+                        color: const Color(0xFF0B387A),
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
                   SizedBox(height: 6.w),
                   Text(
                     employeeName,
@@ -154,38 +173,6 @@ class HrAndPettycashCard extends StatelessWidget {
                     maxLines: null,
                     overflow: TextOverflow.visible,
                   ),
-                  SizedBox(height: 10.h),
-                  Row(
-                    crossAxisAlignment: CrossAxisAlignment.center,
-                    children: [
-                      Expanded(
-                        child: Text(
-                          date,
-                          style: GoogleFonts.poppins(
-                            fontSize: 10.sp,
-                            fontWeight: FontWeight.w600,
-                            color: const Color(0xFF8C939C),
-                            letterSpacing: 0.1,
-                          ),
-                          maxLines: null,
-                          overflow: TextOverflow.visible,
-                        ),
-                      ),
-                      if (requestType.trim().isNotEmpty)
-                        Text(
-                          _titleCase(requestType),
-                          style: GoogleFonts.poppins(
-                            fontSize: 18.sp,
-                            fontWeight: FontWeight.w900,
-                            color: const Color(0xFF0B387A),
-                            letterSpacing: 0.15,
-                            height: 1.0,
-                          ),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                    ],
-                  ),
                 ],
               ),
             ),
@@ -198,15 +185,15 @@ class HrAndPettycashCard extends StatelessWidget {
   Widget _buildPettyCashCard({
     required Map<dynamic, dynamic> item,
     required String refNo,
-    required String requesterName,
     required String holderName,
-    required String projectName,
     required String date,
     required String amount,
   }) {
     final amountText = _formatAmountForCard(amount);
-    final displayHolderName =
-        holderName.isNotEmpty ? holderName : requesterName;
+    final displayHolderName = holderName.isNotEmpty ? holderName : 'N/A';
+    final displayDate = date.isNotEmpty
+        ? date
+        : PettyCashApprovalDisplay.formattedDate(item);
 
     return Container(
       height: 150.w,
@@ -282,55 +269,29 @@ class HrAndPettycashCard extends StatelessWidget {
             Text(
               displayHolderName.toUpperCase(),
               style: GoogleFonts.poppins(
-                fontSize: 14.sp,
-                fontWeight: FontWeight.w900,
+                fontSize: 16.sp,
+                fontWeight: FontWeight.w800,
                 color: const Color(0xFF0F1114),
                 height: 1.1,
               ),
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
             ),
-            SizedBox(height: 4.w),
-            Text(
-              projectName,
-              style: GoogleFonts.poppins(
-                fontSize: 12.sp,
-                fontWeight: FontWeight.w800,
-                color: const Color(0xFF737A83),
-                letterSpacing: 0.2,
-                height: 1.0,
-              ),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-            ),
-            if (requesterName.isNotEmpty) ...[
-              SizedBox(height: 2.w),
-              Text(
-                'Requested by: $requesterName',
-                style: GoogleFonts.poppins(
-                  fontSize: 11.sp,
-                  fontWeight: FontWeight.w600,
-                  color: const Color(0xFF8C939C),
-                ),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-              ),
-            ],
             const Spacer(),
             Row(
               crossAxisAlignment: CrossAxisAlignment.center,
               children: [
                 Expanded(
                   child: Text(
-                    date,
+                    displayDate,
                     style: GoogleFonts.poppins(
-                      fontSize: 10.sp,
-                      fontWeight: FontWeight.w700,
-                      color: const Color(0xFF8C939C),
+                      fontSize: 12.sp,
+                      fontWeight: FontWeight.w500,
+                      color: const Color(0xFF4A4F57),
                       letterSpacing: 0.1,
                     ),
-                    maxLines: null,
-                    overflow: TextOverflow.visible,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                   ),
                 ),
                 Text(
@@ -342,8 +303,8 @@ class HrAndPettycashCard extends StatelessWidget {
                     letterSpacing: 0.2,
                     height: 1.0,
                   ),
-                  maxLines: null,
-                  overflow: TextOverflow.visible,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                 ),
               ],
             ),
@@ -407,26 +368,9 @@ class HrAndPettycashCard extends StatelessWidget {
           fallback: 'N/A',
         );
 
-        final holderName = ApprovalDisplayHelpers.pickString(
-          item,
-          const [
-            'pettycash_holder',
-            'holder_name',
-            'holder',
-            'petty_cash_holder',
-            'cash_holder',
-          ],
-        );
-
-        final projectName = ApprovalDisplayHelpers.pickString(
-          item,
-          const [
-            'project_name',
-            'project_title',
-            'project',
-          ],
-          fallback: 'N/A',
-        );
+        final holderName = isHr
+            ? ''
+            : PettyCashApprovalDisplay.holderName(item);
 
         final empCode = _getSafeString(
           item['emp_code'] ??
@@ -440,44 +384,50 @@ class HrAndPettycashCard extends StatelessWidget {
           '',
         );
 
-        final reqNo = _getSafeString(
-          item['name'] ??
-              item['request_no'] ??
-              item['ref_no'] ??
-              item['reference_no'] ??
-              item['req_no'],
-          'N/A',
-        );
+        final reqNo = isHr
+            ? _getSafeString(
+                item['name'] ??
+                    item['request_no'] ??
+                    item['ref_no'] ??
+                    item['reference_no'] ??
+                    item['req_no'],
+                'N/A',
+              )
+            : PettyCashApprovalDisplay.sequence(item);
 
-        final amount = _getSafeString(
-          item['amount_total'] ??
-              item['amount'] ??
-              item['total_amount'] ??
-              item['total'],
-          '0',
-        );
+        final amount = isHr
+            ? _getSafeString(
+                item['amount_total'] ??
+                    item['amount'] ??
+                    item['total_amount'] ??
+                    item['total'],
+                '0',
+              )
+            : PettyCashApprovalDisplay.amountText(item);
 
-        final requestType = _getSafeString(
-          item['leave_request_subtype'] ??
-              item['leave_request_type'] ??
-              item['request_type'] ??
-              item['holiday_status_name'] ??
-              item['request_type_name'] ??
-              item['holiday_status_id'] ??
-              item['leave_type'] ??
-              item['subject'] ??
-              item['type'] ??
-              item['title'],
-          'HR Management',
-        );
+        final requestType = HrApprovalDisplay.requestTypeName(item).isNotEmpty
+            ? HrApprovalDisplay.requestTypeName(item)
+            : _getSafeString(
+                item['leave_request_subtype'] ??
+                    item['leave_request_type'] ??
+                    item['request_type'] ??
+                    item['holiday_status_name'] ??
+                    item['request_type_name'] ??
+                    item['holiday_status_id'] ??
+                    item['leave_type'] ??
+                    item['subject'] ??
+                    item['type'] ??
+                    item['title'],
+                'HR Management',
+              );
 
-        final date = _getSafeString(
-          item['date'] ??
-              item['request_date'] ??
-              item['created_date'] ??
-              item['submission_date'],
-          '',
-        );
+        final leaveSubtype = isHr
+            ? HrApprovalDisplay.leaveSubtypeLabel(item)
+            : '';
+
+        final date = isHr
+            ? HrApprovalDisplay.formattedDate(item)
+            : PettyCashApprovalDisplay.formattedDate(item);
 
         return GestureDetector(
           onTap: () async {
@@ -532,6 +482,7 @@ class HrAndPettycashCard extends StatelessWidget {
                   item: item,
                   reqNo: reqNo,
                   requestType: requestType,
+                  leaveSubtype: leaveSubtype,
                   employeeName: requesterName,
                   empCode: empCode,
                   date: date,
@@ -539,10 +490,8 @@ class HrAndPettycashCard extends StatelessWidget {
               : _buildPettyCashCard(
                   item: item,
                   refNo: reqNo,
-                  requesterName: requesterName,
                   holderName: holderName,
-                  projectName: projectName,
-                  date: date.isNotEmpty ? date : 'N/A',
+                  date: date,
                   amount: amount,
                 ),
         );

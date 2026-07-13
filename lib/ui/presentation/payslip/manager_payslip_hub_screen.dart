@@ -5,7 +5,6 @@ import 'package:el_race/core/theme/hr_service_screen_backdrop.dart';
 import 'package:el_race/core/theme/hr_module_layout.dart';
 import 'package:el_race/core/theme/hr_module_typography.dart';
 import 'package:el_race/ui/presentation/payslip/manager_payslip_pending_full_screen.dart';
-import 'package:el_race/ui/presentation/payslip/payslip_detail_screen.dart';
 import 'package:el_race/ui/presentation/payslip/widgets/payslip_record_card.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -96,14 +95,6 @@ class ManagerPayslipHubScreen extends ConsumerWidget {
                     PayslipRecordCard(
                       summary: s,
                       compact: true,
-                      onTap: () {
-                        Navigator.of(context).push(
-                          MaterialPageRoute<void>(
-                            builder: (_) =>
-                                PayslipDetailScreen(payslipId: s.id),
-                          ),
-                        );
-                      },
                     ),
                     SizedBox(height: 10.h),
                   ],

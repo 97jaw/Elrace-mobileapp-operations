@@ -4,6 +4,10 @@ import 'package:el_race/ui/presentation/Email%20Approval/delayed/data/delayed_ap
 import 'package:el_race/ui/presentation/Email%20Approval/theme/approvals_overview_theme.dart';
 import 'package:el_race/ui/presentation/Email%20Approval/utils/approval_display_helpers.dart';
 import 'package:el_race/ui/presentation/Email%20Approval/utils/approval_photo_cache.dart';
+import 'package:el_race/ui/presentation/Email%20Approval/utils/hr_approval_display.dart';
+import 'package:el_race/ui/presentation/Email%20Approval/utils/invoice_approval_display.dart';
+import 'package:el_race/ui/presentation/Email%20Approval/utils/petty_cash_approval_display.dart';
+import 'package:el_race/ui/presentation/Email%20Approval/utils/rfq_approval_display.dart';
 import 'package:el_race/ui/presentation/Email%20Approval/widgets/approval_list_avatar.dart';
 import 'package:el_race/utils/safe_insets.dart';
 import 'package:flutter/material.dart';
@@ -145,20 +149,9 @@ class _RecordsSheetBodyState extends State<_RecordsSheetBody> {
             (widget.expectedCount > 0 && _pollAttempts < 25));
   }
 
-  bool _isDraftInvoice(Map<String, dynamic> item) {
-    final state = item['state']?.toString().trim().toUpperCase() ?? '';
-    final status = item['status']?.toString().trim().toUpperCase() ?? '';
-    return state == 'DRAFT' || status == 'DRAFT';
-  }
-
-  List<Map<String, dynamic>> _visibleItems(List<Map<String, dynamic>> items) {
-    if (widget.categoryKey != 'invoice') return items;
-    return items.where((e) => !_isDraftInvoice(e)).toList(growable: false);
-  }
-
   @override
   Widget build(BuildContext context) {
-    final items = _visibleItems(widget.getItems());
+    final items = widget.getItems();
 
     return Material(
       color: const Color(0xFFF4F6F9),
@@ -439,12 +432,9 @@ class _ApprovalRecordTile extends StatelessWidget {
   String _categoryLabel() {
     switch (categoryKey) {
       case 'hr':
-        return 'EMPLOYEE REQUEST';
+        return HrApprovalDisplay.sequence(item).toUpperCase();
       case 'rfq':
-        return _str(
-          item['name'] ?? item['ref_no'] ?? item['request_no'],
-          fallback: 'RFQ',
-        ).toUpperCase();
+        return RfqApprovalDisplay.sequence(item).toUpperCase();
       case 'invoice':
         return 'INVOICE';
       case 'petty_cash':
@@ -536,6 +526,8 @@ class _ApprovalRecordTile extends StatelessWidget {
       );
     }
     if (categoryKey == 'hr') {
+      final requestType = HrApprovalDisplay.requestTypeName(item);
+      if (requestType.isNotEmpty) return requestType;
       return _str(
         item['leave_request_subtype'] ??
             item['request_type'] ??
@@ -560,6 +552,9 @@ class _ApprovalRecordTile extends StatelessWidget {
             ? _invoiceSequenceName()
             : 'Invoice',
       );
+    }
+    if (categoryKey == 'petty_cash') {
+      return PettyCashApprovalDisplay.holderName(item);
     }
     return _str(
       item['project_title'] ??
@@ -690,33 +685,44 @@ class _ApprovalRecordTile extends StatelessWidget {
     return _requester();
   }
 
+  String _hrMidRowLabel() {
+    final leaveSubtype = HrApprovalDisplay.leaveSubtypeLabel(item);
+    if (leaveSubtype.isNotEmpty) return leaveSubtype;
+    return '';
+  }
+
+  String _fullDateLabel() {
+    if (categoryKey == 'hr') {
+      return HrApprovalDisplay.formattedDate(item);
+    }
+    if (categoryKey == 'rfq') {
+      return RfqApprovalDisplay.formattedDate(item);
+    }
+    if (categoryKey == 'petty_cash') {
+      return PettyCashApprovalDisplay.formattedDate(item);
+    }
+    if (categoryKey == 'invoice') {
+      return InvoiceApprovalDisplay.formattedDate(item);
+    }
+    return '';
+  }
+
   String _status() {
     if (statusLabel != null) return statusLabel!;
     final raw = _str(item['state'] ?? item['status'], fallback: 'open');
     final upper = raw.toUpperCase();
     if (categoryKey == 'invoice' && upper == 'DRAFT') return '';
+    if (categoryKey == 'petty_cash' && upper == 'DRAFT') return '';
+    if (categoryKey == 'hr' && HrApprovalDisplay.shouldHideDraftStatus(item)) {
+      return '';
+    }
+    if (categoryKey == 'rfq' && RfqApprovalDisplay.shouldHideDraftStatus(item)) {
+      return '';
+    }
     return upper;
   }
 
-  String _invoiceDateLabel() {
-    final raw = _str(
-      item['invoice_date'] ??
-          item['date'] ??
-          item['request_date'] ??
-          item['requestDate'],
-    );
-    if (raw.isEmpty) return '';
-    try {
-      final dt = DateTime.tryParse(raw);
-      if (dt == null) return raw;
-      return DateFormat('d MMM').format(dt);
-    } catch (_) {
-      return raw;
-    }
-  }
-
   String _timeLabel() {
-    if (categoryKey == 'invoice') return _invoiceDateLabel();
     if (categoryKey == 'delayed') {
       final days = item['daysDelayed'];
       if (days is num && days > 0) return '${days.toInt()}d';
@@ -773,7 +779,13 @@ class _ApprovalRecordTile extends StatelessWidget {
     }
 
     return Text(
-      categoryKey == 'rfq' ? _rfqReference().toUpperCase() : _categoryLabel(),
+      categoryKey == 'hr'
+          ? HrApprovalDisplay.sequence(item).toUpperCase()
+          : categoryKey == 'rfq'
+              ? RfqApprovalDisplay.sequence(item).toUpperCase()
+              : categoryKey == 'petty_cash'
+                  ? PettyCashApprovalDisplay.sequence(item).toUpperCase()
+                  : _categoryLabel(),
       maxLines: 1,
       overflow: TextOverflow.ellipsis,
       style: GoogleFonts.poppins(
@@ -792,9 +804,9 @@ class _ApprovalRecordTile extends StatelessWidget {
       return Row(
         crossAxisAlignment: CrossAxisAlignment.end,
         children: [
-          if (_invoiceDateLabel().isNotEmpty)
+          if (_fullDateLabel().isNotEmpty)
             Text(
-              _invoiceDateLabel(),
+              _fullDateLabel(),
               style: GoogleFonts.poppins(
                 fontSize: 11.sp,
                 fontWeight: FontWeight.w500,
@@ -810,6 +822,70 @@ class _ApprovalRecordTile extends StatelessWidget {
               fontSize: 16.sp,
               fontWeight: FontWeight.w800,
               color: ApprovalsOverviewTheme.invoice,
+            ),
+          ),
+        ],
+      );
+    }
+
+    if (categoryKey == 'rfq') {
+      final dateLabel = RfqApprovalDisplay.formattedDate(item);
+      return Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          if (dateLabel.isNotEmpty)
+            Expanded(
+              child: Text(
+                dateLabel,
+                style: GoogleFonts.poppins(
+                  fontSize: 12.sp,
+                  fontWeight: FontWeight.w500,
+                  color: ApprovalsOverviewTheme.textMuted,
+                ),
+              ),
+            )
+          else
+            const Spacer(),
+          Text(
+            _amountText(),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: GoogleFonts.poppins(
+              fontSize: 16.sp,
+              fontWeight: FontWeight.w800,
+              color: ApprovalsOverviewTheme.rfq,
+            ),
+          ),
+        ],
+      );
+    }
+
+    if (categoryKey == 'petty_cash') {
+      final dateLabel = PettyCashApprovalDisplay.formattedDate(item);
+      return Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          if (dateLabel.isNotEmpty)
+            Expanded(
+              child: Text(
+                dateLabel,
+                style: GoogleFonts.poppins(
+                  fontSize: 12.sp,
+                  fontWeight: FontWeight.w500,
+                  color: ApprovalsOverviewTheme.textMuted,
+                ),
+              ),
+            )
+          else
+            const Spacer(),
+          Text(
+            _amountText(),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: GoogleFonts.poppins(
+              fontSize: 16.sp,
+              fontWeight: FontWeight.w800,
+              color: ApprovalsOverviewTheme.petty,
             ),
           ),
         ],
@@ -893,7 +969,17 @@ class _ApprovalRecordTile extends StatelessWidget {
                             Expanded(
                               child: _buildHeaderLabel(color),
                             ),
-                            if (_status().isNotEmpty) ...[
+                            if (categoryKey == 'hr' &&
+                                _fullDateLabel().isNotEmpty)
+                              Text(
+                                _fullDateLabel(),
+                                style: GoogleFonts.poppins(
+                                  fontSize: 9.sp,
+                                  fontWeight: FontWeight.w500,
+                                  color: ApprovalsOverviewTheme.textMuted,
+                                ),
+                              )
+                            else if (_status().isNotEmpty) ...[
                               Container(
                                 width: 6.w,
                                 height: 6.w,
@@ -926,36 +1012,52 @@ class _ApprovalRecordTile extends StatelessWidget {
                             height: 1.25,
                           ),
                         ),
-                        SizedBox(height: 6.h),
-                        Row(
-                          children: [
-                            Expanded(
-                              child: Text(
-                                categoryKey == 'rfq' || categoryKey == 'invoice'
-                                    ? 'For ${_requester()}'
-                                    : 'For ${_requester()}',
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: GoogleFonts.poppins(
-                                  fontSize: 11.sp,
-                                  fontWeight: FontWeight.w500,
-                                  color: ApprovalsOverviewTheme.textMuted,
-                                ),
-                              ),
+                        if (categoryKey == 'hr' &&
+                            _hrMidRowLabel().isNotEmpty) ...[
+                          SizedBox(height: 4.h),
+                          Text(
+                            _hrMidRowLabel(),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: GoogleFonts.poppins(
+                              fontSize: 11.sp,
+                              fontWeight: FontWeight.w600,
+                              color: ApprovalsOverviewTheme.hr,
                             ),
-                            if (categoryKey != 'invoice' &&
-                                _timeLabel().isNotEmpty) ...[
-                              Text(
-                                _timeLabel(),
-                                style: GoogleFonts.poppins(
-                                  fontSize: 10.sp,
-                                  fontWeight: FontWeight.w500,
-                                  color: ApprovalsOverviewTheme.textSoft,
+                          ),
+                        ],
+                        if (categoryKey != 'petty_cash') ...[
+                          SizedBox(height: 6.h),
+                          Row(
+                            children: [
+                              Expanded(
+                                child: Text(
+                                  'For ${_requester()}',
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: GoogleFonts.poppins(
+                                    fontSize: 11.sp,
+                                    fontWeight: FontWeight.w500,
+                                    color: ApprovalsOverviewTheme.textMuted,
+                                  ),
                                 ),
                               ),
+                              if (categoryKey != 'invoice' &&
+                                  categoryKey != 'hr' &&
+                                  categoryKey != 'rfq' &&
+                                  _timeLabel().isNotEmpty) ...[
+                                Text(
+                                  _timeLabel(),
+                                  style: GoogleFonts.poppins(
+                                    fontSize: 10.sp,
+                                    fontWeight: FontWeight.w500,
+                                    color: ApprovalsOverviewTheme.textSoft,
+                                  ),
+                                ),
+                              ],
                             ],
-                          ],
-                        ),
+                          ),
+                        ],
                         if (_showsAmount) ...[
                           SizedBox(height: 4.h),
                           _buildAmountFooter(),

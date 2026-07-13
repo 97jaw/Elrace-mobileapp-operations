@@ -404,8 +404,26 @@ class NotificationStorageService {
       final prefs = await SharedPreferences.getInstance();
       var notifications = await _getStoredNotifications();
 
+      final serverId = (data?['notification_id'] ??
+              data?['id'] ??
+              data?['record_id'] ??
+              data?['res_id'] ??
+              '')
+          .toString()
+          .trim();
+      final id = serverId.isNotEmpty
+          ? serverId
+          : DateTime.now().millisecondsSinceEpoch.toString();
+
+      // Avoid duplicates when the same push is delivered more than once.
+      final existingIndex =
+          notifications.indexWhere((n) => '${n['id'] ?? ''}' == id);
+      if (existingIndex != -1) {
+        return;
+      }
+
       notifications.insert(0, {
-        'id': DateTime.now().millisecondsSinceEpoch.toString(),
+        'id': id,
         'title': title,
         'body': body,
         'imageUrl': imageUrl,
@@ -415,6 +433,8 @@ class NotificationStorageService {
             : notificationCategory,
         'timestamp': DateTime.now().toIso8601String(),
         'isRead': false,
+        'is_read': false,
+        'source': 'fcm',
       });
 
       if (notifications.length > 100) {
@@ -422,14 +442,37 @@ class NotificationStorageService {
       }
 
       await _saveStoredNotifications(notifications, prefs);
-      await _updateUnreadCount();
-      onCountChanged?.call();
+      // LinkedIn-style: only bump badge for newly arrived pushes.
+      await _incrementBadge();
     } catch (_) {
       // Keep silent to avoid crashing push pipeline.
     }
   }
 
-  /// Get notifications. API data is preferred, local cache is fallback.
+  static bool _sameContent(
+    Map<String, dynamic> a,
+    Map<String, dynamic> b,
+  ) {
+    final titleA = (a['title'] ?? '').toString().trim();
+    final titleB = (b['title'] ?? '').toString().trim();
+    final bodyA = (a['body'] ?? '').toString().trim();
+    final bodyB = (b['body'] ?? '').toString().trim();
+    return titleA.isNotEmpty && titleA == titleB && bodyA == bodyB;
+  }
+
+  static List<Map<String, dynamic>> _pageOf(
+    List<Map<String, dynamic>> items, {
+    required int limit,
+    required int offset,
+  }) {
+    if (limit <= 0) return List<Map<String, dynamic>>.from(items);
+    if (offset >= items.length) return const <Map<String, dynamic>>[];
+    final end = offset + limit;
+    final boundedEnd = end > items.length ? items.length : end;
+    return items.sublist(offset, boundedEnd);
+  }
+
+  /// Get notifications. Merges API + local FCM cache so push items always show.
   static Future<List<Map<String, dynamic>>> getNotifications({
     int limit = 500,
     int offset = 0,
@@ -448,7 +491,8 @@ class NotificationStorageService {
       final storedBeforeFetch = await _getStoredNotifications();
       final locallyReadIds = <String>{
         for (final item in storedBeforeFetch)
-          if (item['isRead'] == true) '${item['id'] ?? ''}',
+          if (item['isRead'] == true || item['is_read'] == true)
+            '${item['id'] ?? ''}',
       }..removeWhere((id) => id.isEmpty);
 
       for (final notification in normalized) {
@@ -458,60 +502,94 @@ class NotificationStorageService {
           notification['is_read'] = true;
         }
       }
+
       if (offset <= 0) {
-        await _saveStoredNotifications(normalized, prefs);
-      } else {
-        final storedNotifications = await _getStoredNotifications();
-        final mergedNotifications = List<Map<String, dynamic>>.from(
-          storedNotifications,
-        );
-        final existingIds = mergedNotifications
-            .map((notification) => '${notification['id'] ?? ''}')
-            .where((id) => id.isNotEmpty)
-            .toSet();
+        final mergedNotifications = <Map<String, dynamic>>[];
+        final seenIds = <String>{};
+
+        // Keep recent local/FCM rows first so they appear immediately.
+        for (final localNotif in storedBeforeFetch) {
+          final id = '${localNotif['id'] ?? ''}';
+          final isLocalOnly = localNotif['source'] == 'fcm' ||
+              !normalized.any((api) =>
+                  '${api['id'] ?? ''}' == id || _sameContent(api, localNotif));
+          if (!isLocalOnly) continue;
+          if (id.isNotEmpty && seenIds.contains(id)) continue;
+          if (normalized.any((api) => _sameContent(api, localNotif))) {
+            continue;
+          }
+          mergedNotifications.add(Map<String, dynamic>.from(localNotif));
+          if (id.isNotEmpty) seenIds.add(id);
+        }
 
         for (final notification in normalized) {
           final id = '${notification['id'] ?? ''}';
-          if (id.isNotEmpty && existingIds.contains(id)) continue;
+          if (id.isNotEmpty && seenIds.contains(id)) continue;
           mergedNotifications.add(notification);
-          if (id.isNotEmpty) existingIds.add(id);
+          if (id.isNotEmpty) seenIds.add(id);
         }
 
         await _saveStoredNotifications(mergedNotifications, prefs);
+        // Do not recompute bell badge from unread rows — badge is
+        // "new since last open" and is cleared via acknowledgeBadge().
+        return _pageOf(mergedNotifications, limit: limit, offset: 0);
       }
 
-      // Keep badge aligned with full cached list (not just the current page).
-      await _syncUnreadCountFromStored(prefs);
+      final storedNotifications = await _getStoredNotifications();
+      final mergedNotifications =
+          List<Map<String, dynamic>>.from(storedNotifications);
+      final existingIds = mergedNotifications
+          .map((notification) => '${notification['id'] ?? ''}')
+          .where((id) => id.isNotEmpty)
+          .toSet();
 
+      for (final notification in normalized) {
+        final id = '${notification['id'] ?? ''}';
+        if (id.isNotEmpty && existingIds.contains(id)) continue;
+        if (mergedNotifications.any((local) => _sameContent(local, notification))) {
+          continue;
+        }
+        mergedNotifications.add(notification);
+        if (id.isNotEmpty) existingIds.add(id);
+      }
+
+      await _saveStoredNotifications(mergedNotifications, prefs);
       return normalized;
     } catch (_) {
       final storedNotifications = await _getStoredNotifications();
-      if (limit <= 0) return storedNotifications;
-      if (offset >= storedNotifications.length) {
-        return const <Map<String, dynamic>>[];
-      }
-      final end = offset + limit;
-      final boundedEnd =
-          end > storedNotifications.length ? storedNotifications.length : end;
-      return storedNotifications.sublist(offset, boundedEnd);
+      return _pageOf(storedNotifications, limit: limit, offset: offset);
     }
   }
 
-  /// Recompute unread badge from cached notification rows (source of truth).
+  /// Home bell badge = new notifications since last Notification Center open.
+  /// Does NOT equal total unread rows in the list.
   static Future<int> getBadgeCount() async {
-    try {
-      final notifications = await _getStoredNotifications();
-      return notifications.where((n) => n['isRead'] != true).length;
-    } catch (_) {
-      return getLocalStoredCount();
-    }
+    return getLocalStoredCount();
   }
 
-  static Future<void> _syncUnreadCountFromStored(SharedPreferences prefs) async {
-    final notifications = await _getStoredNotifications();
-    final count = notifications.where((n) => n['isRead'] != true).length;
-    await prefs.setInt(_unreadCountKey, count);
-    onCountChanged?.call();
+  static Future<void> _incrementBadge([int by = 1]) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final previous = prefs.getInt(_unreadCountKey) ?? 0;
+      final next = previous + by;
+      await prefs.setInt(_unreadCountKey, next);
+      if (previous != next) {
+        onCountChanged?.call();
+      }
+    } catch (_) {}
+  }
+
+  static Future<void> _decrementBadge([int by = 1]) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final previous = prefs.getInt(_unreadCountKey) ?? 0;
+      final next = previous - by;
+      final clamped = next < 0 ? 0 : next;
+      await prefs.setInt(_unreadCountKey, clamped);
+      if (previous != clamped) {
+        onCountChanged?.call();
+      }
+    } catch (_) {}
   }
 
   /// Get unread notification count — prefers accurate local cache.
@@ -595,11 +673,16 @@ class NotificationStorageService {
 
       final index = notifications.indexWhere((n) => n['id'] == notificationId);
       if (index != -1) {
+        final wasUnread = notifications[index]['isRead'] != true &&
+            notifications[index]['is_read'] != true;
         notifications[index]['isRead'] = true;
+        notifications[index]['is_read'] = true;
         notifications[index]['readAt'] = DateTime.now().toIso8601String();
         await _saveStoredNotifications(notifications, prefs);
-        await _updateUnreadCount();
-        onCountChanged?.call();
+        // Do not recount all unread into the bell badge.
+        if (wasUnread) {
+          await _decrementBadge();
+        }
       }
 
       await NotificationApiService.markAsRead(notificationId);
@@ -645,7 +728,9 @@ class NotificationStorageService {
       }
 
       await _saveStoredNotifications(notifications, prefs);
-      await _syncUnreadCountFromStored(prefs);
+      // Category clear should also clear the home bell.
+      await prefs.setInt(_unreadCountKey, 0);
+      onCountChanged?.call();
 
       if (idsToSync.isNotEmpty) {
         _syncReadIdsToApiInBackground(idsToSync);
@@ -688,13 +773,12 @@ class NotificationStorageService {
     }
   }
 
-  /// Get unread notification count.
+  /// Get unread notification count for APIs that need list unread totals.
+  /// Home bell must use [getBadgeCount] / [getLocalStoredCount] instead.
   static Future<int> getUnreadCount() async {
     try {
       final apiUnreadCount = await NotificationApiService.getUnreadCount();
       if (apiUnreadCount != null) {
-        final prefs = await SharedPreferences.getInstance();
-        await prefs.setInt(_unreadCountKey, apiUnreadCount);
         return apiUnreadCount;
       }
     } catch (_) {
@@ -703,32 +787,47 @@ class NotificationStorageService {
 
     try {
       final notifications = await _getStoredNotifications();
-      return notifications.where((n) => n['isRead'] == false).length;
+      return notifications
+          .where((n) => n['isRead'] != true && n['is_read'] != true)
+          .length;
     } catch (_) {
       return 0;
     }
   }
 
   static Future<void> _updateUnreadCount() async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      await _syncUnreadCountFromStored(prefs);
-    } catch (_) {
-      // Ignore cache update failures.
-    }
+    // Deprecated path for mute updates — do not overwrite LinkedIn-style badge
+    // with total unread list size.
+    onCountChanged?.call();
   }
 
-  /// Delete a notification from local cache.
+  /// Delete a notification from local cache and sync to API.
   static Future<void> deleteNotification(String notificationId) async {
     try {
       final prefs = await SharedPreferences.getInstance();
       final notifications = await _getStoredNotifications();
 
-      notifications.removeWhere((n) => n['id'] == notificationId);
+      final index = notifications
+          .indexWhere((n) => '${n['id'] ?? ''}' == notificationId);
+      final wasUnread = index != -1 &&
+          notifications[index]['isRead'] != true &&
+          notifications[index]['is_read'] != true;
+
+      notifications.removeWhere((n) => '${n['id'] ?? ''}' == notificationId);
 
       await _saveStoredNotifications(notifications, prefs);
-      await _updateUnreadCount();
-      onCountChanged?.call();
+
+      // Await backend delete so a refresh does not resurrect the row.
+      try {
+        await NotificationApiService.deleteNotification(notificationId);
+      } catch (_) {}
+
+      // Only reduce the bell if it still has "new since open" count.
+      if (wasUnread) {
+        await _decrementBadge();
+      } else {
+        onCountChanged?.call();
+      }
     } catch (_) {
       // Ignore failures.
     }
@@ -754,9 +853,16 @@ class NotificationStorageService {
     }
   }
 
-  /// Clear all local notifications.
+  /// Clear all local notifications and sync delete-all to API.
   static Future<void> clearAll() async {
     try {
+      try {
+        final cleared = await NotificationApiService.clearAllNotifications();
+        if (!cleared) {
+          await NotificationApiService.markAllAsRead();
+        }
+      } catch (_) {}
+
       final prefs = await SharedPreferences.getInstance();
       await prefs.remove(_notificationsKey);
       await prefs.setInt(_unreadCountKey, 0);

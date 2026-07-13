@@ -75,11 +75,17 @@ class _ApprovalsScreenState extends State<ApprovalsScreen> {
   int delayedCount = 0;
   DelayedCountersResponse? _delayedCounters;
   DelayedRorResponse? _rorData;
+  bool _rorLoading = false;
+  late int _rorMonth;
+  late int _rorYear;
   final DelayedApprovalsRepository _delayedRepo = DelayedApprovalsRepository();
 
   @override
   void initState() {
     super.initState();
+    final now = DateTime.now();
+    _rorMonth = now.month;
+    _rorYear = now.year;
     selectedCategoryKey = categoryKeys.first;
     searchController.addListener(_onSearchChanged);
     // Show the screen immediately — load all categories in background in parallel.
@@ -419,25 +425,43 @@ class _ApprovalsScreenState extends State<ApprovalsScreen> {
     }
   }
 
-  Future<void> _fetchRorData() async {
+  Future<void> _fetchRorData({int? month, int? year}) async {
+    final targetMonth = month ?? _rorMonth;
+    final targetYear = year ?? _rorYear;
+    if (!mounted) return;
+    setState(() => _rorLoading = true);
     try {
-      final ror = await _delayedRepo.fetchRor();
+      final ror = await _delayedRepo.fetchRor(
+        month: targetMonth,
+        year: targetYear,
+      );
       final hasBreakdownCounts = (ror.hrCount ?? 0) > 0 ||
           (ror.rfqCount ?? 0) > 0 ||
           (ror.pettyCashCount ?? 0) > 0 ||
           (ror.invoiceCount ?? 0) > 0;
       debugPrint(
-        '🟣 [ROR SOURCE] API (${hasBreakdownCounts ? 'score+counts' : 'score-only'}) => ror=${ror.rorPercentage}%',
+        '🟣 [ROR SOURCE] API (${hasBreakdownCounts ? 'score+counts' : 'score-only'}) => ror=${ror.rorPercentage}% month=$targetMonth year=$targetYear',
       );
       if (!mounted) return;
       setState(() {
         _rorData = ror;
+        _rorMonth = targetMonth;
+        _rorYear = targetYear;
+        _rorLoading = false;
       });
     } catch (e) {
       debugPrint('Failed to fetch delayed ROR: $e');
       debugPrint(
           '🟡 [ROR SOURCE] Fallback => local tab counts + local formula');
+      if (mounted) {
+        setState(() => _rorLoading = false);
+      }
     }
+  }
+
+  void _onRorPeriodChanged(int month, int year) {
+    if (month == _rorMonth && year == _rorYear) return;
+    _fetchRorData(month: month, year: year);
   }
 
   void _refreshApprovalsAfterAction() {
@@ -700,6 +724,10 @@ class _ApprovalsScreenState extends State<ApprovalsScreen> {
         rorRfqRor: _rorData?.rfqRor,
         rorInvoiceRor: _rorData?.invoiceRor,
         rorPettyCashRor: _rorData?.pettyCashRor,
+        rorMonth: _rorMonth,
+        rorYear: _rorYear,
+        rorLoading: _rorLoading,
+        onRorPeriodChanged: _onRorPeriodChanged,
         onCategoryRecordTap: _openCategoryRecordFromSheet,
         onDelayedRecordTap: _openDelayedRecordFromSheet,
         onHrManagementTestCasesTap:

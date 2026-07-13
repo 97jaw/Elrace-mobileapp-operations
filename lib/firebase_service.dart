@@ -413,24 +413,41 @@ class FirebaseService {
   static Future<void> _saveNotificationToStorage(RemoteMessage message) async {
     try {
       final notification = message.notification;
-      if (notification != null) {
-        // Determine category from message data
-        String category = 'notification'; // default
-        if (message.data.containsKey('category')) {
-          category = message.data['category'].toString();
-        } else if (message.data.containsKey('type')) {
-          category = message.data['type'].toString();
-        }
+      final title = (notification?.title ??
+              message.data['title'] ??
+              message.data['subject'] ??
+              '')
+          .toString()
+          .trim();
+      final body = (notification?.body ??
+              message.data['body'] ??
+              message.data['message'] ??
+              '')
+          .toString()
+          .trim();
 
-        await NotificationStorageService.saveNotification(
-          title: notification.title ?? 'Notification',
-          body: notification.body ?? '',
-          imageUrl:
-              notification.android?.imageUrl ?? notification.apple?.imageUrl,
-          data: message.data,
-          category: category,
-        );
+      if (title.isEmpty && body.isEmpty) {
+        print('⚠️ Skip saving empty FCM payload');
+        return;
       }
+
+      String category = 'notification';
+      if (message.data.containsKey('category')) {
+        category = message.data['category'].toString();
+      } else if (message.data.containsKey('type')) {
+        category = message.data['type'].toString();
+      } else if (message.data.containsKey('model')) {
+        category = message.data['model'].toString();
+      }
+
+      await NotificationStorageService.saveNotification(
+        title: title.isEmpty ? 'Notification' : title,
+        body: body,
+        imageUrl:
+            notification?.android?.imageUrl ?? notification?.apple?.imageUrl,
+        data: message.data,
+        category: category,
+      );
     } catch (e) {
       print('❌ Error saving notification to storage: $e');
     }

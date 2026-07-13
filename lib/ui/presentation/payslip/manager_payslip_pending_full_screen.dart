@@ -4,7 +4,6 @@ import 'package:el_race/core/theme/hr_module_colors.dart';
 import 'package:el_race/core/theme/hr_module_layout.dart';
 import 'package:el_race/core/theme/hr_module_typography.dart';
 import 'package:el_race/core/theme/hr_service_screen_backdrop.dart';
-import 'package:el_race/ui/presentation/payslip/payslip_detail_screen.dart';
 import 'package:el_race/ui/presentation/payslip/widgets/payslip_record_card.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
@@ -111,14 +110,6 @@ class _ManagerPayslipPendingFullScreenState
                     padding: EdgeInsets.only(bottom: 10.h),
                     child: PayslipRecordCard(
                       summary: s,
-                      onTap: () {
-                        Navigator.of(context).push(
-                          MaterialPageRoute<void>(
-                            builder: (_) =>
-                                PayslipDetailScreen(payslipId: s.id),
-                          ),
-                        );
-                      },
                     ),
                   );
                 },

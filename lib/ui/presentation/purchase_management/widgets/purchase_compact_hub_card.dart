@@ -125,13 +125,11 @@ class PurchaseCompactHubCard extends StatelessWidget {
 class PurchaseCompactLpoStrip extends StatelessWidget {
   const PurchaseCompactLpoStrip({
     super.key,
-    required this.openCount,
-    required this.closedCount,
+    required this.totalCount,
     required this.onTap,
   });
 
-  final int openCount;
-  final int closedCount;
+  final int totalCount;
   final VoidCallback onTap;
 
   @override
@@ -185,15 +183,9 @@ class PurchaseCompactLpoStrip extends StatelessWidget {
                 ),
               ),
               _LpoMetric(
-                label: 'Open',
-                value: openCount,
+                label: 'Total',
+                value: totalCount,
                 color: PurchaseTheme.accentBlue,
-              ),
-              SizedBox(width: 16.w),
-              _LpoMetric(
-                label: 'Closed',
-                value: closedCount,
-                color: const Color(0xFF16A34A),
               ),
               SizedBox(width: 6.w),
               _ArrowButton(onTap: onTap, size: 28),

@@ -3,7 +3,9 @@ import 'dart:convert';
 import 'package:el_race/core/utils/shared_pref.dart';
 import 'package:el_race/ui/presentation/Email%20Approval/theme/approvals_overview_theme.dart';
 import 'package:el_race/ui/presentation/Email%20Approval/utils/approval_display_helpers.dart';
+import 'package:el_race/ui/presentation/Email%20Approval/utils/petty_cash_expense_line_groups.dart';
 import 'package:el_race/ui/presentation/Email%20Approval/widgets/approval_action_buttons.dart';
+import 'package:el_race/ui/presentation/Email%20Approval/widgets/petty_cash_expense_lines_popup.dart';
 import 'package:el_race/ui/presentation/my_documents/screens/attachment_viewer_screen.dart';
 import 'package:el_race/ui/widgets/contextual_glass_chrome_header.dart';
 import 'package:el_race/utils/safe_insets.dart';
@@ -34,8 +36,6 @@ class PettyCashDetailsScreen extends StatefulWidget {
 class _PettyCashDetailsScreenState extends State<PettyCashDetailsScreen> {
   bool _isLoading = true;
   String _error = '';
-  final PageController _linesPageController = PageController();
-  int _currentLinesPage = 0;
 
   Map<String, dynamic> _formData = const {};
   List<dynamic> _attachmentIds = const [];
@@ -214,7 +214,6 @@ class _PettyCashDetailsScreenState extends State<PettyCashDetailsScreen> {
 
   @override
   void dispose() {
-    _linesPageController.dispose();
     super.dispose();
   }
 
@@ -436,7 +435,19 @@ class _PettyCashDetailsScreenState extends State<PettyCashDetailsScreen> {
       normalizedLine['description'],
       normalizedLine['name'],
       normalizedLine['remarks'],
+      normalizedLine['project_name'],
       normalizedLine['project'],
+    ]);
+
+    normalizedLine['project_name'] = _pick([
+      normalizedLine['project_name'],
+      normalizedLine['project'],
+    ]);
+
+    normalizedLine['expense_type_label'] = _pick([
+      normalizedLine['expense_type_label'],
+      normalizedLine['expense_type'],
+      normalizedLine['x_expense_type'],
     ]);
 
     normalizedLine['amount'] = _pick([
@@ -751,7 +762,11 @@ class _PettyCashDetailsScreenState extends State<PettyCashDetailsScreen> {
     );
   }
 
-  Widget _glassSectionCard({required String title, required Widget child}) {
+  Widget _glassSectionCard({
+    required String title,
+    required Widget child,
+    Widget? trailing,
+  }) {
     return OverviewGlassPanel(
       fillAlpha: 0.9,
       blurSigma: 8,
@@ -760,14 +775,21 @@ class _PettyCashDetailsScreenState extends State<PettyCashDetailsScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            title.toUpperCase(),
-            style: GoogleFonts.poppins(
-              fontSize: 10.sp,
-              fontWeight: FontWeight.w700,
-              letterSpacing: 0.7,
-              color: ApprovalsOverviewTheme.screenDeep,
-            ),
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  title.toUpperCase(),
+                  style: GoogleFonts.poppins(
+                    fontSize: 10.sp,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 0.7,
+                    color: ApprovalsOverviewTheme.screenDeep,
+                  ),
+                ),
+              ),
+              if (trailing != null) trailing,
+            ],
           ),
           SizedBox(height: 6.h),
           child,
@@ -840,21 +862,140 @@ class _PettyCashDetailsScreenState extends State<PettyCashDetailsScreen> {
     );
   }
 
+  Widget _agreementManagerCell({
+    required String name,
+    required String imageUrl,
+  }) {
+    return Container(
+      width: double.infinity,
+      padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 12.h),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF3E2DC),
+        borderRadius: BorderRadius.circular(12.r),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.85)),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 48.w,
+            height: 48.w,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              border: Border.all(color: Colors.white, width: 1.2),
+            ),
+            child: ClipOval(
+              child: imageUrl.isNotEmpty
+                  ? Image.network(
+                      imageUrl,
+                      fit: BoxFit.cover,
+                      errorBuilder: (_, __, ___) => _avatarFallback(name),
+                    )
+                  : _avatarFallback(name),
+            ),
+          ),
+          SizedBox(width: 10.w),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Agreement Manager',
+                  style: GoogleFonts.poppins(
+                    fontSize: 10.sp,
+                    fontWeight: FontWeight.w500,
+                    color: ApprovalsOverviewTheme.textSoft,
+                  ),
+                ),
+                SizedBox(height: 2.h),
+                Text(
+                  _displayOrNA(name),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: GoogleFonts.poppins(
+                    fontSize: 13.sp,
+                    fontWeight: FontWeight.w700,
+                    color: ApprovalsOverviewTheme.textDark,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _avatarFallback(String name) {
+    final initial = name.trim().isNotEmpty ? name.trim()[0].toUpperCase() : '?';
+    return ColoredBox(
+      color: ApprovalsOverviewTheme.petty.withValues(alpha: 0.18),
+      child: Center(
+        child: Text(
+          initial,
+          style: GoogleFonts.poppins(
+            fontSize: 14.sp,
+            fontWeight: FontWeight.w700,
+            color: ApprovalsOverviewTheme.petty,
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _totalAmountCell({required String amount}) {
+    return Container(
+      width: double.infinity,
+      padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 12.h),
+      decoration: BoxDecoration(
+        color: const Color(0xFFE8F5EE),
+        borderRadius: BorderRadius.circular(12.r),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.85)),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          Expanded(
+            child: Text(
+              'Total Amount',
+              style: GoogleFonts.poppins(
+                fontSize: 10.sp,
+                fontWeight: FontWeight.w500,
+                color: ApprovalsOverviewTheme.textSoft,
+              ),
+            ),
+          ),
+          Text(
+            _formatAmount(amount),
+            style: GoogleFonts.poppins(
+              fontSize: 13.sp,
+              fontWeight: FontWeight.w700,
+              color: const Color(0xFF1B8A4B),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _pettyCashRequestHeader({
     required String holderImage,
     required String holderName,
-    required String pettycashLimit,
-    required String requester,
-    required String requestNo,
-    required String requestDate,
+    required String requesterName,
+    required String submitDate,
   }) {
-    return OverviewGlassPanel(
-      fillAlpha: 0.88,
-      blurSigma: 10,
-      radius: 16,
-      padding: EdgeInsets.symmetric(horizontal: 10.w, vertical: 8.h),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.center,
+    return Container(
+      decoration: BoxDecoration(
+        color: const Color(0xFFCEE3E0),
+        borderRadius: BorderRadius.circular(16.r),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.85)),
+      ),
+      child: OverviewGlassPanel(
+        fillAlpha: 0.72,
+        blurSigma: 10,
+        radius: 16,
+        padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 12.h),
+        child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Container(
             width: 62.w,
@@ -870,7 +1011,7 @@ class _PettyCashDetailsScreenState extends State<PettyCashDetailsScreen> {
               child: _buildAvatar(holderImage, iconSize: 30.w),
             ),
           ),
-          SizedBox(width: 10.w),
+          SizedBox(width: 12.w),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -881,51 +1022,82 @@ class _PettyCashDetailsScreenState extends State<PettyCashDetailsScreen> {
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                   style: GoogleFonts.poppins(
-                    fontSize: 14.sp,
+                    fontSize: 16.sp,
                     fontWeight: FontWeight.w700,
                     color: ApprovalsOverviewTheme.textDark,
                     height: 1.2,
                   ),
                 ),
-                if (requester.trim().isNotEmpty) ...[
-                  SizedBox(height: 2.h),
+                if (requesterName.trim().isNotEmpty) ...[
+                  SizedBox(height: 4.h),
                   Text(
-                    'Requested by: $requester',
-                    maxLines: 1,
+                    'Requested by $requesterName',
+                    maxLines: 2,
                     overflow: TextOverflow.ellipsis,
                     style: GoogleFonts.poppins(
-                      fontSize: 11.sp,
+                      fontSize: 12.sp,
                       fontWeight: FontWeight.w500,
                       color: ApprovalsOverviewTheme.textMuted,
                     ),
                   ),
                 ],
-                SizedBox(height: 6.h),
-                Row(
-                  children: [
-                    _metaPill(
-                      _formatAmount(pettycashLimit),
-                      background: ApprovalsOverviewTheme.screenTintMid
-                          .withValues(alpha: 0.75),
+                if (submitDate.trim().isNotEmpty) ...[
+                  SizedBox(height: 10.h),
+                  Text(
+                    submitDate,
+                    style: GoogleFonts.poppins(
+                      fontSize: 13.sp,
+                      fontWeight: FontWeight.w500,
+                      color: ApprovalsOverviewTheme.textSoft,
                     ),
-                    SizedBox(width: 4.w),
-                    _metaPill(
-                      requestNo,
-                      background:
-                          ApprovalsOverviewTheme.petty.withValues(alpha: 0.16),
-                    ),
-                    SizedBox(width: 4.w),
-                    _metaPill(
-                      requestDate,
-                      background: ApprovalsOverviewTheme.screenTintLight
-                          .withValues(alpha: 0.75),
-                    ),
-                  ],
-                ),
+                  ),
+                ],
               ],
             ),
           ),
         ],
+      ),
+      ),
+    );
+  }
+
+  Widget _viewAttachmentsButton() {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: _viewAttachment,
+        borderRadius: BorderRadius.circular(14.r),
+        child: Ink(
+          padding: EdgeInsets.symmetric(vertical: 11.h),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(14.r),
+            gradient: const LinearGradient(
+              colors: [
+                ApprovalsOverviewTheme.screenMid,
+                ApprovalsOverviewTheme.screenDeep,
+              ],
+            ),
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(
+                Icons.attach_file_rounded,
+                color: Colors.white,
+                size: 18.sp,
+              ),
+              SizedBox(width: 6.w),
+              Text(
+                'View Attachments',
+                style: GoogleFonts.poppins(
+                  fontSize: 13.sp,
+                  fontWeight: FontWeight.w700,
+                  color: Colors.white,
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
@@ -1105,6 +1277,80 @@ class _PettyCashDetailsScreenState extends State<PettyCashDetailsScreen> {
     return chunks;
   }
 
+  Widget _buildGroupedExpenseLines(List<dynamic> lines) {
+    final groups = groupPettyCashLinesByType(lines);
+    if (groups.isEmpty) {
+      return Text(
+        'No expense lines',
+        style: GoogleFonts.poppins(
+          fontSize: 11.sp,
+          fontWeight: FontWeight.w500,
+          color: ApprovalsOverviewTheme.textMuted,
+        ),
+      );
+    }
+
+    return Column(
+      children: [
+        for (int i = 0; i < groups.length; i++) ...[
+          if (i > 0) ...[
+            SizedBox(height: 10.h),
+            Divider(
+              height: 1,
+              color: ApprovalsOverviewTheme.textSoft.withValues(alpha: 0.28),
+            ),
+            SizedBox(height: 10.h),
+          ],
+          InkWell(
+            onTap: () {
+              PettyCashExpenseLinesPopup.show(
+                context: context,
+                title: groups[i].typeLabel,
+                lines: groups[i].lines,
+              );
+            },
+            borderRadius: BorderRadius.circular(8.r),
+            child: Padding(
+              padding: EdgeInsets.symmetric(vertical: 2.h),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  Expanded(
+                    child: Text(
+                      groups[i].typeLabel,
+                      style: GoogleFonts.poppins(
+                        fontSize: 13.sp,
+                        fontWeight: FontWeight.w600,
+                        color: ApprovalsOverviewTheme.textDark,
+                      ),
+                    ),
+                  ),
+                  Text(
+                    ApprovalDisplayHelpers.formatAmountWithAed(
+                      groups[i].totalAmount,
+                      fallback: '0',
+                    ),
+                    style: GoogleFonts.poppins(
+                      fontSize: 13.sp,
+                      fontWeight: FontWeight.w700,
+                      color: ApprovalsOverviewTheme.petty,
+                    ),
+                  ),
+                  SizedBox(width: 4.w),
+                  Icon(
+                    Icons.chevron_right_rounded,
+                    size: 20.sp,
+                    color: ApprovalsOverviewTheme.screenDeep,
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final requestNo = _pick([
@@ -1138,10 +1384,18 @@ class _PettyCashDetailsScreenState extends State<PettyCashDetailsScreen> {
       _formData['amount'],
     ]);
 
-    final projectName = _pick([
-      _formData['project_name'],
-      _formData['project_title'],
-      _formData['project'],
+    final totalAmount = _pick([
+      _formData['total_amount'],
+      _formData['amount_total'],
+      _formData['amount'],
+      pettycashLimit,
+    ]);
+
+    final agreementManagerName = _pick([
+      _formData['agreement_manager_name'],
+    ]);
+    final agreementManagerImage = _pickImage([
+      _formData['agreement_manager_image_url'],
     ]);
 
     final date = _pick([
@@ -1149,6 +1403,12 @@ class _PettyCashDetailsScreenState extends State<PettyCashDetailsScreen> {
       _formData['request_date'],
       _formData['req_date'],
     ]);
+
+    final submitDate = _formatDate(_pick([
+      _formData['create_date'],
+      _formData['created_date'],
+      date,
+    ]));
 
     final holderImage = _pickImage([
       _formData['holder_image_url'],
@@ -1170,18 +1430,6 @@ class _PettyCashDetailsScreenState extends State<PettyCashDetailsScreen> {
     ]);
 
     final lines = _formData['lines'] as List? ?? [];
-    final linePages = _chunkLines(lines, 6);
-    final safePageIndex = linePages.isEmpty
-        ? 0
-        : _currentLinesPage.clamp(0, linePages.length - 1) as int;
-    final currentPageLineCount =
-        linePages.isEmpty ? 1 : linePages[safePageIndex].length;
-    final dividerCount =
-        currentPageLineCount > 0 ? currentPageLineCount - 1 : 0;
-    final lineSliderHeight = linePages.isNotEmpty
-        ? (24.w + (currentPageLineCount * 38.w) + (dividerCount * 19.w))
-            .clamp(84.w, 460.w)
-        : 84.w;
     final hasAttachments = _attachmentIds.isNotEmpty;
     final apiComment = _normalizeApiComment(_pick([
       _formData['api_comment'],
@@ -1198,7 +1446,16 @@ class _PettyCashDetailsScreenState extends State<PettyCashDetailsScreen> {
       _formData['request_comment'],
       _formData['employee_comment'],
     ]));
-    final requestDateLabel = _formatDate(date);
+
+    void showAllExpenseLines() {
+      final allLines = lines.whereType<Map>().map((e) => Map<String, dynamic>.from(e)).toList();
+      PettyCashExpenseLinesPopup.show(
+        context: context,
+        title: 'Expense Lines',
+        lines: allLines,
+        showTypeBadges: true,
+      );
+    }
 
     final userId =
         SharedPref.getLoginData().result?.data?.uid?.toString() ?? '';
@@ -1218,8 +1475,8 @@ class _PettyCashDetailsScreenState extends State<PettyCashDetailsScreen> {
             Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                const ContextualGlassChromeHeader(
-                  title: 'Petty Cash',
+                ContextualGlassChromeHeader(
+                  title: requestNo.isNotEmpty ? requestNo : 'Petty Cash',
                   showBack: true,
                   onLightSurface: true,
                   transparentGlassBar: false,
@@ -1261,10 +1518,8 @@ class _PettyCashDetailsScreenState extends State<PettyCashDetailsScreen> {
                                       child: _pettyCashRequestHeader(
                                         holderImage: holderImage,
                                         holderName: displayHolderName,
-                                        pettycashLimit: pettycashLimit,
-                                        requester: requester,
-                                        requestNo: requestNo,
-                                        requestDate: requestDateLabel,
+                                        requesterName: requester,
+                                        submitDate: submitDate,
                                       ),
                                     ),
                                     SizedBox(height: 6.h),
@@ -1275,235 +1530,64 @@ class _PettyCashDetailsScreenState extends State<PettyCashDetailsScreen> {
                                           16.w,
                                           0,
                                           16.w,
-                                          68.h + context.systemBottomInset,
+                                          (hasAttachments ? 120.h : 68.h) +
+                                              context.systemBottomInset,
                                         ),
                                         child: Column(
                                           children: [
-                                            _glassSectionCard(
-                                              title: 'Request Info',
-                                              child: Column(
-                                                children: [
-                                                  _themeDetailCell(
-                                                    'Petty Cash Holder',
-                                                    pettycashHolder,
-                                                  ),
-                                                  SizedBox(height: 6.h),
-                                                  _themeDetailCell(
-                                                    'Requested By',
-                                                    requester,
-                                                  ),
-                                                  SizedBox(height: 6.h),
-                                                  _themeDetailCell(
-                                                    'Project',
-                                                    projectName,
-                                                  ),
-                                                ],
-                                              ),
+                                            SizedBox(height: 4.h),
+                                            _agreementManagerCell(
+                                              name: agreementManagerName,
+                                              imageUrl: agreementManagerImage,
                                             ),
                                             SizedBox(height: 6.h),
                                             _glassSectionCard(
                                               title: 'Expense Lines',
-                                              child: Column(
-                                                children: [
-                                                  SizedBox(
-                                                    height: lineSliderHeight,
-                                                    child: linePages.isNotEmpty
-                                                        ? PageView.builder(
-                                                            controller:
-                                                                _linesPageController,
-                                                            itemCount: linePages
-                                                                .length,
-                                                            onPageChanged:
-                                                                (index) {
-                                                              if (!mounted) {
-                                                                return;
-                                                              }
-                                                              setState(() {
-                                                                _currentLinesPage =
-                                                                    index;
-                                                              });
-                                                            },
-                                                            itemBuilder:
-                                                                (context,
-                                                                    pageIndex) {
-                                                              final pageLines =
-                                                                  linePages[
-                                                                      pageIndex];
-                                                              return Column(
-                                                                mainAxisSize:
-                                                                    MainAxisSize
-                                                                        .min,
-                                                                children: [
-                                                                  for (int i =
-                                                                          0;
-                                                                      i <
-                                                                          pageLines
-                                                                              .length;
-                                                                      i++)
-                                                                    () {
-                                                                      final lineMap =
-                                                                          pageLines[i] as Map? ??
-                                                                              {};
-                                                                      final description =
-                                                                          _pick([
-                                                                        lineMap[
-                                                                            'description'],
-                                                                        lineMap[
-                                                                            'name'],
-                                                                        projectName,
-                                                                      ], fallback: 'Project name');
-                                                                      final lineDate =
-                                                                          _pick([
-                                                                        lineMap[
-                                                                            'invoice_date'],
-                                                                        lineMap[
-                                                                            'submitted_date'],
-                                                                        lineMap[
-                                                                            'expense_date'],
-                                                                        lineMap[
-                                                                            'date'],
-                                                                        lineMap[
-                                                                            'line_date'],
-                                                                        date,
-                                                                      ]);
-                                                                      final amount =
-                                                                          _pick([
-                                                                        lineMap[
-                                                                            'amount'],
-                                                                        lineMap[
-                                                                            'price'],
-                                                                        lineMap[
-                                                                            'subtotal'],
-                                                                        pettycashLimit,
-                                                                      ]);
-
-                                                                      return _lineItemTile(
-                                                                        description:
-                                                                            description,
-                                                                        lineDate:
-                                                                            lineDate,
-                                                                        amount:
-                                                                            amount,
-                                                                        showDivider: i <
-                                                                            pageLines.length -
-                                                                                1,
-                                                                      );
-                                                                    }(),
-                                                                ],
-                                                              );
-                                                            },
-                                                          )
-                                                        : _lineItemTile(
-                                                            description:
-                                                                _displayOrNA(
-                                                                    projectName),
-                                                            lineDate: date,
-                                                            amount:
-                                                                pettycashLimit,
-                                                            showDivider: false,
-                                                          ),
+                                              trailing: InkWell(
+                                                onTap: showAllExpenseLines,
+                                                borderRadius:
+                                                    BorderRadius.circular(6.r),
+                                                child: Padding(
+                                                  padding: EdgeInsets.symmetric(
+                                                    horizontal: 4.w,
+                                                    vertical: 2.h,
                                                   ),
-                                                  if (linePages.length > 1) ...[
-                                                    SizedBox(height: 8.h),
-                                                    Row(
-                                                      mainAxisAlignment:
-                                                          MainAxisAlignment
-                                                              .center,
-                                                      children: [
-                                                        for (int i = 0;
-                                                            i <
-                                                                linePages
-                                                                    .length;
-                                                            i++)
-                                                          Container(
-                                                            width: 8.w,
-                                                            height: 8.w,
-                                                            margin: EdgeInsets
-                                                                .symmetric(
-                                                                    horizontal:
-                                                                        5.w),
-                                                            decoration:
-                                                                BoxDecoration(
-                                                              shape: BoxShape
-                                                                  .circle,
-                                                              color: i ==
-                                                                      _currentLinesPage
-                                                                  ? ApprovalsOverviewTheme
-                                                                      .petty
-                                                                  : Colors
-                                                                      .transparent,
-                                                              border:
-                                                                  Border.all(
-                                                                color:
-                                                                    ApprovalsOverviewTheme
-                                                                        .textSoft,
-                                                                width: 1,
-                                                              ),
-                                                            ),
-                                                          ),
-                                                      ],
-                                                    ),
-                                                  ],
-                                                ],
-                                              ),
-                                            ),
-                                            SizedBox(height: 6.h),
-                                            _buildSimCommentCard(apiComment),
-                                            if (hasAttachments) ...[
-                                              SizedBox(height: 8.h),
-                                              Material(
-                                                color: Colors.transparent,
-                                                child: InkWell(
-                                                  onTap: _viewAttachment,
-                                                  borderRadius:
-                                                      BorderRadius.circular(
-                                                          14.r),
-                                                  child: Ink(
-                                                    padding:
-                                                        EdgeInsets.symmetric(
-                                                            vertical: 11.h),
-                                                    decoration: BoxDecoration(
-                                                      borderRadius:
-                                                          BorderRadius.circular(
-                                                              14.r),
-                                                      gradient:
-                                                          const LinearGradient(
-                                                        colors: [
-                                                          ApprovalsOverviewTheme
-                                                              .screenMid,
-                                                          ApprovalsOverviewTheme
-                                                              .screenDeep,
-                                                        ],
+                                                  child: Row(
+                                                    mainAxisSize:
+                                                        MainAxisSize.min,
+                                                    children: [
+                                                      Text(
+                                                        'Show all',
+                                                        style:
+                                                            GoogleFonts.poppins(
+                                                          fontSize: 10.sp,
+                                                          fontWeight:
+                                                              FontWeight.w600,
+                                                          color:
+                                                              ApprovalsOverviewTheme
+                                                                  .screenDeep,
+                                                        ),
                                                       ),
-                                                    ),
-                                                    child: Row(
-                                                      mainAxisAlignment:
-                                                          MainAxisAlignment
-                                                              .center,
-                                                      children: [
-                                                        Icon(
-                                                          Icons
-                                                              .attach_file_rounded,
-                                                          color: Colors.white,
-                                                          size: 18.sp,
-                                                        ),
-                                                        SizedBox(width: 6.w),
-                                                        Text(
-                                                          'View Attachments',
-                                                          style: GoogleFonts
-                                                              .poppins(
-                                                            fontSize: 13.sp,
-                                                            fontWeight:
-                                                                FontWeight.w700,
-                                                            color: Colors.white,
-                                                          ),
-                                                        ),
-                                                      ],
-                                                    ),
+                                                      Icon(
+                                                        Icons
+                                                            .chevron_right_rounded,
+                                                        size: 16.sp,
+                                                        color:
+                                                            ApprovalsOverviewTheme
+                                                                .screenDeep,
+                                                      ),
+                                                    ],
                                                   ),
                                                 ),
                                               ),
-                                            ],
+                                              child: _buildGroupedExpenseLines(
+                                                lines,
+                                              ),
+                                            ),
+                                            SizedBox(height: 6.h),
+                                            _totalAmountCell(amount: totalAmount),
+                                            SizedBox(height: 6.h),
+                                            _buildSimCommentCard(apiComment),
                                             SizedBox(height: 8.h),
                                           ],
                                         ),
@@ -1511,6 +1595,13 @@ class _PettyCashDetailsScreenState extends State<PettyCashDetailsScreen> {
                                     ),
                                   ],
                                 ),
+                                if (hasAttachments)
+                                  Positioned(
+                                    left: 16.w,
+                                    right: 16.w,
+                                    bottom: context.systemBottomInset + 72.h,
+                                    child: _viewAttachmentsButton(),
+                                  ),
                                 Positioned(
                                   left: 16.w,
                                   right: 16.w,

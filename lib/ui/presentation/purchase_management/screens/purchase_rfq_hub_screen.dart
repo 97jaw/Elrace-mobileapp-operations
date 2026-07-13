@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:el_race/core/purchase/purchase_dev_role_provider.dart';
+import 'package:el_race/ui/presentation/Email%20Approval/utils/approval_display_helpers.dart';
 import 'package:el_race/ui/presentation/purchase_management/data/purchase_models.dart';
 import 'package:el_race/ui/presentation/purchase_management/data/purchase_repository.dart';
 import 'package:el_race/ui/presentation/purchase_management/data/purchase_status.dart';
@@ -8,6 +9,7 @@ import 'package:el_race/ui/presentation/purchase_management/providers/purchase_p
 import 'package:el_race/ui/presentation/purchase_management/screens/invoice_receiving_create_screen.dart';
 import 'package:el_race/ui/presentation/purchase_management/screens/invoice_receiving_detail_screen.dart';
 import 'package:el_race/ui/presentation/purchase_management/theme/purchase_theme.dart';
+import 'package:el_race/ui/presentation/purchase_management/widgets/lpo_smart_filter_sheet.dart';
 import 'package:el_race/ui/presentation/purchase_management/widgets/purchase_hub_list_scaffold.dart';
 import 'package:el_race/ui/presentation/purchase_management/widgets/purchase_status_chip.dart';
 import 'package:el_race/ui/presentation/lpo/screens/lpo_pdf_viewer_screen.dart';
@@ -41,6 +43,7 @@ class _PurchaseRfqHubScreenState extends ConsumerState<PurchaseRfqHubScreen> {
   int _currentPage = 1;
   bool _hasMore = false;
   String _keyword = '';
+  PurchaseListFilters _smartFilters = const PurchaseListFilters();
 
   bool get _isInvoiceSegment {
     final access = ref.read(purchaseAccessProvider);
@@ -115,6 +118,7 @@ class _PurchaseRfqHubScreenState extends ConsumerState<PurchaseRfqHubScreen> {
           page: 1,
           keyword: _keyword,
           status: _rfqStatusFilter,
+          filters: _smartFilters.isEmpty ? null : _smartFilters,
           testRole: widget.testRole,
         );
         if (!mounted) return;
@@ -155,6 +159,7 @@ class _PurchaseRfqHubScreenState extends ConsumerState<PurchaseRfqHubScreen> {
           page: _currentPage + 1,
           keyword: _keyword,
           status: _rfqStatusFilter,
+          filters: _smartFilters.isEmpty ? null : _smartFilters,
           testRole: widget.testRole,
         );
         if (!mounted) return;
@@ -190,6 +195,18 @@ class _PurchaseRfqHubScreenState extends ConsumerState<PurchaseRfqHubScreen> {
     } catch (_) {}
   }
 
+  Future<void> _showFilterSheet() async {
+    final result = await LpoSmartFilterSheet.show(
+      context: context,
+      initial: _smartFilters,
+      repository: _repo,
+      testRole: widget.testRole,
+    );
+    if (result == null) return;
+    setState(() => _smartFilters = result);
+    _fetchItems();
+  }
+
   @override
   Widget build(BuildContext context) {
     final access = ref.watch(purchaseAccessProvider);
@@ -203,6 +220,8 @@ class _PurchaseRfqHubScreenState extends ConsumerState<PurchaseRfqHubScreen> {
           segmentLabels: _segmentLabels,
           selectedSegment: _segment,
           onSegmentChanged: _onSegmentChanged,
+          onSmartFilterTap: _isInvoiceSegment ? null : _showFilterSheet,
+          smartFilterCount: _isInvoiceSegment ? 0 : _smartFilters.activeCount,
           itemCount: itemCount,
           isLoading: _isLoading,
           isLoadingMore: _isLoadingMore,
@@ -339,15 +358,15 @@ class _RfqRow extends StatelessWidget {
               ],
             ),
           ],
-          // Row 4: amount (right-aligned)
-          if (item.amountDisplay.isNotEmpty || item.amountTotal > 0) ...[
+          // Row 4: full amount (no K/M abbreviation / whole-number round-off)
+          if (item.amountTotal > 0 || item.amountDisplay.isNotEmpty) ...[
             SizedBox(height: 8.h),
             Align(
               alignment: Alignment.centerRight,
               child: Text(
-                item.amountDisplay.isNotEmpty
-                    ? item.amountDisplay
-                    : 'AED ${item.amountTotal.toStringAsFixed(0)}',
+                ApprovalDisplayHelpers.formatAmountWithAed(
+                  item.amountTotal > 0 ? item.amountTotal : item.amountDisplay,
+                ),
                 style: GoogleFonts.poppins(
                   fontSize: 17.sp,
                   fontWeight: FontWeight.w800,
@@ -440,9 +459,11 @@ class _InvoiceRow extends StatelessWidget {
                 ),
               const Spacer(),
               Text(
-                item.amountDisplay.isNotEmpty
-                    ? item.amountDisplay
-                    : '${item.currency} ${item.amount.toStringAsFixed(0)}',
+                item.amount > 0
+                    ? ApprovalDisplayHelpers.formatAmountWithAed(item.amount)
+                    : ApprovalDisplayHelpers.formatAmountWithAed(
+                        item.amountDisplay,
+                      ),
                 style: GoogleFonts.poppins(
                   fontSize: 15.sp,
                   fontWeight: FontWeight.w800,

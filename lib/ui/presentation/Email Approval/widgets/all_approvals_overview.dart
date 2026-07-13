@@ -8,7 +8,7 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 /// Compact ROR tab panel height.
-const double _kRorTabHeight = 290;
+const double _kRorTabHeight = 300;
 
 /// Full-screen Waiting Approval dashboard (All tab).
 class AllApprovalsOverview extends StatefulWidget {
@@ -36,6 +36,10 @@ class AllApprovalsOverview extends StatefulWidget {
     this.rorRfqRor,
     this.rorInvoiceRor,
     this.rorPettyCashRor,
+    this.rorMonth,
+    this.rorYear,
+    this.rorLoading = false,
+    this.onRorPeriodChanged,
     this.onDelayedRecordTap,
     this.onCategoryRecordTap,
     this.onHrManagementTestCasesTap,
@@ -63,6 +67,10 @@ class AllApprovalsOverview extends StatefulWidget {
   final int? rorRfqRor;
   final int? rorInvoiceRor;
   final int? rorPettyCashRor;
+  final int? rorMonth;
+  final int? rorYear;
+  final bool rorLoading;
+  final void Function(int month, int year)? onRorPeriodChanged;
   final Future<void> Function(
     BuildContext sheetContext,
     Map<String, dynamic> item,
@@ -243,6 +251,10 @@ class _AllApprovalsOverviewState extends State<AllApprovalsOverview> {
                       rfqRor: widget.rorRfqRor,
                       invoiceRor: widget.rorInvoiceRor,
                       pettyCashRor: widget.rorPettyCashRor,
+                      selectedMonth: widget.rorMonth ?? DateTime.now().month,
+                      selectedYear: widget.rorYear ?? DateTime.now().year,
+                      loading: widget.rorLoading,
+                      onPeriodChanged: widget.onRorPeriodChanged,
                     ),
                   ),
           ),
@@ -353,6 +365,10 @@ class _RorCard extends StatelessWidget {
     this.pettyCashRor,
     this.compact = false,
     this.height,
+    this.selectedMonth,
+    this.selectedYear,
+    this.loading = false,
+    this.onPeriodChanged,
   });
 
   final int rorPercentage;
@@ -362,6 +378,10 @@ class _RorCard extends StatelessWidget {
   final int? pettyCashRor;
   final bool compact;
   final double? height;
+  final int? selectedMonth;
+  final int? selectedYear;
+  final bool loading;
+  final void Function(int month, int year)? onPeriodChanged;
 
   List<_RorSeriesPoint> get _points => [
         _RorSeriesPoint('Employee', hrRor ?? 0, ApprovalsOverviewTheme.hr),
@@ -429,23 +449,42 @@ class _RorCard extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: compact ? MainAxisSize.max : MainAxisSize.min,
         children: [
-          Text(
-            'Response Rate',
-            style: GoogleFonts.poppins(
-              fontSize: compact ? 14.sp : 16.sp,
-              fontWeight: FontWeight.w700,
-              color: ApprovalsOverviewTheme.textDark,
-            ),
-          ),
-          SizedBox(height: compact ? 2.h : 4.h),
-          Text(
-            '$displayOverall%',
-            style: GoogleFonts.poppins(
-              fontSize: compact ? 26.sp : 30.sp,
-              fontWeight: FontWeight.w700,
-              color: ApprovalsOverviewTheme.textDark,
-              height: 1.05,
-            ),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Response Rate',
+                      style: GoogleFonts.poppins(
+                        fontSize: compact ? 14.sp : 16.sp,
+                        fontWeight: FontWeight.w700,
+                        color: ApprovalsOverviewTheme.textDark,
+                      ),
+                    ),
+                    SizedBox(height: compact ? 2.h : 4.h),
+                    Text(
+                      '$displayOverall%',
+                      style: GoogleFonts.poppins(
+                        fontSize: compact ? 26.sp : 30.sp,
+                        fontWeight: FontWeight.w700,
+                        color: ApprovalsOverviewTheme.textDark,
+                        height: 1.05,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              if (onPeriodChanged != null)
+                _RorPeriodFilters(
+                  compact: compact,
+                  selectedMonth: selectedMonth ?? DateTime.now().month,
+                  selectedYear: selectedYear ?? DateTime.now().year,
+                  onChanged: onPeriodChanged!,
+                ),
+            ],
           ),
           SizedBox(height: compact ? 8.h : 12.h),
           if (hasData) ...[
@@ -454,33 +493,88 @@ class _RorCard extends StatelessWidget {
               SizedBox(height: 6.h),
             ],
             Expanded(
-              child: LineChart(
-                LineChartData(
-                  minX: 0,
-                  maxX: (points.length - 1).toDouble(),
-                  minY: 0,
-                  maxY: _chartMaxY,
-                  clipData: const FlClipData.all(),
-                  lineTouchData: const LineTouchData(enabled: false),
-                  gridData: FlGridData(
-                    show: true,
-                    drawVerticalLine: false,
-                    horizontalInterval: _chartMaxY / 4,
-                    getDrawingHorizontalLine: (_) => const FlLine(
-                      color: Color(0xFFECEEF2),
-                      strokeWidth: 1,
-                    ),
-                  ),
-                  borderData: FlBorderData(show: false),
-                  titlesData: FlTitlesData(
-                    rightTitles: const AxisTitles(
-                      sideTitles: SideTitles(showTitles: false),
-                    ),
-                    topTitles: compact
-                        ? AxisTitles(
+              child: Stack(
+                children: [
+                  Padding(
+                    padding: EdgeInsets.fromLTRB(2.w, 8.h, 6.w, 2.h),
+                    child: LineChart(
+                      LineChartData(
+                        minX: 0,
+                        maxX: (points.length - 1).toDouble(),
+                        minY: 0,
+                        maxY: _chartMaxY,
+                        clipData: const FlClipData.none(),
+                        lineTouchData: const LineTouchData(enabled: false),
+                        gridData: FlGridData(
+                          show: true,
+                          drawVerticalLine: false,
+                          horizontalInterval: _chartMaxY / 4,
+                          getDrawingHorizontalLine: (_) => const FlLine(
+                            color: Color(0xFFECEEF2),
+                            strokeWidth: 1,
+                          ),
+                        ),
+                        borderData: FlBorderData(show: false),
+                        titlesData: FlTitlesData(
+                          rightTitles: const AxisTitles(
+                            sideTitles: SideTitles(showTitles: false),
+                          ),
+                          topTitles: compact
+                              ? AxisTitles(
+                                  sideTitles: SideTitles(
+                                    showTitles: true,
+                                    reservedSize: 22.h,
+                                    interval: 1,
+                                    getTitlesWidget: (value, meta) {
+                                      if (!_isWholeStep(value)) {
+                                        return const SizedBox.shrink();
+                                      }
+                                      final i = value.round();
+                                      if (i < 0 || i >= points.length) {
+                                        return const SizedBox.shrink();
+                                      }
+                                      return Padding(
+                                        padding: EdgeInsets.only(bottom: 2.h),
+                                        child: Text(
+                                          '${points[i].percent}%',
+                                          style: GoogleFonts.poppins(
+                                            fontSize: 9.sp,
+                                            fontWeight: FontWeight.w700,
+                                            color:
+                                                ApprovalsOverviewTheme.textDark,
+                                          ),
+                                        ),
+                                      );
+                                    },
+                                  ),
+                                )
+                              : const AxisTitles(
+                                  sideTitles: SideTitles(showTitles: false),
+                                ),
+                          leftTitles: AxisTitles(
                             sideTitles: SideTitles(
                               showTitles: true,
-                              reservedSize: 18.h,
+                              reservedSize: compact ? 28.w : 32.w,
+                              interval: _chartMaxY / 4,
+                              getTitlesWidget: (value, meta) {
+                                if (value < 0 || value > _chartMaxY) {
+                                  return const SizedBox.shrink();
+                                }
+                                return Text(
+                                  value.toInt().toString(),
+                                  style: GoogleFonts.poppins(
+                                    fontSize: 8.sp,
+                                    fontWeight: FontWeight.w500,
+                                    color: ApprovalsOverviewTheme.textSoft,
+                                  ),
+                                );
+                              },
+                            ),
+                          ),
+                          bottomTitles: AxisTitles(
+                            sideTitles: SideTitles(
+                              showTitles: true,
+                              reservedSize: compact ? 24.h : 28.h,
                               interval: 1,
                               getTitlesWidget: (value, meta) {
                                 if (!_isWholeStep(value)) {
@@ -490,120 +584,89 @@ class _RorCard extends StatelessWidget {
                                 if (i < 0 || i >= points.length) {
                                   return const SizedBox.shrink();
                                 }
-                                return Text(
-                                  '${points[i].percent}%',
-                                  style: GoogleFonts.poppins(
-                                    fontSize: 9.sp,
-                                    fontWeight: FontWeight.w700,
-                                    color: ApprovalsOverviewTheme.textDark,
+                                return Padding(
+                                  padding: EdgeInsets.only(top: 4.h),
+                                  child: Text(
+                                    _shortLabel(points[i].label),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    textAlign: TextAlign.center,
+                                    style: GoogleFonts.poppins(
+                                      fontSize: 7.sp,
+                                      fontWeight: FontWeight.w600,
+                                      color: ApprovalsOverviewTheme.textSoft,
+                                    ),
                                   ),
                                 );
                               },
                             ),
-                          )
-                        : const AxisTitles(
-                            sideTitles: SideTitles(showTitles: false),
                           ),
-                    leftTitles: AxisTitles(
-                      sideTitles: SideTitles(
-                        showTitles: true,
-                        reservedSize: compact ? 24.w : 28.w,
-                        interval: _chartMaxY / 4,
-                        getTitlesWidget: (value, meta) {
-                          if (value < 0 || value > _chartMaxY) {
-                            return const SizedBox.shrink();
-                          }
-                          return Text(
-                            value.toInt().toString(),
-                            style: GoogleFonts.poppins(
-                              fontSize: 8.sp,
-                              fontWeight: FontWeight.w500,
-                              color: ApprovalsOverviewTheme.textSoft,
+                        ),
+                        lineBarsData: [
+                          LineChartBarData(
+                            spots: [
+                              for (var i = 0; i < points.length; i++)
+                                FlSpot(
+                                  i.toDouble(),
+                                  points[i].percent.toDouble(),
+                                ),
+                            ],
+                            isCurved: true,
+                            curveSmoothness: 0.32,
+                            color: ApprovalsOverviewTheme.rorChartLine,
+                            barWidth: 2.5,
+                            isStrokeCapRound: true,
+                            dotData: FlDotData(
+                              show: true,
+                              getDotPainter: (spot, percent, bar, index) {
+                                return FlDotCirclePainter(
+                                  radius: compact ? 3.5 : 4.5,
+                                  color: ApprovalsOverviewTheme.white,
+                                  strokeWidth: 2.5,
+                                  strokeColor: points[index].color,
+                                );
+                              },
                             ),
-                          );
-                        },
-                      ),
-                    ),
-                    bottomTitles: AxisTitles(
-                      sideTitles: SideTitles(
-                        showTitles: true,
-                        reservedSize: compact ? 18.h : 22.h,
-                        interval: 1,
-                        getTitlesWidget: (value, meta) {
-                          if (!_isWholeStep(value)) {
-                            return const SizedBox.shrink();
-                          }
-                          final i = value.round();
-                          if (i < 0 || i >= points.length) {
-                            return const SizedBox.shrink();
-                          }
-                          return Padding(
-                            padding: EdgeInsets.only(top: 3.h),
-                            child: Text(
-                              _shortLabel(points[i].label),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              textAlign: TextAlign.center,
-                              style: GoogleFonts.poppins(
-                                fontSize: 7.sp,
-                                fontWeight: FontWeight.w600,
-                                color: ApprovalsOverviewTheme.textSoft,
+                            belowBarData: BarAreaData(
+                              show: true,
+                              gradient: LinearGradient(
+                                begin: Alignment.topCenter,
+                                end: Alignment.bottomCenter,
+                                colors: [
+                                  ApprovalsOverviewTheme.rorChartFill
+                                      .withValues(alpha: 0.28),
+                                  ApprovalsOverviewTheme.rorChartFill
+                                      .withValues(alpha: 0.02),
+                                ],
                               ),
                             ),
-                          );
-                        },
-                      ),
-                    ),
-                  ),
-                  lineBarsData: [
-                    LineChartBarData(
-                      spots: [
-                        for (var i = 0; i < points.length; i++)
-                          FlSpot(i.toDouble(), points[i].percent.toDouble()),
-                      ],
-                      isCurved: true,
-                      curveSmoothness: 0.32,
-                      color: ApprovalsOverviewTheme.rorChartLine,
-                      barWidth: 2.5,
-                      isStrokeCapRound: true,
-                      dotData: FlDotData(
-                        show: true,
-                        getDotPainter: (spot, percent, bar, index) {
-                          return FlDotCirclePainter(
-                            radius: compact ? 3.5 : 4.5,
-                            color: ApprovalsOverviewTheme.white,
-                            strokeWidth: 2.5,
-                            strokeColor: points[index].color,
-                          );
-                        },
-                      ),
-                      belowBarData: BarAreaData(
-                        show: true,
-                        gradient: LinearGradient(
-                          begin: Alignment.topCenter,
-                          end: Alignment.bottomCenter,
-                          colors: [
-                            ApprovalsOverviewTheme.rorChartFill
-                                .withValues(alpha: 0.28),
-                            ApprovalsOverviewTheme.rorChartFill
-                                .withValues(alpha: 0.02),
+                          ),
+                        ],
+                        extraLinesData: ExtraLinesData(
+                          horizontalLines: [
+                            HorizontalLine(
+                              y: displayOverall.toDouble().clamp(0, _chartMaxY),
+                              color: ApprovalsOverviewTheme.screenDeep
+                                  .withValues(alpha: 0.35),
+                              strokeWidth: 1,
+                              dashArray: [4, 4],
+                            ),
                           ],
                         ),
                       ),
                     ),
-                  ],
-                  extraLinesData: ExtraLinesData(
-                    horizontalLines: [
-                      HorizontalLine(
-                        y: displayOverall.toDouble().clamp(0, _chartMaxY),
-                        color: ApprovalsOverviewTheme.screenDeep
-                            .withValues(alpha: 0.35),
-                        strokeWidth: 1,
-                        dashArray: [4, 4],
-                      ),
-                    ],
                   ),
-                ),
+                  if (loading)
+                    Positioned.fill(
+                      child: ColoredBox(
+                        color: ApprovalsOverviewTheme.white
+                            .withValues(alpha: 0.72),
+                        child: const Center(
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        ),
+                      ),
+                    ),
+                ],
               ),
             ),
             if (!compact) ...[
@@ -653,6 +716,284 @@ class _RorCard extends StatelessWidget {
       default:
         return label;
     }
+  }
+}
+
+class _RorPeriodFilters extends StatelessWidget {
+  const _RorPeriodFilters({
+    required this.compact,
+    required this.selectedMonth,
+    required this.selectedYear,
+    required this.onChanged,
+  });
+
+  final bool compact;
+  final int selectedMonth;
+  final int selectedYear;
+  final void Function(int month, int year) onChanged;
+
+  static const _monthNames = [
+    'January',
+    'February',
+    'March',
+    'April',
+    'May',
+    'June',
+    'July',
+    'August',
+    'September',
+    'October',
+    'November',
+    'December',
+  ];
+
+  static const _monthShortNames = [
+    'Jan',
+    'Feb',
+    'Mar',
+    'Apr',
+    'May',
+    'Jun',
+    'Jul',
+    'Aug',
+    'Sep',
+    'Oct',
+    'Nov',
+    'Dec',
+  ];
+
+  List<int> get _years {
+    final current = DateTime.now().year;
+    return [for (var y = current - 2; y <= current + 2; y++) y];
+  }
+
+  Future<void> _openMonthSheet(BuildContext context) async {
+    final picked = await _RorPeriodPickerSheet.show<int>(
+      context: context,
+      title: 'Select month',
+      options: [
+        for (var i = 1; i <= 12; i++)
+          _RorPickerOption(value: i, label: _monthNames[i - 1]),
+      ],
+      selectedValue: selectedMonth,
+    );
+    if (picked != null) onChanged(picked, selectedYear);
+  }
+
+  Future<void> _openYearSheet(BuildContext context) async {
+    final years = _years;
+    final effectiveYear =
+        years.contains(selectedYear) ? selectedYear : years.last;
+    final picked = await _RorPeriodPickerSheet.show<int>(
+      context: context,
+      title: 'Select year',
+      options: [
+        for (final year in years)
+          _RorPickerOption(value: year, label: '$year'),
+      ],
+      selectedValue: effectiveYear,
+    );
+    if (picked != null) onChanged(selectedMonth, picked);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final monthLabel = _monthShortNames[(selectedMonth.clamp(1, 12)) - 1];
+    final yearLabel = '$selectedYear';
+
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        _periodChip(
+          context: context,
+          label: monthLabel,
+          onTap: () => _openMonthSheet(context),
+        ),
+        SizedBox(width: 4.w),
+        _periodChip(
+          context: context,
+          label: yearLabel,
+          onTap: () => _openYearSheet(context),
+        ),
+      ],
+    );
+  }
+
+  Widget _periodChip({
+    required BuildContext context,
+    required String label,
+    required VoidCallback onTap,
+  }) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(8.r),
+        child: Container(
+          padding: EdgeInsets.symmetric(horizontal: 8.w, vertical: 5.h),
+          decoration: BoxDecoration(
+            color: ApprovalsOverviewTheme.screenTintLight.withValues(alpha: 0.55),
+            borderRadius: BorderRadius.circular(8.r),
+            border: Border.all(
+              color: ApprovalsOverviewTheme.textSoft.withValues(alpha: 0.35),
+            ),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                label,
+                style: GoogleFonts.poppins(
+                  fontSize: compact ? 9.sp : 10.sp,
+                  fontWeight: FontWeight.w600,
+                  color: ApprovalsOverviewTheme.textDark,
+                ),
+              ),
+              SizedBox(width: 2.w),
+              Icon(
+                Icons.keyboard_arrow_down_rounded,
+                size: compact ? 14.sp : 16.sp,
+                color: ApprovalsOverviewTheme.textSoft,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _RorPickerOption<T> {
+  const _RorPickerOption({required this.value, required this.label});
+
+  final T value;
+  final String label;
+}
+
+class _RorPeriodPickerSheet {
+  static Future<T?> show<T>({
+    required BuildContext context,
+    required String title,
+    required List<_RorPickerOption<T>> options,
+    required T selectedValue,
+  }) {
+    return showModalBottomSheet<T>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      useSafeArea: true,
+      builder: (ctx) {
+        final bottomInset = MediaQuery.paddingOf(ctx).bottom;
+        return Padding(
+          padding: EdgeInsets.fromLTRB(12.w, 0, 12.w, 12.h + bottomInset),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(20.r),
+            child: DecoratedBox(
+              decoration: const BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [
+                    ApprovalsOverviewTheme.screenMid,
+                    ApprovalsOverviewTheme.screenDeep,
+                  ],
+                ),
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Padding(
+                    padding: EdgeInsets.fromLTRB(16.w, 14.h, 8.w, 8.h),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            title,
+                            style: GoogleFonts.poppins(
+                              fontSize: 15.sp,
+                              fontWeight: FontWeight.w700,
+                              color: Colors.white,
+                            ),
+                          ),
+                        ),
+                        IconButton(
+                          onPressed: () => Navigator.pop(ctx),
+                          icon: const Icon(Icons.close_rounded),
+                          color: Colors.white,
+                        ),
+                      ],
+                    ),
+                  ),
+                  Divider(
+                    height: 1,
+                    color: Colors.white.withValues(alpha: 0.18),
+                  ),
+                  ConstrainedBox(
+                    constraints: BoxConstraints(maxHeight: 320.h),
+                    child: ListView.separated(
+                      shrinkWrap: true,
+                      padding: EdgeInsets.fromLTRB(12.w, 8.h, 12.w, 12.h),
+                      itemCount: options.length,
+                      separatorBuilder: (_, __) => SizedBox(height: 6.h),
+                      itemBuilder: (context, index) {
+                        final option = options[index];
+                        final selected = option.value == selectedValue;
+                        return Material(
+                          color: Colors.transparent,
+                          child: InkWell(
+                            onTap: () => Navigator.pop(ctx, option.value),
+                            borderRadius: BorderRadius.circular(12.r),
+                            child: Container(
+                              padding: EdgeInsets.symmetric(
+                                horizontal: 14.w,
+                                vertical: 12.h,
+                              ),
+                              decoration: BoxDecoration(
+                                color: selected
+                                    ? Colors.white.withValues(alpha: 0.22)
+                                    : Colors.white.withValues(alpha: 0.08),
+                                borderRadius: BorderRadius.circular(12.r),
+                                border: Border.all(
+                                  color: selected
+                                      ? Colors.white.withValues(alpha: 0.55)
+                                      : Colors.white.withValues(alpha: 0.12),
+                                ),
+                              ),
+                              child: Row(
+                                children: [
+                                  Expanded(
+                                    child: Text(
+                                      option.label,
+                                      style: GoogleFonts.poppins(
+                                        fontSize: 14.sp,
+                                        fontWeight: selected
+                                            ? FontWeight.w700
+                                            : FontWeight.w500,
+                                        color: Colors.white,
+                                      ),
+                                    ),
+                                  ),
+                                  if (selected)
+                                    Icon(
+                                      Icons.check_circle_rounded,
+                                      color: Colors.white,
+                                      size: 20.sp,
+                                    ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
+    );
   }
 }
 

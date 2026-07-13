@@ -187,6 +187,23 @@ class PurchaseRepository {
     return MrDetail.fromJson(payload);
   }
 
+  Future<PurchaseFilterOptions> fetchPurchaseFilterOptions({
+    String search = '',
+    String kind = '',
+    PurchaseDevTestRole? testRole,
+  }) async {
+    final result = await _post(
+      '/purchase/filter_options',
+      _withTestRole({
+        if (search.isNotEmpty) 'search': search,
+        if (kind.isNotEmpty) 'kind': kind,
+      }, testRole),
+    );
+    final payload = _unwrap(result);
+    if (payload == null) return PurchaseFilterOptions.empty;
+    return PurchaseFilterOptions.fromJson(Map<String, dynamic>.from(payload));
+  }
+
   Future<({List<RfqItem> items, bool hasMore})> fetchRfqs({
     int page = 1,
     int limit = 10,

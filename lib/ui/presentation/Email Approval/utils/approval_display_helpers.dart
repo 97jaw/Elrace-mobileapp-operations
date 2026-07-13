@@ -309,6 +309,52 @@ abstract final class ApprovalDisplayHelpers {
     return includeAed ? '$formatted AED' : formatted;
   }
 
+  /// Formats API date/datetime values as `dd/MM/yyyy` for approval list cards.
+  static String formatFullDate(dynamic raw) {
+    if (raw == null || raw == false || raw == true) return '';
+    final text = raw.toString().trim();
+    if (text.isEmpty ||
+        text.toLowerCase() == 'null' ||
+        text.toLowerCase() == 'false') {
+      return '';
+    }
+
+    final iso = DateTime.tryParse(text);
+    if (iso != null) {
+      return DateFormat('dd/MM/yyyy').format(iso);
+    }
+
+    const patterns = [
+      'dd/MM/yyyy',
+      'd/M/yyyy',
+      'yyyy-MM-dd',
+      'dd-MM-yyyy',
+      'MMM d, yyyy',
+      'dd MMM yyyy',
+    ];
+    for (final pattern in patterns) {
+      try {
+        final parsed = DateFormat(pattern).parse(text);
+        return DateFormat('dd/MM/yyyy').format(parsed);
+      } catch (_) {}
+    }
+
+    return text;
+  }
+
+  static String formatFullDateFromItem(
+    Map<dynamic, dynamic> item,
+    List<String> keys, {
+    String fallback = '',
+  }) {
+    for (final key in keys) {
+      if (!item.containsKey(key)) continue;
+      final formatted = formatFullDate(item[key]);
+      if (formatted.isNotEmpty) return formatted;
+    }
+    return fallback;
+  }
+
   static Widget buildCircleAvatar({
     required String imageData,
     required double size,

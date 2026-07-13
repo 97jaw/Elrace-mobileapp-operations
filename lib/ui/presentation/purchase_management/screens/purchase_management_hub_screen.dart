@@ -243,8 +243,7 @@ class _HubBody extends ConsumerWidget {
               ),
             SizedBox(height: 10.h),
             PurchaseCompactLpoStrip(
-              openCount: cards.lposOpen,
-              closedCount: cards.lposClosed,
+              totalCount: cards.lpos,
               onTap: () => Navigator.push(
                 context,
                 MaterialPageRoute(
@@ -279,12 +278,8 @@ class _HubBody extends ConsumerWidget {
               subtitle: 'Confirmed purchase orders',
               metrics: [
                 PurchaseHeroMetric(
-                  label: 'Open',
-                  value: formatPurchaseCompact(cards.lposOpen),
-                ),
-                PurchaseHeroMetric(
-                  label: 'Closed',
-                  value: formatPurchaseCompact(cards.lposClosed),
+                  label: 'Total',
+                  value: formatPurchaseCompact(cards.lpos),
                 ),
               ],
               onTap: () => Navigator.push(

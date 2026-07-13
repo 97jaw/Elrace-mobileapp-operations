@@ -85,7 +85,7 @@ class SignInBloc extends Bloc<SignInEvent, SignInState> {
           log('USER_TOKEN: $_token');
           // ======================================
 
-          await userRepo.setLoginResponse(loginResponseModel);
+          await userRepo.setLoginResponse(loginResponseModel, rawJson: json);
           await userRepo.setISLoggedIn(true);
           await SharedPref().setPreferencesBoolean('isRegistered', true);
           // Update login state in Hive for background service

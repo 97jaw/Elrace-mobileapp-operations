@@ -41,11 +41,7 @@ class _PettyCashMyActionScreenState extends State<PettyCashMyActionScreen>
       error: actionsError,
       onRefresh: refreshActions,
       onRetry: retryInitialActionsLoad,
-      onItemTap: (item) => MyActionsDetailNavigation.open(
-        context,
-        MyActionsModule.pettyCash,
-        item,
-      ),
+      onItemTap: (_) {},
       filter: _filter,
       onFilterChanged: (f) => setState(() => _filter = f),
       subtitleBuilder: MyActionsDetailNavigation.pettyCashSubtitle,
@@ -53,11 +49,7 @@ class _PettyCashMyActionScreenState extends State<PettyCashMyActionScreen>
         context: context,
         module: MyActionsModule.pettyCash,
         filter: _filter,
-        onItemTap: (item) => MyActionsDetailNavigation.open(
-          context,
-          MyActionsModule.pettyCash,
-          item,
-        ),
+        onItemTap: (_) {},
         subtitleBuilder: MyActionsDetailNavigation.pettyCashSubtitle,
       ),
     );

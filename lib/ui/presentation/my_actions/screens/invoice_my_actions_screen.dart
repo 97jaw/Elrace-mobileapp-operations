@@ -40,8 +40,7 @@ class _InvoiceMyActionsScreenState extends State<InvoiceMyActionsScreen>
       error: actionsError,
       onRefresh: refreshActions,
       onRetry: retryInitialActionsLoad,
-      onItemTap: (item) =>
-          MyActionsDetailNavigation.open(context, MyActionsModule.invoice, item),
+      onItemTap: (_) {},
       filter: _filter,
       onFilterChanged: (f) => setState(() => _filter = f),
       subtitleBuilder: MyActionsDetailNavigation.invoiceSubtitle,
@@ -49,11 +48,7 @@ class _InvoiceMyActionsScreenState extends State<InvoiceMyActionsScreen>
         context: context,
         module: MyActionsModule.invoice,
         filter: _filter,
-        onItemTap: (item) => MyActionsDetailNavigation.open(
-          context,
-          MyActionsModule.invoice,
-          item,
-        ),
+        onItemTap: (_) {},
         subtitleBuilder: MyActionsDetailNavigation.invoiceSubtitle,
       ),
     );

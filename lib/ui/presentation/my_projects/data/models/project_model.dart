@@ -23,6 +23,7 @@ class ProjectModel extends ProjectEntity {
     super.projectStatusCompute,
     super.projectNameArabic,
     super.woTypeNoOffice,
+    super.isInternalProject,
     super.partnerName,
     super.cityId,
     super.cityName,
@@ -151,10 +152,19 @@ class ProjectModel extends ProjectEntity {
           OdooFieldParsers.readString(json['project_name_arabic']).isEmpty
               ? null
               : OdooFieldParsers.readString(json['project_name_arabic']),
-      woTypeNoOffice:
-          OdooFieldParsers.readString(json['wo_type_no_office']).isEmpty
-              ? null
-              : OdooFieldParsers.readString(json['wo_type_no_office']),
+      woTypeNoOffice: () {
+        final noOffice =
+            OdooFieldParsers.readString(json['wo_type_no_office']);
+        if (noOffice.isNotEmpty) return noOffice;
+        final woType = OdooFieldParsers.readString(json['wo_type']);
+        return woType.isEmpty ? null : woType;
+      }(),
+      isInternalProject: () {
+        final raw = json['x_internal_project'] ?? json['is_internal_project'];
+        if (raw == true || raw == 1) return true;
+        if (raw == false || raw == 0 || raw == null) return false;
+        return raw.toString().trim().toLowerCase() == 'true';
+      }(),
       partnerName: partnerName.isNotEmpty ? partnerName : null,
       cityId: cityId,
       cityName: cityName.isNotEmpty ? cityName : null,

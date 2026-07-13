@@ -3,8 +3,8 @@ import 'package:el_race/core/theme/hr_module_colors.dart';
 import 'package:el_race/core/theme/hr_module_layout.dart';
 import 'package:el_race/core/theme/hr_module_typography.dart';
 import 'package:el_race/core/widgets/hr_management/hr_module_glass_header.dart';
+import 'package:el_race/core/widgets/hr_management/hr_search_bar.dart';
 import 'package:el_race/core/widgets/payslip/payslip_gradient_scaffold.dart';
-import 'package:el_race/ui/presentation/payslip/payslip_detail_screen.dart';
 import 'package:el_race/ui/presentation/payslip/widgets/payslip_record_card.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -28,6 +28,13 @@ class _HrPayslipModuleScreenState extends ConsumerState<HrPayslipModuleScreen> {
     super.dispose();
   }
 
+  void _onSearchChanged(String query) {
+    final keyword = query.trim();
+    ref.read(payslipListProvider.notifier).setFilters(
+          keyword: keyword.isEmpty ? null : keyword,
+        );
+  }
+
   @override
   Widget build(BuildContext context) {
     final listAsync = ref.watch(payslipListProvider);
@@ -40,104 +47,94 @@ class _HrPayslipModuleScreenState extends ConsumerState<HrPayslipModuleScreen> {
             title: 'Payslips',
             accentTint: HrModuleHeaderTints.payslip,
           ),
+          Padding(
+            padding: EdgeInsets.fromLTRB(
+              HrModuleLayout.screenPaddingH.w,
+              12.h,
+              HrModuleLayout.screenPaddingH.w,
+              8.h,
+            ),
+            child: HrSearchBar(
+              controller: _searchCtrl,
+              hintText: 'Search employee or reference',
+              onDebouncedChanged: _onSearchChanged,
+            ),
+          ),
           Expanded(
             child: RefreshIndicator(
-        color: HrModuleColors.payslipAccent,
-        onRefresh: () => ref.read(payslipListProvider.notifier).refresh(),
-        child: ListView(
-          padding: EdgeInsets.fromLTRB(
-            HrModuleLayout.screenPaddingH.w,
-            16.h,
-            HrModuleLayout.screenPaddingH.w,
-            32.h,
-          ),
-          children: [
-            TextField(
-              controller: _searchCtrl,
-              decoration: InputDecoration(
-                hintText: 'Search employee or reference',
-                filled: true,
-                fillColor: HrModuleColors.surface,
-                prefixIcon: const Icon(Icons.search),
-                suffixIcon: IconButton(
-                  icon: const Icon(Icons.clear),
-                  onPressed: () {
-                    _searchCtrl.clear();
-                    ref.read(payslipListProvider.notifier).setFilters();
-                  },
-                ),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  borderSide: BorderSide(color: HrModuleColors.border),
-                ),
-              ),
-              onSubmitted: (v) {
-                ref
-                    .read(payslipListProvider.notifier)
-                    .setFilters(keyword: v.trim());
-              },
-            ),
-            SizedBox(height: 8.h),
-            Align(
-              alignment: Alignment.centerRight,
-              child: TextButton(
-                onPressed: () {
-                  ref
-                      .read(payslipListProvider.notifier)
-                      .setFilters(keyword: _searchCtrl.text.trim());
-                },
-                child: const Text('Search'),
-              ),
-            ),
-            SizedBox(height: 12.h),
-            listAsync.when(
-              data: (list) {
-                if (list.isEmpty) {
-                  return Padding(
-                    padding: EdgeInsets.only(top: 48.h),
-                    child: Center(
-                      child: Text(
-                        'No payslips found.',
-                        style: HrModuleTypography.body(),
+              color: HrModuleColors.payslipAccent,
+              onRefresh: () => ref.read(payslipListProvider.notifier).refresh(),
+              child: listAsync.when(
+                data: (list) {
+                  if (list.isEmpty) {
+                    return ListView(
+                      physics: const AlwaysScrollableScrollPhysics(),
+                      padding: EdgeInsets.fromLTRB(
+                        HrModuleLayout.screenPaddingH.w,
+                        48.h,
+                        HrModuleLayout.screenPaddingH.w,
+                        32.h,
                       ),
+                      children: [
+                        Center(
+                          child: Text(
+                            'No payslips found.',
+                            style: HrModuleTypography.body(),
+                          ),
+                        ),
+                      ],
+                    );
+                  }
+                  return ListView.separated(
+                    physics: const AlwaysScrollableScrollPhysics(),
+                    padding: EdgeInsets.fromLTRB(
+                      HrModuleLayout.screenPaddingH.w,
+                      4.h,
+                      HrModuleLayout.screenPaddingH.w,
+                      32.h,
                     ),
-                  );
-                }
-                return Column(
-                  children: [
-                    for (final s in list) ...[
-                      PayslipRecordCard(
+                    itemCount: list.length + 1,
+                    separatorBuilder: (_, __) => SizedBox(height: 10.h),
+                    itemBuilder: (context, index) {
+                      if (index == list.length) {
+                        return TextButton(
+                          onPressed: () =>
+                              ref.read(payslipListProvider.notifier).loadMore(),
+                          child: const Text('Load more'),
+                        );
+                      }
+                      final s = list[index];
+                      return PayslipRecordCard(
                         summary: s,
-                        onTap: () {
-                          Navigator.of(context).push(
-                            MaterialPageRoute<void>(
-                              builder: (_) =>
-                                  PayslipDetailScreen(payslipId: s.id),
-                            ),
-                          );
-                        },
-                      ),
-                      SizedBox(height: 10.h),
-                    ],
-                    TextButton(
-                      onPressed: () =>
-                          ref.read(payslipListProvider.notifier).loadMore(),
-                      child: const Text('Load more'),
+                      );
+                    },
+                  );
+                },
+                loading: () => ListView(
+                  physics: const AlwaysScrollableScrollPhysics(),
+                  children: [
+                    Padding(
+                      padding: EdgeInsets.only(top: 48.h),
+                      child: const Center(child: CircularProgressIndicator()),
                     ),
                   ],
-                );
-              },
-              loading: () => Padding(
-                padding: EdgeInsets.only(top: 48.h),
-                child: const Center(child: CircularProgressIndicator()),
+                ),
+                error: (e, _) => ListView(
+                  physics: const AlwaysScrollableScrollPhysics(),
+                  padding: EdgeInsets.fromLTRB(
+                    HrModuleLayout.screenPaddingH.w,
+                    48.h,
+                    HrModuleLayout.screenPaddingH.w,
+                    32.h,
+                  ),
+                  children: [
+                    Text(
+                      'Could not load payslips: $e',
+                      style: HrModuleTypography.body(),
+                    ),
+                  ],
+                ),
               ),
-              error: (e, _) => Text(
-                'Could not load payslips: $e',
-                style: HrModuleTypography.body(),
-              ),
-            ),
-          ],
-        ),
             ),
           ),
         ],

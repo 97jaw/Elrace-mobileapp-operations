@@ -9,55 +9,61 @@ class PurchaseSearchBar extends StatelessWidget {
     super.key,
     required this.controller,
     this.hint = 'Search…',
+    this.embedded = false,
   });
 
   final TextEditingController controller;
   final String hint;
+  final bool embedded;
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: EdgeInsets.fromLTRB(14.w, 10.h, 14.w, 4.h),
-      child: Container(
-        height: 40.h,
-        decoration: BoxDecoration(
-          color: Colors.white.withValues(alpha: 0.62),
-          borderRadius: BorderRadius.circular(20.r),
-          border: Border.all(
-            color: Colors.white.withValues(alpha: 0.95),
-            width: 1,
-          ),
-          boxShadow: [
-            BoxShadow(
-              color: PurchaseTheme.accentBlue.withValues(alpha: 0.06),
-              blurRadius: 8,
-              offset: const Offset(0, 2),
-            ),
-          ],
+    final field = Container(
+      height: 40.h,
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.62),
+        borderRadius: BorderRadius.circular(20.r),
+        border: Border.all(
+          color: Colors.white.withValues(alpha: 0.95),
+          width: 1,
         ),
-        child: TextField(
-          controller: controller,
-          style: GoogleFonts.poppins(
-            color: PurchaseTheme.textPrimary,
+        boxShadow: [
+          BoxShadow(
+            color: PurchaseTheme.accentBlue.withValues(alpha: 0.06),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: TextField(
+        controller: controller,
+        style: GoogleFonts.poppins(
+          color: PurchaseTheme.textPrimary,
+          fontSize: 13.sp,
+        ),
+        decoration: InputDecoration(
+          hintText: hint,
+          hintStyle: GoogleFonts.poppins(
+            color: PurchaseTheme.textMuted,
             fontSize: 13.sp,
           ),
-          decoration: InputDecoration(
-            hintText: hint,
-            hintStyle: GoogleFonts.poppins(
-              color: PurchaseTheme.textMuted,
-              fontSize: 13.sp,
-            ),
-            prefixIcon: Icon(
-              Icons.search,
-              size: 18.sp,
-              color: PurchaseTheme.accentBlue,
-            ),
-            border: InputBorder.none,
-            contentPadding:
-                EdgeInsets.symmetric(vertical: 10.h, horizontal: 12.w),
+          prefixIcon: Icon(
+            Icons.search,
+            size: 18.sp,
+            color: PurchaseTheme.accentBlue,
           ),
+          border: InputBorder.none,
+          contentPadding:
+              EdgeInsets.symmetric(vertical: 10.h, horizontal: 12.w),
         ),
       ),
+    );
+
+    if (embedded) return field;
+
+    return Padding(
+      padding: EdgeInsets.fromLTRB(14.w, 10.h, 14.w, 4.h),
+      child: field,
     );
   }
 }

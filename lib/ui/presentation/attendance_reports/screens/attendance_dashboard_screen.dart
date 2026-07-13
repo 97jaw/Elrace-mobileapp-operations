@@ -34,8 +34,6 @@ class AttendanceDashboardScreen extends ConsumerStatefulWidget {
 
 class _AttendanceDashboardScreenState
     extends ConsumerState<AttendanceDashboardScreen> {
-  int _tab = 0; // 0=Dashboard, 1=Records
-
   @override
   void initState() {
     super.initState();
@@ -91,12 +89,7 @@ class _AttendanceDashboardScreenState
         statusBarBrightness: Brightness.light,
       ),
       child: Scaffold(
-        extendBody: true,
         backgroundColor: Colors.transparent,
-        bottomNavigationBar: _FloatingNavBar(
-          selected: _tab,
-          onSelect: (i) => setState(() => _tab = i),
-        ),
         body: Container(
           decoration: const BoxDecoration(
             gradient: AttendanceDashboardTheme.scaffoldGradient,
@@ -122,26 +115,12 @@ class _AttendanceDashboardScreenState
               ),
 
               Expanded(
-                child: IndexedStack(
-                  index: _tab,
-                  children: [
-                    // ─── Tab 0: Dashboard ───────────────────────────────
-                    _buildDashboardTab(
-                      dashState,
-                      stats,
-                      isLoading,
-                      hasError,
-                      errorMessage,
-                    ),
-
-                    // ─── Tab 1: Records (coming soon) ───────────────────
-                    _buildComingSoonTab(
-                      icon: Icons.format_list_bulleted_rounded,
-                      title: 'Records View',
-                      subtitle: 'Full records screen\ncoming soon.',
-                    ),
-
-                  ],
+                child: _buildDashboardTab(
+                  dashState,
+                  stats,
+                  isLoading,
+                  hasError,
+                  errorMessage,
                 ),
               ),
             ],
@@ -166,7 +145,7 @@ class _AttendanceDashboardScreenState
       },
       child: ListView(
         physics: const AlwaysScrollableScrollPhysics(),
-        padding: EdgeInsets.only(bottom: 100.h),
+        padding: EdgeInsets.only(bottom: 24.h),
         children: [
           // Hero stats card
           _GlassyHeroHeader(
@@ -205,160 +184,6 @@ class _AttendanceDashboardScreenState
     );
   }
 
-
-  Widget _buildComingSoonTab({
-    required IconData icon,
-    required String title,
-    required String subtitle,
-  }) {
-    return Center(
-      child: Padding(
-        padding: EdgeInsets.all(32.w),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              width: 80.w,
-              height: 80.w,
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  colors: [
-                    AttendanceDashboardTheme.filterActive.withValues(alpha: 0.12),
-                    AttendanceDashboardTheme.filterActive.withValues(alpha: 0.06),
-                  ],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                ),
-                shape: BoxShape.circle,
-              ),
-              child: Icon(
-                icon,
-                size: 38.sp,
-                color: AttendanceDashboardTheme.filterActive.withValues(alpha: 0.5),
-              ),
-            ),
-            SizedBox(height: 20.h),
-            Text(
-              title,
-              style: TextStyle(
-                fontSize: 18.sp,
-                fontWeight: FontWeight.w800,
-                color: AttendanceDashboardTheme.filterActive,
-              ),
-            ),
-            SizedBox(height: 8.h),
-            Text(
-              subtitle,
-              style: TextStyle(
-                fontSize: 13.sp,
-                color: AttendanceDashboardTheme.textMuted,
-                height: 1.5,
-              ),
-              textAlign: TextAlign.center,
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Floating bottom nav bar
-// ─────────────────────────────────────────────────────────────────────────────
-
-class _FloatingNavBar extends StatelessWidget {
-  const _FloatingNavBar({
-    required this.selected,
-    required this.onSelect,
-  });
-
-  final int selected;
-  final ValueChanged<int> onSelect;
-
-  static const _items = [
-    (Icons.grid_view_rounded, Icons.grid_view_rounded, 'Dashboard'),
-    (Icons.format_list_bulleted_rounded, Icons.format_list_bulleted_rounded, 'Records'),
-  ];
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: EdgeInsets.fromLTRB(32.w, 0, 32.w, 20.h),
-      child: Container(
-        height: 60.h,
-        decoration: BoxDecoration(
-          color: Colors.white.withValues(alpha: 0.92),
-          borderRadius: BorderRadius.circular(999),
-          border: Border.all(
-            color: AttendanceDashboardTheme.filterActive.withValues(alpha: 0.12),
-          ),
-          boxShadow: [
-            BoxShadow(
-              color: AttendanceDashboardTheme.filterActive.withValues(alpha: 0.14),
-              blurRadius: 20,
-              offset: const Offset(0, 6),
-            ),
-            BoxShadow(
-              color: Colors.white.withValues(alpha: 0.8),
-              blurRadius: 2,
-              offset: const Offset(0, -1),
-            ),
-          ],
-        ),
-        child: Row(
-          children: [
-            for (int i = 0; i < _items.length; i++)
-              Expanded(
-                child: GestureDetector(
-                  onTap: () => onSelect(i),
-                  behavior: HitTestBehavior.opaque,
-                  child: AnimatedContainer(
-                    duration: const Duration(milliseconds: 220),
-                    curve: Curves.easeInOut,
-                    margin: EdgeInsets.all(6.r),
-                    decoration: BoxDecoration(
-                      gradient: selected == i
-                          ? const LinearGradient(
-                              colors: [Color(0xFF1E4DB7), Color(0xFF2563EB)],
-                              begin: Alignment.topLeft,
-                              end: Alignment.bottomRight,
-                            )
-                          : null,
-                      borderRadius: BorderRadius.circular(999),
-                    ),
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(
-                          _items[i].$1,
-                          size: 20.sp,
-                          color: selected == i
-                              ? Colors.white
-                              : AttendanceDashboardTheme.textMuted,
-                        ),
-                        SizedBox(height: 2.h),
-                        Text(
-                          _items[i].$3,
-                          style: TextStyle(
-                            fontSize: 9.sp,
-                            fontWeight: FontWeight.w700,
-                            color: selected == i
-                                ? Colors.white
-                                : AttendanceDashboardTheme.textMuted,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-          ],
-        ),
-      ),
-    );
-  }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

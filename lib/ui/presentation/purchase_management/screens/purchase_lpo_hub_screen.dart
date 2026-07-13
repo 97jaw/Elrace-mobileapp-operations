@@ -1,16 +1,15 @@
 import 'dart:async';
 
 import 'package:el_race/core/purchase/purchase_dev_role_provider.dart';
+import 'package:el_race/ui/presentation/Email%20Approval/utils/approval_display_helpers.dart';
 import 'package:el_race/ui/presentation/purchase_management/data/purchase_models.dart';
 import 'package:el_race/ui/presentation/purchase_management/data/purchase_repository.dart';
-import 'package:el_race/ui/presentation/purchase_management/data/purchase_status.dart';
 import 'package:el_race/ui/presentation/purchase_management/theme/purchase_theme.dart';
 import 'package:el_race/ui/presentation/purchase_management/widgets/lpo_smart_filter_sheet.dart';
 import 'package:el_race/ui/presentation/purchase_management/widgets/purchase_background.dart';
 import 'package:el_race/ui/presentation/purchase_management/widgets/purchase_glass_header.dart';
 import 'package:el_race/ui/presentation/purchase_management/widgets/purchase_hub_list_scaffold.dart';
 import 'package:el_race/ui/presentation/purchase_management/widgets/purchase_list_widgets.dart';
-import 'package:el_race/ui/presentation/purchase_management/widgets/purchase_status_chip.dart';
 import 'package:el_race/ui/presentation/lpo/screens/lpo_pdf_viewer_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
@@ -42,7 +41,7 @@ class _PurchaseLpoHubScreenState extends State<PurchaseLpoHubScreen> {
   bool _hasMore = false;
   String _keyword = '';
   String _statusFilter = '';
-  LpoListFilters _smartFilters = const LpoListFilters();
+  PurchaseListFilters _smartFilters = const PurchaseListFilters();
 
   @override
   void initState() {
@@ -149,6 +148,8 @@ class _PurchaseLpoHubScreenState extends State<PurchaseLpoHubScreen> {
     final result = await LpoSmartFilterSheet.show(
       context: context,
       initial: _smartFilters,
+      repository: _repo,
+      testRole: widget.testRole,
     );
     if (result == null) return;
     setState(() => _smartFilters = result);
@@ -344,13 +345,12 @@ class _PurchaseLpoHubScreenState extends State<PurchaseLpoHubScreen> {
             );
           }
           final item = _items[index];
-          final status = rfqStatusFromApi(item.state);
           return PurchaseGlassListCard(
             onTap: () => _openItem(item),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Row 1: reference | date | status chip
+                // Row 1: reference | date
                 Row(
                   children: [
                     Expanded(
@@ -372,10 +372,7 @@ class _PurchaseLpoHubScreenState extends State<PurchaseLpoHubScreen> {
                           color: PurchaseTheme.textMuted,
                         ),
                       ),
-                      SizedBox(width: 8.w),
                     ],
-                    PurchaseStatusChip(
-                        label: status.label, color: status.color),
                   ],
                 ),
                 // Row 2: project title
@@ -406,14 +403,14 @@ class _PurchaseLpoHubScreenState extends State<PurchaseLpoHubScreen> {
                   ),
                 ],
                 // Row 4: amount right-aligned
-                if (item.amountDisplay.isNotEmpty || item.amountTotal > 0) ...[
+                if (item.amountTotal > 0) ...[
                   SizedBox(height: 8.h),
                   Align(
                     alignment: Alignment.centerRight,
                     child: Text(
-                      item.amountDisplay.isNotEmpty
-                          ? item.amountDisplay
-                          : 'AED ${item.amountTotal.toStringAsFixed(0)}',
+                      ApprovalDisplayHelpers.formatAmountWithAed(
+                        item.amountTotal,
+                      ),
                       style: GoogleFonts.poppins(
                         fontSize: 17.sp,
                         fontWeight: FontWeight.w800,

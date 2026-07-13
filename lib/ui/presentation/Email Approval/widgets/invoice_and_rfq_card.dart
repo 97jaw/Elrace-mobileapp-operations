@@ -5,6 +5,8 @@ import 'package:el_race/ui/presentation/Email%20Approval/screens/invoice_details
 import 'package:el_race/ui/presentation/Email%20Approval/screens/rfq_details_screen.dart';
 import 'package:el_race/ui/presentation/Email%20Approval/utils/approval_display_helpers.dart';
 import 'package:el_race/ui/presentation/Email%20Approval/utils/approval_photo_cache.dart';
+import 'package:el_race/ui/presentation/Email%20Approval/utils/invoice_approval_display.dart';
+import 'package:el_race/ui/presentation/Email%20Approval/utils/rfq_approval_display.dart';
 import 'package:el_race/ui/presentation/Email%20Approval/widgets/approval_list_avatar.dart';
 import 'package:el_race/utils/safe_insets.dart';
 import 'package:flutter/material.dart';
@@ -408,13 +410,9 @@ class InvoiceAndRfqCard extends StatelessWidget {
           fallback: 'N/A',
         );
 
-        final rfqDate = getSafeString(
-          item["date"] ??
-              item["request_date"] ??
-              item["create_date"] ??
-              item["created_date"],
-          fallback: 'N/A',
-        );
+        final rfqDate = RfqApprovalDisplay.formattedDate(item).isNotEmpty
+            ? RfqApprovalDisplay.formattedDate(item)
+            : 'N/A';
 
         final invoiceTitle = getSafeString(
           item["project_title"] ?? item["project"] ?? item["name"],
@@ -426,13 +424,9 @@ class InvoiceAndRfqCard extends StatelessWidget {
           fallback: 'N/A',
         );
 
-        final invoiceDate = getSafeString(
-          item["date"] ??
-              item["invoice_date"] ??
-              item["request_date"] ??
-              item["create_date"],
-          fallback: 'N/A',
-        );
+        final invoiceDate = InvoiceApprovalDisplay.formattedDate(item).isNotEmpty
+            ? InvoiceApprovalDisplay.formattedDate(item)
+            : 'N/A';
 
         return GestureDetector(
           onTap: () async {

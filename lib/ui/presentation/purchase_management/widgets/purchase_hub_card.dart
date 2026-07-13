@@ -109,7 +109,7 @@ String hubCardCount(PurchaseHubCards cards, PurchaseHubCardKind kind) {
     PurchaseHubCardKind.waitingRfqs => '${cards.waitingRfqs}',
     PurchaseHubCardKind.totalRfqs => '${cards.totalRfqs}',
     PurchaseHubCardKind.pendingMrs => '${cards.pendingMrs}',
-    PurchaseHubCardKind.lpos => '${cards.lposOpen} open',
+    PurchaseHubCardKind.lpos => '${cards.lpos}',
     PurchaseHubCardKind.invoiceReceiving => 'Open',
   };
 }

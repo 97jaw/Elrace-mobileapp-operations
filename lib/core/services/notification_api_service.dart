@@ -388,27 +388,47 @@ class NotificationApiService {
       throw Exception('Invalid notifications response format');
     }
 
-    // Odoo jsonrpc response: { "jsonrpc": "2.0", "result": [...] | {...} }
+    // Odoo jsonrpc response: { "jsonrpc": "2.0", "result": {...} }
     dynamic result = decoded['result'];
 
     List<dynamic> rawNotifications = const [];
     int? unreadCount;
 
     if (result is List) {
+      // Legacy format: result is directly an array
       rawNotifications = result;
     } else if (result is Map<String, dynamic>) {
-      final notificationsValue = result['notifications'] ??
+      // New format variants:
+      // {notifications: [...], unread_count: N}
+      // {data: [...]}
+      // {data: {notifications: [...], unread_count: N}}
+      // {status: success, data: {...}}
+      dynamic notificationsValue = result['notifications'] ??
           result['records'] ??
           result['items'] ??
           result['data'];
+
+      if (notificationsValue is Map) {
+        final nested = Map<String, dynamic>.from(
+          notificationsValue.cast<String, dynamic>(),
+        );
+        unreadCount = _toIntOrNull(nested['unread_count']) ??
+            _toIntOrNull(nested['total_unread']) ??
+            _toIntOrNull(nested['total_unread_count']);
+        notificationsValue = nested['notifications'] ??
+            nested['records'] ??
+            nested['items'] ??
+            nested['data'];
+      }
+
       if (notificationsValue is List) {
         rawNotifications = notificationsValue;
       } else if (notificationsValue == null) {
-        // Treat the whole result map as single notification? — no, skip.
         rawNotifications = const [];
       }
-      unreadCount = _toIntOrNull(result['unread_count']) ??
-          _toIntOrNull(result['total_unread']);
+      unreadCount ??= _toIntOrNull(result['unread_count']) ??
+          _toIntOrNull(result['total_unread']) ??
+          _toIntOrNull(result['total_unread_count']);
     } else if (decoded['data'] is List) {
       rawNotifications = decoded['data'] as List<dynamic>;
     } else if (decoded['notifications'] is List) {
@@ -501,6 +521,44 @@ class NotificationApiService {
         // Try next endpoint shape
       }
     }
+
+    return false;
+  }
+
+  static Future<bool> deleteNotification(String notificationId) async {
+    final id = notificationId.trim();
+    if (id.isEmpty) return false;
+
+    final numericId = int.tryParse(id);
+    try {
+      final response = await http.post(
+        Uri.parse('$_baseUrl/notifications/delete'),
+        headers: _headers(),
+        body: jsonEncode({
+          'jsonrpc': '2.0',
+          'params': {
+            'notification_user_id': numericId ?? id,
+          },
+        }),
+      );
+      if (_looksSuccessful(response)) return true;
+    } catch (_) {}
+
+    return false;
+  }
+
+  static Future<bool> clearAllNotifications() async {
+    try {
+      final response = await http.post(
+        Uri.parse('$_baseUrl/notifications/clear'),
+        headers: _headers(),
+        body: jsonEncode({
+          'jsonrpc': '2.0',
+          'params': {},
+        }),
+      );
+      if (_looksSuccessful(response)) return true;
+    } catch (_) {}
 
     return false;
   }

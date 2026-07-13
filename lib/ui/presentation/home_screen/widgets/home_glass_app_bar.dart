@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:async';
 
 import 'package:el_race/core/ui/adaptive_glass.dart';
 import 'package:el_race/core/services/approval_count_service.dart';
@@ -60,6 +61,7 @@ class _HomeGlassAppBarState extends State<HomeGlassAppBar>
   int _notificationCount = 0;
   int _approvalCount = 0;
   bool _profileOpening = false;
+  Timer? _notificationPollTimer;
 
   @override
   void initState() {
@@ -78,10 +80,17 @@ class _HomeGlassAppBarState extends State<HomeGlassAppBar>
     NotificationStorageService.onCountChanged = () {
       if (mounted) _loadNotificationCountLocal();
     };
+    
+    // Poll notification counter every 10 seconds to ensure real-time updates
+    _notificationPollTimer = Timer.periodic(
+      const Duration(seconds: 10),
+      (_) => _loadNotificationCount(),
+    );
   }
 
   @override
   void dispose() {
+    _notificationPollTimer?.cancel();
     WidgetsBinding.instance.removeObserver(this);
     ApprovalViewedService.setOnCountChangedCallback(null);
     ApprovalCountService.onCountChanged = null;
@@ -599,9 +608,9 @@ class _HomeGlassAppBarState extends State<HomeGlassAppBar>
             ),
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(999),
-              color: Colors.transparent,
+              color: Colors.white.withValues(alpha: 0.14),
               border: Border.all(
-                color: Colors.white.withValues(alpha: 0.22),
+                color: Colors.white.withValues(alpha: 0.28),
                 width: 1,
               ),
             ),

@@ -1,7 +1,5 @@
 import 'package:dio/dio.dart';
 import 'package:el_race/core/hr_management/hr_effective_view.dart';
-import 'package:el_race/core/hr_management/hr_dashboard_local.dart';
-import 'package:el_race/core/hr_management/models/hr_dashboard_data.dart';
 import 'package:el_race/core/hr_management/models/hr_request_detail.dart';
 import 'package:el_race/core/hr_management/models/hr_request_summary.dart';
 import 'package:el_race/core/hr_management/network/hr_api_client.dart';
@@ -111,24 +109,6 @@ class HrRequestListNotifier extends AsyncNotifier<List<HrRequestSummary>> {
   }
 }
 
-/// Dashboard period keys: week | month | last_month | quarter | year
-String hrDashboardPeriodFromIndex(int index) {
-  switch (index) {
-    case 0:
-      return 'week';
-    case 1:
-      return 'month';
-    case 2:
-      return 'last_month';
-    case 3:
-      return 'quarter';
-    case 4:
-      return 'year';
-    default:
-      return 'month';
-  }
-}
-
 final hrTeamKpisProvider = FutureProvider.autoDispose<Map<String, int>>((ref) async {
   ref.watch(loginSessionRevisionProvider);
   final client = ref.watch(hrApiClientProvider);
@@ -142,23 +122,6 @@ final hrTeamKpisProvider = FutureProvider.autoDispose<Map<String, int>>((ref) as
     };
   }
   throw Exception(env.error ?? 'Could not load KPIs');
-});
-
-final hrDashboardProvider = FutureProvider.autoDispose
-    .family<HrDashboardData, String>((ref, period) async {
-  ref.watch(loginSessionRevisionProvider);
-  final client = ref.watch(hrApiClientProvider);
-
-  final env = await client.fetchDashboard(period: period);
-  if (env.success && env.data != null) {
-    return HrDashboardData.fromJson(env.data!);
-  }
-
-  final team = await client.fetchTeamRequests(status: 'all', limit: 500);
-  if (team.success && team.data != null) {
-    return buildLocalDashboardFromTeamRows(team.data!);
-  }
-  throw Exception(team.error ?? 'Could not load dashboard');
 });
 
 final hrTeamRequestListProvider =

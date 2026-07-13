@@ -206,17 +206,17 @@ EXTERNAL SOURCES:
 
 SPEC CHECKSUMS:
   auto_orientation: a1600c9ed72e6e96982fb4e1214463343342432a
-  cunning_document_scanner: 43a2bda11ef6a33fd68766b287ed056b4caf6a06
+  cunning_document_scanner: e88a40d71c1c43a98e5cafbe6521e160ac1feb3d
   DTTJailbreakDetection: 5e356c5badc17995f65a83ed9483f787a0057b71
   Flutter: cabc95a1d2626b1b06e7179b784ebcf0c0cde467
   flutter_inappwebview_ios: b89ba3482b96fb25e00c967aae065701b66e9b99
   flutter_jailbreak_detection: a74360daaf5cbc80639959463b4b1395873c90b5
-  flutter_screen_wake: f5218e52122c26c6e70838c3d3034ab0e51c240e
-  flutter_secure_storage: 1ed9476fba7e7a782b22888f956cce43e2c62f13
+  flutter_screen_wake: 2843b4eb9a04c6eca164d30bbba113259caab153
+  flutter_secure_storage: 1adcfe3eeb9bf4a23575d53932b94bab9de2c59d
   flutter_tts: 35ac3c7d42412733e795ea96ad2d7e05d0a75113
   fluttertoast: 2c67e14dce98bbdb200df9e1acf610d7a6264ea1
-  google_mlkit_commons: a5e4ffae5bc59ea4c7b9025dc72cb6cb79dc1166
-  google_mlkit_face_detection: ee4b72cfae062b4c972204be955d83055a4bfd36
+  google_mlkit_commons: e57f7784b8bc65ed88fd870e07fe6e4bea077582
+  google_mlkit_face_detection: 051a9208c510ac09f3bdddf7b49f27e95b4d76be
   GoogleDataTransport: aae35b7ea0c09004c3797d53c8c41f66f219d6a7
   GoogleMLKit: b1eee21a41c57704fe72483b15c85cb2c0cd7444
   GoogleToolboxForMac: d1a2cbf009c453f4d6ded37c105e2f67a32206d8
@@ -234,13 +234,13 @@ SPEC CHECKSUMS:
   printing: 54ff03f28fe9ba3aa93358afb80a8595a071dd07
   PromisesObjC: 752c3227f599e3467650e47ea36f433eeb10c273
   record_darwin: fb1f375f1d9603714f55b8708a903bbb91ffdb0a
-  safe_device: 205ad04de30f4512ca889418d4783e1b6fdf8cfe
+  safe_device: c0d2da4a0a26de7920b9ff6deb3a3b65d909e7f1
   screen_protector: 18c6aca2dc5d2a832f6787a5318f97f03e9d3150
   ScreenProtectorKit: 6ceb3e0808341a9bc15d175bff40dfdd4b32da71
   syncfusion_flutter_pdfviewer: dfb514751af5b6b71e504c9c04a2e4ddbc1dd895
   TensorFlowLiteC: 20785a69299185a379ba9852b6625f00afd7984a
   TensorFlowLiteSwift: 3a4928286e9e35bdd3e17970f48e53c80d25e793
-  tflite_flutter: 64b192e11352fe36943ab6656e1d49207f1a5595
+  tflite_flutter: 85e35aea22cf12c9da554dfc537ae071bffbb1d7
   workmanager_apple: 904529ae31e97fc5be632cf628507652294a0778
 
 PODFILE CHECKSUM: 3e99a280a19362abd8e7fd749c9176f284f3068a

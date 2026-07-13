@@ -5,7 +5,6 @@ import 'package:el_race/core/theme/hr_module_layout.dart';
 import 'package:el_race/core/theme/hr_module_typography.dart';
 import 'package:el_race/core/widgets/hr_management/hr_module_glass_header.dart';
 import 'package:el_race/core/widgets/payslip/payslip_gradient_scaffold.dart';
-import 'package:el_race/ui/presentation/payslip/payslip_detail_screen.dart';
 import 'package:el_race/ui/presentation/payslip/widgets/payslip_record_card.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -130,14 +129,6 @@ class EmployeePayslipModuleScreen extends ConsumerWidget {
               }
               return PayslipRecordCard(
                 summary: selected,
-                onTap: () {
-                  Navigator.of(context).push(
-                    MaterialPageRoute<void>(
-                      builder: (_) =>
-                          PayslipDetailScreen(payslipId: selected.id),
-                    ),
-                  );
-                },
               );
             },
             loading: () => const Padding(
@@ -178,13 +169,6 @@ class EmployeePayslipModuleScreen extends ConsumerWidget {
                     PayslipRecordCard(
                       summary: s,
                       compact: true,
-                      onTap: () {
-                        Navigator.of(context).push(
-                          MaterialPageRoute<void>(
-                            builder: (_) => PayslipDetailScreen(payslipId: s.id),
-                          ),
-                        );
-                      },
                     ),
                     SizedBox(height: 10.h),
                   ],

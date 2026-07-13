@@ -403,6 +403,7 @@ class ProjectRemoteDataSource implements ProjectRemoteDataSourceImpl {
           .map((e) => ProjectModel.fromJson(
                 Map<String, dynamic>.from(e as Map),
               ))
+          .where((p) => !p.isGeneralWo)
           .toList(growable: false);
       return _parsePagedPartnerProjects(result, projects, limit, offset);
     } else {
@@ -532,7 +533,7 @@ class ProjectRemoteDataSource implements ProjectRemoteDataSourceImpl {
         allProjects.add(ProjectModel.fromJson(partnerMap));
       }
     }
-    return allProjects;
+    return allProjects.where((p) => !p.isGeneralWo).toList(growable: false);
   }
 
   static ProjectsPagedResult _parsePagedPartnerProjects(

@@ -1,5 +1,6 @@
 import 'dart:math' as math;
 
+import 'package:el_race/core/ui/device_ui_capability.dart';
 import 'package:el_race/ui/presentation/my_projects/data/models/user_project_model.dart';
 import 'package:el_race/ui/presentation/my_projects/presentation/theme/projects_dashboard_theme.dart';
 import 'package:el_race/ui/presentation/my_projects/presentation/widgets/agreement_list_card.dart';
@@ -11,7 +12,13 @@ import 'package:google_fonts/google_fonts.dart';
 
 const int _kAgreementsPageSize = 10;
 
-/// Bottom agreements panel — collapsed shows one card; drag or icon for full height.
+/// Approximate rendered height of one [AgreementListCard] (incl. margins).
+double _agreementCardExtent(BuildContext context) => 132.h;
+
+/// How much of the next card peeks in the collapsed panel.
+double _agreementPeekExtent(BuildContext context) => 56.h;
+
+/// Bottom agreements panel — collapsed shows one card + peek; drag header / tap arrow to expand.
 class ProjectsAgreementsExpandablePanel extends StatefulWidget {
   const ProjectsAgreementsExpandablePanel({
     super.key,
@@ -32,15 +39,20 @@ class ProjectsAgreementsExpandablePanel extends StatefulWidget {
   final AgreementsPanelController? controller;
   final bool isLoading;
 
-  /// Collapsed panel height (header + one agreement card).
+  /// Collapsed panel height (header + first card + peek of next when available).
   static double collapsedHeight(
     BuildContext context, {
     required bool hasAgreements,
+    int agreementCount = 0,
   }) {
     final headerH = 48.h;
-    final cardH = hasAgreements ? 148.h : 0;
     final bottom = MediaQuery.paddingOf(context).bottom;
-    return headerH + cardH + bottom + 6.h;
+    if (!hasAgreements) {
+      return headerH + bottom + 6.h;
+    }
+    final cardH = _agreementCardExtent(context);
+    final peek = agreementCount > 1 ? _agreementPeekExtent(context) : 0.0;
+    return headerH + cardH + peek + bottom + 4.h;
   }
 
   /// Max panel height when expanded (fills area below greeting header).
@@ -49,7 +61,6 @@ class ProjectsAgreementsExpandablePanel extends StatefulWidget {
     final screen = mq.size.height;
     final top = mq.padding.top;
     final bottom = mq.padding.bottom;
-    // Greeting header + safe area; panel grows in the Column below it.
     return (screen - top - bottom - 76.h).clamp(320.0, screen * 0.92);
   }
 
@@ -65,15 +76,20 @@ class _ProjectsAgreementsExpandablePanelState
   final ScrollController _listController = ScrollController();
   final TextEditingController _searchController = TextEditingController();
   int _visibleCount = _kAgreementsPageSize;
+  bool _lastReportedExpanded = false;
+
+  Duration get _duration => DeviceUiCapability.adaptiveDuration(
+        const Duration(milliseconds: 320),
+      );
 
   @override
   void initState() {
     super.initState();
     _expandController = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 320),
+      duration: _duration,
     );
-    _expandController.addListener(_onExpandChanged);
+    _expandController.addListener(_onExpandTick);
     _listController.addListener(_onListScroll);
     _searchController.addListener(_onSearchChanged);
     widget.controller?.bind(collapse);
@@ -113,7 +129,7 @@ class _ProjectsAgreementsExpandablePanelState
   @override
   void dispose() {
     widget.controller?.unbind();
-    _expandController.removeListener(_onExpandChanged);
+    _expandController.removeListener(_onExpandTick);
     _expandController.dispose();
     _listController.removeListener(_onListScroll);
     _listController.dispose();
@@ -122,11 +138,14 @@ class _ProjectsAgreementsExpandablePanelState
     super.dispose();
   }
 
-  void _onExpandChanged() {
+  void _onExpandTick() {
     final expanded = _expandController.value > 0.5;
-    widget.onExpansionChanged(expanded);
+    if (expanded != _lastReportedExpanded) {
+      _lastReportedExpanded = expanded;
+      widget.onExpansionChanged(expanded);
+    }
     if (!expanded && _visibleCount > _kAgreementsPageSize) {
-      setState(() => _visibleCount = _kAgreementsPageSize);
+      _visibleCount = _kAgreementsPageSize;
     }
     setState(() {});
   }
@@ -145,7 +164,7 @@ class _ProjectsAgreementsExpandablePanelState
   void _expand() {
     _expandController.animateTo(
       1,
-      duration: const Duration(milliseconds: 320),
+      duration: _duration,
       curve: Curves.easeOutCubic,
     );
   }
@@ -153,7 +172,7 @@ class _ProjectsAgreementsExpandablePanelState
   void collapse() {
     _expandController.animateTo(
       0,
-      duration: const Duration(milliseconds: 320),
+      duration: _duration,
       curve: Curves.easeOutCubic,
     );
   }
@@ -170,10 +189,12 @@ class _ProjectsAgreementsExpandablePanelState
     final collapsed = ProjectsAgreementsExpandablePanel.collapsedHeight(
       context,
       hasAgreements: widget.agreements.isNotEmpty,
+      agreementCount: widget.agreements.length,
     );
     final expanded = ProjectsAgreementsExpandablePanel.expandedHeight(context);
     final range = expanded - collapsed;
     if (range <= 0) return;
+    // Only update the controller — do not setState / swap gesture trees mid-drag.
     _expandController.value =
         (_expandController.value - details.delta.dy / range).clamp(0.0, 1.0);
   }
@@ -192,7 +213,8 @@ class _ProjectsAgreementsExpandablePanelState
   }
 
   void _loadMore() {
-    final total = _isExpanded ? _filteredAgreements.length : widget.agreements.length;
+    final total =
+        _isExpanded ? _filteredAgreements.length : widget.agreements.length;
     if (_visibleCount >= total) return;
     setState(() {
       _visibleCount = math.min(
@@ -207,19 +229,19 @@ class _ProjectsAgreementsExpandablePanelState
     final collapsed = ProjectsAgreementsExpandablePanel.collapsedHeight(
       context,
       hasAgreements: widget.agreements.isNotEmpty || widget.isLoading,
+      agreementCount: widget.agreements.length,
     );
     final expanded = ProjectsAgreementsExpandablePanel.expandedHeight(context);
 
     final source = _isExpanded ? _filteredAgreements : widget.agreements;
+    // Collapsed: first card + peek of next when available.
     final displayCount = _isExpanded
         ? math.min(_visibleCount, source.length)
-        : widget.agreements.isEmpty
-            ? 0
-            : 1;
+        : math.min(2, widget.agreements.length);
     final hasMore = _isExpanded && displayCount < source.length;
 
-    final t = Curves.easeOutCubic.transform(_expandController.value);
-    final height = collapsed + (expanded - collapsed) * t;
+    final height =
+        collapsed + (expanded - collapsed) * _expandController.value;
 
     return SizedBox(
       height: height,
@@ -228,11 +250,12 @@ class _ProjectsAgreementsExpandablePanelState
         borderRadius: BorderRadius.vertical(top: Radius.circular(22.r)),
         child: Material(
           color: ProjectsDashboardTheme.greyDeep.withValues(alpha: 0.96),
-          elevation: 12,
+          elevation: DeviceUiCapability.isLowEnd ? 4 : 12,
           shadowColor: Colors.black.withValues(alpha: 0.35),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
+              // Drag / toggle only on the header — stable gesture tree.
               GestureDetector(
                 onVerticalDragUpdate: _onVerticalDragUpdate,
                 onVerticalDragEnd: _onVerticalDragEnd,
@@ -325,38 +348,41 @@ class _ProjectsAgreementsExpandablePanelState
                                 ),
                               )
                             : ListView.builder(
-                            controller: _listController,
-                            physics: _isExpanded
-                                ? const ClampingScrollPhysics()
-                                : const NeverScrollableScrollPhysics(),
-                            padding: EdgeInsets.only(bottom: 8.h),
-                            itemCount: displayCount + (hasMore ? 1 : 0),
-                            itemBuilder: (context, index) {
-                              if (index >= displayCount) {
-                                return Center(
-                                  child: TextButton(
-                                    onPressed: _loadMore,
-                                    child: Text(
-                                      'Load more',
-                                      style: GoogleFonts.poppins(
-                                        fontWeight: FontWeight.w600,
-                                        color: ProjectsDashboardTheme
-                                            .maroonLight,
+                                controller: _listController,
+                                physics: _isExpanded
+                                    ? const ClampingScrollPhysics()
+                                    : const NeverScrollableScrollPhysics(),
+                                padding: EdgeInsets.only(
+                                  bottom: _isExpanded ? 8.h : 0,
+                                ),
+                                itemCount: displayCount + (hasMore ? 1 : 0),
+                                itemBuilder: (context, index) {
+                                  if (index >= displayCount) {
+                                    return Center(
+                                      child: TextButton(
+                                        onPressed: _loadMore,
+                                        child: Text(
+                                          'Load more',
+                                          style: GoogleFonts.poppins(
+                                            fontWeight: FontWeight.w600,
+                                            color: ProjectsDashboardTheme
+                                                .maroonLight,
+                                          ),
+                                        ),
                                       ),
-                                    ),
-                                  ),
-                                );
-                              }
+                                    );
+                                  }
 
-                              final agreement = _isExpanded
-                                  ? source[index]
-                                  : widget.agreements[index];
-                              return AgreementListCard(
-                                agreement: agreement,
-                                onTap: () => widget.onAgreementTap(agreement),
-                              );
-                            },
-                          ),
+                                  final agreement = _isExpanded
+                                      ? source[index]
+                                      : widget.agreements[index];
+                                  return AgreementListCard(
+                                    agreement: agreement,
+                                    onTap: () =>
+                                        widget.onAgreementTap(agreement),
+                                  );
+                                },
+                              ),
               ),
             ],
           ),

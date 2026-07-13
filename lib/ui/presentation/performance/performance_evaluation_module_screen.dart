@@ -8,7 +8,6 @@ import 'package:el_race/core/widgets/hr_management/hr_status_badge.dart';
 import 'package:el_race/core/widgets/hr_management/hr_module_glass_header.dart';
 import 'package:el_race/core/widgets/performance/performance_gradient_scaffold.dart';
 import 'package:el_race/ui/presentation/performance/manager_evaluation_detail_screen.dart';
-import 'package:el_race/ui/presentation/performance/performance_under_planning_screen.dart';
 import 'package:el_race/ui/presentation/performance/widgets/personal_competencies_section.dart';
 import 'package:el_race/ui/presentation/performance/widgets/performance_themed_dropdown.dart';
 import 'package:flutter/material.dart';
@@ -136,19 +135,6 @@ class _ManagerEvaluationListScaffold extends ConsumerWidget {
     final async = ref.watch(performanceEvaluationListProvider);
 
     return PerformanceGradientScaffold(
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () {
-          Navigator.of(context).push(
-            MaterialPageRoute<void>(
-              builder: (_) => const PerformanceUnderPlanningScreen(),
-            ),
-          );
-        },
-        icon: const Icon(Icons.add),
-        label: const Text('New'),
-        backgroundColor: HrModuleColors.primary,
-        foregroundColor: Colors.white,
-      ),
       body: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [

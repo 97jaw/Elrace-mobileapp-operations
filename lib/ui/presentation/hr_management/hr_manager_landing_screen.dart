@@ -14,8 +14,6 @@ import 'package:el_race/core/widgets/hr_management/hr_module_glass_header.dart';
 import 'package:el_race/core/widgets/hr_management/hr_requests_gradient_scaffold.dart';
 import 'package:el_race/core/widgets/hr_management/hr_search_filter_header.dart';
 import 'package:el_race/core/widgets/hr_management/hr_themed_pickers.dart';
-import 'package:el_race/ui/presentation/hr_management/hr_manager_dashboard_screen.dart';
-import 'package:el_race/ui/presentation/hr_management/hr_manager_search_older_screen.dart';
 import 'package:el_race/ui/presentation/hr_management/hr_new_request_picker_screen.dart';
 import 'package:el_race/ui/presentation/hr_management/hr_personal_request_list_content.dart';
 import 'package:el_race/core/hr_management/hr_request_navigation.dart';
@@ -38,7 +36,6 @@ class HrManagerLandingScreen extends ConsumerStatefulWidget {
 class _HrManagerLandingScreenState extends ConsumerState<HrManagerLandingScreen>
     with SingleTickerProviderStateMixin {
   late final TabController _tabController;
-  int _viewSegment = 0;
 
   String _teamFilterId = 'all';
   String _teamSearchQuery = '';
@@ -49,7 +46,11 @@ class _HrManagerLandingScreenState extends ConsumerState<HrManagerLandingScreen>
   List<HrRequestSummary> _queueRaw = [];
   List<HrRequestSummary> _queueItems = [];
   bool _queueLoading = false;
+  bool _queueLoadingMore = false;
+  bool _queueHasMore = true;
   String? _queueError;
+
+  static const _pageSize = 20;
 
   static const _chips = [
     HrFilterOption(id: 'all', label: 'All'),
@@ -69,44 +70,66 @@ class _HrManagerLandingScreenState extends ConsumerState<HrManagerLandingScreen>
     WidgetsBinding.instance.addPostFrameCallback((_) => _loadQueue());
   }
 
-  Future<void> _loadQueue() async {
+  Future<void> _loadQueue({bool append = false}) async {
     if (!mounted) return;
-    setState(() {
-      _queueLoading = true;
-      _queueError = null;
-    });
+    if (append) {
+      if (_queueLoadingMore || !_queueHasMore) return;
+      setState(() => _queueLoadingMore = true);
+    } else {
+      setState(() {
+        _queueLoading = true;
+        _queueError = null;
+        _queueHasMore = true;
+      });
+    }
     try {
       final client = ref.read(hrApiClientProvider);
+      final offset = append ? _queueRaw.length : 0;
       final env = await client.fetchTeamRequests(
         keyword: _teamSearchQuery,
         department: _teamDeptFilter,
         type: _teamTypeFilter,
         status: _teamFilterId,
-        offset: 0,
-        limit: 20,
+        offset: offset,
+        limit: _pageSize,
       );
       if (!mounted) return;
       if (env.success && env.data != null) {
-        _queueRaw = env.data!.map(HrRequestSummary.fromJson).toList();
+        final page = env.data!.map(HrRequestSummary.fromJson).toList();
         setState(() {
+          if (append) {
+            _queueRaw = [..._queueRaw, ...page];
+          } else {
+            _queueRaw = page;
+          }
           _queueItems = _sortQueueList(_queueRaw);
+          _queueHasMore = page.length >= _pageSize;
           _queueLoading = false;
+          _queueLoadingMore = false;
         });
       } else {
         setState(() {
-          _queueRaw = [];
-          _queueItems = [];
-          _queueError = env.error ?? 'Could not load queue';
+          if (!append) {
+            _queueRaw = [];
+            _queueItems = [];
+            _queueError = env.error ?? 'Could not load queue';
+          }
           _queueLoading = false;
+          _queueLoadingMore = false;
+          if (!append) _queueHasMore = false;
         });
       }
     } catch (e) {
       if (!mounted) return;
       setState(() {
-        _queueRaw = [];
-        _queueItems = [];
-        _queueError = 'Could not load requests. Pull down to refresh.';
+        if (!append) {
+          _queueRaw = [];
+          _queueItems = [];
+          _queueError = 'Could not load requests. Pull down to refresh.';
+          _queueHasMore = false;
+        }
         _queueLoading = false;
+        _queueLoadingMore = false;
       });
     }
   }
@@ -188,7 +211,7 @@ class _HrManagerLandingScreenState extends ConsumerState<HrManagerLandingScreen>
     required String total,
   }) {
     return Padding(
-      padding: EdgeInsets.fromLTRB(16.w, 0, 16.w, 8.h),
+      padding: EdgeInsets.fromLTRB(16.w, 12.h, 16.w, 10.h),
       child: IntrinsicHeight(
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -351,7 +374,7 @@ class _HrManagerLandingScreenState extends ConsumerState<HrManagerLandingScreen>
     final teamAsync = ref.watch(hrTeamRequestListProvider);
 
     return HrRequestsGradientScaffold(
-      floatingActionButton: _viewSegment == 0 && _tabController.index == 1
+      floatingActionButton: _tabController.index == 1
           ? FloatingActionButton.extended(
               onPressed: () {
                 Navigator.push<void>(
@@ -386,19 +409,10 @@ class _HrManagerLandingScreenState extends ConsumerState<HrManagerLandingScreen>
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-            Padding(
-              padding: EdgeInsets.fromLTRB(16.w, 8.h, 16.w, 4.h),
-              child: HrPillSegmentControl(
-                segments: const ['Requests', 'Dashboard'],
-                selectedIndex: _viewSegment,
-                onChanged: (i) => setState(() => _viewSegment = i),
-              ),
-            ),
-            Expanded(
-              child: _viewSegment == 1
-                  ? HrManagerDashboardScreen(effectiveView: effective)
-                : Column(
-                    children: [
+                  SizedBox(height: 6.h),
+                  Expanded(
+                    child: Column(
+                      children: [
                       ref.watch(hrTeamKpisProvider).when(
                         loading: () => _teamKpiRow(
                           pending: '…',
@@ -608,26 +622,28 @@ class _HrManagerLandingScreenState extends ConsumerState<HrManagerLandingScreen>
                 ),
               );
             }),
-          ListTile(
-            contentPadding: EdgeInsets.zero,
-            leading: Icon(Icons.history, color: HrModuleColors.primary),
-            title: Text(
-              'Show more — search older requests',
-              style: HrModuleTypography.body().copyWith(
-                fontSize: 14.sp,
-                fontWeight: FontWeight.w600,
-                color: HrModuleColors.primary,
-              ),
-            ),
-            onTap: () {
-              Navigator.push<void>(
-                context,
-                MaterialPageRoute<void>(
-                  builder: (_) => const HrManagerSearchOlderScreen(),
+          if (_queueHasMore)
+            ListTile(
+              contentPadding: EdgeInsets.zero,
+              leading: _queueLoadingMore
+                  ? SizedBox(
+                      width: 24.w,
+                      height: 24.w,
+                      child: const CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : Icon(Icons.expand_more, color: HrModuleColors.primary),
+              title: Text(
+                _queueLoadingMore ? 'Loading…' : 'See more',
+                style: HrModuleTypography.body().copyWith(
+                  fontSize: 14.sp,
+                  fontWeight: FontWeight.w600,
+                  color: HrModuleColors.primary,
                 ),
-              );
-            },
-          ),
+              ),
+              onTap: _queueLoadingMore
+                  ? null
+                  : () => _loadQueue(append: true),
+            ),
         ],
       ),
     );

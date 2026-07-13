@@ -30,6 +30,8 @@ class PurchaseHubListScaffold extends StatelessWidget {
     this.scrollController,
     this.searchHint = 'Search…',
     this.lockFilters = false,
+    this.onSmartFilterTap,
+    this.smartFilterCount = 0,
   });
 
   final String title;
@@ -50,6 +52,8 @@ class PurchaseHubListScaffold extends StatelessWidget {
   final ScrollController? scrollController;
   final String searchHint;
   final bool lockFilters;
+  final VoidCallback? onSmartFilterTap;
+  final int smartFilterCount;
 
   @override
   Widget build(BuildContext context) {
@@ -72,10 +76,31 @@ class PurchaseHubListScaffold extends StatelessWidget {
                       selected: selectedSegment,
                       onChanged: onSegmentChanged,
                     ),
-                  PurchaseSearchBar(
-                    controller: searchController,
-                    hint: searchHint,
-                  ),
+                  if (onSmartFilterTap != null)
+                    Padding(
+                      padding: EdgeInsets.fromLTRB(14.w, 10.h, 14.w, 4.h),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: PurchaseSearchBar(
+                              controller: searchController,
+                              hint: searchHint,
+                              embedded: true,
+                            ),
+                          ),
+                          SizedBox(width: 8.w),
+                          _SmartFilterButton(
+                            count: smartFilterCount,
+                            onTap: onSmartFilterTap!,
+                          ),
+                        ],
+                      ),
+                    )
+                  else
+                    PurchaseSearchBar(
+                      controller: searchController,
+                      hint: searchHint,
+                    ),
                   if (!lockFilters &&
                       filterValues != null &&
                       filterLabels != null &&
@@ -146,6 +171,69 @@ class PurchaseHubListScaffold extends StatelessWidget {
       color: PurchaseTheme.accentBlue,
       onRefresh: onRefresh!,
       child: list,
+    );
+  }
+}
+
+class _SmartFilterButton extends StatelessWidget {
+  const _SmartFilterButton({
+    required this.count,
+    required this.onTap,
+  });
+
+  final int count;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Stack(
+      clipBehavior: Clip.none,
+      children: [
+        GestureDetector(
+          onTap: onTap,
+          child: Container(
+            width: 40.w,
+            height: 40.w,
+            decoration: BoxDecoration(
+              color: count > 0
+                  ? PurchaseTheme.accentBlue
+                  : Colors.white.withValues(alpha: 0.85),
+              shape: BoxShape.circle,
+              boxShadow: [
+                BoxShadow(
+                  color: PurchaseTheme.accentBlue.withValues(alpha: 0.12),
+                  blurRadius: 6,
+                ),
+              ],
+            ),
+            child: Icon(
+              Icons.tune_rounded,
+              size: 18.sp,
+              color: count > 0 ? Colors.white : PurchaseTheme.accentDeep,
+            ),
+          ),
+        ),
+        if (count > 0)
+          Positioned(
+            right: -2,
+            top: -2,
+            child: Container(
+              padding: EdgeInsets.all(4.w),
+              decoration: const BoxDecoration(
+                color: Color(0xFFDC2626),
+                shape: BoxShape.circle,
+              ),
+              child: Text(
+                '$count',
+                style: GoogleFonts.poppins(
+                  fontSize: 8.sp,
+                  fontWeight: FontWeight.w700,
+                  color: Colors.white,
+                ),
+              ),
+            ),
+          ),
+      ],
     );
   }
 }

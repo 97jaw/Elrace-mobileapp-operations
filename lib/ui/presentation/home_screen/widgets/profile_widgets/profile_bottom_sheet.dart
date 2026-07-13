@@ -10,6 +10,7 @@ import 'package:el_race/ui/presentation/home_screen/widgets/profile_widgets/prof
 import 'package:el_race/ui/presentation/home_screen/widgets/profile_widgets/profile_sheet_theme.dart';
 import 'package:el_race/ui/presentation/home_screen/widgets/profile_widgets/profile_user_info.dart';
 import 'package:el_race/ui/presentation/qr_code/data/repository.dart';
+import 'package:el_race/ui/presentation/home_screen/widgets/profile_widgets/business_card_screen.dart';
 import 'package:el_race/ui/presentation/qr_code/qr_scanner_screen.dart';
 import 'package:el_race/utils/Util.dart';
 import 'package:flutter/material.dart';
@@ -153,7 +154,18 @@ class _ProfileBottomSheetBodyState extends State<_ProfileBottomSheetBody> {
     Navigator.of(context).pop();
     final hostContext = navKey.currentContext ?? context;
     Navigator.of(hostContext).push(
-      MaterialPageRoute(builder: (_) => const QrScannerScreen()),
+      MaterialPageRoute(builder: (_) => const BusinessCardScreen()),
+    );
+  }
+
+  void _showQrLink() {
+    Navigator.of(context).pop();
+    final hostContext = navKey.currentContext ?? context;
+    Navigator.of(hostContext).push(
+      MaterialPageRoute(
+        builder: (_) => const QrScannerScreen(),
+        fullscreenDialog: true,
+      ),
     );
   }
 
@@ -255,6 +267,7 @@ class _ProfileBottomSheetBodyState extends State<_ProfileBottomSheetBody> {
                           qrData: _qrCodeData,
                           qrErrorMessage: _qrErrorMessage,
                           onRetryQr: _loadQrCode,
+                          onQrLink: _showQrLink,
                           onBusinessCard: _openBusinessCard,
                         ),
                         SizedBox(height: 16.h),
@@ -289,6 +302,7 @@ class _ProfileIdentityCard extends StatelessWidget {
     required this.qrData,
     required this.qrErrorMessage,
     required this.onRetryQr,
+    required this.onQrLink,
     required this.onBusinessCard,
   });
 
@@ -302,6 +316,7 @@ class _ProfileIdentityCard extends StatelessWidget {
   final Uint8List? qrData;
   final String? qrErrorMessage;
   final VoidCallback onRetryQr;
+  final VoidCallback onQrLink;
   final VoidCallback onBusinessCard;
 
   static const _avatarSize = 96.0;
@@ -390,7 +405,7 @@ class _ProfileIdentityCard extends StatelessWidget {
                         children: [
                           _FooterInfoSection(
                             departmentSection: departmentSection,
-                            onQrLink: onBusinessCard,
+                            onQrLink: onQrLink,
                           ),
                           SizedBox(height: 14.h),
                           Center(

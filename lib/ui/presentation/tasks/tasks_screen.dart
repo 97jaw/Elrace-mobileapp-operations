@@ -209,6 +209,7 @@ class TasksScreen extends StatelessWidget {
                       children: [
                         Expanded(
                           child: DropdownButtonFormField<String>(
+                            isExpanded: true,
                             value: priority,
                             decoration: InputDecoration(
                               labelText: 'Priority',
@@ -241,6 +242,7 @@ class TasksScreen extends StatelessWidget {
                                   ),
                                 )
                               : DropdownButtonFormField<int>(
+                                  isExpanded: true,
                                   value: selectedUserId,
                                   decoration: InputDecoration(
                                     labelText: 'Assign to',
@@ -256,7 +258,11 @@ class TasksScreen extends StatelessWidget {
                                       .map(
                                         (u) => DropdownMenuItem(
                                           value: u.id,
-                                          child: Text(u.name),
+                                          child: Text(
+                                            u.name,
+                                            maxLines: 1,
+                                            overflow: TextOverflow.ellipsis,
+                                          ),
                                         ),
                                       )
                                       .toList(),
@@ -281,7 +287,8 @@ class TasksScreen extends StatelessWidget {
                             icon: const Icon(Icons.attach_file),
                             label: Text(
                               attachmentFilename ?? 'Add file',
-                              overflow: TextOverflow.visible,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
                             ),
                           ),
                         ),

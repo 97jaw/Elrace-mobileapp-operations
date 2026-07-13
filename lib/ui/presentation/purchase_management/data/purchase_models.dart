@@ -428,76 +428,138 @@ class MrDetail {
 }
 
 // ---------------------------------------------------------------------------
-// LPO list filters
+// Purchase list filters & filter options
 // ---------------------------------------------------------------------------
 
-class LpoListFilters {
-  const LpoListFilters({
+class PurchaseFilterOption {
+  const PurchaseFilterOption({
+    required this.id,
+    required this.label,
+    this.subtitle,
+    this.color,
+  });
+
+  final int id;
+  final String label;
+  final String? subtitle;
+  final int? color;
+
+  factory PurchaseFilterOption.fromJson(Map<String, dynamic> json) {
+    return PurchaseFilterOption(
+      id: _parseInt(json['id']),
+      label: json['label']?.toString() ?? '',
+      subtitle: json['subtitle']?.toString(),
+      color: json.containsKey('color') ? _parseInt(json['color']) : null,
+    );
+  }
+}
+
+class PurchaseFilterOptions {
+  const PurchaseFilterOptions({
+    this.vendors = const [],
+    this.materialTypes = const [],
+    this.cities = const [],
+    this.projectManagers = const [],
+    this.years = const [],
+  });
+
+  static const empty = PurchaseFilterOptions();
+
+  final List<PurchaseFilterOption> vendors;
+  final List<PurchaseFilterOption> materialTypes;
+  final List<PurchaseFilterOption> cities;
+  final List<PurchaseFilterOption> projectManagers;
+  final List<PurchaseFilterOption> years;
+
+  factory PurchaseFilterOptions.fromJson(Map<String, dynamic> json) {
+    List<PurchaseFilterOption> parseList(dynamic raw) {
+      if (raw is! List) return const [];
+      return raw
+          .whereType<Map>()
+          .map((e) => PurchaseFilterOption.fromJson(
+                Map<String, dynamic>.from(e),
+              ))
+          .toList();
+    }
+
+    return PurchaseFilterOptions(
+      vendors: parseList(json['vendors']),
+      materialTypes: parseList(json['material_types']),
+      cities: parseList(json['cities']),
+      projectManagers: parseList(json['project_managers']),
+      years: parseList(json['years']),
+    );
+  }
+}
+
+class PurchaseListFilters {
+  const PurchaseListFilters({
     this.dateFrom = '',
     this.dateTo = '',
-    this.vendor = '',
-    this.project = '',
-    this.requestedBy = '',
-    this.projectManager = '',
     this.origin = '',
-    this.city = '',
     this.reference = '',
+    this.vendorIds = const [],
+    this.materialTypeIds = const [],
+    this.cityIds = const [],
+    this.projectManagerIds = const [],
+    this.years = const [],
   });
 
   final String dateFrom;
   final String dateTo;
-  final String vendor;
-  final String project;
-  final String requestedBy;
-  final String projectManager;
   final String origin;
-  final String city;
   final String reference;
+  final List<int> vendorIds;
+  final List<int> materialTypeIds;
+  final List<int> cityIds;
+  final List<int> projectManagerIds;
+  final List<int> years;
 
   bool get isEmpty =>
       dateFrom.isEmpty &&
       dateTo.isEmpty &&
-      vendor.isEmpty &&
-      project.isEmpty &&
-      requestedBy.isEmpty &&
-      projectManager.isEmpty &&
       origin.isEmpty &&
-      city.isEmpty &&
-      reference.isEmpty;
+      reference.isEmpty &&
+      vendorIds.isEmpty &&
+      materialTypeIds.isEmpty &&
+      cityIds.isEmpty &&
+      projectManagerIds.isEmpty &&
+      years.isEmpty;
 
-  int get activeCount => [
-        dateFrom,
-        dateTo,
-        vendor,
-        project,
-        requestedBy,
-        projectManager,
-        origin,
-        city,
-        reference,
-      ].where((e) => e.trim().isNotEmpty).length;
+  int get activeCount =>
+      [
+        if (dateFrom.isNotEmpty) dateFrom,
+        if (dateTo.isNotEmpty) dateTo,
+        if (origin.isNotEmpty) origin,
+        if (reference.isNotEmpty) reference,
+      ].length +
+      (vendorIds.isNotEmpty ? 1 : 0) +
+      (materialTypeIds.isNotEmpty ? 1 : 0) +
+      (cityIds.isNotEmpty ? 1 : 0) +
+      (projectManagerIds.isNotEmpty ? 1 : 0) +
+      (years.isNotEmpty ? 1 : 0);
 
-  LpoListFilters copyWith({
+  PurchaseListFilters copyWith({
     String? dateFrom,
     String? dateTo,
-    String? vendor,
-    String? project,
-    String? requestedBy,
-    String? projectManager,
     String? origin,
-    String? city,
     String? reference,
+    List<int>? vendorIds,
+    List<int>? materialTypeIds,
+    List<int>? cityIds,
+    List<int>? projectManagerIds,
+    List<int>? years,
   }) {
-    return LpoListFilters(
+    return PurchaseListFilters(
       dateFrom: dateFrom ?? this.dateFrom,
       dateTo: dateTo ?? this.dateTo,
-      vendor: vendor ?? this.vendor,
-      project: project ?? this.project,
-      requestedBy: requestedBy ?? this.requestedBy,
-      projectManager: projectManager ?? this.projectManager,
       origin: origin ?? this.origin,
-      city: city ?? this.city,
       reference: reference ?? this.reference,
+      vendorIds: vendorIds ?? this.vendorIds,
+      materialTypeIds: materialTypeIds ?? this.materialTypeIds,
+      cityIds: cityIds ?? this.cityIds,
+      projectManagerIds: projectManagerIds ?? this.projectManagerIds,
+      years: years ?? this.years,
     );
   }
 
@@ -508,18 +570,24 @@ class LpoListFilters {
       if (v.isNotEmpty) map[key] = v;
     }
 
+    void putIds(String key, List<int> ids) {
+      if (ids.isNotEmpty) map[key] = ids.join(',');
+    }
+
     put('date_from', dateFrom);
     put('date_to', dateTo);
-    put('vendor', vendor);
-    put('project', project);
-    put('requested_by', requestedBy);
-    put('project_manager', projectManager);
     put('origin', origin);
-    put('city', city);
     put('reference', reference);
+    putIds('vendor_ids', vendorIds);
+    putIds('material_type_ids', materialTypeIds);
+    putIds('city_ids', cityIds);
+    putIds('project_manager_ids', projectManagerIds);
+    putIds('years', years);
     return map;
   }
 }
+
+typedef LpoListFilters = PurchaseListFilters;
 
 // ---------------------------------------------------------------------------
 // RFQ / PO

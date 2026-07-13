@@ -122,11 +122,15 @@ class DelayedApprovalsRepository {
   // 2.5 ROR  →  /api/my_delayed_approvals/ror
   //    Returns response-rate values used in the approval overview ROR card.
   // ─────────────────────────────────────────────────────────────
-  Future<DelayedRorResponse> fetchRor() async {
+  Future<DelayedRorResponse> fetchRor({int? month, int? year}) async {
     final token = _requireToken();
     final url = Uri.parse('$_baseUrl/my_delayed_approvals/ror');
 
-    final body = jsonEncode({"jsonrpc": "2.0", "params": {}});
+    final params = <String, dynamic>{};
+    if (month != null) params['month'] = month;
+    if (year != null) params['year'] = year;
+
+    final body = jsonEncode({"jsonrpc": "2.0", "params": params});
 
     try {
       http.Response response = await _sendRorRequest(

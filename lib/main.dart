@@ -73,25 +73,41 @@ Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
   // Save notification to storage
   try {
     final notification = message.notification;
-    if (notification != null) {
-      // Determine category from message data
-      String category = 'notification'; // default
-      if (message.data.containsKey('category')) {
-        category = message.data['category'].toString();
-      } else if (message.data.containsKey('type')) {
-        category = message.data['type'].toString();
-      }
+    final title = (notification?.title ??
+            message.data['title'] ??
+            message.data['subject'] ??
+            '')
+        .toString()
+        .trim();
+    final body = (notification?.body ??
+            message.data['body'] ??
+            message.data['message'] ??
+            '')
+        .toString()
+        .trim();
 
-      await NotificationStorageService.saveNotification(
-        title: notification.title ?? 'Notification',
-        body: notification.body ?? '',
-        imageUrl:
-            notification.android?.imageUrl ?? notification.apple?.imageUrl,
-        data: message.data,
-        category: category,
-      );
-      print('✅ Background notification saved to storage');
+    if (title.isEmpty && body.isEmpty) {
+      print('⚠️ Background skip: empty FCM payload');
+      return;
     }
+
+    String category = 'notification';
+    if (message.data.containsKey('category')) {
+      category = message.data['category'].toString();
+    } else if (message.data.containsKey('type')) {
+      category = message.data['type'].toString();
+    } else if (message.data.containsKey('model')) {
+      category = message.data['model'].toString();
+    }
+
+    await NotificationStorageService.saveNotification(
+      title: title.isEmpty ? 'Notification' : title,
+      body: body,
+      imageUrl: notification?.android?.imageUrl ?? notification?.apple?.imageUrl,
+      data: message.data,
+      category: category,
+    );
+    print('✅ Background notification saved to storage');
   } catch (e) {
     print('❌ Error saving background notification: $e');
   }

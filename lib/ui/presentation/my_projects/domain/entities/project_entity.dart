@@ -50,6 +50,8 @@ class ProjectEntity extends Equatable {
   final String? projectStatusCompute;
   final String? projectNameArabic;
   final String? woTypeNoOffice;
+  /// Odoo `x_internal_project` — when true, project is excluded from mobile lists.
+  final bool isInternalProject;
   final String? partnerName;
   final int? cityId;
   final String? cityName;
@@ -59,6 +61,9 @@ class ProjectEntity extends Equatable {
   final String? budgetLabel;
   final int? openIssuesCount;
   final List<ProjectSupervisorEntity> supervisors;
+
+  /// Internal / general projects must not appear in mobile portfolio UIs.
+  bool get isGeneralWo => isInternalProject;
 
   const ProjectEntity({
     required this.projectId,
@@ -81,6 +86,7 @@ class ProjectEntity extends Equatable {
     this.projectStatusCompute,
     this.projectNameArabic,
     this.woTypeNoOffice,
+    this.isInternalProject = false,
     this.partnerName,
     this.cityId,
     this.cityName,
@@ -114,6 +120,7 @@ class ProjectEntity extends Equatable {
         projectStatusCompute,
         projectNameArabic,
         woTypeNoOffice,
+        isInternalProject,
         partnerName,
         cityId,
         cityName,

@@ -10,16 +10,6 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 
-class _CategoryFilter {
-  const _CategoryFilter({
-    required this.key,
-    required this.visual,
-  });
-
-  final String key;
-  final NotificationCategoryVisual visual;
-}
-
 class NotificationScreen extends StatefulWidget {
   const NotificationScreen({super.key});
 
@@ -28,181 +18,82 @@ class NotificationScreen extends StatefulWidget {
 }
 
 class _NotificationScreenState extends State<NotificationScreen> {
-  static const int _pageSize = 20;
-  static const _allCategoryKey = '__all__';
+  static const int _maxRecords = 50;
+  static const Color _ink = Color(0xFF1A2248);
 
-  final ScrollController _listController = ScrollController();
-
-  List<_CategoryFilter> _categories = const [];
-  String _selectedCategory = _allCategoryKey;
   List<Map<String, dynamic>> _notifications = [];
   bool _loading = true;
-  bool _loadingMore = false;
-  bool _hasMore = true;
-  int _offset = 0;
   bool _clearing = false;
+  bool _clearAllVisible = false;
+  String? _openSwipeId;
+  void Function()? _previousCountCallback;
 
   @override
   void initState() {
     super.initState();
-    _listController.addListener(_onScroll);
+    _previousCountCallback = NotificationStorageService.onCountChanged;
+    NotificationStorageService.onCountChanged = () {
+      _previousCountCallback?.call();
+      if (mounted && !_loading) {
+        _loadNotifications(showLoader: false);
+      }
+    };
     _bootstrap();
   }
 
   @override
   void dispose() {
-    _listController
-      ..removeListener(_onScroll)
-      ..dispose();
+    NotificationStorageService.onCountChanged = _previousCountCallback;
     super.dispose();
   }
 
   Future<void> _bootstrap() async {
+    // Opening Notification Center = all existing are read; badge clears.
+    // Only notifications that arrive after this keep a red dot.
+    await NotificationStorageService.markAllAsRead();
     await NotificationStorageService.acknowledgeBadge();
-    await _loadCategories();
-    await _loadNotifications(reset: true);
+    await _loadNotifications();
   }
 
-  Future<void> _loadCategories() async {
-    try {
-      final apiCategories =
-          await NotificationStorageService.getNotificationCategories();
-      final chips = <_CategoryFilter>[
-        const _CategoryFilter(
-          key: _allCategoryKey,
-          visual: NotificationCategoryTheme.all,
-        ),
-      ];
-
-      for (final item in apiCategories) {
-        final key = item.model.trim().toLowerCase();
-        if (key.isEmpty || key == 'circular' || key == 'announcement') {
-          continue;
-        }
-        if (chips.any((c) => c.key == key)) continue;
-        chips.add(
-          _CategoryFilter(
-            key: key,
-            visual: NotificationCategoryTheme.forKey(
-              key,
-              fallbackTitle: item.title.trim().isNotEmpty
-                  ? item.title.trim()
-                  : null,
-            ),
-          ),
-        );
-      }
-
-      if (!mounted) return;
-      setState(() => _categories = chips);
-    } catch (_) {
-      if (!mounted) return;
-      setState(() {
-        _categories = const [
-          _CategoryFilter(
-            key: _allCategoryKey,
-            visual: NotificationCategoryTheme.all,
-          ),
-        ];
-      });
+  Future<void> _loadNotifications({bool showLoader = true}) async {
+    if (showLoader && mounted) {
+      setState(() => _loading = true);
     }
-  }
-
-  void _onScroll() {
-    if (!_listController.hasClients ||
-        _loading ||
-        _loadingMore ||
-        !_hasMore) {
-      return;
-    }
-    final position = _listController.position;
-    if (position.pixels >= position.maxScrollExtent - 280) {
-      _loadNotifications(reset: false);
-    }
-  }
-
-  Future<void> _loadNotifications({required bool reset}) async {
-    if (reset) {
-      setState(() {
-        _loading = true;
-        _loadingMore = false;
-        _hasMore = true;
-        _offset = 0;
-      });
-    } else {
-      if (_loadingMore || !_hasMore) return;
-      setState(() => _loadingMore = true);
-    }
-
     try {
       final batch = await NotificationStorageService.getNotifications(
-        limit: _pageSize,
-        offset: reset ? 0 : _offset,
+        limit: _maxRecords,
+        offset: 0,
       );
-
       if (!mounted) return;
+      final filtered = List<Map<String, dynamic>>.from(batch).where((n) {
+        final cat = (n['category'] ?? '').toString().toLowerCase().trim();
+        return cat != 'circular' && cat != 'announcement';
+      }).toList();
+      filtered.sort(_compareNewestFirst);
       setState(() {
-        if (reset) {
-          _notifications = List<Map<String, dynamic>>.from(batch);
-        } else {
-          final ids = _notifications
-              .map((n) => '${n['id'] ?? ''}')
-              .where((id) => id.isNotEmpty)
-              .toSet();
-          for (final item in batch) {
-            final id = '${item['id'] ?? ''}';
-            if (id.isNotEmpty && ids.contains(id)) continue;
-            _notifications.add(Map<String, dynamic>.from(item));
-          }
-        }
-        _offset = reset ? batch.length : _offset + batch.length;
-        _hasMore = batch.length >= _pageSize;
+        _notifications = filtered;
         _loading = false;
-        _loadingMore = false;
+        if (_notifications.isEmpty) {
+          _clearAllVisible = false;
+          _openSwipeId = null;
+        }
       });
     } catch (_) {
       if (!mounted) return;
-      setState(() {
-        _loading = false;
-        _loadingMore = false;
-      });
+      setState(() => _loading = false);
     }
   }
 
-  void _clearSelectedCategory() {
-    if (_clearing) return;
-
-    final category = _selectedCategory;
-
-    setState(() {
-      _clearing = true;
-      _notifications = _notifications
-          .where((n) => !_matchesClearScope(n))
-          .toList();
-      _offset = _notifications.length;
-      _hasMore = false;
-    });
-
-    Future<void>(() async {
-      try {
-        if (category == _allCategoryKey) {
-          await NotificationStorageService.markAllAsRead();
-        } else {
-          await NotificationStorageService.markCategoryAsRead(category);
-        }
-      } finally {
-        if (mounted) setState(() => _clearing = false);
-      }
-    });
-  }
-
-  bool _matchesClearScope(Map<String, dynamic> item) {
-    if (_selectedCategory == _allCategoryKey) {
-      final cat = (item['category'] ?? '').toString().toLowerCase().trim();
-      return cat != 'circular' && cat != 'announcement';
-    }
-    final cat = (item['category'] ?? 'notification').toString().toLowerCase();
-    return cat == _selectedCategory.toLowerCase();
+  int _compareNewestFirst(Map<String, dynamic> a, Map<String, dynamic> b) {
+    final aTime = DateTime.tryParse(
+          (a['timestamp'] ?? a['created_at'] ?? '').toString(),
+        ) ??
+        DateTime.fromMillisecondsSinceEpoch(0);
+    final bTime = DateTime.tryParse(
+          (b['timestamp'] ?? b['created_at'] ?? '').toString(),
+        ) ??
+        DateTime.fromMillisecondsSinceEpoch(0);
+    return bTime.compareTo(aTime);
   }
 
   bool _isRead(Map<String, dynamic> item) {
@@ -216,40 +107,14 @@ class _NotificationScreenState extends State<NotificationScreen> {
     return (item['category'] ?? 'notification').toString().toLowerCase().trim();
   }
 
-  int _unreadCountForCategory(String key) {
-    if (key == _allCategoryKey) {
-      return _notifications.where((n) {
-        if (_isRead(n)) return false;
-        final cat = _categoryKey(n);
-        return cat != 'circular' && cat != 'announcement';
-      }).length;
-    }
-    return _notifications
-        .where((n) => !_isRead(n) && _categoryKey(n) == key)
-        .length;
-  }
-
-  List<Map<String, dynamic>> get _visibleNotifications {
-    if (_selectedCategory == _allCategoryKey) {
-      return _notifications.where((n) {
-        final cat = _categoryKey(n);
-        return cat != 'circular' && cat != 'announcement';
-      }).toList();
-    }
-
-    return _notifications
-        .where((n) => _categoryKey(n) == _selectedCategory.toLowerCase())
-        .toList();
-  }
-
   String _formatTime(Map<String, dynamic> item) {
     final timeAgo = (item['timeAgo'] ?? '').toString().trim();
     if (timeAgo.isNotEmpty) return timeAgo;
 
-    final raw = (item['timestamp'] ?? '').toString();
+    final raw = (item['timestamp'] ?? item['created_at'] ?? '').toString();
     if (raw.isEmpty) return '';
     try {
-      final dateTime = DateTime.parse(raw);
+      final dateTime = DateTime.parse(raw).toLocal();
       final diff = DateTime.now().difference(dateTime);
       if (diff.inMinutes < 1) return 'Just now';
       if (diff.inMinutes < 60) return '${diff.inMinutes}m ago';
@@ -261,158 +126,136 @@ class _NotificationScreenState extends State<NotificationScreen> {
     }
   }
 
-  Future<void> _onTapNotification(Map<String, dynamic> item) async {
-    final id = (item['id'] ?? '').toString();
-    if (id.isNotEmpty && !_isRead(item)) {
-      await NotificationStorageService.markAsRead(id);
-      if (!mounted) return;
-      setState(() {
-        _notifications = _notifications.map((n) {
-          if (n['id']?.toString() == id) {
-            final updated = Map<String, dynamic>.from(n);
-            updated['isRead'] = true;
-            updated['is_read'] = true;
-            return updated;
-          }
-          return n;
-        }).toList();
-      });
+  String _formatClockTime(Map<String, dynamic> item) {
+    final raw = (item['timestamp'] ?? item['created_at'] ?? '').toString();
+    if (raw.isEmpty) return '';
+    try {
+      final dateTime = DateTime.parse(raw).toLocal();
+      return DateFormat('h:mm a').format(dateTime).toLowerCase();
+    } catch (_) {
+      return '';
     }
+  }
 
-    if (!mounted) return;
-    showDialog<void>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: const Color(0xFFF4F6FA),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: Text(
-          item['title']?.toString() ?? 'Notification',
-          style: GoogleFonts.poppins(fontWeight: FontWeight.w700),
-        ),
-        content: SingleChildScrollView(
-          child: Text(
-            item['body']?.toString() ?? '',
-            style: GoogleFonts.poppins(fontSize: 13.sp, height: 1.4),
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(),
-            child: const Text('Close'),
-          ),
-        ],
-      ),
-    );
+  void _onTapNotification(Map<String, dynamic> item) {
+    // No popup — tap only closes open swipe / Clear all chrome.
+    _collapseChrome();
+  }
+
+  Future<void> _deleteNotification(Map<String, dynamic> item) async {
+    final id = (item['id'] ?? '').toString();
+    if (id.isEmpty) return;
+
+    setState(() {
+      _notifications =
+          _notifications.where((n) => n['id']?.toString() != id).toList();
+      if (_openSwipeId == id) _openSwipeId = null;
+      if (_notifications.isEmpty) _clearAllVisible = false;
+    });
+    await NotificationStorageService.deleteNotification(id);
+  }
+
+  void _onCrossTap() {
+    if (_clearing || _notifications.isEmpty) return;
+    setState(() {
+      _openSwipeId = null;
+      _clearAllVisible = !_clearAllVisible;
+    });
+  }
+
+  Future<void> _performClearAll() async {
+    if (_clearing || _notifications.isEmpty) return;
+
+    setState(() {
+      _clearing = true;
+      _notifications = [];
+      _openSwipeId = null;
+    });
+    try {
+      await NotificationStorageService.clearAll();
+      await NotificationStorageService.acknowledgeBadge();
+    } finally {
+      if (mounted) {
+        setState(() {
+          _clearing = false;
+          _clearAllVisible = false;
+        });
+      }
+    }
+  }
+
+  void _collapseChrome() {
+    if (!_clearAllVisible && _openSwipeId == null) return;
+    setState(() {
+      _clearAllVisible = false;
+      _openSwipeId = null;
+    });
   }
 
   @override
   Widget build(BuildContext context) {
-    final items = _visibleNotifications;
-    final categoryBarHeight = GlassSubAppScreenHeader.headerTabsHeight;
-
     return PopScope(
       canPop: false,
       onPopInvokedWithResult: (didPop, _) {
         if (didPop) return;
+        if (_clearAllVisible || _openSwipeId != null) {
+          _collapseChrome();
+          return;
+        }
         HomeNavigation.handleSystemBack(context);
       },
       child: Scaffold(
-        backgroundColor: Colors.transparent,
+        backgroundColor: const Color(0xFFE8ECF2),
         body: Stack(
           fit: StackFit.expand,
           children: [
-            const DecoratedBox(
-              decoration: BoxDecoration(
-                gradient: ChatUnifiedHeaderBackdrop.gradient,
-              ),
-            ),
-            Positioned.fill(
-              child: IgnorePointer(
-                child: Opacity(
-                  opacity: 0.55,
-                  child: Image.asset(
-                    'assets/png/header_bg.png',
-                    fit: BoxFit.cover,
-                    alignment: Alignment.centerRight,
-                  ),
-                ),
-              ),
-            ),
+            const _LightenedBrandBackdrop(),
             Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 SizedBox(
-                  height: SubAppGlassAppBar.extent(context) +
-                      GlassSubAppScreenHeader.titleRowHeight.h +
-                      categoryBarHeight.h,
-                  child: Stack(
-                    fit: StackFit.expand,
-                    clipBehavior: Clip.none,
+                  height: SubAppGlassAppBar.extent(context),
+                  child: const SubAppGlassAppBar(),
+                ),
+                Padding(
+                  padding: EdgeInsets.fromLTRB(8.w, 2.h, 12.w, 8.h),
+                  child: Row(
                     children: [
-                      ChatUnifiedHeaderBackdrop.layer(),
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: [
-                          SizedBox(
-                            height: SubAppGlassAppBar.extent(context),
-                            child: const SubAppGlassAppBar(),
+                      IconButton(
+                        onPressed: () {
+                          if (_clearAllVisible || _openSwipeId != null) {
+                            _collapseChrome();
+                            return;
+                          }
+                          HomeNavigation.handleSystemBack(context);
+                        },
+                        icon: Icon(
+                          Icons.arrow_back_ios_new_rounded,
+                          color: _ink,
+                          size: 18.sp,
+                        ),
+                        padding: EdgeInsets.zero,
+                        constraints: BoxConstraints(
+                          minWidth: 40.w,
+                          minHeight: 40.w,
+                        ),
+                      ),
+                      Expanded(
+                        child: Text(
+                          'Notification center',
+                          style: GoogleFonts.poppins(
+                            fontSize: 17.sp,
+                            fontWeight: FontWeight.w700,
+                            color: _ink,
                           ),
-                          SizedBox(
-                            height: GlassSubAppScreenHeader.titleRowHeight.h,
-                            child: Padding(
-                              padding: EdgeInsets.fromLTRB(14.w, 2.h, 8.w, 0),
-                              child: Row(
-                                children: [
-                                  IconButton(
-                                    onPressed: () =>
-                                        HomeNavigation.handleSystemBack(
-                                            context),
-                                    icon: Icon(
-                                      Icons.arrow_back_ios_new_rounded,
-                                      color: Colors.white,
-                                      size: 18.sp,
-                                    ),
-                                    padding: EdgeInsets.zero,
-                                    constraints: BoxConstraints(
-                                      minWidth: 32.w,
-                                      minHeight: 32.w,
-                                    ),
-                                  ),
-                                  Expanded(
-                                    child: Text(
-                                      'Notifications',
-                                      style: GoogleFonts.poppins(
-                                        fontSize: 16.sp,
-                                        fontWeight: FontWeight.w700,
-                                        color: Colors.white,
-                                      ),
-                                    ),
-                                  ),
-                                  _ClearAllBadge(
-                                    clearing: _clearing,
-                                    onTap: _clearSelectedCategory,
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ),
-                          SizedBox(
-                            height: categoryBarHeight.h,
-                            child: Padding(
-                              padding: EdgeInsets.fromLTRB(10.w, 10.h, 10.w, 6.h),
-                              child: Align(
-                                alignment: Alignment.bottomCenter,
-                                child: _CategoryIconBar(
-                                  categories: _categories,
-                                  selectedKey: _selectedCategory,
-                                  unreadForKey: _unreadCountForCategory,
-                                  onSelected: (key) =>
-                                      setState(() => _selectedCategory = key),
-                                ),
-                              ),
-                            ),
-                          ),
-                        ],
+                        ),
+                      ),
+                      _HeaderClearControls(
+                        clearAllVisible: _clearAllVisible,
+                        clearing: _clearing,
+                        enabled: _notifications.isNotEmpty,
+                        onCrossTap: _onCrossTap,
+                        onClearAllTap: _performClearAll,
                       ),
                     ],
                   ),
@@ -421,59 +264,67 @@ class _NotificationScreenState extends State<NotificationScreen> {
                   child: _loading
                       ? const Center(
                           child: CircularProgressIndicator(
-                            color: Colors.white,
+                            color: Color(0xFF1A2248),
                           ),
                         )
-                      : items.isEmpty
+                      : _notifications.isEmpty
                           ? Center(
                               child: Text(
                                 'No notifications',
                                 style: GoogleFonts.poppins(
                                   fontSize: 14.sp,
                                   fontWeight: FontWeight.w600,
-                                  color: Colors.white.withValues(alpha: 0.88),
+                                  color: _ink.withValues(alpha: 0.55),
                                 ),
                               ),
                             )
-                          : ListView.builder(
-                              controller: _listController,
-                              padding: EdgeInsets.fromLTRB(
-                                14.w,
-                                10.h,
-                                14.w,
-                                context.systemBottomInset + 16.h,
-                              ),
-                              itemCount:
-                                  items.length + (_loadingMore ? 1 : 0),
-                              itemBuilder: (context, index) {
-                                if (index >= items.length) {
-                                  return Padding(
-                                    padding:
-                                        EdgeInsets.symmetric(vertical: 16.h),
-                                    child: const Center(
-                                      child: CircularProgressIndicator(
-                                        color: Colors.white,
-                                      ),
+                          : GestureDetector(
+                              behavior: HitTestBehavior.translucent,
+                              onTap: _collapseChrome,
+                              child: ListView.separated(
+                                padding: EdgeInsets.fromLTRB(
+                                  12.w,
+                                  4.h,
+                                  12.w,
+                                  context.systemBottomInset + 16.h,
+                                ),
+                                itemCount: _notifications.length,
+                                separatorBuilder: (_, __) => Divider(
+                                  height: 1,
+                                  thickness: 0.7,
+                                  color: _ink.withValues(alpha: 0.10),
+                                ),
+                                itemBuilder: (context, index) {
+                                  final item = _notifications[index];
+                                  final id = '${item['id'] ?? index}';
+                                  final visual =
+                                      NotificationCategoryTheme.forKey(
+                                    _categoryKey(item),
+                                  );
+                                  return _IosSwipeClearTile(
+                                    key: ValueKey('notif_$id'),
+                                    itemId: id,
+                                    isOpen: _openSwipeId == id,
+                                    onOpenChanged: (open) {
+                                      setState(() {
+                                        _clearAllVisible = false;
+                                        _openSwipeId = open ? id : null;
+                                      });
+                                    },
+                                    onClear: () => _deleteNotification(item),
+                                    child: _NotificationRow(
+                                      visual: visual,
+                                      title: item['title']?.toString() ??
+                                          'Notification',
+                                      body: item['body']?.toString() ?? '',
+                                      timeLabel: _formatTime(item),
+                                      clockTime: _formatClockTime(item),
+                                      isRead: _isRead(item),
+                                      onTap: () => _onTapNotification(item),
                                     ),
                                   );
-                                }
-                                final item = items[index];
-                                final visual = NotificationCategoryTheme.forKey(
-                                  _categoryKey(item),
-                                );
-                                return Padding(
-                                  padding: EdgeInsets.only(bottom: 10.h),
-                                  child: _NotificationGlassCard(
-                                    visual: visual,
-                                    title: item['title']?.toString() ??
-                                        'Notification',
-                                    body: item['body']?.toString() ?? '',
-                                    timeLabel: _formatTime(item),
-                                    isRead: _isRead(item),
-                                    onTap: () => _onTapNotification(item),
-                                  ),
-                                );
-                              },
+                                },
+                              ),
                             ),
                 ),
               ],
@@ -485,95 +336,428 @@ class _NotificationScreenState extends State<NotificationScreen> {
   }
 }
 
-class _CategoryIconBar extends StatelessWidget {
-  const _CategoryIconBar({
-    required this.categories,
-    required this.selectedKey,
-    required this.unreadForKey,
-    required this.onSelected,
-  });
-
-  final List<_CategoryFilter> categories;
-  final String selectedKey;
-  final int Function(String key) unreadForKey;
-  final ValueChanged<String> onSelected;
-
-  @override
-  Widget build(BuildContext context) {
-    return SizedBox(
-      height: 54.h,
-      child: ListView.separated(
-        scrollDirection: Axis.horizontal,
-        clipBehavior: Clip.none,
-        padding: EdgeInsets.only(top: 8.h),
-        physics: const BouncingScrollPhysics(),
-        itemCount: categories.length,
-        separatorBuilder: (_, __) => SizedBox(width: 8.w),
-        itemBuilder: (context, index) {
-          final chip = categories[index];
-          final selected = chip.key == selectedKey;
-          final unread = unreadForKey(chip.key);
-          return GlassHeaderIconChip(
-            icon: chip.visual.icon,
-            color: chip.visual.color,
-            isSelected: selected,
-            badgeCount: unread,
-            onTap: () => onSelected(chip.key),
-          );
-        },
-      ),
-    );
-  }
+class _GlassPillDecoration {
+  /// Transparent like notification rows — no drop shadow (avoids halo bug).
+  static BoxDecoration get sameBackground => BoxDecoration(
+        borderRadius: BorderRadius.circular(999),
+        color: Colors.transparent,
+        border: Border.all(
+          color: const Color(0xFF1A2248).withValues(alpha: 0.16),
+        ),
+      );
 }
 
-class _ClearAllBadge extends StatelessWidget {
-  const _ClearAllBadge({
+/// X stays put; "Clear all" pops in/out beside it with scale+fade.
+class _HeaderClearControls extends StatelessWidget {
+  const _HeaderClearControls({
+    required this.clearAllVisible,
     required this.clearing,
-    required this.onTap,
+    required this.enabled,
+    required this.onCrossTap,
+    required this.onClearAllTap,
   });
 
+  final bool clearAllVisible;
   final bool clearing;
-  final VoidCallback onTap;
+  final bool enabled;
+  final VoidCallback onCrossTap;
+  final VoidCallback onClearAllTap;
+
+  static const Color _ink = Color(0xFF1A2248);
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: clearing ? null : onTap,
-      child: Container(
-        padding: EdgeInsets.symmetric(horizontal: 10.w, vertical: 5.h),
-        decoration: BoxDecoration(
-          color: const Color(0xFFE53935).withValues(alpha: 0.52),
-          borderRadius: BorderRadius.circular(999),
-          border: Border.all(color: Colors.white.withValues(alpha: 0.45)),
-        ),
-        child: clearing
-            ? SizedBox(
-                width: 14.w,
-                height: 14.w,
-                child: CircularProgressIndicator(
-                  strokeWidth: 2,
-                  color: Colors.white.withValues(alpha: 0.75),
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        AnimatedSwitcher(
+          duration: const Duration(milliseconds: 240),
+          switchInCurve: Curves.easeOutBack,
+          switchOutCurve: Curves.easeInCubic,
+          transitionBuilder: (child, animation) {
+            return FadeTransition(
+              opacity: animation,
+              child: ScaleTransition(
+                scale: Tween<double>(begin: 0.82, end: 1.0).animate(animation),
+                alignment: Alignment.centerRight,
+                child: child,
+              ),
+            );
+          },
+          child: clearAllVisible
+              ? Padding(
+                  key: const ValueKey('clear_all_shown'),
+                  padding: EdgeInsets.only(right: 8.w),
+                  child: Material(
+                    color: Colors.transparent,
+                    child: InkWell(
+                      onTap: (!enabled || clearing) ? null : onClearAllTap,
+                      borderRadius: BorderRadius.circular(999),
+                      child: Ink(
+                        height: 36.h,
+                        padding: EdgeInsets.symmetric(horizontal: 12.w),
+                        decoration: _GlassPillDecoration.sameBackground,
+                        child: Center(
+                          child: clearing
+                              ? SizedBox(
+                                  width: 14.w,
+                                  height: 14.w,
+                                  child: const CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                    color: _ink,
+                                  ),
+                                )
+                              : Text(
+                                  'Clear all',
+                                  style: GoogleFonts.poppins(
+                                    fontSize: 12.sp,
+                                    fontWeight: FontWeight.w600,
+                                    color: _ink.withValues(alpha: 0.85),
+                                  ),
+                                ),
+                        ),
+                      ),
+                    ),
+                  ),
+                )
+              : SizedBox(
+                  key: const ValueKey('clear_all_hidden'),
+                  height: 36.h,
+                  width: 0,
                 ),
-              )
-            : Text(
-                'Clear all',
-                style: GoogleFonts.poppins(
-                  fontSize: 11.sp,
-                  fontWeight: FontWeight.w600,
-                  color: Colors.white.withValues(alpha: 0.78),
+        ),
+        Material(
+          color: Colors.transparent,
+          child: InkWell(
+            onTap: (!enabled && !clearAllVisible) || clearing
+                ? null
+                : onCrossTap,
+            customBorder: const CircleBorder(),
+            child: Ink(
+              width: 36.w,
+              height: 36.w,
+              decoration: _GlassPillDecoration.sameBackground,
+              child: Center(
+                child: Icon(
+                  Icons.close_rounded,
+                  size: 18.sp,
+                  color: enabled || clearAllVisible
+                      ? _ink.withValues(alpha: 0.78)
+                      : _ink.withValues(alpha: 0.28),
                 ),
               ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+/// iOS-style swipe: partial reveal shows Clear; full swipe dismisses.
+class _IosSwipeClearTile extends StatefulWidget {
+  const _IosSwipeClearTile({
+    super.key,
+    required this.itemId,
+    required this.isOpen,
+    required this.onOpenChanged,
+    required this.onClear,
+    required this.child,
+  });
+
+  final String itemId;
+  final bool isOpen;
+  final ValueChanged<bool> onOpenChanged;
+  final Future<void> Function() onClear;
+  final Widget child;
+
+  @override
+  State<_IosSwipeClearTile> createState() => _IosSwipeClearTileState();
+}
+
+class _IosSwipeClearTileState extends State<_IosSwipeClearTile>
+    with SingleTickerProviderStateMixin {
+  static const Color _ink = Color(0xFF1A2248);
+
+  late final AnimationController _anim;
+  double _dragExtent = 0;
+  double _animFrom = 0;
+  double _animTo = 0;
+  Curve _animCurve = Curves.linear;
+  bool _removing = false;
+  bool _dragging = false;
+
+  /// Match category icon chip size.
+  double get _iconSize => 42.w;
+  double get _restActionWidth => _iconSize + 28.w;
+
+  @override
+  void initState() {
+    super.initState();
+    _anim = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 120),
+    )..addListener(_onAnimTick);
+    if (widget.isOpen) {
+      _dragExtent = -_restActionWidth;
+    }
+  }
+
+  void _onAnimTick() {
+    final t = _animCurve.transform(_anim.value);
+    setState(() {
+      _dragExtent = _animFrom + (_animTo - _animFrom) * t;
+    });
+  }
+
+  @override
+  void dispose() {
+    _anim.dispose();
+    super.dispose();
+  }
+
+  Future<void> _animateExtent(
+    double target, {
+    int ms = 120,
+    Curve curve = Curves.easeOutCubic,
+  }) async {
+    _anim.stop();
+    _animFrom = _dragExtent;
+    _animTo = target;
+    _animCurve = curve;
+    _anim.duration = Duration(milliseconds: ms);
+    await _anim.forward(from: 0);
+    if (mounted) setState(() => _dragExtent = target);
+  }
+
+  void _onDragStart(DragStartDetails details) {
+    if (_removing) return;
+    _anim.stop();
+    _dragging = true;
+  }
+
+  void _onDragUpdate(DragUpdateDetails details) {
+    if (_removing) return;
+    final delta = details.primaryDelta ?? 0;
+    setState(() {
+      _dragging = true;
+      _dragExtent =
+          (_dragExtent + delta).clamp(-MediaQuery.sizeOf(context).width, 0.0);
+    });
+  }
+
+  Future<void> _onDragEnd(DragEndDetails details) async {
+    if (_removing) return;
+    _dragging = false;
+    final width = MediaQuery.sizeOf(context).width;
+    final abs = _dragExtent.abs();
+    final velocity = details.primaryVelocity ?? 0;
+    final wasOpen = widget.isOpen || abs >= _restActionWidth * 0.85;
+    // Snap open relative to Clear slot size (not screen %), so release
+    // does not hide the button that was visible mid-swipe.
+    final openThreshold = _restActionWidth * 0.55;
+
+    // Full dismiss: 50% normally, or continue-swipe when Clear is already open.
+    final fullDismiss = abs >= width * 0.50 ||
+        (wasOpen && abs >= width * 0.32) ||
+        (abs >= width * 0.28 && velocity < -1000);
+    if (fullDismiss) {
+      await _dismissFully();
+      return;
+    }
+
+    if (abs >= openThreshold ||
+        (velocity < -450 && abs >= _restActionWidth * 0.35)) {
+      await _animateExtent(-_restActionWidth, ms: 110);
+      if (!mounted) return;
+      widget.onOpenChanged(true);
+      return;
+    }
+
+    // Un-swipe: drop open flag first so Clear clips with the row, no lag hide.
+    widget.onOpenChanged(false);
+    final closeMs = velocity > 600 ? 55 : 75;
+    await _animateExtent(0, ms: closeMs, curve: Curves.easeOutCubic);
+  }
+
+  @override
+  void didUpdateWidget(covariant _IosSwipeClearTile oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (_removing || _dragging) return;
+    if (widget.isOpen == oldWidget.isOpen) return;
+    if (!widget.isOpen && _dragExtent != 0) {
+      _animateExtent(0, ms: 75, curve: Curves.easeOutCubic);
+    } else if (widget.isOpen && _dragExtent > -_restActionWidth + 1) {
+      _animateExtent(-_restActionWidth, ms: 110);
+    }
+  }
+
+  Future<void> _dismissFully() async {
+    if (_removing) return;
+    setState(() => _removing = true);
+    final width = MediaQuery.sizeOf(context).width;
+    await _animateExtent(-width, ms: 140);
+    await widget.onClear();
+  }
+
+  Future<void> _onClearTap() async {
+    if (_removing || _dragging) return;
+    await _dismissFully();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final width = MediaQuery.sizeOf(context).width;
+    final abs = -_dragExtent;
+    // Follow finger / animation exactly — no min-width clamp (that caused
+    // Clear to stay full-size then pop away on un-swipe).
+    final showClear = abs > 0.5;
+    final trackWidth = abs.clamp(0.0, width);
+    final clearOpacity =
+        (abs / (_restActionWidth * 0.85)).clamp(0.0, 1.0);
+
+    return ClipRect(
+      child: Stack(
+        alignment: Alignment.centerRight,
+        children: [
+          if (showClear)
+            Positioned(
+              right: 0,
+              top: 0,
+              bottom: 0,
+              width: trackWidth,
+              child: ClipRect(
+                child: Align(
+                  alignment: Alignment.centerRight,
+                  child: Opacity(
+                    opacity: clearOpacity,
+                    child: Padding(
+                      padding: EdgeInsets.only(right: 4.w),
+                      child: Material(
+                        color: Colors.transparent,
+                        child: InkWell(
+                          onTap: _onClearTap,
+                          borderRadius: BorderRadius.circular(14.r),
+                          child: Ink(
+                            width: _iconSize + 20.w,
+                            height: _iconSize,
+                            decoration: BoxDecoration(
+                              borderRadius: BorderRadius.circular(14.r),
+                              color: Colors.transparent,
+                              border: Border.all(
+                                color: _ink.withValues(alpha: 0.18),
+                                width: 1.1,
+                              ),
+                            ),
+                            child: Center(
+                              child: Text(
+                                'Clear',
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: GoogleFonts.poppins(
+                                  fontSize: 12.sp,
+                                  fontWeight: FontWeight.w600,
+                                  color: _ink.withValues(alpha: 0.72),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          GestureDetector(
+            behavior: HitTestBehavior.translucent,
+            onHorizontalDragStart: _onDragStart,
+            onHorizontalDragUpdate: _onDragUpdate,
+            onHorizontalDragEnd: _onDragEnd,
+            child: Transform.translate(
+              offset: Offset(_dragExtent, 0),
+              child: ColoredBox(
+                color: Colors.transparent,
+                child: widget.child,
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
 }
 
-class _NotificationGlassCard extends StatelessWidget {
-  const _NotificationGlassCard({
+class _LightenedBrandBackdrop extends StatelessWidget {
+  const _LightenedBrandBackdrop();
+
+  static Color _lift(Color base, double towardWhite) =>
+      Color.lerp(base, Colors.white, towardWhite)!;
+
+  static final LinearGradient _lightGradient = LinearGradient(
+    begin: Alignment.topCenter,
+    end: Alignment.bottomCenter,
+    colors: [
+      _lift(const Color(0xFFB4B9C2), 0.62),
+      _lift(const Color(0xFF8E98A8), 0.58),
+      _lift(const Color(0xFF6E7A92), 0.55),
+      _lift(const Color(0xFF525E7A), 0.52),
+      _lift(const Color(0xFF3D4768), 0.50),
+      _lift(const Color(0xFF2C3560), 0.48),
+      _lift(const Color(0xFF222B58), 0.46),
+      _lift(const Color(0xFF1A2248), 0.44),
+      _lift(const Color(0xFF161B54), 0.42),
+    ],
+    stops: ChatUnifiedHeaderBackdrop.gradient.stops,
+  );
+
+  @override
+  Widget build(BuildContext context) {
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        DecoratedBox(decoration: BoxDecoration(gradient: _lightGradient)),
+        Positioned.fill(
+          child: IgnorePointer(
+            child: Opacity(
+              opacity: 0.28,
+              child: Image.asset(
+                'assets/png/header_bg.png',
+                fit: BoxFit.cover,
+                alignment: Alignment.centerRight,
+              ),
+            ),
+          ),
+        ),
+        Positioned.fill(
+          child: IgnorePointer(
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [
+                    Colors.white.withValues(alpha: 0.42),
+                    Colors.white.withValues(alpha: 0.18),
+                    Colors.white.withValues(alpha: 0.08),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _NotificationRow extends StatelessWidget {
+  const _NotificationRow({
     required this.visual,
     required this.title,
     required this.body,
     required this.timeLabel,
+    required this.clockTime,
     required this.isRead,
     required this.onTap,
   });
@@ -582,107 +766,111 @@ class _NotificationGlassCard extends StatelessWidget {
   final String title;
   final String body;
   final String timeLabel;
+  final String clockTime;
   final bool isRead;
   final VoidCallback onTap;
 
+  static const Color _ink = Color(0xFF1A2248);
+
   @override
   Widget build(BuildContext context) {
+    final lightColor = Color.lerp(visual.color, Colors.white, 0.42)!;
+
     return Material(
       color: Colors.transparent,
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(16.r),
-        child: Ink(
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(16.r),
-            color: Colors.white.withValues(alpha: isRead ? 0.14 : 0.22),
-            border: Border.all(
-              color: Colors.white.withValues(alpha: isRead ? 0.35 : 0.62),
-              width: 1.1,
-            ),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.08),
-                blurRadius: 10,
-                offset: const Offset(0, 4),
+        child: Padding(
+          padding: EdgeInsets.symmetric(horizontal: 4.w, vertical: 12.h),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              GlassHeaderIconChip(
+                icon: visual.icon,
+                color: lightColor,
+                isSelected: true,
+                size: 42,
+                faded: true,
+                onTap: onTap,
               ),
-            ],
-          ),
-          child: Padding(
-            padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 12.h),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                GlassHeaderIconChip(
-                  icon: visual.icon,
-                  color: visual.color,
-                  isSelected: true,
-                  size: 42,
-                  faded: true,
-                  onTap: onTap,
-                ),
-                SizedBox(width: 12.w),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Expanded(
-                            child: Text(
-                              title,
-                              style: GoogleFonts.poppins(
-                                fontSize: 14.sp,
-                                fontWeight: isRead
-                                    ? FontWeight.w600
-                                    : FontWeight.w700,
-                                color: Colors.white,
-                                height: 1.25,
-                              ),
+              SizedBox(width: 12.w),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Expanded(
+                          child: Text(
+                            title,
+                            style: GoogleFonts.poppins(
+                              fontSize: 14.sp,
+                              fontWeight:
+                                  isRead ? FontWeight.w600 : FontWeight.w700,
+                              color: _ink,
+                              height: 1.25,
                             ),
                           ),
-                          if (!isRead)
-                            Container(
-                              width: 8.w,
-                              height: 8.w,
-                              margin: EdgeInsets.only(left: 6.w, top: 4.h),
-                              decoration: const BoxDecoration(
-                                color: Color(0xFFE53935),
-                                shape: BoxShape.circle,
+                        ),
+                        if (!isRead)
+                          Container(
+                            width: 8.w,
+                            height: 8.w,
+                            margin: EdgeInsets.only(left: 6.w, top: 4.h),
+                            decoration: const BoxDecoration(
+                              color: Color(0xFFE53935),
+                              shape: BoxShape.circle,
+                            ),
+                          ),
+                      ],
+                    ),
+                    if (body.trim().isNotEmpty) ...[
+                      SizedBox(height: 4.h),
+                      Text(
+                        body,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: GoogleFonts.poppins(
+                          fontSize: 12.sp,
+                          color: _ink.withValues(alpha: 0.72),
+                          height: 1.35,
+                        ),
+                      ),
+                    ],
+                    if (timeLabel.isNotEmpty || clockTime.isNotEmpty) ...[
+                      SizedBox(height: 6.h),
+                      Row(
+                        children: [
+                          if (timeLabel.isNotEmpty)
+                            Expanded(
+                              child: Text(
+                                timeLabel,
+                                style: GoogleFonts.poppins(
+                                  fontSize: 10.sp,
+                                  fontWeight: FontWeight.w500,
+                                  color: _ink.withValues(alpha: 0.45),
+                                ),
+                              ),
+                            )
+                          else
+                            const Spacer(),
+                          if (clockTime.isNotEmpty)
+                            Text(
+                              clockTime,
+                              style: GoogleFonts.poppins(
+                                fontSize: 10.sp,
+                                fontWeight: FontWeight.w500,
+                                color: _ink.withValues(alpha: 0.45),
                               ),
                             ),
                         ],
                       ),
-                      if (body.trim().isNotEmpty) ...[
-                        SizedBox(height: 4.h),
-                        Text(
-                          body,
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                          style: GoogleFonts.poppins(
-                            fontSize: 12.sp,
-                            color: Colors.white.withValues(alpha: 0.82),
-                            height: 1.35,
-                          ),
-                        ),
-                      ],
-                      if (timeLabel.isNotEmpty) ...[
-                        SizedBox(height: 6.h),
-                        Text(
-                          timeLabel,
-                          style: GoogleFonts.poppins(
-                            fontSize: 10.sp,
-                            fontWeight: FontWeight.w500,
-                            color: Colors.white.withValues(alpha: 0.68),
-                          ),
-                        ),
-                      ],
                     ],
-                  ),
+                  ],
                 ),
-              ],
-            ),
+              ),
+            ],
           ),
         ),
       ),

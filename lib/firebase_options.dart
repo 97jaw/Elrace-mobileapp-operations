@@ -60,21 +60,23 @@ class DefaultFirebaseOptions {
   );
 
   static const FirebaseOptions ios = FirebaseOptions(
-    apiKey: 'AIzaSyBt_EnbWPKn-BDXOLXSdIACvlLTEAk_k2k',
-    appId: '1:822197568314:ios:6fd830ee9a8a91e6464603',
-    messagingSenderId: '822197568314',
-    projectId: 'elrace-578e7',
-    storageBucket: 'elrace-578e7.firebasestorage.app',
-    iosBundleId: 'com.elRace.elRace',
+    apiKey: 'AIzaSyB25Efv4tymQSJdgo8DWGNnNgOPO8X2mzw',
+    appId: '1:392748487890:ios:918dec5460dfac2b0f490b',
+    messagingSenderId: '392748487890',
+    projectId: 'elrace-new',
+    storageBucket: 'elrace-new.firebasestorage.app',
+    databaseURL: 'https://elrace-new-default-rtdb.firebaseio.com',
+    iosBundleId: 'com.dev.elRace',
   );
 
   static const FirebaseOptions macos = FirebaseOptions(
-    apiKey: 'AIzaSyBt_EnbWPKn-BDXOLXSdIACvlLTEAk_k2k',
-    appId: '1:822197568314:ios:6fd830ee9a8a91e6464603',
-    messagingSenderId: '822197568314',
-    projectId: 'elrace-578e7',
-    storageBucket: 'elrace-578e7.firebasestorage.app',
-    iosBundleId: 'com.elRace.elRace',
+    apiKey: 'AIzaSyB25Efv4tymQSJdgo8DWGNnNgOPO8X2mzw',
+    appId: '1:392748487890:ios:918dec5460dfac2b0f490b',
+    messagingSenderId: '392748487890',
+    projectId: 'elrace-new',
+    storageBucket: 'elrace-new.firebasestorage.app',
+    databaseURL: 'https://elrace-new-default-rtdb.firebaseio.com',
+    iosBundleId: 'com.dev.elRace',
   );
 
   static const FirebaseOptions windows = FirebaseOptions(

@@ -9,12 +9,10 @@ class ProjectsStatusFilterLabels {
   const ProjectsStatusFilterLabels({
     required this.inProgress,
     required this.completed,
-    required this.invoiced,
   });
 
   final String inProgress;
   final String completed;
-  final String invoiced;
 }
 
 /// Frosted status filter chips with count badges (no section title).
@@ -35,7 +33,7 @@ class ProjectsStatusFilterSection extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: EdgeInsets.fromLTRB(16.w, 8.h, 16.w, 8.h),
+      padding: EdgeInsets.fromLTRB(16.w, 4.h, 16.w, 2.h),
       child: SizedBox(
         height: 40.h,
         child: isLoading
@@ -59,14 +57,6 @@ class ProjectsStatusFilterSection extends StatelessWidget {
                     onTap: () =>
                         onFilterTap(ProjectsStatusFilterKind.completed),
                   ),
-                  SizedBox(width: 8.w),
-                  _StatusFilterChip(
-                    label: labels.invoiced,
-                    count: stats?.invoiced ?? 0,
-                    accent: ProjectsDashboardTheme.navy,
-                    onTap: () =>
-                        onFilterTap(ProjectsStatusFilterKind.invoiced),
-                  ),
                 ],
               ),
       ),
@@ -80,9 +70,9 @@ class _LoadingRow extends StatelessWidget {
     return ListView(
       scrollDirection: Axis.horizontal,
       children: List.generate(
-        3,
+        2,
         (i) => Padding(
-          padding: EdgeInsets.only(right: i < 2 ? 8.w : 0),
+          padding: EdgeInsets.only(right: i < 1 ? 8.w : 0),
           child: ProjectsShimmerBox(
             width: 108.w,
             height: 36.h,
