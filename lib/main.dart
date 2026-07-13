@@ -99,8 +99,24 @@ Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  debugPrint('🚀 main(): Flutter binding initialized');
 
   // await _enableGlobalScreenProtection();
+
+  // MyApp resolves these blocs during its first build, so DI must be ready
+  // before runApp. Starting it from a post-frame callback creates a deadlock:
+  // the first frame fails while resolving an unregistered bloc, and the
+  // callback that would register it never runs.
+  try {
+    debugPrint('🚀 main(): initializing dependencies required by first frame');
+    await initDI().timeout(const Duration(seconds: 10));
+    _verifyStartupDependencies();
+  } catch (error, stackTrace) {
+    debugPrint('❌ main(): dependency initialization failed: $error');
+    debugPrintStack(stackTrace: stackTrace);
+    runApp(_StartupErrorApp(error: error));
+    return;
+  }
 
   // ── PHASE 1: Bare-minimum init (fast, needed before first frame) ──
   try {
@@ -119,12 +135,21 @@ void main() async {
     print('❌ Phase-1 init error: $e');
   }
 
-  // Localization (required for first frame text direction)
-  final delegate = await LocalizationDelegate.create(
-    fallbackLocale: 'en',
-    supportedLocales: ['en', 'ar'],
-    basePath: 'assets/i18n',
-  );
+  // Localization is required by MyApp, but must never leave a native white
+  // screen indefinitely if loading its assets fails.
+  late final LocalizationDelegate delegate;
+  try {
+    delegate = await LocalizationDelegate.create(
+      fallbackLocale: 'en',
+      supportedLocales: ['en', 'ar'],
+      basePath: 'assets/i18n',
+    ).timeout(const Duration(seconds: 10));
+  } catch (error, stackTrace) {
+    debugPrint('❌ main(): localization initialization failed: $error');
+    debugPrintStack(stackTrace: stackTrace);
+    runApp(_StartupErrorApp(error: error));
+    return;
+  }
   if (SharedPref().isArabic()) {
     await delegate.changeLocale(const Locale('ar'));
   }
@@ -134,6 +159,7 @@ void main() async {
   GoogleFonts.config.allowRuntimeFetching = true;
 
   // ── Launch the UI immediately so the native splash disappears fast ──
+  debugPrint('🚀 main(): startup ready; calling runApp()');
   runApp(
     BlocProvider(
       create: (_) => ApprovalBloc(),
@@ -147,6 +173,62 @@ void main() async {
   WidgetsBinding.instance.addPostFrameCallback((_) {
     _performHeavyInitialization();
   });
+}
+
+void _verifyStartupDependencies() {
+  final missing = <String>[
+    if (!sl.isRegistered<SignInBloc>()) 'SignInBloc',
+    if (!sl.isRegistered<HomeBloc>()) 'HomeBloc',
+    if (!sl.isRegistered<RequestsBloc>()) 'RequestsBloc',
+    if (!sl.isRegistered<ApprovalBloc>()) 'ApprovalBloc',
+    if (!sl.isRegistered<ContactBloc>()) 'ContactBloc',
+    if (!sl.isRegistered<NotesBloc>()) 'NotesBloc',
+    if (!sl.isRegistered<MediaBloc>()) 'MediaBloc',
+    if (!sl.isRegistered<UaepassAuthCubit>()) 'UaepassAuthCubit',
+  ];
+  if (missing.isNotEmpty) {
+    throw StateError('Missing startup dependencies: ${missing.join(', ')}');
+  }
+}
+
+class _StartupErrorApp extends StatelessWidget {
+  const _StartupErrorApp({required this.error});
+
+  final Object error;
+
+  @override
+  Widget build(BuildContext context) {
+    return MaterialApp(
+      debugShowCheckedModeBanner: false,
+      home: Scaffold(
+        body: SafeArea(
+          child: Center(
+            child: Padding(
+              padding: const EdgeInsets.all(24),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(Icons.error_outline, color: Colors.red, size: 56),
+                  const SizedBox(height: 16),
+                  const Text(
+                    'The app could not finish starting.',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(fontSize: 20, fontWeight: FontWeight.w600),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    error.toString(),
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(color: Colors.black54),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
 }
 
 Future<void> _enableGlobalScreenProtection() async {
@@ -168,20 +250,17 @@ Future<void> _enableGlobalScreenProtection() async {
 Future<void> _performHeavyInitialization() async {
   // ── CRITICAL PATH (blocks splash navigation) ──────────────────────────
   try {
-    // Step 1: DI + Hive (everything else depends on these)
+    // Step 1: Hive. DI is already initialized before runApp because MyApp
+    // resolves its blocs during the first build.
     try {
-      await Future.wait([
-        initDI(),
-        HiveService.setupHive(),
-      ]).timeout(
+      await HiveService.setupHive().timeout(
         const Duration(seconds: 15),
         onTimeout: () {
-          print('⚠️ DI/Hive init timeout');
-          return [];
+          print('⚠️ Hive init timeout');
         },
       );
     } catch (e) {
-      print('❌ DI/Hive error: $e');
+      print('❌ Hive error: $e');
     }
 
     // Step 2: AppConfig + Firebase (parallel – independent of each other)
@@ -370,7 +449,7 @@ Future<void> _configureAppSystemUi() async {
   );
 }
 
-const _systemUiChannel = MethodChannel('com.el_race.app/system_ui');
+const _systemUiChannel = MethodChannel('ae.elrace.mobile/system_ui');
 
 Future<void> _enableAndroidImmersiveMode() async {
   if (!Platform.isAndroid) return;
@@ -480,6 +559,7 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
   @override
   void initState() {
     super.initState();
+    debugPrint('🚀 MyApp.initState(): first Flutter screen tree started');
     WidgetsBinding.instance.addObserver(this);
     _enableAndroidImmersiveMode();
     // NOTE: Do NOT call FirebaseService.processPendingNotificationTap() here.

@@ -10,26 +10,7 @@
       "client_info": {
         "mobilesdk_app_id": "1:392748487890:android:c475c90ac7c1dcf00f490b",
         "android_client_info": {
-          "package_name": "com.el_race.app"
-        }
-      },
-      "oauth_client": [],
-      "api_key": [
-        {
-          "current_key": "AIzaSyCYyh1LsubgOP-iUdR6aPtZkWrMjMZjqVc"
-        }
-      ],
-      "services": {
-        "appinvite_service": {
-          "other_platform_oauth_client": []
-        }
-      }
-    },
-    {
-      "client_info": {
-        "mobilesdk_app_id": "1:392748487890:android:c475c90ac7c1dcf00f490b",
-        "android_client_info": {
-          "package_name": "com.el_race.app.test"
+          "package_name": "ae.elrace.mobile"
         }
       },
       "oauth_client": [],

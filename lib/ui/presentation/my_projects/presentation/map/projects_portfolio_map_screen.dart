@@ -719,7 +719,7 @@ class _ProjectsPortfolioMapScreenState extends State<ProjectsPortfolioMapScreen>
                             urlTemplate:
                                 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',
                             subdomains: const ['a', 'b', 'c', 'd'],
-                            userAgentPackageName: 'com.el_race.app',
+                            userAgentPackageName: 'ae.elrace.mobile',
                           ),
                           MarkerLayer(markers: markers),
                           if (_focusedProject != null && _mapZoom >= 14.5)

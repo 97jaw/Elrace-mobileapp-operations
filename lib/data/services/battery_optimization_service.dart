@@ -2,7 +2,7 @@ import 'package:flutter/services.dart';
 
 /// خدمة لطلب تجاهل تحسينات البطارية لضمان عمل الأذان في الخلفية
 class BatteryOptimizationService {
-  static const platform = MethodChannel('com.el_race.app/battery_optimization');
+  static const platform = MethodChannel('ae.elrace.mobile/battery_optimization');
 
   /// التحقق إذا كان التطبيق مستثنى من تحسينات البطارية
   static Future<bool> isBatteryOptimizationIgnored() async {

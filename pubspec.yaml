@@ -153,7 +153,6 @@ flutter_launcher_icons:
 # following page: https://dart.dev/tools/pub/pubspec
 # The following section is specific to Flutter packages.
 flutter:
-
   # The following line ensures that the Material Icons font is
   # included with your application, so that you can use the icons in
   # the material Icons class.
@@ -161,6 +160,7 @@ flutter:
 
   # To add assets to your application, add an assets section, like this:
   assets:
+    - AssetManifest.json
     - assets/png/
     - assets/png/project_docs/
     - assets/svg/
@@ -182,7 +182,6 @@ flutter:
     - assets/fonts/arbicsupport.ttf
     - assets/mobilefacenet_512.tflite
     - assets/antispoof/
-    - AssetManifest.json
   #  fonts:
   #    - family: Inter
   #      fonts:

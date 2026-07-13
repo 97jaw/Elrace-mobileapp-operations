@@ -1,7 +1,7 @@
 <?php
 // Configuration
-$android_package = 'com.el_race.app';
-$ios_bundle_id = 'com.elrace.app'; 
+$android_package = 'ae.elrace.mobile';
+$ios_bundle_id = 'com.elrace.app';
 $android_fallback = "https://play.google.com/store/apps/details?id=$android_package";
 $ios_fallback = 'https://apps.apple.com/us/app/el-race-cont-operations/id6748855825';
 
@@ -17,11 +17,11 @@ $isIOS = stripos($userAgent, 'iPhone') !== false || stripos($userAgent, 'iPad') 
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>El Race - QR Survey</title>
-    
+
     <meta name="apple-itunes-app" content="app-id=6748855825, app-argument=<?php echo $deep_link; ?>">
-    
+
     <meta name="google-play-app" content="app-id=<?php echo $android_package; ?>">
-    
+
     <style>
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
@@ -80,20 +80,20 @@ $isIOS = stripos($userAgent, 'iPhone') !== false || stripos($userAgent, 'iPad') 
             line-height: 1.6;
         }
     </style>
-    
+
     <script>
         function isAndroid() {
             return /Android/i.test(navigator.userAgent);
         }
-        
+
         function isIOS() {
             return /iPhone|iPad|iPod/i.test(navigator.userAgent);
         }
-        
+
         function isMobile() {
             return isAndroid() || isIOS();
         }
-        
+
         function openApp() {
             var deepLink = "<?php echo $deep_link; ?>";
             var androidFallback = "<?php echo $android_fallback; ?>";
@@ -115,37 +115,37 @@ $isIOS = stripos($userAgent, 'iPhone') !== false || stripos($userAgent, 'iPad') 
             });
             window.addEventListener('pagehide', markRedirected);
             window.addEventListener('blur', markRedirected);
-            
+
             if (isAndroid()) {
                 console.log('Android detected - attempting to open app');
-                
+
                 window.location.href = deepLink;
-                
+
                 fallbackTimer = setTimeout(function() {
                     if (redirected || document.hidden) return;
                     console.log('Fallback to Play Store');
                     window.location.href = androidFallback;
                 }, 1800);
-                
+
             } else if (isIOS()) {
                 console.log('iOS detected - attempting to open app');
-                
+
                 // Try Universal Links first
                 window.location.href = deepLink;
-                
+
                 // Fallback to App Store after 2.5 seconds if app doesn't open
                 fallbackTimer = setTimeout(function() {
                     if (redirected || document.hidden) return;
                     console.log('Fallback to App Store');
                     window.location.href = iosFallback;
                 }, 1800);
-                
+
             } else {
                 document.getElementById('loading').style.display = 'none';
                 document.getElementById('desktop-message').style.display = 'block';
             }
         }
-        
+
         window.onload = function() {
             if (isMobile()) {
                 openApp();
@@ -164,9 +164,9 @@ $isIOS = stripos($userAgent, 'iPhone') !== false || stripos($userAgent, 'iPad') 
             <p class="message">Please wait while we redirect you to the app.</p>
             <p style="font-size: 14px; opacity: 0.8;">If the app doesn't open automatically, you'll be redirected to download it.</p>
         </div>
-        
+
         <div id="desktop-message" style="display: none;">
-            <h1>📱 El Race QR Survey</h1>
+            <h1>ظ‹ع؛â€œآ± El Race QR Survey</h1>
             <p class="message">
                 This link is designed for mobile devices.<br>
                 Please scan the QR code with your mobile device to continue.
@@ -184,7 +184,7 @@ $isIOS = stripos($userAgent, 'iPhone') !== false || stripos($userAgent, 'iPad') 
             </div>
         </div>
     </div>
-    
+
     <!-- Debug info (remove in production) -->
     <?php if (isset($_GET['debug'])): ?>
     <div style="position: fixed; bottom: 10px; left: 10px; right: 10px; background: rgba(0,0,0,0.8); color: #0f0; padding: 10px; font-size: 10px; font-family: monospace; border-radius: 5px;">

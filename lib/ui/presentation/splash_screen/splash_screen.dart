@@ -33,6 +33,7 @@ class _SplashScreenState extends State<SplashScreen> {
   @override
   void initState() {
     super.initState();
+    debugPrint('🚀 SplashScreen.initState(): first screen mounted');
 
     // Initialize video player (uses hardware decoder, not main thread)
     _videoController = VideoPlayerController.asset('assets/mp4/splash.mp4')
@@ -62,8 +63,9 @@ class _SplashScreenState extends State<SplashScreen> {
   Future<void> _performSecurityCheck() async {
     try {
       print('🔒 Starting security check...');
-      final result =
-          await DeviceSecurityService.instance.performSecurityCheck();
+      final result = await DeviceSecurityService.instance
+          .performSecurityCheck()
+          .timeout(const Duration(seconds: 6));
 
       if (mounted) {
         setState(() {
@@ -105,6 +107,7 @@ class _SplashScreenState extends State<SplashScreen> {
   /// Wait for both: 1) minimum 3-second splash, 2) heavy init complete,
   /// 3) security check, then navigate.
   Future<void> _waitForInitAndNavigate() async {
+    debugPrint('🚀 SplashScreen: waiting for bounded startup checks');
     // Wait for BOTH heavy init and intro video completion.
     await Future.wait<void>([
       appInitCompleter.future.timeout(
@@ -174,6 +177,7 @@ class _SplashScreenState extends State<SplashScreen> {
   /// Runs the update check first, then proceeds with routing.
   void _navigateToNextScreen() {
     if (!mounted) return;
+    debugPrint('🚀 SplashScreen: initialization finished; checking route');
     _checkForUpdateThenNavigate();
   }
 
@@ -184,8 +188,9 @@ class _SplashScreenState extends State<SplashScreen> {
       // Keep in sync with version in pubspec.yaml
       const String currentVersion = '1.0.10';
 
-      final updateResult =
-          await UpdateService.instance.checkForUpdate(currentVersion);
+      final updateResult = await UpdateService.instance
+          .checkForUpdate(currentVersion)
+          .timeout(const Duration(seconds: 10));
 
       if (!mounted) return;
 
@@ -211,6 +216,10 @@ class _SplashScreenState extends State<SplashScreen> {
     try {
       // Check authentication first
       final isAuthenticated = SharedPref.isUserAuthenticated();
+      debugPrint(
+        '🚀 SplashScreen: navigating to '
+        '${isAuthenticated ? 'home' : 'sign-in'}',
+      );
 
       // Fetch home screen data (with error handling inside the function)
       // This won't throw - errors are handled internally

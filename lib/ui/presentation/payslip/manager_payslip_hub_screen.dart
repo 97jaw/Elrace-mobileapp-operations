@@ -185,7 +185,10 @@ class _PendingCounterTile extends StatelessWidget {
                     ),
               ),
               SizedBox(width: 4.w),
-              Icon(Icons.chevron_right, color: HrModuleColors.mutedText),
+              const Icon(
+                Icons.chevron_right,
+                color: HrModuleColors.mutedText,
+              ),
             ],
           ),
         ),

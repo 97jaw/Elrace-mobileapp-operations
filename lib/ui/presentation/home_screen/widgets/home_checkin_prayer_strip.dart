@@ -1,4 +1,6 @@
+import 'home_mid_section.dart';
+
 export 'home_mid_section.dart' show HomeMidSection;
 
-/// @deprecated Use [HomeMidSection].
+@Deprecated('Use HomeMidSection instead.')
 typedef HomeCheckinPrayerStrip = HomeMidSection;

@@ -1,4 +1,4 @@
-package com.el_race.app
+package ae.elrace.mobile
 
 import android.app.NotificationChannel
 import android.app.NotificationManager
@@ -19,8 +19,8 @@ import io.flutter.plugin.common.MethodChannel
 
 class MainActivity : FlutterFragmentActivity() {
 
-    private val BATTERY_CHANNEL = "com.el_race.app/battery_optimization"
-    private val SYSTEM_UI_CHANNEL = "com.el_race.app/system_ui"
+    private val BATTERY_CHANNEL = "ae.elrace.mobile/battery_optimization"
+    private val SYSTEM_UI_CHANNEL = "ae.elrace.mobile/system_ui"
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)

@@ -4,6 +4,7 @@ import 'package:el_race/core/hr_management/providers/hr_management_providers.dar
 import 'package:el_race/core/payslip/models/payslip_models.dart';
 import 'package:el_race/core/payslip/network/payslip_api_client.dart';
 import 'package:el_race/core/payslip/payslip_json_parsers.dart';
+import 'package:el_race/core/payslip/payslip_mock_data.dart';
 import 'package:el_race/core/utils/shared_pref.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -151,6 +152,21 @@ final payslipEmployeeRecentProvider =
     return env.data!.map(summaryFromJson).toList();
   }
   throw Exception(env.error ?? 'Could not load payslips');
+});
+
+/// Number of payslips waiting for manager review.
+///
+/// TODO(backend): Replace the mock store with the pending-payslips API.
+final payslipPendingCountProvider = FutureProvider.autoDispose<int>((ref) async {
+  return payslipPendingCount();
+});
+
+/// First five payslips waiting for manager review.
+///
+/// TODO(backend): Replace the mock store with the pending-payslips API.
+final payslipPendingPeekProvider =
+    FutureProvider.autoDispose<List<PayslipSummary>>((ref) async {
+  return payslipPendingPage(page: 0, pageSize: 5);
 });
 
 /// Last 24 months for employee month filter dropdown.

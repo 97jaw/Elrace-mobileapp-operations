@@ -229,6 +229,6 @@ class UpdateDialog extends StatelessWidget {
       // Replace with your App Store ID
       return 'https://apps.apple.com/app/id0000000000';
     }
-    return 'https://play.google.com/store/apps/details?id=com.el_race.app';
+    return 'https://play.google.com/store/apps/details?id=ae.elrace.mobile';
   }
 }

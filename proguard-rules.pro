@@ -56,7 +56,7 @@
 -keep class io.flutter.plugins.** { *; }
 
 # Keep your app's main classes
--keep class com.el_race.app.** { *; }
+-keep class ae.elrace.mobile.** { *; }
 
 # Keep ML Kit classes
 -keep class com.google.mlkit.** { *; }
@@ -99,8 +99,8 @@
 }
 
 # Keep all classes in your package
--keep class com.el_race.app.MainActivity { *; }
--keep class com.el_race.app.MainApplication { *; }
+-keep class ae.elrace.mobile.MainActivity { *; }
+-keep class ae.elrace.mobile.MainApplication { *; }
 
 # Keep all native methods
 -keepclasseswithmembernames,includedescriptorclasses class * {
@@ -127,4 +127,4 @@
 -keep class io.flutter.plugins.** { *; }
 
 # Keep all classes that might be used by the app
--keep class com.el_race.app.** { *; } 
+-keep class ae.elrace.mobile.** { *; }

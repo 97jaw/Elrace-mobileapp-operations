@@ -55,7 +55,7 @@ class UpdateCheckResult {
 /// {
 ///   "minVersion":      "1.0.5",
 ///   "latestVersion":   "1.2.0",
-///   "updateUrl":       "https://play.google.com/store/apps/details?id=com.el_race.app",
+///   "updateUrl":       "https://play.google.com/store/apps/details?id=ae.elrace.mobile",
 ///   "updateMessageEn": "A new version is available. Please update.",
 ///   "updateMessageAr": "يتوفر إصدار جديد. يرجى التحديث."
 /// }
