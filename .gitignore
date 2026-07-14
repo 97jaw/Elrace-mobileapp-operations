@@ -18,6 +18,7 @@ ios/Pods/
 **/GeneratedPluginRegistrant.m
 **/GeneratedPluginRegistrant.swift
 android/.gradle/
+**/.gradle/
 android/app/build/
 **/android/local.properties
 .idea/

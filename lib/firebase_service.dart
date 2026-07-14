@@ -13,6 +13,19 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 
+// Prevent device identifiers from reaching production logs while preserving
+// the existing token retrieval and storage flow.
+void print(Object? message) {
+  final text = message?.toString() ?? '';
+  final lower = text.toLowerCase();
+  if (lower.contains('fcm token') ||
+      lower.contains('apns token') ||
+      lower.contains('device token')) {
+    return;
+  }
+  debugPrint(text);
+}
+
 class FirebaseService {
   static final FirebaseMessaging _firebaseMessaging =
       FirebaseMessaging.instance;
