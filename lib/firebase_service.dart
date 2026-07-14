@@ -211,7 +211,7 @@ class FirebaseService {
 
         final apnsToken = await _firebaseMessaging.getAPNSToken();
         if (apnsToken != null && apnsToken.isNotEmpty) {
-          print('🍎 APNS token: $apnsToken');
+          if (kDebugMode) print('🍎 APNS token: $apnsToken');
         } else {
           print('⚠️ APNS token unavailable during initialize');
         }
@@ -220,7 +220,7 @@ class FirebaseService {
       String? token = await _firebaseMessaging.getToken();
       if (token != null) {
         SharedPref().setPreferencesString(fcm_token, token);
-        print('📱 FCM Token obtained: $token'); // full token for debugging
+        if (kDebugMode) print('📱 FCM Token obtained: $token');
       } else {
         print('❌ FCM Token is null - this may indicate APNS token issue');
       }
@@ -231,7 +231,7 @@ class FirebaseService {
     // Listen for token refresh
     FirebaseMessaging.instance.onTokenRefresh.listen((newToken) {
       SharedPref().setPreferencesString(fcm_token, newToken.toString());
-      print('🔁 FCM Token refreshed: $newToken'); // full token for debugging
+      if (kDebugMode) print('🔁 FCM Token refreshed: $newToken');
     });
   }
 

@@ -2,7 +2,6 @@ import Firebase
 import FirebaseCore
 import FirebaseMessaging
 import Flutter
-import NetworkExtension
 import UIKit
 import UserNotifications
 
@@ -36,56 +35,6 @@ import UserNotifications
     // Register for remote notifications
     application.registerForRemoteNotifications()
 
-    // VPN Detection Channel using NEVPNManager (accurate, no false positives)
-    let controller = window?.rootViewController as! FlutterViewController
-    let vpnChannel = FlutterMethodChannel(
-      name: "com.elrace/vpn_check",
-      binaryMessenger: controller.binaryMessenger
-    )
-    vpnChannel.setMethodCallHandler { call, result in
-      if call.method == "isVpnActive" {
-        // Check IKEv2 / IPSec VPN profiles first (synchronous)
-        let sysVpnStatus = NEVPNManager.shared().connection.status
-        let sysVpnActive = sysVpnStatus == .connected || sysVpnStatus == .connecting
-        print("🔒 iOS NEVPNManager status: \(sysVpnStatus) - Active: \(sysVpnActive)")
-        
-        if sysVpnActive {
-          print("✅ iOS: System VPN detected via NEVPNManager")
-          result(true)
-          return
-        }
-        
-        // Check Tunnel Provider VPN apps (most VPN apps use this) - Asynchronous
-        print("🔒 iOS: Checking TunnelProvider VPN apps...")
-        NETunnelProviderManager.loadAllFromPreferences { managers, error in
-          if let error = error {
-            print("⚠️ iOS: Error loading VPN preferences: \(error.localizedDescription)")
-            result(false)
-            return
-          }
-          
-          guard let managers = managers else {
-            print("⚠️ iOS: No VPN managers returned (managers is nil)")
-            result(false)
-            return
-          }
-          
-          print("🔒 iOS: Loaded \(managers.count) VPN managers")
-          let vpnActive = managers.contains { manager in
-            let status = manager.connection.status
-            let isActive = status == .connected || status == .connecting
-            print("   - VPN Manager status: \(status) - Active: \(isActive)")
-            return isActive
-          }
-          
-          print(vpnActive ? "✅ iOS: TunnelProvider VPN detected" : "❌ iOS: No TunnelProvider VPN detected")
-          result(vpnActive)
-        }
-      } else {
-        result(FlutterMethodNotImplemented)
-      }
-    }
-
     GeneratedPluginRegistrant.register(with: self)
     return super.application(application, didFinishLaunchingWithOptions: launchOptions)
   }
@@ -96,18 +45,20 @@ import UserNotifications
     didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data
   ) {
     Messaging.messaging().apnsToken = deviceToken
-    print("✅ Successfully registered for remote notifications")
-    print("📱 Device Token: \(deviceToken.map { String(format: "%02.2hhx", $0) }.joined())")
+    #if DEBUG
+      print("✅ Successfully registered for remote notifications")
+      print("📱 Device Token: \(deviceToken.map { String(format: "%02.2hhx", $0) }.joined())")
 
-    Messaging.messaging().token { token, error in
-      if let error = error {
-        print("❌ Failed to fetch FCM token after APNS registration: \(error.localizedDescription)")
-      } else if let token = token {
-        print("✅ iOS FCM token (native callback): \(token)")
-      } else {
-        print("⚠️ iOS FCM token is nil after APNS registration")
+      Messaging.messaging().token { token, error in
+        if let error = error {
+          print("❌ Failed to fetch FCM token after APNS registration: \(error.localizedDescription)")
+        } else if let token = token {
+          print("✅ iOS FCM token (native callback): \(token)")
+        } else {
+          print("⚠️ iOS FCM token is nil after APNS registration")
+        }
       }
-    }
+    #endif
   }
 
   // Handle failure to register for remote notifications
