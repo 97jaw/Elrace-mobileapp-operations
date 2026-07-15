@@ -30,7 +30,8 @@ class _PurchaseLpoHubScreenState extends State<PurchaseLpoHubScreen> {
   final _searchController = TextEditingController();
   Timer? _debounce;
 
-  static const _filters = ['', 'LPO_OPEN', 'LPO_CLOSED'];
+  // Backend: empty status returns RFQs too — LPOS = purchase + done only.
+  static const _filters = ['LPOS', 'LPO_OPEN', 'LPO_CLOSED'];
   static const _filterLabels = ['All', 'Open', 'Closed'];
 
   List<RfqItem> _items = [];
@@ -40,7 +41,7 @@ class _PurchaseLpoHubScreenState extends State<PurchaseLpoHubScreen> {
   int _currentPage = 1;
   bool _hasMore = false;
   String _keyword = '';
-  String _statusFilter = '';
+  String _statusFilter = 'LPOS';
   PurchaseListFilters _smartFilters = const PurchaseListFilters();
 
   @override
