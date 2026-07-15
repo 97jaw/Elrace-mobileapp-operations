@@ -1,6 +1,5 @@
 import 'package:adhan/adhan.dart';
 import 'package:el_race/ui/presentation/home_screen/bloc/home_bloc.dart';
-import 'package:el_race/ui/presentation/home_screen/widgets/home_city_helper.dart';
 import 'package:el_race/ui/presentation/home_screen/widgets/home_glass_theme.dart';
 import 'package:el_race/ui/presentation/home_screen/widgets/parayer_widgets/prayer_countdown_timer.dart';
 import 'package:flutter/material.dart';
@@ -29,7 +28,6 @@ class _HomeMidPrayerPanelState extends State<HomeMidPrayerPanel> {
   Prayer? _nextPrayer;
   DateTime? _nextTime;
   Map<String, DateTime>? _aladhan;
-  bool _isMuted = false;
 
   static const _gold = Color(0xFFFFD700);
 
@@ -49,10 +47,8 @@ class _HomeMidPrayerPanelState extends State<HomeMidPrayerPanel> {
       _nextPrayer = state.nextPrayer as Prayer?;
       _nextTime = state.nextTime;
       _aladhan = state.aladhanTimes;
-      _isMuted = state.isSoundMuted;
     } else if (state is PrayerTimesError) {
       _pt = (state.prayerTimes as PrayerTimes?) ?? _pt;
-      _isMuted = state.isSoundMuted;
       if (_pt != null && _nextPrayer == null) {
         try {
           final next = _pt!.nextPrayer();
@@ -60,8 +56,6 @@ class _HomeMidPrayerPanelState extends State<HomeMidPrayerPanel> {
           _nextTime = _pt!.timeForPrayer(next);
         } catch (_) {}
       }
-    } else if (state is PrayerMuteStateChanged) {
-      _isMuted = state.isMuted;
     }
   }
 
@@ -252,45 +246,6 @@ class _HomeMidPrayerPanelState extends State<HomeMidPrayerPanel> {
                 fontWeight: FontWeight.w700,
                 color: Colors.white,
               ),
-            ),
-            trailing: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(
-                  Icons.location_on_outlined,
-                  size: 12.sp,
-                  color: Colors.white.withValues(alpha: 0.85),
-                ),
-                SizedBox(width: 2.w),
-                ConstrainedBox(
-                  constraints: BoxConstraints(maxWidth: 64.w),
-                  child: Text(
-                    HomeCityHelper.cachedCity,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: GoogleFonts.poppins(
-                      fontSize: 8.5.sp,
-                      color: Colors.white.withValues(alpha: 0.85),
-                    ),
-                  ),
-                ),
-                SizedBox(width: 4.w),
-                GestureDetector(
-                  onTap: () {
-                    context.read<HomeBloc>().add(const InitPrayerTimesEvent());
-                    context
-                        .read<HomeBloc>()
-                        .add(const TogglePrayerMuteStateEvent());
-                  },
-                  child: Icon(
-                    _isMuted
-                        ? Icons.volume_off_rounded
-                        : Icons.volume_up_rounded,
-                    size: 15.sp,
-                    color: Colors.white,
-                  ),
-                ),
-              ],
             ),
           ),
           Expanded(

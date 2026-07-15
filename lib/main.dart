@@ -600,6 +600,10 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
     if (state == AppLifecycleState.resumed) {
       _enableAndroidImmersiveMode();
 
+      // Foreground owns azan again — cancel OS schedules; timer plays once.
+      // ignore: unawaited_futures
+      PrayerAudioService().enterForegroundMode();
+
       final lastBackground = _backgroundedAt;
       if (lastBackground != null && !_isRestartingFromTimeout) {
         final inactiveFor = DateTime.now().difference(lastBackground);
@@ -618,11 +622,10 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
         state == AppLifecycleState.detached) {
       _backgroundedAt ??= DateTime.now();
 
-      // عند الانتقال للخلفية: أعد جدولة إشعارات الأذان المحلية
-      // التي ألغيناها عند دخول المقدمة (لمنع التكرار).
-      // هذا يضمن وصول الإشعار حتى لو أُغلق التطبيق.
+      // Stop foreground timer and arm a single OS schedule per prayer.
       if (state == AppLifecycleState.paused) {
-        PrayerAudioService().rescheduleBackgroundNotifications();
+        // ignore: unawaited_futures
+        PrayerAudioService().enterBackgroundMode();
       }
     }
   }

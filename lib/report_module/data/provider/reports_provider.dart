@@ -622,7 +622,13 @@ class ReportProvider extends ChangeNotifier {
     UploadProgressCallback? onProgress,
   }) async {
     // Do NOT append .pdf here — the server adds the extension itself.
-    final cleanName = fileName.trim();
+    // Keep S3 object names free of spaces / unicode separators (·) that break GET.
+    final cleanName = fileName
+        .trim()
+        .replaceAll(RegExp(r'[^\w.\-]+'), '_')
+        .replaceAll(RegExp(r'_+'), '_')
+        .replaceAll(RegExp(r'^_+|_+$'), '');
+    final uploadName = cleanName.isEmpty ? 'site_report' : cleanName;
 
     try {
       final client = dio.Dio(
@@ -637,8 +643,8 @@ class ReportProvider extends ChangeNotifier {
         'emp_id': empId,
         'report_id': reportId,
         'folder_id': folderId,
-        'file_name': cleanName,
-        'file': dio.MultipartFile.fromBytes(pdfBytes, filename: cleanName),
+        'file_name': uploadName,
+        'file': dio.MultipartFile.fromBytes(pdfBytes, filename: '$uploadName.pdf'),
       });
 
       final response = await client.post(
@@ -646,7 +652,7 @@ class ReportProvider extends ChangeNotifier {
         queryParameters: {
           'folder_id': folderId,
           'report_id': reportId,
-          'file_name': cleanName,
+          'file_name': uploadName,
         },
         data: formData,
         onSendProgress: (sent, total) {
@@ -678,7 +684,7 @@ class ReportProvider extends ChangeNotifier {
             fileId: (d['file_id'] ?? d['s3_key'] ?? '').toString(),
             id: (d['id'] ?? linkedReportId).toString(),
             reportId: linkedReportId,
-            fileName: (d['file_name'] ?? d['name'] ?? cleanName).toString(),
+            fileName: (d['file_name'] ?? d['name'] ?? uploadName).toString(),
             createdAt: (d['created_at'] ?? d['create_at'] ?? '').toString(),
             reportLink: (d['report_link'] ?? '').toString(),
           );

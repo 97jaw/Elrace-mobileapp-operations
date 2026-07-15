@@ -16,6 +16,8 @@ abstract final class HrRouteNames {
   /// Circulars and announcements (company communications).
   static const String circularAnnouncements =
       '/hr_management/circular_announcements';
+  /// Employee directory — smart search by name / file id.
+  static const String employeesProfile = '/hr_management/employees_profile';
   /// Module 1 — employee/manager HR requests (from hub or deep link).
   static const String requests = '/hr_management/requests';
   static const String simRequest = '/hr_management/asset/sim';

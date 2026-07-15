@@ -473,16 +473,17 @@ class _MyProjectState extends State<MyProject> {
         projectStatusCompute: 'in_progress',
       );
       if (!mounted) return;
+      final visible = projects.where((p) => !p.isGeneralWo).toList();
       setState(() {
         if (ProjectsDashboardAccess.shouldApplyDomainScope &&
             !ds.projectsHubV2Available) {
           _inProgressProjects =
               ProjectsDashboardAggregator.filterProjectsForAccessibleAgreements(
-            projects: projects,
+            projects: visible,
             agreements: _domainAgreements,
           );
         } else {
-          _inProgressProjects = projects;
+          _inProgressProjects = visible;
         }
         _chartLoading = false;
       });

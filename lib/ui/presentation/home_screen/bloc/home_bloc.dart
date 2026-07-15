@@ -4,7 +4,6 @@ import 'dart:convert';
 import 'package:adhan/adhan.dart';
 import 'package:el_race/data/services/hive_service.dart';
 import 'package:el_race/data/services/prayer_audio_service.dart';
-import 'package:el_race/data/services/prayer_background_service.dart';
 import 'package:equatable/equatable.dart';
 import 'package:el_race/ui/presentation/Attendace_list/repository/attendance_repository.dart';
 import 'package:flutter/material.dart';
@@ -126,14 +125,13 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
     }
   }
 
-  /// عندما ينتقل التطبيق إلى الخلفية، نعيد جدولة إشعارات الأذان المحلية
-  /// التي تم إلغاؤها سابقاً عند دخول المقدمة.
+  /// عندما ينتقل التطبيق إلى الخلفية، أوقف مؤقت المقدمة وجدول إشعار OS مرة واحدة.
   Future<void> _onAppPaused(
     AppPausedEvent event,
     Emitter<HomeState> emit,
   ) async {
     try {
-      await _audioService.rescheduleBackgroundNotifications();
+      await _audioService.enterBackgroundMode();
     } catch (_) {}
   }
 
@@ -205,11 +203,10 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
 
           _startPrayerTicker();
 
-          // تهيئة خدمة الصوت
+          // Foreground owns azan (timer + AudioPlayer). Do NOT reschedule OS
+          // notifications here — that caused double azan for the same prayer.
           if (_prayerTimes != null) {
             await _audioService.initialize(_prayerTimes!);
-            // إعادة جدولة المهام الخلفية مع أوقات الصلاة الجديدة
-            await PrayerBackgroundService.reschedule();
           }
 
           return;
@@ -239,11 +236,9 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
 
       _startPrayerTicker();
 
-      // تهيئة خدمة الصوت
+      // Foreground owns azan — background OS schedule runs only on app pause.
       if (_prayerTimes != null) {
         await _audioService.initialize(_prayerTimes!);
-        // إعادة جدولة المهام الخلفية
-        await PrayerBackgroundService.reschedule();
       }
     }
   }

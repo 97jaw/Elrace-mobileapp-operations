@@ -5,15 +5,11 @@ import 'package:el_race/core/theme/hr_module_colors.dart';
 import 'package:el_race/core/theme/hr_module_layout.dart';
 import 'package:el_race/core/theme/hr_module_typography.dart';
 import 'package:el_race/core/widgets/hr_management/hr_module_glass_header.dart';
+import 'package:el_race/ui/presentation/my_projects/presentation/utils/projects_dashboard_access.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
-
-/// Hub palette — service tile styling.
-abstract final class _HubPalette {
-  static const Color navy = Color(0xFF161B54);
-}
 
 /// First screen inside HR Management — pick a service (hub pattern).
 class HrManagementHubScreen extends ConsumerWidget {
@@ -22,6 +18,7 @@ class HrManagementHubScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final view = ref.watch(hrEffectiveViewProvider);
+    final isManagement = ProjectsDashboardAccess.isManagementUser();
 
     return HrModuleGlassShell(
       title: 'HR Management',
@@ -86,6 +83,29 @@ class HrManagementHubScreen extends ConsumerWidget {
                             .pushNamed(HrRouteNames.requests),
                       ),
                     ),
+                    if (isManagement) ...[
+                      SizedBox(height: 8.h),
+                      Expanded(
+                        child: _HubServiceTile(
+                          icon: Icons.badge_outlined,
+                          title: 'Employees Profile',
+                          subtitle:
+                              'Search staff by name or file id — instant results',
+                          bgGradient: const [
+                            Color(0xFF6E2A38),
+                            Color(0xFF8B2635),
+                            Color(0xFFA53D4C),
+                          ],
+                          titleGradient: const [
+                            Color(0xFFFFD6DD),
+                            Color(0xFFFFFFFF),
+                            Color(0xFFF5C2CC),
+                          ],
+                          onTap: () => Navigator.of(context)
+                              .pushNamed(HrRouteNames.employeesProfile),
+                        ),
+                      ),
+                    ],
                     SizedBox(height: 8.h),
                     Expanded(
                       child: _HubServiceTile(

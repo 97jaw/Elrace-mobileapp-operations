@@ -148,6 +148,9 @@ class FirebaseService {
       // Save notification to storage (await to ensure badge count
       // is persisted before the onCountChanged callback fires).
       await _saveNotificationToStorage(message);
+      // iOS often delivers alert pushes without a reliable local bump — sync
+      // unread-since-open from Odoo so the home bell updates immediately.
+      await NotificationStorageService.syncBadgeFromServer();
 
       await _refreshAttendanceFromPushIfNeeded(
         message,
@@ -453,12 +456,17 @@ class FirebaseService {
         category = message.data['model'].toString();
       }
 
+      final data = Map<String, dynamic>.from(message.data);
+      if (message.messageId != null && message.messageId!.isNotEmpty) {
+        data.putIfAbsent('fcm_message_id', () => message.messageId);
+      }
+
       await NotificationStorageService.saveNotification(
         title: title.isEmpty ? 'Notification' : title,
         body: body,
         imageUrl:
             notification?.android?.imageUrl ?? notification?.apple?.imageUrl,
-        data: message.data,
+        data: data,
         category: category,
       );
     } catch (e) {

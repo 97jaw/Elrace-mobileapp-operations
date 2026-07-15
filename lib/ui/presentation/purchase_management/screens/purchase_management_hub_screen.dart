@@ -1,8 +1,11 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:el_race/core/purchase/purchase_access.dart';
 import 'package:el_race/core/purchase/purchase_dev_role_provider.dart';
+import 'package:el_race/ui/presentation/Email%20Approval/utils/approval_display_helpers.dart';
+import 'package:el_race/ui/presentation/lpo/screens/lpo_pdf_viewer_screen.dart';
 import 'package:el_race/ui/presentation/purchase_management/data/purchase_models.dart';
+import 'package:el_race/ui/presentation/purchase_management/data/purchase_repository.dart';
 import 'package:el_race/ui/presentation/purchase_management/providers/purchase_providers.dart';
-import 'package:el_race/ui/presentation/purchase_management/screens/draft_invoice_list_screen.dart';
 import 'package:el_race/ui/presentation/purchase_management/screens/purchase_lpo_hub_screen.dart';
 import 'package:el_race/ui/presentation/purchase_management/screens/purchase_mr_hub_screen.dart';
 import 'package:el_race/ui/presentation/purchase_management/screens/purchase_rfq_hub_screen.dart';
@@ -14,48 +17,65 @@ import 'package:el_race/ui/presentation/purchase_management/widgets/purchase_dev
 import 'package:el_race/ui/presentation/purchase_management/widgets/purchase_draft_invoice_row.dart';
 import 'package:el_race/ui/presentation/purchase_management/widgets/purchase_glass_header.dart';
 import 'package:el_race/ui/presentation/purchase_management/widgets/purchase_hero_card.dart';
-import 'package:el_race/ui/presentation/purchase_management/widgets/purchase_hub_view_switch.dart';
-import 'package:el_race/ui/presentation/purchase_management/widgets/purchase_management_ai_view.dart';
-import 'package:el_race/ui/presentation/purchase_management/widgets/purchase_management_analytics_view.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter_translate/flutter_translate.dart';
+import 'package:google_fonts/google_fonts.dart';
 
-class PurchaseManagementHubScreen extends ConsumerStatefulWidget {
+class PurchaseManagementHubScreen extends ConsumerWidget {
   const PurchaseManagementHubScreen({super.key});
 
   @override
-  ConsumerState<PurchaseManagementHubScreen> createState() =>
-      _PurchaseManagementHubScreenState();
-}
-
-class _PurchaseManagementHubScreenState
-    extends ConsumerState<PurchaseManagementHubScreen> {
-  PurchaseHubViewMode _viewMode = PurchaseHubViewMode.hub;
-
-  @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final access = ref.watch(purchaseAccessProvider);
     final testRole = ref.watch(purchaseDevRoleOverrideProvider);
     final overviewAsync = ref.watch(purchaseOverviewProvider);
-    final isManagement = access.isCostControlOrManagement;
 
-    if (access.canSeeDraftInvoices) {
-      ref.watch(draftInvoicesPreviewProvider);
-    }
+    ref.watch(lpoLatestPreviewProvider);
 
-    if (!access.hasAnyAccess) {
-      return const _UnauthorizedView();
-    }
+    // Prefer live /purchase/overview authorization so management users are not
+    // stuck behind a stale login cache of purchase_scope=none.
+    return overviewAsync.when(
+      loading: () => const PurchaseBackground(
+        child: Scaffold(
+          backgroundColor: Colors.transparent,
+          body: Center(
+            child: CircularProgressIndicator(color: PurchaseTheme.accentBlue),
+          ),
+        ),
+      ),
+      error: (e, _) => PurchaseBackground(
+        child: Scaffold(
+          backgroundColor: Colors.transparent,
+          body: Center(
+            child: Text(
+              e.toString(),
+              style: GoogleFonts.poppins(color: Colors.red, fontSize: 13.sp),
+            ),
+          ),
+        ),
+      ),
+      data: (overview) {
+        final backendAuthorized = overview.isAuthorized && overview.scope != 'none';
+        if (!access.hasAnyAccess && !backendAuthorized) {
+          return const _UnauthorizedView();
+        }
 
-    return PurchaseBackground(
-      child: Scaffold(
-        backgroundColor: Colors.transparent,
-        body: Stack(
-          children: [
-            Column(
+        final effectiveAccess = access.hasAnyAccess
+            ? access
+            : PurchaseAccess(
+                isPurchaseRep: false,
+                isPurchaseManager: true,
+                isCostControlOrManagement: overview.scope == 'all',
+                isDocController: false,
+                scope: overview.scope.isNotEmpty ? overview.scope : 'all',
+              );
+
+        return PurchaseBackground(
+          child: Scaffold(
+            backgroundColor: Colors.transparent,
+            body: Column(
               children: [
                 PurchaseManagementGlassHeader(
                   title: translate('home.purchase_management'),
@@ -63,14 +83,13 @@ class _PurchaseManagementHubScreenState
                   onBack: () => Navigator.pop(context),
                 ),
                 const PurchaseDevRoleToggleBar(),
-                if (access.scopeLabel.isNotEmpty &&
-                    _viewMode == PurchaseHubViewMode.hub)
+                if (effectiveAccess.scopeLabel.isNotEmpty)
                   Padding(
                     padding: EdgeInsets.fromLTRB(16.w, 4.h, 16.w, 0),
                     child: Align(
                       alignment: Alignment.centerLeft,
                       child: Text(
-                        access.scopeLabel,
+                        effectiveAccess.scopeLabel,
                         style: GoogleFonts.poppins(
                           fontSize: 11.sp,
                           fontWeight: FontWeight.w500,
@@ -80,76 +99,21 @@ class _PurchaseManagementHubScreenState
                     ),
                   ),
                 Expanded(
-                  child: _buildBody(
-                    access: access,
+                  child: _HubBody(
+                    overview: overview,
+                    access: effectiveAccess,
                     testRole: testRole,
-                    overviewAsync: overviewAsync,
-                    isManagement: isManagement,
+                    compactLayout: effectiveAccess.isPurchaseManager ||
+                        effectiveAccess.isCostControlOrManagement,
                   ),
                 ),
               ],
             ),
-            if (isManagement)
-              Positioned(
-                left: 0,
-                right: 0,
-                bottom: 0,
-                child: PurchaseHubFloatingViewBar(
-                  mode: _viewMode,
-                  onHubTap: () =>
-                      setState(() => _viewMode = PurchaseHubViewMode.hub),
-                  onAnalyticsTap: () => setState(
-                      () => _viewMode = PurchaseHubViewMode.analytics),
-                  onAiTap: () =>
-                      setState(() => _viewMode = PurchaseHubViewMode.ai),
-                ),
-              ),
-          ],
-        ),
-      ),
+          ),
+        );
+      },
     );
   }
-
-  Widget _buildBody({
-    required PurchaseAccess access,
-    required PurchaseDevTestRole? testRole,
-    required AsyncValue<PurchaseOverview> overviewAsync,
-    required bool isManagement,
-  }) {
-    final bottomPad = isManagement
-        ? PurchaseHubViewBarLayout.scrollBottomPadding(context)
-        : 24.h;
-
-    if (_viewMode == PurchaseHubViewMode.ai && isManagement) {
-      return PurchaseManagementAiView(bottomPadding: bottomPad);
-    }
-
-    if (_viewMode == PurchaseHubViewMode.analytics && isManagement) {
-      return PurchaseManagementAnalyticsView(bottomPadding: bottomPad);
-    }
-
-    return overviewAsync.when(
-      loading: () => const Center(
-        child: CircularProgressIndicator(color: PurchaseTheme.accentBlue),
-      ),
-      error: (e, _) => Center(
-        child: Text(
-          e.toString(),
-          style: GoogleFonts.poppins(color: Colors.red, fontSize: 13.sp),
-        ),
-      ),
-      data: (overview) => _HubBody(
-        overview: overview,
-        access: access,
-        testRole: testRole,
-        compactLayout: _useCompactLayout(access),
-        bottomPadding: bottomPad,
-      ),
-    );
-  }
-
-  bool _useCompactLayout(PurchaseAccess access) =>
-      access.isPurchaseManager || access.isCostControlOrManagement;
 }
 
 class _HubBody extends ConsumerWidget {
@@ -158,14 +122,12 @@ class _HubBody extends ConsumerWidget {
     required this.access,
     required this.testRole,
     required this.compactLayout,
-    required this.bottomPadding,
   });
 
   final PurchaseOverview overview;
   final PurchaseAccess access;
   final PurchaseDevTestRole? testRole;
   final bool compactLayout;
-  final double bottomPadding;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -173,77 +135,75 @@ class _HubBody extends ConsumerWidget {
     return RefreshIndicator(
       color: PurchaseTheme.accentBlue,
       onRefresh: () async {
-        ref.invalidate(draftInvoicesPreviewProvider);
+        ref.invalidate(lpoLatestPreviewProvider);
         final repo = ref.read(purchaseRepositoryProvider);
-        final testRole = ref.read(purchaseDevRoleOverrideProvider);
-        await repo.fetchOverview(testRole: testRole, refresh: true);
-        await repo.fetchDraftInvoicesPreview(
-          testRole: testRole,
-          refresh: true,
-        );
+        final role = ref.read(purchaseDevRoleOverrideProvider);
+        await repo.fetchOverview(testRole: role, refresh: true);
         ref.invalidate(purchaseOverviewProvider);
         await ref.read(purchaseOverviewProvider.future);
+        await ref.read(lpoLatestPreviewProvider.future);
       },
       child: ListView(
-        padding: EdgeInsets.fromLTRB(16.w, 8.h, 16.w, bottomPadding),
+        padding: EdgeInsets.fromLTRB(16.w, 8.h, 16.w, 24.h),
         children: [
           if (compactLayout) ...[
             Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                  Expanded(
-                    child: PurchaseCompactHubCard(
-                      title: 'RFQs',
-                      primaryValue: formatPurchaseCompact(cards.waitingRfqs),
-                      valueColor: PurchaseTheme.accentDeep,
-                      icon: Icons.request_quote_outlined,
-                      iconColor: const Color(0xFF0D9488),
-                      iconBackground: const Color(0xFFCCFBF1),
-                      badge: cards.rfqQuotationsReceived > 0
-                          ? 'QUOTES'
-                          : 'WAITING',
-                      trendLabel: cards.rfqQuotationsReceived > 0
-                          ? '${formatPurchaseCompact(cards.rfqQuotationsReceived)} recv'
-                          : '${formatPurchaseCompact(cards.totalRfqs)} total',
-                      trendPositive: cards.rfqQuotationsReceived > 0,
-                      subtitle: 'Waiting validation',
-                      onTap: () => Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) =>
-                              PurchaseRfqHubScreen(testRole: testRole),
-                        ),
+                Expanded(
+                  child: PurchaseCompactHubCard(
+                    title: 'RFQs',
+                    primaryValue: formatPurchaseCompact(cards.waitingRfqs),
+                    valueColor: PurchaseTheme.accentDeep,
+                    icon: Icons.request_quote_outlined,
+                    iconColor: const Color(0xFF0D9488),
+                    iconBackground: const Color(0xFFCCFBF1),
+                    badge: cards.rfqQuotationsReceived > 0
+                        ? 'QUOTES'
+                        : 'WAITING',
+                    trendLabel: cards.rfqQuotationsReceived > 0
+                        ? '${formatPurchaseCompact(cards.rfqQuotationsReceived)} recv'
+                        : '${formatPurchaseCompact(cards.totalRfqs)} total',
+                    trendPositive: cards.rfqQuotationsReceived > 0,
+                    subtitle: 'Waiting validation',
+                    onTap: () => Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) =>
+                            PurchaseRfqHubScreen(testRole: testRole),
                       ),
                     ),
                   ),
-                  SizedBox(width: 10.w),
-                  Expanded(
-                    child: PurchaseCompactHubCard(
-                      title: 'Material Req.',
-                      primaryValue: formatPurchaseCompact(cards.pendingMrs),
-                      valueColor: const Color(0xFF7C3AED),
-                      icon: Icons.assignment_outlined,
-                      iconColor: const Color(0xFF7C3AED),
-                      iconBackground: const Color(0xFFEDE9FE),
-                      badge: 'PENDING',
-                      trendLabel:
-                          cards.pendingMrs > 0 ? 'Action' : 'Clear',
-                      trendPositive: cards.pendingMrs == 0,
-                      subtitle: 'Awaiting approval',
-                      onTap: () => Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) =>
-                              PurchaseMrHubScreen(testRole: testRole),
-                        ),
+                ),
+                SizedBox(width: 10.w),
+                Expanded(
+                  child: PurchaseCompactHubCard(
+                    title: 'Material Req.',
+                    primaryValue: formatPurchaseCompact(cards.pendingMrs),
+                    valueColor: const Color(0xFF7C3AED),
+                    icon: Icons.assignment_outlined,
+                    iconColor: const Color(0xFF7C3AED),
+                    iconBackground: const Color(0xFFEDE9FE),
+                    badge: 'PENDING',
+                    trendLabel: cards.pendingMrs > 0 ? 'Action' : 'Clear',
+                    trendPositive: cards.pendingMrs == 0,
+                    subtitle: 'Awaiting approval',
+                    onTap: () => Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) =>
+                            PurchaseMrHubScreen(testRole: testRole),
                       ),
                     ),
                   ),
-                ],
-              ),
+                ),
+              ],
+            ),
             SizedBox(height: 10.h),
             PurchaseCompactLpoStrip(
               totalCount: cards.lpos,
+              openCount: cards.lposOpen,
+              closedCount: cards.lposClosed,
               onTap: () => Navigator.push(
                 context,
                 MaterialPageRoute(
@@ -278,8 +238,20 @@ class _HubBody extends ConsumerWidget {
               subtitle: 'Confirmed purchase orders',
               metrics: [
                 PurchaseHeroMetric(
+                  label: 'Open',
+                  value: formatPurchaseCompact(cards.lposOpen),
+                ),
+                PurchaseHeroMetric(
+                  label: 'Closed',
+                  value: formatPurchaseCompact(cards.lposClosed),
+                ),
+                PurchaseHeroMetric(
                   label: 'Total',
-                  value: formatPurchaseCompact(cards.lpos),
+                  value: formatPurchaseCompact(
+                    cards.lposOpen + cards.lposClosed > 0
+                        ? cards.lposOpen + cards.lposClosed
+                        : cards.lpos,
+                  ),
                 ),
               ],
               onTap: () => Navigator.push(
@@ -310,37 +282,97 @@ class _HubBody extends ConsumerWidget {
               ),
             ),
           ],
-          if (access.canSeeDraftInvoices) ...[
-            SizedBox(height: compactLayout ? 12.h : 20.h),
-            _DraftInvoicesSection(testRole: testRole),
-          ],
+          SizedBox(height: compactLayout ? 12.h : 20.h),
+          _LatestLposSection(testRole: testRole),
         ],
       ),
     );
   }
 }
 
-class _DraftInvoicesSection extends ConsumerWidget {
-  const _DraftInvoicesSection({required this.testRole});
+class _LatestLposSection extends ConsumerWidget {
+  const _LatestLposSection({required this.testRole});
 
   final PurchaseDevTestRole? testRole;
 
+  Future<void> _openLpo(BuildContext context, RfqItem item) async {
+    try {
+      final url = await PurchaseRepository().fetchPoReportUrl(item.id);
+      if (!context.mounted) return;
+      if (url == null || url.isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('PO report unavailable')),
+        );
+        return;
+      }
+      await Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => LpoPdfViewerScreen(
+            pdfUrl: url,
+            title: item.name,
+          ),
+        ),
+      );
+    } catch (e) {
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('$e')),
+      );
+    }
+  }
+
+  void _openFullList(BuildContext context) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => PurchaseLpoHubScreen(testRole: testRole),
+      ),
+    );
+  }
+
+  Widget _titleRow(BuildContext context, {required bool showMore}) {
+    return Row(
+      children: [
+        Text(
+          'Latest LPOs',
+          style: GoogleFonts.poppins(
+            fontSize: 15.sp,
+            fontWeight: FontWeight.w700,
+            color: PurchaseTheme.textPrimary,
+          ),
+        ),
+        const Spacer(),
+        if (showMore)
+          TextButton(
+            onPressed: () => _openFullList(context),
+            style: TextButton.styleFrom(
+              padding: EdgeInsets.symmetric(horizontal: 8.w, vertical: 4.h),
+              minimumSize: Size.zero,
+              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+            ),
+            child: Text(
+              'Show more',
+              style: GoogleFonts.poppins(
+                fontSize: 13.sp,
+                fontWeight: FontWeight.w600,
+                color: PurchaseTheme.accentDeep,
+              ),
+            ),
+          ),
+      ],
+    );
+  }
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final previewAsync = ref.watch(draftInvoicesPreviewProvider);
+    final previewAsync = ref.watch(lpoLatestPreviewProvider);
 
     return previewAsync.when(
       loading: () => Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            'Draft Purchase Invoices',
-            style: GoogleFonts.poppins(
-              fontSize: 15.sp,
-              fontWeight: FontWeight.w700,
-              color: PurchaseTheme.textPrimary,
-            ),
-          ),
+          _titleRow(context, showMore: false),
           SizedBox(height: 8.h),
           Container(
             height: 100.h,
@@ -354,89 +386,24 @@ class _DraftInvoicesSection extends ConsumerWidget {
         ],
       ),
       error: (_, __) => const SizedBox.shrink(),
-      data: (preview) {
-        if (preview.items.isEmpty && preview.totalCount == 0) {
+      data: (items) {
+        if (items.isEmpty) {
           return const SizedBox.shrink();
         }
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Row(
-              children: [
-                Text(
-                  'Draft Purchase Invoices',
-                  style: GoogleFonts.poppins(
-                    fontSize: 15.sp,
-                    fontWeight: FontWeight.w700,
-                    color: PurchaseTheme.textPrimary,
-                  ),
-                ),
-                SizedBox(width: 8.w),
-                Container(
-                  padding:
-                      EdgeInsets.symmetric(horizontal: 8.w, vertical: 3.h),
-                  decoration: BoxDecoration(
-                    gradient: PurchaseTheme.urgentAccentGradient,
-                    borderRadius: BorderRadius.circular(8.r),
-                    border: Border.all(
-                      color: PurchaseTheme.pendingBadge.withValues(alpha: 0.35),
-                    ),
-                  ),
-                  child: Text(
-                    'PENDING',
-                    style: GoogleFonts.poppins(
-                      fontSize: 9.sp,
-                      fontWeight: FontWeight.w700,
-                      color: PurchaseTheme.pendingBadge,
-                    ),
-                  ),
-                ),
-                const Spacer(),
-                if (preview.totalCount > 0)
-                  Text(
-                    formatPurchaseCompact(preview.totalCount),
-                    style: GoogleFonts.poppins(
-                      fontSize: 13.sp,
-                      fontWeight: FontWeight.w800,
-                      color: PurchaseTheme.accentDeep,
-                    ),
-                  ),
-              ],
-            ),
+            _titleRow(context, showMore: true),
             SizedBox(height: 8.h),
             Container(
               decoration: PurchaseTheme.glassPanel(),
               clipBehavior: Clip.antiAlias,
               child: Column(
                 children: [
-                  for (var i = 0; i < preview.items.length; i++)
-                    PurchaseDraftInvoiceRow(
-                      item: preview.items[i],
-                      compact: true,
-                    ),
-                  if (preview.totalCount > 0)
-                    Material(
-                      color: Colors.transparent,
-                      child: InkWell(
-                        onTap: () => Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (_) =>
-                                DraftInvoiceListScreen(testRole: testRole),
-                          ),
-                        ),
-                        child: Padding(
-                          padding: EdgeInsets.symmetric(vertical: 12.h),
-                          child: Text(
-                            'Show all ${formatPurchaseCompact(preview.totalCount)} drafts',
-                            style: GoogleFonts.poppins(
-                              fontSize: 13.sp,
-                              fontWeight: FontWeight.w600,
-                              color: PurchaseTheme.accentDeep,
-                            ),
-                          ),
-                        ),
-                      ),
+                  for (final item in items)
+                    _LatestLpoRow(
+                      item: item,
+                      onTap: () => _openLpo(context, item),
                     ),
                 ],
               ),
@@ -444,6 +411,184 @@ class _DraftInvoicesSection extends ConsumerWidget {
           ],
         );
       },
+    );
+  }
+}
+
+/// Compact list row matching prior draft-invoice panel styling.
+class _LatestLpoRow extends StatelessWidget {
+  const _LatestLpoRow({required this.item, required this.onTap});
+
+  final RfqItem item;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final amountText = item.amountDisplay.trim().isNotEmpty
+        ? item.amountDisplay
+        : (item.amountTotal > 0
+            ? ApprovalDisplayHelpers.formatAmountWithAed(item.amountTotal)
+            : '');
+    final state = item.state.trim().isNotEmpty
+        ? item.state
+        : (item.odooState.trim().isNotEmpty ? item.odooState : '');
+
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        child: Container(
+          padding: EdgeInsets.symmetric(horizontal: 14.w, vertical: 12.h),
+          decoration: BoxDecoration(
+            color: Colors.white.withValues(alpha: 0.35),
+            border: Border(
+              bottom: BorderSide(
+                color: PurchaseTheme.accentBlue.withValues(alpha: 0.12),
+              ),
+            ),
+          ),
+          child: Row(
+            children: [
+              _LpoPreviewAvatar(
+                name: item.vendorName.isNotEmpty ? item.vendorName : item.name,
+                photoUrl: item.clientPhoto,
+              ),
+              SizedBox(width: 12.w),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      item.vendorName.isNotEmpty ? item.vendorName : '—',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: GoogleFonts.poppins(
+                        fontSize: 13.sp,
+                        fontWeight: FontWeight.w600,
+                        color: PurchaseTheme.textPrimary,
+                      ),
+                    ),
+                    SizedBox(height: 2.h),
+                    Text(
+                      item.name,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: GoogleFonts.poppins(
+                        fontSize: 11.sp,
+                        color: PurchaseTheme.textSecondary,
+                      ),
+                    ),
+                    if (item.project.isNotEmpty) ...[
+                      SizedBox(height: 2.h),
+                      Text(
+                        item.project,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: GoogleFonts.poppins(
+                          fontSize: 10.sp,
+                          color: PurchaseTheme.textMuted,
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  if (state.isNotEmpty)
+                    Container(
+                      padding:
+                          EdgeInsets.symmetric(horizontal: 8.w, vertical: 3.h),
+                      decoration: BoxDecoration(
+                        gradient: PurchaseTheme.urgentAccentGradient,
+                        borderRadius: BorderRadius.circular(8.r),
+                        border: Border.all(
+                          color: PurchaseTheme.pendingBadge
+                              .withValues(alpha: 0.35),
+                        ),
+                      ),
+                      child: Text(
+                        state.toUpperCase(),
+                        style: GoogleFonts.poppins(
+                          fontSize: 9.sp,
+                          fontWeight: FontWeight.w700,
+                          color: PurchaseTheme.pendingBadge,
+                        ),
+                      ),
+                    ),
+                  if (item.dateOrder.isNotEmpty) ...[
+                    SizedBox(height: 4.h),
+                    Text(
+                      item.dateOrder,
+                      style: GoogleFonts.poppins(
+                        fontSize: 10.sp,
+                        color: PurchaseTheme.textMuted,
+                      ),
+                    ),
+                  ],
+                  if (amountText.isNotEmpty) ...[
+                    SizedBox(height: 2.h),
+                    Text(
+                      amountText,
+                      style: GoogleFonts.poppins(
+                        fontSize: 13.sp,
+                        fontWeight: FontWeight.w700,
+                        color: PurchaseTheme.accentDeep,
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _LpoPreviewAvatar extends StatelessWidget {
+  const _LpoPreviewAvatar({required this.name, required this.photoUrl});
+
+  final String name;
+  final String photoUrl;
+
+  @override
+  Widget build(BuildContext context) {
+    final initial = name.isNotEmpty ? name[0].toUpperCase() : '?';
+    final url = PurchaseAvatar.sanitizeUrl(photoUrl);
+    if (url != null) {
+      return CircleAvatar(
+        radius: 20.r,
+        backgroundColor: const Color(0xFFE8F4FC),
+        child: ClipOval(
+          child: CachedNetworkImage(
+            imageUrl: url,
+            width: 40.r,
+            height: 40.r,
+            fit: BoxFit.cover,
+            placeholder: (_, __) => _initial(initial),
+            errorWidget: (_, __, ___) => _initial(initial),
+          ),
+        ),
+      );
+    }
+    return _initial(initial);
+  }
+
+  Widget _initial(String initial) {
+    return CircleAvatar(
+      radius: 20.r,
+      backgroundColor: PurchaseTheme.accentBlue.withValues(alpha: 0.25),
+      child: Text(
+        initial,
+        style: GoogleFonts.poppins(
+          fontSize: 14.sp,
+          fontWeight: FontWeight.w700,
+          color: PurchaseTheme.accentDeep,
+        ),
+      ),
     );
   }
 }

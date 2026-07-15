@@ -19,7 +19,7 @@ class MyReportsAiReportScreen extends StatelessWidget {
           children: [
             const MyReportsGlassHeader(
               title: 'Elrace AI Report',
-              onDarkBackground: true,
+              onDarkBackground: false,
             ),
             Expanded(
               child: ListView(

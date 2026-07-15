@@ -173,25 +173,27 @@ class _RfqListScreenState extends State<RfqListScreen>
   }
 
   Future<void> _openItem(RfqItem item) async {
-    // For all states: try to open the PDF via po/report_url.
-    // Fall back gracefully if no PDF is available.
+    // RFQ supporting docs preview (attachment_lpo_ids) — not LPO print.
     try {
-      final url = await _repo.fetchPoReportUrl(item.id);
-      if (url != null && mounted) {
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (_) => LpoPdfViewerScreen(
-              pdfUrl: url,
-              title: item.name,
-            ),
+      final url = await _repo.fetchRfqReportUrl(item.id);
+      if (!mounted) return;
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => LpoPdfViewerScreen(
+            pdfUrl: url,
+            title: item.name,
           ),
-        );
-        return;
-      }
-    } catch (_) {}
-    // No PDF — show a simple read-only card
-    if (mounted) _showRfqQuickView(item);
+        ),
+      );
+    } on RfqNoAttachmentException catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(e.message)),
+      );
+    } catch (_) {
+      if (mounted) _showRfqQuickView(item);
+    }
   }
 
   void _showRfqQuickView(RfqItem item) {

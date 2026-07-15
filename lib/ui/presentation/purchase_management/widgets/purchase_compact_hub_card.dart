@@ -126,14 +126,20 @@ class PurchaseCompactLpoStrip extends StatelessWidget {
   const PurchaseCompactLpoStrip({
     super.key,
     required this.totalCount,
+    required this.openCount,
+    required this.closedCount,
     required this.onTap,
   });
 
   final int totalCount;
+  final int openCount;
+  final int closedCount;
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
+    final sumOpenClosed = openCount + closedCount;
+    final total = sumOpenClosed > 0 ? sumOpenClosed : totalCount;
     return Material(
       color: Colors.transparent,
       child: InkWell(
@@ -173,7 +179,7 @@ class PurchaseCompactLpoStrip extends StatelessWidget {
                       ),
                     ),
                     Text(
-                      'Confirmed purchase orders',
+                      'Open + Closed = $total',
                       style: GoogleFonts.poppins(
                         fontSize: 9.sp,
                         color: PurchaseTheme.textMuted,
@@ -183,9 +189,15 @@ class PurchaseCompactLpoStrip extends StatelessWidget {
                 ),
               ),
               _LpoMetric(
-                label: 'Total',
-                value: totalCount,
-                color: PurchaseTheme.accentBlue,
+                label: 'Open',
+                value: openCount,
+                color: const Color(0xFFF59E0D),
+              ),
+              SizedBox(width: 10.w),
+              _LpoMetric(
+                label: 'Closed',
+                value: closedCount,
+                color: const Color(0xFF16A34A),
               ),
               SizedBox(width: 6.w),
               _ArrowButton(onTap: onTap, size: 28),

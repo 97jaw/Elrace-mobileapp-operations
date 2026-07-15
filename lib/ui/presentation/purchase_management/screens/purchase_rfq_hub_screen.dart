@@ -183,16 +183,25 @@ class _PurchaseRfqHubScreenState extends ConsumerState<PurchaseRfqHubScreen> {
 
   Future<void> _openRfq(RfqItem item) async {
     try {
-      final url = await _repo.fetchPoReportUrl(item.id);
-      if (url != null && mounted) {
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (_) => LpoPdfViewerScreen(pdfUrl: url, title: item.name),
-          ),
-        );
-      }
-    } catch (_) {}
+      final url = await _repo.fetchRfqReportUrl(item.id);
+      if (!mounted) return;
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => LpoPdfViewerScreen(pdfUrl: url, title: item.name),
+        ),
+      );
+    } on RfqNoAttachmentException catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(e.message)),
+      );
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Failed to open RFQ attachments')),
+      );
+    }
   }
 
   Future<void> _showFilterSheet() async {

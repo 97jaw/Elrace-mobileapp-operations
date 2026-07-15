@@ -52,31 +52,30 @@ class DefaultFirebaseOptions {
 
   static const FirebaseOptions android = FirebaseOptions(
     apiKey: 'AIzaSyCYyh1LsubgOP-iUdR6aPtZkWrMjMZjqVc',
-    appId: '1:392748487890:android:c475c90ac7c1dcf00f490b',
+    appId: '1:392748487890:android:0cf1fa8c7f37d0eb0f490b',
     messagingSenderId: '392748487890',
     projectId: 'elrace-new',
+    databaseURL: 'https://elrace-new-default-rtdb.firebaseio.com',
     storageBucket: 'elrace-new.firebasestorage.app',
-    databaseURL: 'https://elrace-new-default-rtdb.firebaseio.com/',
   );
 
   static const FirebaseOptions ios = FirebaseOptions(
     apiKey: 'AIzaSyB25Efv4tymQSJdgo8DWGNnNgOPO8X2mzw',
-    appId: '1:392748487890:ios:918dec5460dfac2b0f490b',
+    appId: '1:392748487890:ios:58ff0286e360256a0f490b',
     messagingSenderId: '392748487890',
     projectId: 'elrace-new',
-    storageBucket: 'elrace-new.firebasestorage.app',
     databaseURL: 'https://elrace-new-default-rtdb.firebaseio.com',
-    iosBundleId: 'com.dev.elRace',
+    storageBucket: 'elrace-new.firebasestorage.app',
+    iosBundleId: 'ae.elrace.connect',
   );
-
   static const FirebaseOptions macos = FirebaseOptions(
     apiKey: 'AIzaSyB25Efv4tymQSJdgo8DWGNnNgOPO8X2mzw',
-    appId: '1:392748487890:ios:918dec5460dfac2b0f490b',
+    appId: '1:392748487890:ios:58ff0286e360256a0f490b',
     messagingSenderId: '392748487890',
     projectId: 'elrace-new',
     storageBucket: 'elrace-new.firebasestorage.app',
     databaseURL: 'https://elrace-new-default-rtdb.firebaseio.com',
-    iosBundleId: 'com.dev.elRace',
+    iosBundleId: 'ae.elrace.connect',
   );
 
   static const FirebaseOptions windows = FirebaseOptions(

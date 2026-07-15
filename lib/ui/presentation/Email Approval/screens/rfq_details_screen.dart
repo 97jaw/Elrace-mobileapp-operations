@@ -295,7 +295,7 @@ class _RfqDetailsScreenState extends State<RfqDetailsScreen> {
     final data = {
       'jsonrpc': '2.0',
       'params': {
-        'po_id': poId,
+        'rfq_id': poId,
       },
     };
 
@@ -307,7 +307,7 @@ class _RfqDetailsScreenState extends State<RfqDetailsScreen> {
 
     try {
       final response = await http.post(
-        Uri.parse('https://erp.elrace.com/api/po/report_url'),
+        Uri.parse('https://erp.elrace.com/api/rfq/report_url'),
         headers: headers,
         body: jsonEncode(data),
       );
@@ -329,9 +329,12 @@ class _RfqDetailsScreenState extends State<RfqDetailsScreen> {
 
       final decoded = jsonDecode(response.body) as Map<String, dynamic>;
       final result = decoded['result'] as Map?;
+      final status = result?['status']?.toString();
       final pdfUrl = result?['report_url']?.toString() ?? '';
 
-      if (pdfUrl.isEmpty) {
+      if (status == 'error' ||
+          result?['code']?.toString() == 'NO_ATTACHMENT' ||
+          pdfUrl.isEmpty) {
         final error = decoded['error'] as Map?;
         final errorData = error?['data'] as Map?;
         Fluttertoast.showToast(
@@ -339,7 +342,7 @@ class _RfqDetailsScreenState extends State<RfqDetailsScreen> {
               result?['error']?.toString() ??
               errorData?['message']?.toString() ??
               error?['message']?.toString() ??
-              'Failed to retrieve PDF URL.',
+              'No attachment to show',
           toastLength: Toast.LENGTH_SHORT,
           gravity: ToastGravity.CENTER,
           backgroundColor: Colors.black,

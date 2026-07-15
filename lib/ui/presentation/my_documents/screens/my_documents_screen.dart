@@ -26,6 +26,8 @@ import '../../../widgets/custom_slider_button.dart';
 import 'attachment_viewer_screen.dart';
 import 'family_insurance_request_screen.dart';
 import 'family_documents_tab.dart';
+// Shared documents tab kept in codebase for later placement (hidden from My Documents UI).
+// ignore: unused_import
 import 'share_documents_tab.dart';
 
 const String _familyTaggedDocumentIdsKey = 'my_documents_family_tagged_ids_v1';
@@ -1763,11 +1765,12 @@ class _MyDocumentsScreenState extends State<MyDocumentsScreen> {
       icon: Icons.family_restroom_outlined,
       iconSelected: Icons.family_restroom_rounded,
     ),
-    MyDocumentsTabItem(
-      label: 'Share',
-      icon: Icons.ios_share_outlined,
-      iconSelected: Icons.share_rounded,
-    ),
+    // Shared documents tab kept for later placement — not shown in UI for now.
+    // MyDocumentsTabItem(
+    //   label: 'Share',
+    //   icon: Icons.ios_share_outlined,
+    //   iconSelected: Icons.share_rounded,
+    // ),
   ];
 
   final List<Map<String, dynamic>> notificationType = [
@@ -1781,11 +1784,12 @@ class _MyDocumentsScreenState extends State<MyDocumentsScreen> {
       'icon_unfocus': 'assets/png/family.png',
       'title': translate('home.family_document'),
     },
-    {
-      'icon': 'assets/newapp/newicon/for_shared_document.png',
-      'icon_unfocus': 'assets/newapp/newicon/for_shared_document.png',
-      'title': 'Share Documents',
-    },
+    // Shared docs entry retained for future surface — hidden from My Documents UI.
+    // {
+    //   'icon': 'assets/newapp/newicon/for_shared_document.png',
+    //   'icon_unfocus': 'assets/newapp/newicon/for_shared_document.png',
+    //   'title': 'Share Documents',
+    // },
   ];
 
   String get _headerTitle {
@@ -1794,8 +1798,8 @@ class _MyDocumentsScreenState extends State<MyDocumentsScreen> {
         return translate('home.documents');
       case 1:
         return 'Family Documents';
-      case 2:
-        return 'Share Documents';
+      // case 2:
+      //   return 'Share Documents';
       default:
         return 'Documents';
     }
@@ -1807,8 +1811,8 @@ class _MyDocumentsScreenState extends State<MyDocumentsScreen> {
         return translate('home.documents').toUpperCase();
       case 1:
         return 'FAMILY DOCUMENT';
-      case 2:
-        return 'SHARE DOCUMENTS';
+      // case 2:
+      //   return 'SHARE DOCUMENTS';
       default:
         return 'DOCUMENTS';
     }
@@ -1932,10 +1936,7 @@ class _MyDocumentsScreenState extends State<MyDocumentsScreen> {
             Expanded(
               child: currentIndex == 0
                   ? _buildMyDocumentsContent()
-                  : IndexedStack(
-                      index: currentIndex - 1,
-                      children: [
-                        FamilyDocumentsTab(
+                  : FamilyDocumentsTab(
                           isActive: currentIndex == 1,
                           isLoading: currentIndex == 1 && _loading,
                           documents: documents,
@@ -1982,11 +1983,8 @@ class _MyDocumentsScreenState extends State<MyDocumentsScreen> {
                             }());
                           },
                         ),
-                        ShareDocumentsTab(
-                          onOpenDocument: _openDocumentAttachment,
-                        ),
-                      ],
-                    ),
+              // Shared documents UI kept in [ShareDocumentsTab] for later placement.
+              // ShareDocumentsTab(onOpenDocument: _openDocumentAttachment),
             ),
           ],
             ),

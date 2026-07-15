@@ -3,11 +3,12 @@ import 'dart:typed_data';
 import 'package:el_race/core/theme/timesheet_module_theme.dart';
 import 'package:el_race/report_module/data/provider/reports_provider.dart';
 import 'package:el_race/ui/presentation/timesheet/site_reports/tm_site_report_actions.dart';
+import 'package:el_race/ui/presentation/timesheet/site_reports/widgets/tm_site_report_company_app_bar.dart';
 import 'package:el_race/ui/presentation/timesheet/timesheet_async_state.dart';
+import 'package:el_race/ui/presentation/timesheet/utils/tm_http_url.dart';
 import 'package:el_race/ui/presentation/timesheet/widgets/tm_pdf_bytes_preview_screen.dart';
 import 'package:el_race/ui/presentation/timesheet/widgets/tm_share_pdf_sheet.dart';
 import 'package:flutter/material.dart';
-import 'package:http/http.dart' as http;
 import 'package:phosphor_flutter/phosphor_flutter.dart';
 import 'package:provider/provider.dart';
 
@@ -52,14 +53,11 @@ class _TmSiteReportPdfScreenState extends State<TmSiteReportPdfScreen> {
       if (widget.pdfBytes != null) {
         _bytes = widget.pdfBytes;
       } else {
-        final response = await http.get(Uri.parse(widget.url!));
-        if (response.statusCode != 200) {
-          throw Exception('HTTP ${response.statusCode}');
-        }
-        _bytes = response.bodyBytes;
+        _bytes = await tmFetchUrlBytes(widget.url!);
       }
-    } catch (_) {
+    } catch (e) {
       _error = 'Could not load PDF';
+      debugPrint('PDF load failed: $e');
     }
     if (mounted) setState(() => _loading = false);
   }
@@ -128,51 +126,47 @@ class _TmSiteReportPdfScreenState extends State<TmSiteReportPdfScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: TimesheetModuleColors.bgGradientEnd,
-      appBar: AppBar(
-        backgroundColor: TimesheetModuleColors.surface,
-        foregroundColor: TimesheetModuleColors.text,
-        elevation: 0,
-        title: Text(
-          widget.title,
-          style: TimesheetModuleTypography.h2(),
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-        ),
-        actions: [
-          if (widget.reportId != null &&
-              widget.allowRenameDelete &&
-              widget.url != null)
-            IconButton(
-              onPressed: _pdfMenu,
-              icon: Icon(PhosphorIcons.dotsThreeVertical()),
+    return TmSiteReportGlassShell(
+      title: widget.title,
+      trailing: [
+        if (widget.reportId != null &&
+            widget.allowRenameDelete &&
+            widget.url != null)
+          IconButton(
+            onPressed: _pdfMenu,
+            icon: Icon(
+              PhosphorIcons.dotsThreeVertical(),
+              color: const Color(0xFF1E2365),
             ),
-          if (_bytes != null)
-            IconButton(
-              onPressed: _openShare,
-              icon: Icon(PhosphorIcons.shareNetwork()),
+          ),
+        if (_bytes != null)
+          IconButton(
+            onPressed: _openShare,
+            icon: Icon(
+              PhosphorIcons.shareNetwork(),
+              color: const Color(0xFF1E2365),
             ),
-        ],
-      ),
-      body: SafeArea(
-        top: false,
-        child: _loading
-            ? const TimesheetLoadingState(style: TimesheetLoadingStyle.list)
-            : _error != null || _bytes == null
-                ? Center(
+          ),
+      ],
+      body: _loading
+          ? const TimesheetLoadingState(style: TimesheetLoadingStyle.list)
+          : _error != null || _bytes == null
+              ? Center(
+                  child: Padding(
+                    padding: const EdgeInsets.all(24),
                     child: Text(
                       _error ?? 'Could not load PDF',
+                      textAlign: TextAlign.center,
                       style: TimesheetModuleTypography.body().copyWith(
                         color: TimesheetModuleColors.danger,
                       ),
                     ),
-                  )
-                : TmPdfFileViewer(
-                    pdfBytes: _bytes!,
-                    fileName: widget.title,
                   ),
-      ),
+                )
+              : TmPdfFileViewer(
+                  pdfBytes: _bytes!,
+                  fileName: widget.title,
+                ),
     );
   }
 }

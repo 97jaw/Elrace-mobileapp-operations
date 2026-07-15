@@ -26,14 +26,17 @@ class PurchaseAccess {
   final String scope;
 
   bool get hasAnyAccess =>
-      isPurchaseRep || isPurchaseManager || isDocController;
+      isPurchaseRep ||
+      isPurchaseManager ||
+      isDocController ||
+      isCostControlOrManagement;
 
   bool get canSeeInvoiceReceiving =>
       isDocController || (isPurchaseRep && !isPurchaseManager);
 
   List<PurchaseTab> get allowedTabs {
     final tabs = <PurchaseTab>[];
-    if (isPurchaseRep || isPurchaseManager) {
+    if (isPurchaseRep || isPurchaseManager || isCostControlOrManagement) {
       tabs.add(PurchaseTab.mr);
       tabs.add(PurchaseTab.rfq);
     }
