@@ -2,6 +2,7 @@ import 'package:el_race/ui/presentation/my_reports/data/my_reports_catalog.dart'
 import 'package:el_race/ui/presentation/my_reports/models/my_report_category.dart';
 import 'package:el_race/ui/presentation/my_reports/screens/my_reports_ai_report_screen.dart';
 import 'package:el_race/ui/presentation/my_reports/screens/my_reports_category_screen.dart';
+import 'package:el_race/ui/presentation/my_reports/screens/my_reports_site_report_project_picker_screen.dart';
 import 'package:el_race/ui/presentation/my_reports/theme/my_reports_theme.dart';
 import 'package:el_race/ui/presentation/my_reports/widgets/my_reports_background.dart';
 import 'package:el_race/ui/presentation/my_reports/widgets/my_reports_glass_header.dart';
@@ -26,7 +27,8 @@ class MyReportsHubScreen extends StatelessWidget {
           children: [
             const MyReportsGlassHeader(
               title: 'My Reports',
-              onDarkBackground: true,
+              onDarkBackground: false,
+              transparentTopBar: true,
             ),
             Expanded(
               child: CustomScrollView(
@@ -48,14 +50,7 @@ class MyReportsHubScreen extends StatelessWidget {
                               countLabel: '41',
                               liveCount: '12',
                               aiCount: '41',
-                              gradient: const LinearGradient(
-                                begin: Alignment.topLeft,
-                                end: Alignment.bottomRight,
-                                colors: [
-                                  MyReportsTheme.skyBlue,
-                                  MyReportsTheme.royalBlue,
-                                ],
-                              ),
+                              gradient: MyReportsTheme.featuredCardGradient,
                               onTap: () {
                                 Navigator.of(context).push(
                                   MaterialPageRoute(
@@ -75,14 +70,7 @@ class MyReportsHubScreen extends StatelessWidget {
                               countLabel: '4',
                               liveCount: '8',
                               aiCount: '4',
-                              gradient: const LinearGradient(
-                                begin: Alignment.topLeft,
-                                end: Alignment.bottomRight,
-                                colors: [
-                                  MyReportsTheme.tealBlue,
-                                  MyReportsTheme.deepNavy,
-                                ],
-                              ),
+                              gradient: MyReportsTheme.managementCardGradient,
                               onTap: () {
                                 Navigator.of(context).push(
                                   MaterialPageRoute(
@@ -112,7 +100,27 @@ class MyReportsHubScreen extends StatelessWidget {
                       ),
                       delegate: SliverChildBuilderDelegate(
                         (context, i) {
-                          final category = gridCategories[i];
+                          // First grid card: live Site Report entry (not catalog demo).
+                          if (i == 0) {
+                            return _HubReportCard(
+                              title: 'Site Report',
+                              subtitle: 'Create and view project site reports',
+                              icon: Icons.photo_camera_back_rounded,
+                              countLabel: '—',
+                              liveCount: 'Live',
+                              aiCount: '—',
+                              gradient: MyReportsTheme.siteReportCardGradient,
+                              onTap: () {
+                                Navigator.of(context).push(
+                                  MaterialPageRoute(
+                                    builder: (_) =>
+                                        const MyReportsSiteReportProjectPickerScreen(),
+                                  ),
+                                );
+                              },
+                            );
+                          }
+                          final category = gridCategories[i - 1];
                           return _HubReportCard(
                             title: category.title,
                             subtitle: category.subtitle,
@@ -133,7 +141,7 @@ class MyReportsHubScreen extends StatelessWidget {
                             },
                           );
                         },
-                        childCount: gridCategories.length,
+                        childCount: gridCategories.length + 1,
                       ),
                     ),
                   ),
@@ -179,12 +187,14 @@ class _HubReportCard extends StatelessWidget {
         decoration: BoxDecoration(
           gradient: gradient,
           borderRadius: BorderRadius.circular(20.r),
-          border: Border.all(color: Colors.white.withValues(alpha: 0.55)),
+          border: Border.all(
+            color: Colors.white.withValues(alpha: 0.85),
+          ),
           boxShadow: [
             BoxShadow(
-              color: MyReportsTheme.deepNavy.withValues(alpha: 0.12),
-              blurRadius: 14,
-              offset: const Offset(0, 5),
+              color: MyReportsTheme.deepNavy.withValues(alpha: 0.07),
+              blurRadius: 12,
+              offset: const Offset(0, 4),
             ),
           ],
         ),
@@ -277,9 +287,11 @@ class _CounterChip extends StatelessWidget {
       child: Container(
         padding: EdgeInsets.symmetric(horizontal: 8.w, vertical: 5.h),
         decoration: BoxDecoration(
-          color: Colors.white.withValues(alpha: 0.5),
+          color: Colors.white.withValues(alpha: 0.78),
           borderRadius: BorderRadius.circular(10.r),
-          border: Border.all(color: Colors.white.withValues(alpha: 0.65)),
+          border: Border.all(
+            color: MyReportsTheme.frostBlue.withValues(alpha: 0.95),
+          ),
         ),
         child: Row(
           mainAxisAlignment: MainAxisAlignment.center,
@@ -289,7 +301,7 @@ class _CounterChip extends StatelessWidget {
               style: GoogleFonts.poppins(
                 fontSize: 10.sp,
                 fontWeight: FontWeight.w800,
-                color: MyReportsTheme.labelOnGradient,
+                color: MyReportsTheme.textPrimary,
               ),
             ),
             SizedBox(width: 4.w),
@@ -301,7 +313,7 @@ class _CounterChip extends StatelessWidget {
                 style: GoogleFonts.poppins(
                   fontSize: 8.sp,
                   fontWeight: FontWeight.w600,
-                  color: MyReportsTheme.bodyOnGradient,
+                  color: MyReportsTheme.textSecondary,
                 ),
               ),
             ),

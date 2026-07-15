@@ -2,6 +2,10 @@ class UrlUtil {
   static const String baseUrl = 'https://erp.elrace.com/api/';
   static const String login = 'login/new';
   static const String contactApi = 'employee/listx';
+  static const String employeeProfileApi = 'employee/profile';
+  static const String employeeProfileContractApi = 'employee/profile/contract';
+  static const String employeeProfileDocumentsApi = 'employee/profile/documents';
+  static const String employeeProfileFleetApi = 'employee/profile/fleet';
   static const String checkInApi = 'check_in';
   static const String checkOutApi = 'check_out';
   static const String checkinContextApi = 'attendance/checkin_context';

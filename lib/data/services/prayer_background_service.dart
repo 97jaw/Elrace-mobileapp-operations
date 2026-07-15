@@ -35,6 +35,8 @@ class PrayerBackgroundService {
 
       final notificationService = PrayerNotificationService();
       await notificationService.initialize();
+      // Avoid stacking duplicate schedules from startup + reschedule passes.
+      await notificationService.cancelAllPendingAdhan();
 
       // حساب أوقات الصلاة
       // Try to use device last-known location for accurate local Adhan times

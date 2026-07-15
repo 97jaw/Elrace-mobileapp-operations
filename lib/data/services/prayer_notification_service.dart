@@ -121,9 +121,13 @@ class PrayerNotificationService {
 
     // استخدم وقت محلي مباشر مع exactAllowWhileIdle لضمان العمل حتى في وضع Doze
     final tzTime = tz.TZDateTime.from(scheduledTime, tz.local);
+    final id = _buildId(prayerName, scheduledTime);
+
+    // Replace any prior schedule for this prayer/day (stable ID).
+    await _notificationsPlugin.cancel(id);
 
     await _notificationsPlugin.zonedSchedule(
-      _buildId(prayerName, scheduledTime),
+      id,
       '🕌 Prayer Time',
       '🔔 It\'s now time for ${_englishPrayerName(prayerName)} prayer',
       tzTime,
@@ -174,11 +178,12 @@ class PrayerNotificationService {
     }
   }
 
+  /// Stable per prayer / calendar-day ID so reschedules replace instead of stack.
   int _buildId(String prayerName, DateTime time) {
-    // توليد معرف ثابت لكل صلاة/وقت لتجنب تكرار غير ضروري
-    final base = prayerName.hashCode & 0x7fffffff;
-    final t = time.millisecondsSinceEpoch ~/ 1000;
-    return (base ^ t) & 0x7fffffff;
+    final normalized = prayerName.trim().toLowerCase();
+    final day =
+        '${time.year}${time.month.toString().padLeft(2, '0')}${time.day.toString().padLeft(2, '0')}';
+    return ('$normalized:$day').hashCode & 0x7fffffff;
   }
 
   String _englishPrayerName(String prayerName) {

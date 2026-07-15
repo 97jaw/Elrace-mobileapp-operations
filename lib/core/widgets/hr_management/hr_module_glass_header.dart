@@ -13,6 +13,7 @@ abstract final class HrModuleHeaderTints {
   static const Color performance = Color(0xFF6A707A);
   static const Color payslip = Color(0xFF5B5680);
   static const Color circulars = Color(0xFF457C62);
+  static const Color employeesProfile = Color(0xFF1F4E8C);
 }
 
 /// Glass logo bar + optional title row for HR Management hub and service screens.

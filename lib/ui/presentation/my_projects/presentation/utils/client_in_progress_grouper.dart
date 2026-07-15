@@ -30,6 +30,8 @@ class ClientInProgressGrouper {
     final logos = <String, String>{};
 
     for (final p in projects) {
+      if (p.isGeneralWo) continue;
+
       final name = _clientName(p, agreementToClient: agreementToClient);
       final key = name.trim().isNotEmpty
           ? name.trim().toLowerCase()

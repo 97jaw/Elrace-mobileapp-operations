@@ -9,6 +9,8 @@ abstract final class MyReportsTheme {
   static const lightTeal = Color(0xFF6EA2B3);
   static const skyBlue = Color(0xFF7BBDE8);
   static const frostBlue = Color(0xFFBDD8E9);
+  static const iceBlue = Color(0xFFE8F4FB);
+  static const mistWhite = Color(0xFFF5FAFD);
 
   static const textPrimary = Color(0xFF001D39);
   static const textSecondary = Color(0xFF0A4174);
@@ -16,19 +18,20 @@ abstract final class MyReportsTheme {
   static const textOnDark = Color(0xFFFFFFFF);
   static const textMutedOnDark = Color(0xFFBDD8E9);
   static const accent = Color(0xFF0A4174);
+  /// High-contrast navy on light / frosted cards.
   static const labelOnGradient = Color(0xFF001D39);
   static const bodyOnGradient = Color(0xFF0A4174);
 
-  /// Blue-only palette slices — no purple/green/yellow.
+  /// Light blue-only card slices — same family, no dark navy fills.
   static const _categoryPalettes = <List<Color>>[
-    [Color(0xFFBDD8E9), Color(0xFF7BBDE8), Color(0xFF6EA2B3)],
-    [Color(0xFF7BBDE8), Color(0xFF6EA2B3), Color(0xFF4E8EA2)],
-    [Color(0xFF6EA2B3), Color(0xFF4E8EA2), Color(0xFF49769F)],
-    [Color(0xFF4E8EA2), Color(0xFF49769F), Color(0xFF0A4174)],
-    [Color(0xFF49769F), Color(0xFF0A4174), Color(0xFF001D39)],
-    [Color(0xFFBDD8E9), Color(0xFF4E8EA2), Color(0xFF0A4174)],
-    [Color(0xFF7BBDE8), Color(0xFF49769F), Color(0xFF001D39)],
-    [Color(0xFF0A4174), Color(0xFF001D39), Color(0xFF49769F)],
+    [Color(0xFFF5FAFD), Color(0xFFE8F4FB), Color(0xFFBDD8E9)],
+    [Color(0xFFE8F4FB), Color(0xFFBDD8E9), Color(0xFF9BCBE8)],
+    [Color(0xFFBDD8E9), Color(0xFFA8D4EC), Color(0xFF7BBDE8)],
+    [Color(0xFFE3F1F8), Color(0xFFBDD8E9), Color(0xFF8EC4DF)],
+    [Color(0xFFEFF7FC), Color(0xFFC9E2F0), Color(0xFF9CCBE5)],
+    [Color(0xFFF2F8FC), Color(0xFFBDD8E9), Color(0xFF7BBDE8)],
+    [Color(0xFFE8F4FB), Color(0xFFB4D6EA), Color(0xFF6EA2B3)],
+    [Color(0xFFF5FAFD), Color(0xFFBDD8E9), Color(0xFF7BBDE8)],
   ];
 
   static LinearGradient gradientForCategory(MyReportCategory category) {
@@ -41,30 +44,61 @@ abstract final class MyReportsTheme {
     );
   }
 
+  /// Soft light hub wash (same blue palette, no dark navy base).
   static const aiHubGradient = LinearGradient(
     begin: Alignment.topCenter,
     end: Alignment.bottomCenter,
     colors: [
+      mistWhite,
+      iceBlue,
       frostBlue,
-      skyBlue,
-      lightTeal,
-      royalBlue,
-      deepNavy,
+      Color(0xFFD4EAF6),
+      Color(0xFFC5E0F0),
     ],
-    stops: [0.0, 0.22, 0.5, 0.76, 1.0],
+    stops: [0.0, 0.28, 0.55, 0.82, 1.0],
+  );
+
+  static const featuredCardGradient = LinearGradient(
+    begin: Alignment.topLeft,
+    end: Alignment.bottomRight,
+    colors: [
+      Color(0xFFE8F4FB),
+      Color(0xFFBDD8E9),
+      Color(0xFF7BBDE8),
+    ],
+  );
+
+  static const managementCardGradient = LinearGradient(
+    begin: Alignment.topLeft,
+    end: Alignment.bottomRight,
+    colors: [
+      Color(0xFFF0F7FB),
+      Color(0xFFC5DFED),
+      Color(0xFF6EA2B3),
+    ],
+  );
+
+  static const siteReportCardGradient = LinearGradient(
+    begin: Alignment.topLeft,
+    end: Alignment.bottomRight,
+    colors: [
+      Color(0xFFEAF5FB),
+      Color(0xFFBDD8E9),
+      Color(0xFF7BBDE8),
+    ],
   );
 
   static BoxDecoration glassCard({double radius = 18, bool elevated = true}) {
     return BoxDecoration(
       borderRadius: BorderRadius.circular(radius),
-      color: Colors.white.withValues(alpha: 0.88),
-      border: Border.all(color: Colors.white.withValues(alpha: 0.9)),
+      color: Colors.white.withValues(alpha: 0.92),
+      border: Border.all(color: Colors.white.withValues(alpha: 0.95)),
       boxShadow: elevated
           ? [
               BoxShadow(
-                color: deepNavy.withValues(alpha: 0.14),
-                blurRadius: 18,
-                offset: const Offset(0, 6),
+                color: deepNavy.withValues(alpha: 0.08),
+                blurRadius: 16,
+                offset: const Offset(0, 5),
               ),
             ]
           : null,
@@ -73,15 +107,15 @@ abstract final class MyReportsTheme {
 
   static BoxDecoration iconBadge({double radius = 12}) {
     return BoxDecoration(
-      color: Colors.white.withValues(alpha: 0.72),
+      color: Colors.white.withValues(alpha: 0.92),
       borderRadius: BorderRadius.circular(radius),
-      border: Border.all(color: Colors.white.withValues(alpha: 0.85)),
+      border: Border.all(color: frostBlue.withValues(alpha: 0.9)),
     );
   }
 
   static BoxDecoration counterBadge({double radius = 10}) {
     return BoxDecoration(
-      color: deepNavy.withValues(alpha: 0.88),
+      color: royalBlue.withValues(alpha: 0.92),
       borderRadius: BorderRadius.circular(radius),
     );
   }

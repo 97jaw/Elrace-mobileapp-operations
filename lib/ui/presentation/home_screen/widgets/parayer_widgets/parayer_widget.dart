@@ -1,5 +1,3 @@
-import 'dart:convert';
-
 import 'package:adhan/adhan.dart';
 import 'package:el_race/core/utils/shared_pref.dart';
 import 'package:el_race/ui/presentation/home_screen/bloc/home_bloc.dart';
@@ -11,9 +9,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:flutter_translate/flutter_translate.dart';
-import 'package:geolocator/geolocator.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:http/http.dart' as http;
 import 'package:intl/intl.dart';
 
 class ParayerWidget extends StatefulWidget {
@@ -28,9 +24,6 @@ class _ParayerWidgetState extends State<ParayerWidget>
   DateTime? _lastNextTime;
   Prayer? _lastNextPrayer;
   PrayerTimes? _lastPrayerTimes;
-
-  String? _locationLabel;
-  bool _isFetchingLocation = false;
 
   String _prayerKey(Prayer p) {
     switch (p) {
@@ -152,107 +145,8 @@ class _ParayerWidgetState extends State<ParayerWidget>
     return Icon(Icons.wb_twilight_outlined, size: 14.w, color: color);
   }
 
-  Future<void> _loadLocationLabel() async {
-    if (_isFetchingLocation) return;
-    _isFetchingLocation = true;
-
-    try {
-      // Best effort: try to fetch a position (permission-safe).
-      Position? pos;
-      try {
-        pos = await Geolocator.getLastKnownPosition();
-      } catch (_) {}
-
-      if (pos == null) {
-        try {
-          final permission = await Geolocator.checkPermission();
-          if (permission == LocationPermission.denied) {
-            await Geolocator.requestPermission();
-          }
-          pos = await Geolocator.getCurrentPosition(
-            desiredAccuracy: LocationAccuracy.low,
-            timeLimit: const Duration(seconds: 4),
-          );
-        } catch (_) {
-          // Ignore, will fallback.
-        }
-      }
-
-      if (pos == null) {
-        if (!mounted) return;
-        setState(() {
-          _locationLabel ??= '...';
-        });
-        return;
-      }
-
-      final label = await _reverseGeocodeCity(
-        latitude: pos.latitude,
-        longitude: pos.longitude,
-      );
-
-      if (!mounted) return;
-      setState(() {
-        _locationLabel = label ?? _locationLabel ?? '...';
-      });
-    } finally {
-      _isFetchingLocation = false;
-    }
-  }
-
-  Future<String?> _reverseGeocodeCity({
-    required double latitude,
-    required double longitude,
-  }) async {
-    try {
-      final uri = Uri.https('nominatim.openstreetmap.org', '/reverse', {
-        'format': 'jsonv2',
-        'lat': latitude.toString(),
-        'lon': longitude.toString(),
-        'zoom': '12',
-        'addressdetails': '1',
-      });
-
-      final res = await http.get(
-        uri,
-        headers: const {
-          'User-Agent': 'el_race_app/1.0 (Flutter; reverse geocoding)',
-          'Accept': 'application/json',
-        },
-      ).timeout(const Duration(seconds: 4));
-
-      if (res.statusCode != 200) return null;
-
-      final body = jsonDecode(res.body);
-      final address = body is Map ? body['address'] : null;
-      if (address is! Map) return null;
-
-      String? pick(String key) {
-        final v = address[key];
-        if (v is String && v.trim().isNotEmpty) return v.trim();
-        return null;
-      }
-
-      return pick('city') ??
-          pick('town') ??
-          pick('village') ??
-          pick('municipality') ??
-          pick('county') ??
-          pick('state') ??
-          pick('country');
-    } catch (_) {
-      return null;
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
-    if (_locationLabel == null && !_isFetchingLocation) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        _loadLocationLabel();
-      });
-    }
-
     return BlocBuilder<HomeBloc, HomeState>(
       buildWhen: (previous, current) =>
           current is PrayerTimesLoading ||
@@ -264,7 +158,6 @@ class _ParayerWidgetState extends State<ParayerWidget>
         Prayer? nextPrayer;
         DateTime? nextTime;
         String? error;
-        bool isSoundMuted = false;
         Map<String, DateTime>? aladhanTimes;
 
         if (state is PrayerTimesLoaded) {
@@ -272,7 +165,6 @@ class _ParayerWidgetState extends State<ParayerWidget>
           nextPrayer = state.nextPrayer;
           nextTime = state.nextTime;
           error = state.error;
-          isSoundMuted = state.isSoundMuted;
           aladhanTimes = state.aladhanTimes;
 
           // Update cached values
@@ -282,12 +174,10 @@ class _ParayerWidgetState extends State<ParayerWidget>
         } else if (state is PrayerTimesError) {
           pt = state.prayerTimes ?? _lastPrayerTimes;
           error = state.error;
-          isSoundMuted = state.isSoundMuted;
           // Use last known values
           nextPrayer = _lastNextPrayer;
           nextTime = _lastNextTime;
         } else if (state is PrayerMuteStateChanged) {
-          isSoundMuted = state.isMuted;
           // Use last known values
           pt = _lastPrayerTimes;
           nextPrayer = _lastNextPrayer;
@@ -357,26 +247,6 @@ class _ParayerWidgetState extends State<ParayerWidget>
                                     ),
                                   ),
                                 ),
-                                SizedBox(width: 10.w),
-                                Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    Icon(
-                                      Icons.location_on_outlined,
-                                      color: Colors.white,
-                                      size: 18.sp,
-                                    ),
-                                    SizedBox(width: 4.w),
-                                    Text(
-                                      _locationLabel ?? '...',
-                                      style: GoogleFonts.poppins(
-                                        fontSize: 14.sp,
-                                        fontWeight: FontWeight.w500,
-                                        color: Colors.white,
-                                      ),
-                                    ),
-                                  ],
-                                ),
                                 if (error != null)
                                   Padding(
                                     padding: EdgeInsets.only(right: 6.w),
@@ -384,23 +254,6 @@ class _ParayerWidgetState extends State<ParayerWidget>
                                         color: Colors.yellow.shade200,
                                         size: 16.sp),
                                   ),
-                                SizedBox(width: 8.w),
-                                InkWell(
-                                  onTap: () {
-                                    context
-                                        .read<HomeBloc>()
-                                        .add(const InitPrayerTimesEvent());
-                                    context.read<HomeBloc>().add(
-                                        const TogglePrayerMuteStateEvent());
-                                  },
-                                  child: isSoundMuted
-                                      ? Icon(Icons.volume_mute,
-                                          color: Colors.white, size: 30.w)
-                                      : Image.asset('assets/png/Vector.png',
-                                          color: Colors.white,
-                                          width: 26.w,
-                                          height: 20.w),
-                                ),
                               ],
                             ),
                             SizedBox(height: 4.h),

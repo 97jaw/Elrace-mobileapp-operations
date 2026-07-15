@@ -56,6 +56,8 @@ class Result {
 
 class Employee {
   final int? id;
+  /// Odoo `hr.employee` database id (use for profile fetch).
+  final int? employeeId;
   final String? name;
   final dynamic mobilePhone;
   final dynamic jobId;
@@ -65,6 +67,7 @@ class Employee {
 
   Employee({
     this.id,
+    this.employeeId,
     this.name,
     this.mobilePhone,
     this.jobId,
@@ -88,19 +91,35 @@ class Employee {
       }
     }
 
+    final job = json["job_position"] ??
+        json["job_id"] ??
+        json["job"] ??
+        json["designation"];
+    final department = json["department_name"] ??
+        json["department"] ??
+        json["department_id"];
+
+    final odooId = json["employee_id"] ?? json["odoo_employee_id"];
     return Employee(
-      id: json["id"],
-      name: json["name"],
+      id: json["id"] is int
+          ? json["id"] as int
+          : int.tryParse('${json["id"] ?? ''}'),
+      employeeId: odooId is int ? odooId : int.tryParse('${odooId ?? ''}'),
+      name: json["name"]?.toString(),
       mobilePhone: json["mobile_phone"],
-      jobId: json["job_id"],
-      profilePhotoUrl: json["profile_photo_url"],
-      empId: json["emp_id"]?.toString() ?? extractedEmpId,
-      department: json["department_id"] ?? json["department"],
+      jobId: job,
+      profilePhotoUrl: json["profile_photo_url"]?.toString() ??
+          json["image_url"]?.toString(),
+      empId: json["emp_id"]?.toString() ??
+          json["file_id"]?.toString() ??
+          extractedEmpId,
+      department: department?.toString(),
     );
   }
 
   Map<String, dynamic> toJson() => {
         "id": id,
+        "employee_id": employeeId,
         "name": name,
         "mobile_phone": mobilePhone,
         "job_id": jobId,

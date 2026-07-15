@@ -31,6 +31,7 @@ import '../ui/presentation/payslip/payslip_module_screen.dart';
 import '../ui/presentation/hr_management/hr_requests_module_screen.dart';
 import '../ui/presentation/hr_management/hr_asset_under_planning_screen.dart';
 import '../ui/presentation/hr_management/hr_circular_announcements_screen.dart';
+import '../ui/presentation/hr_management/employees_profile_screen.dart';
 import '../core/hr_management/routing/hr_route_names.dart';
 import '../core/timesheet/routing/timesheet_route_names.dart';
 import '../core/widgets/hr_management/hr_module_widgets_sandbox.dart';
@@ -134,6 +135,9 @@ class OnGeneratedRoutes {
       case HrRouteNames.circularAnnouncements:
         return CupertinoPageRoute(
             builder: (_) => const HrCircularAnnouncementsScreen());
+      case HrRouteNames.employeesProfile:
+        return CupertinoPageRoute(
+            builder: (_) => const EmployeesProfileScreen());
       case HrRouteNames.requests:
         return CupertinoPageRoute(
             builder: (_) => const HrRequestsModuleScreen());

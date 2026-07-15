@@ -59,10 +59,19 @@ class _TmProjectSiteReportsTabState extends State<TmProjectSiteReportsTab> {
       await _reportProvider.init(base: 'https://erp.elrace.com');
       _folders =
           await _reportProvider.fetchFoldersForProject(widget.projectId);
+      // Show folders immediately — do not block UI on image precache (S3 can hang).
       if (mounted) {
+        setState(() => _loading = false);
         final urls = _folders.expand((f) => f.latestItemImages).take(18);
-        await TmFastNetworkImage.precacheUrls(context, urls, max: 18, memCacheWidth: 120);
+        // ignore: unawaited_futures
+        TmFastNetworkImage.precacheUrls(
+          context,
+          urls,
+          max: 18,
+          memCacheWidth: 120,
+        );
       }
+      return;
     } catch (_) {
       _error = 'Could not load report folders';
     }
@@ -150,67 +159,64 @@ class _TmProjectSiteReportsTabState extends State<TmProjectSiteReportsTab> {
     final folders = _filtered;
 
     return Padding(
-      padding: const EdgeInsets.symmetric(
-        horizontal: TimesheetModuleLayout.screenPaddingH,
+      padding: const EdgeInsets.fromLTRB(
+        TimesheetModuleLayout.screenPaddingH,
+        TimesheetModuleLayout.cardSpacing,
+        TimesheetModuleLayout.screenPaddingH,
+        0,
       ),
       child: Stack(
+        fit: StackFit.expand,
         children: [
           Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            _FoldersHeader(
-              projectName: widget.projectName,
-              folderCount: _folders.length,
-              onCreateFolder: _busy ? null : _createFolder,
-            ),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(
-                TimesheetModuleLayout.screenPaddingH,
-                TimesheetModuleLayout.cardSpacing,
-                TimesheetModuleLayout.screenPaddingH,
-                0,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              _FoldersHeader(
+                projectName: widget.projectName,
+                folderCount: _folders.length,
+                onCreateFolder: _busy ? null : _createFolder,
               ),
-              child: TmSearchField(
+              const SizedBox(height: TimesheetModuleLayout.cardSpacing),
+              TmSearchField(
                 hintText: 'Search folders',
                 onDebouncedChanged: (v) => setState(() => _search = v),
               ),
-            ),
-            const SizedBox(height: TimesheetModuleLayout.cardSpacing),
-            Expanded(
-              child: _busy
-                  ? const TimesheetLoadingState(
-                      style: TimesheetLoadingStyle.folders,
-                      itemCount: 2,
-                    )
-                  : RefreshIndicator(
-                      color: TimesheetModuleColors.primary,
-                      onRefresh: _load,
-                      child: folders.isEmpty
-                          ? _EmptyFolders(onCreate: _createFolder)
-                          : ListView.separated(
-                              physics: const AlwaysScrollableScrollPhysics(),
-                              padding: const EdgeInsets.only(
-                                bottom: TimesheetModuleLayout.sectionGap,
+              const SizedBox(height: TimesheetModuleLayout.cardSpacing),
+              Expanded(
+                child: _busy
+                    ? const TimesheetLoadingState(
+                        style: TimesheetLoadingStyle.folders,
+                        itemCount: 2,
+                      )
+                    : RefreshIndicator(
+                        color: TimesheetModuleColors.primary,
+                        onRefresh: _load,
+                        child: folders.isEmpty
+                            ? _EmptyFolders(onCreate: _createFolder)
+                            : ListView.separated(
+                                physics: const AlwaysScrollableScrollPhysics(),
+                                padding: const EdgeInsets.only(
+                                  bottom: TimesheetModuleLayout.sectionGap,
+                                ),
+                                itemCount: folders.length,
+                                separatorBuilder: (_, __) => const SizedBox(
+                                  height: TimesheetModuleLayout.cardSpacing,
+                                ),
+                                itemBuilder: (context, index) {
+                                  final folder = folders[index];
+                                  return SizedBox(
+                                    width: double.infinity,
+                                    child: TmSiteReportFolderCard(
+                                      folder: folder,
+                                      onTap: () => _openFolder(folder),
+                                    ),
+                                  );
+                                },
                               ),
-                              itemCount: folders.length,
-                              separatorBuilder: (_, __) => const SizedBox(
-                                height: TimesheetModuleLayout.cardSpacing,
-                              ),
-                              itemBuilder: (context, index) {
-                                final folder = folders[index];
-                                return SizedBox(
-                                  width: double.infinity,
-                                  child: TmSiteReportFolderCard(
-                                    folder: folder,
-                                    onTap: () => _openFolder(folder),
-                                  ),
-                                );
-                              },
-                            ),
-                    ),
-            ),
-          ],
-        ),
+                      ),
+              ),
+            ],
+          ),
           if (!_busy && folders.isNotEmpty)
             Positioned(
               right: 0,

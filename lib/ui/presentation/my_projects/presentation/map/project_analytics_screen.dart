@@ -15,7 +15,7 @@ import 'package:el_race/ui/presentation/my_projects/presentation/map/project_exp
 import 'package:el_race/ui/presentation/my_projects/presentation/map/project_expense_summary_panel.dart';
 import 'package:el_race/ui/presentation/my_projects/presentation/utils/projects_dashboard_access.dart';
 import 'package:el_race/ui/presentation/my_projects/presentation/theme/projects_dashboard_theme.dart';
-import 'package:el_race/ui/presentation/my_projects/presentation/widgets/project_analytics_documents_tab.dart';
+import 'package:el_race/ui/presentation/my_projects/presentation/widgets/project_analytics_site_report_tab.dart';
 import 'package:el_race/ui/presentation/my_projects/presentation/widgets/projects_glass_chrome.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -132,14 +132,15 @@ class _ProjectAnalyticsScreenState extends State<ProjectAnalyticsScreen>
       },
     );
 
-    final documents = ProjectAnalyticsDocumentsTab(
-      projectId: widget.project.projectId,
+    final siteReport = ProjectAnalyticsSiteReportTab(
+      projectId: '${widget.project.projectId}',
+      projectName: widget.project.name,
     );
 
     if (_showFinancials) {
-      return [progress, financials, documents];
+      return [progress, financials, siteReport];
     }
-    return [progress, documents];
+    return [progress, siteReport];
   }
 
   List<Widget> get _tabs {
@@ -147,12 +148,12 @@ class _ProjectAnalyticsScreenState extends State<ProjectAnalyticsScreen>
       return const [
         Tab(text: 'Project progress'),
         Tab(text: 'Project Financials'),
-        Tab(text: 'Documents'),
+        Tab(text: 'Site Report'),
       ];
     }
     return const [
       Tab(text: 'Project progress'),
-      Tab(text: 'Documents'),
+      Tab(text: 'Site Report'),
     ];
   }
 

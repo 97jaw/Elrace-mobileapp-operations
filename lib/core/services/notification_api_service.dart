@@ -449,29 +449,32 @@ class NotificationApiService {
   }
 
   static Future<int?> getUnreadCount() async {
-    final uri = Uri.parse('$_baseUrl/notifications/unread-count');
-    final response = await http.get(uri, headers: _headers());
+    // Dedicated unread-count route is optional; list payload always includes it.
+    try {
+      final uri = Uri.parse('$_baseUrl/notifications/unread-count');
+      final response = await http.get(uri, headers: _headers());
 
-    if (response.statusCode < 200 || response.statusCode >= 300) {
-      throw Exception('Failed to fetch unread count: ${response.statusCode}');
+      if (response.statusCode >= 200 &&
+          response.statusCode < 300 &&
+          response.body.trim().isNotEmpty) {
+        final dynamic decoded = jsonDecode(response.body);
+        if (decoded is Map<String, dynamic>) {
+          final direct = _toIntOrNull(decoded['unread_count']);
+          if (direct != null) return direct;
+
+          final data = decoded['data'];
+          if (data is Map<String, dynamic>) {
+            final nested = _toIntOrNull(data['unread_count']);
+            if (nested != null) return nested;
+          }
+        }
+      }
+    } catch (_) {
+      // Fall through to notifications list.
     }
 
-    if (response.body.trim().isEmpty) {
-      return null;
-    }
-
-    final dynamic decoded = jsonDecode(response.body);
-    if (decoded is! Map<String, dynamic>) return null;
-
-    final direct = _toIntOrNull(decoded['unread_count']);
-    if (direct != null) return direct;
-
-    final data = decoded['data'];
-    if (data is Map<String, dynamic>) {
-      return _toIntOrNull(data['unread_count']);
-    }
-
-    return null;
+    final listResult = await getNotifications(limit: 1, offset: 0);
+    return listResult.unreadCount;
   }
 
   static Future<bool> markAsRead(String notificationId) async {

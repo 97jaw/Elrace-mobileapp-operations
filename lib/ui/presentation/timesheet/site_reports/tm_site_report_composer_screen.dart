@@ -14,6 +14,7 @@ import 'package:el_race/ui/presentation/timesheet/site_reports/models/tm_site_re
 import 'package:el_race/ui/presentation/timesheet/site_reports/widgets/tm_report_format_sheet.dart';
 import 'package:el_race/ui/presentation/timesheet/site_reports/widgets/tm_report_generation_sheet.dart';
 import 'package:el_race/ui/presentation/timesheet/site_reports/widgets/tm_site_photo_description_carousel.dart';
+import 'package:el_race/ui/presentation/timesheet/site_reports/widgets/tm_site_report_company_app_bar.dart';
 import 'package:el_race/ui/presentation/timesheet/timesheet_async_state.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
@@ -337,14 +338,8 @@ class _TmSiteReportComposerScreenState extends State<TmSiteReportComposerScreen>
   @override
   Widget build(BuildContext context) {
     if (_loadingExisting) {
-      return Scaffold(
-        backgroundColor: TimesheetModuleColors.bgGradientEnd,
-        appBar: AppBar(
-          title: Text(
-            widget.isEditMode ? 'Edit report' : 'New site report',
-            style: TimesheetModuleTypography.h2(),
-          ),
-        ),
+      return TmSiteReportGlassShell(
+        title: widget.isEditMode ? 'Edit report' : 'New site report',
         body: const TimesheetLoadingState(
           style: TimesheetLoadingStyle.gallery,
         ),
@@ -354,17 +349,8 @@ class _TmSiteReportComposerScreenState extends State<TmSiteReportComposerScreen>
     final active = _activeDrafts;
     final hasPhotos = active.isNotEmpty;
 
-    return Scaffold(
-      backgroundColor: TimesheetModuleColors.bgGradientEnd,
-      appBar: AppBar(
-        backgroundColor: TimesheetModuleColors.surface,
-        foregroundColor: TimesheetModuleColors.text,
-        elevation: 0,
-        title: Text(
-          widget.isEditMode ? 'Edit report photos' : 'New site report',
-          style: TimesheetModuleTypography.h2(),
-        ),
-      ),
+    return TmSiteReportGlassShell(
+      title: widget.isEditMode ? 'Edit report photos' : 'New site report',
       body: Column(
         children: [
           Expanded(

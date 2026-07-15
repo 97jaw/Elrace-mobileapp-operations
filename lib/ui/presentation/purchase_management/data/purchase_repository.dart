@@ -245,6 +245,30 @@ class PurchaseRepository {
     return result?['report_url']?.toString();
   }
 
+  /// RFQ supporting docs preview (`attachment_lpo_ids` merged).
+  /// Does not use LPO `/po/report_url`.
+  /// Throws [RfqNoAttachmentException] when there are no PDF attachments.
+  Future<String> fetchRfqReportUrl(int rfqId) async {
+    final result = await _post('/rfq/report_url', {'rfq_id': rfqId});
+    if (result == null) {
+      throw Exception('Failed to load RFQ attachments');
+    }
+    final status = result['status']?.toString();
+    final message = result['message']?.toString() ?? '';
+    if (status == 'error' ||
+        result['code']?.toString() == 'NO_ATTACHMENT' ||
+        message.toLowerCase().contains('no attachment')) {
+      throw RfqNoAttachmentException(
+        message.isNotEmpty ? message : 'No attachment to show',
+      );
+    }
+    final url = result['report_url']?.toString() ?? '';
+    if (url.isEmpty) {
+      throw RfqNoAttachmentException('No attachment to show');
+    }
+    return url;
+  }
+
   Future<({List<InvoiceReceivingItem> items, bool hasMore})>
       fetchInvoiceReceiving({
     int page = 1,
@@ -415,4 +439,12 @@ class PurchaseRepository {
         await _post('/invoice/report_url', {'invoice_id': invoiceId});
     return result?['report_url']?.toString();
   }
+}
+
+class RfqNoAttachmentException implements Exception {
+  RfqNoAttachmentException(this.message);
+  final String message;
+
+  @override
+  String toString() => message;
 }

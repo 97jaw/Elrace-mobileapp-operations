@@ -93,7 +93,7 @@ class ClientsVendorsCategoryVendorsCard extends StatelessWidget {
     // Spec base 160° #252A6B → #100F30
     // Design panel wash 180° #F2ECEE @ 88% → #977DFF @ 49%
     return _ClientsVendorsHeroCard(
-      onTap: () => _comingSoon(context, 'Vendors & Suppliers'),
+      onTap: () => _comingSoon(context, 'Vendors'),
       baseGradient: _cssAngleGradient(
         160,
         const [
@@ -114,13 +114,13 @@ class ClientsVendorsCategoryVendorsCard extends StatelessWidget {
       artHeightFactor: 1.05,
       artCenterVertically: true,
       artOpacity: 0.28,
-      label: 'VENDORS & SUPPLIERS',
+      label: 'VENDORS',
       labelColor: const Color(0xFF3E50A8),
       activeCount: '58',
       leftStatLabel: 'PAYABLES',
       leftStatValue: 'AED 2.1M',
-      rightStatLabel: 'OPEN LPO',
-      rightStatValue: 'AED 6.7M',
+      rightStatLabel: null,
+      rightStatValue: null,
       footer: Text.rich(
         TextSpan(
           style: GoogleFonts.poppins(
@@ -143,6 +143,293 @@ class ClientsVendorsCategoryVendorsCard extends StatelessWidget {
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+/// Vendors + Sub-Contractors in one row (same pattern as Site Management /
+/// My Reports). One skyline art: left half on Vendors, right half on Subs.
+class ClientsVendorsCategoryVendorsSubContractorsRow extends StatelessWidget {
+  const ClientsVendorsCategoryVendorsSubContractorsRow({super.key});
+
+  static const double _rowHeight = 140;
+  static const String _skyline = '$_kCvAssetRoot/dubai-skyline-cutout.png';
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      height: _rowHeight.h,
+      child: Row(
+        children: [
+          Expanded(
+            child: _SharedSkylineHalfCard(
+              onTap: () => _comingSoon(context, 'Vendors'),
+              skylineAlignLeft: true,
+              showDotTexture: false,
+              baseGradient: _cssAngleGradient(
+                160,
+                const [Color(0xFF252A6B), Color(0xFF100F30)],
+              ),
+              washGradient: _cssAngleGradient(
+                180,
+                const [Color(0xB3F2ECEE), Color(0x7D977DFF)],
+              ),
+              child: _CompactHalfPanel(
+                label: 'VENDORS',
+                // Darker indigo than wash tint so title stays readable.
+                labelColor: const Color(0xFF3E50A8),
+                statLabelColor: const Color(0xFFE8ECFF),
+                activeCount: '58',
+                stats: const [
+                  _CompactStat(label: 'PAYABLES', value: 'AED 2.1M'),
+                ],
+                footer: Text.rich(
+                  TextSpan(
+                    style: GoogleFonts.poppins(
+                      fontSize: 9.sp,
+                      fontWeight: FontWeight.w600,
+                      height: 1.2,
+                    ),
+                    children: const [
+                      TextSpan(
+                        text: '▼ 65% LPO',
+                        style: TextStyle(color: Color(0xFFC7D2FE)),
+                      ),
+                      TextSpan(
+                        text: ' · ',
+                        style: TextStyle(color: Color(0x73FFFFFF)),
+                      ),
+                      TextSpan(
+                        text: '4 pending',
+                        style: TextStyle(color: Color(0xFFFDE68A)),
+                      ),
+                    ],
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+            ),
+          ),
+          SizedBox(width: 10.w),
+          Expanded(
+            child: _SharedSkylineHalfCard(
+              onTap: () => _comingSoon(context, 'Sub-Contractors'),
+              skylineAlignLeft: false,
+              showDotTexture: true,
+              baseGradient: _cssAngleGradient(
+                160,
+                const [Color(0xFF7C2D12), Color(0xFF3A1206)],
+              ),
+              washGradient: _cssAngleGradient(
+                180,
+                const [Color(0xFF5F576F), Color(0xB3C8CED6)],
+              ),
+              child: _CompactHalfPanel(
+                label: 'SUB-CONTRACTORS',
+                // Same vivid orange family as the top title.
+                labelColor: const Color(0xFFFDBA74),
+                statLabelColor: const Color(0xFFFDBA74),
+                activeCount: '34',
+                stats: const [
+                  _CompactStat(label: 'RETENTION HELD', value: 'AED 540K'),
+                ],
+                footer: Text(
+                  '⚠ 1 expiring in 15 days',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: GoogleFonts.poppins(
+                    fontSize: 9.sp,
+                    fontWeight: FontWeight.w600,
+                    color: const Color(0xFFFED7AA),
+                    height: 1.2,
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Half-card that reveals left or right half of the shared skyline asset.
+class _SharedSkylineHalfCard extends StatelessWidget {
+  const _SharedSkylineHalfCard({
+    required this.onTap,
+    required this.skylineAlignLeft,
+    required this.baseGradient,
+    required this.washGradient,
+    required this.child,
+    this.showDotTexture = false,
+  });
+
+  final VoidCallback onTap;
+  final bool skylineAlignLeft;
+  final LinearGradient baseGradient;
+  final LinearGradient washGradient;
+  final bool showDotTexture;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(22.r),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(22.r),
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              DecoratedBox(decoration: BoxDecoration(gradient: baseGradient)),
+              DecoratedBox(decoration: BoxDecoration(gradient: washGradient)),
+              if (showDotTexture)
+                const Positioned.fill(
+                  child: CustomPaint(painter: _DotTexturePainter()),
+                ),
+              // Full-width skyline clipped to this half → continuous merged view.
+              Positioned.fill(
+                child: LayoutBuilder(
+                  builder: (context, constraints) {
+                    final halfW = constraints.maxWidth;
+                    final fullW = halfW * 2 + 10.w;
+                    return ClipRect(
+                      child: OverflowBox(
+                        alignment: skylineAlignLeft
+                            ? Alignment.centerLeft
+                            : Alignment.centerRight,
+                        maxWidth: fullW,
+                        minWidth: fullW,
+                        maxHeight: constraints.maxHeight,
+                        minHeight: constraints.maxHeight,
+                        child: SizedBox(
+                          width: fullW,
+                          height: constraints.maxHeight,
+                          child: Opacity(
+                            opacity: 0.34,
+                            child: Image.asset(
+                              ClientsVendorsCategoryVendorsSubContractorsRow
+                                  ._skyline,
+                              fit: BoxFit.cover,
+                              alignment: Alignment.center,
+                              filterQuality: FilterQuality.high,
+                            ),
+                          ),
+                        ),
+                      ),
+                    );
+                  },
+                ),
+              ),
+              child,
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _CompactStat {
+  const _CompactStat({required this.label, required this.value});
+  final String label;
+  final String value;
+}
+
+class _CompactHalfPanel extends StatelessWidget {
+  const _CompactHalfPanel({
+    required this.label,
+    required this.labelColor,
+    required this.activeCount,
+    required this.stats,
+    required this.footer,
+    this.statLabelColor,
+  });
+
+  final String label;
+  final Color labelColor;
+  final Color? statLabelColor;
+  final String activeCount;
+  final List<_CompactStat> stats;
+  final Widget footer;
+
+  @override
+  Widget build(BuildContext context) {
+    final detailLabelColor = statLabelColor ?? labelColor;
+    return Padding(
+      padding: EdgeInsets.fromLTRB(12.w, 10.h, 12.w, 10.h),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            label,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: GoogleFonts.poppins(
+              fontSize: 9.sp,
+              fontWeight: FontWeight.w800,
+              letterSpacing: 0.7,
+              color: labelColor,
+              height: 1.1,
+            ),
+          ),
+          SizedBox(height: 4.h),
+          Text.rich(
+            TextSpan(
+              children: [
+                TextSpan(
+                  text: '$activeCount ',
+                  style: GoogleFonts.poppins(
+                    fontSize: 18.sp,
+                    fontWeight: FontWeight.w800,
+                    color: Colors.white,
+                    height: 1.05,
+                  ),
+                ),
+                TextSpan(
+                  text: 'Active',
+                  style: GoogleFonts.poppins(
+                    fontSize: 11.sp,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.white.withValues(alpha: 0.95),
+                    height: 1.05,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          // Extra top margin so the remaining detail block breathes.
+          SizedBox(height: 14.h),
+          for (var i = 0; i < stats.length; i++) ...[
+            if (i > 0) SizedBox(height: 8.h),
+            Text(
+              stats[i].label,
+              style: GoogleFonts.poppins(
+                fontSize: 9.sp,
+                fontWeight: FontWeight.w800,
+                letterSpacing: 0.7,
+                color: detailLabelColor,
+                height: 1.1,
+              ),
+            ),
+            SizedBox(height: 4.h),
+            Text(
+              stats[i].value,
+              style: GoogleFonts.poppins(
+                fontSize: 14.sp,
+                fontWeight: FontWeight.w800,
+                color: Colors.white,
+                height: 1.1,
+              ),
+            ),
+          ],
+          const Spacer(),
+          footer,
+        ],
       ),
     );
   }
@@ -184,8 +471,8 @@ class ClientsVendorsCategorySubContractorsCard extends StatelessWidget {
       activeCount: '34',
       leftStatLabel: 'RETENTION HELD',
       leftStatValue: 'AED 540K',
-      rightStatLabel: 'MR PENDING',
-      rightStatValue: '9',
+      rightStatLabel: null,
+      rightStatValue: null,
       footer: Text(
         '⚠  1 agreement expiring in 15 days',
         style: GoogleFonts.poppins(
@@ -552,6 +839,8 @@ class _StatColumn extends StatelessWidget {
 }
 
 class _DotTexturePainter extends CustomPainter {
+  const _DotTexturePainter();
+
   @override
   void paint(Canvas canvas, Size size) {
     final paint = Paint()

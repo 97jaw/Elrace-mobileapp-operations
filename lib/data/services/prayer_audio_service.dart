@@ -4,6 +4,7 @@ import 'package:audioplayers/audioplayers.dart';
 import 'package:el_race/core/utils/shared_pref.dart';
 import 'package:el_race/data/services/hive_service.dart';
 import 'package:el_race/data/services/prayer_notification_service.dart';
+import 'package:flutter/widgets.dart';
 import 'package:volume_controller/volume_controller.dart';
 
 class PrayerAudioService {
@@ -21,48 +22,36 @@ class PrayerAudioService {
   StreamSubscription<double>? _volumeSubscription;
   double? _volumeAtStart; // مستوى الصوت عند بداية الأذان
 
+  /// When true, only the in-app timer + AudioPlayer fire azan.
+  /// When false (background), only OS scheduled notifications fire.
+  bool _foregroundActive = true;
+
   // تهيئة الخدمة
   Future<void> initialize(PrayerTimes prayerTimes) async {
     // debugPrint('🕌 PrayerAudioService: Initializing...');
     _currentPrayerTimes = prayerTimes;
     await _notificationService.initialize();
 
-    // عندما يكون التطبيق في المقدمة، نلغي جميع إشعارات الأذان المجدولة
-    // لأن الـ foreground timer + AudioPlayer سيتولى التشغيل.
-    // هذا يمنع تشغيل صوت الأذان مرتين (مرة من الإشعار المجدول ومرة من AudioPlayer).
-    await _cancelAllScheduledPrayerNotifications();
-
-    await _startChecking();
+    // App is in foreground: own azan via timer/AudioPlayer only.
+    await enterForegroundMode();
     // debugPrint('🕌 PrayerAudioService: Initialized successfully');
   }
 
-  /// إلغاء جميع إشعارات الأذان المجدولة لليوم (التي لم يحن وقتها بعد).
-  /// نفعل هذا عندما يكون التطبيق في المقدمة لأن الـ foreground timer
-  /// سيتولى تشغيل الأذان عبر AudioPlayer + إشعار صامت.
-  Future<void> _cancelAllScheduledPrayerNotifications() async {
-    if (_currentPrayerTimes == null) return;
+  /// Foreground: cancel all pending OS azan notifications, run poll timer.
+  Future<void> enterForegroundMode() async {
+    _foregroundActive = true;
+    try {
+      await _notificationService.cancelAllPendingAdhan();
+    } catch (_) {}
+    await _startChecking();
+  }
 
-    final now = DateTime.now();
-    final prayers = [
-      {'name': 'fajr', 'time': _currentPrayerTimes!.fajr},
-      {'name': 'dhuhr', 'time': _currentPrayerTimes!.dhuhr},
-      {'name': 'asr', 'time': _currentPrayerTimes!.asr},
-      {'name': 'maghrib', 'time': _currentPrayerTimes!.maghrib},
-      {'name': 'isha', 'time': _currentPrayerTimes!.isha},
-    ];
-
-    for (final p in prayers) {
-      final time = p['time'] as DateTime;
-      if (time.isAfter(now)) {
-        try {
-          await _notificationService.cancelScheduledAdhan(
-            p['name'] as String,
-            time.millisecondsSinceEpoch,
-          );
-        } catch (_) {}
-      }
-    }
-    // debugPrint('🔕 Cancelled all scheduled prayer notifications (foreground active)');
+  /// Background: stop timer so we never double-fire with OS notifications.
+  Future<void> enterBackgroundMode() async {
+    _foregroundActive = false;
+    _checkTimer?.cancel();
+    _checkTimer = null;
+    await rescheduleBackgroundNotifications();
   }
 
   // بدء التحقق الدوري من أوقات الصلاة
@@ -82,8 +71,18 @@ class PrayerAudioService {
     await _checkAndPlayAdhan();
   }
 
+  bool get _isAppResumed {
+    final state = WidgetsBinding.instance.lifecycleState;
+    return state == null || state == AppLifecycleState.resumed;
+  }
+
   // التحقق وتشغيل الأذان إذا حان الوقت
   Future<void> _checkAndPlayAdhan() async {
+    // فقط في المقدمة — الخلفية تعتمد على الإشعار المجدول فقط
+    if (!_foregroundActive || !_isAppResumed) {
+      return;
+    }
+
     // منع التشغيل المتعدد
     if (_isPlaying) {
       // debugPrint('⏭️ Adhan already playing, skipping check');
@@ -136,9 +135,10 @@ class PrayerAudioService {
         //     '📋 Checking $prayerName: time=${prayerTime.hour}:${prayerTime.minute}, diff=${timeDiff.inSeconds}s');
 
         if (timeDiff.inSeconds >= 0 && timeDiff.inMinutes < 5) {
-          // التحقق من أننا لم نشغل الأذان لهذه الصلاة مسبقاً
-          final playedKey =
-              'played_${normalizedPrayerName}_${prayerTime.millisecondsSinceEpoch}';
+          // Day-based key so local vs API second drift still dedupes.
+          final dayKey =
+              '${prayerTime.year}${prayerTime.month.toString().padLeft(2, '0')}${prayerTime.day.toString().padLeft(2, '0')}';
+          final playedKey = 'played_${normalizedPrayerName}_$dayKey';
           final alreadyPlayed = await HiveService.hasPlayedPrayer(playedKey);
 
           if (alreadyPlayed) {
@@ -152,13 +152,13 @@ class PrayerAudioService {
             // debugPrint('✅ Time for $prayerName prayer! Playing adhan...');
             _isPlaying = true; // تعيين الحالة قبل التشغيل
 
-            // Cancel the scheduled notification for this prayer to avoid
-            // a duplicate (foreground handles it now with audio).
+            // Extra safety: wipe any leftover scheduled OS azan for this slot.
             try {
               await _notificationService.cancelScheduledAdhan(
                 normalizedPrayerName,
                 prayerTime.millisecondsSinceEpoch,
               );
+              await _notificationService.cancelAllPendingAdhan();
             } catch (_) {}
 
             await _notificationService.showAdhanNotification(prayerName);
@@ -265,8 +265,10 @@ class PrayerAudioService {
   void updatePrayerTimes(PrayerTimes prayerTimes) {
     _currentPrayerTimes = prayerTimes;
     _lastPlayedTime = null; // إعادة تعيين آخر وقت تشغيل
-    // إلغاء الإشعارات المجدولة للأوقات الجديدة أيضاً (التطبيق مفتوح)
-    _cancelAllScheduledPrayerNotifications();
+    if (_foregroundActive) {
+      // ignore: unawaited_futures
+      _notificationService.cancelAllPendingAdhan();
+    }
   }
 
   /// إعادة جدولة إشعارات الأذان المحلية للصلوات القادمة.
@@ -274,6 +276,11 @@ class PrayerAudioService {
   /// حتى لو أوقف النظام الـ foreground timer.
   Future<void> rescheduleBackgroundNotifications() async {
     if (_currentPrayerTimes == null) return;
+
+    // Wipe orphans from earlier schedule passes (different timestamps/IDs).
+    try {
+      await _notificationService.cancelAllPendingAdhan();
+    } catch (_) {}
 
     final now = DateTime.now();
     final prayers = [

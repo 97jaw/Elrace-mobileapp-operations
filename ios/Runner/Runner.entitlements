@@ -3,6 +3,11 @@
 <plist version="1.0">
 <dict>
 	<key>aps-environment</key>
-	<string>development</string>
+	<string>production</string>
+	<key>com.apple.developer.associated-domains</key>
+	<array>
+		<string>applinks:elrace.com</string>
+		<string>applinks:www.elrace.com</string>
+	</array>
 </dict>
 </plist>

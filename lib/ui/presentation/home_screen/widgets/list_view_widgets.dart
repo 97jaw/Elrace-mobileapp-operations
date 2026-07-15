@@ -940,11 +940,15 @@ class _ListViewWidgetsState extends State<ListViewWidgets> {
         children.add(const ClientsVendorsCategoryClientsCard());
         children.add(SizedBox(height: 14.h));
       }
-      if (visibility.isVisible(HomeWidgetCode.vendors)) {
+      final showVendors = visibility.isVisible(HomeWidgetCode.vendors);
+      final showSubs = visibility.isVisible(HomeWidgetCode.subContractors);
+      if (showVendors && showSubs) {
+        children.add(const ClientsVendorsCategoryVendorsSubContractorsRow());
+        children.add(SizedBox(height: 14.h));
+      } else if (showVendors) {
         children.add(const ClientsVendorsCategoryVendorsCard());
         children.add(SizedBox(height: 14.h));
-      }
-      if (visibility.isVisible(HomeWidgetCode.subContractors)) {
+      } else if (showSubs) {
         children.add(const ClientsVendorsCategorySubContractorsCard());
         children.add(SizedBox(height: 14.h));
       }

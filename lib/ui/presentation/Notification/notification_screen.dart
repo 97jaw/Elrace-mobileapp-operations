@@ -48,11 +48,19 @@ class _NotificationScreenState extends State<NotificationScreen> {
   }
 
   Future<void> _bootstrap() async {
-    // Opening Notification Center = all existing are read; badge clears.
-    // Only notifications that arrive after this keep a red dot.
-    await NotificationStorageService.markAllAsRead();
-    await NotificationStorageService.acknowledgeBadge();
+    // Load list, then snapshot unread baseline so only newer items bump the bell.
     await _loadNotifications();
+    await NotificationStorageService.acknowledgeBadge(
+      knownIds: _notifications.map((n) => '${n['id'] ?? ''}'),
+    );
+    await NotificationStorageService.markAllAsRead();
+    if (!mounted) return;
+    setState(() {
+      for (final n in _notifications) {
+        n['isRead'] = true;
+        n['is_read'] = true;
+      }
+    });
   }
 
   Future<void> _loadNotifications({bool showLoader = true}) async {

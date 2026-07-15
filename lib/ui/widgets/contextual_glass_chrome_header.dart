@@ -95,7 +95,10 @@ class ContextualGlassChromeHeader extends StatelessWidget {
         SizedBox(
           height: SubAppGlassAppBar.extent(context),
           child: SubAppGlassAppBar(
-            transparentPill: transparentGlassBar,
+            // Dark hubs: clear glass + light icons. Light hubs: soft frost + dark icons.
+            transparentPill: transparentGlassBar && !onLightSurface,
+            lightSurfaceTransparentPill:
+                transparentGlassBar && onLightSurface,
             logoOpacity: logoOpacity ?? (onLightSurface ? 1.0 : 0.55),
           ),
         ),

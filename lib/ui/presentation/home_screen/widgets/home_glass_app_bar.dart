@@ -29,6 +29,7 @@ class HomeGlassAppBar extends StatefulWidget {
     this.omitOuterPadding = false,
     this.compactTrailing = false,
     this.transparentPill = false,
+    this.lightSurfaceTransparentPill = false,
     this.expandProgress = 0,
     this.mergedMode = false,
   });
@@ -44,6 +45,9 @@ class HomeGlassAppBar extends StatefulWidget {
 
   /// No white frost fill — parent gradient shows through (Petty Cash, etc.).
   final bool transparentPill;
+
+  /// Soft frosted pill on light screens — slightly see-through, dark icons.
+  final bool lightSurfaceTransparentPill;
 
   /// 0 = collapsed home; 1 = widgets panel fully expanded (logo left, comms out).
   final double expandProgress;
@@ -81,9 +85,9 @@ class _HomeGlassAppBarState extends State<HomeGlassAppBar>
       if (mounted) _loadNotificationCountLocal();
     };
     
-    // Poll notification counter every 10 seconds to ensure real-time updates
+    // Poll notification counter every 5 seconds (iOS often misses FCM Dart wake).
     _notificationPollTimer = Timer.periodic(
-      const Duration(seconds: 10),
+      const Duration(seconds: 5),
       (_) => _loadNotificationCount(),
     );
   }
@@ -116,7 +120,8 @@ class _HomeGlassAppBarState extends State<HomeGlassAppBar>
   }
 
   Future<void> _loadNotificationCount() async {
-    final count = await NotificationStorageService.getBadgeCount();
+    // Sync from Odoo so iOS badge updates even when FCM did not wake Dart.
+    final count = await NotificationStorageService.syncBadgeFromServer();
     if (mounted) setState(() => _notificationCount = count);
   }
 
@@ -251,7 +256,7 @@ class _HomeGlassAppBarState extends State<HomeGlassAppBar>
             replace: name == '/approvals',
             child: const NotificationScreen(),
           );
-          await _loadNotificationCountLocal();
+          await _loadNotificationCount();
         },
       ),
       SizedBox(width: gap),
@@ -367,7 +372,7 @@ class _HomeGlassAppBarState extends State<HomeGlassAppBar>
                 replace: name == '/approvals',
                 child: const NotificationScreen(),
               );
-              await _loadNotificationCountLocal();
+              await _loadNotificationCount();
             },
           ),
           SizedBox(width: gap),
@@ -522,7 +527,7 @@ class _HomeGlassAppBarState extends State<HomeGlassAppBar>
                       replace: name == '/approvals',
                       child: const NotificationScreen(),
                     );
-                    await _loadNotificationCountLocal();
+                    await _loadNotificationCount();
                   },
                 ),
               ],
@@ -598,6 +603,7 @@ class _HomeGlassAppBarState extends State<HomeGlassAppBar>
     final showComms = !widget.hideLeadingActionIcons && expand < 0.40;
     final showLogo = expand >= 0.68;
 
+    final lightSoftPill = widget.lightSurfaceTransparentPill;
     final bar = widget.transparentPill
         ? Container(
             padding: EdgeInsets.fromLTRB(
@@ -632,8 +638,10 @@ class _HomeGlassAppBarState extends State<HomeGlassAppBar>
         clipBehavior: compact ? Clip.hardEdge : Clip.antiAlias,
         child: AdaptiveGlassLayer(
           borderRadius: BorderRadius.circular(999),
-          sigma: 25,
-          fallbackColor: Colors.white.withValues(alpha: 0.78),
+          sigma: lightSoftPill ? 18 : 25,
+          fallbackColor: Colors.white.withValues(
+            alpha: lightSoftPill ? 0.42 : 0.78,
+          ),
           child: Container(
             padding: EdgeInsets.fromLTRB(
               hPad,
@@ -647,18 +655,22 @@ class _HomeGlassAppBarState extends State<HomeGlassAppBar>
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
                 colors: [
-                  Colors.white.withValues(alpha: 0.72),
-                  Colors.white.withValues(alpha: 0.48),
+                  Colors.white.withValues(alpha: lightSoftPill ? 0.45 : 0.72),
+                  Colors.white.withValues(alpha: lightSoftPill ? 0.28 : 0.48),
                 ],
               ),
               border: Border.all(
-                color: Colors.white.withValues(alpha: 0.90),
-                width: 1.2,
+                color: Colors.white.withValues(
+                  alpha: lightSoftPill ? 0.55 : 0.90,
+                ),
+                width: lightSoftPill ? 1 : 1.2,
               ),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.08),
-                  blurRadius: 18,
+                  color: Colors.black.withValues(
+                    alpha: lightSoftPill ? 0.04 : 0.08,
+                  ),
+                  blurRadius: lightSoftPill ? 12 : 18,
                   offset: const Offset(0, 4),
                 ),
               ],

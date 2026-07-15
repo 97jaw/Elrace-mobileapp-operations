@@ -1,17 +1,1 @@
-{
-  "firestore": {
-    "rules": "firestore.rules"
-  },
-  "functions": [
-    {
-      "source": "functions",
-      "codebase": "default",
-      "ignore": ["node_modules", ".git"]
-    },
-    {
-      "source": "functions-liveness",
-      "codebase": "liveness",
-      "ignore": ["node_modules", ".git"]
-    }
-  ]
-}
+{"firestore":{"rules":"firestore.rules"},"functions":[{"source":"functions","codebase":"default","ignore":["node_modules",".git"]},{"source":"functions-liveness","codebase":"liveness","ignore":["node_modules",".git"]}],"flutter":{"platforms":{"android":{"default":{"projectId":"elrace-new","appId":"1:392748487890:android:0cf1fa8c7f37d0eb0f490b","fileOutput":"android/app/google-services.json"}},"ios":{"default":{"projectId":"elrace-new","appId":"1:392748487890:ios:58ff0286e360256a0f490b","uploadDebugSymbols":true,"fileOutput":"ios/Runner/GoogleService-Info.plist"}},"dart":{"lib/firebase_options.dart":{"projectId":"elrace-new","configurations":{"ios":"1:392748487890:ios:58ff0286e360256a0f490b"}}}}}}

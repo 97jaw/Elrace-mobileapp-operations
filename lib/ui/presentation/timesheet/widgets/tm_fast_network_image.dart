@@ -1,5 +1,6 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:el_race/core/theme/timesheet_module_theme.dart';
+import 'package:el_race/ui/presentation/timesheet/utils/tm_http_url.dart';
 import 'package:flutter/material.dart';
 import 'package:phosphor_flutter/phosphor_flutter.dart';
 
@@ -24,8 +25,13 @@ class TmFastNetworkImage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final encoded = tmEncodedHttpUrlString(url) ?? url.trim();
+    if (encoded.isEmpty || !encoded.startsWith('http')) {
+      return _error();
+    }
+
     final image = CachedNetworkImage(
-      imageUrl: url,
+      imageUrl: encoded,
       width: width,
       height: height,
       fit: fit,
@@ -81,14 +87,14 @@ class TmFastNetworkImage extends StatelessWidget {
     var count = 0;
     for (final raw in urls) {
       if (count >= max) break;
-      final u = raw.trim();
-      if (u.isEmpty || !u.startsWith('http')) continue;
+      final u = tmEncodedHttpUrlString(raw);
+      if (u == null || !u.startsWith('http')) continue;
       count++;
       try {
         await precacheImage(
           CachedNetworkImageProvider(u, maxWidth: memCacheWidth),
           context,
-        );
+        ).timeout(const Duration(seconds: 4));
       } catch (_) {}
     }
   }

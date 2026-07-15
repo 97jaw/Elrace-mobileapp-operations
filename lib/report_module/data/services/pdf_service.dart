@@ -1,5 +1,4 @@
 import 'dart:io';
-import 'package:http/http.dart' as http;
 import 'package:image/image.dart' as img;
 
 import 'package:el_race/report_module/data/models/company_model.dart';
@@ -7,6 +6,7 @@ import 'package:el_race/report_module/data/models/report_detail_model.dart';
 import 'package:el_race/report_module/data/models/report_item_model.dart';
 import 'package:el_race/report_module/data/repositories/company_repository.dart';
 import 'package:el_race/ui/presentation/signin/data/model.dart';
+import 'package:el_race/ui/presentation/timesheet/utils/tm_http_url.dart';
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 import 'package:pdf/pdf.dart';
@@ -38,7 +38,9 @@ class PdfService {
     final LoginResponseModel? userData = results[0] as LoginResponseModel?;
     final imageMap = results[1] as Map<String, pw.MemoryImage>;
     final Uint8List logo = results[2] as Uint8List;
-    final notoSanArabic = pw.Font.ttf(results[3] as ByteData);
+    // Unicode TTF — must be set as theme base+bold so FontWeight.bold does not
+    // fall back to Helvetica-Bold (no Unicode → broken glyphs / load failures).
+    final unicodeFont = pw.Font.ttf(results[3] as ByteData);
     final String userName = userData?.result?.data?.name ??
         userData?.result?.data?.username ??
         userData?.result?.data?.emp_name ??
@@ -49,12 +51,16 @@ class PdfService {
           pageFormat: PdfPageFormat.a4,
           margin:
               const pw.EdgeInsets.only(left: 32, right: 32, bottom: 20, top: 5),
+          theme: pw.ThemeData.withFont(
+            base: unicodeFont,
+            bold: unicodeFont,
+          ),
         ),
         header: (context) =>
-            _buildHeader(context, logo, report, projectName, notoSanArabic),
-        footer: (context) => _buildFooter(context, userName),
+            _buildHeader(context, logo, report, projectName, unicodeFont),
+        footer: (context) => _buildFooter(context, userName, unicodeFont),
         build: (context) => _buildBody(context, logo, report, imageMap,
-            userData, notoSanArabic, templateType),
+            userData, unicodeFont, templateType),
       ),
     );
 
@@ -182,7 +188,7 @@ class PdfService {
                             textAlign: pw.TextAlign.center,
                             style: pw.TextStyle(
                               fontSize: 14,
-                              // font: font,
+                              font: font,
                               fontWeight: pw.FontWeight.bold,
                             ),
                           ),
@@ -209,7 +215,7 @@ class PdfService {
                             textAlign: pw.TextAlign.center,
                             style: pw.TextStyle(
                               fontSize: 14,
-                              // font: font,
+                              font: font,
                               fontWeight: pw.FontWeight.bold,
                             ),
                           ),
@@ -251,14 +257,7 @@ class PdfService {
             Uint8List imageBytes;
             if (item.image.startsWith('http://') ||
                 item.image.startsWith('https://')) {
-              final response = await http
-                  .get(Uri.parse(item.image))
-                  .timeout(const Duration(seconds: 45));
-              if (response.statusCode == 200) {
-                imageBytes = response.bodyBytes;
-              } else {
-                return null;
-              }
+              imageBytes = await tmFetchUrlBytes(item.image);
             } else {
               imageBytes = await File(item.image).readAsBytes();
             }
@@ -719,7 +718,7 @@ class PdfService {
     );
   }
 
-  _buildFooter(context, String userName) {
+  _buildFooter(context, String userName, pw.Font font) {
     return pw.Container(
         decoration: const pw.BoxDecoration(
             border: pw.Border(top: pw.BorderSide(width: 2))),
@@ -730,11 +729,11 @@ class PdfService {
               if (userName.isNotEmpty)
                 pw.Text(
                   userName,
-                  style: const pw.TextStyle(fontSize: 12),
+                  style: pw.TextStyle(fontSize: 12, font: font),
                 ),
               pw.Text(
                 'Page ${context.pageNumber} of ${context.pagesCount}',
-                style: const pw.TextStyle(fontSize: 12),
+                style: pw.TextStyle(fontSize: 12, font: font),
               ),
             ]));
   }
@@ -744,7 +743,11 @@ class PdfService {
     return data.buffer.asUint8List();
   }
 
-  pw.Widget _buildWatermark(pw.Context context, String watermarkText) {
+  pw.Widget _buildWatermark(
+    pw.Context context,
+    String watermarkText, {
+    pw.Font? font,
+  }) {
     if (watermarkText.isEmpty) return pw.SizedBox();
 
     const double angle = -0.5236; // -30 degrees
@@ -756,6 +759,7 @@ class PdfService {
       color: PdfColors.grey200,
       fontSize: fontSize,
       fontWeight: pw.FontWeight.normal,
+      font: font,
     );
 
     return pw.FullPage(
@@ -902,26 +906,34 @@ class PdfService {
             pw.Container(
               padding: const pw.EdgeInsets.all(4),
               alignment: pw.Alignment.center,
-              child: pw.Text("#",
-                  style: pw.TextStyle(fontWeight: pw.FontWeight.bold)),
+              child: pw.Text(
+                "#",
+                style: pw.TextStyle(fontWeight: pw.FontWeight.bold),
+              ),
             ),
             pw.Container(
               padding: const pw.EdgeInsets.all(4),
               alignment: pw.Alignment.center,
-              child: pw.Text("Photo",
-                  style: pw.TextStyle(fontWeight: pw.FontWeight.bold)),
+              child: pw.Text(
+                "Photo",
+                style: pw.TextStyle(fontWeight: pw.FontWeight.bold),
+              ),
             ),
             pw.Container(
               padding: const pw.EdgeInsets.all(4),
               alignment: pw.Alignment.center,
-              child: pw.Text("Location",
-                  style: pw.TextStyle(fontWeight: pw.FontWeight.bold)),
+              child: pw.Text(
+                "Location",
+                style: pw.TextStyle(fontWeight: pw.FontWeight.bold),
+              ),
             ),
             pw.Container(
               padding: const pw.EdgeInsets.all(4),
               alignment: pw.Alignment.center,
-              child: pw.Text("Description",
-                  style: pw.TextStyle(fontWeight: pw.FontWeight.bold)),
+              child: pw.Text(
+                "Description",
+                style: pw.TextStyle(fontWeight: pw.FontWeight.bold),
+              ),
             ),
           ],
         ),

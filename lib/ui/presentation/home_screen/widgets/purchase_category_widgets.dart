@@ -90,9 +90,9 @@ class PurchaseCategoryLpoCard extends ConsumerWidget {
                   children: [
                     _LpoStatColumn(
                       label: 'Total',
-                      value: data.totalDisplay,
+                      value: '${data.pendingCount + data.approvedCount}',
                       valueColor: Colors.white,
-                      valueFontSize: 18.sp,
+                      valueFontSize: 26.sp,
                     ),
                     const _LpoStatDivider(),
                     _LpoStatColumn(
