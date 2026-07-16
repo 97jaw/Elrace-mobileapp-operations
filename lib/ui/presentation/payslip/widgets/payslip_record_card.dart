@@ -4,7 +4,7 @@ import 'package:el_race/core/theme/hr_module_typography.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 
-/// Competency-style card for payslip list rows (display-only — no tap open).
+/// Competency-style card for payslip list rows.
 class PayslipRecordCard extends StatelessWidget {
   const PayslipRecordCard({
     super.key,

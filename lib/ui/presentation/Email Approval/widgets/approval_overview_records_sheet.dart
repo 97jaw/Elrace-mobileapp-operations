@@ -571,21 +571,38 @@ class _ApprovalRecordTile extends StatelessWidget {
 
   String _requester() {
     if (categoryKey == 'delayed') {
-      return _str(
+      final name = _str(
         item['employee_name'] ??
             item['employeeName'] ??
             item['requester_name'] ??
             item['reviewer_name'] ??
             item['validator_name'] ??
-            item['emp_name'],
-        fallback: 'N/A',
+            item['emp_name'] ??
+            item['requested_by'] ??
+            item['partner_name'],
+        fallback: '',
       );
+      if (name.isNotEmpty && name.toUpperCase() != 'N/A') return name;
+      final code = _str(
+        item['emp_code'] ??
+            item['empCode'] ??
+            item['employee_code'] ??
+            item['reviewer_emp_id'] ??
+            item['validator_emp_id'],
+        fallback: '',
+      );
+      if (code.isNotEmpty && code.toUpperCase() != 'N/A') return code;
+      final ref = _str(
+        item['reqNo'] ?? item['name'] ?? item['reference'],
+        fallback: '',
+      );
+      return ref.isNotEmpty ? ref : 'Unknown';
     }
     if (categoryKey == 'invoice') {
       return _partnerName();
     }
     if (categoryKey == 'rfq') {
-      return _vendorName().isNotEmpty ? _vendorName() : 'N/A';
+      return _vendorName().isNotEmpty ? _vendorName() : 'Unknown';
     }
     if (categoryKey == 'petty_cash') {
       return _str(
@@ -595,7 +612,7 @@ class _ApprovalRecordTile extends StatelessWidget {
             item['employee_name'] ??
             item['holder_name'] ??
             item['holder'],
-        fallback: 'N/A',
+        fallback: 'Unknown',
       );
     }
     return _str(
@@ -603,7 +620,7 @@ class _ApprovalRecordTile extends StatelessWidget {
           item['requester_name'] ??
           item['emp_name'] ??
           item['employeeName'],
-      fallback: 'N/A',
+      fallback: 'Unknown',
     );
   }
 

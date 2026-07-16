@@ -447,31 +447,8 @@ class CheckInReminderNotificationService {
   /// تحديث الإشعارات حسب حالة check in/out
   /// يتحقق أولاً من حالة تسجيل الدخول — إذا كان المستخدم عامل logout يلغي كل التذكيرات
   Future<void> updateReminders() async {
-    // إذا المستخدم مو مسجّل دخول، ألغي كل التذكيرات ولا تجدول شي جديد
-    if (!SharedPref.isUserAuthenticated()) {
-      await cancelAllReminders();
-      print('📱 User not authenticated — cancelled all check-in/out reminders');
-      return;
-    }
-
-    final effectiveCheckedInState = _hasActiveCheckInState();
-    print('📱 updateReminders: effectiveCheckedInState=$effectiveCheckedInState');
-
-    if (effectiveCheckedInState) {
-      // المستخدم عامل check in:
-      // - ألغي تذكيرات check in (ما لازم توصلو لأنو خلاص عمل check in)
-      // - جدول تذكيرات check out (لتذكيره يعمل check out)
-      await cancelCheckInReminders();
-      await scheduleCheckOutReminders();
-      print('📱 Updated: Cancelled check-in reminders, scheduled check-out reminders (user IS checked in)');
-    } else {
-      // المستخدم ما عامل check in (أو عمل check out):
-      // - ألغي تذكيرات check out (ما لازم توصلو لأنو خلاص عمل check out)
-      // - جدول تذكيرات check in (لتذكيره يعمل check in)
-      await cancelCheckOutReminders();
-      await scheduleCheckInReminders();
-      print('📱 Updated: Cancelled check-out reminders, scheduled check-in reminders (user is NOT checked in)');
-    }
+    // Check-in / check-out local reminders removed — cancel any leftover schedules.
+    await cancelAllReminders();
   }
 
   /// إلغاء جميع التذكيرات

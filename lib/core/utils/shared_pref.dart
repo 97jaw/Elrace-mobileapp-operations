@@ -146,7 +146,11 @@ class SharedPref {
       final data = decoded['result']?['data'];
       if (data is! Map<String, dynamic>) return fallback;
 
-      final raw = data['leave_balance'] ?? data['leaveBalance'];
+      final raw = data['leave_balance'] ??
+          data['leaveBalance'] ??
+          data['balance_leave'] ??
+          data['remaining_leave_days'] ??
+          data['available_leave_balance'];
       final value = raw?.toString().trim();
       if (value == null ||
           value.isEmpty ||

@@ -57,7 +57,7 @@ class _NotificationMuteSettingsScreenState
       color: Color(0xFF00897B),
     ),
     'prayer': _CategoryUiMeta(
-      title: 'Prayer Reminders',
+      title: 'Prayer / Adhan',
       icon: Icons.mosque_rounded,
       color: Color(0xFF00695C),
     ),
@@ -91,18 +91,17 @@ class _NotificationMuteSettingsScreenState
       icon: Icons.task_alt_rounded,
       color: Color(0xFF5C6BC0),
     ),
-    'adhan': _CategoryUiMeta(
-      title: 'Adhan Sound',
-      icon: Icons.volume_up_rounded,
-      color: Color(0xFF2E7D32),
+    'hr.employee.document': _CategoryUiMeta(
+      title: 'Document Expiry',
+      icon: Icons.folder_shared_rounded,
+      color: Color(0xFFAD1457),
     ),
   };
 
-  /// فئات محلية فقط (لا تأتي من الـ API) - تُضاف تلقائياً إلى قائمة الإعدادات.
+  /// Local-only categories (not from API). Adhan is merged into `prayer`.
   static const List<String> _localOnlyCategories = <String>[
     'chat_message',
     'task',
-    'adhan',
   ];
 
   List<NotificationCategoryModel> _categories =
@@ -196,20 +195,27 @@ class _NotificationMuteSettingsScreenState
       for (final entry in settings.entries) {
         final key = entry.key.trim().toLowerCase();
         if (_isAlwaysOnCategory(key)) continue;
+        // Adhan is merged into Prayer — drop standalone row.
+        if (key == 'adhan') continue;
         merged[key] = entry.value;
       }
 
-      // إضافة الفئات المحلية فقط (chat, task, adhan) التي لا تأتي من الـ API
+      // Local-only categories (chat, task) that do not come from the API.
       for (final localKey in _localOnlyCategories) {
         if (!merged.containsKey(localKey)) {
-          if (localKey == 'adhan') {
-            // مزامنة حالة كتم الأذان من Hive
-            final adhanMuted = await HiveService.isPrayerSoundMuted();
-            merged[localKey] = adhanMuted;
-          } else {
-            merged[localKey] = settings[localKey] ?? false;
-          }
+          merged[localKey] = settings[localKey] ?? false;
         }
+      }
+
+      // Keep Prayer/Adhan mute in sync with Hive (canonical for local azan).
+      if (merged.containsKey('prayer')) {
+        final adhanMuted = await HiveService.isPrayerSoundMuted();
+        if (adhanMuted && merged['prayer'] != true) {
+          merged['prayer'] = true;
+        }
+      } else {
+        final adhanMuted = await HiveService.isPrayerSoundMuted();
+        merged['prayer'] = settings['prayer'] ?? adhanMuted;
       }
 
       final fixedCategoryModels = _alwaysOnCategories
@@ -217,10 +223,13 @@ class _NotificationMuteSettingsScreenState
           .toList(growable: false);
 
       final dynamicCategoryModels = merged.entries
+          .where((entry) => entry.key != 'adhan')
           .map((entry) => _toCategoryModel(
                 entry.key,
                 entry.value,
-                apiTitle: apiTitles[entry.key],
+                apiTitle: entry.key == 'prayer'
+                    ? 'Prayer / Adhan'
+                    : apiTitles[entry.key],
               ))
           .toList(growable: false)
         ..sort((a, b) => a.title.compareTo(b.title));
@@ -278,18 +287,17 @@ class _NotificationMuteSettingsScreenState
     try {
       // الفئات المحلية فقط: تخزين محلي بدون مزامنة API
       if (isLocalOnly) {
-        if (model == 'adhan') {
-          // مزامنة حالة كتم الأذان مع Hive (المصدر الرسمي لـ PrayerAudioService)
+        await NotificationStorageService.setLocalMuteSetting(model, muted);
+      } else {
+        await NotificationStorageService.setMuteSetting(model, muted);
+        // Prayer / Adhan are one control: also drive local azan mute.
+        if (model == 'prayer') {
           await HiveService.setPrayerSoundMuted(muted);
-          // إلغاء الإشعارات المجدولة إذا تم الكتم
+          await NotificationStorageService.setLocalMuteSetting('adhan', muted);
           if (muted) {
             await PrayerNotificationService().cancelAllPendingAdhan();
           }
         }
-        // حفظ في SharedPreferences أيضاً للفئات المحلية
-        await NotificationStorageService.setLocalMuteSetting(model, muted);
-      } else {
-        await NotificationStorageService.setMuteSetting(model, muted);
       }
     } catch (e) {
       if (mounted) {

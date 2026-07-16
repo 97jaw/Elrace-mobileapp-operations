@@ -92,21 +92,33 @@ class _R1RecruitmentLandingScreenState
     }
     switch (_listTab) {
       case _ListTab.active:
+        // Show all non-closed requisitions (OPEN, IN_RECRUITMENT, HOLD, draft/approval…).
         if (_activeChip == _ActiveChip.open) {
-          list = list.where((r) => r.uiStatus == 'OPEN').toList();
-        } else {
           list = list
               .where(
                 (r) =>
                     r.uiStatus == 'OPEN' ||
-                    _approvalStatuses.contains(r.uiStatus),
+                    r.uiStatus == 'IN_RECRUITMENT' ||
+                    r.uiStatus == 'HOLD',
+              )
+              .toList();
+        } else {
+          list = list
+              .where(
+                (r) =>
+                    r.uiStatus != 'CLOSED' &&
+                    r.uiStatus != 'CANCELLED' &&
+                    r.uiStatus != 'FILLED',
               )
               .toList();
         }
       case _ListTab.closed:
         list = list
             .where(
-              (r) => r.uiStatus == 'CLOSED' || r.uiStatus == 'CANCELLED',
+              (r) =>
+                  r.uiStatus == 'CLOSED' ||
+                  r.uiStatus == 'CANCELLED' ||
+                  r.uiStatus == 'FILLED',
             )
             .toList();
       case _ListTab.drafts:
@@ -123,8 +135,15 @@ class _R1RecruitmentLandingScreenState
   }
 
   List<Requisition> _employeeOpenings(List<Requisition> all) {
+    // Show all openings employees can refer into (not only OPEN).
     var list = all
-        .where((r) => r.uiStatus == 'OPEN')
+        .where(
+          (r) =>
+              r.uiStatus == 'OPEN' ||
+              r.uiStatus == 'IN_RECRUITMENT' ||
+              r.uiStatus == 'HOLD' ||
+              _approvalStatuses.contains(r.uiStatus),
+        )
         .toList();
     if (_searchQuery.trim().isNotEmpty) {
       final q = _searchQuery.toLowerCase();

@@ -228,7 +228,9 @@ class MyActionsModuleTheme {
             s == 'submitted' ||
             s == 'to approve';
       case MyActionFilter.approved:
-        return s == 'approved' ||
+        // Legacy ERP often returns "approve" (no trailing d).
+        return s == 'approve' ||
+            s == 'approved' ||
             s == 'signed' ||
             s == 'done' ||
             s == 'validate' ||
@@ -244,6 +246,7 @@ class MyActionsModuleTheme {
 
   static Color statusColor(String status) {
     switch (status.trim().toLowerCase()) {
+      case 'approve':
       case 'approved':
       case 'signed':
       case 'done':

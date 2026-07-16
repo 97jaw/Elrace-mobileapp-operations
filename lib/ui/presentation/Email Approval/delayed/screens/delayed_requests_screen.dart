@@ -204,7 +204,18 @@ class _DelayedRequestsScreenState extends State<DelayedRequestsScreen> {
             return DelayedRequestCard(
               reqNo: item['reqNo'] ?? '',
               requestType: item['requestType'] ?? '',
-              employeeName: item['employeeName'] ?? '',
+              employeeName: () {
+                final name = (item['employeeName'] ?? '').toString().trim();
+                if (name.isNotEmpty && name.toUpperCase() != 'N/A') {
+                  return name;
+                }
+                final code = (item['empCode'] ?? '').toString().trim();
+                if (code.isNotEmpty && code.toUpperCase() != 'N/A') {
+                  return code;
+                }
+                final ref = (item['reqNo'] ?? item['name'] ?? '').toString().trim();
+                return ref.isNotEmpty ? ref : 'Unknown';
+              }(),
               empCode: item['empCode'] ?? '',
               requestDate: item['requestDate'] ?? '',
               employeeImageUrl: item['employeeImageUrl'] ?? '',
