@@ -18,8 +18,8 @@ void main() {
         print('Body Length: ${request.body.length}');
         print('====================');
 
-        expect(
-            request.url.toString(), 'https://erp.elrace.com/api/clients/list');
+        expect(request.url.toString(),
+            'https://erp.elrace.com/api/v2/clients/list');
         expect(request.method, 'GET');
 
         final mockResponse = http.Response(

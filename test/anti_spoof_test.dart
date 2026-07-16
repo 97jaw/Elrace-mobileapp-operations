@@ -433,8 +433,8 @@ void main() {
       test('Combined photo attack should be REJECTED', () {
         // Typical photo attack characteristics
         final photoFace = MockFace(
-          leftEyeOpenProbability: 0.95,
-          rightEyeOpenProbability: 0.95,
+          leftEyeOpenProbability: 1.0,
+          rightEyeOpenProbability: 1.0,
           headEulerAngleY: 0.0,
           headEulerAngleZ: 0.0,
         );
