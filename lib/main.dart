@@ -1,6 +1,8 @@
 import 'dart:async';
 import 'dart:io';
 
+import 'package:flutter/foundation.dart' show kDebugMode;
+
 import 'package:el_race/core/ui/device_ui_capability.dart';
 import 'package:el_race/core/services/notification_storage_service.dart';
 import 'package:el_race/core/timesheet/services/capture_queue_service.dart';
@@ -421,8 +423,10 @@ Future<void> _initPrayerAndCheckoutServices() async {
   }
 }
 
-/// Log FCM token without blocking startup.
+/// Log FCM token without blocking startup (debug builds only — the token
+/// must never appear in production logs).
 Future<void> _logFcmToken() async {
+  if (!kDebugMode) return;
   try {
     String? fcmToken = await FirebaseMessaging.instance.getToken().timeout(
       const Duration(seconds: 10),

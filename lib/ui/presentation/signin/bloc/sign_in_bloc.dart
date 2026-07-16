@@ -66,25 +66,7 @@ class SignInBloc extends Bloc<SignInEvent, SignInState> {
 
         await userRepo.setDeviceInfo(deviceName);
 
-        log('loginResponseModel ${response.data}');
-
         if (loginResponseModel.result?.success == true) {
-          // ============ TOKEN PRINT ============
-          final _token = loginResponseModel.result?.token ?? 'NO TOKEN';
-          print('');
-          print('========================================');
-          print('========================================');
-          print('====   USER TOKEN AFTER LOGIN   ========');
-          print('========================================');
-          print('');
-          print('TOKEN: $_token');
-          print('');
-          print('========================================');
-          print('========================================');
-          print('');
-          log('USER_TOKEN: $_token');
-          // ======================================
-
           await userRepo.setLoginResponse(loginResponseModel, rawJson: json);
           await userRepo.setISLoggedIn(true);
           await SharedPref().setPreferencesBoolean('isRegistered', true);

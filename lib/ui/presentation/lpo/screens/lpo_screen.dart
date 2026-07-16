@@ -375,7 +375,6 @@ class _LpoListScreenState extends State<LpoListScreen> {
 
   @override
   Widget build(BuildContext context) {
-    print('${SharedPref.getLoginData().result?.token}');
     return Scaffold(
       backgroundColor: Colors.white,
       appBar: const HeaderWidget(),
