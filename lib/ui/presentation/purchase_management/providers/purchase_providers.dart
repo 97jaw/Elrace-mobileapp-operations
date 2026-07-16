@@ -71,7 +71,7 @@ final draftInvoicesPreviewProvider =
   return repo.fetchDraftInvoicesPreview(testRole: testRole);
 });
 
-/// Latest LPOs for the purchase hub preview section.
+/// Latest confirmed LPOs (purchase/done) for the purchase hub preview.
 final lpoLatestPreviewProvider =
     FutureProvider.autoDispose<List<RfqItem>>((ref) async {
   ref.watch(purchaseDevRoleOverrideProvider);
@@ -80,7 +80,7 @@ final lpoLatestPreviewProvider =
   final result = await repo.fetchRfqs(
     page: 1,
     limit: 5,
-    status: '',
+    status: 'LPOS',
     orderDesc: true,
     testRole: testRole,
   );

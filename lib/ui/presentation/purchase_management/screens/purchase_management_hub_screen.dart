@@ -415,6 +415,19 @@ class _LatestLposSection extends ConsumerWidget {
   }
 }
 
+/// LPO-only badge: Open / Closed. Never show RFQ labels on this section.
+String? _lpoBadgeLabel(RfqItem item) {
+  final odoo = item.odooState.trim().toLowerCase();
+  if (odoo == 'purchase') return 'OPEN';
+  if (odoo == 'done') return 'CLOSED';
+
+  final label = item.state.trim().toUpperCase();
+  if (label == 'PURCHASE ORDER' || label == 'PURCHASE') return 'OPEN';
+  if (label == 'RECEIVED' || label == 'DONE') return 'CLOSED';
+  // RFQ / draft / sent / etc. — hide badge rather than show RFQ tags.
+  return null;
+}
+
 /// Compact list row matching prior draft-invoice panel styling.
 class _LatestLpoRow extends StatelessWidget {
   const _LatestLpoRow({required this.item, required this.onTap});
@@ -429,9 +442,7 @@ class _LatestLpoRow extends StatelessWidget {
         : (item.amountTotal > 0
             ? ApprovalDisplayHelpers.formatAmountWithAed(item.amountTotal)
             : '');
-    final state = item.state.trim().isNotEmpty
-        ? item.state
-        : (item.odooState.trim().isNotEmpty ? item.odooState : '');
+    final badge = _lpoBadgeLabel(item);
 
     return Material(
       color: Colors.transparent,
@@ -496,7 +507,7 @@ class _LatestLpoRow extends StatelessWidget {
               Column(
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
-                  if (state.isNotEmpty)
+                  if (badge != null)
                     Container(
                       padding:
                           EdgeInsets.symmetric(horizontal: 8.w, vertical: 3.h),
@@ -509,7 +520,7 @@ class _LatestLpoRow extends StatelessWidget {
                         ),
                       ),
                       child: Text(
-                        state.toUpperCase(),
+                        badge,
                         style: GoogleFonts.poppins(
                           fontSize: 9.sp,
                           fontWeight: FontWeight.w700,
