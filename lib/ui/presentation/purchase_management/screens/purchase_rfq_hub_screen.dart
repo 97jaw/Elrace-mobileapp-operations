@@ -1,3 +1,4 @@
+import 'package:el_race/core/utils/responsive_breakpoints.dart';
 import 'dart:async';
 
 import 'package:el_race/core/purchase/purchase_dev_role_provider.dart';
@@ -183,16 +184,25 @@ class _PurchaseRfqHubScreenState extends ConsumerState<PurchaseRfqHubScreen> {
 
   Future<void> _openRfq(RfqItem item) async {
     try {
-      final url = await _repo.fetchPoReportUrl(item.id);
-      if (url != null && mounted) {
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (_) => LpoPdfViewerScreen(pdfUrl: url, title: item.name),
-          ),
-        );
-      }
-    } catch (_) {}
+      final url = await _repo.fetchRfqReportUrl(item.id);
+      if (!mounted) return;
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => LpoPdfViewerScreen(pdfUrl: url, title: item.name),
+        ),
+      );
+    } on RfqNoAttachmentException catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(e.message)),
+      );
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Failed to open RFQ attachments')),
+      );
+    }
   }
 
   Future<void> _showFilterSheet() async {
@@ -250,8 +260,8 @@ class _PurchaseRfqHubScreenState extends ConsumerState<PurchaseRfqHubScreen> {
         ),
         if (_isInvoiceSegment && access.canCreateInvoice)
           Positioned(
-            right: 16.w,
-            bottom: 16.h,
+            right: 16.tw,
+            bottom: 16.th,
             child: FloatingActionButton.extended(
               backgroundColor: PurchaseTheme.accentBlue,
               onPressed: () async {
@@ -296,33 +306,33 @@ class _RfqRow extends StatelessWidget {
                 child: Text(
                   item.name,
                   style: GoogleFonts.poppins(
-                    fontSize: 13.sp,
+                    fontSize: 13.tsp,
                     fontWeight: FontWeight.w700,
                     color: const Color(0xFF7DB3E8),
                   ),
                 ),
               ),
               if (item.dateOrder.isNotEmpty) ...[
-                SizedBox(width: 6.w),
+                SizedBox(width: 6.tw),
                 Text(
                   item.dateOrder,
                   style: GoogleFonts.poppins(
-                    fontSize: 10.sp,
+                    fontSize: 10.tsp,
                     color: PurchaseTheme.textMuted,
                   ),
                 ),
-                SizedBox(width: 8.w),
+                SizedBox(width: 8.tw),
               ],
               PurchaseStatusChip(label: status.label, color: status.color),
             ],
           ),
           // Row 2: project / title
           if (item.project.isNotEmpty) ...[
-            SizedBox(height: 6.h),
+            SizedBox(height: 6.th),
             Text(
               item.project,
               style: GoogleFonts.poppins(
-                fontSize: 13.sp,
+                fontSize: 13.tsp,
                 fontWeight: FontWeight.w700,
                 color: PurchaseTheme.textPrimary,
               ),
@@ -332,7 +342,7 @@ class _RfqRow extends StatelessWidget {
           ],
           // Row 3: vendor + requested-by
           if (item.vendorName.isNotEmpty || item.requestedBy.isNotEmpty) ...[
-            SizedBox(height: 6.h),
+            SizedBox(height: 6.th),
             Row(
               children: [
                 if (item.vendorName.isNotEmpty)
@@ -340,7 +350,7 @@ class _RfqRow extends StatelessWidget {
                     child: Text(
                       'For ${item.vendorName}',
                       style: GoogleFonts.poppins(
-                        fontSize: 11.sp,
+                        fontSize: 11.tsp,
                         color: PurchaseTheme.textSecondary,
                       ),
                       maxLines: 1,
@@ -351,7 +361,7 @@ class _RfqRow extends StatelessWidget {
                   Text(
                     item.requestedBy,
                     style: GoogleFonts.poppins(
-                      fontSize: 10.sp,
+                      fontSize: 10.tsp,
                       color: PurchaseTheme.textMuted,
                     ),
                   ),
@@ -360,7 +370,7 @@ class _RfqRow extends StatelessWidget {
           ],
           // Row 4: full amount (no K/M abbreviation / whole-number round-off)
           if (item.amountTotal > 0 || item.amountDisplay.isNotEmpty) ...[
-            SizedBox(height: 8.h),
+            SizedBox(height: 8.th),
             Align(
               alignment: Alignment.centerRight,
               child: Text(
@@ -368,7 +378,7 @@ class _RfqRow extends StatelessWidget {
                   item.amountTotal > 0 ? item.amountTotal : item.amountDisplay,
                 ),
                 style: GoogleFonts.poppins(
-                  fontSize: 17.sp,
+                  fontSize: 17.tsp,
                   fontWeight: FontWeight.w800,
                   color: PurchaseTheme.accentDeep,
                 ),
@@ -410,7 +420,7 @@ class _InvoiceRow extends StatelessWidget {
                       TextSpan(
                         text: seqLabel,
                         style: GoogleFonts.poppins(
-                          fontSize: 14.sp,
+                          fontSize: 14.tsp,
                           fontWeight: FontWeight.w700,
                           color: PurchaseTheme.accentDeep,
                         ),
@@ -419,7 +429,7 @@ class _InvoiceRow extends StatelessWidget {
                         TextSpan(
                           text: '  –  ${item.invoiceNo}',
                           style: GoogleFonts.poppins(
-                            fontSize: 10.sp,
+                            fontSize: 10.tsp,
                             fontWeight: FontWeight.w400,
                             color: PurchaseTheme.textMuted,
                           ),
@@ -433,11 +443,11 @@ class _InvoiceRow extends StatelessWidget {
           ),
           // Row 2: partner / vendor
           if (item.partner.isNotEmpty) ...[
-            SizedBox(height: 5.h),
+            SizedBox(height: 5.th),
             Text(
               'For ${item.partner}',
               style: GoogleFonts.poppins(
-                fontSize: 11.sp,
+                fontSize: 11.tsp,
                 color: PurchaseTheme.textSecondary,
               ),
               maxLines: 1,
@@ -445,7 +455,7 @@ class _InvoiceRow extends StatelessWidget {
             ),
           ],
           // Row 3: invoice_date (left) | amount (right)
-          SizedBox(height: 8.h),
+          SizedBox(height: 8.th),
           Row(
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
@@ -453,7 +463,7 @@ class _InvoiceRow extends StatelessWidget {
                 Text(
                   item.invoiceDate,
                   style: GoogleFonts.poppins(
-                    fontSize: 11.sp,
+                    fontSize: 11.tsp,
                     color: PurchaseTheme.textMuted,
                   ),
                 ),
@@ -465,7 +475,7 @@ class _InvoiceRow extends StatelessWidget {
                         item.amountDisplay,
                       ),
                 style: GoogleFonts.poppins(
-                  fontSize: 15.sp,
+                  fontSize: 15.tsp,
                   fontWeight: FontWeight.w800,
                   color: PurchaseTheme.accentDeep,
                 ),

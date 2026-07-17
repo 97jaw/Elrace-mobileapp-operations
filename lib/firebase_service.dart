@@ -13,6 +13,19 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 
+// Prevent device identifiers from reaching production logs while preserving
+// the existing token retrieval and storage flow.
+void print(Object? message) {
+  final text = message?.toString() ?? '';
+  final lower = text.toLowerCase();
+  if (lower.contains('fcm token') ||
+      lower.contains('apns token') ||
+      lower.contains('device token')) {
+    return;
+  }
+  debugPrint(text);
+}
+
 class FirebaseService {
   static final FirebaseMessaging _firebaseMessaging =
       FirebaseMessaging.instance;
@@ -135,6 +148,9 @@ class FirebaseService {
       // Save notification to storage (await to ensure badge count
       // is persisted before the onCountChanged callback fires).
       await _saveNotificationToStorage(message);
+      // iOS often delivers alert pushes without a reliable local bump — sync
+      // unread-since-open from Odoo so the home bell updates immediately.
+      await NotificationStorageService.syncBadgeFromServer();
 
       await _refreshAttendanceFromPushIfNeeded(
         message,
@@ -211,7 +227,7 @@ class FirebaseService {
 
         final apnsToken = await _firebaseMessaging.getAPNSToken();
         if (apnsToken != null && apnsToken.isNotEmpty) {
-          print('🍎 APNS token: $apnsToken');
+          if (kDebugMode) print('🍎 APNS token: $apnsToken');
         } else {
           print('⚠️ APNS token unavailable during initialize');
         }
@@ -220,7 +236,7 @@ class FirebaseService {
       String? token = await _firebaseMessaging.getToken();
       if (token != null) {
         SharedPref().setPreferencesString(fcm_token, token);
-        print('📱 FCM Token obtained: $token'); // full token for debugging
+        if (kDebugMode) print('📱 FCM Token obtained: $token');
       } else {
         print('❌ FCM Token is null - this may indicate APNS token issue');
       }
@@ -231,7 +247,7 @@ class FirebaseService {
     // Listen for token refresh
     FirebaseMessaging.instance.onTokenRefresh.listen((newToken) {
       SharedPref().setPreferencesString(fcm_token, newToken.toString());
-      print('🔁 FCM Token refreshed: $newToken'); // full token for debugging
+      if (kDebugMode) print('🔁 FCM Token refreshed: $newToken');
     });
   }
 
@@ -440,12 +456,17 @@ class FirebaseService {
         category = message.data['model'].toString();
       }
 
+      final data = Map<String, dynamic>.from(message.data);
+      if (message.messageId != null && message.messageId!.isNotEmpty) {
+        data.putIfAbsent('fcm_message_id', () => message.messageId);
+      }
+
       await NotificationStorageService.saveNotification(
         title: title.isEmpty ? 'Notification' : title,
         body: body,
         imageUrl:
             notification?.android?.imageUrl ?? notification?.apple?.imageUrl,
-        data: message.data,
+        data: data,
         category: category,
       );
     } catch (e) {

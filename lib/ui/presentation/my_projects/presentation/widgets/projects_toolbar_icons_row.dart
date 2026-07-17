@@ -1,3 +1,4 @@
+import 'package:el_race/core/utils/responsive_breakpoints.dart';
 import 'package:el_race/ui/presentation/my_projects/presentation/theme/projects_dashboard_theme.dart';
 import 'package:el_race/ui/presentation/my_projects/presentation/widgets/projects_view_switch_row.dart';
 import 'package:flutter/material.dart';
@@ -71,12 +72,12 @@ class _ToolbarIcon extends StatelessWidget {
       color: Colors.transparent,
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(12.r),
+        borderRadius: BorderRadius.circular(12.tr),
         child: Container(
-          width: 46.w,
-          height: 46.w,
+          width: 46.tw,
+          height: 46.tw,
           decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(12.r),
+            borderRadius: BorderRadius.circular(12.tr),
             gradient: isActive
                 ? ProjectsDashboardTheme.iconTileActiveGradient
                 : ProjectsDashboardTheme.iconTileGradient,
@@ -97,7 +98,7 @@ class _ToolbarIcon extends StatelessWidget {
           child: Icon(
             icon,
             color: ProjectsDashboardTheme.white,
-            size: 22.sp,
+            size: 22.tsp,
           ),
         ),
       ),
@@ -116,12 +117,12 @@ class _AiToolbarIcon extends StatelessWidget {
       color: Colors.transparent,
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(12.r),
+        borderRadius: BorderRadius.circular(12.tr),
         child: Container(
-          width: 46.w,
-          height: 46.w,
+          width: 46.tw,
+          height: 46.tw,
           decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(12.r),
+            borderRadius: BorderRadius.circular(12.tr),
             gradient: ProjectsDashboardTheme.maroonAccentGradient,
             border: Border.all(
               color: ProjectsDashboardTheme.white.withValues(alpha: 0.62),
@@ -145,27 +146,27 @@ class _AiToolbarIcon extends StatelessWidget {
             clipBehavior: Clip.none,
             children: [
               Positioned(
-                top: 5.h,
-                right: 7.w,
+                top: 5.th,
+                right: 7.tw,
                 child: Icon(
                   Icons.auto_awesome,
-                  size: 9.sp,
+                  size: 9.tsp,
                   color: ProjectsDashboardTheme.white.withValues(alpha: 0.85),
                 ),
               ),
               Positioned(
-                bottom: 6.h,
-                left: 7.w,
+                bottom: 6.th,
+                left: 7.tw,
                 child: Icon(
                   Icons.auto_awesome,
-                  size: 6.sp,
+                  size: 6.tsp,
                   color: ProjectsDashboardTheme.maroonSoft.withValues(alpha: 0.95),
                 ),
               ),
               Text(
                 'Ai',
                 style: GoogleFonts.poppins(
-                  fontSize: 17.sp,
+                  fontSize: 17.tsp,
                   fontWeight: FontWeight.w800,
                   color: ProjectsDashboardTheme.white,
                   height: 1,

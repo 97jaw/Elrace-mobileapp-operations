@@ -1,5 +1,6 @@
 import 'package:el_race/core/hr_management/routing/hr_route_names.dart';
 import 'package:el_race/core/timesheet/routing/timesheet_route_names.dart';
+import 'package:el_race/core/utils/responsive_breakpoints.dart';
 import 'package:el_race/ui/presentation/hr_management/hr_management_entry_screen.dart';
 import 'package:el_race/ui/presentation/home_screen/bloc/home_bloc.dart';
 import 'package:el_race/ui/presentation/home_screen/providers/home_attendance_widget_provider.dart';
@@ -17,9 +18,17 @@ import 'package:intl/intl.dart';
 
 /// v7 Human Resource category widgets (Attendance, HRMS, Timesheet).
 class HrCategoryAttendanceCard extends ConsumerWidget {
-  const HrCategoryAttendanceCard({super.key, this.compact = false});
+  const HrCategoryAttendanceCard({
+    super.key,
+    this.compact = false,
+    this.tabletCompact = false,
+  });
 
   final bool compact;
+
+  /// When true, prefer denser layout for narrow tablet columns.
+  /// Phone layout is unchanged when this is false.
+  final bool tabletCompact;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -34,7 +43,7 @@ class HrCategoryAttendanceCard extends ConsumerWidget {
     final workingLabel = workingDays > 0 ? '$workingDays' : '—';
 
     return _HrHalfCardShell(
-      height: 140.h,
+      height: tabletCompact ? double.infinity : 140.uh,
       onTap: () =>
           Navigator.of(context).pushNamed(HrRouteNames.attendanceReports),
       gradient: const LinearGradient(
@@ -68,11 +77,11 @@ class HrCategoryAttendanceCard extends ConsumerWidget {
           ),
           Positioned(
             right: 2.w,
-            bottom: 4.h,
+            bottom: 4.uh,
             child: IgnorePointer(
               child: Image.asset(
                 'assets/newapp/finger-print_svgrepo.com.png',
-                width: compact ? 70.w : 84.w,
+                width: (compact || tabletCompact) ? 70.w : 84.w,
                 fit: BoxFit.contain,
                 color: const Color(0xFF2F6FD4).withValues(alpha: 0.38),
                 colorBlendMode: BlendMode.srcIn,
@@ -82,6 +91,7 @@ class HrCategoryAttendanceCard extends ConsumerWidget {
         ],
       ),
       child: Column(
+        mainAxisSize: tabletCompact ? MainAxisSize.min : MainAxisSize.max,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Column(
@@ -90,43 +100,45 @@ class HrCategoryAttendanceCard extends ConsumerWidget {
               Text(
                 'ATTENDANCE',
                 style: GoogleFonts.poppins(
-                  fontSize: 8.sp,
+                  fontSize: 8.usp,
                   fontWeight: FontWeight.w700,
                   color: const Color(0xFF3E7BFA),
                   letterSpacing: 0.5,
                 ),
               ),
-              SizedBox(height: 2.h),
+              SizedBox(height: 2.uh),
               Text(
                 monthLabel,
                 style: GoogleFonts.poppins(
-                  fontSize: compact ? 11.sp : 12.sp,
+                  fontSize: (compact || tabletCompact) ? 11.usp : 12.usp,
                   fontWeight: FontWeight.w700,
                   color: const Color(0xFF1A2A4F),
                 ),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
               ),
-              SizedBox(height: compact ? 6.h : 8.h),
+              SizedBox(height: (compact || tabletCompact) ? 6.uh : 8.uh),
               _HrAttendanceStatRow(
                 present: present,
                 workingLabel: workingLabel,
-                compact: compact,
+                compact: compact || tabletCompact,
               ),
-              SizedBox(height: 4.h),
+              SizedBox(height: 4.uh),
               Text(
                 '$pct% present',
                 style: GoogleFonts.poppins(
-                  fontSize: 9.5.sp,
+                  fontSize: 9.5.usp,
                   fontWeight: FontWeight.w600,
                   color: const Color(0xFF1F9D63),
                 ),
               ),
             ],
           ),
-          const Spacer(),
-          if (!compact)
+          if (!tabletCompact) const Spacer(),
+          if (!compact) ...[
+            if (tabletCompact) SizedBox(height: 6.uh),
             _HrWeekDotsRow(weekDayStates: stats.weekDayStates),
+          ],
         ],
       ),
     );
@@ -134,9 +146,16 @@ class HrCategoryAttendanceCard extends ConsumerWidget {
 }
 
 class HrCategoryHrmsCard extends ConsumerWidget {
-  const HrCategoryHrmsCard({super.key, this.compact = false});
+  const HrCategoryHrmsCard({
+    super.key,
+    this.compact = false,
+    this.tabletCompact = false,
+  });
 
   final bool compact;
+
+  /// When true, prefer denser layout for narrow tablet columns.
+  final bool tabletCompact;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -153,7 +172,7 @@ class HrCategoryHrmsCard extends ConsumerWidget {
     ];
 
     return _HrHalfCardShell(
-      height: 140.h,
+      height: tabletCompact ? double.infinity : 140.uh,
       onTap: () => Util.pushPage(const HrManagementEntryScreen(), context),
       gradient: const LinearGradient(
         begin: Alignment.topLeft,
@@ -171,18 +190,22 @@ class HrCategoryHrmsCard extends ConsumerWidget {
       ),
       pattern: Positioned(
         right: 0.w,
-        bottom: 4.h,
+        bottom: 4.uh,
         child: IgnorePointer(
           child: Opacity(
             opacity: 0.38,
             child: CustomPaint(
-              size: Size(compact ? 92.w : 108.w, compact ? 72.h : 86.h),
+              size: Size(
+                (compact || tabletCompact) ? 92.w : 108.w,
+                (compact || tabletCompact) ? 72.uh : 86.uh,
+              ),
               painter: _PeopleNetworkPatternPainter(),
             ),
           ),
         ),
       ),
       child: Column(
+        mainAxisSize: tabletCompact ? MainAxisSize.min : MainAxisSize.max,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Column(
@@ -191,42 +214,42 @@ class HrCategoryHrmsCard extends ConsumerWidget {
               Text(
                 stats.headlineLabel,
                 style: GoogleFonts.poppins(
-                  fontSize: 8.sp,
+                  fontSize: 8.usp,
                   fontWeight: FontWeight.w700,
                   color: const Color(0xFFE63946),
                   letterSpacing: 0.5,
                 ),
               ),
-              SizedBox(height: 2.h),
+              SizedBox(height: 2.uh),
               Text(
                 'HRMS',
                 style: GoogleFonts.poppins(
-                  fontSize: compact ? 11.sp : 12.sp,
+                  fontSize: (compact || tabletCompact) ? 11.usp : 12.usp,
                   fontWeight: FontWeight.w700,
                   color: const Color(0xFF7A1E28),
                 ),
               ),
-              SizedBox(height: compact ? 6.h : 8.h),
+              SizedBox(height: (compact || tabletCompact) ? 6.uh : 8.uh),
               FittedBox(
                 fit: BoxFit.scaleDown,
                 alignment: Alignment.centerLeft,
                 child: Text(
                   countLabel,
                   style: GoogleFonts.poppins(
-                    fontSize: compact ? 26.sp : 28.sp,
+                    fontSize: (compact || tabletCompact) ? 26.usp : 28.usp,
                     fontWeight: FontWeight.w800,
                     color: const Color(0xFF7A1E28),
                     height: 1,
                   ),
                 ),
               ),
-              SizedBox(height: 4.h),
+              SizedBox(height: 4.uh),
               Text(
                 stats.trendLabel,
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
                 style: GoogleFonts.poppins(
-                  fontSize: 9.sp,
+                  fontSize: 9.usp,
                   fontWeight: FontWeight.w600,
                   color: const Color(0xFFE63946),
                   height: 1.25,
@@ -234,8 +257,9 @@ class HrCategoryHrmsCard extends ConsumerWidget {
               ),
             ],
           ),
-          const Spacer(),
-          if (!compact && pills.isNotEmpty)
+          if (!tabletCompact) const Spacer(),
+          if (!compact && pills.isNotEmpty) ...[
+            if (tabletCompact) SizedBox(height: 6.uh),
             Row(
               children: [
                 for (var i = 0; i < pills.length; i++) ...[
@@ -246,6 +270,7 @@ class HrCategoryHrmsCard extends ConsumerWidget {
                 ],
               ],
             ),
+          ],
         ],
       ),
     );
@@ -253,7 +278,13 @@ class HrCategoryHrmsCard extends ConsumerWidget {
 }
 
 class HrCategoryTimesheetCard extends ConsumerWidget {
-  const HrCategoryTimesheetCard({super.key});
+  const HrCategoryTimesheetCard({
+    super.key,
+    this.tabletCompact = false,
+  });
+
+  /// When true, prefer denser layout for narrow tablet columns.
+  final bool tabletCompact;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -263,13 +294,13 @@ class HrCategoryTimesheetCard extends ConsumerWidget {
       color: Colors.transparent,
       child: InkWell(
         onTap: () => Navigator.of(context).pushNamed(TimesheetRouteNames.home),
-        borderRadius: BorderRadius.circular(22.r),
+        borderRadius: BorderRadius.circular(22.ur),
         child: Container(
-          decoration: CategoryWidgetGradientBorder.outer(borderRadius: 22.r),
+          decoration: CategoryWidgetGradientBorder.outer(borderRadius: 22.ur),
           padding: CategoryWidgetGradientBorder.padding,
           child: Container(
             decoration: CategoryWidgetGradientBorder.inner(
-              borderRadius: 22.r,
+              borderRadius: 22.ur,
               fillGradient: const LinearGradient(
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
@@ -285,96 +316,99 @@ class HrCategoryTimesheetCard extends ConsumerWidget {
             children: [
               Positioned(
                 right: -8.w,
-                bottom: -10.h,
+                bottom: -10.uh,
                 child: Opacity(
                   opacity: 0.2,
                   child: Icon(
                     Icons.construction_rounded,
-                    size: 96.sp,
+                    size: 96.usp,
                     color: const Color(0xFFD4A82A),
                   ),
                 ),
               ),
               Padding(
-                padding: EdgeInsets.fromLTRB(14.w, 12.h, 14.w, 12.h),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                'TIMESHEET',
-                                style: GoogleFonts.poppins(
-                                  fontSize: 8.sp,
-                                  fontWeight: FontWeight.w700,
-                                  color: const Color(0xFF8A8F9C),
-                                  letterSpacing: 0.55,
-                                ),
-                              ),
-                              SizedBox(height: 2.h),
-                              Text(
-                                data.titleLine,
-                                style: GoogleFonts.poppins(
-                                  fontSize: 13.sp,
-                                  fontWeight: FontWeight.w700,
-                                  color: const Color(0xFF1A2A4F),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        _HrIconBadge(
-                          icon: Icons.schedule_rounded,
-                          gradient: const [
-                            Color(0xFFE8C547),
-                            Color(0xFFD4A82A),
-                          ],
-                        ),
-                      ],
-                    ),
-                    SizedBox(height: 12.h),
-                    IntrinsicHeight(
-                      child: Row(
+                padding: EdgeInsets.fromLTRB(14.w, 12.uh, 14.w, 12.uh),
+                child: _tabletScaleDownContent(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          _HrStatColumn(
-                            label: 'Total Hours',
-                            value: _formatHours(data.totalHours),
-                            valueColor: const Color(0xFF1A2A4F),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'TIMESHEET',
+                                  style: GoogleFonts.poppins(
+                                    fontSize: 8.usp,
+                                    fontWeight: FontWeight.w700,
+                                    color: const Color(0xFF8A8F9C),
+                                    letterSpacing: 0.55,
+                                  ),
+                                ),
+                                SizedBox(height: 2.uh),
+                                Text(
+                                  data.titleLine,
+                                  style: GoogleFonts.poppins(
+                                    fontSize: 13.usp,
+                                    fontWeight: FontWeight.w700,
+                                    color: const Color(0xFF1A2A4F),
+                                  ),
+                                ),
+                              ],
+                            ),
                           ),
-                          _HrStatDivider(),
-                          _HrStatColumn(
-                            label: 'Overtime',
-                            value: _formatHours(data.overtimeHours),
-                            valueColor: const Color(0xFFD4A82A),
-                          ),
-                          _HrStatDivider(),
-                          _HrStatColumn(
-                            label: data.isProjectScope
-                                ? 'Avg / Worker'
-                                : 'Avg / Day',
-                            value: _formatHours(data.avgPerWorker),
-                            valueColor: const Color(0xFF1A2A4F),
+                          _HrIconBadge(
+                            icon: Icons.schedule_rounded,
+                            gradient: const [
+                              Color(0xFFE8C547),
+                              Color(0xFFD4A82A),
+                            ],
                           ),
                         ],
                       ),
-                    ),
-                    SizedBox(height: 10.h),
-                    Text(
-                      data.deltaTrendLabel,
-                      style: GoogleFonts.poppins(
-                        fontSize: 10.sp,
-                        fontWeight: FontWeight.w600,
-                        color: data.deltaVsLastWeek >= 0
-                            ? const Color(0xFF1F9D63)
-                            : const Color(0xFFE05A4F),
+                      SizedBox(height: 12.uh),
+                      IntrinsicHeight(
+                        child: Row(
+                          children: [
+                            _HrStatColumn(
+                              label: 'Total Hours',
+                              value: _formatHours(data.totalHours),
+                              valueColor: const Color(0xFF1A2A4F),
+                            ),
+                            _HrStatDivider(),
+                            _HrStatColumn(
+                              label: 'Overtime',
+                              value: _formatHours(data.overtimeHours),
+                              valueColor: const Color(0xFFD4A82A),
+                            ),
+                            _HrStatDivider(),
+                            _HrStatColumn(
+                              label: data.isProjectScope
+                                  ? 'Avg / Worker'
+                                  : 'Avg / Day',
+                              value: _formatHours(data.avgPerWorker),
+                              valueColor: const Color(0xFF1A2A4F),
+                            ),
+                          ],
+                        ),
                       ),
-                    ),
-                  ],
+                      SizedBox(height: 10.uh),
+                      Text(
+                        data.deltaTrendLabel,
+                        style: GoogleFonts.poppins(
+                          fontSize: 10.usp,
+                          fontWeight: FontWeight.w600,
+                          color: data.deltaVsLastWeek >= 0
+                              ? const Color(0xFF1F9D63)
+                              : const Color(0xFFE05A4F),
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ],
@@ -395,9 +429,9 @@ class HrCategoryCollapsedPreview extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: EdgeInsets.fromLTRB(16.w, 0, 16.w, 14.h),
+      padding: EdgeInsets.fromLTRB(16.w, 0, 16.w, 14.uh),
       child: SizedBox(
-        height: 140.h,
+        height: 140.uh,
         child: Row(
           children: [
             Expanded(
@@ -425,6 +459,27 @@ String _formatHours(num value) {
   return '${value.toStringAsFixed(1)}h';
 }
 
+/// Overflow guard for tablet scale boxes only — never wrap phone content
+/// (breaks Spacer / bottom metadata on Attendance & HRMS).
+Widget _tabletScaleDownContent({required Widget child}) {
+  if (!ResponsiveBreakpoints.isTabletScreen) return child;
+  return LayoutBuilder(
+    builder: (context, constraints) {
+      return Align(
+        alignment: Alignment.topLeft,
+        child: FittedBox(
+          fit: BoxFit.scaleDown,
+          alignment: Alignment.topLeft,
+          child: ConstrainedBox(
+            constraints: BoxConstraints(maxWidth: constraints.maxWidth),
+            child: child,
+          ),
+        ),
+      );
+    },
+  );
+}
+
 class _HrHalfCardShell extends StatelessWidget {
   const _HrHalfCardShell({
     required this.child,
@@ -442,47 +497,82 @@ class _HrHalfCardShell extends StatelessWidget {
   final VoidCallback? onTap;
   final double? height;
 
+  /// Landscape tablets: inflate shell height so ScreenUtil `.w`/`.usp` content fits.
+  static double defaultHeight() =>
+      ResponsiveBreakpoints.landscapeAwareCardHeight();
+
   @override
   Widget build(BuildContext context) {
     final innerRadius =
-        (22.r - CategoryWidgetGradientBorder.width).clamp(0.0, double.infinity);
+        (22.ur - CategoryWidgetGradientBorder.width).clamp(0.0, double.infinity);
 
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(22.r),
-        child: Container(
-          height: height ?? 140.h,
-          decoration: CategoryWidgetGradientBorder.outer(borderRadius: 22.r),
-          padding: CategoryWidgetGradientBorder.padding,
-          child: Container(
-            decoration: CategoryWidgetGradientBorder.inner(
-              borderRadius: 22.r,
-              fillGradient: gradient,
-            ),
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(innerRadius),
-              child: Stack(
-                fit: StackFit.expand,
-                clipBehavior: Clip.hardEdge,
-                children: [
-                  if (pattern != null) pattern!,
-                  Padding(
-                    padding: EdgeInsets.fromLTRB(12.w, 10.h, 46.w, 12.h),
-                    child: SizedBox.expand(child: child),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final shellH = height ??
+            (constraints.hasBoundedHeight && constraints.maxHeight < 10000
+                ? constraints.maxHeight
+                : defaultHeight());
+
+        return Material(
+          color: Colors.transparent,
+          child: InkWell(
+            onTap: onTap,
+            borderRadius: BorderRadius.circular(22.ur),
+            child: Container(
+              height: shellH,
+              width: constraints.hasBoundedWidth ? constraints.maxWidth : null,
+              decoration:
+                  CategoryWidgetGradientBorder.outer(borderRadius: 22.ur),
+              padding: CategoryWidgetGradientBorder.padding,
+              child: Container(
+                decoration: CategoryWidgetGradientBorder.inner(
+                  borderRadius: 22.ur,
+                  fillGradient: gradient,
+                ),
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(innerRadius),
+                  child: Stack(
+                    fit: StackFit.expand,
+                    clipBehavior: Clip.hardEdge,
+                    children: [
+                      if (pattern != null) pattern!,
+                      // Phone: direct child so Spacer + week-dots/pills layout
+                      // works. Tablet: FittedBox only inside the scale box.
+                      Padding(
+                        padding: EdgeInsets.fromLTRB(12.w, 10.uh, 46.w, 12.uh),
+                        child: ResponsiveBreakpoints.isTabletScreen
+                            ? LayoutBuilder(
+                                builder: (context, inner) {
+                                  return Align(
+                                    alignment: Alignment.topLeft,
+                                    child: FittedBox(
+                                      fit: BoxFit.scaleDown,
+                                      alignment: Alignment.topLeft,
+                                      child: ConstrainedBox(
+                                        constraints: BoxConstraints(
+                                          maxWidth: inner.maxWidth,
+                                        ),
+                                        child: child,
+                                      ),
+                                    ),
+                                  );
+                                },
+                              )
+                            : child,
+                      ),
+                      Positioned(
+                        top: 8.uh,
+                        right: 8.w,
+                        child: iconBadge,
+                      ),
+                    ],
                   ),
-                  Positioned(
-                    top: 8.h,
-                    right: 8.w,
-                    child: iconBadge,
-                  ),
-                ],
+                ),
               ),
             ),
           ),
-        ),
-      ),
+        );
+      },
     );
   }
 }
@@ -510,7 +600,7 @@ class _HrAttendanceStatRow extends StatelessWidget {
           Text(
             '$present',
             style: GoogleFonts.poppins(
-              fontSize: compact ? 26.sp : 28.sp,
+              fontSize: compact ? 26.usp : 28.usp,
               fontWeight: FontWeight.w800,
               color: const Color(0xFF1A2A4F),
               height: 1,
@@ -519,7 +609,7 @@ class _HrAttendanceStatRow extends StatelessWidget {
           Text(
             ' /$workingLabel',
             style: GoogleFonts.poppins(
-              fontSize: compact ? 16.sp : 18.sp,
+              fontSize: compact ? 16.usp : 18.usp,
               fontWeight: FontWeight.w700,
               color: const Color(0xFF1A2A4F).withValues(alpha: 0.72),
               height: 1,
@@ -546,7 +636,7 @@ class _HrIconBadge extends StatelessWidget {
       width: 34.w,
       height: 34.w,
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(10.r),
+        borderRadius: BorderRadius.circular(10.ur),
         gradient: LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
@@ -560,7 +650,7 @@ class _HrIconBadge extends StatelessWidget {
           ),
         ],
       ),
-      child: Icon(icon, color: Colors.white, size: 18.sp),
+      child: Icon(icon, color: Colors.white, size: 18.usp),
     );
   }
 }
@@ -573,7 +663,7 @@ class _HrSoftPill extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: EdgeInsets.symmetric(horizontal: 8.w, vertical: 3.h),
+      padding: EdgeInsets.symmetric(horizontal: 8.w, vertical: 3.uh),
       decoration: BoxDecoration(
         color: Colors.white.withValues(alpha: 0.55),
         borderRadius: BorderRadius.circular(999),
@@ -583,7 +673,7 @@ class _HrSoftPill extends StatelessWidget {
         maxLines: 1,
         overflow: TextOverflow.ellipsis,
         style: GoogleFonts.poppins(
-          fontSize: 8.sp,
+          fontSize: 8.usp,
           fontWeight: FontWeight.w600,
           color: const Color(0xFF7A1E28),
         ),
@@ -662,12 +752,12 @@ class _HrWeekDotsRow extends StatelessWidget {
         alignment: Alignment.center,
         decoration: BoxDecoration(
           color: fill,
-          borderRadius: BorderRadius.circular(6.r),
+          borderRadius: BorderRadius.circular(6.ur),
         ),
         child: Text(
           label,
           style: GoogleFonts.poppins(
-            fontSize: 7.sp,
+            fontSize: 7.usp,
             fontWeight: FontWeight.w700,
             color: textColor,
           ),
@@ -697,17 +787,17 @@ class _HrStatColumn extends StatelessWidget {
           Text(
             label.toUpperCase(),
             style: GoogleFonts.poppins(
-              fontSize: 7.5.sp,
+              fontSize: 7.5.usp,
               fontWeight: FontWeight.w600,
               color: const Color(0xFF7A849C),
               letterSpacing: 0.35,
             ),
           ),
-          SizedBox(height: 4.h),
+          SizedBox(height: 4.uh),
           Text(
             value,
             style: GoogleFonts.poppins(
-              fontSize: 17.sp,
+              fontSize: 17.usp,
               fontWeight: FontWeight.w800,
               color: valueColor,
               height: 1,

@@ -1,3 +1,4 @@
+import 'package:el_race/core/utils/responsive_breakpoints.dart';
 import 'dart:typed_data';
 
 import 'package:el_race/core/hr_management/providers/hr_management_providers.dart';
@@ -58,7 +59,7 @@ class O1OfferDetailScreen extends ConsumerWidget {
             foregroundColor: HrModuleColors.text,
             title: Text(
               'Offer letter',
-              style: HrModuleTypography.sectionHeading().copyWith(fontSize: 18.sp),
+              style: HrModuleTypography.sectionHeading().copyWith(fontSize: 18.tsp),
             ),
             actions: [
               IconButton(
@@ -91,31 +92,31 @@ class O1OfferDetailScreen extends ConsumerWidget {
             ],
           ),
           body: ListView(
-            padding: EdgeInsets.all(HrModuleLayout.screenPaddingH.w),
+            padding: EdgeInsets.all(HrModuleLayout.screenPaddingH.tw),
             children: [
               Container(
-                padding: EdgeInsets.all(14.r),
+                padding: EdgeInsets.all(14.tr),
                 decoration: BoxDecoration(
                   color: HrModuleColors.surface,
                   borderRadius:
-                      BorderRadius.circular(HrModuleLayout.cardRadius.r),
+                      BorderRadius.circular(HrModuleLayout.cardRadius.tr),
                   border: Border.all(color: HrModuleColors.border),
                 ),
                 child: Row(
                   children: [
-                    Icon(Icons.mail_outline, color: HrModuleColors.primary, size: 32.sp),
-                    SizedBox(width: 12.w),
+                    Icon(Icons.mail_outline, color: HrModuleColors.primary, size: 32.tsp),
+                    SizedBox(width: 12.tw),
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
                             o.candidateName,
-                            style: HrModuleTypography.cardTitle().copyWith(fontSize: 17.sp),
+                            style: HrModuleTypography.cardTitle().copyWith(fontSize: 17.tsp),
                           ),
                           Text(o.positionTitle, style: HrModuleTypography.body()),
                           Text(o.referenceNumber, style: HrModuleTypography.caption()),
-                          SizedBox(height: 6.h),
+                          SizedBox(height: 6.th),
                           HrStatusBadge(uiStatus: o.uiStatus, kind: HrBadgeKind.offer),
                         ],
                       ),
@@ -123,10 +124,10 @@ class O1OfferDetailScreen extends ConsumerWidget {
                   ],
                 ),
               ),
-              SizedBox(height: 16.h),
+              SizedBox(height: 16.th),
               Text(
                 'Offer details',
-                style: HrModuleTypography.sectionHeading().copyWith(fontSize: 14.sp),
+                style: HrModuleTypography.sectionHeading().copyWith(fontSize: 14.tsp),
               ),
               HrDetailRow(label: 'Position', value: o.positionTitle),
               HrDetailRow(label: 'Department', value: o.department),
@@ -148,23 +149,23 @@ class O1OfferDetailScreen extends ConsumerWidget {
                   label: 'Expiry',
                   value: DateFormat('dd MMM yyyy').format(o.expiryAt!),
                 ),
-              SizedBox(height: 12.h),
+              SizedBox(height: 12.th),
               Text(
                 'Status',
-                style: HrModuleTypography.sectionHeading().copyWith(fontSize: 14.sp),
+                style: HrModuleTypography.sectionHeading().copyWith(fontSize: 14.tsp),
               ),
               _timelineTile('Draft', o.uiStatus == 'DRAFT'),
               _timelineTile('Sent', o.uiStatus == 'SENT' || o.uiStatus == 'ACCEPTED' || o.uiStatus == 'DECLINED' || o.uiStatus == 'EXPIRED'),
               _timelineTile('Outcome', o.uiStatus == 'ACCEPTED' || o.uiStatus == 'DECLINED' || o.uiStatus == 'EXPIRED'),
-              SizedBox(height: 12.h),
+              SizedBox(height: 12.th),
               if (showComp && o.salaryBreakdownLines != null) ...[
                 Text(
                   'Compensation',
-                  style: HrModuleTypography.sectionHeading().copyWith(fontSize: 14.sp),
+                  style: HrModuleTypography.sectionHeading().copyWith(fontSize: 14.tsp),
                 ),
                 ...o.salaryBreakdownLines!.map(
                   (line) => Padding(
-                    padding: EdgeInsets.only(bottom: 4.h),
+                    padding: EdgeInsets.only(bottom: 4.th),
                     child: Text(line, style: HrModuleTypography.body()),
                   ),
                 ),
@@ -174,7 +175,7 @@ class O1OfferDetailScreen extends ConsumerWidget {
                   style: HrModuleTypography.caption(),
                 ),
               ],
-              SizedBox(height: 20.h),
+              SizedBox(height: 20.th),
               FilledButton.icon(
                 onPressed: () async {
                   final bytes = await _buildPdfBytes(
@@ -188,7 +189,7 @@ class O1OfferDetailScreen extends ConsumerWidget {
                 icon: const Icon(Icons.download),
                 label: const Text('Download PDF (watermarked)'),
               ),
-              SizedBox(height: 12.h),
+              SizedBox(height: 12.th),
               Tooltip(
                 message: 'Available in Phase 2',
                 child: OutlinedButton(
@@ -243,9 +244,9 @@ class O1OfferDetailScreen extends ConsumerWidget {
       leading: Icon(
         done ? Icons.check_circle : Icons.radio_button_unchecked,
         color: done ? HrModuleColors.success : HrModuleColors.mutedText,
-        size: 20.sp,
+        size: 20.tsp,
       ),
-      title: Text(label, style: TextStyle(fontSize: 13.sp)),
+      title: Text(label, style: TextStyle(fontSize: 13.tsp)),
     );
   }
 }

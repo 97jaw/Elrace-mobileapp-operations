@@ -1,3 +1,4 @@
+import 'package:el_race/core/utils/responsive_breakpoints.dart';
 import 'package:el_race/core/payslip/models/payslip_models.dart';
 import 'package:el_race/core/theme/hr_module_colors.dart';
 import 'package:el_race/core/theme/hr_module_typography.dart';
@@ -20,7 +21,7 @@ class PayslipDocumentView extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       width: double.infinity,
-      padding: EdgeInsets.all(16.w),
+      padding: EdgeInsets.all(16.tw),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(14),
         gradient: const LinearGradient(
@@ -51,8 +52,8 @@ class PayslipDocumentView extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Container(
-                width: 44.w,
-                height: 44.w,
+                width: 44.tw,
+                height: 44.tw,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
                   border: Border.all(color: HrModuleColors.primary, width: 2),
@@ -62,13 +63,13 @@ class PayslipDocumentView extends StatelessWidget {
                 child: Text(
                   'RCC',
                   style: HrModuleTypography.caption().copyWith(
-                        fontSize: 10.sp,
+                        fontSize: 10.tsp,
                         fontWeight: FontWeight.w800,
                         color: HrModuleColors.primary,
                       ),
                 ),
               ),
-              SizedBox(width: 12.w),
+              SizedBox(width: 12.tw),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -76,44 +77,44 @@ class PayslipDocumentView extends StatelessWidget {
                     Text(
                       record.companyName,
                       style: HrModuleTypography.sectionHeading()
-                          .copyWith(fontSize: 14.sp, fontWeight: FontWeight.w800),
+                          .copyWith(fontSize: 14.tsp, fontWeight: FontWeight.w800),
                     ),
                     Text(
                       record.companyLocation,
-                      style: HrModuleTypography.caption().copyWith(fontSize: 12.sp),
+                      style: HrModuleTypography.caption().copyWith(fontSize: 12.tsp),
                     ),
                   ],
                 ),
               ),
             ],
           ),
-          Divider(height: 24.h, color: HrModuleColors.border),
+          Divider(height: 24.th, color: HrModuleColors.border),
           Text(
             'Pay Slip',
-            style: HrModuleTypography.pageTitle().copyWith(fontSize: 22.sp),
+            style: HrModuleTypography.pageTitle().copyWith(fontSize: 22.tsp),
           ),
-          SizedBox(height: 4.h),
+          SizedBox(height: 4.th),
           Text(
             'Salary Slip of ${record.summary.employeeName} for ${record.periodTitle}',
-            style: HrModuleTypography.body().copyWith(fontSize: 13.sp, height: 1.35),
+            style: HrModuleTypography.body().copyWith(fontSize: 13.tsp, height: 1.35),
           ),
-          SizedBox(height: 16.h),
+          SizedBox(height: 16.th),
           _metaGrid(),
-          SizedBox(height: 18.h),
+          SizedBox(height: 18.th),
           _linesTable(),
           if (record.otherDetails.isNotEmpty) ...[
-            SizedBox(height: 18.h),
+            SizedBox(height: 18.th),
             Text(
               'Other Details',
-              style: HrModuleTypography.sectionHeading().copyWith(fontSize: 15.sp),
+              style: HrModuleTypography.sectionHeading().copyWith(fontSize: 15.tsp),
             ),
-            SizedBox(height: 8.h),
+            SizedBox(height: 8.th),
             _otherTable(),
           ],
-          SizedBox(height: 20.h),
+          SizedBox(height: 20.th),
           Container(
             width: double.infinity,
-            padding: EdgeInsets.all(16.w),
+            padding: EdgeInsets.all(16.tw),
             decoration: BoxDecoration(
               gradient: LinearGradient(
                 colors: [
@@ -128,22 +129,22 @@ class PayslipDocumentView extends StatelessWidget {
               children: [
                 Text(
                   'Net salary',
-                  style: HrModuleTypography.caption().copyWith(fontSize: 12.sp),
+                  style: HrModuleTypography.caption().copyWith(fontSize: 12.tsp),
                 ),
                 Text(
                   _money(record.netAed),
                   style: HrModuleTypography.sectionHeading().copyWith(
-                        fontSize: 28.sp,
+                        fontSize: 28.tsp,
                         fontWeight: FontWeight.w800,
                         color: HrModuleColors.primary,
                       ),
                 ),
                 if (record.amountInWords != null) ...[
-                  SizedBox(height: 6.h),
+                  SizedBox(height: 6.th),
                   Text(
                     record.amountInWords!,
                     style: HrModuleTypography.caption().copyWith(
-                          fontSize: 13.sp,
+                          fontSize: 13.tsp,
                           fontStyle: FontStyle.italic,
                         ),
                   ),
@@ -151,12 +152,12 @@ class PayslipDocumentView extends StatelessWidget {
               ],
             ),
           ),
-          SizedBox(height: 16.h),
+          SizedBox(height: 16.th),
           Align(
             alignment: Alignment.centerRight,
             child: Text(
               'Authorized signature',
-              style: HrModuleTypography.caption().copyWith(fontSize: 12.sp),
+              style: HrModuleTypography.caption().copyWith(fontSize: 12.tsp),
             ),
           ),
         ],
@@ -188,7 +189,7 @@ class PayslipDocumentView extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Expanded(child: _metaColumn(rows.sublist(0, half))),
-              SizedBox(width: 12.w),
+              SizedBox(width: 12.tw),
               Expanded(child: _metaColumn(rows.sublist(half))),
             ],
           );
@@ -203,7 +204,7 @@ class PayslipDocumentView extends StatelessWidget {
       children: [
         for (var i = 0; i < pairs.length; i++) ...[
           _metaPair(pairs[i].$1, pairs[i].$2, i),
-          SizedBox(height: 8.h),
+          SizedBox(height: 8.th),
         ],
       ],
     );
@@ -224,29 +225,29 @@ class PayslipDocumentView extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         Container(
-          padding: EdgeInsets.symmetric(horizontal: 10.w, vertical: 8.h),
+          padding: EdgeInsets.symmetric(horizontal: 10.tw, vertical: 8.th),
           decoration: BoxDecoration(
             color: band,
-            borderRadius: BorderRadius.vertical(top: Radius.circular(8.r)),
+            borderRadius: BorderRadius.vertical(top: Radius.circular(8.tr)),
           ),
           child: Text(
             label,
             style: HrModuleTypography.caption().copyWith(
-                  fontSize: 11.sp,
+                  fontSize: 11.tsp,
                   fontWeight: FontWeight.w700,
                   color: Colors.white,
                 ),
           ),
         ),
         Container(
-          padding: EdgeInsets.symmetric(horizontal: 10.w, vertical: 10.h),
+          padding: EdgeInsets.symmetric(horizontal: 10.tw, vertical: 10.th),
           decoration: BoxDecoration(
             color: fill,
-            borderRadius: BorderRadius.vertical(bottom: Radius.circular(8.r)),
+            borderRadius: BorderRadius.vertical(bottom: Radius.circular(8.tr)),
           ),
           child: Text(
             value,
-            style: HrModuleTypography.body().copyWith(fontSize: 12.sp, height: 1.35),
+            style: HrModuleTypography.body().copyWith(fontSize: 12.tsp, height: 1.35),
           ),
         ),
       ],
@@ -274,7 +275,7 @@ class PayslipDocumentView extends StatelessWidget {
             DataRow(
               cells: [
                 DataCell(Text(line.code)),
-                DataCell(SizedBox(width: 180.w, child: Text(line.name))),
+                DataCell(SizedBox(width: 180.tw, child: Text(line.name))),
                 DataCell(Text(NumberFormat('#0.00').format(line.quantity))),
                 DataCell(Text(_money(line.amountAed))),
                 DataCell(Text(_money(line.totalAed))),

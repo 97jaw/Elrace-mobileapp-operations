@@ -168,7 +168,6 @@ class _ProfileBoxWithSlideAnimationState
   static const List<_MuteChannelConfig> _localOnlyChannels = [
     _MuteChannelConfig(label: 'Chat', key: 'chat_message'),
     _MuteChannelConfig(label: 'Tasks', key: 'task'),
-    _MuteChannelConfig(label: 'Adhan', key: 'adhan'),
   ];
 
   Future<void> _openMuteControlPopup() async {
@@ -185,13 +184,24 @@ class _ProfileBoxWithSlideAnimationState
 
     final apiChannels = apiCategories
         .where((c) => c.model.trim().isNotEmpty)
+        .where((c) => c.model.trim().toLowerCase() != 'adhan')
         .map(
-          (c) => _MuteChannelConfig(
-            label: c.title.trim().isNotEmpty ? c.title : c.model,
-            key: c.model.trim().toLowerCase(),
-          ),
+          (c) {
+            final key = c.model.trim().toLowerCase();
+            final label = key == 'prayer'
+                ? 'Prayer / Adhan'
+                : (c.title.trim().isNotEmpty ? c.title : c.model);
+            return _MuteChannelConfig(label: label, key: key);
+          },
         )
         .toList();
+
+    // Ensure Prayer / Adhan appears even if API omits it.
+    if (!apiChannels.any((c) => c.key == 'prayer')) {
+      apiChannels.add(
+        const _MuteChannelConfig(label: 'Prayer / Adhan', key: 'prayer'),
+      );
+    }
 
     // Merge: add local-only channels that are not already in the API list
     final existingKeys = apiChannels.map((c) => c.key).toSet();
@@ -205,8 +215,8 @@ class _ProfileBoxWithSlideAnimationState
       _muteChannels = apiChannels;
       _muteValueByKey = <String, bool>{
         for (final channel in apiChannels)
-          channel.key: channel.key == 'adhan'
-              ? adhanMuted
+          channel.key: channel.key == 'prayer'
+              ? (settings['prayer'] == true || adhanMuted)
               : (settings[channel.key] == true),
       };
       _isMutePopupVisible = true;
@@ -230,20 +240,19 @@ class _ProfileBoxWithSlideAnimationState
 
     try {
       if (_isLocalOnlyKey(item.key)) {
-        // Local-only: handle adhan separately via HiveService
-        if (item.key == 'adhan') {
+        await NotificationStorageService.setLocalMuteSetting(item.key, value);
+      } else {
+        await NotificationStorageService.setMuteSetting(item.key, value);
+        if (item.key == 'prayer') {
           await HiveService.setPrayerSoundMuted(value);
+          await NotificationStorageService.setLocalMuteSetting('adhan', value);
           if (value) {
             await PrayerNotificationService().cancelAllPendingAdhan();
           }
-          // Sync prayer widget icon immediately
           if (mounted) {
             context.read<HomeBloc>().add(const LoadPrayerMuteStateEvent());
           }
         }
-        await NotificationStorageService.setLocalMuteSetting(item.key, value);
-      } else {
-        await NotificationStorageService.setMuteSetting(item.key, value);
       }
     } catch (_) {
       if (!mounted) return;

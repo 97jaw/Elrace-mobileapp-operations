@@ -1,3 +1,4 @@
+import 'package:el_race/core/utils/responsive_breakpoints.dart';
 import 'package:el_race/ui/presentation/my_projects/presentation/theme/projects_dashboard_theme.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
@@ -17,12 +18,12 @@ class ProjectsListLoadMoreFooter extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: EdgeInsets.symmetric(vertical: 16.h),
+      padding: EdgeInsets.symmetric(vertical: 16.th),
       child: Center(
         child: loading
             ? SizedBox(
-                width: 28.w,
-                height: 28.w,
+                width: 28.tw,
+                height: 28.tw,
                 child: const CircularProgressIndicator(
                   strokeWidth: 2.5,
                   color: ProjectsDashboardTheme.white,
@@ -31,7 +32,7 @@ class ProjectsListLoadMoreFooter extends StatelessWidget {
             : Text(
                 hint,
                 style: GoogleFonts.poppins(
-                  fontSize: 11.sp,
+                  fontSize: 11.tsp,
                   fontStyle: FontStyle.italic,
                   color: ProjectsDashboardTheme.greyPanel,
                 ),

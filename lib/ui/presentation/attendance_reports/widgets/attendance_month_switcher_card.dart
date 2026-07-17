@@ -1,3 +1,4 @@
+import 'package:el_race/core/utils/responsive_breakpoints.dart';
 import 'package:el_race/ui/presentation/attendance_reports/attendance_reports_period.dart';
 import 'package:el_race/ui/presentation/attendance_reports/widgets/attendance_glass_chrome_header.dart';
 import 'package:el_race/ui/presentation/attendance_reports/widgets/attendance_week_strip_card.dart';
@@ -31,10 +32,10 @@ class AttendanceMonthSwitcherCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final anchor = anchorDay(period);
     return Container(
-      margin: margin ?? EdgeInsets.fromLTRB(14.w, 6.h, 14.w, 8.h),
+      margin: margin ?? EdgeInsets.fromLTRB(14.tw, 6.th, 14.tw, 8.th),
       decoration: BoxDecoration(
         color: Colors.white.withValues(alpha: 0.88),
-        borderRadius: BorderRadius.circular(18.r),
+        borderRadius: BorderRadius.circular(18.tr),
         border: Border.all(color: kAttendancePrimary.withValues(alpha: 0.12)),
         boxShadow: [
           BoxShadow(

@@ -1,3 +1,4 @@
+import 'package:el_race/core/utils/responsive_breakpoints.dart';
 import 'dart:math' as math;
 
 import 'package:el_race/ui/presentation/my_projects/data/datasources/project_remote_datasource.dart';
@@ -230,7 +231,7 @@ class _ProjectsPortfolioMapScreenState extends State<ProjectsPortfolioMapScreen>
             return Container(
               decoration: BoxDecoration(
                 color: Colors.white,
-                borderRadius: BorderRadius.vertical(top: Radius.circular(20.r)),
+                borderRadius: BorderRadius.vertical(top: Radius.circular(20.tr)),
                 boxShadow: [
                   BoxShadow(
                     color: Colors.black.withValues(alpha: 0.15),
@@ -241,23 +242,23 @@ class _ProjectsPortfolioMapScreenState extends State<ProjectsPortfolioMapScreen>
               ),
               child: ListView(
                 controller: scrollCtrl,
-                padding: EdgeInsets.fromLTRB(18.w, 12.h, 18.w, 22.h),
+                padding: EdgeInsets.fromLTRB(18.tw, 12.th, 18.tw, 22.th),
                 children: [
                   Center(
                     child: Container(
-                      width: 40.w,
-                      height: 4.h,
+                      width: 40.tw,
+                      height: 4.th,
                       decoration: BoxDecoration(
                         color: Colors.grey.shade300,
-                        borderRadius: BorderRadius.circular(4.r),
+                        borderRadius: BorderRadius.circular(4.tr),
                       ),
                     ),
                   ),
-                  SizedBox(height: 12.h),
+                  SizedBox(height: 12.th),
                   Row(
                     children: [
                       CircleAvatar(
-                        radius: 22.r,
+                        radius: 22.tr,
                         backgroundColor: const Color(0xFFE7ECFF),
                         backgroundImage: (project.clientImageUrl != null &&
                                 project.clientImageUrl!.isNotEmpty)
@@ -267,12 +268,12 @@ class _ProjectsPortfolioMapScreenState extends State<ProjectsPortfolioMapScreen>
                                 project.clientImageUrl!.isEmpty)
                             ? Icon(
                                 Icons.apartment_rounded,
-                                size: 24.sp,
+                                size: 24.tsp,
                                 color: const Color(0xFF1E2365),
                               )
                             : null,
                       ),
-                      SizedBox(width: 10.w),
+                      SizedBox(width: 10.tw),
                       Expanded(
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
@@ -282,7 +283,7 @@ class _ProjectsPortfolioMapScreenState extends State<ProjectsPortfolioMapScreen>
                               maxLines: 2,
                               overflow: TextOverflow.ellipsis,
                               style: GoogleFonts.poppins(
-                                fontSize: 16.sp,
+                                fontSize: 16.tsp,
                                 fontWeight: FontWeight.w700,
                                 color: appFontColor,
                               ),
@@ -290,7 +291,7 @@ class _ProjectsPortfolioMapScreenState extends State<ProjectsPortfolioMapScreen>
                             Text(
                               'Agreement ${project.agreementId} · WO ${project.woRefNo}',
                               style: GoogleFonts.poppins(
-                                fontSize: 11.sp,
+                                fontSize: 11.tsp,
                                 color: const Color(0xFF6B7280),
                               ),
                             ),
@@ -299,10 +300,10 @@ class _ProjectsPortfolioMapScreenState extends State<ProjectsPortfolioMapScreen>
                       ),
                     ],
                   ),
-                  SizedBox(height: 12.h),
+                  SizedBox(height: 12.th),
                   Wrap(
-                    spacing: 8.w,
-                    runSpacing: 8.h,
+                    spacing: 8.tw,
+                    runSpacing: 8.th,
                     children: [
                       _badge(
                         label: project.projectStatus.isEmpty
@@ -318,7 +319,7 @@ class _ProjectsPortfolioMapScreenState extends State<ProjectsPortfolioMapScreen>
                       ),
                     ],
                   ),
-                  SizedBox(height: 12.h),
+                  SizedBox(height: 12.th),
                   _managerTableRow(project),
                   _tableRow('Amount', _money(project)),
                   _tableRow(
@@ -329,7 +330,7 @@ class _ProjectsPortfolioMapScreenState extends State<ProjectsPortfolioMapScreen>
                     'Date',
                     project.date.trim().isEmpty ? '—' : project.date,
                   ),
-                  SizedBox(height: 16.h),
+                  SizedBox(height: 16.th),
                   _gradientActionButton(
                     icon: Icons.cloud_queue_rounded,
                     title: 'Documents',
@@ -346,7 +347,7 @@ class _ProjectsPortfolioMapScreenState extends State<ProjectsPortfolioMapScreen>
                       );
                     },
                   ),
-                  SizedBox(height: 10.h),
+                  SizedBox(height: 10.th),
                   _gradientActionButton(
                     icon: Icons.analytics_rounded,
                     title: 'View Project Analytics',
@@ -448,21 +449,21 @@ class _ProjectsPortfolioMapScreenState extends State<ProjectsPortfolioMapScreen>
     required IconData icon,
   }) {
     return Container(
-      padding: EdgeInsets.symmetric(horizontal: 10.w, vertical: 7.h),
+      padding: EdgeInsets.symmetric(horizontal: 10.tw, vertical: 7.th),
       decoration: BoxDecoration(
         color: color.withValues(alpha: 0.12),
-        borderRadius: BorderRadius.circular(24.r),
+        borderRadius: BorderRadius.circular(24.tr),
         border: Border.all(color: color.withValues(alpha: 0.5)),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, size: 14.sp, color: color),
-          SizedBox(width: 6.w),
+          Icon(icon, size: 14.tsp, color: color),
+          SizedBox(width: 6.tw),
           Text(
             label,
             style: GoogleFonts.poppins(
-              fontSize: 10.sp,
+              fontSize: 10.tsp,
               fontWeight: FontWeight.w600,
               color: color,
             ),
@@ -474,28 +475,28 @@ class _ProjectsPortfolioMapScreenState extends State<ProjectsPortfolioMapScreen>
 
   Widget _tableRow(String label, String value) {
     return Container(
-      margin: EdgeInsets.only(bottom: 8.h),
+      margin: EdgeInsets.only(bottom: 8.th),
       decoration: BoxDecoration(
         color: const Color(0xFFF8FAFF),
-        borderRadius: BorderRadius.circular(10.r),
+        borderRadius: BorderRadius.circular(10.tr),
         border: Border.all(color: const Color(0xFFE6EAF3)),
       ),
       child: Row(
         children: [
           Container(
-            width: 110.w,
-            padding: EdgeInsets.symmetric(horizontal: 10.w, vertical: 10.h),
+            width: 110.tw,
+            padding: EdgeInsets.symmetric(horizontal: 10.tw, vertical: 10.th),
             decoration: BoxDecoration(
               color: const Color(0xFFEFF3FF),
               borderRadius: BorderRadius.only(
-                topLeft: Radius.circular(10.r),
-                bottomLeft: Radius.circular(10.r),
+                topLeft: Radius.circular(10.tr),
+                bottomLeft: Radius.circular(10.tr),
               ),
             ),
             child: Text(
               label,
               style: GoogleFonts.poppins(
-                fontSize: 11.sp,
+                fontSize: 11.tsp,
                 fontWeight: FontWeight.w600,
                 color: const Color(0xFF1E2365),
               ),
@@ -503,11 +504,11 @@ class _ProjectsPortfolioMapScreenState extends State<ProjectsPortfolioMapScreen>
           ),
           Expanded(
             child: Padding(
-              padding: EdgeInsets.symmetric(horizontal: 10.w, vertical: 10.h),
+              padding: EdgeInsets.symmetric(horizontal: 10.tw, vertical: 10.th),
               child: Text(
                 value,
                 style: GoogleFonts.poppins(
-                  fontSize: 11.sp,
+                  fontSize: 11.tsp,
                   fontWeight: FontWeight.w600,
                   color: const Color(0xFF111827),
                 ),
@@ -521,28 +522,28 @@ class _ProjectsPortfolioMapScreenState extends State<ProjectsPortfolioMapScreen>
 
   Widget _managerTableRow(ProjectEntity project) {
     return Container(
-      margin: EdgeInsets.only(bottom: 8.h),
+      margin: EdgeInsets.only(bottom: 8.th),
       decoration: BoxDecoration(
         color: const Color(0xFFF8FAFF),
-        borderRadius: BorderRadius.circular(10.r),
+        borderRadius: BorderRadius.circular(10.tr),
         border: Border.all(color: const Color(0xFFE6EAF3)),
       ),
       child: Row(
         children: [
           Container(
-            width: 110.w,
-            padding: EdgeInsets.symmetric(horizontal: 10.w, vertical: 10.h),
+            width: 110.tw,
+            padding: EdgeInsets.symmetric(horizontal: 10.tw, vertical: 10.th),
             decoration: BoxDecoration(
               color: const Color(0xFFEFF3FF),
               borderRadius: BorderRadius.only(
-                topLeft: Radius.circular(10.r),
-                bottomLeft: Radius.circular(10.r),
+                topLeft: Radius.circular(10.tr),
+                bottomLeft: Radius.circular(10.tr),
               ),
             ),
             child: Text(
               'Manager',
               style: GoogleFonts.poppins(
-                fontSize: 11.sp,
+                fontSize: 11.tsp,
                 fontWeight: FontWeight.w600,
                 color: const Color(0xFF1E2365),
               ),
@@ -550,11 +551,11 @@ class _ProjectsPortfolioMapScreenState extends State<ProjectsPortfolioMapScreen>
           ),
           Expanded(
             child: Padding(
-              padding: EdgeInsets.symmetric(horizontal: 10.w, vertical: 8.h),
+              padding: EdgeInsets.symmetric(horizontal: 10.tw, vertical: 8.th),
               child: Row(
                 children: [
                   CircleAvatar(
-                    radius: 12.r,
+                    radius: 12.tr,
                     backgroundColor: const Color(0xFFE7ECFF),
                     backgroundImage:
                         (project.managerPhoto != null && project.managerPhoto!.isNotEmpty)
@@ -564,12 +565,12 @@ class _ProjectsPortfolioMapScreenState extends State<ProjectsPortfolioMapScreen>
                         ? const Icon(Icons.person_rounded, size: 14)
                         : null,
                   ),
-                  SizedBox(width: 8.w),
+                  SizedBox(width: 8.tw),
                   Expanded(
                     child: Text(
                       project.projectManagerName ?? '—',
                       style: GoogleFonts.poppins(
-                        fontSize: 11.sp,
+                        fontSize: 11.tsp,
                         fontWeight: FontWeight.w600,
                         color: const Color(0xFF111827),
                       ),
@@ -593,7 +594,7 @@ class _ProjectsPortfolioMapScreenState extends State<ProjectsPortfolioMapScreen>
     return Container(
       width: double.infinity,
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(14.r),
+        borderRadius: BorderRadius.circular(14.tr),
         gradient: LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
@@ -603,25 +604,25 @@ class _ProjectsPortfolioMapScreenState extends State<ProjectsPortfolioMapScreen>
       child: Material(
         color: Colors.transparent,
         child: InkWell(
-          borderRadius: BorderRadius.circular(14.r),
+          borderRadius: BorderRadius.circular(14.tr),
           onTap: onTap,
           child: Padding(
-            padding: EdgeInsets.symmetric(horizontal: 14.w, vertical: 12.h),
+            padding: EdgeInsets.symmetric(horizontal: 14.tw, vertical: 12.th),
             child: Row(
               children: [
-                Icon(icon, color: Colors.white, size: 20.sp),
-                SizedBox(width: 8.w),
+                Icon(icon, color: Colors.white, size: 20.tsp),
+                SizedBox(width: 8.tw),
                 Expanded(
                   child: Text(
                     title,
                     style: GoogleFonts.poppins(
                       color: Colors.white,
-                      fontSize: 12.sp,
+                      fontSize: 12.tsp,
                       fontWeight: FontWeight.w700,
                     ),
                   ),
                 ),
-                Icon(Icons.arrow_forward_rounded, color: Colors.white, size: 18.sp),
+                Icon(Icons.arrow_forward_rounded, color: Colors.white, size: 18.tsp),
               ],
             ),
           ),
@@ -635,7 +636,7 @@ class _ProjectsPortfolioMapScreenState extends State<ProjectsPortfolioMapScreen>
       width: double.infinity,
       decoration: BoxDecoration(
         color: Colors.white.withValues(alpha: 0.88),
-        borderRadius: BorderRadius.circular(14.r),
+        borderRadius: BorderRadius.circular(14.tr),
         border: Border.all(color: Colors.white.withValues(alpha: 0.9)),
         boxShadow: [
           BoxShadow(
@@ -691,7 +692,7 @@ class _ProjectsPortfolioMapScreenState extends State<ProjectsPortfolioMapScreen>
                 : _error != null
                     ? Center(
                         child: Padding(
-                          padding: EdgeInsets.all(24.w),
+                          padding: EdgeInsets.all(24.tw),
                           child: Text(
                             _error!,
                             textAlign: TextAlign.center,
@@ -771,19 +772,19 @@ class _ProjectsPortfolioMapScreenState extends State<ProjectsPortfolioMapScreen>
           SafeArea(
             bottom: false,
             child: Padding(
-              padding: EdgeInsets.fromLTRB(12.w, 8.h, 12.w, 0),
+              padding: EdgeInsets.fromLTRB(12.tw, 8.th, 12.tw, 0),
               child: Column(
                 children: [
                   _glassCard(
                     Padding(
-                      padding: EdgeInsets.symmetric(horizontal: 10.w, vertical: 8.h),
+                      padding: EdgeInsets.symmetric(horizontal: 10.tw, vertical: 8.th),
                       child: Row(
                         children: [
                           _MapToolbarIconButton(
                             icon: Icons.arrow_back_ios_new_rounded,
                             onPressed: () => Navigator.pop(context),
                           ),
-                          SizedBox(width: 6.w),
+                          SizedBox(width: 6.tw),
                           Expanded(
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
@@ -791,7 +792,7 @@ class _ProjectsPortfolioMapScreenState extends State<ProjectsPortfolioMapScreen>
                                 Text(
                                   'Projects map',
                                   style: GoogleFonts.poppins(
-                                    fontSize: 16.sp,
+                                    fontSize: 16.tsp,
                                     fontWeight: FontWeight.w700,
                                     color: appFontColor,
                                   ),
@@ -799,7 +800,7 @@ class _ProjectsPortfolioMapScreenState extends State<ProjectsPortfolioMapScreen>
                                 Text(
                                   'UAE · Coordinate-based view',
                                   style: GoogleFonts.poppins(
-                                    fontSize: 10.sp,
+                                    fontSize: 10.tsp,
                                     color: const Color(0xFF6B7280),
                                   ),
                                 ),
@@ -815,7 +816,7 @@ class _ProjectsPortfolioMapScreenState extends State<ProjectsPortfolioMapScreen>
                               if (!_showSearch) _searchController.clear();
                             }),
                           ),
-                          SizedBox(width: 6.w),
+                          SizedBox(width: 6.tw),
                           _MapToolbarIconButton(
                             icon: Icons.center_focus_strong_rounded,
                             onPressed: _fitToProjects,
@@ -825,7 +826,7 @@ class _ProjectsPortfolioMapScreenState extends State<ProjectsPortfolioMapScreen>
                     ),
                   ),
                   if (_showSearch) ...[
-                    SizedBox(height: 8.h),
+                    SizedBox(height: 8.th),
                     _glassCard(
                       TextField(
                         controller: _searchController,
@@ -833,7 +834,7 @@ class _ProjectsPortfolioMapScreenState extends State<ProjectsPortfolioMapScreen>
                         decoration: InputDecoration(
                           hintText: 'Search project name...',
                           hintStyle: GoogleFonts.poppins(
-                            fontSize: 12.sp,
+                            fontSize: 12.tsp,
                             color: const Color(0xFF9CA3AF),
                           ),
                           border: InputBorder.none,
@@ -845,7 +846,7 @@ class _ProjectsPortfolioMapScreenState extends State<ProjectsPortfolioMapScreen>
                                   icon: const Icon(Icons.close_rounded),
                                 ),
                           contentPadding:
-                              EdgeInsets.symmetric(horizontal: 12.w, vertical: 11.h),
+                              EdgeInsets.symmetric(horizontal: 12.tw, vertical: 11.th),
                         ),
                       ),
                     ),
@@ -894,7 +895,7 @@ class _PortfolioSummaryPanel extends StatelessWidget {
     return Container(
       decoration: BoxDecoration(
         color: Colors.white.withValues(alpha: 0.9),
-        borderRadius: BorderRadius.vertical(top: Radius.circular(22.r)),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(22.tr)),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withValues(alpha: 0.14),
@@ -904,7 +905,7 @@ class _PortfolioSummaryPanel extends StatelessWidget {
         ],
       ),
       child: Padding(
-        padding: EdgeInsets.fromLTRB(14.w, 10.h, 14.w, 14.h),
+        padding: EdgeInsets.fromLTRB(14.tw, 10.th, 14.tw, 14.th),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -912,32 +913,32 @@ class _PortfolioSummaryPanel extends StatelessWidget {
             Text(
               'Projects overview',
               style: GoogleFonts.poppins(
-                fontSize: 14.sp,
+                fontSize: 14.tsp,
                 fontWeight: FontWeight.w700,
                 color: const Color(0xFF111827),
               ),
             ),
-            SizedBox(height: 8.h),
+            SizedBox(height: 8.th),
             Row(
               children: [
                 _statChip('Visible', '${visible.length}', Icons.map_outlined),
-                SizedBox(width: 8.w),
+                SizedBox(width: 8.tw),
                 _statChip('Total', '$totalCount', Icons.apartment),
-                SizedBox(width: 8.w),
+                SizedBox(width: 8.tw),
                 _statChip('Amount', fmt.format(totalAed), Icons.payments_outlined),
               ],
             ),
-            SizedBox(height: 8.h),
+            SizedBox(height: 8.th),
             Material(
               color: Colors.transparent,
               child: InkWell(
                 onTap: onNotVisibleTap,
-                borderRadius: BorderRadius.circular(12.r),
+                borderRadius: BorderRadius.circular(12.tr),
                 child: Container(
                   width: double.infinity,
-                  padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 10.h),
+                  padding: EdgeInsets.symmetric(horizontal: 12.tw, vertical: 10.th),
                   decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(12.r),
+                    borderRadius: BorderRadius.circular(12.tr),
                     gradient: const LinearGradient(
                       colors: [Color(0xFFFFF4E5), Color(0xFFFFE0B2)],
                     ),
@@ -946,12 +947,12 @@ class _PortfolioSummaryPanel extends StatelessWidget {
                   child: Row(
                     children: [
                       const Icon(Icons.visibility_off_rounded, color: Color(0xFFEF6C00)),
-                      SizedBox(width: 8.w),
+                      SizedBox(width: 8.tw),
                       Expanded(
                         child: Text(
                           'Not Visible ($notVisibleCount)',
                           style: GoogleFonts.poppins(
-                            fontSize: 12.sp,
+                            fontSize: 12.tsp,
                             fontWeight: FontWeight.w700,
                             color: const Color(0xFFB45309),
                           ),
@@ -963,45 +964,45 @@ class _PortfolioSummaryPanel extends StatelessWidget {
                 ),
               ),
             ),
-            SizedBox(height: 10.h),
+            SizedBox(height: 10.th),
             Text(
               'Highlighted projects',
               style: GoogleFonts.poppins(
-                fontSize: 12.sp,
+                fontSize: 12.tsp,
                 fontWeight: FontWeight.w700,
                 color: const Color(0xFF374151),
               ),
             ),
-            SizedBox(height: 6.h),
+            SizedBox(height: 6.th),
             SizedBox(
-              height: 92.h,
+              height: 92.th,
               child: highlighted.isEmpty
                   ? Center(
                       child: Text(
                         'No projects updated in the last 3 months',
-                        style: GoogleFonts.poppins(fontSize: 11.sp, color: Colors.grey),
+                        style: GoogleFonts.poppins(fontSize: 11.tsp, color: Colors.grey),
                       ),
                     )
                   : ListView.separated(
                       scrollDirection: Axis.horizontal,
                       itemCount: highlighted.length,
-                      separatorBuilder: (_, __) => SizedBox(width: 8.w),
+                      separatorBuilder: (_, __) => SizedBox(width: 8.tw),
                       itemBuilder: (_, i) {
                         final p = highlighted[i];
                         return GestureDetector(
                           onTap: () => onHighlightedTap(p),
                           child: Container(
-                            width: 210.w,
-                            padding: EdgeInsets.all(10.w),
+                            width: 210.tw,
+                            padding: EdgeInsets.all(10.tw),
                             decoration: BoxDecoration(
                               color: Colors.white,
-                              borderRadius: BorderRadius.circular(12.r),
+                              borderRadius: BorderRadius.circular(12.tr),
                               border: Border.all(color: const Color(0xFFDCE3F2)),
                             ),
                             child: Row(
                               children: [
                                 CircleAvatar(
-                                  radius: 18.r,
+                                  radius: 18.tr,
                                   backgroundColor: const Color(0xFFE9EEF9),
                                   backgroundImage: (p.clientImageUrl != null &&
                                           p.clientImageUrl!.isNotEmpty)
@@ -1012,7 +1013,7 @@ class _PortfolioSummaryPanel extends StatelessWidget {
                                       ? const Icon(Icons.apartment_rounded)
                                       : null,
                                 ),
-                                SizedBox(width: 8.w),
+                                SizedBox(width: 8.tw),
                                 Expanded(
                                   child: Column(
                                     mainAxisAlignment: MainAxisAlignment.center,
@@ -1023,15 +1024,15 @@ class _PortfolioSummaryPanel extends StatelessWidget {
                                         maxLines: 2,
                                         overflow: TextOverflow.ellipsis,
                                         style: GoogleFonts.poppins(
-                                          fontSize: 11.sp,
+                                          fontSize: 11.tsp,
                                           fontWeight: FontWeight.w700,
                                         ),
                                       ),
-                                      SizedBox(height: 4.h),
+                                      SizedBox(height: 4.th),
                                       Text(
                                         p.date.isEmpty ? '—' : p.date,
                                         style: GoogleFonts.poppins(
-                                          fontSize: 10.sp,
+                                          fontSize: 10.tsp,
                                           color: const Color(0xFF6B7280),
                                         ),
                                       ),
@@ -1112,16 +1113,16 @@ class _MapToolbarIconButton extends StatelessWidget {
       elevation: 2,
       shadowColor: Colors.black.withValues(alpha: 0.14),
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12.r),
+        borderRadius: BorderRadius.circular(12.tr),
         side: BorderSide(color: const Color(0xFF1E2365).withValues(alpha: 0.08)),
       ),
       child: InkWell(
         onTap: onPressed,
-        borderRadius: BorderRadius.circular(12.r),
+        borderRadius: BorderRadius.circular(12.tr),
         child: SizedBox(
-          width: 42.w,
-          height: 42.w,
-          child: Icon(icon, size: 20.sp, color: const Color(0xFF1E2365)),
+          width: 42.tw,
+          height: 42.tw,
+          child: Icon(icon, size: 20.tsp, color: const Color(0xFF1E2365)),
         ),
       ),
     );
@@ -1220,13 +1221,13 @@ class _SupervisorMapAvatar extends StatelessWidget {
                 : const Icon(Icons.person_rounded),
           ),
         ),
-        SizedBox(width: 4.w),
+        SizedBox(width: 4.tw),
         Container(
-          constraints: BoxConstraints(maxWidth: 105.w),
-          padding: EdgeInsets.symmetric(horizontal: 7.w, vertical: 3.h),
+          constraints: BoxConstraints(maxWidth: 105.tw),
+          padding: EdgeInsets.symmetric(horizontal: 7.tw, vertical: 3.th),
           decoration: BoxDecoration(
             color: Colors.white.withValues(alpha: 0.96),
-            borderRadius: BorderRadius.circular(14.r),
+            borderRadius: BorderRadius.circular(14.tr),
             border: Border.all(color: const Color(0xFFC7D2FE)),
             boxShadow: [
               BoxShadow(
@@ -1245,17 +1246,17 @@ class _SupervisorMapAvatar extends StatelessWidget {
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: GoogleFonts.poppins(
-                    fontSize: 8.5.sp,
+                    fontSize: 8.5.tsp,
                     fontWeight: FontWeight.w700,
                     color: const Color(0xFF1F2937),
                   ),
                 ),
               ),
-              SizedBox(width: 4.w),
+              SizedBox(width: 4.tw),
               Text(
                 '${distanceMeters}m',
                 style: GoogleFonts.poppins(
-                  fontSize: 7.5.sp,
+                  fontSize: 7.5.tsp,
                   fontWeight: FontWeight.w700,
                   color: const Color(0xFF1D4ED8),
                 ),

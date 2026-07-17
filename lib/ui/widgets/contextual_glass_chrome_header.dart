@@ -1,3 +1,4 @@
+import 'package:el_race/core/utils/responsive_breakpoints.dart';
 import 'package:el_race/ui/chat/widgets/chat_sub_app_glass_bar.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
@@ -54,7 +55,7 @@ class ContextualGlassChromeHeader extends StatelessWidget {
     bool showBack = false,
   }) {
     final titleH = (title != null && title.trim().isNotEmpty) || showBack
-        ? titleRowHeight.h
+        ? titleRowHeight.th
         : 0.0;
     return SubAppGlassAppBar.extent(context) + titleH + bottomHeight;
   }
@@ -70,12 +71,12 @@ class ContextualGlassChromeHeader extends StatelessWidget {
       icon: Icon(
         Icons.home_rounded,
         color: iconColor,
-        size: 22.sp,
+        size: 22.tsp,
       ),
       padding: EdgeInsets.zero,
       constraints: BoxConstraints(
-        minWidth: 32.w,
-        minHeight: 32.w,
+        minWidth: 32.tw,
+        minHeight: 32.tw,
       ),
     );
   }
@@ -95,15 +96,18 @@ class ContextualGlassChromeHeader extends StatelessWidget {
         SizedBox(
           height: SubAppGlassAppBar.extent(context),
           child: SubAppGlassAppBar(
-            transparentPill: transparentGlassBar,
+            // Dark hubs: clear glass + light icons. Light hubs: soft frost + dark icons.
+            transparentPill: transparentGlassBar && !onLightSurface,
+            lightSurfaceTransparentPill:
+                transparentGlassBar && onLightSurface,
             logoOpacity: logoOpacity ?? (onLightSurface ? 1.0 : 0.55),
           ),
         ),
         if (showTitleRow)
           SizedBox(
-            height: titleRowHeight.h,
+            height: titleRowHeight.th,
             child: Padding(
-              padding: EdgeInsets.fromLTRB(8.w, 0, 8.w, 4.h),
+              padding: EdgeInsets.fromLTRB(8.tw, 0, 8.tw, 4.th),
               child: Row(
                 children: [
                   if (showBack)
@@ -113,12 +117,12 @@ class ContextualGlassChromeHeader extends StatelessWidget {
                       icon: Icon(
                         Icons.arrow_back_ios_new_rounded,
                         color: iconColor,
-                        size: 18.sp,
+                        size: 18.tsp,
                       ),
                       padding: EdgeInsets.zero,
                       constraints: BoxConstraints(
-                        minWidth: 32.w,
-                        minHeight: 32.w,
+                        minWidth: 32.tw,
+                        minHeight: 32.tw,
                       ),
                     ),
                   if (hasTitle)
@@ -126,7 +130,7 @@ class ContextualGlassChromeHeader extends StatelessWidget {
                       child: Text(
                         title!,
                         style: GoogleFonts.poppins(
-                          fontSize: 16.sp,
+                          fontSize: 16.tsp,
                           fontWeight: FontWeight.w700,
                           color: titleColor,
                           height: 1.1,
@@ -149,12 +153,12 @@ class ContextualGlassChromeHeader extends StatelessWidget {
               ? SizedBox(
                   height: tabStripH,
                   child: Padding(
-                    padding: EdgeInsets.fromLTRB(16.w, 0, 16.w, 6.h),
+                    padding: EdgeInsets.fromLTRB(16.tw, 0, 16.tw, 6.th),
                     child: bottom!,
                   ),
                 )
               : Padding(
-                  padding: EdgeInsets.fromLTRB(16.w, 0, 16.w, 2.h),
+                  padding: EdgeInsets.fromLTRB(16.tw, 0, 16.tw, 2.th),
                   child: bottom!,
                 ),
       ],
@@ -233,7 +237,7 @@ class ContextualGlassShell extends StatelessWidget {
             scrimColor: scrimColor,
             scrimTopOpacity: scrimTopOpacity,
           ),
-          Expanded(child: body),
+          Expanded(child: TabletContentFrame(child: body)),
         ],
       ),
     );

@@ -1,3 +1,4 @@
+import 'package:el_race/core/utils/responsive_breakpoints.dart';
 import 'dart:async';
 
 import 'package:el_race/core/purchase/purchase_dev_role_provider.dart';
@@ -217,14 +218,14 @@ class _MrListScreenState extends State<MrListScreen>
     if (_error != null) {
       return Center(
         child: Text(_error!,
-            style: GoogleFonts.poppins(color: Colors.red, fontSize: 13.sp)),
+            style: GoogleFonts.poppins(color: Colors.red, fontSize: 13.tsp)),
       );
     }
     if (_items.isEmpty) {
       return Center(
         child: Text(
           translate('home.purchase.no_records'),
-          style: GoogleFonts.poppins(color: PurchaseTheme.textMuted, fontSize: 14.sp),
+          style: GoogleFonts.poppins(color: PurchaseTheme.textMuted, fontSize: 14.tsp),
         ),
       );
     }
@@ -278,7 +279,7 @@ class _MrCard extends StatelessWidget {
                 child: Text(
                   item.name,
                   style: GoogleFonts.poppins(
-                    fontSize: 14.sp,
+                    fontSize: 14.tsp,
                     fontWeight: FontWeight.w700,
                     color: PurchaseTheme.textPrimary,
                   ),
@@ -287,7 +288,7 @@ class _MrCard extends StatelessWidget {
               PurchaseStatusChip(label: status.label, color: status.color),
             ],
           ),
-          SizedBox(height: 6.h),
+          SizedBox(height: 6.th),
           if (item.woPo.isNotEmpty)
             _InfoRow(icon: Icons.work_outline, text: item.woPo),
           if (item.requester.isNotEmpty)
@@ -298,7 +299,7 @@ class _MrCard extends StatelessWidget {
                   photoUrl: item.requesterPhoto,
                   radius: 12,
                 ),
-                SizedBox(width: 8.w),
+                SizedBox(width: 8.tw),
                 Expanded(
                   child: _InfoRow(icon: Icons.person_outline, text: item.requester),
                 ),
@@ -317,7 +318,7 @@ class _MrCard extends StatelessWidget {
                   photoUrl: item.projectManagerPhoto,
                   radius: 12,
                 ),
-                SizedBox(width: 8.w),
+                SizedBox(width: 8.tw),
                 Expanded(
                   child: _InfoRow(
                     icon: Icons.manage_accounts_outlined,
@@ -340,18 +341,18 @@ class _InfoRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: EdgeInsets.only(top: 4.h),
+      padding: EdgeInsets.only(top: 4.th),
       child: Row(
         children: [
-          Icon(icon, size: 12.sp, color: PurchaseTheme.textMuted),
-          SizedBox(width: 5.w),
+          Icon(icon, size: 12.tsp, color: PurchaseTheme.textMuted),
+          SizedBox(width: 5.tw),
           Expanded(
             child: Text(
               text,
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
               style: GoogleFonts.poppins(
-                fontSize: 11.5.sp,
+                fontSize: 11.5.tsp,
                 color: PurchaseTheme.textSecondary,
                 fontWeight: FontWeight.w400,
               ),

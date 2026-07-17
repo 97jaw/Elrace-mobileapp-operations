@@ -1,3 +1,4 @@
+import 'package:el_race/core/utils/responsive_breakpoints.dart';
 import 'dart:convert';
 
 import 'package:el_race/core/utils/shared_pref.dart';
@@ -730,7 +731,7 @@ class _HrDetailsScreenState extends State<HrDetailsScreen> {
       blurSigma: 6,
       radius: 16,
       padding:
-          padding ?? EdgeInsets.symmetric(horizontal: 16.w, vertical: 14.w),
+          padding ?? EdgeInsets.symmetric(horizontal: 16.tw, vertical: 14.tw),
       child: child,
     );
   }
@@ -740,7 +741,7 @@ class _HrDetailsScreenState extends State<HrDetailsScreen> {
       text,
       textAlign: align,
       style: GoogleFonts.poppins(
-        fontSize: 11.sp,
+        fontSize: 11.tsp,
         fontWeight: FontWeight.w700,
         color: ApprovalsOverviewTheme.textSoft,
         letterSpacing: 0.2,
@@ -754,7 +755,7 @@ class _HrDetailsScreenState extends State<HrDetailsScreen> {
       text,
       textAlign: align,
       style: GoogleFonts.poppins(
-        fontSize: size ?? 13.sp,
+        fontSize: size ?? 13.tsp,
         fontWeight: weight ?? FontWeight.w600,
         color: color ?? ApprovalsOverviewTheme.textDark,
         letterSpacing: 0.1,
@@ -783,7 +784,7 @@ class _HrDetailsScreenState extends State<HrDetailsScreen> {
           errorBuilder: (_, __, ___) => Icon(
             Icons.person,
             color: const Color(0xFF6B6B6B),
-            size: 30.w,
+            size: 30.tw,
           ),
         );
       } catch (e) {
@@ -791,7 +792,7 @@ class _HrDetailsScreenState extends State<HrDetailsScreen> {
         return Icon(
           Icons.person,
           color: const Color(0xFF6B6B6B),
-          size: 30.w,
+          size: 30.tw,
         );
       }
     }
@@ -815,7 +816,7 @@ class _HrDetailsScreenState extends State<HrDetailsScreen> {
       errorBuilder: (_, __, ___) => Icon(
         Icons.person,
         color: const Color(0xFF6B6B6B),
-        size: 30.w,
+        size: 30.tw,
       ),
     );
   }
@@ -825,15 +826,15 @@ class _HrDetailsScreenState extends State<HrDetailsScreen> {
     final requestedByShouldStartLeft =
         isRequestedBy && value.trim().length > 22;
     return Padding(
-      padding: EdgeInsets.symmetric(vertical: 13.w),
+      padding: EdgeInsets.symmetric(vertical: 13.tw),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Expanded(
             flex: 4,
-            child: _value(label, size: 13.sp, weight: FontWeight.w600),
+            child: _value(label, size: 13.tsp, weight: FontWeight.w600),
           ),
-          SizedBox(width: 12.w),
+          SizedBox(width: 12.tw),
           Expanded(
             flex: 5,
             child: Text(
@@ -845,7 +846,7 @@ class _HrDetailsScreenState extends State<HrDetailsScreen> {
               maxLines: null,
               overflow: TextOverflow.visible,
               style: GoogleFonts.poppins(
-                fontSize: 13.sp,
+                fontSize: 13.tsp,
                 fontWeight: FontWeight.w900,
                 color: _isOrangeValueLabel(label)
                     ? const Color(0xFFFF8A00)
@@ -867,17 +868,17 @@ class _HrDetailsScreenState extends State<HrDetailsScreen> {
   Widget _detailDescriptionBox(String label, String value) {
     final boxHeading = label == 'Comment' ? 'Comment' : 'Description';
     return Padding(
-      padding: EdgeInsets.symmetric(vertical: 13.w),
+      padding: EdgeInsets.symmetric(vertical: 13.tw),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _value(label, size: 13.sp, weight: FontWeight.w600),
-          SizedBox(height: 6.w),
+          _value(label, size: 13.tsp, weight: FontWeight.w600),
+          SizedBox(height: 6.tw),
           Container(
             width: double.infinity,
-            padding: EdgeInsets.all(10.w),
+            padding: EdgeInsets.all(10.tw),
             decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(10.r),
+              borderRadius: BorderRadius.circular(10.tr),
               border: Border.all(color: const Color(0xFFC8C8C8)),
               color: const Color(0xFFF5F5F5),
             ),
@@ -887,19 +888,19 @@ class _HrDetailsScreenState extends State<HrDetailsScreen> {
                 Text(
                   boxHeading,
                   style: GoogleFonts.poppins(
-                    fontSize: 12.sp,
+                    fontSize: 12.tsp,
                     fontWeight: FontWeight.w500,
                     color: const Color(0xFF8E8E8E),
                   ),
                 ),
-                SizedBox(height: 8.w),
+                SizedBox(height: 8.tw),
                 Container(
                   width: double.infinity,
-                  constraints: BoxConstraints(minHeight: 60.w),
+                  constraints: BoxConstraints(minHeight: 60.tw),
                   padding:
-                      EdgeInsets.symmetric(horizontal: 10.w, vertical: 8.w),
+                      EdgeInsets.symmetric(horizontal: 10.tw, vertical: 8.tw),
                   decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(10.r),
+                    borderRadius: BorderRadius.circular(10.tr),
                     border: Border.all(color: const Color(0xFFD4D4D4)),
                     color: const Color(0xFFF5F5F5),
                   ),
@@ -910,7 +911,7 @@ class _HrDetailsScreenState extends State<HrDetailsScreen> {
                     maxLines: null,
                     overflow: TextOverflow.visible,
                     style: GoogleFonts.poppins(
-                      fontSize: 12.sp,
+                      fontSize: 12.tsp,
                       fontWeight: FontWeight.w500,
                       color: const Color(0xFF333333),
                     ),
@@ -987,22 +988,22 @@ class _HrDetailsScreenState extends State<HrDetailsScreen> {
 
   Widget _validationActionBox(String url) {
     return Padding(
-      padding: EdgeInsets.symmetric(vertical: 13.w),
+      padding: EdgeInsets.symmetric(vertical: 13.tw),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _value('Validation', size: 13.sp, weight: FontWeight.w600),
-          SizedBox(height: 10.w),
+          _value('Validation', size: 13.tsp, weight: FontWeight.w600),
+          SizedBox(height: 10.tw),
           SizedBox(
             width: double.infinity,
             child: InkWell(
               onTap: () => _openValidationUrl(url),
-              borderRadius: BorderRadius.circular(12.r),
+              borderRadius: BorderRadius.circular(12.tr),
               child: Container(
                 alignment: Alignment.center,
-                padding: EdgeInsets.symmetric(vertical: 13.w),
+                padding: EdgeInsets.symmetric(vertical: 13.tw),
                 decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(12.r),
+                  borderRadius: BorderRadius.circular(12.tr),
                   gradient: const LinearGradient(
                     begin: Alignment.topCenter,
                     end: Alignment.bottomCenter,
@@ -1012,7 +1013,7 @@ class _HrDetailsScreenState extends State<HrDetailsScreen> {
                 child: Text(
                   'Review Sick Leave',
                   style: GoogleFonts.poppins(
-                    fontSize: 13.sp,
+                    fontSize: 13.tsp,
                     fontWeight: FontWeight.w700,
                     color: Colors.white,
                     decoration: TextDecoration.underline,
@@ -1029,22 +1030,22 @@ class _HrDetailsScreenState extends State<HrDetailsScreen> {
 
   Widget _attachmentActionBox(String value, {String label = 'GM Attachment'}) {
     return Padding(
-      padding: EdgeInsets.symmetric(vertical: 13.w),
+      padding: EdgeInsets.symmetric(vertical: 13.tw),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _value(label, size: 13.sp, weight: FontWeight.w600),
-          SizedBox(height: 10.w),
+          _value(label, size: 13.tsp, weight: FontWeight.w600),
+          SizedBox(height: 10.tw),
           SizedBox(
             width: double.infinity,
             child: InkWell(
               onTap: () => _openAttachmentUrl(value),
-              borderRadius: BorderRadius.circular(12.r),
+              borderRadius: BorderRadius.circular(12.tr),
               child: Container(
                 alignment: Alignment.center,
-                padding: EdgeInsets.symmetric(vertical: 13.w),
+                padding: EdgeInsets.symmetric(vertical: 13.tw),
                 decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(12.r),
+                  borderRadius: BorderRadius.circular(12.tr),
                   gradient: const LinearGradient(
                     begin: Alignment.topCenter,
                     end: Alignment.bottomCenter,
@@ -1057,13 +1058,13 @@ class _HrDetailsScreenState extends State<HrDetailsScreen> {
                     Icon(
                       Icons.attach_file_rounded,
                       color: Colors.white,
-                      size: 17.sp,
+                      size: 17.tsp,
                     ),
-                    SizedBox(width: 4.w),
+                    SizedBox(width: 4.tw),
                     Text(
                       'View Attachments',
                       style: GoogleFonts.poppins(
-                        fontSize: 13.sp,
+                        fontSize: 13.tsp,
                         fontWeight: FontWeight.w700,
                         color: Colors.white,
                       ),
@@ -1083,11 +1084,11 @@ class _HrDetailsScreenState extends State<HrDetailsScreen> {
     required String value,
   }) {
     return Container(
-      height: 74.w,
-      padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 9.w),
+      height: 74.tw,
+      padding: EdgeInsets.symmetric(horizontal: 12.tw, vertical: 9.tw),
       decoration: BoxDecoration(
         color: ApprovalsOverviewTheme.screenTintLight.withValues(alpha: 0.7),
-        borderRadius: BorderRadius.circular(12.r),
+        borderRadius: BorderRadius.circular(12.tr),
         border: Border.all(
           color: Colors.white.withValues(alpha: 0.85),
         ),
@@ -1098,13 +1099,13 @@ class _HrDetailsScreenState extends State<HrDetailsScreen> {
           Text(
             label,
             style: GoogleFonts.poppins(
-              fontSize: 11.sp,
+              fontSize: 11.tsp,
               fontWeight: FontWeight.w500,
               color: ApprovalsOverviewTheme.textSoft,
               letterSpacing: 0.1,
             ),
           ),
-          SizedBox(height: 4.w),
+          SizedBox(height: 4.tw),
           Expanded(
             child: Align(
               alignment: Alignment.bottomLeft,
@@ -1113,7 +1114,7 @@ class _HrDetailsScreenState extends State<HrDetailsScreen> {
                 maxLines: null,
                 overflow: TextOverflow.visible,
                 style: GoogleFonts.poppins(
-                  fontSize: 14.sp,
+                  fontSize: 14.tsp,
                   fontWeight: FontWeight.w900,
                   color: const Color(0xFF111111),
                   height: 1.1,
@@ -1160,7 +1161,7 @@ class _HrDetailsScreenState extends State<HrDetailsScreen> {
       fillAlpha: 0.9,
       blurSigma: 8,
       radius: 16,
-      padding: EdgeInsets.fromLTRB(12.w, 10.h, 12.w, 10.h),
+      padding: EdgeInsets.fromLTRB(12.tw, 10.th, 12.tw, 10.th),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
@@ -1168,28 +1169,28 @@ class _HrDetailsScreenState extends State<HrDetailsScreen> {
           Text(
             title.toUpperCase(),
             style: GoogleFonts.poppins(
-              fontSize: 10.sp,
+              fontSize: 10.tsp,
               fontWeight: FontWeight.w700,
               letterSpacing: 0.7,
               color: ApprovalsOverviewTheme.screenDeep,
             ),
           ),
-          SizedBox(height: 6.h),
+          SizedBox(height: 6.th),
           if (visible.isEmpty)
             Text(
               'No data',
               style: GoogleFonts.poppins(
-                fontSize: 12.sp,
+                fontSize: 12.tsp,
                 color: ApprovalsOverviewTheme.textSoft,
               ),
             )
           else
             LayoutBuilder(
               builder: (context, constraints) {
-                final cellW = (constraints.maxWidth - 8.w) / 2;
+                final cellW = (constraints.maxWidth - 8.tw) / 2;
                 return Wrap(
-                  spacing: 6.w,
-                  runSpacing: 6.h,
+                  spacing: 6.tw,
+                  runSpacing: 6.th,
                   children: [
                     for (final item in visible)
                       SizedBox(
@@ -1216,10 +1217,10 @@ class _HrDetailsScreenState extends State<HrDetailsScreen> {
       {bool highlight = false}) {
     return Container(
       width: double.infinity,
-      padding: EdgeInsets.symmetric(horizontal: 8.w, vertical: 6.h),
+      padding: EdgeInsets.symmetric(horizontal: 8.tw, vertical: 6.th),
       decoration: BoxDecoration(
         color: ApprovalsOverviewTheme.screenTintLight.withValues(alpha: 0.65),
-        borderRadius: BorderRadius.circular(12.r),
+        borderRadius: BorderRadius.circular(12.tr),
         border: Border.all(
           color: Colors.white.withValues(alpha: 0.85),
         ),
@@ -1232,18 +1233,18 @@ class _HrDetailsScreenState extends State<HrDetailsScreen> {
             maxLines: 2,
             overflow: TextOverflow.ellipsis,
             style: GoogleFonts.poppins(
-              fontSize: 9.sp,
+              fontSize: 9.tsp,
               fontWeight: FontWeight.w500,
               color: ApprovalsOverviewTheme.textSoft,
             ),
           ),
-          SizedBox(height: 2.h),
+          SizedBox(height: 2.th),
           Text(
             value,
             maxLines: 2,
             overflow: TextOverflow.ellipsis,
             style: GoogleFonts.poppins(
-              fontSize: 11.sp,
+              fontSize: 11.tsp,
               fontWeight: FontWeight.w700,
               color: highlight
                   ? ApprovalsOverviewTheme.invoice
@@ -1266,13 +1267,13 @@ class _HrDetailsScreenState extends State<HrDetailsScreen> {
       fillAlpha: 0.88,
       blurSigma: 10,
       radius: 16,
-      padding: EdgeInsets.symmetric(horizontal: 10.w, vertical: 8.h),
+      padding: EdgeInsets.symmetric(horizontal: 10.tw, vertical: 8.th),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
           Container(
-            width: 62.w,
-            height: 62.w,
+            width: 62.tw,
+            height: 62.tw,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
               border: Border.all(
@@ -1294,11 +1295,11 @@ class _HrDetailsScreenState extends State<HrDetailsScreen> {
                   : Icon(
                       Icons.person_rounded,
                       color: ApprovalsOverviewTheme.textSoft,
-                      size: 34.w,
+                      size: 34.tw,
                     ),
             ),
           ),
-          SizedBox(width: 12.w),
+          SizedBox(width: 12.tw),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -1309,38 +1310,38 @@ class _HrDetailsScreenState extends State<HrDetailsScreen> {
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                   style: GoogleFonts.poppins(
-                    fontSize: 15.sp,
+                    fontSize: 15.tsp,
                     fontWeight: FontWeight.w700,
                     color: ApprovalsOverviewTheme.textDark,
                     height: 1.2,
                   ),
                 ),
                 if (secondaryName.isNotEmpty) ...[
-                  SizedBox(height: 2.h),
+                  SizedBox(height: 2.th),
                   Text(
                     secondaryName,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: GoogleFonts.poppins(
-                      fontSize: 11.sp,
+                      fontSize: 11.tsp,
                       fontWeight: FontWeight.w500,
                       color: ApprovalsOverviewTheme.textMuted,
                     ),
                   ),
                 ],
-                SizedBox(height: 6.h),
+                SizedBox(height: 6.th),
                 Row(
                   children: [
                     Expanded(
                       child: Container(
                         padding: EdgeInsets.symmetric(
-                          horizontal: 8.w,
-                          vertical: 5.h,
+                          horizontal: 8.tw,
+                          vertical: 5.th,
                         ),
                         decoration: BoxDecoration(
                           color: ApprovalsOverviewTheme.screenTintMid
                               .withValues(alpha: 0.75),
-                          borderRadius: BorderRadius.circular(16.r),
+                          borderRadius: BorderRadius.circular(16.tr),
                         ),
                         child: Text(
                           requestNo,
@@ -1348,19 +1349,19 @@ class _HrDetailsScreenState extends State<HrDetailsScreen> {
                           overflow: TextOverflow.ellipsis,
                           textAlign: TextAlign.center,
                           style: GoogleFonts.poppins(
-                            fontSize: 10.sp,
+                            fontSize: 10.tsp,
                             fontWeight: FontWeight.w700,
                             color: ApprovalsOverviewTheme.textDark,
                           ),
                         ),
                       ),
                     ),
-                    SizedBox(width: 6.w),
+                    SizedBox(width: 6.tw),
                     Expanded(
                       child: Container(
                         padding: EdgeInsets.symmetric(
-                          horizontal: 8.w,
-                          vertical: 5.h,
+                          horizontal: 8.tw,
+                          vertical: 5.th,
                         ),
                         decoration: BoxDecoration(
                           gradient: const LinearGradient(
@@ -1369,7 +1370,7 @@ class _HrDetailsScreenState extends State<HrDetailsScreen> {
                               ApprovalsOverviewTheme.screenDeep,
                             ],
                           ),
-                          borderRadius: BorderRadius.circular(16.r),
+                          borderRadius: BorderRadius.circular(16.tr),
                         ),
                         child: Text(
                           branchName,
@@ -1377,7 +1378,7 @@ class _HrDetailsScreenState extends State<HrDetailsScreen> {
                           overflow: TextOverflow.ellipsis,
                           textAlign: TextAlign.center,
                           style: GoogleFonts.poppins(
-                            fontSize: 10.sp,
+                            fontSize: 10.tsp,
                             fontWeight: FontWeight.w700,
                             color: Colors.white,
                           ),
@@ -1397,7 +1398,7 @@ class _HrDetailsScreenState extends State<HrDetailsScreen> {
   Widget _floatingApprovalBar(String userId) {
     return Container(
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(20.r),
+        borderRadius: BorderRadius.circular(20.tr),
         boxShadow: [
           BoxShadow(
             color: ApprovalsOverviewTheme.screenDeep.withValues(alpha: 0.12),
@@ -1410,7 +1411,7 @@ class _HrDetailsScreenState extends State<HrDetailsScreen> {
         fillAlpha: 0.78,
         blurSigma: 14,
         radius: 20,
-        padding: EdgeInsets.symmetric(horizontal: 8.w, vertical: 6.h),
+        padding: EdgeInsets.symmetric(horizontal: 8.tw, vertical: 6.th),
         child: ApprovalActionButtons(
           requestId: widget.requestId,
           type: widget.type,
@@ -1453,7 +1454,7 @@ class _HrDetailsScreenState extends State<HrDetailsScreen> {
               TextSpan(
                 text: '$label:\n',
                 style: GoogleFonts.poppins(
-                  fontSize: 12.sp,
+                  fontSize: 12.tsp,
                   fontWeight: FontWeight.w500,
                   color: const Color(0xFFA0A0A0),
                 ),
@@ -1461,7 +1462,7 @@ class _HrDetailsScreenState extends State<HrDetailsScreen> {
               TextSpan(
                 text: value,
                 style: GoogleFonts.poppins(
-                  fontSize: 12.sp,
+                  fontSize: 12.tsp,
                   fontWeight: FontWeight.w700,
                   color: const Color(0xFF202020),
                 ),
@@ -1485,7 +1486,7 @@ class _HrDetailsScreenState extends State<HrDetailsScreen> {
             TextSpan(
               text: '$label: ',
               style: GoogleFonts.poppins(
-                fontSize: 12.sp,
+                fontSize: 12.tsp,
                 fontWeight: FontWeight.w500,
                 color: const Color(0xFFA0A0A0),
               ),
@@ -1493,7 +1494,7 @@ class _HrDetailsScreenState extends State<HrDetailsScreen> {
             TextSpan(
               text: value,
               style: GoogleFonts.poppins(
-                fontSize: 12.sp,
+                fontSize: 12.tsp,
                 fontWeight: FontWeight.w700,
                 color: highlightAmount
                     ? const Color(0xFFFF8A00)
@@ -1517,7 +1518,7 @@ class _HrDetailsScreenState extends State<HrDetailsScreen> {
       fillAlpha: 0.9,
       blurSigma: 8,
       radius: 16,
-      padding: EdgeInsets.fromLTRB(10.w, 8.h, 10.w, 8.h),
+      padding: EdgeInsets.fromLTRB(10.tw, 8.th, 10.tw, 8.th),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -1526,7 +1527,7 @@ class _HrDetailsScreenState extends State<HrDetailsScreen> {
               Text(
                 'COMMENT',
                 style: GoogleFonts.poppins(
-                  fontSize: 10.sp,
+                  fontSize: 10.tsp,
                   fontWeight: FontWeight.w700,
                   letterSpacing: 0.8,
                   color: ApprovalsOverviewTheme.screenDeep,
@@ -1536,22 +1537,22 @@ class _HrDetailsScreenState extends State<HrDetailsScreen> {
               Text(
                 '${comment.characters.length}/50',
                 style: GoogleFonts.poppins(
-                  fontSize: 9.sp,
+                  fontSize: 9.tsp,
                   fontWeight: FontWeight.w500,
                   color: ApprovalsOverviewTheme.textSoft,
                 ),
               ),
             ],
           ),
-          SizedBox(height: 5.h),
+          SizedBox(height: 5.th),
           Container(
             width: double.infinity,
-            constraints: BoxConstraints(minHeight: 36.h),
-            padding: EdgeInsets.symmetric(horizontal: 10.w, vertical: 7.h),
+            constraints: BoxConstraints(minHeight: 36.th),
+            padding: EdgeInsets.symmetric(horizontal: 10.tw, vertical: 7.th),
             decoration: BoxDecoration(
               color:
                   ApprovalsOverviewTheme.screenTintLight.withValues(alpha: 0.7),
-              borderRadius: BorderRadius.circular(12.r),
+              borderRadius: BorderRadius.circular(12.tr),
               border: Border.all(
                 color: Colors.white.withValues(alpha: 0.85),
               ),
@@ -1559,7 +1560,7 @@ class _HrDetailsScreenState extends State<HrDetailsScreen> {
             child: Text(
               comment.trim().isEmpty ? 'No comment' : comment,
               style: GoogleFonts.poppins(
-                fontSize: 12.sp,
+                fontSize: 12.tsp,
                 fontWeight:
                     comment.trim().isEmpty ? FontWeight.w400 : FontWeight.w500,
                 color: comment.trim().isEmpty
@@ -2237,11 +2238,11 @@ class _HrDetailsScreenState extends State<HrDetailsScreen> {
                       : _error.isNotEmpty
                           ? Center(
                               child: Padding(
-                                padding: EdgeInsets.all(16.w),
+                                padding: EdgeInsets.all(16.tw),
                                 child: Text(
                                   _error,
                                   style: GoogleFonts.poppins(
-                                    fontSize: 13.sp,
+                                    fontSize: 13.tsp,
                                     fontWeight: FontWeight.w600,
                                     color: Colors.red,
                                   ),
@@ -2257,7 +2258,7 @@ class _HrDetailsScreenState extends State<HrDetailsScreen> {
                                   children: [
                                     Padding(
                                       padding: EdgeInsets.fromLTRB(
-                                          16.w, 4.h, 16.w, 0),
+                                          16.tw, 4.th, 16.tw, 0),
                                       child: _referenceRequestHeader(
                                         employeeName: employeeName,
                                         secondaryName: secondaryName,
@@ -2268,17 +2269,17 @@ class _HrDetailsScreenState extends State<HrDetailsScreen> {
                                             : branchName,
                                       ),
                                     ),
-                                    SizedBox(height: 6.h),
+                                    SizedBox(height: 6.th),
                                     Expanded(
                                       child: SingleChildScrollView(
                                         physics: const ClampingScrollPhysics(),
                                         padding: EdgeInsets.fromLTRB(
-                                          16.w,
+                                          16.tw,
                                           0,
-                                          16.w,
+                                          16.tw,
                                           widget.showApprovalActions
-                                              ? 68.h + context.systemBottomInset
-                                              : 8.h,
+                                              ? 68.th + context.systemBottomInset
+                                              : 8.th,
                                         ),
                                         child: isReferenceLayoutRequest
                                             ? Column(
@@ -2308,7 +2309,7 @@ class _HrDetailsScreenState extends State<HrDetailsScreen> {
                                                               : workDuration),
                                                     ],
                                                   ),
-                                                  SizedBox(height: 6.w),
+                                                  SizedBox(height: 6.tw),
                                                   _simSectionCard(
                                                     title: 'Request Info',
                                                     items: isIncrementRequest
@@ -2940,10 +2941,10 @@ class _HrDetailsScreenState extends State<HrDetailsScreen> {
                                                                                                                                 ),
                                                                                                                               ],
                                                   ),
-                                                  SizedBox(height: 6.w),
+                                                  SizedBox(height: 6.tw),
                                                   _buildSimCommentCard(comment),
                                                   if (hasReferenceAction) ...[
-                                                    SizedBox(height: 16.w),
+                                                    SizedBox(height: 16.tw),
                                                     SizedBox(
                                                       width: 0.88.sw,
                                                       child: InkWell(
@@ -2954,18 +2955,18 @@ class _HrDetailsScreenState extends State<HrDetailsScreen> {
                                                                 referenceActionUrl),
                                                         borderRadius:
                                                             BorderRadius
-                                                                .circular(14.r),
+                                                                .circular(14.tr),
                                                         child: Container(
                                                           padding: EdgeInsets
                                                               .symmetric(
                                                                   vertical:
-                                                                      13.w),
+                                                                      13.tw),
                                                           decoration:
                                                               BoxDecoration(
                                                             borderRadius:
                                                                 BorderRadius
                                                                     .circular(
-                                                                        14.r),
+                                                                        14.tr),
                                                             gradient:
                                                                 const LinearGradient(
                                                               begin: Alignment
@@ -2990,10 +2991,10 @@ class _HrDetailsScreenState extends State<HrDetailsScreen> {
                                                                     .attach_file_rounded,
                                                                 color: Colors
                                                                     .white,
-                                                                size: 20.sp,
+                                                                size: 20.tsp,
                                                               ),
                                                               SizedBox(
-                                                                  width: 6.w),
+                                                                  width: 6.tw),
                                                               Text(
                                                                 isSickLeaveRequest
                                                                     ? 'Review Sick Leave'
@@ -3002,7 +3003,7 @@ class _HrDetailsScreenState extends State<HrDetailsScreen> {
                                                                     GoogleFonts
                                                                         .poppins(
                                                                   fontSize:
-                                                                      14.sp,
+                                                                      14.tsp,
                                                                   fontWeight:
                                                                       FontWeight
                                                                           .w700,
@@ -3016,7 +3017,7 @@ class _HrDetailsScreenState extends State<HrDetailsScreen> {
                                                       ),
                                                     ),
                                                   ],
-                                                  SizedBox(height: 8.w),
+                                                  SizedBox(height: 8.tw),
                                                 ],
                                               )
                                             : Column(
@@ -3030,12 +3031,12 @@ class _HrDetailsScreenState extends State<HrDetailsScreen> {
                                                         Center(
                                                             child: _label(
                                                                 'Employee Details')),
-                                                        SizedBox(height: 12.w),
+                                                        SizedBox(height: 12.tw),
                                                         if (employeeDetails
                                                             .isEmpty)
                                                           _value(
                                                               'No employee details available',
-                                                              size: 12.sp,
+                                                              size: 12.tsp,
                                                               weight: FontWeight
                                                                   .w500,
                                                               color: const Color(
@@ -3066,7 +3067,7 @@ class _HrDetailsScreenState extends State<HrDetailsScreen> {
                                                       ],
                                                     ),
                                                   ),
-                                                  SizedBox(height: 6.w),
+                                                  SizedBox(height: 6.tw),
                                                   _card(
                                                     child: Column(
                                                       crossAxisAlignment:
@@ -3076,12 +3077,12 @@ class _HrDetailsScreenState extends State<HrDetailsScreen> {
                                                         Center(
                                                             child: _label(
                                                                 'Request Details')),
-                                                        SizedBox(height: 12.w),
+                                                        SizedBox(height: 12.tw),
                                                         if (requestDetailItems
                                                             .isEmpty)
                                                           _value(
                                                               'No request-specific details available',
-                                                              size: 12.sp,
+                                                              size: 12.tsp,
                                                               weight: FontWeight
                                                                   .w500,
                                                               color: const Color(
@@ -3134,7 +3135,7 @@ class _HrDetailsScreenState extends State<HrDetailsScreen> {
                                                       ],
                                                     ),
                                                   ),
-                                                  SizedBox(height: 8.w),
+                                                  SizedBox(height: 8.tw),
                                                 ],
                                               ),
                                       ),
@@ -3143,9 +3144,9 @@ class _HrDetailsScreenState extends State<HrDetailsScreen> {
                                 ),
                                 if (widget.showApprovalActions)
                                   Positioned(
-                                    left: 16.w,
-                                    right: 16.w,
-                                    bottom: context.systemBottomInset + 8.h,
+                                    left: 16.tw,
+                                    right: 16.tw,
+                                    bottom: context.systemBottomInset + 8.th,
                                     child: _floatingApprovalBar(userId),
                                   ),
                               ],

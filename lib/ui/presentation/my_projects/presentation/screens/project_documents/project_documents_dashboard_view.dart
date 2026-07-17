@@ -1,3 +1,4 @@
+import 'package:el_race/core/utils/responsive_breakpoints.dart';
 import 'package:el_race/ui/presentation/my_projects/data/models/project_documents_models.dart';
 import 'package:el_race/ui/presentation/my_projects/presentation/bloc/project_documents/project_documents_cubit.dart';
 import 'package:el_race/ui/presentation/my_projects/presentation/bloc/project_documents/project_documents_state.dart';
@@ -49,11 +50,11 @@ class ProjectDocumentsDashboardView extends StatelessWidget {
             children: [
               if (state.error != null)
                 Padding(
-                  padding: EdgeInsets.only(bottom: 8.h),
+                  padding: EdgeInsets.only(bottom: 8.th),
                   child: Text(
                     state.error!,
                     style: GoogleFonts.poppins(
-                      fontSize: 11.sp,
+                      fontSize: 11.tsp,
                       color: ProjectsDashboardTheme.white.withValues(alpha: 0.9),
                     ),
                   ),
@@ -61,11 +62,11 @@ class ProjectDocumentsDashboardView extends StatelessWidget {
               Text(
                 '${dashboard.totalProjectsInScope} projects in scope',
                 style: GoogleFonts.poppins(
-                  fontSize: 12.sp,
+                  fontSize: 12.tsp,
                   color: ProjectsDashboardTheme.greyPanel,
                 ),
               ),
-              SizedBox(height: 8.h),
+              SizedBox(height: 8.th),
               for (var i = 0; i < folders.length; i++) ...[
                 ProjectDocumentFolderTile(
                   item: folders[i],
@@ -73,14 +74,14 @@ class ProjectDocumentsDashboardView extends StatelessWidget {
                       .read<ProjectDocumentsCubit>()
                       .openFolderFromDashboard(folders[i].kind),
                 ),
-                SizedBox(height: 10.h),
+                SizedBox(height: 10.th),
               ],
               Padding(
-                padding: EdgeInsets.fromLTRB(4.w, 8.h, 4.w, 8.h),
+                padding: EdgeInsets.fromLTRB(4.tw, 8.th, 4.tw, 8.th),
                 child: Text(
                   'Recent files',
                   style: GoogleFonts.poppins(
-                    fontSize: 15.sp,
+                    fontSize: 15.tsp,
                     fontWeight: FontWeight.w600,
                     color: ProjectsDashboardTheme.white,
                   ),
@@ -88,12 +89,12 @@ class ProjectDocumentsDashboardView extends StatelessWidget {
               ),
               if (dashboard.recentFiles.isEmpty)
                 Padding(
-                  padding: EdgeInsets.symmetric(vertical: 12.h),
+                  padding: EdgeInsets.symmetric(vertical: 12.th),
                   child: Center(
                     child: Text(
                       'No recent files',
                       style: GoogleFonts.poppins(
-                        fontSize: 12.sp,
+                        fontSize: 12.tsp,
                         color: ProjectsDashboardTheme.greyPanel,
                       ),
                     ),
@@ -112,7 +113,7 @@ class ProjectDocumentsDashboardView extends StatelessWidget {
                     kind: dashboard.recentFiles[i].kind,
                     onTap: () => _openFile(context, dashboard.recentFiles[i]),
                   ),
-                  SizedBox(height: 8.h),
+                  SizedBox(height: 8.th),
                 ],
             ],
           ),
@@ -150,12 +151,12 @@ class _ErrorBody extends StatelessWidget {
   Widget build(BuildContext context) {
     return Center(
       child: Padding(
-        padding: EdgeInsets.all(24.w),
+        padding: EdgeInsets.all(24.tw),
         child: Text(
           message,
           textAlign: TextAlign.center,
           style: GoogleFonts.poppins(
-            fontSize: 13.sp,
+            fontSize: 13.tsp,
             color: ProjectsDashboardTheme.white,
           ),
         ),

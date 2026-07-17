@@ -1,4 +1,6 @@
+import 'package:el_race/core/utils/responsive_breakpoints.dart';
 import 'dart:async';
+import 'dart:math' as math;
 import 'package:adhan/adhan.dart';
 import 'package:el_race/core/services/attendance_status_sync_service.dart';
 import 'package:el_race/core/utils/shared_pref.dart';
@@ -31,17 +33,23 @@ class HomeMidSection extends StatefulWidget {
 
   static const rollDuration = Duration(milliseconds: 100);
 
-  /// Dual-row height (padding 12 + content).
+  /// Dual-row height (padding + content). Must clear the dual icon (`.w`) on
+  /// landscape tablets where scaleW >> scaleH.
   static double estimatedHeight(BuildContext context) {
-    return 12.h * 2 + 52.h;
+    final icon = ResponsiveBreakpoints.isTabletScreen ? 48.w : 36.w;
+    final dualBody =
+        ResponsiveBreakpoints.isTabletScreen ? 72.uh : 52.uh;
+    final body = icon > dualBody ? icon : dualBody;
+    final pad = 12.uh * 2;
+    return pad + body;
   }
 
   /// Shared body height for attendance + prayer expanded panels.
-  static double expandedBodyHeight(BuildContext context) => 140.h;
+  static double expandedBodyHeight(BuildContext context) => 140.uh;
 
   static double expandedHeight(BuildContext context, MidSectionMode mode) {
     if (mode == MidSectionMode.dual) return estimatedHeight(context);
-    return 10.h * 2 + 26.h + expandedBodyHeight(context) + 6.h;
+    return 10.uh * 2 + 26.uh + expandedBodyHeight(context) + 6.uh;
   }
 
   static MidSectionMode _toPublicMode(_MidView v) {
@@ -103,10 +111,10 @@ class _HomeMidSectionState extends State<HomeMidSection> {
     final isDual = shell == MidSectionShell.dual;
     return HomeGlassTheme.midSectionShell(
       shell: shell,
-      borderRadius: isDual ? null : BorderRadius.circular(18.r),
+      borderRadius: isDual ? null : BorderRadius.circular(18.ur),
       padding: isDual
           ? null
-          : EdgeInsets.symmetric(horizontal: 10.w, vertical: 10.h),
+          : EdgeInsets.symmetric(horizontal: 10.w, vertical: 10.uh),
       child: SizedBox(
         width: double.infinity,
         child: switch (_view) {
@@ -115,12 +123,26 @@ class _HomeMidSectionState extends State<HomeMidSection> {
               height: HomeMidSection.expandedBodyHeight(context),
               child: HomeMidPrayerPanel(onBack: _rollBackToDual),
             ),
-          _MidView.dual || _MidView.checkIn => _MidDualRow(
-              key: const ValueKey('mid_dual'),
-              onCheckInTap:
-                  isCheckInDisabled ? null : () => _openCheckIn(),
-              onPrayerTap: () => _openPrayer(),
-            ),
+          _MidView.dual || _MidView.checkIn => ResponsiveBreakpoints
+                  .isTabletScreen
+              // Tablet: strip fills a taller box — center the row vertically.
+              ? Column(
+                  key: const ValueKey('mid_dual'),
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    _MidDualRow(
+                      onCheckInTap:
+                          isCheckInDisabled ? null : () => _openCheckIn(),
+                      onPrayerTap: () => _openPrayer(),
+                    ),
+                  ],
+                )
+              : _MidDualRow(
+                  key: const ValueKey('mid_dual'),
+                  onCheckInTap:
+                      isCheckInDisabled ? null : () => _openCheckIn(),
+                  onPrayerTap: () => _openPrayer(),
+                ),
         },
       ),
     );
@@ -149,7 +171,9 @@ class _MidDualRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return SizedBox(
-      height: 52.h,
+      height: ResponsiveBreakpoints.isTabletScreen
+          ? math.max(72.uh, 48.w)
+          : math.max(52.uh, 36.w),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
@@ -162,7 +186,9 @@ class _MidDualRow extends StatelessWidget {
           SizedBox(width: 12.w),
           Container(
             width: 1,
-            height: 40.h,
+            height: ResponsiveBreakpoints.isTabletScreen
+                ? math.min(56.uh, 48.w)
+                : math.min(40.uh, 36.w),
             color: Colors.white.withValues(alpha: 0.45),
           ),
           SizedBox(width: 12.w),
@@ -218,9 +244,11 @@ class _MidSectionArrowVisual extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final box = ResponsiveBreakpoints.isTabletScreen ? 34.w : 28.w;
+    final glyph = ResponsiveBreakpoints.isTabletScreen ? 22.usp : 18.usp;
     return Container(
-      width: 28.w,
-      height: 28.w,
+      width: box,
+      height: box,
       alignment: Alignment.center,
       decoration: BoxDecoration(
         shape: BoxShape.circle,
@@ -232,7 +260,7 @@ class _MidSectionArrowVisual extends StatelessWidget {
       ),
       child: Icon(
         Icons.chevron_right_rounded,
-        size: 18.sp,
+        size: glyph,
         color: enabled
             ? HomeGlassTheme.textPrimary
             : HomeGlassTheme.textSecondary,
@@ -292,7 +320,7 @@ class _MidCheckInPanelState extends State<_MidCheckInPanel> {
               alignment: Alignment.center,
               child: TmShimmerBox(
                 width: double.infinity,
-                height: 44.h,
+                height: 44.uh,
                 borderRadius: 22,
               ),
             ),
@@ -313,7 +341,7 @@ class _MidCheckInPanelState extends State<_MidCheckInPanel> {
           title: Text(
             'Attendance',
             style: GoogleFonts.poppins(
-              fontSize: 14.sp,
+              fontSize: 14.usp,
               fontWeight: FontWeight.w700,
               color: Colors.white,
             ),
@@ -358,18 +386,18 @@ class _MidCheckInPanelState extends State<_MidCheckInPanel> {
                       padding: EdgeInsets.symmetric(horizontal: 24.w),
                       child: Row(
                         children: [
-                          TmShimmerBox(width: 48.w, height: 28.h),
+                          TmShimmerBox(width: 48.w, height: 28.uh),
                           Expanded(
                             child: Padding(
                               padding: EdgeInsets.symmetric(horizontal: 8.w),
                               child: TmShimmerBox(
                                 width: double.infinity,
-                                height: 4.h,
+                                height: 4.uh,
                                 borderRadius: 2,
                               ),
                             ),
                           ),
-                          TmShimmerBox(width: 48.w, height: 28.h),
+                          TmShimmerBox(width: 48.w, height: 28.uh),
                         ],
                       ),
                     ),
@@ -387,6 +415,20 @@ class _MidCheckInPanelState extends State<_MidCheckInPanel> {
 
 const double _midDualIconSize = 36;
 const double _midDualIconGap = 8;
+/// Tablet misc strip fills a taller pane — boost icons/type so they don't look
+/// tiny against the glass. Phone keeps the original 36 design size.
+const double _midDualIconSizeTablet = 48;
+const double _midDualIconGapTablet = 10;
+
+double _midDualIcon(BuildContext context) =>
+    ResponsiveBreakpoints.isTabletScreen
+        ? _midDualIconSizeTablet
+        : _midDualIconSize;
+
+double _midDualGap(BuildContext context) =>
+    ResponsiveBreakpoints.isTabletScreen
+        ? _midDualIconGapTablet
+        : _midDualIconGap;
 
 /// Shared row layout so check-in and prayer icons + text line up.
 class _MidDualSummaryLayout extends StatelessWidget {
@@ -406,15 +448,22 @@ class _MidDualSummaryLayout extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final tablet = ResponsiveBreakpoints.isTabletScreen;
+    final iconBox = _midDualIcon(context);
+    final gap = _midDualGap(context);
+    final labelSp = tablet ? 12.usp : 10.usp;
+    final titleSp = tablet ? 18.usp : 15.usp;
+    final subSp = tablet ? 11.usp : 9.usp;
+
     return Row(
       crossAxisAlignment: CrossAxisAlignment.center,
       children: [
         SizedBox(
-          width: _midDualIconSize.w,
-          height: _midDualIconSize.w,
+          width: iconBox.w,
+          height: iconBox.w,
           child: icon,
         ),
-        SizedBox(width: _midDualIconGap.w),
+        SizedBox(width: gap.w),
         Expanded(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -430,7 +479,7 @@ class _MidDualSummaryLayout extends StatelessWidget {
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: GoogleFonts.poppins(
-                        fontSize: 10.sp,
+                        fontSize: labelSp,
                         fontWeight: FontWeight.w500,
                         color: HomeGlassTheme.textSecondary,
                       ),
@@ -447,7 +496,7 @@ class _MidDualSummaryLayout extends StatelessWidget {
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: GoogleFonts.poppins(
-                  fontSize: 15.sp,
+                  fontSize: titleSp,
                   fontWeight: FontWeight.w700,
                   color: HomeGlassTheme.textPrimary,
                   height: 1.1,
@@ -458,7 +507,7 @@ class _MidDualSummaryLayout extends StatelessWidget {
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: GoogleFonts.poppins(
-                  fontSize: 9.sp,
+                  fontSize: subSp,
                   color: HomeGlassTheme.textSecondary,
                 ),
               ),
@@ -479,8 +528,10 @@ class _CheckInSummary extends StatefulWidget {
 
 class _CheckInSummaryState extends State<_CheckInSummary> {
   Timer? _tickTimer;
+  StreamSubscription<AttendanceStatusSnapshot>? _syncSub;
   String _lastTime = '';
   String _lastSub = '';
+  bool _lastCheckedIn = false;
 
   @override
   void initState() {
@@ -488,20 +539,35 @@ class _CheckInSummaryState extends State<_CheckInSummary> {
     final initial = _checkInDisplay();
     _lastTime = initial.time;
     _lastSub = initial.sub;
+    _lastCheckedIn = initial.checkedIn;
+    _syncSub = AttendanceStatusSyncService.updates.listen((_) {
+      if (!mounted) return;
+      _refreshIfChanged();
+    });
     _tickTimer = Timer.periodic(const Duration(seconds: 1), (_) {
       if (!mounted) return;
-      final display = _checkInDisplay();
-      if (display.time == _lastTime && display.sub == _lastSub) return;
-      setState(() {
-        _lastTime = display.time;
-        _lastSub = display.sub;
-      });
+      _refreshIfChanged();
+    });
+  }
+
+  void _refreshIfChanged() {
+    final display = _checkInDisplay();
+    if (display.time == _lastTime &&
+        display.sub == _lastSub &&
+        display.checkedIn == _lastCheckedIn) {
+      return;
+    }
+    setState(() {
+      _lastTime = display.time;
+      _lastSub = display.sub;
+      _lastCheckedIn = display.checkedIn;
     });
   }
 
   @override
   void dispose() {
     _tickTimer?.cancel();
+    _syncSub?.cancel();
     super.dispose();
   }
 
@@ -512,23 +578,54 @@ class _CheckInSummaryState extends State<_CheckInSummary> {
     return '$h:$m';
   }
 
+  DateTime? _resolveCheckInAt() {
+    final checkInMillis = SharedPref().getPreferenceInt('checkInTime');
+    if (checkInMillis > 0) {
+      return DateTime.fromMillisecondsSinceEpoch(checkInMillis);
+    }
+
+    // Fallback: display string can exist when millis was not persisted.
+    final display = SharedPref().getPreferenceString('checkInDisplayTime').trim();
+    if (display.isEmpty || display == '00:00:00' || display == '--:--') {
+      return null;
+    }
+    final parts = display.split(':');
+    if (parts.length < 2) return null;
+    final hour = int.tryParse(parts[0]);
+    final minute = int.tryParse(parts[1]);
+    final second = parts.length >= 3 ? int.tryParse(parts[2]) ?? 0 : 0;
+    if (hour == null || minute == null) return null;
+    final now = DateTime.now();
+    return DateTime(now.year, now.month, now.day, hour, minute, second);
+  }
+
   ({bool checkedIn, String status, String time, String sub}) _checkInDisplay() {
     final isCheckedIn = SharedPref().getPreferenceBoolean('isCheckedIn');
-    final checkInMillis = SharedPref().getPreferenceInt('checkInTime');
+    final checkInAt = _resolveCheckInAt();
+    final outRaw = SharedPref().getPreferenceString('checkOutDisplayTime').trim();
+    final hasCheckOut = outRaw.isNotEmpty &&
+        outRaw != '00:00:00' &&
+        outRaw != '--:--';
 
-    if (isCheckedIn && checkInMillis > 0) {
-      final checkInAt =
-          DateTime.fromMillisecondsSinceEpoch(checkInMillis);
+    if (checkInAt != null && (isCheckedIn || hasCheckOut)) {
       final elapsed = DateTime.now().difference(checkInAt);
-      final remaining = const Duration(hours: 8) - elapsed;
-      final remainingLabel = remaining.isNegative
-          ? '00:00'
-          : _formatDuration(remaining);
+      if (isCheckedIn && !hasCheckOut) {
+        final remaining = const Duration(hours: 8) - elapsed;
+        final remainingLabel = remaining.isNegative
+            ? '00:00'
+            : _formatDuration(remaining);
+        return (
+          checkedIn: true,
+          status: 'Checked in',
+          time: DateFormat('HH:mm').format(checkInAt),
+          sub: 'In $remainingLabel',
+        );
+      }
       return (
-        checkedIn: true,
-        status: 'Checked in',
+        checkedIn: false,
+        status: hasCheckOut ? 'Checked out' : 'Check In',
         time: DateFormat('HH:mm').format(checkInAt),
-        sub: 'In $remainingLabel',
+        sub: hasCheckOut ? 'Out ${_formatClock(outRaw)}' : 'In --:--',
       );
     }
 
@@ -540,6 +637,14 @@ class _CheckInSummaryState extends State<_CheckInSummary> {
     );
   }
 
+  String _formatClock(String raw) {
+    final parts = raw.split(':');
+    if (parts.length >= 2) {
+      return '${parts[0].padLeft(2, '0')}:${parts[1].padLeft(2, '0')}';
+    }
+    return raw;
+  }
+
   @override
   Widget build(BuildContext context) {
     final checkIn = _checkInDisplay();
@@ -547,7 +652,7 @@ class _CheckInSummaryState extends State<_CheckInSummary> {
     return _MidDualSummaryLayout(
       icon: DecoratedBox(
         decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(10.r),
+          borderRadius: BorderRadius.circular(10.ur),
           color: const Color(0xFF1B2A4A),
           boxShadow: [
             BoxShadow(
@@ -560,7 +665,7 @@ class _CheckInSummaryState extends State<_CheckInSummary> {
         child: Center(
           child: Icon(
             Icons.fingerprint_rounded,
-            size: 22.sp,
+            size: ResponsiveBreakpoints.isTabletScreen ? 28.usp : 22.usp,
             color: Colors.white,
           ),
         ),
@@ -681,41 +786,43 @@ class _PrayerSummaryState extends State<_PrayerSummary> {
 
   Widget _prayerIconAsset(Prayer? prayer) {
     final filter = const ColorFilter.mode(_prayerIconColor, BlendMode.srcIn);
+    final size =
+        ResponsiveBreakpoints.isTabletScreen ? 24.w : 18.w;
     switch (prayer) {
       case Prayer.fajr:
         return SvgPicture.asset(
           'assets/newapp/newicon/fajar_new.svg',
-          width: 18.w,
-          height: 18.w,
+          width: size,
+          height: size,
           colorFilter: filter,
         );
       case Prayer.asr:
         return SvgPicture.asset(
           'assets/newapp/newicon/asr_new.svg',
-          width: 18.w,
-          height: 18.w,
+          width: size,
+          height: size,
           colorFilter: filter,
         );
       case Prayer.maghrib:
         return SvgPicture.asset(
           'assets/newapp/newicon/maghrib.svg',
-          width: 18.w,
-          height: 18.w,
+          width: size,
+          height: size,
           colorFilter: filter,
         );
       case Prayer.isha:
         return Image.asset(
           'assets/newapp/Ellipse 107.png',
-          width: 18.w,
-          height: 18.w,
+          width: size,
+          height: size,
           color: _prayerIconColor,
           colorBlendMode: BlendMode.srcIn,
         );
       default:
         return SvgPicture.asset(
           'assets/newapp/newicon/duhur.svg',
-          width: 20.w,
-          height: 18.w,
+          width: ResponsiveBreakpoints.isTabletScreen ? 26.w : 20.w,
+          height: size,
           colorFilter: filter,
         );
     }
@@ -751,7 +858,7 @@ class _PrayerSummaryState extends State<_PrayerSummary> {
           return _MidDualSummaryLayout(
             icon: DecoratedBox(
               decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(10.r),
+                borderRadius: BorderRadius.circular(10.ur),
                 gradient: const LinearGradient(
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,

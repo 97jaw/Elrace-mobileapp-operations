@@ -1,3 +1,4 @@
+import 'package:el_race/core/utils/responsive_breakpoints.dart';
 import 'dart:math' as math;
 import 'dart:ui' as ui;
 
@@ -109,10 +110,10 @@ class _FinancialAnalyticsPanelState extends State<FinancialAnalyticsPanel> {
 
     return Container(
       width: double.infinity,
-      padding: EdgeInsets.all(14.w),
+      padding: EdgeInsets.all(14.tw),
       decoration: BoxDecoration(
         color: _Light.card,
-        borderRadius: BorderRadius.circular(16.r),
+        borderRadius: BorderRadius.circular(16.tr),
         border: Border.all(color: _Light.border),
         boxShadow: [
           BoxShadow(
@@ -135,16 +136,16 @@ class _FinancialAnalyticsPanelState extends State<FinancialAnalyticsPanel> {
                     Text(
                       'Statement trend',
                       style: TextStyle(
-                        fontSize: 11.sp,
+                        fontSize: 11.tsp,
                         color: _Light.muted,
                         fontWeight: FontWeight.w600,
                       ),
                     ),
-                    SizedBox(height: 4.h),
+                    SizedBox(height: 4.th),
                     Text(
                       'Analytics',
                       style: TextStyle(
-                        fontSize: 20.sp,
+                        fontSize: 20.tsp,
                         fontWeight: FontWeight.w900,
                         color: _Light.text,
                         letterSpacing: -0.3,
@@ -156,39 +157,39 @@ class _FinancialAnalyticsPanelState extends State<FinancialAnalyticsPanel> {
               if (widget.onFilter != null)
                 Material(
                   color: _Light.bg,
-                  borderRadius: BorderRadius.circular(12.r),
+                  borderRadius: BorderRadius.circular(12.tr),
                   child: InkWell(
                     onTap: widget.onFilter,
-                    borderRadius: BorderRadius.circular(12.r),
+                    borderRadius: BorderRadius.circular(12.tr),
                     child: Container(
-                      padding: EdgeInsets.all(10.w),
+                      padding: EdgeInsets.all(10.tw),
                       decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(12.r),
+                        borderRadius: BorderRadius.circular(12.tr),
                         border: Border.all(color: _Light.border),
                       ),
-                      child: Icon(Icons.tune_rounded, color: _Light.blue, size: 22.sp),
+                      child: Icon(Icons.tune_rounded, color: _Light.blue, size: 22.tsp),
                     ),
                   ),
                 ),
               if (widget.onAnalyze != null) ...[
-                SizedBox(width: 8.w),
+                SizedBox(width: 8.tw),
                 Material(
                   color: _Light.maroon.withValues(alpha: 0.12),
-                  borderRadius: BorderRadius.circular(12.r),
+                  borderRadius: BorderRadius.circular(12.tr),
                   child: IconButton(
                     onPressed: widget.onAnalyze,
-                    icon: Icon(Icons.auto_awesome_rounded, color: _Light.maroon, size: 20.sp),
+                    icon: Icon(Icons.auto_awesome_rounded, color: _Light.maroon, size: 20.tsp),
                   ),
                 ),
               ],
             ],
           ),
-          SizedBox(height: 12.h),
+          SizedBox(height: 12.th),
           _SeriesLegendRowLight(
             selected: _chartSeries,
             onSelect: (i) => setState(() => _chartSeries = i),
           ),
-          SizedBox(height: 12.h),
+          SizedBox(height: 12.th),
           _KpiGlassRowLight(
             incomeCompact: '${_compactAed(widget.incomeTotal)} AED',
             expenseCompact: '${_compactAed(widget.expenseTotal)} AED',
@@ -197,7 +198,7 @@ class _FinancialAnalyticsPanelState extends State<FinancialAnalyticsPanel> {
             incomeVals: incomeVals,
             netVals: netVals,
           ),
-          SizedBox(height: 14.h),
+          SizedBox(height: 14.th),
           _MainComboChartLight(
             incomeVals: incomeVals,
             expenseVals: expenseVals,
@@ -205,22 +206,22 @@ class _FinancialAnalyticsPanelState extends State<FinancialAnalyticsPanel> {
             seriesMode: _chartSeries,
             selectedIndex: period,
           ),
-          SizedBox(height: 8.h),
+          SizedBox(height: 8.th),
           SingleChildScrollView(
             scrollDirection: Axis.horizontal,
             child: Row(
               children: [
                 for (var i = 0; i < _monthLabels(n).length; i++) ...[
-                  if (i > 0) SizedBox(width: 4.w),
+                  if (i > 0) SizedBox(width: 4.tw),
                   InkWell(
                     onTap: () => setState(() => _selectedPeriod = i),
-                    borderRadius: BorderRadius.circular(8.r),
+                    borderRadius: BorderRadius.circular(8.tr),
                     child: Padding(
-                      padding: EdgeInsets.symmetric(horizontal: 10.w, vertical: 8.h),
+                      padding: EdgeInsets.symmetric(horizontal: 10.tw, vertical: 8.th),
                       child: Text(
                         _monthLabels(n)[i],
                         style: TextStyle(
-                          fontSize: 11.sp,
+                          fontSize: 11.tsp,
                           fontWeight: i == period ? FontWeight.w900 : FontWeight.w600,
                           color: i == period ? _Light.maroon : _Light.muted,
                         ),
@@ -253,12 +254,12 @@ class _SeriesLegendRowLight extends StatelessWidget {
       return Expanded(
         child: InkWell(
           onTap: () => onSelect(idx),
-          borderRadius: BorderRadius.circular(12.r),
+          borderRadius: BorderRadius.circular(12.tr),
           child: Container(
-            padding: EdgeInsets.symmetric(vertical: 10.h, horizontal: 6.w),
+            padding: EdgeInsets.symmetric(vertical: 10.th, horizontal: 6.tw),
             decoration: BoxDecoration(
               color: on ? active.withValues(alpha: 0.22) : active.withValues(alpha: 0.06),
-              borderRadius: BorderRadius.circular(12.r),
+              borderRadius: BorderRadius.circular(12.tr),
               border: Border.all(
                 color: on ? active : _Light.border,
                 width: on ? 2 : 1,
@@ -267,15 +268,15 @@ class _SeriesLegendRowLight extends StatelessWidget {
             child: Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Icon(icon, size: 15.sp, color: on ? active : active.withValues(alpha: 0.85)),
-                SizedBox(width: 5.w),
+                Icon(icon, size: 15.tsp, color: on ? active : active.withValues(alpha: 0.85)),
+                SizedBox(width: 5.tw),
                 Flexible(
                   child: Text(
                     label,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(
-                      fontSize: 10.sp,
+                      fontSize: 10.tsp,
                       fontWeight: FontWeight.w800,
                       color: on ? _Light.text : _Light.muted,
                     ),
@@ -291,9 +292,9 @@ class _SeriesLegendRowLight extends StatelessWidget {
     return Row(
       children: [
         item('Income', 0, _Light.maroonSoft, Icons.trending_up_rounded),
-        SizedBox(width: 8.w),
+        SizedBox(width: 8.tw),
         item('Expense', 1, _Light.expenseGrey, Icons.trending_down_rounded),
-        SizedBox(width: 8.w),
+        SizedBox(width: 8.tw),
         item('Net profit', 2, _Light.netGreen, Icons.savings_outlined),
       ],
     );
@@ -329,7 +330,7 @@ class _KpiGlassRowLight extends StatelessWidget {
             values: incomeVals,
           ),
         ),
-        SizedBox(width: 8.w),
+        SizedBox(width: 8.tw),
         Expanded(
           child: _KpiMiniCardLight(
             label: 'Expense',
@@ -338,7 +339,7 @@ class _KpiGlassRowLight extends StatelessWidget {
             values: expenseVals,
           ),
         ),
-        SizedBox(width: 8.w),
+        SizedBox(width: 8.tw),
         Expanded(
           child: _KpiMiniCardLight(
             label: 'Net profits',
@@ -368,10 +369,10 @@ class _KpiMiniCardLight extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: EdgeInsets.fromLTRB(8.w, 10.h, 8.w, 8.h),
+      padding: EdgeInsets.fromLTRB(8.tw, 10.th, 8.tw, 8.th),
       decoration: BoxDecoration(
         color: sparklineColor.withValues(alpha: 0.1),
-        borderRadius: BorderRadius.circular(14.r),
+        borderRadius: BorderRadius.circular(14.tr),
         border: Border.all(color: sparklineColor.withValues(alpha: 0.35)),
       ),
       child: Column(
@@ -385,34 +386,34 @@ class _KpiMiniCardLight extends StatelessWidget {
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(
-                    fontSize: 11.sp,
+                    fontSize: 11.tsp,
                     fontWeight: FontWeight.w900,
                     color: _Light.text,
                   ),
                 ),
               ),
               Container(
-                padding: EdgeInsets.all(4.w),
+                padding: EdgeInsets.all(4.tw),
                 decoration: BoxDecoration(
                   color: sparklineColor.withValues(alpha: 0.26),
-                  borderRadius: BorderRadius.circular(6.r),
+                  borderRadius: BorderRadius.circular(6.tr),
                 ),
-                child: Icon(Icons.north_east_rounded, size: 13.sp, color: sparklineColor),
+                child: Icon(Icons.north_east_rounded, size: 13.tsp, color: sparklineColor),
               ),
             ],
           ),
-          SizedBox(height: 4.h),
+          SizedBox(height: 4.th),
           Text(
             label,
             style: TextStyle(
-              fontSize: 9.sp,
+              fontSize: 9.tsp,
               color: _Light.muted,
               fontWeight: FontWeight.w700,
             ),
           ),
-          SizedBox(height: 6.h),
+          SizedBox(height: 6.th),
           SizedBox(
-            height: 20.h,
+            height: 20.th,
             child: _MicroSparklineLight(values: values, color: sparklineColor),
           ),
         ],
@@ -435,13 +436,13 @@ class _MicroSparklineLight extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.end,
       children: [
         for (var i = 0; i < values.length; i++) ...[
-          if (i > 0) SizedBox(width: 2.w),
+          if (i > 0) SizedBox(width: 2.tw),
           Expanded(
             child: Container(
-              height: (16.h * (values[i].abs() / m).clamp(0.15, 1.0)).clamp(3.0, 16.h),
+              height: (16.th * (values[i].abs() / m).clamp(0.15, 1.0)).clamp(3.0, 16.th),
               decoration: BoxDecoration(
                 color: i == values.length - 1 ? color : color.withValues(alpha: 0.35),
-                borderRadius: BorderRadius.vertical(top: Radius.circular(2.r)),
+                borderRadius: BorderRadius.vertical(top: Radius.circular(2.tr)),
               ),
             ),
           ),
@@ -469,15 +470,15 @@ class _MainComboChartLight extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return SizedBox(
-      height: 220.h,
+      height: 220.th,
       child: DecoratedBox(
         decoration: BoxDecoration(
           color: _Light.bg,
-          borderRadius: BorderRadius.circular(14.r),
+          borderRadius: BorderRadius.circular(14.tr),
           border: Border.all(color: _Light.border),
         ),
         child: ClipRRect(
-          borderRadius: BorderRadius.circular(14.r),
+          borderRadius: BorderRadius.circular(14.tr),
           child: CustomPaint(
             painter: _ComboChartPainterLight(
               income: incomeVals,

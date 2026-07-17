@@ -1,3 +1,4 @@
+import 'package:el_race/core/utils/responsive_breakpoints.dart';
 import 'package:el_race/ui/presentation/my_projects/domain/entities/project_entity.dart';
 import 'package:el_race/ui/presentation/my_projects/presentation/theme/projects_dashboard_theme.dart';
 import 'package:el_race/ui/presentation/my_projects/presentation/utils/projects_dashboard_aggregator.dart';
@@ -38,14 +39,14 @@ class ProjectsThemeProjectCard extends StatelessWidget {
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        margin: EdgeInsets.symmetric(horizontal: 16.w, vertical: 6.h),
+        margin: EdgeInsets.symmetric(horizontal: 16.tw, vertical: 6.th),
         clipBehavior: Clip.antiAlias,
         decoration: ProjectsDashboardTheme.frostedPanel(radius: 18),
         child: Stack(
           children: [
             if (showBackgroundLogo && bgLogo.isNotEmpty)
               Positioned(
-                right: 10.w,
+                right: 10.tw,
                 top: 0,
                 bottom: 0,
                 child: Align(
@@ -55,8 +56,8 @@ class ProjectsThemeProjectCard extends StatelessWidget {
                     child: ClipOval(
                       child: ProjectsCachedImage(
                         url: bgLogo,
-                        width: 72.w,
-                        height: 72.w,
+                        width: 72.tw,
+                        height: 72.tw,
                         fit: BoxFit.cover,
                       ),
                     ),
@@ -64,7 +65,7 @@ class ProjectsThemeProjectCard extends StatelessWidget {
                 ),
               ),
             Padding(
-              padding: EdgeInsets.fromLTRB(14.w, 12.h, 14.w, 12.h),
+              padding: EdgeInsets.fromLTRB(14.tw, 12.th, 14.tw, 12.th),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
@@ -75,7 +76,7 @@ class ProjectsThemeProjectCard extends StatelessWidget {
                         child: Text(
                           woNo.isNotEmpty ? woNo : '#${project.projectId}',
                           style: GoogleFonts.poppins(
-                            fontSize: 12.sp,
+                            fontSize: 12.tsp,
                             fontWeight: FontWeight.w600,
                             color: ProjectsDashboardTheme.greyPanel
                                 .withValues(alpha: 0.95),
@@ -85,18 +86,18 @@ class ProjectsThemeProjectCard extends StatelessWidget {
                       Text(
                         statusCount,
                         style: GoogleFonts.koulen(
-                          fontSize: 16.sp,
+                          fontSize: 16.tsp,
                           color: _statusColor(statusCount),
                         ),
                       ),
                     ],
                   ),
-                  SizedBox(height: 6.h),
+                  SizedBox(height: 6.th),
                   Text(
                     woName.isNotEmpty ? woName : '—',
                     textAlign: TextAlign.center,
                     style: GoogleFonts.poppins(
-                      fontSize: 14.sp,
+                      fontSize: 14.tsp,
                       fontWeight: FontWeight.w600,
                       color: ProjectsDashboardTheme.white,
                       height: 1.25,
@@ -104,12 +105,12 @@ class ProjectsThemeProjectCard extends StatelessWidget {
                     maxLines: 3,
                     overflow: TextOverflow.ellipsis,
                   ),
-                  SizedBox(height: 10.h),
+                  SizedBox(height: 10.th),
                   Container(
-                    padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 8.h),
+                    padding: EdgeInsets.symmetric(horizontal: 12.tw, vertical: 8.th),
                     decoration: BoxDecoration(
                       color: ProjectsDashboardTheme.navy.withValues(alpha: 0.35),
-                      borderRadius: BorderRadius.circular(14.r),
+                      borderRadius: BorderRadius.circular(14.tr),
                       border: Border.all(
                         color: ProjectsDashboardTheme.white.withValues(
                           alpha: 0.25,
@@ -126,18 +127,18 @@ class ProjectsThemeProjectCard extends StatelessWidget {
                                 child: Text(
                                   formattedAmount,
                                   style: GoogleFonts.poppins(
-                                    fontSize: 13.sp,
+                                    fontSize: 13.tsp,
                                     fontWeight: FontWeight.w600,
                                     color: ProjectsDashboardTheme.white,
                                   ),
                                   overflow: TextOverflow.ellipsis,
                                 ),
                               ),
-                              SizedBox(width: 4.w),
+                              SizedBox(width: 4.tw),
                               Text(
                                 'AED',
                                 style: GoogleFonts.poppins(
-                                  fontSize: 10.sp,
+                                  fontSize: 10.tsp,
                                   color: ProjectsDashboardTheme.greyPanel,
                                 ),
                               ),
@@ -147,14 +148,14 @@ class ProjectsThemeProjectCard extends StatelessWidget {
                         if (!hidePmAvatar)
                           _PmAvatar(photoUrl: pmPhoto, name: project.partnerId)
                         else
-                          SizedBox(width: 32.w),
+                          SizedBox(width: 32.tw),
                         Expanded(
                           child: Align(
                             alignment: Alignment.centerRight,
                             child: Text(
                               formattedDate,
                               style: GoogleFonts.poppins(
-                                fontSize: 12.sp,
+                                fontSize: 12.tsp,
                                 fontWeight: FontWeight.w500,
                                 color: ProjectsDashboardTheme.greyPanel,
                               ),
@@ -219,19 +220,19 @@ class _PmAvatar extends StatelessWidget {
       return ClipOval(
         child: ProjectsCachedImage(
           url: photoUrl,
-          width: 32.w,
-          height: 32.w,
+          width: 32.tw,
+          height: 32.tw,
           fit: BoxFit.cover,
         ),
       );
     }
     return CircleAvatar(
-      radius: 16.r,
+      radius: 16.tr,
       backgroundColor: ProjectsDashboardTheme.maroon.withValues(alpha: 0.8),
       child: Text(
         initial,
         style: GoogleFonts.poppins(
-          fontSize: 11.sp,
+          fontSize: 11.tsp,
           fontWeight: FontWeight.w700,
           color: ProjectsDashboardTheme.white,
         ),

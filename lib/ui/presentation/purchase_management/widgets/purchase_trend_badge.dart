@@ -1,3 +1,4 @@
+import 'package:el_race/core/utils/responsive_breakpoints.dart';
 import 'package:el_race/ui/presentation/purchase_management/theme/purchase_theme.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
@@ -25,12 +26,12 @@ class PurchaseTrendBadge extends StatelessWidget {
 
     return Container(
       padding: EdgeInsets.symmetric(
-        horizontal: compact ? 6.w : 8.w,
-        vertical: compact ? 2.h : 3.h,
+        horizontal: compact ? 6.tw : 8.tw,
+        vertical: compact ? 2.th : 3.th,
       ),
       decoration: BoxDecoration(
         color: bg,
-        borderRadius: BorderRadius.circular(20.r),
+        borderRadius: BorderRadius.circular(20.tr),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
@@ -40,16 +41,16 @@ class PurchaseTrendBadge extends StatelessWidget {
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             style: GoogleFonts.poppins(
-              fontSize: compact ? 7.sp : 9.sp,
+              fontSize: compact ? 7.tsp : 9.tsp,
               fontWeight: FontWeight.w700,
               color: color,
             ),
           ),
           if (!compact) ...[
-            SizedBox(width: 4.w),
+            SizedBox(width: 4.tw),
             Icon(
               positive ? Icons.arrow_upward_rounded : Icons.arrow_downward_rounded,
-              size: 10.sp,
+              size: 10.tsp,
               color: color,
             ),
           ],
@@ -76,16 +77,16 @@ class PurchaseStatusPill extends StatelessWidget {
   Widget build(BuildContext context) {
     final fg = color ?? PurchaseTheme.pendingBadge;
     return Container(
-      padding: EdgeInsets.symmetric(horizontal: 7.w, vertical: 2.h),
+      padding: EdgeInsets.symmetric(horizontal: 7.tw, vertical: 2.th),
       decoration: BoxDecoration(
         color: background ?? fg.withValues(alpha: 0.14),
-        borderRadius: BorderRadius.circular(8.r),
+        borderRadius: BorderRadius.circular(8.tr),
         border: Border.all(color: fg.withValues(alpha: 0.28)),
       ),
       child: Text(
         label,
         style: GoogleFonts.poppins(
-          fontSize: 8.sp,
+          fontSize: 8.tsp,
           fontWeight: FontWeight.w700,
           color: fg,
         ),

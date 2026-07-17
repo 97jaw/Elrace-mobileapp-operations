@@ -1,3 +1,4 @@
+import 'package:el_race/core/utils/responsive_breakpoints.dart';
 import 'package:el_race/ui/presentation/attendance_reports/theme/attendance_dashboard_theme.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
@@ -24,7 +25,7 @@ class _CompactAi extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       width: double.infinity,
-      padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 16.h),
+      padding: EdgeInsets.symmetric(horizontal: 16.tw, vertical: 16.th),
       decoration: BoxDecoration(
         gradient: LinearGradient(
           begin: Alignment.topLeft,
@@ -35,7 +36,7 @@ class _CompactAi extends StatelessWidget {
             Colors.white.withValues(alpha: 0.95),
           ],
         ),
-        borderRadius: BorderRadius.circular(18.r),
+        borderRadius: BorderRadius.circular(18.tr),
         border: Border.all(
           color: const Color(0xFF1E4DB7).withValues(alpha: 0.14),
         ),
@@ -51,15 +52,15 @@ class _CompactAi extends StatelessWidget {
         children: [
           // 3D-style icon
           Container(
-            width: 48.w,
-            height: 48.w,
+            width: 48.tw,
+            height: 48.tw,
             decoration: BoxDecoration(
               gradient: const LinearGradient(
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
                 colors: [Color(0xFF2563EB), Color(0xFF0284C7)],
               ),
-              borderRadius: BorderRadius.circular(14.r),
+              borderRadius: BorderRadius.circular(14.tr),
               boxShadow: [
                 BoxShadow(
                   color: const Color(0xFF1E4DB7).withValues(alpha: 0.35),
@@ -76,10 +77,10 @@ class _CompactAi extends StatelessWidget {
             child: Icon(
               Icons.auto_awesome_rounded,
               color: Colors.white,
-              size: 24.sp,
+              size: 24.tsp,
             ),
           ),
-          SizedBox(width: 14.w),
+          SizedBox(width: 14.tw),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -88,15 +89,15 @@ class _CompactAi extends StatelessWidget {
                   'AI Attendance Insights',
                   style: TextStyle(
                     fontWeight: FontWeight.w700,
-                    fontSize: 14.sp,
+                    fontSize: 14.tsp,
                     color: AttendanceDashboardTheme.filterActive,
                   ),
                 ),
-                SizedBox(height: 4.h),
+                SizedBox(height: 4.th),
                 Text(
                   'Smart summaries & anomaly alerts for your team.',
                   style: TextStyle(
-                    fontSize: 11.sp,
+                    fontSize: 11.tsp,
                     color: AttendanceDashboardTheme.textMuted,
                     height: 1.4,
                   ),
@@ -104,9 +105,9 @@ class _CompactAi extends StatelessWidget {
               ],
             ),
           ),
-          SizedBox(width: 10.w),
+          SizedBox(width: 10.tw),
           Container(
-            padding: EdgeInsets.symmetric(horizontal: 10.w, vertical: 5.h),
+            padding: EdgeInsets.symmetric(horizontal: 10.tw, vertical: 5.th),
             decoration: BoxDecoration(
               gradient: const LinearGradient(
                 colors: [Color(0xFF1E4DB7), Color(0xFF2563EB)],
@@ -123,7 +124,7 @@ class _CompactAi extends StatelessWidget {
             child: Text(
               'Soon',
               style: TextStyle(
-                fontSize: 10.sp,
+                fontSize: 10.tsp,
                 fontWeight: FontWeight.w700,
                 color: Colors.white,
               ),
@@ -144,7 +145,7 @@ class _FullPageAi extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       width: double.infinity,
-      padding: EdgeInsets.symmetric(horizontal: 24.w, vertical: 36.h),
+      padding: EdgeInsets.symmetric(horizontal: 24.tw, vertical: 36.th),
       decoration: BoxDecoration(
         gradient: LinearGradient(
           begin: Alignment.topLeft,
@@ -155,7 +156,7 @@ class _FullPageAi extends StatelessWidget {
             Colors.white,
           ],
         ),
-        borderRadius: BorderRadius.circular(24.r),
+        borderRadius: BorderRadius.circular(24.tr),
         border: Border.all(
           color: const Color(0xFF1E4DB7).withValues(alpha: 0.14),
         ),
@@ -172,8 +173,8 @@ class _FullPageAi extends StatelessWidget {
         children: [
           // Animated sparkle icon
           Container(
-            width: 80.w,
-            height: 80.w,
+            width: 80.tw,
+            height: 80.tw,
             decoration: BoxDecoration(
               gradient: const LinearGradient(
                 begin: Alignment.topLeft,
@@ -192,16 +193,16 @@ class _FullPageAi extends StatelessWidget {
             child: Icon(
               Icons.auto_awesome_rounded,
               color: Colors.white,
-              size: 38.sp,
+              size: 38.tsp,
             ),
           ),
 
-          SizedBox(height: 24.h),
+          SizedBox(height: 24.th),
 
           Text(
             'AI Attendance Insights',
             style: TextStyle(
-              fontSize: 20.sp,
+              fontSize: 20.tsp,
               fontWeight: FontWeight.w800,
               color: AttendanceDashboardTheme.filterActive,
               letterSpacing: -0.3,
@@ -209,19 +210,19 @@ class _FullPageAi extends StatelessWidget {
             textAlign: TextAlign.center,
           ),
 
-          SizedBox(height: 10.h),
+          SizedBox(height: 10.th),
 
           Text(
             'Intelligent summaries, anomaly detection,\nand smart attendance predictions for your team.',
             style: TextStyle(
-              fontSize: 13.sp,
+              fontSize: 13.tsp,
               color: AttendanceDashboardTheme.textSecondary,
               height: 1.6,
             ),
             textAlign: TextAlign.center,
           ),
 
-          SizedBox(height: 28.h),
+          SizedBox(height: 28.th),
 
           // Feature preview cards
           for (final item in [
@@ -230,13 +231,13 @@ class _FullPageAi extends StatelessWidget {
             (Icons.trending_up_rounded, 'Trend Analysis', 'Attendance trends over time'),
           ]) ...[
             _FeatureRow(icon: item.$1, title: item.$2, subtitle: item.$3),
-            SizedBox(height: 12.h),
+            SizedBox(height: 12.th),
           ],
 
-          SizedBox(height: 8.h),
+          SizedBox(height: 8.th),
 
           Container(
-            padding: EdgeInsets.symmetric(horizontal: 24.w, vertical: 10.h),
+            padding: EdgeInsets.symmetric(horizontal: 24.tw, vertical: 10.th),
             decoration: BoxDecoration(
               gradient: const LinearGradient(
                 colors: [Color(0xFF1E4DB7), Color(0xFF2563EB)],
@@ -253,7 +254,7 @@ class _FullPageAi extends StatelessWidget {
             child: Text(
               'Coming Soon',
               style: TextStyle(
-                fontSize: 14.sp,
+                fontSize: 14.tsp,
                 fontWeight: FontWeight.w700,
                 color: Colors.white,
               ),
@@ -278,10 +279,10 @@ class _FeatureRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: EdgeInsets.symmetric(horizontal: 14.w, vertical: 12.h),
+      padding: EdgeInsets.symmetric(horizontal: 14.tw, vertical: 12.th),
       decoration: BoxDecoration(
         color: Colors.white.withValues(alpha: 0.7),
-        borderRadius: BorderRadius.circular(14.r),
+        borderRadius: BorderRadius.circular(14.tr),
         border: Border.all(
           color: const Color(0xFF1E4DB7).withValues(alpha: 0.10),
         ),
@@ -289,30 +290,30 @@ class _FeatureRow extends StatelessWidget {
       child: Row(
         children: [
           Container(
-            width: 36.w,
-            height: 36.w,
+            width: 36.tw,
+            height: 36.tw,
             decoration: BoxDecoration(
               color: const Color(0xFF1E4DB7).withValues(alpha: 0.10),
-              borderRadius: BorderRadius.circular(10.r),
+              borderRadius: BorderRadius.circular(10.tr),
             ),
             child: Icon(icon,
-                size: 18.sp,
+                size: 18.tsp,
                 color: AttendanceDashboardTheme.filterActive),
           ),
-          SizedBox(width: 12.w),
+          SizedBox(width: 12.tw),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(title,
                     style: TextStyle(
-                      fontSize: 13.sp,
+                      fontSize: 13.tsp,
                       fontWeight: FontWeight.w700,
                       color: AttendanceDashboardTheme.filterActive,
                     )),
                 Text(subtitle,
                     style: TextStyle(
-                      fontSize: 11.sp,
+                      fontSize: 11.tsp,
                       color: AttendanceDashboardTheme.textMuted,
                     )),
               ],

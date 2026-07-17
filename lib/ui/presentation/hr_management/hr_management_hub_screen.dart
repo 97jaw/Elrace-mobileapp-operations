@@ -1,3 +1,4 @@
+import 'package:el_race/core/utils/responsive_breakpoints.dart';
 import 'package:el_race/core/hr_management/hr_effective_view.dart';
 import 'package:el_race/core/hr_management/providers/hr_management_providers.dart';
 import 'package:el_race/core/hr_management/routing/hr_route_names.dart';
@@ -5,15 +6,11 @@ import 'package:el_race/core/theme/hr_module_colors.dart';
 import 'package:el_race/core/theme/hr_module_layout.dart';
 import 'package:el_race/core/theme/hr_module_typography.dart';
 import 'package:el_race/core/widgets/hr_management/hr_module_glass_header.dart';
+import 'package:el_race/ui/presentation/my_projects/presentation/utils/projects_dashboard_access.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
-
-/// Hub palette — service tile styling.
-abstract final class _HubPalette {
-  static const Color navy = Color(0xFF161B54);
-}
 
 /// First screen inside HR Management — pick a service (hub pattern).
 class HrManagementHubScreen extends ConsumerWidget {
@@ -22,6 +19,7 @@ class HrManagementHubScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final view = ref.watch(hrEffectiveViewProvider);
+    final isManagement = ProjectsDashboardAccess.isManagementUser();
 
     return HrModuleGlassShell(
       title: 'HR Management',
@@ -43,10 +41,10 @@ class HrManagementHubScreen extends ConsumerWidget {
         top: false,
         child: Padding(
           padding: EdgeInsets.fromLTRB(
-            HrModuleLayout.screenPaddingH.w,
-            10.h,
-            HrModuleLayout.screenPaddingH.w,
-            8.h,
+            HrModuleLayout.screenPaddingH.tw,
+            10.th,
+            HrModuleLayout.screenPaddingH.tw,
+            8.th,
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -56,13 +54,13 @@ class HrManagementHubScreen extends ConsumerWidget {
                     ? 'Your workplace services — simple, secure, in one hub.'
                     : 'Lead your team with clarity — built for managers and HR.',
                 style: HrModuleTypography.body().copyWith(
-                  fontSize: 12.5.sp,
+                  fontSize: 12.5.tsp,
                   height: 1.35,
                   color: const Color(0xFF6B7280),
                   fontWeight: FontWeight.w500,
                 ),
               ),
-              SizedBox(height: 10.h),
+              SizedBox(height: 10.th),
               Expanded(
                 child: Column(
                   children: [
@@ -86,7 +84,30 @@ class HrManagementHubScreen extends ConsumerWidget {
                             .pushNamed(HrRouteNames.requests),
                       ),
                     ),
-                    SizedBox(height: 8.h),
+                    if (isManagement) ...[
+                      SizedBox(height: 8.th),
+                      Expanded(
+                        child: _HubServiceTile(
+                          icon: Icons.badge_outlined,
+                          title: 'Employees Profile',
+                          subtitle:
+                              'Search staff by name or file id — instant results',
+                          bgGradient: const [
+                            Color(0xFF6E2A38),
+                            Color(0xFF8B2635),
+                            Color(0xFFA53D4C),
+                          ],
+                          titleGradient: const [
+                            Color(0xFFFFD6DD),
+                            Color(0xFFFFFFFF),
+                            Color(0xFFF5C2CC),
+                          ],
+                          onTap: () => Navigator.of(context)
+                              .pushNamed(HrRouteNames.employeesProfile),
+                        ),
+                      ),
+                    ],
+                    SizedBox(height: 8.th),
                     Expanded(
                       child: _HubServiceTile(
                         icon: Icons.work_outline_rounded,
@@ -108,7 +129,7 @@ class HrManagementHubScreen extends ConsumerWidget {
                             .pushNamed(HrRouteNames.recruitment),
                       ),
                     ),
-                    SizedBox(height: 8.h),
+                    SizedBox(height: 8.th),
                     Expanded(
                       child: _HubServiceTile(
                         icon: Icons.fact_check_outlined,
@@ -130,7 +151,7 @@ class HrManagementHubScreen extends ConsumerWidget {
                             .pushNamed(HrRouteNames.performance),
                       ),
                     ),
-                    SizedBox(height: 8.h),
+                    SizedBox(height: 8.th),
                     Expanded(
                       child: _HubServiceTile(
                         icon: Icons.receipt_long_outlined,
@@ -152,7 +173,7 @@ class HrManagementHubScreen extends ConsumerWidget {
                             .pushNamed(HrRouteNames.payslips),
                       ),
                     ),
-                    SizedBox(height: 8.h),
+                    SizedBox(height: 8.th),
                     Expanded(
                       child: _HubServiceTile(
                         icon: Icons.campaign_outlined,
@@ -201,7 +222,7 @@ class _HubDevViewMenu extends StatelessWidget {
       icon: Icon(
         Icons.tune_rounded,
         color: Colors.white.withValues(alpha: 0.95),
-        size: 22.sp,
+        size: 22.tsp,
       ),
       color: HrModuleColors.surface,
       onSelected: (id) {
@@ -264,13 +285,13 @@ class _HubServiceTile extends StatelessWidget {
   Widget build(BuildContext context) {
     return Material(
       color: Colors.transparent,
-      borderRadius: BorderRadius.circular(16.r),
+      borderRadius: BorderRadius.circular(16.tr),
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(16.r),
+        borderRadius: BorderRadius.circular(16.tr),
         child: Ink(
           decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(16.r),
+            borderRadius: BorderRadius.circular(16.tr),
             gradient: LinearGradient(
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
@@ -280,18 +301,18 @@ class _HubServiceTile extends StatelessWidget {
             boxShadow: [
               BoxShadow(
                 color: Colors.black.withValues(alpha: 0.16),
-                offset: Offset(0, 4.h),
+                offset: Offset(0, 4.th),
                 blurRadius: 10,
               ),
             ],
           ),
           child: Padding(
-            padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 8.h),
+            padding: EdgeInsets.symmetric(horizontal: 12.tw, vertical: 8.th),
             child: Row(
               children: [
                 Container(
-                  width: 44.w,
-                  height: 44.w,
+                  width: 44.tw,
+                  height: 44.tw,
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
                     color: Colors.white.withValues(alpha: 0.14),
@@ -299,10 +320,10 @@ class _HubServiceTile extends StatelessWidget {
                   child: Icon(
                     icon,
                     color: Colors.white.withValues(alpha: 0.94),
-                    size: 22.sp,
+                    size: 22.tsp,
                   ),
                 ),
-                SizedBox(width: 12.w),
+                SizedBox(width: 12.tw),
                 Expanded(
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
@@ -320,19 +341,19 @@ class _HubServiceTile extends StatelessWidget {
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           style: HrModuleTypography.cardTitle().copyWith(
-                            fontSize: 15.sp,
+                            fontSize: 15.tsp,
                             fontWeight: FontWeight.w800,
                             color: Colors.white,
                           ),
                         ),
                       ),
-                      SizedBox(height: 2.h),
+                      SizedBox(height: 2.th),
                       Text(
                         subtitle,
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
                         style: HrModuleTypography.caption().copyWith(
-                          fontSize: 11.sp,
+                          fontSize: 11.tsp,
                           height: 1.25,
                           color: Colors.white.withValues(alpha: 0.82),
                           fontWeight: FontWeight.w500,
@@ -344,7 +365,7 @@ class _HubServiceTile extends StatelessWidget {
                 Icon(
                   Icons.chevron_right_rounded,
                   color: Colors.white.withValues(alpha: 0.65),
-                  size: 22.sp,
+                  size: 22.tsp,
                 ),
               ],
             ),

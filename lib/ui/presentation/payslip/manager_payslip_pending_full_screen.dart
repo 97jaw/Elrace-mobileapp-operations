@@ -1,3 +1,4 @@
+import 'package:el_race/core/utils/responsive_breakpoints.dart';
 import 'package:el_race/core/payslip/models/payslip_models.dart';
 import 'package:el_race/core/payslip/payslip_mock_data.dart';
 import 'package:el_race/core/theme/hr_module_colors.dart';
@@ -57,7 +58,7 @@ class _ManagerPayslipPendingFullScreenState
         title: Text(
           'Pending payslips',
           style: HrModuleTypography.pageTitle().copyWith(
-                fontSize: 18.sp,
+                fontSize: 18.tsp,
                 fontWeight: FontWeight.w800,
               ),
         ),
@@ -69,15 +70,15 @@ class _ManagerPayslipPendingFullScreenState
           children: [
             Padding(
               padding: EdgeInsets.fromLTRB(
-                HrModuleLayout.screenPaddingH.w,
-                12.h,
-                HrModuleLayout.screenPaddingH.w,
-                8.h,
+                HrModuleLayout.screenPaddingH.tw,
+                12.th,
+                HrModuleLayout.screenPaddingH.tw,
+                8.th,
               ),
               child: Text(
                 '$total total · showing ${_items.length}',
                 style: HrModuleTypography.caption().copyWith(
-                      fontSize: 12.sp,
+                      fontSize: 12.tsp,
                       fontWeight: FontWeight.w600,
                     ),
               ),
@@ -85,16 +86,16 @@ class _ManagerPayslipPendingFullScreenState
             Expanded(
               child: ListView.builder(
                 padding: EdgeInsets.fromLTRB(
-                  HrModuleLayout.screenPaddingH.w,
+                  HrModuleLayout.screenPaddingH.tw,
                   0,
-                  HrModuleLayout.screenPaddingH.w,
-                  24.h,
+                  HrModuleLayout.screenPaddingH.tw,
+                  24.th,
                 ),
                 itemCount: _items.length + (_hasMore ? 1 : 0),
                 itemBuilder: (context, i) {
                   if (i == _items.length) {
                     return Padding(
-                      padding: EdgeInsets.symmetric(vertical: 16.h),
+                      padding: EdgeInsets.symmetric(vertical: 16.th),
                       child: Center(
                         child: _loading
                             ? const CircularProgressIndicator()
@@ -107,7 +108,7 @@ class _ManagerPayslipPendingFullScreenState
                   }
                   final s = _items[i];
                   return Padding(
-                    padding: EdgeInsets.only(bottom: 10.h),
+                    padding: EdgeInsets.only(bottom: 10.th),
                     child: PayslipRecordCard(
                       summary: s,
                     ),

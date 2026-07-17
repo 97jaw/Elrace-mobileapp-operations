@@ -1,3 +1,4 @@
+import 'package:el_race/core/utils/responsive_breakpoints.dart';
 import 'package:el_race/ui/presentation/PettyCash/PettyCashScreen.dart';
 import 'package:el_race/ui/presentation/home_screen/providers/home_petty_cash_widget_provider.dart';
 import 'package:el_race/ui/presentation/signin/data/model.dart';
@@ -10,7 +11,9 @@ import 'package:google_fonts/google_fonts.dart';
 
 /// v7 Finance category — Petty Cash full-width card.
 class FinanceCategoryPettyCashCard extends ConsumerWidget {
-  const FinanceCategoryPettyCashCard({super.key});
+  const FinanceCategoryPettyCashCard({super.key, this.tabletCompact = false});
+
+  final bool tabletCompact;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -25,6 +28,7 @@ class FinanceCategoryPettyCashCard extends ConsumerWidget {
     final trendColor = _trendColor(data);
 
     return _PettyCashFullCardShell(
+      height: null,
       onTap: () => Util.pushPage(const PettyCashScreen(), context),
       iconBadge: const _PettyCashIconBadge(),
       pattern: Stack(
@@ -33,7 +37,7 @@ class FinanceCategoryPettyCashCard extends ConsumerWidget {
         children: [
           Positioned(
             right: -36.w,
-            top: -48.h,
+            top: -48.uh,
             child: Container(
               width: 200.w,
               height: 200.w,
@@ -52,7 +56,7 @@ class FinanceCategoryPettyCashCard extends ConsumerWidget {
           ),
           Positioned(
             right: 4.w,
-            top: 2.h,
+            top: 2.uh,
             child: CustomPaint(
               size: Size(108.w, 108.w),
               painter: _PettyCashRingPainter(),
@@ -60,11 +64,11 @@ class FinanceCategoryPettyCashCard extends ConsumerWidget {
           ),
           Positioned(
             right: 2.w,
-            bottom: -6.h,
+            bottom: -6.uh,
             child: Text(
               'د.إ',
               style: GoogleFonts.poppins(
-                fontSize: 58.sp,
+                fontSize: 58.usp,
                 fontWeight: FontWeight.w700,
                 color: Colors.white.withValues(alpha: 0.18),
                 height: 1,
@@ -73,82 +77,79 @@ class FinanceCategoryPettyCashCard extends ConsumerWidget {
           ),
         ],
       ),
-      child: SizedBox(
-        height: 114.h,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'BALANCE',
+            style: GoogleFonts.poppins(
+              fontSize: 10.usp,
+              fontWeight: FontWeight.w600,
+              color: const Color(0xFF9CA3AF),
+              letterSpacing: 0.55,
+              height: 1.1,
+            ),
+          ),
+          SizedBox(height: 4.uh),
+          Text(
+            'Petty Cash',
+            style: GoogleFonts.poppins(
+              fontSize: 17.usp,
+              fontWeight: FontWeight.w700,
+              color: Colors.white,
+              height: 1.1,
+            ),
+          ),
+          SizedBox(height: 8.uh),
+          IntrinsicHeight(
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                _PettyCashStatColumn(
+                  label: 'Available',
+                  value: data.availableDisplay,
+                  valueColor: availableColor,
+                  valueFontSize: 22.usp,
+                ),
+                const _PettyCashStatDivider(),
+                _PettyCashStatColumn(
+                  label: 'Spent',
+                  value: data.spentDisplay,
+                  valueColor: const Color(0xFFF59E3D),
+                  valueFontSize: 22.usp,
+                ),
+              ],
+            ),
+          ),
+          SizedBox(height: 6.uh),
+          if (data.trendLabel.isNotEmpty)
             Text(
-              'BALANCE',
+              data.trendLabel,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
               style: GoogleFonts.poppins(
-                fontSize: 10.sp,
+                fontSize: 11.usp,
                 fontWeight: FontWeight.w600,
-                color: const Color(0xFF9CA3AF),
-                letterSpacing: 0.55,
-                height: 1.1,
+                color: trendColor,
+                height: 1.15,
               ),
             ),
-            SizedBox(height: 4.h),
+          if (data.pendingLabel.isNotEmpty) ...[
+            SizedBox(height: 2.uh),
             Text(
-              'Petty Cash',
+              data.pendingLabel,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
               style: GoogleFonts.poppins(
-                fontSize: 17.sp,
-                fontWeight: FontWeight.w700,
-                color: Colors.white,
+                fontSize: 10.usp,
+                fontWeight: FontWeight.w600,
+                color: const Color(0xFFF59E0B),
                 height: 1.1,
               ),
             ),
-            SizedBox(height: 8.h),
-            Expanded(
-              child: IntrinsicHeight(
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    _PettyCashStatColumn(
-                      label: 'Available',
-                      value: data.availableDisplay,
-                      valueColor: availableColor,
-                      valueFontSize: 22.sp,
-                    ),
-                    const _PettyCashStatDivider(),
-                    _PettyCashStatColumn(
-                      label: 'Spent',
-                      value: data.spentDisplay,
-                      valueColor: const Color(0xFFF59E3D),
-                      valueFontSize: 22.sp,
-                    ),
-                  ],
-                ),
-              ),
-            ),
-            if (data.trendLabel.isNotEmpty)
-              Text(
-                data.trendLabel,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: GoogleFonts.poppins(
-                  fontSize: 11.sp,
-                  fontWeight: FontWeight.w600,
-                  color: trendColor,
-                  height: 1.15,
-                ),
-              ),
-            if (data.pendingLabel.isNotEmpty) ...[
-              SizedBox(height: 2.h),
-              Text(
-                data.pendingLabel,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: GoogleFonts.poppins(
-                  fontSize: 10.sp,
-                  fontWeight: FontWeight.w600,
-                  color: const Color(0xFFF59E0B),
-                  height: 1.1,
-                ),
-              ),
-            ],
           ],
-        ),
+        ],
       ),
     );
   }
@@ -172,39 +173,37 @@ class _PettyCashUnauthorizedCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return const _PettyCashFullCardShell(
       iconBadge: _PettyCashIconBadge(),
-      child: SizedBox(
-        height: 114,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'BALANCE',
-              style: TextStyle(
-                fontSize: 8,
-                fontWeight: FontWeight.w600,
-                color: Color(0xFF9CA3AF),
-              ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'BALANCE',
+            style: TextStyle(
+              fontSize: 8,
+              fontWeight: FontWeight.w600,
+              color: Color(0xFF9CA3AF),
             ),
-            SizedBox(height: 3),
-            Text(
-              'Petty Cash',
-              style: TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.w700,
-                color: Colors.white,
-              ),
+          ),
+          SizedBox(height: 3),
+          Text(
+            'Petty Cash',
+            style: TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.w700,
+              color: Colors.white,
             ),
-            Spacer(),
-            Text(
-              'Not authorized',
-              style: TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.w600,
-                color: Colors.white70,
-              ),
+          ),
+          SizedBox(height: 8),
+          Text(
+            'Not authorized',
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+              color: Colors.white70,
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
@@ -216,12 +215,14 @@ class _PettyCashFullCardShell extends StatelessWidget {
     required this.iconBadge,
     this.pattern,
     this.onTap,
+    this.height,
   });
 
   final Widget child;
   final Widget iconBadge;
   final Widget? pattern;
   final VoidCallback? onTap;
+  final double? height;
 
   static const _gradient = LinearGradient(
     begin: Alignment.topLeft,
@@ -237,20 +238,20 @@ class _PettyCashFullCardShell extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final innerRadius =
-        (22.r - CategoryWidgetGradientBorder.width).clamp(0.0, double.infinity);
+        (22.ur - CategoryWidgetGradientBorder.width).clamp(0.0, double.infinity);
 
     return Material(
       color: Colors.transparent,
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(22.r),
+        borderRadius: BorderRadius.circular(22.ur),
         child: Container(
-          height: 140.h,
-          decoration: CategoryWidgetGradientBorder.outer(borderRadius: 22.r),
+          height: height ?? double.infinity,
+          decoration: CategoryWidgetGradientBorder.outer(borderRadius: 22.ur),
           padding: CategoryWidgetGradientBorder.padding,
           child: Container(
             decoration: CategoryWidgetGradientBorder.inner(
-              borderRadius: 22.r,
+              borderRadius: 22.ur,
               fillGradient: _gradient,
             ),
             child: ClipRRect(
@@ -262,10 +263,26 @@ class _PettyCashFullCardShell extends StatelessWidget {
                   if (pattern != null)
                     IgnorePointer(child: pattern!),
                   Padding(
-                    padding: EdgeInsets.fromLTRB(14.w, 12.h, 46.w, 12.h),
-                    child: child,
+                    padding: EdgeInsets.fromLTRB(14.w, 12.uh, 46.w, 12.uh),
+                    child: LayoutBuilder(
+                      builder: (context, constraints) {
+                        return Align(
+                          alignment: Alignment.topLeft,
+                          child: FittedBox(
+                            fit: BoxFit.scaleDown,
+                            alignment: Alignment.topLeft,
+                            child: ConstrainedBox(
+                              constraints: BoxConstraints(
+                                maxWidth: constraints.maxWidth,
+                              ),
+                              child: child,
+                            ),
+                          ),
+                        );
+                      },
+                    ),
                   ),
-                  Positioned(top: 8.h, right: 8.w, child: iconBadge),
+                  Positioned(top: 8.uh, right: 8.w, child: iconBadge),
                 ],
               ),
             ),
@@ -285,7 +302,7 @@ class _PettyCashIconBadge extends StatelessWidget {
       width: 34.w,
       height: 34.w,
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(11.r),
+        borderRadius: BorderRadius.circular(11.ur),
         gradient: const LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
@@ -301,7 +318,7 @@ class _PettyCashIconBadge extends StatelessWidget {
       ),
       child: Icon(
         Icons.account_balance_wallet_rounded,
-        size: 20.sp,
+        size: 20.usp,
         color: Colors.white,
       ),
     );
@@ -331,14 +348,14 @@ class _PettyCashStatColumn extends StatelessWidget {
           Text(
             label.toUpperCase(),
             style: GoogleFonts.poppins(
-              fontSize: 9.sp,
+              fontSize: 9.usp,
               fontWeight: FontWeight.w600,
               color: const Color(0xFF9CA3AF),
               letterSpacing: 0.35,
               height: 1.1,
             ),
           ),
-          SizedBox(height: 5.h),
+          SizedBox(height: 5.uh),
           FittedBox(
             fit: BoxFit.scaleDown,
             alignment: Alignment.centerLeft,
@@ -366,7 +383,7 @@ class _PettyCashStatDivider extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       width: 1,
-      margin: EdgeInsets.symmetric(horizontal: 10.w, vertical: 4.h),
+      margin: EdgeInsets.symmetric(horizontal: 10.w, vertical: 4.uh),
       color: Colors.white.withValues(alpha: 0.14),
     );
   }

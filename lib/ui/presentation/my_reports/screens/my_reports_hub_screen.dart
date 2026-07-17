@@ -1,3 +1,6 @@
+import 'dart:math' as math;
+
+import 'package:el_race/core/utils/responsive_breakpoints.dart';
 import 'package:el_race/ui/presentation/my_reports/data/my_reports_catalog.dart';
 import 'package:el_race/ui/presentation/my_reports/models/my_report_category.dart';
 import 'package:el_race/ui/presentation/my_reports/screens/my_reports_ai_report_screen.dart';
@@ -5,6 +8,7 @@ import 'package:el_race/ui/presentation/my_reports/screens/my_reports_category_s
 import 'package:el_race/ui/presentation/my_reports/theme/my_reports_theme.dart';
 import 'package:el_race/ui/presentation/my_reports/widgets/my_reports_background.dart';
 import 'package:el_race/ui/presentation/my_reports/widgets/my_reports_glass_header.dart';
+import 'package:el_race/ui/presentation/timesheet/site_reports/tm_site_reports_list_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -26,93 +30,120 @@ class MyReportsHubScreen extends StatelessWidget {
           children: [
             const MyReportsGlassHeader(
               title: 'My Reports',
-              onDarkBackground: true,
+              onDarkBackground: false,
+              transparentTopBar: true,
             ),
             Expanded(
-              child: CustomScrollView(
+              child: TabletContentFrame(
+                child: CustomScrollView(
                 physics: const BouncingScrollPhysics(),
                 slivers: [
                   SliverPadding(
-                    padding: EdgeInsets.fromLTRB(16.w, 10.h, 16.w, 10.h),
+                    padding: EdgeInsets.fromLTRB(16.tw, 10.th, 16.tw, 10.th),
                     sliver: SliverToBoxAdapter(
-                      child: SizedBox(
-                        height: 172.h,
-                        child: Row(
-                          crossAxisAlignment: CrossAxisAlignment.stretch,
-                          children: [
-                            Expanded(
-                              child: _HubReportCard(
-                              title: 'Elrace AI Report',
-                              subtitle: 'Generate smart report drafts',
-                              icon: Icons.auto_awesome_rounded,
-                              countLabel: '41',
-                              liveCount: '12',
-                              aiCount: '41',
-                              gradient: const LinearGradient(
-                                begin: Alignment.topLeft,
-                                end: Alignment.bottomRight,
-                                colors: [
-                                  MyReportsTheme.skyBlue,
-                                  MyReportsTheme.royalBlue,
-                                ],
-                              ),
-                              onTap: () {
-                                Navigator.of(context).push(
-                                  MaterialPageRoute(
-                                    builder: (_) =>
-                                        const MyReportsAiReportScreen(),
+                      child: LayoutBuilder(
+                        builder: (context, constraints) {
+                          final isTab =
+                              ResponsiveBreakpoints.useTabletLayout(context);
+                          // Wider cards need more height so they don't look flat.
+                          final featuredH = isTab
+                              ? math.max(200.0, constraints.maxWidth * 0.22)
+                              : 172.th;
+                          return SizedBox(
+                            height: featuredH,
+                            child: Row(
+                              crossAxisAlignment: CrossAxisAlignment.stretch,
+                              children: [
+                                Expanded(
+                                  child: _HubReportCard(
+                                    title: 'Elrace AI Report',
+                                    subtitle: 'Generate smart report drafts',
+                                    icon: Icons.auto_awesome_rounded,
+                                    countLabel: '41',
+                                    liveCount: '12',
+                                    aiCount: '41',
+                                    gradient: MyReportsTheme.featuredCardGradient,
+                                    onTap: () {
+                                      Navigator.of(context).push(
+                                        MaterialPageRoute(
+                                          builder: (_) =>
+                                              const MyReportsAiReportScreen(),
+                                        ),
+                                      );
+                                    },
                                   ),
-                                );
-                              },
-                              ),
-                            ),
-                            SizedBox(width: 10.w),
-                            Expanded(
-                              child: _HubReportCard(
-                              title: 'Management',
-                              subtitle: 'Executive level analytics',
-                              icon: Icons.insights_rounded,
-                              countLabel: '4',
-                              liveCount: '8',
-                              aiCount: '4',
-                              gradient: const LinearGradient(
-                                begin: Alignment.topLeft,
-                                end: Alignment.bottomRight,
-                                colors: [
-                                  MyReportsTheme.tealBlue,
-                                  MyReportsTheme.deepNavy,
-                                ],
-                              ),
-                              onTap: () {
-                                Navigator.of(context).push(
-                                  MaterialPageRoute(
-                                    builder: (_) => MyReportsCategoryScreen(
-                                      category: MyReportsCatalog.byType(
-                                        MyReportCategoryType.management,
-                                      ),
-                                    ),
+                                ),
+                                SizedBox(width: 10.tw),
+                                Expanded(
+                                  child: _HubReportCard(
+                                    title: 'Management',
+                                    subtitle: 'Executive level analytics',
+                                    icon: Icons.insights_rounded,
+                                    countLabel: '4',
+                                    liveCount: '8',
+                                    aiCount: '4',
+                                    gradient:
+                                        MyReportsTheme.managementCardGradient,
+                                    onTap: () {
+                                      Navigator.of(context).push(
+                                        MaterialPageRoute(
+                                          builder: (_) =>
+                                              MyReportsCategoryScreen(
+                                            category: MyReportsCatalog.byType(
+                                              MyReportCategoryType.management,
+                                            ),
+                                          ),
+                                        ),
+                                      );
+                                    },
                                   ),
-                                );
-                              },
-                              ),
+                                ),
+                              ],
                             ),
-                          ],
-                        ),
+                          );
+                        },
                       ),
                     ),
                   ),
                   SliverPadding(
-                    padding: EdgeInsets.fromLTRB(16.w, 0, 16.w, 16.h),
+                    padding: EdgeInsets.fromLTRB(16.tw, 0, 16.tw, 16.th),
                     sliver: SliverGrid(
                       gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                        crossAxisCount: 2,
-                        crossAxisSpacing: 10.w,
-                        mainAxisSpacing: 10.h,
-                        childAspectRatio: 0.92,
+                        crossAxisCount:
+                            ResponsiveBreakpoints.useTabletLayout(context)
+                                ? 3
+                                : 2,
+                        crossAxisSpacing: 10.tw,
+                        mainAxisSpacing: 10.th,
+                        // Slightly taller cells on tablet (lower ratio = taller).
+                        childAspectRatio:
+                            ResponsiveBreakpoints.useTabletLayout(context)
+                                ? 0.85
+                                : 0.92,
                       ),
                       delegate: SliverChildBuilderDelegate(
                         (context, i) {
-                          final category = gridCategories[i];
+                          // First grid card: live Site Report entry (not catalog demo).
+                          if (i == 0) {
+                            return _HubReportCard(
+                              title: 'Site Report',
+                              subtitle: 'Create and view site reports',
+                              icon: Icons.photo_camera_back_rounded,
+                              countLabel: '—',
+                              liveCount: 'Live',
+                              aiCount: '—',
+                              gradient: MyReportsTheme.siteReportCardGradient,
+                              onTap: () {
+                                Navigator.of(context).push(
+                                  MaterialPageRoute(
+                                    builder: (_) =>
+                                        const TmSiteReportsListScreen(),
+                                  ),
+                                );
+                              },
+                            );
+                          }
+                          final category = gridCategories[i - 1];
                           return _HubReportCard(
                             title: category.title,
                             subtitle: category.subtitle,
@@ -133,11 +164,12 @@ class MyReportsHubScreen extends StatelessWidget {
                             },
                           );
                         },
-                        childCount: gridCategories.length,
+                        childCount: gridCategories.length + 1,
                       ),
                     ),
                   ),
                 ],
+              ),
               ),
             ),
           ],
@@ -175,16 +207,18 @@ class _HubReportCard extends StatelessWidget {
       child: Container(
         width: double.infinity,
         height: double.infinity,
-        padding: EdgeInsets.all(12.w),
+        padding: EdgeInsets.all(12.tw),
         decoration: BoxDecoration(
           gradient: gradient,
-          borderRadius: BorderRadius.circular(20.r),
-          border: Border.all(color: Colors.white.withValues(alpha: 0.55)),
+          borderRadius: BorderRadius.circular(20.tr),
+          border: Border.all(
+            color: Colors.white.withValues(alpha: 0.85),
+          ),
           boxShadow: [
             BoxShadow(
-              color: MyReportsTheme.deepNavy.withValues(alpha: 0.12),
-              blurRadius: 14,
-              offset: const Offset(0, 5),
+              color: MyReportsTheme.deepNavy.withValues(alpha: 0.07),
+              blurRadius: 12,
+              offset: const Offset(0, 4),
             ),
           ],
         ),
@@ -195,24 +229,25 @@ class _HubReportCard extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Container(
-                  width: 34.w,
-                  height: 34.w,
+                  width: 34.tw,
+                  height: 34.tw,
                   alignment: Alignment.center,
                   decoration: MyReportsTheme.iconBadge(),
                   child: Icon(
                     icon,
-                    size: 18.sp,
+                    size: 18.tsp,
                     color: MyReportsTheme.royalBlue,
                   ),
                 ),
                 const Spacer(),
                 Container(
-                  padding: EdgeInsets.symmetric(horizontal: 8.w, vertical: 4.h),
+                  padding:
+                      EdgeInsets.symmetric(horizontal: 8.tw, vertical: 4.th),
                   decoration: MyReportsTheme.counterBadge(),
                   child: Text(
                     countLabel,
                     style: GoogleFonts.poppins(
-                      fontSize: 10.sp,
+                      fontSize: 10.tsp,
                       fontWeight: FontWeight.w700,
                       color: Colors.white,
                     ),
@@ -220,21 +255,20 @@ class _HubReportCard extends StatelessWidget {
                 ),
               ],
             ),
-            SizedBox(height: 10.h),
+            SizedBox(height: 10.th),
             Text(
               title,
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
               style: GoogleFonts.poppins(
-                fontSize: 13.sp,
+                fontSize: 13.tsp,
                 fontWeight: FontWeight.w800,
                 color: MyReportsTheme.labelOnGradient,
                 height: 1.15,
               ),
             ),
-            SizedBox(height: 4.h),
-            SizedBox(
-              height: 28.h,
+            SizedBox(height: 4.th),
+            Expanded(
               child: Align(
                 alignment: Alignment.topLeft,
                 child: Text(
@@ -242,7 +276,7 @@ class _HubReportCard extends StatelessWidget {
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                   style: GoogleFonts.poppins(
-                    fontSize: 10.sp,
+                    fontSize: 10.tsp,
                     fontWeight: FontWeight.w600,
                     color: MyReportsTheme.bodyOnGradient,
                     height: 1.3,
@@ -250,11 +284,11 @@ class _HubReportCard extends StatelessWidget {
                 ),
               ),
             ),
-            const Spacer(),
+            SizedBox(height: 8.th),
             Row(
               children: [
                 _CounterChip(label: 'Live', value: liveCount),
-                SizedBox(width: 6.w),
+                SizedBox(width: 6.tw),
                 _CounterChip(label: 'AI', value: aiCount),
               ],
             ),
@@ -275,11 +309,13 @@ class _CounterChip extends StatelessWidget {
   Widget build(BuildContext context) {
     return Expanded(
       child: Container(
-        padding: EdgeInsets.symmetric(horizontal: 8.w, vertical: 5.h),
+        padding: EdgeInsets.symmetric(horizontal: 8.tw, vertical: 5.th),
         decoration: BoxDecoration(
-          color: Colors.white.withValues(alpha: 0.5),
-          borderRadius: BorderRadius.circular(10.r),
-          border: Border.all(color: Colors.white.withValues(alpha: 0.65)),
+          color: Colors.white.withValues(alpha: 0.78),
+          borderRadius: BorderRadius.circular(10.tr),
+          border: Border.all(
+            color: MyReportsTheme.frostBlue.withValues(alpha: 0.95),
+          ),
         ),
         child: Row(
           mainAxisAlignment: MainAxisAlignment.center,
@@ -287,21 +323,21 @@ class _CounterChip extends StatelessWidget {
             Text(
               value,
               style: GoogleFonts.poppins(
-                fontSize: 10.sp,
+                fontSize: 10.tsp,
                 fontWeight: FontWeight.w800,
-                color: MyReportsTheme.labelOnGradient,
+                color: MyReportsTheme.textPrimary,
               ),
             ),
-            SizedBox(width: 4.w),
+            SizedBox(width: 4.tw),
             Flexible(
               child: Text(
                 label,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: GoogleFonts.poppins(
-                  fontSize: 8.sp,
+                  fontSize: 8.tsp,
                   fontWeight: FontWeight.w600,
-                  color: MyReportsTheme.bodyOnGradient,
+                  color: MyReportsTheme.textSecondary,
                 ),
               ),
             ),

@@ -1,12 +1,13 @@
+import 'package:el_race/core/utils/responsive_breakpoints.dart';
 import 'dart:math';
 
+import 'package:el_race/core/hr_management/models/hr_request_type_option.dart';
 import 'package:el_race/core/hr_management/hr_effective_view.dart';
 import 'package:el_race/core/hr_management/models/hr_request_summary.dart';
 import 'package:el_race/core/hr_management/providers/hr_management_providers.dart';
 import 'package:el_race/core/theme/hr_module_colors.dart';
 import 'package:el_race/core/theme/hr_module_layout.dart';
 import 'package:el_race/core/theme/hr_module_typography.dart';
-import 'package:el_race/core/widgets/hr_management/hr_filter_chip_row.dart';
 import 'package:el_race/core/widgets/hr_management/hr_kpi_counter_card.dart';
 import 'package:el_race/core/widgets/hr_management/hr_request_card.dart';
 import 'package:el_race/core/widgets/hr_management/hr_pill_tab_controls.dart';
@@ -30,10 +31,12 @@ class HrManagerLandingScreen extends ConsumerStatefulWidget {
   const HrManagerLandingScreen({super.key});
 
   @override
-  ConsumerState<HrManagerLandingScreen> createState() => _HrManagerLandingScreenState();
+  ConsumerState<HrManagerLandingScreen> createState() =>
+      _HrManagerLandingScreenState();
 }
 
-class _HrManagerLandingScreenState extends ConsumerState<HrManagerLandingScreen>
+class _HrManagerLandingScreenState
+    extends ConsumerState<HrManagerLandingScreen>
     with SingleTickerProviderStateMixin {
   late final TabController _tabController;
 
@@ -49,16 +52,9 @@ class _HrManagerLandingScreenState extends ConsumerState<HrManagerLandingScreen>
   bool _queueLoadingMore = false;
   bool _queueHasMore = true;
   String? _queueError;
+  List<HrRequestTypeOption> _requestTypes = const [];
 
   static const _pageSize = 20;
-
-  static const _chips = [
-    HrFilterOption(id: 'all', label: 'All'),
-    HrFilterOption(id: 'PENDING', label: 'Pending'),
-    HrFilterOption(id: 'APPROVED', label: 'Approved'),
-    HrFilterOption(id: 'REJECTED', label: 'Rejected'),
-    HrFilterOption(id: 'DRAFT', label: 'Draft'),
-  ];
 
   @override
   void initState() {
@@ -67,7 +63,24 @@ class _HrManagerLandingScreenState extends ConsumerState<HrManagerLandingScreen>
     _tabController.addListener(() {
       if (mounted) setState(() {});
     });
-    WidgetsBinding.instance.addPostFrameCallback((_) => _loadQueue());
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _loadRequestTypes();
+      _loadQueue();
+    });
+  }
+
+  Future<void> _loadRequestTypes() async {
+    try {
+      final client = ref.read(hrApiClientProvider);
+      final env = await client.fetchRequestTypes();
+      if (!mounted || !env.success || env.data == null) return;
+      final types = env.data!
+          .map(HrRequestTypeOption.fromJson)
+          .where((t) => t.label.isNotEmpty)
+          .toList()
+        ..sort((a, b) => a.label.toLowerCase().compareTo(b.label.toLowerCase()));
+      setState(() => _requestTypes = types);
+    } catch (_) {}
   }
 
   Future<void> _loadQueue({bool append = false}) async {
@@ -211,32 +224,53 @@ class _HrManagerLandingScreenState extends ConsumerState<HrManagerLandingScreen>
     required String total,
   }) {
     return Padding(
-      padding: EdgeInsets.fromLTRB(16.w, 12.h, 16.w, 10.h),
+      padding: EdgeInsets.fromLTRB(16.tw, 12.th, 16.tw, 10.th),
       child: IntrinsicHeight(
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             Expanded(
               child: HrKpiCounterCard(
+                value: total,
+                label: 'Total',
+                valueColor: HrModuleColors.primary,
+                selected: _teamFilterId == 'all',
+                onTap: () {
+                  setState(() => _teamFilterId = 'all');
+                  _loadQueue();
+                },
+              ),
+            ),
+            SizedBox(width: 8.tw),
+            Expanded(
+              child: HrKpiCounterCard(
                 value: pending,
                 label: 'Pending',
                 valueColor: const Color(0xFFE89B4C),
+                selected: _teamFilterId == 'PENDING',
+                onTap: () {
+                  setState(() {
+                    _teamFilterId =
+                        _teamFilterId == 'PENDING' ? 'all' : 'PENDING';
+                  });
+                  _loadQueue();
+                },
               ),
             ),
-            SizedBox(width: 8.w),
+            SizedBox(width: 8.tw),
             Expanded(
               child: HrKpiCounterCard(
                 value: approved,
                 label: 'Approved',
                 valueColor: const Color(0xFF3D9B6E),
-              ),
-            ),
-            SizedBox(width: 8.w),
-            Expanded(
-              child: HrKpiCounterCard(
-                value: total,
-                label: 'Total',
-                valueColor: HrModuleColors.primary,
+                selected: _teamFilterId == 'APPROVED',
+                onTap: () {
+                  setState(() {
+                    _teamFilterId =
+                        _teamFilterId == 'APPROVED' ? 'all' : 'APPROVED';
+                  });
+                  _loadQueue();
+                },
               ),
             ),
           ],
@@ -259,11 +293,14 @@ class _HrManagerLandingScreenState extends ConsumerState<HrManagerLandingScreen>
   }
 
   Set<String> _types(List<HrRequestSummary> team) {
-    final s = team.map((e) => e.type).where((t) => t.isNotEmpty).toSet();
-    for (final e in _queueRaw) {
-      if (e.type.isNotEmpty) s.add(e.type);
+    if (_requestTypes.isNotEmpty) {
+      return _requestTypes.map((t) => t.label).toSet();
     }
-    return s;
+    // Fallback until /api/hr/request_types responds.
+    return {
+      ...team.map((e) => e.type).where((t) => t.isNotEmpty),
+      ..._queueRaw.map((e) => e.type).where((t) => t.isNotEmpty),
+    };
   }
 
   Widget _departmentPicker(List<String> depts) {
@@ -390,7 +427,7 @@ class _HrManagerLandingScreenState extends ConsumerState<HrManagerLandingScreen>
               label: Text(
                 'New request',
                 style: HrModuleTypography.button().copyWith(
-                      fontSize: 14.sp,
+                      fontSize: 14.tsp,
                       color: Colors.white,
                     ),
               ),
@@ -409,7 +446,7 @@ class _HrManagerLandingScreenState extends ConsumerState<HrManagerLandingScreen>
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  SizedBox(height: 6.h),
+                  SizedBox(height: 6.th),
                   Expanded(
                     child: Column(
                       children: [
@@ -508,12 +545,12 @@ class _HrManagerLandingScreenState extends ConsumerState<HrManagerLandingScreen>
       },
       child: ListView(
         physics: const AlwaysScrollableScrollPhysics(),
-        padding: EdgeInsets.fromLTRB(16.w, 8.h, 16.w, 24.h),
+        padding: EdgeInsets.fromLTRB(16.tw, 8.th, 16.tw, 24.th),
         children: [
           if (kDebugMode)
             Text(
               'Dev role: ${effective.label}',
-              style: HrModuleTypography.caption().copyWith(fontSize: 11.sp),
+              style: HrModuleTypography.caption().copyWith(fontSize: 11.tsp),
             ),
           HrSearchFilterHeader(
             hintText: 'Search team — reference, type, or employee',
@@ -525,29 +562,20 @@ class _HrManagerLandingScreenState extends ConsumerState<HrManagerLandingScreen>
             onFilterToggle: () =>
                 setState(() => _teamFiltersExpanded = !_teamFiltersExpanded),
             filterPanel: Padding(
-              padding: EdgeInsets.only(top: 10.h),
+              padding: EdgeInsets.only(top: 10.th),
               child: Column(
                 children: [
                   if (effective == HrEffectiveView.hrManager) ...[
                     _departmentPicker(depts),
-                    SizedBox(height: 10.h),
+                    SizedBox(height: 10.th),
                   ],
                   _typeFilterPicker(types),
-                  SizedBox(height: 10.h),
+                  SizedBox(height: 10.th),
                 ],
               ),
             ),
           ),
-          SizedBox(height: 10.h),
-          HrFilterChipRow(
-            options: _chips,
-            selectedId: _teamFilterId,
-            onChanged: (id) {
-              setState(() => _teamFilterId = id);
-              _loadQueue();
-            },
-          ),
-          SizedBox(height: 12.h),
+          SizedBox(height: 12.th),
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -555,40 +583,40 @@ class _HrManagerLandingScreenState extends ConsumerState<HrManagerLandingScreen>
                 child: Text(
                   'Queue',
                   style: HrModuleTypography.sectionHeading().copyWith(
-                        fontSize: 16.sp,
+                        fontSize: 16.tsp,
                         fontWeight: FontWeight.w800,
                         letterSpacing: -0.3,
                         color: HrModuleColors.text,
                       ),
                 ),
               ),
-              SizedBox(width: 130.w, child: _sortPicker()),
+              SizedBox(width: 130.tw, child: _sortPicker()),
             ],
           ),
-          SizedBox(height: 8.h),
+          SizedBox(height: 8.th),
           if (_queueLoading)
             Padding(
-              padding: EdgeInsets.symmetric(vertical: 24.h),
+              padding: EdgeInsets.symmetric(vertical: 24.th),
               child: const Center(child: CircularProgressIndicator()),
             )
           else if (_queueError != null)
             Padding(
-              padding: EdgeInsets.symmetric(vertical: 16.h),
+              padding: EdgeInsets.symmetric(vertical: 16.th),
               child: Text(
                 _queueError!,
                 style: HrModuleTypography.caption().copyWith(
-                  fontSize: 12.sp,
+                  fontSize: 12.tsp,
                   color: HrModuleColors.danger,
                 ),
               ),
             )
           else if (display.isEmpty)
             Padding(
-              padding: EdgeInsets.symmetric(vertical: 32.h),
+              padding: EdgeInsets.symmetric(vertical: 32.th),
               child: Center(
                 child: Text(
                   'No team requests match',
-                  style: HrModuleTypography.body().copyWith(fontSize: 14.sp),
+                  style: HrModuleTypography.body().copyWith(fontSize: 14.tsp),
                 ),
               ),
             )
@@ -602,7 +630,7 @@ class _HrManagerLandingScreenState extends ConsumerState<HrManagerLandingScreen>
                   e.relativeSubmittedLabel,
               ].join(' · ');
               return Padding(
-                padding: EdgeInsets.only(bottom: HrModuleLayout.cardSpacingV.h),
+                padding: EdgeInsets.only(bottom: HrModuleLayout.cardSpacingV.th),
                 child: HrRequestCard(
                   showEmployeeHeader: true,
                   employeeName: e.employeeName,
@@ -627,15 +655,15 @@ class _HrManagerLandingScreenState extends ConsumerState<HrManagerLandingScreen>
               contentPadding: EdgeInsets.zero,
               leading: _queueLoadingMore
                   ? SizedBox(
-                      width: 24.w,
-                      height: 24.w,
+                      width: 24.tw,
+                      height: 24.tw,
                       child: const CircularProgressIndicator(strokeWidth: 2),
                     )
                   : Icon(Icons.expand_more, color: HrModuleColors.primary),
               title: Text(
                 _queueLoadingMore ? 'Loading…' : 'See more',
                 style: HrModuleTypography.body().copyWith(
-                  fontSize: 14.sp,
+                  fontSize: 14.tsp,
                   fontWeight: FontWeight.w600,
                   color: HrModuleColors.primary,
                 ),

@@ -1,3 +1,4 @@
+import 'package:el_race/core/utils/responsive_breakpoints.dart';
 import 'package:el_race/ui/presentation/attendance_reports/attendance_report_helpers.dart';
 import 'package:el_race/ui/presentation/attendance_reports/attendance_reports_period.dart';
 import 'package:el_race/ui/presentation/attendance_reports/attendance_reports_session.dart';
@@ -71,11 +72,11 @@ class EmployeeAttendanceReportsScreen extends ConsumerWidget {
                       child: ListView(
                         primary: false,
                         physics: const AlwaysScrollableScrollPhysics(),
-                        padding: EdgeInsets.fromLTRB(0, 0, 0, 16.h),
+                        padding: EdgeInsets.fromLTRB(0, 0, 0, 16.th),
                         children: [
                           AttendanceMonthSwitcherCard(
                             period: period,
-                            margin: EdgeInsets.fromLTRB(14.w, 6.h, 14.w, 10.h),
+                            margin: EdgeInsets.fromLTRB(14.tw, 6.th, 14.tw, 10.th),
                             onPreviousMonth: () => ref
                                 .read(attendanceReportsPeriodProvider.notifier)
                                 .previousMonth(),
@@ -84,7 +85,7 @@ class EmployeeAttendanceReportsScreen extends ConsumerWidget {
                                 .nextMonth(),
                           ),
                           Padding(
-                            padding: EdgeInsets.symmetric(horizontal: 14.w),
+                            padding: EdgeInsets.symmetric(horizontal: 14.tw),
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.stretch,
                               children: [
@@ -92,16 +93,16 @@ class EmployeeAttendanceReportsScreen extends ConsumerWidget {
                                   Text(
                                     'Module 5 · Employee · ${result.employeeName ?? ''}',
                                     style: TextStyle(
-                                      fontSize: 10.sp,
+                                      fontSize: 10.tsp,
                                       color: AttendanceDashboardTheme.textMuted,
                                     ),
                                   ),
-                                if (kDebugMode) SizedBox(height: 4.h),
+                                if (kDebugMode) SizedBox(height: 4.th),
                                 AttendanceKpiStrip(
                                   kpi: kpis,
                                   useAttendanceTheme: true,
                                 ),
-                                SizedBox(height: 10.h),
+                                SizedBox(height: 10.th),
                                 AttendanceMonthCalendar(
                                   year: period.year,
                                   month: period.month,

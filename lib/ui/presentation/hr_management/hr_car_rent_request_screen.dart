@@ -1,3 +1,4 @@
+import 'package:el_race/core/utils/responsive_breakpoints.dart';
 import 'dart:convert';
 
 import 'package:el_race/core/hr_management/network/hr_api_client.dart';
@@ -197,20 +198,20 @@ class _HrCarRentRequestScreenState extends ConsumerState<HrCarRentRequestScreen>
         foregroundColor: HrModuleColors.text,
         title: Text(
           'Car Rent Request',
-          style: HrModuleTypography.sectionHeading().copyWith(fontSize: 18.sp),
+          style: HrModuleTypography.sectionHeading().copyWith(fontSize: 18.tsp),
         ),
       ),
       body: Form(
         key: _formKey,
         child: ListView(
-          padding: EdgeInsets.all(HrModuleLayout.screenPaddingH.w),
+          padding: EdgeInsets.all(HrModuleLayout.screenPaddingH.tw),
           children: [
             Text(
               'Request a rental vehicle for business use',
-              style: HrModuleTypography.body().copyWith(fontSize: 14.sp),
+              style: HrModuleTypography.body().copyWith(fontSize: 14.tsp),
             ),
-            SizedBox(height: 16.h),
-            Text('Purpose *', style: HrModuleTypography.caption().copyWith(fontSize: 12.sp)),
+            SizedBox(height: 16.th),
+            Text('Purpose *', style: HrModuleTypography.caption().copyWith(fontSize: 12.tsp)),
             DropdownButtonFormField<String>(
               value: _purpose,
               items: _purposes
@@ -220,14 +221,14 @@ class _HrCarRentRequestScreenState extends ConsumerState<HrCarRentRequestScreen>
               validator: (v) => v == null ? 'Required' : null,
               decoration: _decoration('Select purpose'),
             ),
-            SizedBox(height: HrModuleLayout.formFieldSpacingV.h),
+            SizedBox(height: HrModuleLayout.formFieldSpacingV.th),
             Row(
               children: [
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text('From *', style: HrModuleTypography.caption().copyWith(fontSize: 12.sp)),
+                      Text('From *', style: HrModuleTypography.caption().copyWith(fontSize: 12.tsp)),
                       OutlinedButton(
                         onPressed: () => _pickDateTime(isFrom: true),
                         child: Text(_fmt(_fromDt)),
@@ -235,12 +236,12 @@ class _HrCarRentRequestScreenState extends ConsumerState<HrCarRentRequestScreen>
                     ],
                   ),
                 ),
-                SizedBox(width: 8.w),
+                SizedBox(width: 8.tw),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text('To *', style: HrModuleTypography.caption().copyWith(fontSize: 12.sp)),
+                      Text('To *', style: HrModuleTypography.caption().copyWith(fontSize: 12.tsp)),
                       OutlinedButton(
                         onPressed: () => _pickDateTime(isFrom: false),
                         child: Text(_fmt(_toDt)),
@@ -250,8 +251,8 @@ class _HrCarRentRequestScreenState extends ConsumerState<HrCarRentRequestScreen>
                 ),
               ],
             ),
-            SizedBox(height: HrModuleLayout.formFieldSpacingV.h),
-            Text('Pickup Location *', style: HrModuleTypography.caption().copyWith(fontSize: 12.sp)),
+            SizedBox(height: HrModuleLayout.formFieldSpacingV.th),
+            Text('Pickup Location *', style: HrModuleTypography.caption().copyWith(fontSize: 12.tsp)),
             TextFormField(
               controller: _pickup,
               maxLength: 150,
@@ -259,7 +260,7 @@ class _HrCarRentRequestScreenState extends ConsumerState<HrCarRentRequestScreen>
               validator: (v) =>
                   (v == null || v.trim().isEmpty) ? 'Required' : null,
             ),
-            Text('Drop-off Location *', style: HrModuleTypography.caption().copyWith(fontSize: 12.sp)),
+            Text('Drop-off Location *', style: HrModuleTypography.caption().copyWith(fontSize: 12.tsp)),
             TextFormField(
               controller: _dropoff,
               maxLength: 150,
@@ -267,8 +268,8 @@ class _HrCarRentRequestScreenState extends ConsumerState<HrCarRentRequestScreen>
               validator: (v) =>
                   (v == null || v.trim().isEmpty) ? 'Required' : null,
             ),
-            SizedBox(height: HrModuleLayout.formFieldSpacingV.h),
-            Text('Vehicle Type', style: HrModuleTypography.caption().copyWith(fontSize: 12.sp)),
+            SizedBox(height: HrModuleLayout.formFieldSpacingV.th),
+            Text('Vehicle Type', style: HrModuleTypography.caption().copyWith(fontSize: 12.tsp)),
             DropdownButtonFormField<String>(
               value: _vehicle,
               items: _vehicles
@@ -277,15 +278,15 @@ class _HrCarRentRequestScreenState extends ConsumerState<HrCarRentRequestScreen>
               onChanged: (v) => setState(() => _vehicle = v),
               decoration: _decoration('Any'),
             ),
-            SizedBox(height: HrModuleLayout.formFieldSpacingV.h),
-            Text('Estimated Distance (km)', style: HrModuleTypography.caption().copyWith(fontSize: 12.sp)),
+            SizedBox(height: HrModuleLayout.formFieldSpacingV.th),
+            Text('Estimated Distance (km)', style: HrModuleTypography.caption().copyWith(fontSize: 12.tsp)),
             TextFormField(
               controller: _distance,
               keyboardType: TextInputType.number,
               decoration: _decoration('0–5000'),
             ),
-            SizedBox(height: HrModuleLayout.formFieldSpacingV.h),
-            Text('Justification *', style: HrModuleTypography.caption().copyWith(fontSize: 12.sp)),
+            SizedBox(height: HrModuleLayout.formFieldSpacingV.th),
+            Text('Justification *', style: HrModuleTypography.caption().copyWith(fontSize: 12.tsp)),
             TextFormField(
               controller: _justification,
               minLines: 3,
@@ -298,33 +299,33 @@ class _HrCarRentRequestScreenState extends ConsumerState<HrCarRentRequestScreen>
                 return null;
               },
             ),
-            SizedBox(height: HrModuleLayout.formFieldSpacingV.h),
+            SizedBox(height: HrModuleLayout.formFieldSpacingV.th),
             OutlinedButton.icon(
               onPressed: _pickFile,
               icon: const Icon(Icons.attach_file),
               label: Text(_attachmentName ?? 'Attachment (optional)'),
             ),
-            SizedBox(height: 24.h),
+            SizedBox(height: 24.th),
             Row(
               children: [
                 Expanded(
                   child: OutlinedButton(
                     onPressed: _saveDraft,
                     style: OutlinedButton.styleFrom(
-                      minimumSize: Size.fromHeight(HrModuleLayout.buttonHeight.h),
+                      minimumSize: Size.fromHeight(HrModuleLayout.buttonHeight.th),
                     ),
-                    child: Text('Save Draft', style: TextStyle(color: HrModuleColors.primary, fontSize: 14.sp)),
+                    child: Text('Save Draft', style: TextStyle(color: HrModuleColors.primary, fontSize: 14.tsp)),
                   ),
                 ),
-                SizedBox(width: 12.w),
+                SizedBox(width: 12.tw),
                 Expanded(
                   child: FilledButton(
                     onPressed: () => _submit(api),
                     style: FilledButton.styleFrom(
                       backgroundColor: HrModuleColors.primary,
-                      minimumSize: Size.fromHeight(HrModuleLayout.buttonHeight.h),
+                      minimumSize: Size.fromHeight(HrModuleLayout.buttonHeight.th),
                     ),
-                    child: Text('Submit Request', style: TextStyle(fontSize: 14.sp)),
+                    child: Text('Submit Request', style: TextStyle(fontSize: 14.tsp)),
                   ),
                 ),
               ],
@@ -341,7 +342,7 @@ class _HrCarRentRequestScreenState extends ConsumerState<HrCarRentRequestScreen>
       filled: true,
       fillColor: HrModuleColors.surface,
       border: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(HrModuleLayout.cardRadius.r),
+        borderRadius: BorderRadius.circular(HrModuleLayout.cardRadius.tr),
       ),
     );
   }

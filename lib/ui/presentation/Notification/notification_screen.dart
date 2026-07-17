@@ -1,3 +1,4 @@
+import 'package:el_race/core/utils/responsive_breakpoints.dart';
 import 'package:el_race/core/services/notification_storage_service.dart';
 import 'package:el_race/ui/chat/widgets/chat_sub_app_glass_bar.dart';
 import 'package:el_race/ui/chat/widgets/chat_unified_header_backdrop.dart';
@@ -48,11 +49,19 @@ class _NotificationScreenState extends State<NotificationScreen> {
   }
 
   Future<void> _bootstrap() async {
-    // Opening Notification Center = all existing are read; badge clears.
-    // Only notifications that arrive after this keep a red dot.
-    await NotificationStorageService.markAllAsRead();
-    await NotificationStorageService.acknowledgeBadge();
+    // Load list, then snapshot unread baseline so only newer items bump the bell.
     await _loadNotifications();
+    await NotificationStorageService.acknowledgeBadge(
+      knownIds: _notifications.map((n) => '${n['id'] ?? ''}'),
+    );
+    await NotificationStorageService.markAllAsRead();
+    if (!mounted) return;
+    setState(() {
+      for (final n in _notifications) {
+        n['isRead'] = true;
+        n['is_read'] = true;
+      }
+    });
   }
 
   Future<void> _loadNotifications({bool showLoader = true}) async {
@@ -218,7 +227,7 @@ class _NotificationScreenState extends State<NotificationScreen> {
                   child: const SubAppGlassAppBar(),
                 ),
                 Padding(
-                  padding: EdgeInsets.fromLTRB(8.w, 2.h, 12.w, 8.h),
+                  padding: EdgeInsets.fromLTRB(8.tw, 2.th, 12.tw, 8.th),
                   child: Row(
                     children: [
                       IconButton(
@@ -232,19 +241,19 @@ class _NotificationScreenState extends State<NotificationScreen> {
                         icon: Icon(
                           Icons.arrow_back_ios_new_rounded,
                           color: _ink,
-                          size: 18.sp,
+                          size: 18.tsp,
                         ),
                         padding: EdgeInsets.zero,
                         constraints: BoxConstraints(
-                          minWidth: 40.w,
-                          minHeight: 40.w,
+                          minWidth: 40.tw,
+                          minHeight: 40.tw,
                         ),
                       ),
                       Expanded(
                         child: Text(
                           'Notification center',
                           style: GoogleFonts.poppins(
-                            fontSize: 17.sp,
+                            fontSize: 17.tsp,
                             fontWeight: FontWeight.w700,
                             color: _ink,
                           ),
@@ -272,7 +281,7 @@ class _NotificationScreenState extends State<NotificationScreen> {
                               child: Text(
                                 'No notifications',
                                 style: GoogleFonts.poppins(
-                                  fontSize: 14.sp,
+                                  fontSize: 14.tsp,
                                   fontWeight: FontWeight.w600,
                                   color: _ink.withValues(alpha: 0.55),
                                 ),
@@ -283,10 +292,10 @@ class _NotificationScreenState extends State<NotificationScreen> {
                               onTap: _collapseChrome,
                               child: ListView.separated(
                                 padding: EdgeInsets.fromLTRB(
-                                  12.w,
-                                  4.h,
-                                  12.w,
-                                  context.systemBottomInset + 16.h,
+                                  12.tw,
+                                  4.th,
+                                  12.tw,
+                                  context.systemBottomInset + 16.th,
                                 ),
                                 itemCount: _notifications.length,
                                 separatorBuilder: (_, __) => Divider(
@@ -387,21 +396,21 @@ class _HeaderClearControls extends StatelessWidget {
           child: clearAllVisible
               ? Padding(
                   key: const ValueKey('clear_all_shown'),
-                  padding: EdgeInsets.only(right: 8.w),
+                  padding: EdgeInsets.only(right: 8.tw),
                   child: Material(
                     color: Colors.transparent,
                     child: InkWell(
                       onTap: (!enabled || clearing) ? null : onClearAllTap,
                       borderRadius: BorderRadius.circular(999),
                       child: Ink(
-                        height: 36.h,
-                        padding: EdgeInsets.symmetric(horizontal: 12.w),
+                        height: 36.th,
+                        padding: EdgeInsets.symmetric(horizontal: 12.tw),
                         decoration: _GlassPillDecoration.sameBackground,
                         child: Center(
                           child: clearing
                               ? SizedBox(
-                                  width: 14.w,
-                                  height: 14.w,
+                                  width: 14.tw,
+                                  height: 14.tw,
                                   child: const CircularProgressIndicator(
                                     strokeWidth: 2,
                                     color: _ink,
@@ -410,7 +419,7 @@ class _HeaderClearControls extends StatelessWidget {
                               : Text(
                                   'Clear all',
                                   style: GoogleFonts.poppins(
-                                    fontSize: 12.sp,
+                                    fontSize: 12.tsp,
                                     fontWeight: FontWeight.w600,
                                     color: _ink.withValues(alpha: 0.85),
                                   ),
@@ -422,7 +431,7 @@ class _HeaderClearControls extends StatelessWidget {
                 )
               : SizedBox(
                   key: const ValueKey('clear_all_hidden'),
-                  height: 36.h,
+                  height: 36.th,
                   width: 0,
                 ),
         ),
@@ -434,13 +443,13 @@ class _HeaderClearControls extends StatelessWidget {
                 : onCrossTap,
             customBorder: const CircleBorder(),
             child: Ink(
-              width: 36.w,
-              height: 36.w,
+              width: 36.tw,
+              height: 36.tw,
               decoration: _GlassPillDecoration.sameBackground,
               child: Center(
                 child: Icon(
                   Icons.close_rounded,
-                  size: 18.sp,
+                  size: 18.tsp,
                   color: enabled || clearAllVisible
                       ? _ink.withValues(alpha: 0.78)
                       : _ink.withValues(alpha: 0.28),
@@ -488,8 +497,8 @@ class _IosSwipeClearTileState extends State<_IosSwipeClearTile>
   bool _dragging = false;
 
   /// Match category icon chip size.
-  double get _iconSize => 42.w;
-  double get _restActionWidth => _iconSize + 28.w;
+  double get _iconSize => 42.tw;
+  double get _restActionWidth => _iconSize + 28.tw;
 
   @override
   void initState() {
@@ -632,17 +641,17 @@ class _IosSwipeClearTileState extends State<_IosSwipeClearTile>
                   child: Opacity(
                     opacity: clearOpacity,
                     child: Padding(
-                      padding: EdgeInsets.only(right: 4.w),
+                      padding: EdgeInsets.only(right: 4.tw),
                       child: Material(
                         color: Colors.transparent,
                         child: InkWell(
                           onTap: _onClearTap,
-                          borderRadius: BorderRadius.circular(14.r),
+                          borderRadius: BorderRadius.circular(14.tr),
                           child: Ink(
-                            width: _iconSize + 20.w,
+                            width: _iconSize + 20.tw,
                             height: _iconSize,
                             decoration: BoxDecoration(
-                              borderRadius: BorderRadius.circular(14.r),
+                              borderRadius: BorderRadius.circular(14.tr),
                               color: Colors.transparent,
                               border: Border.all(
                                 color: _ink.withValues(alpha: 0.18),
@@ -655,7 +664,7 @@ class _IosSwipeClearTileState extends State<_IosSwipeClearTile>
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
                                 style: GoogleFonts.poppins(
-                                  fontSize: 12.sp,
+                                  fontSize: 12.tsp,
                                   fontWeight: FontWeight.w600,
                                   color: _ink.withValues(alpha: 0.72),
                                 ),
@@ -781,7 +790,7 @@ class _NotificationRow extends StatelessWidget {
       child: InkWell(
         onTap: onTap,
         child: Padding(
-          padding: EdgeInsets.symmetric(horizontal: 4.w, vertical: 12.h),
+          padding: EdgeInsets.symmetric(horizontal: 4.tw, vertical: 12.th),
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -793,7 +802,7 @@ class _NotificationRow extends StatelessWidget {
                 faded: true,
                 onTap: onTap,
               ),
-              SizedBox(width: 12.w),
+              SizedBox(width: 12.tw),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -805,7 +814,7 @@ class _NotificationRow extends StatelessWidget {
                           child: Text(
                             title,
                             style: GoogleFonts.poppins(
-                              fontSize: 14.sp,
+                              fontSize: 14.tsp,
                               fontWeight:
                                   isRead ? FontWeight.w600 : FontWeight.w700,
                               color: _ink,
@@ -815,9 +824,9 @@ class _NotificationRow extends StatelessWidget {
                         ),
                         if (!isRead)
                           Container(
-                            width: 8.w,
-                            height: 8.w,
-                            margin: EdgeInsets.only(left: 6.w, top: 4.h),
+                            width: 8.tw,
+                            height: 8.tw,
+                            margin: EdgeInsets.only(left: 6.tw, top: 4.th),
                             decoration: const BoxDecoration(
                               color: Color(0xFFE53935),
                               shape: BoxShape.circle,
@@ -826,20 +835,20 @@ class _NotificationRow extends StatelessWidget {
                       ],
                     ),
                     if (body.trim().isNotEmpty) ...[
-                      SizedBox(height: 4.h),
+                      SizedBox(height: 4.th),
                       Text(
                         body,
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
                         style: GoogleFonts.poppins(
-                          fontSize: 12.sp,
+                          fontSize: 12.tsp,
                           color: _ink.withValues(alpha: 0.72),
                           height: 1.35,
                         ),
                       ),
                     ],
                     if (timeLabel.isNotEmpty || clockTime.isNotEmpty) ...[
-                      SizedBox(height: 6.h),
+                      SizedBox(height: 6.th),
                       Row(
                         children: [
                           if (timeLabel.isNotEmpty)
@@ -847,7 +856,7 @@ class _NotificationRow extends StatelessWidget {
                               child: Text(
                                 timeLabel,
                                 style: GoogleFonts.poppins(
-                                  fontSize: 10.sp,
+                                  fontSize: 10.tsp,
                                   fontWeight: FontWeight.w500,
                                   color: _ink.withValues(alpha: 0.45),
                                 ),
@@ -859,7 +868,7 @@ class _NotificationRow extends StatelessWidget {
                             Text(
                               clockTime,
                               style: GoogleFonts.poppins(
-                                fontSize: 10.sp,
+                                fontSize: 10.tsp,
                                 fontWeight: FontWeight.w500,
                                 color: _ink.withValues(alpha: 0.45),
                               ),

@@ -1,3 +1,4 @@
+import 'package:el_race/core/utils/responsive_breakpoints.dart';
 import 'dart:convert';
 
 import 'package:el_race/core/utils/shared_pref.dart';
@@ -296,13 +297,13 @@ class _CompanyDocumentsTabState extends State<CompanyDocumentsTab> {
 
   Widget _buildTopFoldersHeader() {
     return Padding(
-      padding: EdgeInsets.only(left: 22.w, right: 22.w, top: 8.h, bottom: 6.h),
+      padding: EdgeInsets.only(left: 22.tw, right: 22.tw, top: 8.th, bottom: 6.th),
       child: Row(
         children: [
           Text(
             'Folders no ${_folders.length}',
             style: GoogleFonts.poppins(
-              fontSize: 13.sp,
+              fontSize: 13.tsp,
               fontWeight: FontWeight.w500,
               color: const Color(0xFF7A7A7A),
               letterSpacing: 1.5,
@@ -323,29 +324,29 @@ class _CompanyDocumentsTabState extends State<CompanyDocumentsTab> {
   Widget _buildFoldersPager() {
     if (_folders.isEmpty) {
       return Padding(
-        padding: EdgeInsets.symmetric(vertical: 26.h),
+        padding: EdgeInsets.symmetric(vertical: 26.th),
         child: Column(
           children: [
             Icon(
               Icons.folder_off_rounded,
-              size: 46.sp,
+              size: 46.tsp,
               color: const Color(0xFF98A0AE),
             ),
-            SizedBox(height: 10.h),
+            SizedBox(height: 10.th),
             Text(
               'No company folders',
               style: GoogleFonts.poppins(
-                fontSize: 14.sp,
+                fontSize: 14.tsp,
                 fontWeight: FontWeight.w700,
                 color: const Color(0xFF3B4352),
               ),
             ),
-            SizedBox(height: 6.h),
+            SizedBox(height: 6.th),
             Text(
               'Folders will appear here once available.',
               textAlign: TextAlign.center,
               style: GoogleFonts.poppins(
-                fontSize: 12.sp,
+                fontSize: 12.tsp,
                 fontWeight: FontWeight.w500,
                 color: const Color(0xFF7B8290),
               ),
@@ -356,7 +357,7 @@ class _CompanyDocumentsTabState extends State<CompanyDocumentsTab> {
     }
 
     return SizedBox(
-      height: 250.h,
+      height: 250.th,
       child: PageView.builder(
         controller: _foldersPageController,
         itemCount: _folders.length,
@@ -369,7 +370,7 @@ class _CompanyDocumentsTabState extends State<CompanyDocumentsTab> {
         itemBuilder: (context, index) {
           final folder = _folders[index];
           return Padding(
-            padding: EdgeInsets.symmetric(horizontal: 8.w),
+            padding: EdgeInsets.symmetric(horizontal: 8.tw),
             child: GestureDetector(
               onTap:
                   _isLoadingFolderContents ? null : () => _openFolder(folder),
@@ -382,17 +383,17 @@ class _CompanyDocumentsTabState extends State<CompanyDocumentsTab> {
                     ),
                   ),
                   Positioned(
-                    top: 20.h,
-                    right: 34.w,
+                    top: 20.th,
+                    right: 34.tw,
                     child: ConstrainedBox(
-                      constraints: BoxConstraints(maxWidth: 140.w),
+                      constraints: BoxConstraints(maxWidth: 140.tw),
                       child: Text(
                         folder.name,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         textAlign: TextAlign.right,
                         style: GoogleFonts.poppins(
-                          fontSize: 16.sp,
+                          fontSize: 16.tsp,
                           fontWeight: FontWeight.w700,
                           color: Colors.white,
                           letterSpacing: 1.0,
@@ -413,9 +414,9 @@ class _CompanyDocumentsTabState extends State<CompanyDocumentsTab> {
     final totalFiles = _folders.isEmpty ? 0 : _totalFilesAcrossFolders;
 
     return Padding(
-      padding: EdgeInsets.symmetric(horizontal: 0.w, vertical: 4.h),
+      padding: EdgeInsets.symmetric(horizontal: 0.tw, vertical: 4.th),
       child: SizedBox(
-        height: 360.h,
+        height: 360.th,
         child: LayoutBuilder(
           builder: (context, constraints) {
             final bubbleLeft = constraints.maxWidth * 0.60;
@@ -441,7 +442,7 @@ class _CompanyDocumentsTabState extends State<CompanyDocumentsTab> {
                       child: Text(
                         totalFiles.toString(),
                         style: GoogleFonts.poppins(
-                          fontSize: 30.sp,
+                          fontSize: 30.tsp,
                           fontWeight: FontWeight.w700,
                           color: Colors.white,
                           height: 1,
@@ -466,7 +467,7 @@ class _CompanyDocumentsTabState extends State<CompanyDocumentsTab> {
       children: [
         Padding(
           padding:
-              EdgeInsets.only(left: 10.w, right: 12.w, top: 6.h, bottom: 6.h),
+              EdgeInsets.only(left: 10.tw, right: 12.tw, top: 6.th, bottom: 6.th),
           child: Row(
             children: [
               IconButton(
@@ -481,14 +482,14 @@ class _CompanyDocumentsTabState extends State<CompanyDocumentsTab> {
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: GoogleFonts.poppins(
-                    fontSize: 16.sp,
+                    fontSize: 16.tsp,
                     fontWeight: FontWeight.w700,
                     color: const Color(0xFF1D2445),
                     letterSpacing: 1.0,
                   ),
                 ),
               ),
-              SizedBox(width: 40.w),
+              SizedBox(width: 40.tw),
             ],
           ),
         ),
@@ -502,7 +503,7 @@ class _CompanyDocumentsTabState extends State<CompanyDocumentsTab> {
               child: Text(
                 'No files in this folder',
                 style: GoogleFonts.poppins(
-                  fontSize: 13.sp,
+                  fontSize: 13.tsp,
                   fontWeight: FontWeight.w500,
                   color: const Color(0xFF7A7A7A),
                 ),
@@ -515,13 +516,13 @@ class _CompanyDocumentsTabState extends State<CompanyDocumentsTab> {
               children: [
                 Padding(
                   padding:
-                      EdgeInsets.only(left: 28.w, right: 18.w, bottom: 8.h),
+                      EdgeInsets.only(left: 28.tw, right: 18.tw, bottom: 8.th),
                   child: Row(
                     children: [
                       Text(
                         'No of files ${_selectedFolderAttachments.length}',
                         style: GoogleFonts.poppins(
-                          fontSize: 16.sp,
+                          fontSize: 16.tsp,
                           fontWeight: FontWeight.w500,
                           color: const Color(0xFF808080),
                         ),
@@ -532,37 +533,37 @@ class _CompanyDocumentsTabState extends State<CompanyDocumentsTab> {
                 Expanded(
                   child: GridView.builder(
                     padding:
-                        EdgeInsets.symmetric(horizontal: 22.w, vertical: 4.h),
+                        EdgeInsets.symmetric(horizontal: 22.tw, vertical: 4.th),
                     itemCount: _selectedFolderAttachments.length,
                     gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
                       crossAxisCount: 2,
-                      crossAxisSpacing: 20.w,
-                      mainAxisSpacing: 18.h,
-                      mainAxisExtent: 178.h,
+                      crossAxisSpacing: 20.tw,
+                      mainAxisSpacing: 18.th,
+                      mainAxisExtent: 178.th,
                     ),
                     itemBuilder: (context, index) {
                       final item = _selectedFolderAttachments[index];
                       return InkWell(
-                        borderRadius: BorderRadius.circular(12.r),
+                        borderRadius: BorderRadius.circular(12.tr),
                         onTap: () => _openAttachment(item),
                         child: Column(
                           children: [
                             SizedBox(
-                              width: 92.w,
-                              height: 92.w,
+                              width: 92.tw,
+                              height: 92.tw,
                               child: Image.asset(
                                 'assets/newapp/pdf.png',
                                 fit: BoxFit.contain,
                               ),
                             ),
-                            SizedBox(height: 8.h),
+                            SizedBox(height: 8.th),
                             Text(
                               item.name,
                               textAlign: TextAlign.center,
                               maxLines: 2,
                               overflow: TextOverflow.ellipsis,
                               style: GoogleFonts.poppins(
-                                fontSize: 15.sp,
+                                fontSize: 15.tsp,
                                 fontWeight: FontWeight.w500,
                                 color: const Color(0xFF111111),
                                 letterSpacing: 0.4,
@@ -600,7 +601,7 @@ class _CompanyDocumentsTabState extends State<CompanyDocumentsTab> {
           if (_error != null && _folders.isEmpty) {
             return Center(
               child: Padding(
-                padding: EdgeInsets.symmetric(horizontal: 20.w),
+                padding: EdgeInsets.symmetric(horizontal: 20.tw),
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
@@ -609,10 +610,10 @@ class _CompanyDocumentsTabState extends State<CompanyDocumentsTab> {
                       textAlign: TextAlign.center,
                       style: GoogleFonts.poppins(
                         color: const Color(0xFFBA1719),
-                        fontSize: 12.sp,
+                        fontSize: 12.tsp,
                       ),
                     ),
-                    SizedBox(height: 12.h),
+                    SizedBox(height: 12.th),
                     OutlinedButton(
                       onPressed: _fetchCompanyFolders,
                       child: const Text('Retry'),
@@ -630,7 +631,7 @@ class _CompanyDocumentsTabState extends State<CompanyDocumentsTab> {
           return Stack(
             children: [
               ListView(
-                padding: EdgeInsets.only(top: 6.h, bottom: 8.h),
+                padding: EdgeInsets.only(top: 6.th, bottom: 8.th),
                 children: [
                   _buildTopFoldersHeader(),
                   _buildFoldersPager(),
@@ -645,10 +646,10 @@ class _CompanyDocumentsTabState extends State<CompanyDocumentsTab> {
                       child: Center(
                         child: Container(
                           padding: EdgeInsets.symmetric(
-                              horizontal: 16.w, vertical: 12.h),
+                              horizontal: 16.tw, vertical: 12.th),
                           decoration: BoxDecoration(
                             color: Colors.white,
-                            borderRadius: BorderRadius.circular(14.r),
+                            borderRadius: BorderRadius.circular(14.tr),
                           ),
                           child: Row(
                             mainAxisSize: MainAxisSize.min,
@@ -659,11 +660,11 @@ class _CompanyDocumentsTabState extends State<CompanyDocumentsTab> {
                                 child:
                                     CircularProgressIndicator(strokeWidth: 2.6),
                               ),
-                              SizedBox(width: 10.w),
+                              SizedBox(width: 10.tw),
                               Text(
                                 'Loading folder files...',
                                 style: GoogleFonts.poppins(
-                                  fontSize: 12.sp,
+                                  fontSize: 12.tsp,
                                   fontWeight: FontWeight.w500,
                                   color: const Color(0xFF27304E),
                                 ),

@@ -1,3 +1,4 @@
+import 'package:el_race/core/utils/responsive_breakpoints.dart';
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
@@ -556,23 +557,23 @@ class _FamilyInsuranceRequestScreenState
         Text(
           text,
           style: GoogleFonts.poppins(
-            fontSize: 13.sp,
+            fontSize: 13.tsp,
             fontWeight: FontWeight.w700,
             color: const Color(0xFF1A1A1A),
           ),
         ),
         if (required) ...[
-          SizedBox(width: 8.w),
+          SizedBox(width: 8.tw),
           Container(
-            padding: EdgeInsets.symmetric(horizontal: 8.w, vertical: 2.h),
+            padding: EdgeInsets.symmetric(horizontal: 8.tw, vertical: 2.th),
             decoration: BoxDecoration(
               color: _yellow,
-              borderRadius: BorderRadius.circular(20.r),
+              borderRadius: BorderRadius.circular(20.tr),
             ),
             child: Text(
               'REQUIRED',
               style: GoogleFonts.poppins(
-                fontSize: 8.sp,
+                fontSize: 8.tsp,
                 fontWeight: FontWeight.w700,
                 color: const Color(0xFF403200),
               ),
@@ -596,12 +597,12 @@ class _FamilyInsuranceRequestScreenState
         Text(
           label,
           style: GoogleFonts.poppins(
-            fontSize: 12.sp,
+            fontSize: 12.tsp,
             fontWeight: FontWeight.w500,
             color: const Color(0xFF2F2F2F),
           ),
         ),
-        SizedBox(height: 6.h),
+        SizedBox(height: 6.th),
         TextField(
           controller: controller,
           readOnly: readOnly,
@@ -610,27 +611,27 @@ class _FamilyInsuranceRequestScreenState
             hintText: hint,
             hintStyle: GoogleFonts.poppins(
               color: const Color(0xFFB0B0B0),
-              fontSize: 11.sp,
+              fontSize: 11.tsp,
             ),
             filled: true,
             fillColor: _fieldFill,
             contentPadding:
-                EdgeInsets.symmetric(horizontal: 14.w, vertical: 12.h),
+                EdgeInsets.symmetric(horizontal: 14.tw, vertical: 12.th),
             border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(10.r),
+              borderRadius: BorderRadius.circular(10.tr),
               borderSide: const BorderSide(color: _fieldBorder),
             ),
             enabledBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(10.r),
+              borderRadius: BorderRadius.circular(10.tr),
               borderSide: const BorderSide(color: _fieldBorder),
             ),
             focusedBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(10.r),
+              borderRadius: BorderRadius.circular(10.tr),
               borderSide:
                   const BorderSide(color: Color(0xFF9FA3AE), width: 1.2),
             ),
           ),
-          style: GoogleFonts.poppins(fontSize: 12.sp),
+          style: GoogleFonts.poppins(fontSize: 12.tsp),
         ),
       ],
     );
@@ -649,17 +650,17 @@ class _FamilyInsuranceRequestScreenState
         Text(
           label,
           style: GoogleFonts.poppins(
-            fontSize: 12.sp,
+            fontSize: 12.tsp,
             fontWeight: FontWeight.w500,
             color: const Color(0xFF2F2F2F),
           ),
         ),
-        SizedBox(height: 6.h),
+        SizedBox(height: 6.th),
         Container(
-          padding: EdgeInsets.symmetric(horizontal: 12.w),
+          padding: EdgeInsets.symmetric(horizontal: 12.tw),
           decoration: BoxDecoration(
             color: _fieldFill,
-            borderRadius: BorderRadius.circular(10.r),
+            borderRadius: BorderRadius.circular(10.tr),
             border: Border.all(color: _fieldBorder),
           ),
           child: DropdownButtonHideUnderline(
@@ -670,11 +671,11 @@ class _FamilyInsuranceRequestScreenState
                 hint,
                 style: GoogleFonts.poppins(
                   color: const Color(0xFFB0B0B0),
-                  fontSize: 11.sp,
+                  fontSize: 11.tsp,
                 ),
               ),
               style: GoogleFonts.poppins(
-                fontSize: 12.sp,
+                fontSize: 12.tsp,
                 color: const Color(0xFF2F2F2F),
               ),
               items: items,
@@ -694,34 +695,34 @@ class _FamilyInsuranceRequestScreenState
     final picked = _pickedFiles[field];
     return InkWell(
       onTap: () => _pickDocFile(field, imageOnly: imageOnly),
-      borderRadius: BorderRadius.circular(12.r),
+      borderRadius: BorderRadius.circular(12.tr),
       child: Container(
         width: double.infinity,
-        padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 14.h),
+        padding: EdgeInsets.symmetric(horizontal: 12.tw, vertical: 14.th),
         decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(12.r),
+          borderRadius: BorderRadius.circular(12.tr),
           border: Border.all(color: _fieldBorder),
           color: _uploadFill,
         ),
         child: Column(
           children: [
             Icon(Icons.cloud_upload_outlined,
-                size: 22.sp, color: const Color(0xFF868686)),
-            SizedBox(height: 6.h),
+                size: 22.tsp, color: const Color(0xFF868686)),
+            SizedBox(height: 6.th),
             Text(
               picked == null ? title : picked.filename,
               textAlign: TextAlign.center,
               style: GoogleFonts.poppins(
-                fontSize: 12.sp,
+                fontSize: 12.tsp,
                 fontWeight: FontWeight.w500,
                 color: const Color(0xFF2F2F2F),
               ),
             ),
-            SizedBox(height: 2.h),
+            SizedBox(height: 2.th),
             Text(
               imageOnly ? 'JPG/PNG' : 'PDF or JPG (Max 5MB)',
               style: GoogleFonts.poppins(
-                fontSize: 10.sp,
+                fontSize: 10.tsp,
                 color: const Color(0xFF8D8D8D),
               ),
             ),
@@ -743,19 +744,19 @@ class _FamilyInsuranceRequestScreenState
     String numberHint = '',
   }) {
     return Container(
-      padding: EdgeInsets.all(14.w),
+      padding: EdgeInsets.all(14.tw),
       decoration: BoxDecoration(
         color: _card,
-        borderRadius: BorderRadius.circular(14.r),
+        borderRadius: BorderRadius.circular(14.tr),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           _sectionTitle(title, required: true),
-          SizedBox(height: 10.h),
+          SizedBox(height: 10.th),
           if (showNumberField && numberController != null) ...[
             _textField(numberLabel, numberController, hint: numberHint),
-            SizedBox(height: 10.h),
+            SizedBox(height: 10.th),
           ],
           _textField(
             expiryLabel,
@@ -774,7 +775,7 @@ class _FamilyInsuranceRequestScreenState
               );
             },
           ),
-          SizedBox(height: 10.h),
+          SizedBox(height: 10.th),
           _uploadBox(
             field: field,
             title: 'Upload $title',
@@ -791,7 +792,7 @@ class _FamilyInsuranceRequestScreenState
       title: 'Family Document',
       body: SafeArea(
         child: ListView(
-          padding: EdgeInsets.fromLTRB(16.w, 8.h, 16.w, 16.h),
+          padding: EdgeInsets.fromLTRB(16.tw, 8.th, 16.tw, 16.th),
           children: [
             Center(
               child: GestureDetector(
@@ -799,8 +800,8 @@ class _FamilyInsuranceRequestScreenState
                 child: Column(
                   children: [
                     Container(
-                      width: 110.w,
-                      height: 110.w,
+                      width: 110.tw,
+                      height: 110.tw,
                       decoration: BoxDecoration(
                         shape: BoxShape.circle,
                         color: Colors.transparent,
@@ -812,16 +813,16 @@ class _FamilyInsuranceRequestScreenState
                       child: Center(
                         child: Icon(
                           Icons.add_a_photo_outlined,
-                          size: 30.sp,
+                          size: 30.tsp,
                           color: const Color(0xFF7D7D7D),
                         ),
                       ),
                     ),
-                    SizedBox(height: 8.h),
+                    SizedBox(height: 8.th),
                     Text(
                       'Upload Profile Picture',
                       style: GoogleFonts.poppins(
-                        fontSize: 13.sp,
+                        fontSize: 13.tsp,
                         color: Colors.black,
                       ),
                     ),
@@ -829,11 +830,11 @@ class _FamilyInsuranceRequestScreenState
                 ),
               ),
             ),
-            SizedBox(height: 16.h),
+            SizedBox(height: 16.th),
             _sectionTitle('Basic Information'),
-            SizedBox(height: 10.h),
+            SizedBox(height: 10.th),
             _textField('Full Name', _nameController, hint: 'Enter name'),
-            SizedBox(height: 10.h),
+            SizedBox(height: 10.th),
             _dropdownField<String>(
               label: 'Relationship',
               value: _selectedFamilyMember,
@@ -848,7 +849,7 @@ class _FamilyInsuranceRequestScreenState
                 unawaited(_onFamilyMemberChanged(v));
               },
             ),
-            SizedBox(height: 10.h),
+            SizedBox(height: 10.th),
             _dropdownField<int>(
               label: 'Nationality',
               value: _selectedNationalityId,
@@ -863,7 +864,7 @@ class _FamilyInsuranceRequestScreenState
                   .toList(growable: false),
               onChanged: (v) => setState(() => _selectedNationalityId = v),
             ),
-            SizedBox(height: 10.h),
+            SizedBox(height: 10.th),
             _textField(
               'Date of Birth',
               _dobController,
@@ -883,7 +884,7 @@ class _FamilyInsuranceRequestScreenState
                 );
               },
             ),
-            SizedBox(height: 10.h),
+            SizedBox(height: 10.th),
             _dropdownField<String>(
               label: 'Medical Request Case',
               value: _selectedCaseKey,
@@ -904,16 +905,16 @@ class _FamilyInsuranceRequestScreenState
               },
             ),
             if ((_initError ?? '').isNotEmpty) ...[
-              SizedBox(height: 8.h),
+              SizedBox(height: 8.th),
               Text(
                 _initError!,
                 style: GoogleFonts.poppins(
                   color: const Color(0xFFBA1719),
-                  fontSize: 11.sp,
+                  fontSize: 11.tsp,
                 ),
               ),
             ],
-            SizedBox(height: 16.h),
+            SizedBox(height: 16.th),
             if (_requiredDocs.any((d) => d.field == 'emirates_id_file')) ...[
               _docCard(
                 title: 'Emirates ID',
@@ -926,7 +927,7 @@ class _FamilyInsuranceRequestScreenState
                 numberLabel: 'ID Number',
                 numberHint: '784-XXXX-XXXXXXX-X',
               ),
-              SizedBox(height: 12.h),
+              SizedBox(height: 12.th),
             ],
             if (_requiredDocs.any((d) => d.field == 'passport_copy_file')) ...[
               _docCard(
@@ -947,7 +948,7 @@ class _FamilyInsuranceRequestScreenState
                     d.field != 'passport_copy_file' &&
                     d.field != 'photo_file')
                 .isNotEmpty) ...[
-              SizedBox(height: 14.h),
+              SizedBox(height: 14.th),
               ..._requiredDocs
                   .where((d) =>
                       d.field != 'emirates_id_file' &&
@@ -955,7 +956,7 @@ class _FamilyInsuranceRequestScreenState
                       d.field != 'photo_file')
                   .map((d) {
                 return Padding(
-                  padding: EdgeInsets.only(bottom: 10.h),
+                  padding: EdgeInsets.only(bottom: 10.th),
                   child: _docCard(
                     title: d.label,
                     field: d.field,
@@ -966,34 +967,34 @@ class _FamilyInsuranceRequestScreenState
                 );
               }),
             ],
-            SizedBox(height: 8.h),
+            SizedBox(height: 8.th),
             SizedBox(
-              height: 46.h,
+              height: 46.th,
               child: ElevatedButton(
                 style: ElevatedButton.styleFrom(
                   backgroundColor: _yellow,
                   foregroundColor: Colors.black,
                   elevation: 0,
                   shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12.r),
+                    borderRadius: BorderRadius.circular(12.tr),
                   ),
                 ),
                 onPressed: _isSubmitting ? null : _submit,
                 child: _isSubmitting
                     ? SizedBox(
-                        width: 20.w,
-                        height: 20.w,
+                        width: 20.tw,
+                        height: 20.tw,
                         child: const CircularProgressIndicator(strokeWidth: 2),
                       )
                     : Row(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          Icon(Icons.person_add_alt_1, size: 18.sp),
-                          SizedBox(width: 6.w),
+                          Icon(Icons.person_add_alt_1, size: 18.tsp),
+                          SizedBox(width: 6.tw),
                           Text(
                             'Add Family Member',
                             style: GoogleFonts.poppins(
-                              fontSize: 14.sp,
+                              fontSize: 14.tsp,
                               fontWeight: FontWeight.w700,
                             ),
                           ),

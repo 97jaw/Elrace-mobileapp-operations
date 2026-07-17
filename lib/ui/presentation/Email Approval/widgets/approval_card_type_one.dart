@@ -1,3 +1,4 @@
+import 'package:el_race/core/utils/responsive_breakpoints.dart';
 import 'package:el_race/resources/app_colors.dart';
 import 'package:el_race/utils/color_utils.dart';
 import 'package:flutter/material.dart';
@@ -59,7 +60,7 @@ class ApprovalCardTypeOne extends StatelessWidget {
           isExpanded
               ? Container(
                   key: const ValueKey("expanded"),
-                  height: 70.w,
+                  height: 70.tw,
                   width: double.infinity,
                   decoration: BoxDecoration(
                     color: const Color(0xFF1A1A53),
@@ -74,7 +75,7 @@ class ApprovalCardTypeOne extends StatelessWidget {
                         style: TextStyle(
                           color: getStatusColor(),
                           fontWeight: FontWeight.bold,
-                          fontSize: 20.sp,
+                          fontSize: 20.tsp,
                           letterSpacing: 1,
                         ),
                       ),
@@ -87,9 +88,9 @@ class ApprovalCardTypeOne extends StatelessWidget {
                   children: [
                     if (backgroundImage.isNotEmpty && !isExpanded)
                       Container(
-                        width: 60.w,
-                        height: 70.w,
-                        padding: EdgeInsets.symmetric(horizontal: 20.w),
+                        width: 60.tw,
+                        height: 70.tw,
+                        padding: EdgeInsets.symmetric(horizontal: 20.tw),
                         margin: const EdgeInsets.only(top: 3),
                         decoration: BoxDecoration(
                           color: getStatusColor(),
@@ -97,11 +98,11 @@ class ApprovalCardTypeOne extends StatelessWidget {
                         ),
                       ),
                     Container(
-                      height: 70.w,
+                      height: 70.tw,
                       alignment: Alignment.center,
                       key: const ValueKey("collapsed"),
-                      padding: EdgeInsets.symmetric(horizontal: 10.w),
-                      margin: EdgeInsets.only(left: 4.w, top: 3),
+                      padding: EdgeInsets.symmetric(horizontal: 10.tw),
+                      margin: EdgeInsets.only(left: 4.tw, top: 3),
                       decoration: BoxDecoration(
                         color: Colors.grey[300],
                         borderRadius: BorderRadius.circular(28),
@@ -115,7 +116,7 @@ class ApprovalCardTypeOne extends StatelessWidget {
                             DateFormat('dd MMM yy').format(parsedDate),
                             textAlign: TextAlign.center,
                             style: GoogleFonts.poppins(
-                              fontSize: 16.sp,
+                              fontSize: 16.tsp,
                               fontWeight: FontWeight.bold,
                               color: appFontColor,
                             ),
@@ -132,7 +133,7 @@ class ApprovalCardTypeOne extends StatelessWidget {
                               Text(
                                 translate('home.REQ_NO'),
                                 style: GoogleFonts.poppins(
-                                  fontSize: 12.sp,
+                                  fontSize: 12.tsp,
                                   fontWeight: FontWeight.bold,
                                   color: appFontColor,
                                 ),
@@ -140,7 +141,7 @@ class ApprovalCardTypeOne extends StatelessWidget {
                               Text(
                                 reqNo,
                                 style: GoogleFonts.poppins(
-                                  fontSize: 15.sp,
+                                  fontSize: 15.tsp,
                                   fontWeight: FontWeight.w500,
                                   color: Colors.black,
                                 ),
@@ -153,12 +154,12 @@ class ApprovalCardTypeOne extends StatelessWidget {
                                 color: Colors.grey, thickness: 1),
                           ),
                           SizedBox(
-                            width: 90.w,
+                            width: 90.tw,
                             child: Text(
                               title,
                               textAlign: TextAlign.center,
                               style: GoogleFonts.poppins(
-                                fontSize: 17.sp,
+                                fontSize: 17.tsp,
                                 fontWeight: FontWeight.w500,
                                 color: Colors.black,
                               ),
@@ -176,10 +177,10 @@ class ApprovalCardTypeOne extends StatelessWidget {
           //   duration: const Duration(milliseconds: 900),
           //   curve: Curves.easeInOut,
           //   child: Container(
-          //     margin: EdgeInsets.symmetric(horizontal: 10.w),
+          //     margin: EdgeInsets.symmetric(horizontal: 10.tw),
           //     key: ValueKey(isExpanded),
-          //     width: 50.w,
-          //     height: 50.w,
+          //     width: 50.tw,
+          //     height: 50.tw,
           //     decoration: BoxDecoration(
           //       shape: BoxShape.circle,
           //       border: Border.all(color: Colors.white, width: 2),

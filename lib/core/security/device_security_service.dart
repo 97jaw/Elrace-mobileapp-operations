@@ -1,12 +1,9 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_jailbreak_detection/flutter_jailbreak_detection.dart';
 import 'package:safe_device/safe_device.dart';
 import 'package:vpn_connection_detector/vpn_connection_detector.dart';
 import 'package:el_race/core/services/app_config_service.dart';
-
-const _vpnChannel = MethodChannel('com.elrace/vpn_check');
 
 /// Security check result containing all security statuses
 class SecurityCheckResult {
@@ -99,27 +96,21 @@ class DeviceSecurityService {
         print('⚠️ Error checking root/jailbreak: $e');
       }
 
-      // Check VPN
-      // Skip VPN check if backend or test-mode says so
-      if (AppConfigService.instance.shouldSkipVpnCheck) {
+      // Check VPN (Android only).
+      // iOS: VPN detection is intentionally disabled — blocking the app while
+      // a VPN is active risks App Store rejection, and the NEVPNManager /
+      // NETunnelProviderManager check was removed from the iOS AppDelegate.
+      if (Platform.isIOS) {
+        print('🔒 VPN check: SKIPPED on iOS (App Store compliance)');
+      } else if (AppConfigService.instance.shouldSkipVpnCheck) {
         print('🔒 VPN check: SKIPPED (shouldSkipVpnCheck=true)');
       } else {
-        // iOS: use NEVPNManager via platform channel (accurate, no false positives)
-        // Android: use vpn_connection_detector
         try {
-          if (Platform.isIOS) {
-            print('🔒 iOS: Calling VPN check via platform channel...');
-            isUsingVpn =
-                await _vpnChannel.invokeMethod<bool>('isVpnActive') ?? false;
-            print('🔒 iOS: VPN check result: $isUsingVpn');
-          } else {
-            print('🔒 Android: Calling VPN detector...');
-            isUsingVpn = await VpnConnectionDetector.isVpnActive();
-            print('🔒 Android: VPN check result: $isUsingVpn');
-          }
+          print('🔒 Android: Calling VPN detector...');
+          isUsingVpn = await VpnConnectionDetector.isVpnActive();
+          print('🔒 Android: VPN check result: $isUsingVpn');
         } catch (e) {
           print('⚠️ Error checking VPN: $e');
-          print('⚠️ VPN check failed, defaulting to: isUsingVpn=false');
           // Don't fail the security check if VPN detection fails
           isUsingVpn = false;
         }

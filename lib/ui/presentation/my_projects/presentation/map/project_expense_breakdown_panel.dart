@@ -1,3 +1,4 @@
+import 'package:el_race/core/utils/responsive_breakpoints.dart';
 import 'package:el_race/ui/presentation/my_projects/data/models/project_expense_breakdown_model.dart';
 import 'package:el_race/ui/presentation/my_projects/presentation/map/project_expense_summary_panel.dart';
 import 'package:el_race/ui/presentation/my_projects/presentation/theme/projects_dashboard_theme.dart';
@@ -63,16 +64,16 @@ class ProjectExpenseBreakdownPanel extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         _BreakdownStatsHeader(payload: payload),
-        SizedBox(height: 12.h),
+        SizedBox(height: 12.th),
         Text(
           'Groups',
           style: GoogleFonts.poppins(
-            fontSize: 12.sp,
+            fontSize: 12.tsp,
             fontWeight: FontWeight.w700,
             color: ProjectsDashboardTheme.white,
           ),
         ),
-        SizedBox(height: 8.h),
+        SizedBox(height: 8.th),
         if (payload.groups.isEmpty)
           Expanded(
             child: Center(
@@ -82,7 +83,7 @@ class ProjectExpenseBreakdownPanel extends StatelessWidget {
                     : 'No expense breakdown data.',
                 textAlign: TextAlign.center,
                 style: GoogleFonts.poppins(
-                  fontSize: 13.sp,
+                  fontSize: 13.tsp,
                   color: ProjectsDashboardTheme.greyPanel,
                 ),
               ),
@@ -91,24 +92,24 @@ class ProjectExpenseBreakdownPanel extends StatelessWidget {
         else
           Expanded(
             child: ListView.separated(
-              padding: EdgeInsets.only(bottom: 8.h),
+              padding: EdgeInsets.only(bottom: 8.th),
               itemCount: payload.groups.length,
-              separatorBuilder: (_, __) => SizedBox(height: 8.h),
+              separatorBuilder: (_, __) => SizedBox(height: 8.th),
               itemBuilder: (context, index) {
                 return _MgGroupTile(group: payload.groups[index]);
               },
             ),
           ),
         if (result.exportUrl.trim().isNotEmpty) ...[
-          SizedBox(height: 8.h),
+          SizedBox(height: 8.th),
           OutlinedButton.icon(
             onPressed: () => _openExport(context),
             style: OutlinedButton.styleFrom(
               foregroundColor: ProjectsDashboardTheme.white,
               side: BorderSide(color: Colors.white.withValues(alpha: 0.45)),
-              padding: EdgeInsets.symmetric(vertical: 12.h),
+              padding: EdgeInsets.symmetric(vertical: 12.th),
               shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12.r),
+                borderRadius: BorderRadius.circular(12.tr),
               ),
             ),
             icon: const Icon(Icons.download_rounded),
@@ -131,7 +132,7 @@ class _BreakdownStatsHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: EdgeInsets.all(12.w),
+      padding: EdgeInsets.all(12.tw),
       decoration: analyticsGlassPanel(radius: 14),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -139,12 +140,12 @@ class _BreakdownStatsHeader extends StatelessWidget {
           Text(
             'Expense breakdown',
             style: GoogleFonts.poppins(
-              fontSize: 13.sp,
+              fontSize: 13.tsp,
               fontWeight: FontWeight.w700,
               color: ProjectsDashboardTheme.white,
             ),
           ),
-          SizedBox(height: 10.h),
+          SizedBox(height: 10.th),
           Row(
             children: [
               Expanded(
@@ -155,7 +156,7 @@ class _BreakdownStatsHeader extends StatelessWidget {
                   icon: Icons.account_balance_wallet_rounded,
                 ),
               ),
-              SizedBox(width: 8.w),
+              SizedBox(width: 8.tw),
               Expanded(
                 child: _StatChip(
                   label: 'Groups',
@@ -166,7 +167,7 @@ class _BreakdownStatsHeader extends StatelessWidget {
               ),
             ],
           ),
-          SizedBox(height: 8.h),
+          SizedBox(height: 8.th),
           Row(
             children: [
               Expanded(
@@ -177,7 +178,7 @@ class _BreakdownStatsHeader extends StatelessWidget {
                   icon: Icons.hub_rounded,
                 ),
               ),
-              SizedBox(width: 8.w),
+              SizedBox(width: 8.tw),
               Expanded(
                 child: _StatChip(
                   label: 'Accounts',
@@ -210,35 +211,35 @@ class _StatChip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: EdgeInsets.symmetric(horizontal: 10.w, vertical: 10.h),
+      padding: EdgeInsets.symmetric(horizontal: 10.tw, vertical: 10.th),
       decoration: kpiFadedFill(tint),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(icon, size: 17.sp, color: kpiIconColor(tint)),
-          SizedBox(height: 5.h),
+          Icon(icon, size: 17.tsp, color: kpiIconColor(tint)),
+          SizedBox(height: 5.th),
           Container(
-            padding: EdgeInsets.symmetric(horizontal: 6.w, vertical: 2.h),
+            padding: EdgeInsets.symmetric(horizontal: 6.tw, vertical: 2.th),
             decoration: BoxDecoration(
               color: tint.withValues(alpha: 0.28),
-              borderRadius: BorderRadius.circular(6.r),
+              borderRadius: BorderRadius.circular(6.tr),
             ),
             child: Text(
               label,
               style: GoogleFonts.poppins(
-                fontSize: 9.sp,
+                fontSize: 9.tsp,
                 fontWeight: FontWeight.w700,
                 color: ProjectsDashboardTheme.white,
               ),
             ),
           ),
-          SizedBox(height: 4.h),
+          SizedBox(height: 4.th),
           Text(
             value,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             style: GoogleFonts.poppins(
-              fontSize: 13.sp,
+              fontSize: 13.tsp,
               fontWeight: FontWeight.w800,
               color: ProjectsDashboardTheme.white,
             ),
@@ -275,31 +276,31 @@ class _MgGroupTile extends StatelessWidget {
                     ProjectsDashboardTheme.maroonDark.withValues(alpha: 0.96),
                   ],
                 ),
-                borderRadius: BorderRadius.vertical(top: Radius.circular(22.r)),
+                borderRadius: BorderRadius.vertical(top: Radius.circular(22.tr)),
                 border: Border.all(
                   color: Colors.white.withValues(alpha: 0.28),
                 ),
               ),
               child: Column(
                 children: [
-                  SizedBox(height: 10.h),
+                  SizedBox(height: 10.th),
                   Container(
-                    width: 40.w,
-                    height: 4.h,
+                    width: 40.tw,
+                    height: 4.th,
                     decoration: BoxDecoration(
                       color: Colors.white.withValues(alpha: 0.45),
-                      borderRadius: BorderRadius.circular(4.r),
+                      borderRadius: BorderRadius.circular(4.tr),
                     ),
                   ),
                   Padding(
-                    padding: EdgeInsets.fromLTRB(16.w, 12.h, 16.w, 8.h),
+                    padding: EdgeInsets.fromLTRB(16.tw, 12.th, 16.tw, 8.th),
                     child: Row(
                       children: [
                         Expanded(
                           child: Text(
                             group.name,
                             style: GoogleFonts.poppins(
-                              fontSize: 16.sp,
+                              fontSize: 16.tsp,
                               fontWeight: FontWeight.w800,
                               color: ProjectsDashboardTheme.white,
                             ),
@@ -308,7 +309,7 @@ class _MgGroupTile extends StatelessWidget {
                         Text(
                           group.totalDisplay,
                           style: GoogleFonts.poppins(
-                            fontSize: 14.sp,
+                            fontSize: 14.tsp,
                             fontWeight: FontWeight.w700,
                             color: ProjectsDashboardTheme.greyPanel,
                           ),
@@ -319,9 +320,9 @@ class _MgGroupTile extends StatelessWidget {
                   Expanded(
                     child: ListView.separated(
                       controller: scrollController,
-                      padding: EdgeInsets.fromLTRB(14.w, 0, 14.w, 20.h),
+                      padding: EdgeInsets.fromLTRB(14.tw, 0, 14.tw, 20.th),
                       itemCount: group.subgroups.length,
-                      separatorBuilder: (_, __) => SizedBox(height: 8.h),
+                      separatorBuilder: (_, __) => SizedBox(height: 8.th),
                       itemBuilder: (_, sgIndex) {
                         final sg = group.subgroups[sgIndex];
                         return _SubgroupBlock(subgroup: sg);
@@ -343,33 +344,33 @@ class _MgGroupTile extends StatelessWidget {
       color: Colors.transparent,
       child: InkWell(
         onTap: () => _openGroupSheet(context),
-        borderRadius: BorderRadius.circular(14.r),
+        borderRadius: BorderRadius.circular(14.tr),
         child: Ink(
           decoration: BoxDecoration(
             color: _kMgNavy.withValues(alpha: 0.32),
-            borderRadius: BorderRadius.circular(14.r),
+            borderRadius: BorderRadius.circular(14.tr),
             border: Border.all(
               color: Colors.white.withValues(alpha: 0.22),
             ),
           ),
           child: Padding(
-            padding: EdgeInsets.symmetric(horizontal: 14.w, vertical: 14.h),
+            padding: EdgeInsets.symmetric(horizontal: 14.tw, vertical: 14.th),
             child: Row(
               children: [
                 Container(
-                  width: 4.w,
-                  height: 32.h,
+                  width: 4.tw,
+                  height: 32.th,
                   decoration: BoxDecoration(
                     color: ProjectsDashboardTheme.maroonLight,
-                    borderRadius: BorderRadius.circular(2.r),
+                    borderRadius: BorderRadius.circular(2.tr),
                   ),
                 ),
-                SizedBox(width: 12.w),
+                SizedBox(width: 12.tw),
                 Expanded(
                   child: Text(
                     group.name,
                     style: GoogleFonts.poppins(
-                      fontSize: 14.sp,
+                      fontSize: 14.tsp,
                       fontWeight: FontWeight.w700,
                       color: ProjectsDashboardTheme.white,
                     ),
@@ -378,16 +379,16 @@ class _MgGroupTile extends StatelessWidget {
                 Text(
                   group.totalDisplay,
                   style: GoogleFonts.poppins(
-                    fontSize: 13.sp,
+                    fontSize: 13.tsp,
                     fontWeight: FontWeight.w700,
                     color: ProjectsDashboardTheme.greyPanel,
                   ),
                 ),
-                SizedBox(width: 6.w),
+                SizedBox(width: 6.tw),
                 Icon(
                   Icons.keyboard_arrow_up_rounded,
                   color: ProjectsDashboardTheme.white.withValues(alpha: 0.85),
-                  size: 22.sp,
+                  size: 22.tsp,
                 ),
               ],
             ),
@@ -408,21 +409,21 @@ class _SubgroupBlock extends StatelessWidget {
     return Container(
       decoration: BoxDecoration(
         color: _kSgTint,
-        borderRadius: BorderRadius.circular(12.r),
+        borderRadius: BorderRadius.circular(12.tr),
         border: Border.all(color: Colors.white.withValues(alpha: 0.18)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Padding(
-            padding: EdgeInsets.fromLTRB(12.w, 10.h, 12.w, 8.h),
+            padding: EdgeInsets.fromLTRB(12.tw, 10.th, 12.tw, 8.th),
             child: Row(
               children: [
                 Expanded(
                   child: Text(
                     subgroup.name,
                     style: GoogleFonts.poppins(
-                      fontSize: 13.sp,
+                      fontSize: 13.tsp,
                       fontWeight: FontWeight.w700,
                       color: ProjectsDashboardTheme.white,
                     ),
@@ -431,7 +432,7 @@ class _SubgroupBlock extends StatelessWidget {
                 Text(
                   subgroup.totalDisplay,
                   style: GoogleFonts.poppins(
-                    fontSize: 12.sp,
+                    fontSize: 12.tsp,
                     fontWeight: FontWeight.w700,
                     color: ProjectsDashboardTheme.greyPanel,
                   ),
@@ -441,11 +442,11 @@ class _SubgroupBlock extends StatelessWidget {
           ),
           for (final account in subgroup.accounts)
             Container(
-              margin: EdgeInsets.fromLTRB(10.w, 0, 10.w, 8.h),
-              padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 10.h),
+              margin: EdgeInsets.fromLTRB(10.tw, 0, 10.tw, 8.th),
+              padding: EdgeInsets.symmetric(horizontal: 12.tw, vertical: 10.th),
               decoration: BoxDecoration(
                 color: Colors.white.withValues(alpha: 0.12),
-                borderRadius: BorderRadius.circular(8.r),
+                borderRadius: BorderRadius.circular(8.tr),
               ),
               child: Row(
                 children: [
@@ -453,7 +454,7 @@ class _SubgroupBlock extends StatelessWidget {
                     child: Text(
                       account.name,
                       style: GoogleFonts.poppins(
-                        fontSize: 12.sp,
+                        fontSize: 12.tsp,
                         color: ProjectsDashboardTheme.white,
                       ),
                     ),
@@ -461,7 +462,7 @@ class _SubgroupBlock extends StatelessWidget {
                   Text(
                     account.totalDisplay,
                     style: GoogleFonts.poppins(
-                      fontSize: 12.sp,
+                      fontSize: 12.tsp,
                       fontWeight: FontWeight.w700,
                       color: ProjectsDashboardTheme.white,
                     ),

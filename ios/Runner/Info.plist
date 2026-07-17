@@ -4,14 +4,17 @@
 <dict>
 	<key>BGTaskSchedulerPermittedIdentifiers</key>
 	<array>
-		<string>ae.elrace.mobile.prayerCheck</string>
+		<string>dev.fluttercommunity.workmanager.BackgroundFetch</string>
+		<string>dev.fluttercommunity.workmanager.BackgroundProcessingTask</string>
+		<string>dev.fluttercommunity.workmanager.BackgroundPeriodicTask</string>
+		<string>dev.fluttercommunity.workmanager.OneOffTask</string>
 	</array>
 	<key>CADisableMinimumFrameDurationOnPhone</key>
 	<true/>
 	<key>CFBundleDevelopmentRegion</key>
 	<string>$(DEVELOPMENT_LANGUAGE)</string>
 	<key>CFBundleDisplayName</key>
-	<string>El Race</string>
+	<string>Elrace Company</string>
 	<key>CFBundleExecutable</key>
 	<string>$(EXECUTABLE_NAME)</string>
 	<key>CFBundleIdentifier</key>
@@ -39,6 +42,8 @@
 	</array>
 	<key>CFBundleVersion</key>
 	<string>$(FLUTTER_BUILD_NUMBER)</string>
+	<key>ITSAppUsesNonExemptEncryption</key>
+	<false/>
 	<key>LSApplicationQueriesSchemes</key>
 	<array>
 		<string>sms</string>
@@ -48,8 +53,6 @@
 	<true/>
 	<key>NSCameraUsageDescription</key>
 	<string>The camera is used to scan QR codes, take profile and report photos, scan documents, and for face recognition during attendance check-in.</string>
-	<key>NSMicrophoneUsageDescription</key>
-	<string>The microphone is used for voice messages and audio recording in the chat feature.</string>
 	<key>NSFaceIDUsageDescription</key>
 	<string>Face ID is used to securely check you into your workplace without typing a password.</string>
 	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
@@ -58,13 +61,16 @@
 	<string>Your location is used to confirm your attendance by recording your current position, even if the app is running in the background.</string>
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string>Your location is used to confirm your attendance by recording the location where you check in.</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>The microphone is used for voice messages and audio recording in the chat feature.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
 	<string>Access to your photo library allows you to choose a profile picture for your account.</string>
+	<key>NSSpeechRecognitionUsageDescription</key>
+	<string>Speech recognition may be used by voice assistant features that support timesheet face attendance prompts and related workplace voice feedback.</string>
 	<key>UIApplicationSupportsIndirectInputEvents</key>
 	<true/>
 	<key>UIBackgroundModes</key>
 	<array>
-		<string>audio</string>
 		<string>fetch</string>
 		<string>processing</string>
 		<string>remote-notification</string>
@@ -76,13 +82,10 @@
 	<key>UISupportedInterfaceOrientations</key>
 	<array>
 		<string>UIInterfaceOrientationPortrait</string>
-		<string>UIInterfaceOrientationLandscapeLeft</string>
-		<string>UIInterfaceOrientationLandscapeRight</string>
 	</array>
 	<key>UISupportedInterfaceOrientations~ipad</key>
 	<array>
 		<string>UIInterfaceOrientationPortrait</string>
-		<string>UIInterfaceOrientationPortraitUpsideDown</string>
 		<string>UIInterfaceOrientationLandscapeLeft</string>
 		<string>UIInterfaceOrientationLandscapeRight</string>
 	</array>

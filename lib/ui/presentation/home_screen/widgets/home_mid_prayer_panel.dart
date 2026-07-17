@@ -1,6 +1,6 @@
+import 'package:el_race/core/utils/responsive_breakpoints.dart';
 import 'package:adhan/adhan.dart';
 import 'package:el_race/ui/presentation/home_screen/bloc/home_bloc.dart';
-import 'package:el_race/ui/presentation/home_screen/widgets/home_city_helper.dart';
 import 'package:el_race/ui/presentation/home_screen/widgets/home_glass_theme.dart';
 import 'package:el_race/ui/presentation/home_screen/widgets/parayer_widgets/prayer_countdown_timer.dart';
 import 'package:flutter/material.dart';
@@ -29,7 +29,6 @@ class _HomeMidPrayerPanelState extends State<HomeMidPrayerPanel> {
   Prayer? _nextPrayer;
   DateTime? _nextTime;
   Map<String, DateTime>? _aladhan;
-  bool _isMuted = false;
 
   static const _gold = Color(0xFFFFD700);
 
@@ -49,10 +48,8 @@ class _HomeMidPrayerPanelState extends State<HomeMidPrayerPanel> {
       _nextPrayer = state.nextPrayer as Prayer?;
       _nextTime = state.nextTime;
       _aladhan = state.aladhanTimes;
-      _isMuted = state.isSoundMuted;
     } else if (state is PrayerTimesError) {
       _pt = (state.prayerTimes as PrayerTimes?) ?? _pt;
-      _isMuted = state.isSoundMuted;
       if (_pt != null && _nextPrayer == null) {
         try {
           final next = _pt!.nextPrayer();
@@ -60,8 +57,6 @@ class _HomeMidPrayerPanelState extends State<HomeMidPrayerPanel> {
           _nextTime = _pt!.timeForPrayer(next);
         } catch (_) {}
       }
-    } else if (state is PrayerMuteStateChanged) {
-      _isMuted = state.isMuted;
     }
   }
 
@@ -196,14 +191,14 @@ class _HomeMidPrayerPanelState extends State<HomeMidPrayerPanel> {
         mainAxisSize: MainAxisSize.max,
         children: [
           _prayerIcon(prayer, textColor),
-          SizedBox(height: 2.h),
+          SizedBox(height: 2.uh),
           Text(
             name,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             textAlign: TextAlign.center,
             style: GoogleFonts.poppins(
-              fontSize: 8.sp,
+              fontSize: 8.usp,
               fontWeight: isNext ? FontWeight.w600 : FontWeight.w500,
               color: textColor,
               height: 1.05,
@@ -215,7 +210,7 @@ class _HomeMidPrayerPanelState extends State<HomeMidPrayerPanel> {
             overflow: TextOverflow.ellipsis,
             textAlign: TextAlign.center,
             style: GoogleFonts.poppins(
-              fontSize: 7.sp,
+              fontSize: 7.usp,
               fontWeight: isNext ? FontWeight.w600 : FontWeight.w400,
               color: textColor.withValues(alpha: 0.92),
               height: 1.05,
@@ -248,54 +243,15 @@ class _HomeMidPrayerPanelState extends State<HomeMidPrayerPanel> {
             title: Text(
               'Prayer times',
               style: GoogleFonts.poppins(
-                fontSize: 13.sp,
+                fontSize: 13.usp,
                 fontWeight: FontWeight.w700,
                 color: Colors.white,
               ),
             ),
-            trailing: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(
-                  Icons.location_on_outlined,
-                  size: 12.sp,
-                  color: Colors.white.withValues(alpha: 0.85),
-                ),
-                SizedBox(width: 2.w),
-                ConstrainedBox(
-                  constraints: BoxConstraints(maxWidth: 64.w),
-                  child: Text(
-                    HomeCityHelper.cachedCity,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: GoogleFonts.poppins(
-                      fontSize: 8.5.sp,
-                      color: Colors.white.withValues(alpha: 0.85),
-                    ),
-                  ),
-                ),
-                SizedBox(width: 4.w),
-                GestureDetector(
-                  onTap: () {
-                    context.read<HomeBloc>().add(const InitPrayerTimesEvent());
-                    context
-                        .read<HomeBloc>()
-                        .add(const TogglePrayerMuteStateEvent());
-                  },
-                  child: Icon(
-                    _isMuted
-                        ? Icons.volume_off_rounded
-                        : Icons.volume_up_rounded,
-                    size: 15.sp,
-                    color: Colors.white,
-                  ),
-                ),
-              ],
-            ),
           ),
           Expanded(
             child: Padding(
-              padding: EdgeInsets.fromLTRB(2.w, 0, 2.w, 2.h),
+              padding: EdgeInsets.fromLTRB(2.w, 0, 2.w, 2.uh),
               child: Column(
                 children: [
                   Expanded(
@@ -365,13 +321,13 @@ class _HomeMidPrayerPanelState extends State<HomeMidPrayerPanel> {
                                 },
                               ),
                               style: GoogleFonts.poppins(
-                                fontSize: 9.sp,
+                                fontSize: 9.usp,
                                 color: Colors.white.withValues(alpha: 0.9),
                               ),
                             ),
                             DefaultTextStyle(
                               style: GoogleFonts.poppins(
-                                fontSize: 11.sp,
+                                fontSize: 11.usp,
                                 fontWeight: FontWeight.w600,
                                 color: Colors.white,
                               ),

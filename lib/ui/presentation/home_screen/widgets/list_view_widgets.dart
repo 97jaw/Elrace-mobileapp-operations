@@ -49,13 +49,30 @@ import 'package:provider/provider.dart';
 
 import '../bloc/home_bloc.dart';
 
+/// Which home-widget categories to render on tablet split panes.
+///
+/// Section 2 / Section 3 assignment can be refined later; current split is a
+/// temporary even split of category groups.
+enum HomeTabletWidgetsPane {
+  /// HR + Projects + Clients/Vendors
+  section3,
+  /// Purchase + Productivity + Finance + Library + Coming Soon
+  section2,
+  /// Full categorized list (phone / single-column)
+  all,
+}
+
 class ListViewWidgets extends StatefulWidget {
   const ListViewWidgets({
     super.key,
     this.hideFeaturedHeader = false,
+    this.tabletPane = HomeTabletWidgetsPane.all,
   });
 
   final bool hideFeaturedHeader;
+
+  /// When not [HomeTabletWidgetsPane.all], only that tablet pane's categories.
+  final HomeTabletWidgetsPane tabletPane;
 
   @override
   State<ListViewWidgets> createState() => _ListViewWidgetsState();
@@ -860,177 +877,332 @@ class _ListViewWidgetsState extends State<ListViewWidgets> {
     );
   }
 
+  /// Phone keeps side-by-side rows; tablet columns scale phone-designed cards
+  /// into the narrow pane without ScreenUtil overflow.
+  bool get _isTabletPane =>
+      widget.tabletPane != HomeTabletWidgetsPane.all;
+
+  static const double _halfDesignWidth = 175;
+  static const double _fullDesignWidth = 360;
+
+  Widget _scaleToHeight(
+    Widget card,
+    double height, {
+    double? designHeight,
+    double? designWidth,
+  }) {
+    if (!_isTabletPane) {
+      return SizedBox(height: height, width: double.infinity, child: card);
+    }
+    final isHalf = (designWidth ?? _halfDesignWidth) <= 200;
+    final srcDesignW =
+        designWidth ?? (isHalf ? _halfDesignWidth : _fullDesignWidth);
+    final srcDesignH = designHeight ?? 140;
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final maxW = constraints.maxWidth;
+        // Source box scaled uniformly by scaleWidth (both axes) so the card
+        // keeps the exact phone aspect ratio and internal proportions —
+        // `.w`/`.sp` content lays out exactly as on a phone, then the whole
+        // card scales down to the pane width.
+        final srcW = srcDesignW * ScreenUtil().scaleWidth;
+        final srcH = srcDesignH * ScreenUtil().scaleWidth;
+        final visualH = maxW * (srcDesignH / srcDesignW);
+
+        return SizedBox(
+          width: maxW,
+          height: visualH,
+          child: FittedBox(
+            fit: BoxFit.fitWidth,
+            alignment: Alignment.topCenter,
+            child: SizedBox(
+              width: srcW,
+              height: srcH,
+              child: card,
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _pairCards(
+    List<Widget> cards, {
+    double designHeight = 140,
+  }) {
+    if (cards.isEmpty) return const SizedBox.shrink();
+    if (cards.length == 1) {
+      return _scaleToHeight(
+        cards.first,
+        designHeight.h,
+        designWidth: _halfDesignWidth,
+        designHeight: designHeight,
+      );
+    }
+    // Phone + tablet: side-by-side half cards (Attendance|HRMS, Notes|Tickets, …)
+    if (_isTabletPane) {
+      return Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          for (var i = 0; i < cards.length; i++) ...[
+            Expanded(
+              child: _scaleToHeight(
+                cards[i],
+                designHeight.h,
+                designWidth: _halfDesignWidth,
+                designHeight: designHeight,
+              ),
+            ),
+            if (i != cards.length - 1) const SizedBox(width: 10),
+          ],
+        ],
+      );
+    }
+    return SizedBox(
+      height: designHeight.h,
+      child: Row(
+        children: [
+          for (var i = 0; i < cards.length; i++) ...[
+            Expanded(child: cards[i]),
+            if (i != cards.length - 1) SizedBox(width: 10.w),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _fullWidthCard(
+    Widget card, {
+    double? height,
+    double? designHeight,
+  }) {
+    return _scaleToHeight(
+      card,
+      height ?? 140.h,
+      designHeight: designHeight ?? 140,
+      designWidth: _fullDesignWidth,
+    );
+  }
+
   Widget _buildCategorizedWidgets() {
     final visibility = HomeWidgetVisibility.fromLoginPref();
+    final pane = widget.tabletPane;
+    final showSection3 = pane == HomeTabletWidgetsPane.all ||
+        pane == HomeTabletWidgetsPane.section3;
+    final showSection2 = pane == HomeTabletWidgetsPane.all ||
+        pane == HomeTabletWidgetsPane.section2;
+    final tabletCompact = _isTabletPane;
 
     final children = <Widget>[];
 
-    if (visibility.hasVisibleHr) {
+    if (showSection3 && visibility.hasVisibleHr) {
       if (!widget.hideFeaturedHeader) {
         children.add(
           Padding(
-            padding: EdgeInsets.only(bottom: 10.h),
+            padding: EdgeInsets.only(bottom: _isTabletPane ? 10 : 10.h),
             child: const HrCategorySectionHeader(),
           ),
         );
       }
       if (visibility.isVisible(HomeWidgetCode.attendance) ||
           visibility.isVisible(HomeWidgetCode.hrms)) {
-        children.add(
-          SizedBox(
-            height: 140.h,
-            child: Row(
-              children: [
-                if (visibility.isVisible(HomeWidgetCode.attendance))
-                  const Expanded(child: HrCategoryAttendanceCard()),
-                if (visibility.isVisible(HomeWidgetCode.attendance) &&
-                    visibility.isVisible(HomeWidgetCode.hrms))
-                  SizedBox(width: 10.w),
-                if (visibility.isVisible(HomeWidgetCode.hrms))
-                  const Expanded(child: HrCategoryHrmsCard()),
-              ],
+        final cards = <Widget>[
+          if (visibility.isVisible(HomeWidgetCode.attendance))
+            HrCategoryAttendanceCard(
+              tabletCompact: tabletCompact,
             ),
-          ),
-        );
-        children.add(SizedBox(height: 10.h));
+          if (visibility.isVisible(HomeWidgetCode.hrms))
+            HrCategoryHrmsCard(tabletCompact: tabletCompact),
+        ];
+        children.add(_pairCards(cards));
+        children.add(SizedBox(height: _isTabletPane ? 10 : 10.h));
       }
       if (visibility.isVisible(HomeWidgetCode.timesheet)) {
-        children.add(const HrCategoryTimesheetCard());
+        children.add(
+          _fullWidthCard(
+            HrCategoryTimesheetCard(tabletCompact: tabletCompact),
+          ),
+        );
       }
-      children.add(SizedBox(height: 14.h));
+      children.add(SizedBox(height: _isTabletPane ? 14 : 14.h));
     }
 
-    if (visibility.hasVisibleProjects) {
+    if (showSection3 && visibility.hasVisibleProjects) {
       children.addAll([
         const ProjectsCategorySectionHeader(),
-        SizedBox(height: 10.h),
+        SizedBox(height: _isTabletPane ? 10 : 10.h),
       ]);
       if (visibility.isVisible(HomeWidgetCode.myProjects)) {
         children.addAll([
-          const ProjectsCategoryMyProjectsCard(),
-          SizedBox(height: 10.h),
+          _fullWidthCard(
+            ProjectsCategoryMyProjectsCard(tabletCompact: tabletCompact),
+          ),
+          SizedBox(height: _isTabletPane ? 10 : 10.h),
         ]);
       }
       if (visibility.isVisible(HomeWidgetCode.siteManagement) ||
           visibility.isVisible(HomeWidgetCode.myReports)) {
+        final cards = <Widget>[
+          if (visibility.isVisible(HomeWidgetCode.siteManagement))
+            ProjectsCategorySiteManagementCard(tabletCompact: tabletCompact),
+          if (visibility.isVisible(HomeWidgetCode.myReports))
+            ProjectsCategoryMyReportsCard(tabletCompact: tabletCompact),
+        ];
+        children.add(_pairCards(cards));
+      }
+      children.add(SizedBox(height: _isTabletPane ? 14 : 14.h));
+    }
+
+    if (showSection3 && visibility.hasVisibleClientsVendors) {
+      children.add(const ClientsVendorsCategorySectionHeader());
+      children.add(SizedBox(height: _isTabletPane ? 10 : 10.h));
+      if (visibility.isVisible(HomeWidgetCode.clients)) {
         children.add(
-          SizedBox(
-            height: 140.h,
-            child: Row(
-              children: [
-                if (visibility.isVisible(HomeWidgetCode.siteManagement))
-                  const Expanded(child: ProjectsCategorySiteManagementCard()),
-                if (visibility.isVisible(HomeWidgetCode.siteManagement) &&
-                    visibility.isVisible(HomeWidgetCode.myReports))
-                  SizedBox(width: 10.w),
-                if (visibility.isVisible(HomeWidgetCode.myReports))
-                  const Expanded(child: ProjectsCategoryMyReportsCard()),
-              ],
-            ),
+          _fullWidthCard(
+            ClientsVendorsCategoryClientsCard(tabletCompact: tabletCompact),
+            designHeight: 182,
           ),
         );
+        children.add(SizedBox(height: _isTabletPane ? 14 : 14.h));
       }
-      children.add(SizedBox(height: 14.h));
+      final showVendors = visibility.isVisible(HomeWidgetCode.vendors);
+      final showSubs = visibility.isVisible(HomeWidgetCode.subContractors);
+      if (showVendors && showSubs) {
+        if (_isTabletPane) {
+          children.add(
+            _pairCards(
+              [
+                const ClientsVendorsCategoryVendorsCard(tabletCompact: true),
+                const ClientsVendorsCategorySubContractorsCard(
+                  tabletCompact: true,
+                ),
+              ],
+              designHeight: 182,
+            ),
+          );
+        } else {
+          children.add(const ClientsVendorsCategoryVendorsSubContractorsRow());
+        }
+        children.add(SizedBox(height: _isTabletPane ? 14 : 14.h));
+      } else if (showVendors) {
+        children.add(
+          _fullWidthCard(
+            ClientsVendorsCategoryVendorsCard(tabletCompact: tabletCompact),
+            designHeight: 182,
+          ),
+        );
+        children.add(SizedBox(height: _isTabletPane ? 14 : 14.h));
+      } else if (showSubs) {
+        children.add(
+          _fullWidthCard(
+            ClientsVendorsCategorySubContractorsCard(
+              tabletCompact: tabletCompact,
+            ),
+            designHeight: 182,
+          ),
+        );
+        children.add(SizedBox(height: _isTabletPane ? 14 : 14.h));
+      }
+      children.add(SizedBox(height: _isTabletPane ? 6 : 6.h));
     }
 
-    if (visibility.hasVisibleClientsVendors) {
-      children.add(const ClientsVendorsCategorySectionHeader());
-      children.add(SizedBox(height: 10.h));
-      if (visibility.isVisible(HomeWidgetCode.clients)) {
-        children.add(const ClientsVendorsCategoryClientsCard());
-        children.add(SizedBox(height: 14.h));
-      }
-      if (visibility.isVisible(HomeWidgetCode.vendors)) {
-        children.add(const ClientsVendorsCategoryVendorsCard());
-        children.add(SizedBox(height: 14.h));
-      }
-      if (visibility.isVisible(HomeWidgetCode.subContractors)) {
-        children.add(const ClientsVendorsCategorySubContractorsCard());
-        children.add(SizedBox(height: 14.h));
-      }
-      children.add(SizedBox(height: 6.h));
-    }
-
-    if (visibility.hasVisiblePurchase) {
+    if (showSection2 && visibility.hasVisiblePurchase) {
       children.addAll([
         const PurchaseCategorySectionHeader(),
-        SizedBox(height: 10.h),
-        const PurchaseCategoryLpoCard(),
-        SizedBox(height: 14.h),
+        SizedBox(height: _isTabletPane ? 10 : 10.h),
+        _fullWidthCard(
+          PurchaseCategoryLpoCard(tabletCompact: tabletCompact),
+        ),
+        SizedBox(height: _isTabletPane ? 14 : 14.h),
       ]);
     }
 
-    if (visibility.hasVisibleProductivity) {
+    if (showSection2 && visibility.hasVisibleProductivity) {
       children.addAll([
         const ProductivityCategorySectionHeader(),
-        SizedBox(height: 10.h),
+        SizedBox(height: _isTabletPane ? 10 : 10.h),
       ]);
       if (visibility.isVisible(HomeWidgetCode.taskManagement)) {
         children.add(
-          SizedBox(
-            height: 150.h,
-            child: const ProductivityCategoryTaskManagementCard(),
+          _fullWidthCard(
+            ProductivityCategoryTaskManagementCard(
+              tabletCompact: tabletCompact,
+            ),
+            height: _isTabletPane ? 160 : 150.h,
+            designHeight: 150,
           ),
         );
-        children.add(SizedBox(height: 10.h));
+        children.add(SizedBox(height: _isTabletPane ? 10 : 10.h));
       }
       if (visibility.isVisible(HomeWidgetCode.notes) ||
           visibility.isVisible(HomeWidgetCode.tickets)) {
-        children.add(
-          Row(
-            children: [
-              if (visibility.isVisible(HomeWidgetCode.notes))
-                const Expanded(child: ProductivityCategoryNotesCard()),
-              if (visibility.isVisible(HomeWidgetCode.notes) &&
-                  visibility.isVisible(HomeWidgetCode.tickets))
-                SizedBox(width: 10.w),
-              if (visibility.isVisible(HomeWidgetCode.tickets))
-                const Expanded(child: ProductivityCategoryTicketsCard()),
-            ],
-          ),
-        );
+        final cards = <Widget>[
+          if (visibility.isVisible(HomeWidgetCode.notes))
+            ProductivityCategoryNotesCard(tabletCompact: tabletCompact),
+          if (visibility.isVisible(HomeWidgetCode.tickets))
+            ProductivityCategoryTicketsCard(tabletCompact: tabletCompact),
+        ];
+        children.add(_pairCards(cards));
       }
-      children.add(SizedBox(height: 14.h));
+      children.add(SizedBox(height: _isTabletPane ? 14 : 14.h));
     }
 
-    if (visibility.hasVisibleFinance) {
+    if (showSection2 && visibility.hasVisibleFinance) {
       children.addAll([
         const FinanceCategorySectionHeader(),
-        SizedBox(height: 10.h),
-        const FinanceCategoryPettyCashCard(),
-        SizedBox(height: 14.h),
+        SizedBox(height: _isTabletPane ? 10 : 10.h),
+        _fullWidthCard(
+          FinanceCategoryPettyCashCard(tabletCompact: tabletCompact),
+        ),
+        SizedBox(height: _isTabletPane ? 14 : 14.h),
       ]);
     }
 
-    final showDocs = visibility.isVisible(HomeWidgetCode.myDocuments);
-    final showMedia = visibility.isVisible(HomeWidgetCode.media);
-    if (showDocs || showMedia) {
+    if (showSection2) {
+      final showDocs = visibility.isVisible(HomeWidgetCode.myDocuments);
+      final showMedia = visibility.isVisible(HomeWidgetCode.media);
+      if (showDocs || showMedia) {
+        children.addAll([
+          const LibraryCategorySectionHeader(),
+          SizedBox(height: _isTabletPane ? 10 : 10.h),
+        ]);
+        if (showDocs) {
+          children.addAll([
+            _fullWidthCard(
+              LibraryCategoryMyDocumentsCard(tabletCompact: tabletCompact),
+            ),
+            SizedBox(height: _isTabletPane ? 10 : 10.h),
+          ]);
+        }
+        if (showMedia) {
+          children.addAll([
+            _fullWidthCard(
+              LibraryCategoryMediaCard(tabletCompact: tabletCompact),
+            ),
+            SizedBox(height: _isTabletPane ? 10 : 10.h),
+          ]);
+        }
+      }
+      // Prayer Times is always-on (not role-gated in the wizard).
+      children.add(
+        _fullWidthCard(
+          LibraryCategoryPrayerTimesCard(tabletCompact: tabletCompact),
+          height: _isTabletPane ? 236 : 220.h,
+          designHeight: 220,
+        ),
+      );
+      children.add(SizedBox(height: _isTabletPane ? 14 : 14.h));
+
       children.addAll([
-        const LibraryCategorySectionHeader(),
-        SizedBox(height: 10.h),
+        const ComingSoonCategorySectionHeader(),
+        SizedBox(height: _isTabletPane ? 10 : 10.h),
+        _fullWidthCard(
+          ComingSoonCategoryElraceAiCard(tabletCompact: tabletCompact),
+          height: _isTabletPane ? 178 : 170.h,
+          designHeight: 170,
+        ),
       ]);
-      if (showDocs) {
-        children.addAll([
-          const LibraryCategoryMyDocumentsCard(),
-          SizedBox(height: 10.h),
-        ]);
-      }
-      if (showMedia) {
-        children.addAll([
-          const LibraryCategoryMediaCard(),
-          SizedBox(height: 10.h),
-        ]);
-      }
     }
-    // Prayer Times is always-on (not role-gated in the wizard).
-    children.add(const LibraryCategoryPrayerTimesCard());
-    children.add(SizedBox(height: 14.h));
-
-    children.addAll([
-      const ComingSoonCategorySectionHeader(),
-      SizedBox(height: 10.h),
-      const ComingSoonCategoryElraceAiCard(),
-    ]);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,

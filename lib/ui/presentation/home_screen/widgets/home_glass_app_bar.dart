@@ -1,3 +1,4 @@
+import 'package:el_race/core/utils/responsive_breakpoints.dart';
 import 'dart:convert';
 import 'dart:async';
 
@@ -29,6 +30,7 @@ class HomeGlassAppBar extends StatefulWidget {
     this.omitOuterPadding = false,
     this.compactTrailing = false,
     this.transparentPill = false,
+    this.lightSurfaceTransparentPill = false,
     this.expandProgress = 0,
     this.mergedMode = false,
   });
@@ -44,6 +46,9 @@ class HomeGlassAppBar extends StatefulWidget {
 
   /// No white frost fill — parent gradient shows through (Petty Cash, etc.).
   final bool transparentPill;
+
+  /// Soft frosted pill on light screens — slightly see-through, dark icons.
+  final bool lightSurfaceTransparentPill;
 
   /// 0 = collapsed home; 1 = widgets panel fully expanded (logo left, comms out).
   final double expandProgress;
@@ -81,9 +86,9 @@ class _HomeGlassAppBarState extends State<HomeGlassAppBar>
       if (mounted) _loadNotificationCountLocal();
     };
     
-    // Poll notification counter every 10 seconds to ensure real-time updates
+    // Poll notification counter every 5 seconds (iOS often misses FCM Dart wake).
     _notificationPollTimer = Timer.periodic(
-      const Duration(seconds: 10),
+      const Duration(seconds: 5),
       (_) => _loadNotificationCount(),
     );
   }
@@ -116,7 +121,8 @@ class _HomeGlassAppBarState extends State<HomeGlassAppBar>
   }
 
   Future<void> _loadNotificationCount() async {
-    final count = await NotificationStorageService.getBadgeCount();
+    // Sync from Odoo so iOS badge updates even when FCM did not wake Dart.
+    final count = await NotificationStorageService.syncBadgeFromServer();
     if (mounted) setState(() => _notificationCount = count);
   }
 
@@ -165,7 +171,7 @@ class _HomeGlassAppBarState extends State<HomeGlassAppBar>
       context,
       routeName: '/chat_list',
       shell: GlassSubScreenShell.chat,
-      child: const ChatListScreen(),
+      child: const ChatHomeScreen(),
     );
   }
 
@@ -251,7 +257,7 @@ class _HomeGlassAppBarState extends State<HomeGlassAppBar>
             replace: name == '/approvals',
             child: const NotificationScreen(),
           );
-          await _loadNotificationCountLocal();
+          await _loadNotificationCount();
         },
       ),
       SizedBox(width: gap),
@@ -294,10 +300,10 @@ class _HomeGlassAppBarState extends State<HomeGlassAppBar>
     return Opacity(
       opacity: opacity,
       child: Padding(
-        padding: EdgeInsets.only(right: 8.w),
+        padding: EdgeInsets.only(right: 8.tw),
         child: Image.asset(
           'assets/gif/el-race-logo.gif',
-          height: 36.h,
+          height: 36.th,
           fit: BoxFit.contain,
         ),
       ),
@@ -312,7 +318,7 @@ class _HomeGlassAppBarState extends State<HomeGlassAppBar>
     required double logoHeight,
   }) {
     return Padding(
-      padding: EdgeInsets.fromLTRB(16.w, 4.h, 16.w, 8.h),
+      padding: EdgeInsets.fromLTRB(16.tw, 4.th, 16.tw, 8.th),
       child: Row(
         children: [
           Image.asset(
@@ -367,7 +373,7 @@ class _HomeGlassAppBarState extends State<HomeGlassAppBar>
                 replace: name == '/approvals',
                 child: const NotificationScreen(),
               );
-              await _loadNotificationCountLocal();
+              await _loadNotificationCount();
             },
           ),
           SizedBox(width: gap),
@@ -457,7 +463,7 @@ class _HomeGlassAppBarState extends State<HomeGlassAppBar>
             ),
           ),
           Padding(
-            padding: EdgeInsets.symmetric(horizontal: 4.w),
+            padding: EdgeInsets.symmetric(horizontal: 4.tw),
             child: _BarDivider(),
           ),
         ],
@@ -522,7 +528,7 @@ class _HomeGlassAppBarState extends State<HomeGlassAppBar>
                       replace: name == '/approvals',
                       child: const NotificationScreen(),
                     );
-                    await _loadNotificationCountLocal();
+                    await _loadNotificationCount();
                   },
                 ),
               ],
@@ -576,20 +582,20 @@ class _HomeGlassAppBarState extends State<HomeGlassAppBar>
   @override
   Widget build(BuildContext context) {
     final compact = widget.compactTrailing;
-    final iconSize = compact ? 34.w : 38.w;
-    final iconGlyph = compact ? 18.sp : 20.sp;
-    final profileSize = compact ? 32.w : 36.w;
-    final hPad = compact ? 8.w : 10.w;
-    final vPad = compact ? 6.h : 7.h;
-    final gap = compact ? 7.w : 6.w;
+    final iconSize = compact ? 34.tw : 38.tw;
+    final iconGlyph = compact ? 18.tsp : 20.tsp;
+    final profileSize = compact ? 32.tw : 36.tw;
+    final hPad = compact ? 8.tw : 10.tw;
+    final vPad = compact ? 6.th : 7.th;
+    final gap = compact ? 7.tw : 6.tw;
 
     if (widget.mergedMode) {
       return _mergedToolbar(
-        iconSize: 44.w,
-        iconGlyph: 22.sp,
-        profileSize: 40.w,
-        gap: 8.w,
-        logoHeight: 46.h,
+        iconSize: 44.tw,
+        iconGlyph: 22.tsp,
+        profileSize: 40.tw,
+        gap: 8.tw,
+        logoHeight: 46.th,
       );
     }
 
@@ -598,11 +604,12 @@ class _HomeGlassAppBarState extends State<HomeGlassAppBar>
     final showComms = !widget.hideLeadingActionIcons && expand < 0.40;
     final showLogo = expand >= 0.68;
 
+    final lightSoftPill = widget.lightSurfaceTransparentPill;
     final bar = widget.transparentPill
         ? Container(
             padding: EdgeInsets.fromLTRB(
               hPad,
-              compact ? 7.h : vPad,
+              compact ? 7.th : vPad,
               hPad,
               vPad,
             ),
@@ -632,12 +639,14 @@ class _HomeGlassAppBarState extends State<HomeGlassAppBar>
         clipBehavior: compact ? Clip.hardEdge : Clip.antiAlias,
         child: AdaptiveGlassLayer(
           borderRadius: BorderRadius.circular(999),
-          sigma: 25,
-          fallbackColor: Colors.white.withValues(alpha: 0.78),
+          sigma: lightSoftPill ? 18 : 25,
+          fallbackColor: Colors.white.withValues(
+            alpha: lightSoftPill ? 0.42 : 0.78,
+          ),
           child: Container(
             padding: EdgeInsets.fromLTRB(
               hPad,
-              compact ? 7.h : vPad,
+              compact ? 7.th : vPad,
               hPad,
               vPad,
             ),
@@ -647,18 +656,22 @@ class _HomeGlassAppBarState extends State<HomeGlassAppBar>
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
                 colors: [
-                  Colors.white.withValues(alpha: 0.72),
-                  Colors.white.withValues(alpha: 0.48),
+                  Colors.white.withValues(alpha: lightSoftPill ? 0.45 : 0.72),
+                  Colors.white.withValues(alpha: lightSoftPill ? 0.28 : 0.48),
                 ],
               ),
               border: Border.all(
-                color: Colors.white.withValues(alpha: 0.90),
-                width: 1.2,
+                color: Colors.white.withValues(
+                  alpha: lightSoftPill ? 0.55 : 0.90,
+                ),
+                width: lightSoftPill ? 1 : 1.2,
               ),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.08),
-                  blurRadius: 18,
+                  color: Colors.black.withValues(
+                    alpha: lightSoftPill ? 0.04 : 0.08,
+                  ),
+                  blurRadius: lightSoftPill ? 12 : 18,
                   offset: const Offset(0, 4),
                 ),
               ],
@@ -681,7 +694,7 @@ class _HomeGlassAppBarState extends State<HomeGlassAppBar>
 
     if (widget.omitOuterPadding) return bar;
     return Padding(
-      padding: EdgeInsets.symmetric(horizontal: 16.w),
+      padding: EdgeInsets.symmetric(horizontal: 16.tw),
       child: bar,
     );
   }
@@ -692,7 +705,7 @@ class _BarDivider extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       width: 1,
-      height: 22.h,
+      height: 22.th,
       decoration: BoxDecoration(
         gradient: LinearGradient(
           begin: Alignment.topCenter,
@@ -725,8 +738,8 @@ class _GlassWellIcon extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final well = size ?? 38.w;
-    final glyph = iconSize ?? 20.sp;
+    final well = size ?? 38.tw;
+    final glyph = iconSize ?? 20.tsp;
     return GlassTapIcon(
       onTap: onTap,
       child: Material(
@@ -784,8 +797,8 @@ class _GlassWellBadgeIcon extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final well = size ?? 38.w;
-    final glyph = iconSize ?? 20.sp;
+    final well = size ?? 38.tw;
+    final glyph = iconSize ?? 20.tsp;
     return GlassTapIcon(
       onTap: onTap,
       child: Material(
@@ -828,12 +841,12 @@ class _GlassWellBadgeIcon extends StatelessWidget {
                   top: 1,
                   child: Container(
                     padding: EdgeInsets.symmetric(
-                      horizontal: count > 9 ? 4.w : 0,
-                      vertical: 2.h,
+                      horizontal: count > 9 ? 4.tw : 0,
+                      vertical: 2.th,
                     ),
                     constraints: BoxConstraints(
-                      minWidth: 16.w,
-                      minHeight: 16.w,
+                      minWidth: 16.tw,
+                      minHeight: 16.tw,
                     ),
                     decoration: BoxDecoration(
                       color: HomeGlassTheme.accentRed,
@@ -852,7 +865,7 @@ class _GlassWellBadgeIcon extends StatelessWidget {
                         count > 99 ? '99+' : '$count',
                         style: TextStyle(
                           color: Colors.white,
-                          fontSize: 8.sp,
+                          fontSize: 8.tsp,
                           fontWeight: FontWeight.w700,
                           height: 1,
                         ),

@@ -1,3 +1,4 @@
+import 'package:el_race/core/utils/responsive_breakpoints.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 
@@ -26,8 +27,8 @@ class StatusStrip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final stripWidth = width ?? 46.w;
-    final r = radius ?? 22.r;
+    final stripWidth = width ?? 46.tw;
+    final r = radius ?? 22.tr;
 
     return SizedBox(
       width: stripWidth,
@@ -52,7 +53,7 @@ class StatusStrip extends StatelessWidget {
                 style: TextStyle(
                   color: Colors.white,
                   fontWeight: FontWeight.w700,
-                  fontSize: 12.sp,
+                  fontSize: 12.tsp,
                   height: 1.0,
                 ),
               ),

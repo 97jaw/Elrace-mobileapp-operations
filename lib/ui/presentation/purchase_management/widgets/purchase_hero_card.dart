@@ -1,3 +1,4 @@
+import 'package:el_race/core/utils/responsive_breakpoints.dart';
 import 'package:el_race/ui/presentation/purchase_management/theme/purchase_theme.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
@@ -35,9 +36,9 @@ class PurchaseHeroCard extends StatelessWidget {
       color: Colors.transparent,
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(20.r),
+        borderRadius: BorderRadius.circular(20.tr),
         child: Ink(
-          decoration: PurchaseTheme.glassCard(radius: 20.r).copyWith(
+          decoration: PurchaseTheme.glassCard(radius: 20.tr).copyWith(
             gradient: gradient,
             border: Border.all(
               color: borderColor ?? Colors.white.withValues(alpha: 0.9),
@@ -45,7 +46,7 @@ class PurchaseHeroCard extends StatelessWidget {
             ),
           ),
           child: Padding(
-            padding: EdgeInsets.all(18.w),
+            padding: EdgeInsets.all(18.tw),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -55,29 +56,29 @@ class PurchaseHeroCard extends StatelessWidget {
                       child: Text(
                         title,
                         style: GoogleFonts.poppins(
-                          fontSize: 16.sp,
+                          fontSize: 16.tsp,
                           fontWeight: FontWeight.w700,
                           color: PurchaseTheme.textPrimary,
                         ),
                       ),
                     ),
-                    Icon(icon, color: PurchaseTheme.textMuted, size: 22.sp),
+                    Icon(icon, color: PurchaseTheme.textMuted, size: 22.tsp),
                   ],
                 ),
-                SizedBox(height: 4.h),
+                SizedBox(height: 4.th),
                 Text(
                   subtitle,
                   style: GoogleFonts.poppins(
-                    fontSize: 11.sp,
+                    fontSize: 11.tsp,
                     fontWeight: FontWeight.w400,
                     color: PurchaseTheme.textSecondary,
                   ),
                 ),
-                SizedBox(height: 16.h),
+                SizedBox(height: 16.th),
                 Row(
                   children: [
                     for (var i = 0; i < metrics.length; i++) ...[
-                      if (i > 0) SizedBox(width: 24.w),
+                      if (i > 0) SizedBox(width: 24.tw),
                       Expanded(
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
@@ -85,16 +86,16 @@ class PurchaseHeroCard extends StatelessWidget {
                             Text(
                               metrics[i].label,
                               style: GoogleFonts.poppins(
-                                fontSize: 10.sp,
+                                fontSize: 10.tsp,
                                 fontWeight: FontWeight.w500,
                                 color: PurchaseTheme.textMuted,
                               ),
                             ),
-                            SizedBox(height: 4.h),
+                            SizedBox(height: 4.th),
                             Text(
                               metrics[i].value,
                               style: GoogleFonts.poppins(
-                                fontSize: 22.sp,
+                                fontSize: 22.tsp,
                                 fontWeight: FontWeight.w800,
                                 color: PurchaseTheme.accentDeep,
                                 height: 1,

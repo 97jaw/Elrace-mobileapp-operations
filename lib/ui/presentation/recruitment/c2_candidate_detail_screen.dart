@@ -1,11 +1,14 @@
+import 'package:el_race/core/utils/responsive_breakpoints.dart';
 import 'package:el_race/core/recruitment/models/recruitment_entities.dart';
 import 'package:el_race/core/recruitment/providers/requisition_providers.dart';
+import 'package:el_race/core/session/login_session_refresh_service.dart';
 import 'package:el_race/core/theme/hr_badge_kind.dart';
 import 'package:el_race/core/theme/hr_module_colors.dart';
 import 'package:el_race/core/theme/hr_module_layout.dart';
 import 'package:el_race/core/theme/hr_module_typography.dart';
 import 'package:el_race/core/widgets/hr_management/hr_detail_row.dart';
 import 'package:el_race/core/widgets/hr_management/hr_employee_info_card.dart';
+import 'package:el_race/core/widgets/hr_management/hr_module_glass_header.dart';
 import 'package:el_race/core/widgets/hr_management/hr_status_badge.dart';
 import 'package:el_race/core/widgets/recruitment/recruitment_gradient_scaffold.dart';
 import 'package:el_race/core/widgets/recruitment/recruitment_star_rating.dart';
@@ -15,7 +18,6 @@ import 'package:el_race/ui/presentation/recruitment/o1_offer_detail_screen.dart'
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
-import 'package:fluttertoast/fluttertoast.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 /// C2 — Candidate detail (SRD §4.2).
@@ -51,144 +53,89 @@ class _C2CandidateDetailScreenState extends ConsumerState<C2CandidateDetailScree
     }
   }
 
+  Future<void> _refresh() async {
+    await LoginSessionRefreshService.refreshRoles(
+      container: ProviderScope.containerOf(context),
+    );
+    ref.invalidate(recruitmentCandidateProvider(widget.candidateId));
+  }
+
   @override
   Widget build(BuildContext context) {
     final async = ref.watch(recruitmentCandidateProvider(widget.candidateId));
 
     return async.when(
       loading: () => RecruitmentGradientScaffold(
-        appBar: AppBar(
-          backgroundColor: Colors.transparent,
-          elevation: 0,
-          title: const Text('Candidate'),
+        body: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            const HrModuleGlassHeader(
+              title: 'Candidate',
+              accentTint: HrModuleHeaderTints.recruitment,
+            ),
+            const Expanded(child: Center(child: CircularProgressIndicator())),
+          ],
         ),
-        body: const Center(child: CircularProgressIndicator()),
       ),
       error: (e, _) => RecruitmentGradientScaffold(
-        appBar: AppBar(
-          backgroundColor: Colors.transparent,
-          elevation: 0,
-          title: const Text('Candidate'),
+        body: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            const HrModuleGlassHeader(
+              title: 'Candidate',
+              accentTint: HrModuleHeaderTints.recruitment,
+            ),
+            Expanded(child: Center(child: Text('$e'))),
+          ],
         ),
-        body: Center(child: Text('$e')),
       ),
       data: (RecruitmentCandidate c) {
         final initials = HrEmployeeInfoCard.initialsFromName(c.fullName);
         return RecruitmentGradientScaffold(
-          appBar: AppBar(
-            backgroundColor: Colors.transparent,
-            elevation: 0,
-            scrolledUnderElevation: 0,
-            foregroundColor: HrModuleColors.text,
-            title: Text(
-              c.fullName,
-              style: HrModuleTypography.sectionHeading().copyWith(fontSize: 18.sp),
-            ),
-            actions: [
-              PopupMenuButton<String>(
-                itemBuilder: (context) => const [
-                  PopupMenuItem(
-                    enabled: false,
-                    value: 'x',
-                    child: Text('Move to next stage (Phase 2)'),
-                  ),
-                ],
-              ),
-            ],
-            bottom: TabBar(
-              controller: _tabController,
-              labelColor: HrModuleColors.primary,
-              unselectedLabelColor: HrModuleColors.mutedText,
-              tabs: const [
-                Tab(text: 'Assessments'),
-                Tab(text: 'Activity'),
-                Tab(text: 'Notes'),
-              ],
-            ),
-          ),
           body: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              Expanded(
-                child: SingleChildScrollView(
-                  padding: EdgeInsets.all(HrModuleLayout.screenPaddingH.w),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      _headerCard(c, initials),
-                      SizedBox(height: 16.h),
-                      Text(
-                        'Profile',
-                        style: HrModuleTypography.sectionHeading()
-                            .copyWith(fontSize: 14.sp),
-                      ),
-                      HrDetailRow(label: 'Source', value: c.source ?? '—'),
-                      HrDetailRow(
-                        label: 'Applied',
-                        value:
-                            '${c.appliedAt.day}/${c.appliedAt.month}/${c.appliedAt.year}',
-                      ),
-                      HrDetailRow(
-                        label: 'Experience (yrs)',
-                        value: c.yearsExperience?.toString() ?? '—',
-                      ),
-                      HrDetailRow(
-                        label: 'Current company',
-                        value: c.currentCompany ?? '—',
-                      ),
-                      HrDetailRow(
-                        label: 'Expected salary',
-                        value: c.expectedSalary ?? '—',
-                      ),
-                      HrDetailRow(label: 'Notice', value: c.noticePeriod ?? '—'),
-                      ListTile(
-                        contentPadding: EdgeInsets.zero,
-                        title: Text('CV / Resume', style: HrModuleTypography.body()),
-                        trailing: TextButton(
-                          onPressed: () {
-                            Fluttertoast.showToast(msg: 'Mock — document viewer');
-                          },
-                          child: const Text('View'),
-                        ),
-                      ),
-                      if (c.offerId != null) ...[
-                        SizedBox(height: 12.h),
-                        Text(
-                          'Associated offer',
-                          style: HrModuleTypography.sectionHeading()
-                              .copyWith(fontSize: 14.sp),
-                        ),
-                        ListTile(
-                          tileColor: HrModuleColors.surface,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(
-                              HrModuleLayout.cardRadius.r,
-                            ),
-                            side: BorderSide(color: HrModuleColors.border),
-                          ),
-                          title: const Text('Open offer letter'),
-                          trailing: const Icon(Icons.chevron_right),
-                          onTap: () {
-                            Navigator.of(context).push<void>(
-                              MaterialPageRoute<void>(
-                                builder: (_) =>
-                                    O1OfferDetailScreen(offerId: c.offerId!),
-                              ),
-                            );
-                          },
-                        ),
-                      ],
-                    ],
-                  ),
+              HrModuleGlassHeader(
+                title: c.fullName,
+                accentTint: HrModuleHeaderTints.recruitment,
+                bottom: TabBar(
+                  controller: _tabController,
+                  labelColor: Colors.white,
+                  unselectedLabelColor: Colors.white70,
+                  indicatorColor: Colors.white,
+                  indicatorWeight: 3,
+                  tabs: const [
+                    Tab(text: 'Assessments'),
+                    Tab(text: 'Activity'),
+                    Tab(text: 'Notes'),
+                  ],
                 ),
+                tabsHeight: 46,
               ),
               Expanded(
-                flex: 2,
                 child: TabBarView(
                   controller: _tabController,
                   children: [
-                    _assessmentsTab(c),
-                    _activityTab(c),
-                    _notesTab(c),
+                    RefreshIndicator(
+                      onRefresh: _refresh,
+                      child: _assessmentsTab(c, initials),
+                    ),
+                    RefreshIndicator(
+                      onRefresh: _refresh,
+                      child: _profileScroll(
+                        c,
+                        initials,
+                        children: _activityTab(c),
+                      ),
+                    ),
+                    RefreshIndicator(
+                      onRefresh: _refresh,
+                      child: _profileScroll(
+                        c,
+                        initials,
+                        children: _notesTab(c),
+                      ),
+                    ),
                   ],
                 ),
               ),
@@ -199,29 +146,96 @@ class _C2CandidateDetailScreenState extends ConsumerState<C2CandidateDetailScree
     );
   }
 
+  Widget _profileScroll(
+    RecruitmentCandidate c,
+    String initials, {
+    required List<Widget> children,
+  }) {
+    return ListView(
+      physics: const AlwaysScrollableScrollPhysics(),
+      padding: EdgeInsets.fromLTRB(
+        HrModuleLayout.screenPaddingH.tw,
+        12.th,
+        HrModuleLayout.screenPaddingH.tw,
+        24.th,
+      ),
+      children: [
+        _headerCard(c, initials),
+        SizedBox(height: 16.th),
+        ..._profileRows(c),
+        SizedBox(height: 16.th),
+        ...children,
+      ],
+    );
+  }
+
+  List<Widget> _profileRows(RecruitmentCandidate c) {
+    return [
+      Text(
+        'Profile',
+        style: HrModuleTypography.sectionHeading().copyWith(fontSize: 14.tsp),
+      ),
+      HrDetailRow(label: 'Source', value: c.source ?? '—'),
+      HrDetailRow(
+        label: 'Applied',
+        value: '${c.appliedAt.day}/${c.appliedAt.month}/${c.appliedAt.year}',
+      ),
+      HrDetailRow(
+        label: 'Experience (yrs)',
+        value: c.yearsExperience?.toString() ?? '—',
+      ),
+      HrDetailRow(label: 'Current company', value: c.currentCompany ?? '—'),
+      HrDetailRow(label: 'Expected salary', value: c.expectedSalary ?? '—'),
+      HrDetailRow(label: 'Notice', value: c.noticePeriod ?? '—'),
+      if (c.offerId != null) ...[
+        SizedBox(height: 12.th),
+        Text(
+          'Associated offer',
+          style: HrModuleTypography.sectionHeading().copyWith(fontSize: 14.tsp),
+        ),
+        ListTile(
+          tileColor: HrModuleColors.surface,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(HrModuleLayout.cardRadius.tr),
+            side: BorderSide(color: HrModuleColors.border),
+          ),
+          title: const Text('Open offer letter'),
+          trailing: const Icon(Icons.chevron_right),
+          onTap: () {
+            Navigator.of(context).push<void>(
+              MaterialPageRoute<void>(
+                builder: (_) => O1OfferDetailScreen(offerId: c.offerId!),
+              ),
+            );
+          },
+        ),
+      ],
+    ];
+  }
+
   Widget _headerCard(RecruitmentCandidate c, String initials) {
     return Container(
-      padding: EdgeInsets.all(14.r),
+      padding: EdgeInsets.all(14.tr),
       decoration: BoxDecoration(
         color: HrModuleColors.surface,
-        borderRadius: BorderRadius.circular(HrModuleLayout.cardRadius.r),
+        borderRadius: BorderRadius.circular(HrModuleLayout.cardRadius.tr),
         border: Border.all(color: HrModuleColors.border),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           CircleAvatar(
-            radius: 28.r,
+            radius: 28.tr,
             backgroundColor: HrModuleColors.primary.withValues(alpha: 0.12),
             child: Text(
               initials,
               style: HrModuleTypography.cardTitle().copyWith(
-                    fontSize: 16.sp,
+                    fontSize: 16.tsp,
                     color: HrModuleColors.primary,
                   ),
             ),
           ),
-          SizedBox(width: 12.w),
+          SizedBox(width: 12.tw),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -229,16 +243,16 @@ class _C2CandidateDetailScreenState extends ConsumerState<C2CandidateDetailScree
                 Text(
                   c.jobTitle,
                   style: HrModuleTypography.body().copyWith(
-                        fontSize: 14.sp,
+                        fontSize: 14.tsp,
                         fontWeight: FontWeight.w600,
                       ),
                 ),
                 Text(c.requisitionRef, style: HrModuleTypography.caption()),
-                SizedBox(height: 6.h),
+                SizedBox(height: 6.th),
                 HrStatusBadge(uiStatus: c.stage, kind: HrBadgeKind.candidate),
-                SizedBox(height: 8.h),
+                SizedBox(height: 8.th),
                 Wrap(
-                  spacing: 8.w,
+                  spacing: 8.tw,
                   children: [
                     TextButton.icon(
                       onPressed: () => _launch(Uri.parse('mailto:${c.email}')),
@@ -262,18 +276,28 @@ class _C2CandidateDetailScreenState extends ConsumerState<C2CandidateDetailScree
     );
   }
 
-  Widget _assessmentsTab(RecruitmentCandidate c) {
+  Widget _assessmentsTab(RecruitmentCandidate c, String initials) {
     final avg = c.avgScore;
     return ListView(
-      padding: EdgeInsets.all(HrModuleLayout.screenPaddingH.w),
+      physics: const AlwaysScrollableScrollPhysics(),
+      padding: EdgeInsets.fromLTRB(
+        HrModuleLayout.screenPaddingH.tw,
+        12.th,
+        HrModuleLayout.screenPaddingH.tw,
+        24.th,
+      ),
       children: [
+        _headerCard(c, initials),
+        SizedBox(height: 16.th),
+        ..._profileRows(c),
+        SizedBox(height: 16.th),
         if (avg != null) ...[
           Text(
             'Average: ${avg.toStringAsFixed(1)} / 5',
-            style: HrModuleTypography.cardTitle().copyWith(fontSize: 15.sp),
+            style: HrModuleTypography.cardTitle().copyWith(fontSize: 15.tsp),
           ),
           RecruitmentStarDisplay(value: avg),
-          SizedBox(height: 12.h),
+          SizedBox(height: 12.th),
         ],
         ...c.assessments.map(
           (a) => Card(
@@ -310,30 +334,34 @@ class _C2CandidateDetailScreenState extends ConsumerState<C2CandidateDetailScree
     );
   }
 
-  Widget _activityTab(RecruitmentCandidate c) {
-    return ListView(
-      padding: EdgeInsets.all(HrModuleLayout.screenPaddingH.w),
-      children: [
-        ListTile(
-          leading: const Icon(Icons.inbox),
-          title: const Text('Application received'),
-          subtitle: Text('${c.appliedAt}'),
-        ),
-      ],
-    );
+  List<Widget> _activityTab(RecruitmentCandidate c) {
+    return [
+      Text(
+        'Activity',
+        style: HrModuleTypography.sectionHeading().copyWith(fontSize: 14.tsp),
+      ),
+      ListTile(
+        contentPadding: EdgeInsets.zero,
+        leading: const Icon(Icons.inbox),
+        title: const Text('Application received'),
+        subtitle: Text('${c.appliedAt}'),
+      ),
+    ];
   }
 
-  Widget _notesTab(RecruitmentCandidate c) {
-    return ListView(
-      padding: EdgeInsets.all(HrModuleLayout.screenPaddingH.w),
-      children: c.notesLines
-          .map(
-            (line) => ListTile(
-              leading: const Icon(Icons.notes_outlined),
-              title: Text(line, style: TextStyle(fontSize: 13.sp)),
-            ),
-          )
-          .toList(),
-    );
+  List<Widget> _notesTab(RecruitmentCandidate c) {
+    return [
+      Text(
+        'Notes',
+        style: HrModuleTypography.sectionHeading().copyWith(fontSize: 14.tsp),
+      ),
+      ...c.notesLines.map(
+        (line) => ListTile(
+          contentPadding: EdgeInsets.zero,
+          leading: const Icon(Icons.notes_outlined),
+          title: Text(line, style: TextStyle(fontSize: 13.tsp)),
+        ),
+      ),
+    ];
   }
 }

@@ -1,3 +1,4 @@
+import 'package:el_race/core/utils/responsive_breakpoints.dart';
 import 'package:el_race/ui/presentation/Email%20Approval/theme/approvals_overview_theme.dart';
 import 'package:el_race/ui/presentation/Email%20Approval/utils/approval_display_helpers.dart';
 import 'package:el_race/ui/presentation/Email%20Approval/utils/petty_cash_expense_line_groups.dart';
@@ -25,14 +26,14 @@ class PettyCashExpenseLinesPopup {
         final maxHeight = MediaQuery.sizeOf(ctx).height * 0.72;
         return SafeArea(
           child: Padding(
-            padding: EdgeInsets.fromLTRB(16.w, 0, 16.w, 16.h),
+            padding: EdgeInsets.fromLTRB(16.tw, 0, 16.tw, 16.th),
             child: Material(
               color: Colors.transparent,
               child: Container(
                 constraints: BoxConstraints(maxHeight: maxHeight),
                 decoration: BoxDecoration(
                   color: Colors.white.withValues(alpha: 0.96),
-                  borderRadius: BorderRadius.circular(20.r),
+                  borderRadius: BorderRadius.circular(20.tr),
                   border: Border.all(color: Colors.white, width: 1.2),
                   boxShadow: [
                     BoxShadow(
@@ -46,14 +47,14 @@ class PettyCashExpenseLinesPopup {
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Padding(
-                      padding: EdgeInsets.fromLTRB(16.w, 14.h, 8.w, 8.h),
+                      padding: EdgeInsets.fromLTRB(16.tw, 14.th, 8.tw, 8.th),
                       child: Row(
                         children: [
                           Expanded(
                             child: Text(
                               title,
                               style: GoogleFonts.poppins(
-                                fontSize: 16.sp,
+                                fontSize: 16.tsp,
                                 fontWeight: FontWeight.w700,
                                 color: ApprovalsOverviewTheme.textDark,
                               ),
@@ -68,7 +69,7 @@ class PettyCashExpenseLinesPopup {
                       ),
                     ),
                     Padding(
-                      padding: EdgeInsets.symmetric(horizontal: 16.w),
+                      padding: EdgeInsets.symmetric(horizontal: 16.tw),
                       child: Row(
                         children: [
                           Expanded(
@@ -76,7 +77,7 @@ class PettyCashExpenseLinesPopup {
                             child: Text(
                               'PROJECT',
                               style: GoogleFonts.poppins(
-                                fontSize: 9.sp,
+                                fontSize: 9.tsp,
                                 fontWeight: FontWeight.w700,
                                 letterSpacing: 0.6,
                                 color: ApprovalsOverviewTheme.textSoft,
@@ -89,7 +90,7 @@ class PettyCashExpenseLinesPopup {
                               'AMOUNT',
                               textAlign: TextAlign.end,
                               style: GoogleFonts.poppins(
-                                fontSize: 9.sp,
+                                fontSize: 9.tsp,
                                 fontWeight: FontWeight.w700,
                                 letterSpacing: 0.6,
                                 color: ApprovalsOverviewTheme.textSoft,
@@ -99,7 +100,7 @@ class PettyCashExpenseLinesPopup {
                         ],
                       ),
                     ),
-                    SizedBox(height: 8.h),
+                    SizedBox(height: 8.th),
                     Divider(
                       height: 1,
                       color: ApprovalsOverviewTheme.textSoft.withValues(alpha: 0.28),
@@ -107,10 +108,10 @@ class PettyCashExpenseLinesPopup {
                     Flexible(
                       child: ListView.separated(
                         shrinkWrap: true,
-                        padding: EdgeInsets.fromLTRB(16.w, 8.h, 16.w, 8.h),
+                        padding: EdgeInsets.fromLTRB(16.tw, 8.th, 16.tw, 8.th),
                         itemCount: lines.length,
                         separatorBuilder: (_, __) => Divider(
-                          height: 16.h,
+                          height: 16.th,
                           color: ApprovalsOverviewTheme.textSoft
                               .withValues(alpha: 0.22),
                         ),
@@ -155,7 +156,7 @@ class PettyCashExpenseLinesPopup {
                                     Text(
                                       project.isEmpty ? 'N/A' : project,
                                       style: GoogleFonts.poppins(
-                                        fontSize: 12.sp,
+                                        fontSize: 12.tsp,
                                         fontWeight: FontWeight.w600,
                                         color: ApprovalsOverviewTheme.textDark,
                                       ),
@@ -163,10 +164,10 @@ class PettyCashExpenseLinesPopup {
                                     if (dateLabel.isNotEmpty ||
                                         (showTypeBadges &&
                                             typeLabel.isNotEmpty)) ...[
-                                      SizedBox(height: 4.h),
+                                      SizedBox(height: 4.th),
                                       Wrap(
-                                        spacing: 6.w,
-                                        runSpacing: 4.h,
+                                        spacing: 6.tw,
+                                        runSpacing: 4.th,
                                         crossAxisAlignment:
                                             WrapCrossAlignment.center,
                                         children: [
@@ -174,7 +175,7 @@ class PettyCashExpenseLinesPopup {
                                             Text(
                                               dateLabel,
                                               style: GoogleFonts.poppins(
-                                                fontSize: 10.sp,
+                                                fontSize: 10.tsp,
                                                 fontWeight: FontWeight.w500,
                                                 color: ApprovalsOverviewTheme
                                                     .textMuted,
@@ -184,14 +185,14 @@ class PettyCashExpenseLinesPopup {
                                               typeLabel.isNotEmpty)
                                             Container(
                                               padding: EdgeInsets.symmetric(
-                                                horizontal: 7.w,
-                                                vertical: 2.h,
+                                                horizontal: 7.tw,
+                                                vertical: 2.th,
                                               ),
                                               decoration: BoxDecoration(
                                                 color: badgeColor
                                                     .withValues(alpha: 0.14),
                                                 borderRadius:
-                                                    BorderRadius.circular(6.r),
+                                                    BorderRadius.circular(6.tr),
                                                 border: Border.all(
                                                   color: badgeColor
                                                       .withValues(alpha: 0.45),
@@ -200,7 +201,7 @@ class PettyCashExpenseLinesPopup {
                                               child: Text(
                                                 typeLabel,
                                                 style: GoogleFonts.poppins(
-                                                  fontSize: 9.sp,
+                                                  fontSize: 9.tsp,
                                                   fontWeight: FontWeight.w700,
                                                   color: badgeColor,
                                                 ),
@@ -218,7 +219,7 @@ class PettyCashExpenseLinesPopup {
                                   amount,
                                   textAlign: TextAlign.end,
                                   style: GoogleFonts.poppins(
-                                    fontSize: 12.sp,
+                                    fontSize: 12.tsp,
                                     fontWeight: FontWeight.w700,
                                     color: ApprovalsOverviewTheme.petty,
                                   ),
@@ -234,14 +235,14 @@ class PettyCashExpenseLinesPopup {
                       color: ApprovalsOverviewTheme.textSoft.withValues(alpha: 0.35),
                     ),
                     Padding(
-                      padding: EdgeInsets.fromLTRB(16.w, 12.h, 16.w, 16.h),
+                      padding: EdgeInsets.fromLTRB(16.tw, 12.th, 16.tw, 16.th),
                       child: Row(
                         children: [
                           Expanded(
                             child: Text(
                               'Total',
                               style: GoogleFonts.poppins(
-                                fontSize: 13.sp,
+                                fontSize: 13.tsp,
                                 fontWeight: FontWeight.w700,
                                 color: ApprovalsOverviewTheme.textDark,
                               ),
@@ -253,7 +254,7 @@ class PettyCashExpenseLinesPopup {
                               fallback: '0',
                             ),
                             style: GoogleFonts.poppins(
-                              fontSize: 14.sp,
+                              fontSize: 14.tsp,
                               fontWeight: FontWeight.w800,
                               color: ApprovalsOverviewTheme.petty,
                             ),

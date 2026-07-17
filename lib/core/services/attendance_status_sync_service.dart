@@ -194,15 +194,15 @@ class AttendanceStatusSyncService {
 
   static DateTime? _parseTodayTime(String displayTime) {
     final parts = displayTime.split(':');
-    if (parts.length != 3) {
+    if (parts.length < 2) {
       return null;
     }
 
     final hour = int.tryParse(parts[0]);
     final minute = int.tryParse(parts[1]);
-    final second = int.tryParse(parts[2]);
+    final second = parts.length >= 3 ? int.tryParse(parts[2]) ?? 0 : 0;
 
-    if (hour == null || minute == null || second == null) {
+    if (hour == null || minute == null) {
       return null;
     }
 

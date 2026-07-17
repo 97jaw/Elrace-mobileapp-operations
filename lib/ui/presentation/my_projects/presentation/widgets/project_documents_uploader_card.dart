@@ -1,3 +1,4 @@
+import 'package:el_race/core/utils/responsive_breakpoints.dart';
 import 'package:el_race/core/utils/shared_pref.dart';
 import 'package:el_race/ui/presentation/my_projects/data/models/project_documents_models.dart';
 import 'package:el_race/ui/presentation/my_projects/presentation/theme/projects_dashboard_theme.dart';
@@ -38,10 +39,10 @@ class ProjectDocumentsUploaderCard extends StatelessWidget {
       color: Colors.transparent,
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(16.r),
+        borderRadius: BorderRadius.circular(16.tr),
         child: Container(
           decoration: projectDocumentsFileRowDecoration(),
-          padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 10.h),
+          padding: EdgeInsets.symmetric(horizontal: 12.tw, vertical: 10.th),
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
@@ -50,44 +51,44 @@ class ProjectDocumentsUploaderCard extends StatelessWidget {
                 name: uploader.name,
                 size: 54,
               ),
-              SizedBox(width: 10.w),
+              SizedBox(width: 10.tw),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     ProjectDocumentsOneLineMarquee(
                       text: uploader.name,
-                      fontSize: 15.sp,
+                      fontSize: 15.tsp,
                       fontWeight: FontWeight.w700,
                       italic: false,
                       color: _titleColor,
                     ),
                     if (uploader.designation.trim().isNotEmpty) ...[
-                      SizedBox(height: 3.h),
+                      SizedBox(height: 3.th),
                       Text(
                         uploader.designation,
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
                         style: GoogleFonts.poppins(
-                          fontSize: 12.sp,
+                          fontSize: 12.tsp,
                           fontStyle: FontStyle.italic,
                           color: _metaColor.withValues(alpha: 0.82),
                           height: 1.25,
                         ),
                       ),
                     ],
-                    SizedBox(height: 6.h),
+                    SizedBox(height: 6.th),
                     Text(
                       uploadsLine,
                       style: GoogleFonts.poppins(
-                        fontSize: 14.sp,
+                        fontSize: 14.tsp,
                         fontWeight: FontWeight.w600,
                         color: _metaColor.withValues(alpha: 0.92),
                         height: 1.15,
                       ),
                     ),
                     if (lastLabel != '—') ...[
-                      SizedBox(height: 3.h),
+                      SizedBox(height: 3.th),
                       Text(
                         'Last uploaded $lastLabel',
                         maxLines: 1,
@@ -95,7 +96,7 @@ class ProjectDocumentsUploaderCard extends StatelessWidget {
                         style: projectDocumentsUpdatedMetaStyle(),
                       ),
                     ],
-                    SizedBox(height: 2.h),
+                    SizedBox(height: 2.th),
                     Row(
                       children: [
                         Expanded(
@@ -104,7 +105,7 @@ class ProjectDocumentsUploaderCard extends StatelessWidget {
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                             style: GoogleFonts.poppins(
-                              fontSize: 10.sp,
+                              fontSize: 10.tsp,
                               color: _metaColor.withValues(alpha: 0.82),
                             ),
                           ),
@@ -112,7 +113,7 @@ class ProjectDocumentsUploaderCard extends StatelessWidget {
                         Text(
                           projectsLabel,
                           style: GoogleFonts.poppins(
-                            fontSize: 11.sp,
+                            fontSize: 11.tsp,
                             fontWeight: FontWeight.w600,
                             color: _metaColor.withValues(alpha: 0.92),
                           ),
@@ -125,7 +126,7 @@ class ProjectDocumentsUploaderCard extends StatelessWidget {
               Icon(
                 Icons.chevron_right_rounded,
                 color: _metaColor.withValues(alpha: 0.55),
-                size: 22.sp,
+                size: 22.tsp,
               ),
             ],
           ),
@@ -159,10 +160,10 @@ class _UploaderPhoto extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final token = SharedPref.getLoginData().result?.token ?? '';
-    final dim = size.w;
+    final dim = size.tw;
 
     return ClipRRect(
-      borderRadius: BorderRadius.circular(14.r),
+      borderRadius: BorderRadius.circular(14.tr),
       child: SizedBox(
         width: dim,
         height: dim,
@@ -212,7 +213,7 @@ class _InitialsFallback extends StatelessWidget {
         child: Text(
           initials,
           style: GoogleFonts.poppins(
-            fontSize: (size * 0.34).sp,
+            fontSize: (size * 0.34).tsp,
             fontWeight: FontWeight.w700,
             color: ProjectsDashboardTheme.greyDeep,
           ),

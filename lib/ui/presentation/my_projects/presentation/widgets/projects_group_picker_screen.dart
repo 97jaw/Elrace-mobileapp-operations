@@ -1,3 +1,4 @@
+import 'package:el_race/core/utils/responsive_breakpoints.dart';
 import 'package:el_race/ui/presentation/my_projects/data/datasources/project_remote_datasource.dart';
 import 'package:el_race/ui/presentation/my_projects/data/models/project_manager_filter_item.dart';
 import 'package:el_race/ui/presentation/my_projects/presentation/theme/projects_dashboard_theme.dart';
@@ -134,15 +135,15 @@ class _ProjectsGroupPickerScreenState extends State<ProjectsGroupPickerScreen> {
             Expanded(
               child: _isLoading
                   ? ListView.separated(
-                      padding: EdgeInsets.symmetric(horizontal: 16.w),
+                      padding: EdgeInsets.symmetric(horizontal: 16.tw),
                       itemCount: 8,
-                      separatorBuilder: (_, __) => SizedBox(height: 10.h),
+                      separatorBuilder: (_, __) => SizedBox(height: 10.th),
                       itemBuilder: (_, __) => const ProjectsProjectRowShimmer(),
                     )
                   : _error != null
                       ? Center(
                           child: Padding(
-                            padding: EdgeInsets.symmetric(horizontal: 24.w),
+                            padding: EdgeInsets.symmetric(horizontal: 24.tw),
                             child: Column(
                               mainAxisAlignment: MainAxisAlignment.center,
                               children: [
@@ -151,10 +152,10 @@ class _ProjectsGroupPickerScreenState extends State<ProjectsGroupPickerScreen> {
                                   textAlign: TextAlign.center,
                                   style: GoogleFonts.poppins(
                                     color: ProjectsDashboardTheme.white,
-                                    fontSize: 13.sp,
+                                    fontSize: 13.tsp,
                                   ),
                                 ),
-                                SizedBox(height: 16.h),
+                                SizedBox(height: 16.th),
                                 TextButton.icon(
                                   onPressed: () => _load(forceRefresh: true),
                                   icon: const Icon(
@@ -175,13 +176,13 @@ class _ProjectsGroupPickerScreenState extends State<ProjectsGroupPickerScreen> {
                         )
                       : ListView.separated(
                           padding: EdgeInsets.fromLTRB(
-                            16.w,
+                            16.tw,
                             0,
-                            16.w,
-                            24.h,
+                            16.tw,
+                            24.th,
                           ),
                           itemCount: _items.length,
-                          separatorBuilder: (_, __) => SizedBox(height: 10.h),
+                          separatorBuilder: (_, __) => SizedBox(height: 10.th),
                           itemBuilder: (context, index) {
                             final item = _items[index];
                             return TweenAnimationBuilder<double>(
@@ -201,9 +202,9 @@ class _ProjectsGroupPickerScreenState extends State<ProjectsGroupPickerScreen> {
                                 color: Colors.transparent,
                                 child: InkWell(
                                   onTap: () => widget.onItemTap(item),
-                                  borderRadius: BorderRadius.circular(16.r),
+                                  borderRadius: BorderRadius.circular(16.tr),
                                   child: Container(
-                                    padding: EdgeInsets.all(12.w),
+                                    padding: EdgeInsets.all(12.tw),
                                     decoration: ProjectsDashboardTheme
                                         .frostedPanel(radius: 16),
                                     child: Row(
@@ -212,7 +213,7 @@ class _ProjectsGroupPickerScreenState extends State<ProjectsGroupPickerScreen> {
                                           name: item.name,
                                           photoUrl: item.photoUrl,
                                         ),
-                                        SizedBox(width: 12.w),
+                                        SizedBox(width: 12.tw),
                                         Expanded(
                                           child: Column(
                                             crossAxisAlignment:
@@ -221,19 +222,19 @@ class _ProjectsGroupPickerScreenState extends State<ProjectsGroupPickerScreen> {
                                               Text(
                                                 item.name,
                                                 style: GoogleFonts.poppins(
-                                                  fontSize: 15.sp,
+                                                  fontSize: 15.tsp,
                                                   fontWeight: FontWeight.w700,
                                                   color: ProjectsDashboardTheme
                                                       .white,
                                                 ),
                                               ),
-                                              SizedBox(height: 2.h),
+                                              SizedBox(height: 2.th),
                                               Text(
                                                 _lastUpdateText(
                                                   item.lastUpdate,
                                                 ),
                                                 style: GoogleFonts.poppins(
-                                                  fontSize: 12.sp,
+                                                  fontSize: 12.tsp,
                                                   color: ProjectsDashboardTheme
                                                       .greyPanel,
                                                 ),
@@ -243,14 +244,14 @@ class _ProjectsGroupPickerScreenState extends State<ProjectsGroupPickerScreen> {
                                         ),
                                         Container(
                                           padding: EdgeInsets.symmetric(
-                                            horizontal: 12.w,
-                                            vertical: 8.h,
+                                            horizontal: 12.tw,
+                                            vertical: 8.th,
                                           ),
                                           decoration: BoxDecoration(
                                             gradient: ProjectsDashboardTheme
                                                 .maroonAccentGradient,
                                             borderRadius:
-                                                BorderRadius.circular(12.r),
+                                                BorderRadius.circular(12.tr),
                                             border: Border.all(
                                               color: ProjectsDashboardTheme
                                                   .white
@@ -260,7 +261,7 @@ class _ProjectsGroupPickerScreenState extends State<ProjectsGroupPickerScreen> {
                                           child: Text(
                                             '${item.projectCount}',
                                             style: GoogleFonts.koulen(
-                                              fontSize: 16.sp,
+                                              fontSize: 16.tsp,
                                               color: ProjectsDashboardTheme
                                                   .white,
                                             ),
@@ -294,8 +295,8 @@ class _PickerAvatar extends StatelessWidget {
       return ClipOval(
         child: ProjectsCachedImage(
           url: photoUrl!,
-          width: 52.w,
-          height: 52.w,
+          width: 52.tw,
+          height: 52.tw,
           fit: BoxFit.cover,
         ),
       );
@@ -304,7 +305,7 @@ class _PickerAvatar extends StatelessWidget {
     final initial =
         name.trim().isNotEmpty ? name.trim()[0].toUpperCase() : '?';
     return CircleAvatar(
-      radius: 26.r,
+      radius: 26.tr,
       backgroundColor: ProjectsDashboardTheme.navy.withValues(alpha: 0.85),
       child: Text(
         initial,

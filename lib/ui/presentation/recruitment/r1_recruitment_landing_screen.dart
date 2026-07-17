@@ -1,7 +1,10 @@
+import 'package:el_race/core/utils/responsive_breakpoints.dart';
 import 'package:el_race/core/hr_management/hr_effective_view.dart';
 import 'package:el_race/core/hr_management/providers/hr_management_providers.dart';
 import 'package:el_race/core/recruitment/models/requisition.dart';
 import 'package:el_race/core/recruitment/providers/requisition_providers.dart';
+import 'package:el_race/core/recruitment/recruitment_job_share.dart';
+import 'package:el_race/core/session/login_session_refresh_service.dart';
 import 'package:el_race/core/theme/hr_badge_kind.dart';
 import 'package:el_race/core/theme/hr_module_colors.dart';
 import 'package:el_race/core/theme/hr_module_layout.dart';
@@ -13,9 +16,7 @@ import 'package:el_race/core/widgets/hr_management/hr_search_bar.dart';
 import 'package:el_race/core/widgets/hr_management/hr_status_badge.dart';
 import 'package:el_race/core/widgets/hr_management/hr_module_glass_header.dart';
 import 'package:el_race/core/widgets/recruitment/recruitment_gradient_scaffold.dart';
-import 'package:el_race/ui/presentation/recruitment/c1_candidates_list_screen.dart';
 import 'package:el_race/ui/presentation/recruitment/d1_recruitment_dashboard_panel.dart';
-import 'package:el_race/ui/presentation/recruitment/recruitment_referral_screen.dart';
 import 'package:el_race/ui/presentation/recruitment/r2_requisition_detail_screen.dart';
 import 'package:el_race/ui/presentation/recruitment/recruitment_under_planning_screen.dart';
 import 'package:flutter/foundation.dart';
@@ -66,7 +67,7 @@ class _R1RecruitmentLandingScreenState
     var pipeline = 0;
     var offers = 0;
     for (final r in all) {
-      if (r.uiStatus == 'OPEN') {
+      if (r.uiStatus == 'OPEN' || r.uiStatus == 'IN_RECRUITMENT') {
         open++;
         pipeline += r.candidatesInPipeline;
         offers += r.pendingOfferCount;
@@ -92,21 +93,33 @@ class _R1RecruitmentLandingScreenState
     }
     switch (_listTab) {
       case _ListTab.active:
+        // Show all non-closed requisitions (OPEN, IN_RECRUITMENT, HOLD, draft/approval…).
         if (_activeChip == _ActiveChip.open) {
-          list = list.where((r) => r.uiStatus == 'OPEN').toList();
-        } else {
           list = list
               .where(
                 (r) =>
                     r.uiStatus == 'OPEN' ||
-                    _approvalStatuses.contains(r.uiStatus),
+                    r.uiStatus == 'IN_RECRUITMENT' ||
+                    r.uiStatus == 'HOLD',
+              )
+              .toList();
+        } else {
+          list = list
+              .where(
+                (r) =>
+                    r.uiStatus != 'CLOSED' &&
+                    r.uiStatus != 'CANCELLED' &&
+                    r.uiStatus != 'FILLED',
               )
               .toList();
         }
       case _ListTab.closed:
         list = list
             .where(
-              (r) => r.uiStatus == 'CLOSED' || r.uiStatus == 'CANCELLED',
+              (r) =>
+                  r.uiStatus == 'CLOSED' ||
+                  r.uiStatus == 'CANCELLED' ||
+                  r.uiStatus == 'FILLED',
             )
             .toList();
       case _ListTab.drafts:
@@ -123,9 +136,8 @@ class _R1RecruitmentLandingScreenState
   }
 
   List<Requisition> _employeeOpenings(List<Requisition> all) {
-    var list = all
-        .where((r) => r.uiStatus == 'OPEN')
-        .toList();
+    // Show all openings returned by the API (search filter only).
+    var list = List<Requisition>.from(all);
     if (_searchQuery.trim().isNotEmpty) {
       final q = _searchQuery.toLowerCase();
       list = list
@@ -142,12 +154,15 @@ class _R1RecruitmentLandingScreenState
     return list;
   }
 
-  void _openReferral(Requisition r) {
-    Navigator.of(context).push<void>(
-      MaterialPageRoute<void>(
-        builder: (_) => RecruitmentReferralScreen(requisition: r),
-      ),
+  Future<void> _refreshRecruitment() async {
+    await LoginSessionRefreshService.refreshRoles(
+      container: ProviderScope.containerOf(context),
     );
+    await ref.read(requisitionsListProvider.notifier).refresh();
+  }
+
+  void _sharePosition(Requisition r) {
+    shareRecruitmentPosition(context, requisition: r);
   }
 
   List<Widget> _debugRoleActions() {
@@ -202,25 +217,24 @@ class _R1RecruitmentLandingScreenState
           loading: () => const Center(child: CircularProgressIndicator()),
           error: (e, _) => Center(
             child: Padding(
-              padding: EdgeInsets.all(24.w),
+              padding: EdgeInsets.all(24.tw),
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   Text(
                     'Could not load openings',
                     style: HrModuleTypography.sectionHeading()
-                        .copyWith(fontSize: 16.sp),
+                        .copyWith(fontSize: 16.tsp),
                   ),
-                  SizedBox(height: 8.h),
+                  SizedBox(height: 8.th),
                   Text(
                     e.toString(),
                     textAlign: TextAlign.center,
                     style: HrModuleTypography.caption(),
                   ),
-                  SizedBox(height: 16.h),
+                  SizedBox(height: 16.th),
                   FilledButton(
-                    onPressed: () =>
-                        ref.read(requisitionsListProvider.notifier).refresh(),
+                    onPressed: _refreshRecruitment,
                     child: const Text('Retry'),
                   ),
                 ],
@@ -230,38 +244,39 @@ class _R1RecruitmentLandingScreenState
           data: (all) {
             final rows = _employeeOpenings(all);
             return RefreshIndicator(
-              onRefresh: () =>
-                  ref.read(requisitionsListProvider.notifier).refresh(),
+              onRefresh: _refreshRecruitment,
               child: ListView(
                 physics: const AlwaysScrollableScrollPhysics(),
                 padding: EdgeInsets.fromLTRB(
-                  HrModuleLayout.screenPaddingH.w,
-                  12.h,
-                  HrModuleLayout.screenPaddingH.w,
-                  32.h,
+                  HrModuleLayout.screenPaddingH.tw,
+                  12.th,
+                  HrModuleLayout.screenPaddingH.tw,
+                  32.th,
                 ),
                 children: [
                   HrSearchBar(
                     hintText: 'Search by job title, team, or location',
                     onDebouncedChanged: (q) => setState(() => _searchQuery = q),
                   ),
-                  SizedBox(height: 16.h),
+                  SizedBox(height: 16.th),
                   if (rows.isEmpty) ...[
-                    SizedBox(height: 40.h),
+                    SizedBox(height: 40.th),
                     Center(
                       child: Text(
-                        'No open positions match your search.',
-                        style: HrModuleTypography.body().copyWith(fontSize: 14.sp),
+                        _searchQuery.trim().isNotEmpty
+                            ? 'No positions match your search.'
+                            : 'No open positions right now.',
+                        style: HrModuleTypography.body().copyWith(fontSize: 14.tsp),
                         textAlign: TextAlign.center,
                       ),
                     ),
                   ] else
                     ...rows.map(
                       (r) => Padding(
-                        padding: EdgeInsets.only(bottom: 12.h),
+                        padding: EdgeInsets.only(bottom: 12.th),
                         child: _EmployeeOpeningCard(
                           requisition: r,
-                          onRefer: () => _openReferral(r),
+                          onShare: () => _sharePosition(r),
                         ),
                       ),
                     ),
@@ -303,25 +318,24 @@ class _R1RecruitmentLandingScreenState
           loading: () => const Center(child: CircularProgressIndicator()),
           error: (e, _) => Center(
             child: Padding(
-              padding: EdgeInsets.all(24.w),
+              padding: EdgeInsets.all(24.tw),
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   Text(
                     'Could not load requisitions',
                     style: HrModuleTypography.sectionHeading()
-                        .copyWith(fontSize: 16.sp),
+                        .copyWith(fontSize: 16.tsp),
                   ),
-                  SizedBox(height: 8.h),
+                  SizedBox(height: 8.th),
                   Text(
                     e.toString(),
                     textAlign: TextAlign.center,
                     style: HrModuleTypography.caption(),
                   ),
-                  SizedBox(height: 16.h),
+                  SizedBox(height: 16.th),
                   FilledButton(
-                    onPressed: () =>
-                        ref.read(requisitionsListProvider.notifier).refresh(),
+                    onPressed: _refreshRecruitment,
                     child: const Text('Retry'),
                   ),
                 ],
@@ -331,15 +345,14 @@ class _R1RecruitmentLandingScreenState
           data: (all) {
             final k = _kpis(all);
             return RefreshIndicator(
-              onRefresh: () =>
-                  ref.read(requisitionsListProvider.notifier).refresh(),
+              onRefresh: _refreshRecruitment,
               child: ListView(
                 physics: const AlwaysScrollableScrollPhysics(),
                 padding: EdgeInsets.fromLTRB(
-                  HrModuleLayout.screenPaddingH.w,
-                  12.h,
-                  HrModuleLayout.screenPaddingH.w,
-                  100.h,
+                  HrModuleLayout.screenPaddingH.tw,
+                  12.th,
+                  HrModuleLayout.screenPaddingH.tw,
+                  100.th,
                 ),
                 children: [
                   HrPillSegmentControl(
@@ -349,7 +362,7 @@ class _R1RecruitmentLandingScreenState
                     onChanged: (i) =>
                         setState(() => _dashboardMode = i == 1),
                   ),
-                  SizedBox(height: 16.h),
+                  SizedBox(height: 16.th),
                   IntrinsicHeight(
                     child: Row(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -360,14 +373,14 @@ class _R1RecruitmentLandingScreenState
                             label: 'Open positions',
                           ),
                         ),
-                        SizedBox(width: 8.w),
+                        SizedBox(width: 8.tw),
                         Expanded(
                           child: HrKpiCounterCard(
                             value: '${k.pipeline}',
                             label: 'Candidates in pipeline',
                           ),
                         ),
-                        SizedBox(width: 8.w),
+                        SizedBox(width: 8.tw),
                         Expanded(
                           child: HrKpiCounterCard(
                             value: '${k.offers}',
@@ -378,23 +391,23 @@ class _R1RecruitmentLandingScreenState
                     ),
                   ),
                   if (_dashboardMode) ...[
-                    SizedBox(height: 16.h),
+                    SizedBox(height: 16.th),
                     Container(
                       width: double.infinity,
-                      padding: EdgeInsets.all(14.r),
+                      padding: EdgeInsets.all(14.tr),
                       decoration: BoxDecoration(
                         color: HrModuleColors.surface,
                         borderRadius:
-                            BorderRadius.circular(HrModuleLayout.cardRadius.r),
+                            BorderRadius.circular(HrModuleLayout.cardRadius.tr),
                         boxShadow: HrModuleColors.cardShadow,
                       ),
                       child: const D1RecruitmentDashboardPanel(),
                     ),
                   ] else ...[
-                    SizedBox(height: 12.h),
+                    SizedBox(height: 12.th),
                     _managerFiltersToolbar(),
                     if (_managerSearchOpen) ...[
-                      SizedBox(height: 10.h),
+                      SizedBox(height: 10.th),
                       HrSearchBar(
                         controller: _managerSearchController,
                         hintText: 'Title, ref, department, location…',
@@ -402,7 +415,7 @@ class _R1RecruitmentLandingScreenState
                             setState(() => _searchQuery = q),
                       ),
                     ],
-                    SizedBox(height: 12.h),
+                    SizedBox(height: 12.th),
                     ..._buildList(_filtered(all)),
                   ],
                 ],
@@ -420,7 +433,7 @@ class _R1RecruitmentLandingScreenState
     Widget mainTabChip(String label, _ListTab tab) {
       final selected = _listTab == tab;
       return Padding(
-        padding: EdgeInsets.only(right: 6.w),
+        padding: EdgeInsets.only(right: 6.tw),
         child: ChoiceChip(
           label: Text(label),
           selected: selected,
@@ -431,11 +444,11 @@ class _R1RecruitmentLandingScreenState
             }
           }),
           selectedColor: HrModuleColors.primary.withValues(alpha: 0.15),
-          labelPadding: EdgeInsets.symmetric(horizontal: 10.w, vertical: 0),
+          labelPadding: EdgeInsets.symmetric(horizontal: 10.tw, vertical: 0),
           visualDensity: VisualDensity.compact,
           materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
           labelStyle: HrModuleTypography.body().copyWith(
-                fontSize: 12.sp,
+                fontSize: 12.tsp,
                 color: selected ? HrModuleColors.primary : HrModuleColors.text,
                 fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
               ),
@@ -455,7 +468,7 @@ class _R1RecruitmentLandingScreenState
                 mainTabChip('Closed', _ListTab.closed),
                 mainTabChip('Planning', _ListTab.drafts),
                 if (_listTab == _ListTab.active) ...[
-                  SizedBox(width: 6.w),
+                  SizedBox(width: 6.tw),
                   _activeStatusDropdown(),
                 ],
               ],
@@ -465,11 +478,11 @@ class _R1RecruitmentLandingScreenState
         IconButton(
           tooltip: _managerSearchOpen ? 'Close search' : 'Search',
           padding: EdgeInsets.zero,
-          constraints: BoxConstraints(minWidth: 40.w, minHeight: 40.h),
+          constraints: BoxConstraints(minWidth: 40.tw, minHeight: 40.th),
           icon: Icon(
             _managerSearchOpen ? Icons.close : Icons.search,
             color: HrModuleColors.mutedText,
-            size: 24.sp,
+            size: 24.tsp,
           ),
           onPressed: () {
             setState(() {
@@ -487,11 +500,11 @@ class _R1RecruitmentLandingScreenState
 
   Widget _activeStatusDropdown() {
     return Container(
-      constraints: BoxConstraints(minWidth: 132.w, maxWidth: 168.w),
-      padding: EdgeInsets.symmetric(horizontal: 10.w, vertical: 2.h),
+      constraints: BoxConstraints(minWidth: 132.tw, maxWidth: 168.tw),
+      padding: EdgeInsets.symmetric(horizontal: 10.tw, vertical: 2.th),
       decoration: BoxDecoration(
         color: HrModuleColors.surface,
-        borderRadius: BorderRadius.circular(22.r),
+        borderRadius: BorderRadius.circular(22.tr),
         border: Border.all(
           color: HrModuleColors.secondary.withValues(alpha: 0.35),
           width: 1.5,
@@ -505,14 +518,14 @@ class _R1RecruitmentLandingScreenState
           // ignore: deprecated_member_use
           value: _activeChip,
           dropdownColor: HrModuleColors.surface,
-          borderRadius: BorderRadius.circular(12.r),
+          borderRadius: BorderRadius.circular(12.tr),
           icon: Icon(
             Icons.keyboard_arrow_down_rounded,
             color: HrModuleColors.secondary,
-            size: 22.sp,
+            size: 22.tsp,
           ),
           style: HrModuleTypography.body().copyWith(
-                fontSize: 12.sp,
+                fontSize: 12.tsp,
                 fontWeight: FontWeight.w600,
                 color: HrModuleColors.primary,
               ),
@@ -521,14 +534,14 @@ class _R1RecruitmentLandingScreenState
               value: _ActiveChip.all,
               child: Text(
                 'All open',
-                style: HrModuleTypography.body().copyWith(fontSize: 12.sp),
+                style: HrModuleTypography.body().copyWith(fontSize: 12.tsp),
               ),
             ),
             DropdownMenuItem(
               value: _ActiveChip.open,
               child: Text(
                 'Open',
-                style: HrModuleTypography.body().copyWith(fontSize: 12.sp),
+                style: HrModuleTypography.body().copyWith(fontSize: 12.tsp),
               ),
             ),
           ],
@@ -543,11 +556,11 @@ class _R1RecruitmentLandingScreenState
   List<Widget> _buildList(List<Requisition> rows) {
     if (rows.isEmpty) {
       return [
-        SizedBox(height: 32.h),
+        SizedBox(height: 32.th),
         Center(
           child: Text(
             'No requisitions match your filters.',
-            style: HrModuleTypography.body().copyWith(fontSize: 14.sp),
+            style: HrModuleTypography.body().copyWith(fontSize: 14.tsp),
             textAlign: TextAlign.center,
           ),
         ),
@@ -557,7 +570,7 @@ class _R1RecruitmentLandingScreenState
       final opened =
           '${r.openedAt.day}/${r.openedAt.month}/${r.openedAt.year}';
       return Padding(
-        padding: EdgeInsets.only(bottom: 12.h),
+        padding: EdgeInsets.only(bottom: 12.th),
         child: HrRequestCard(
           requestTypeTitle: r.jobTitle,
           referenceNumber: r.referenceNumber,
@@ -584,11 +597,11 @@ class _R1RecruitmentLandingScreenState
 class _EmployeeOpeningCard extends StatelessWidget {
   const _EmployeeOpeningCard({
     required this.requisition,
-    required this.onRefer,
+    required this.onShare,
   });
 
   final Requisition requisition;
-  final VoidCallback onRefer;
+  final VoidCallback onShare;
 
   @override
   Widget build(BuildContext context) {
@@ -597,11 +610,11 @@ class _EmployeeOpeningCard extends StatelessWidget {
     return Container(
       decoration: BoxDecoration(
         color: HrModuleColors.surface,
-        borderRadius: BorderRadius.circular(HrModuleLayout.cardRadius.r),
+        borderRadius: BorderRadius.circular(HrModuleLayout.cardRadius.tr),
         boxShadow: HrModuleColors.cardShadow,
       ),
       child: Padding(
-          padding: EdgeInsets.fromLTRB(14.w, 12.h, 14.w, 12.h),
+          padding: EdgeInsets.fromLTRB(14.tw, 12.th, 14.tw, 12.th),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -611,10 +624,10 @@ class _EmployeeOpeningCard extends StatelessWidget {
                   Expanded(
                     child: Text(
                       r.jobTitle,
-                      style: HrModuleTypography.cardTitle().copyWith(fontSize: 15.sp),
+                      style: HrModuleTypography.cardTitle().copyWith(fontSize: 15.tsp),
                     ),
                   ),
-                  SizedBox(width: 8.w),
+                  SizedBox(width: 8.tw),
                   HrStatusBadge(
                     uiStatus: r.uiStatus,
                     kind: HrBadgeKind.requisition,
@@ -622,27 +635,28 @@ class _EmployeeOpeningCard extends StatelessWidget {
                   ),
                 ],
               ),
-              SizedBox(height: 4.h),
+              SizedBox(height: 4.th),
               Text(
                 r.referenceNumber,
-                style: HrModuleTypography.caption().copyWith(fontSize: 11.sp),
+                style: HrModuleTypography.caption().copyWith(fontSize: 11.tsp),
               ),
-              SizedBox(height: 2.h),
+              SizedBox(height: 2.th),
               Text(
                 '${r.department} · ${r.location} · $vacLabel',
-                style: HrModuleTypography.body().copyWith(fontSize: 12.sp),
+                style: HrModuleTypography.body().copyWith(fontSize: 12.tsp),
               ),
-              SizedBox(height: 10.h),
+              SizedBox(height: 10.th),
               Align(
                 alignment: Alignment.centerRight,
-                child: FilledButton(
-                  onPressed: onRefer,
+                child: FilledButton.icon(
+                  onPressed: onShare,
+                  icon: const Icon(Icons.ios_share, size: 18),
                   style: FilledButton.styleFrom(
                     backgroundColor: HrModuleColors.success,
                     foregroundColor: Colors.white,
-                    padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 8.h),
+                    padding: EdgeInsets.symmetric(horizontal: 16.tw, vertical: 8.th),
                   ),
-                  child: const Text('Refer someone'),
+                  label: const Text('Share position'),
                 ),
               ),
             ],

@@ -8,10 +8,14 @@ class SubAppGlassAppBar extends StatelessWidget {
   const SubAppGlassAppBar({
     super.key,
     this.transparentPill = false,
+    this.lightSurfaceTransparentPill = false,
     this.logoOpacity = 0.55,
   });
 
   final bool transparentPill;
+
+  /// Slightly see-through glass on light hubs (keeps dark icons).
+  final bool lightSurfaceTransparentPill;
   final double logoOpacity;
 
   static const double _barHeight = 50;
@@ -69,6 +73,7 @@ class SubAppGlassAppBar extends StatelessWidget {
                   omitOuterPadding: true,
                   compactTrailing: true,
                   transparentPill: transparentPill,
+                  lightSurfaceTransparentPill: lightSurfaceTransparentPill,
                 ),
               ),
             ),

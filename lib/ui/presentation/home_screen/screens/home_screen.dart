@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:el_race/core/biometric/unified_biometric_helper.dart';
 import 'package:el_race/core/services/attendance_status_sync_service.dart';
+import 'package:el_race/core/session/login_session_refresh_service.dart';
 import 'package:el_race/ui/presentation/home_screen/bloc/home_bloc.dart';
 import 'package:el_race/ui/presentation/home_screen/bloc/location_bloc/location_bloc.dart';
 import 'package:el_race/ui/presentation/home_screen/screens/main_home_content_widget.dart';
@@ -11,11 +12,13 @@ import 'package:el_race/ui/presentation/home_screen/widgets/timer_controller.dar
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter_translate/flutter_translate.dart';
 import 'package:get/get.dart';
 import 'package:location/location.dart';
 import 'package:el_race/core/services/app_config_service.dart';
+import 'package:el_race/ui/presentation/home_screen/screens/biometric_sign_in_gate_screen.dart';
 
 class HomeScreen extends StatelessWidget {
   const HomeScreen({super.key});
@@ -33,10 +36,17 @@ class HomeScreenPage extends StatefulWidget {
   static bool _didAuthenticateThisSession = false;
   static bool _isAuthenticating = false;
 
+  /// True while Face ID / fingerprint gate must block the UI.
+  static bool _sessionUiLocked = false;
+
+  /// Whether the shell should absorb taps (used by [MainScreen] too).
+  static bool get isSessionUiLocked => _sessionUiLocked;
+
   /// Reset the biometric gate so the next login triggers it again.
   static void resetAuthSession() {
     _didAuthenticateThisSession = false;
     _isAuthenticating = false;
+    _sessionUiLocked = false;
   }
 
   @override
@@ -49,6 +59,10 @@ class _HomeScreenState extends State<HomeScreenPage>
 
   // bool isMuted = false; // default value
   bool isCheckedIn = false;
+  /// Blocks home UI until biometrics succeed (covers cancel → gate screen).
+  bool _isBiometricLocked = false;
+  /// After cancel/miss: show logo + "Sign in with biometric" screen.
+  bool _showBiometricGateScreen = false;
   final _locationBloc = LocationBloc();
   final Location _location = Location();
 
@@ -57,6 +71,13 @@ class _HomeScreenState extends State<HomeScreenPage>
   //     isMuted = SharedPref().getPreferenceBoolean('mute_notifications');
   //   });
   // }
+
+  void _setBiometricLocked(bool locked) {
+    HomeScreenPage._sessionUiLocked = locked;
+    if (!mounted) return;
+    if (_isBiometricLocked == locked) return;
+    setState(() => _isBiometricLocked = locked);
+  }
 
   @override
   void initState() {
@@ -75,6 +96,10 @@ class _HomeScreenState extends State<HomeScreenPage>
     if (!AppConfigService.instance.shouldSkipFaceId &&
         !HomeScreenPage._didAuthenticateThisSession &&
         !HomeScreenPage._isAuthenticating) {
+      // Lock on the first frame — before the system prompt appears — so taps
+      // cannot slip through in the delay / cancel / retry gaps.
+      _isBiometricLocked = true;
+      HomeScreenPage._sessionUiLocked = true;
       _authenticateAfterLogin();
     }
     // List of pages or widgets that you want to display for each navigation ite
@@ -82,49 +107,57 @@ class _HomeScreenState extends State<HomeScreenPage>
 
   /// Authenticate user right after login using device biometrics only.
   /// PIN, passcode, password, and pattern fallback are not allowed.
-  Future<void> _authenticateAfterLogin() async {
-    if (HomeScreenPage._didAuthenticateThisSession || HomeScreenPage._isAuthenticating) {
+  /// On cancel/miss, show [BiometricSignInGateScreen] instead of auto-reprompting.
+  Future<void> _authenticateAfterLogin({bool fromButton = false}) async {
+    if (HomeScreenPage._didAuthenticateThisSession) return;
+    if (HomeScreenPage._isAuthenticating && !fromButton) return;
+
+    HomeScreenPage._isAuthenticating = true;
+    _setBiometricLocked(true);
+    if (mounted) setState(() => _showBiometricGateScreen = false);
+
+    if (!fromButton) {
+      await Future.delayed(const Duration(milliseconds: 350));
+    }
+    if (!mounted) {
+      HomeScreenPage._isAuthenticating = false;
+      HomeScreenPage._sessionUiLocked = false;
       return;
     }
 
-    HomeScreenPage._isAuthenticating = true;
-    await Future.delayed(const Duration(milliseconds: 500));
+    final hasBiometrics = await UnifiedBiometricHelper.isBiometricAvailable();
     if (!mounted) {
       HomeScreenPage._isAuthenticating = false;
       return;
     }
 
-    // Now actually authenticate (Face ID / fingerprint only)
-    bool authenticated = false;
-    while (!authenticated && mounted) {
-      final hasBiometrics = await UnifiedBiometricHelper.isBiometricAvailable();
-      if (!mounted) break;
+    if (!hasBiometrics) {
+      await _showBiometricRequiredDialog();
+      HomeScreenPage._isAuthenticating = false;
+      if (mounted) setState(() => _showBiometricGateScreen = true);
+      return;
+    }
 
-      if (!hasBiometrics && mounted) {
-        await _showBiometricRequiredDialog();
-        continue;
-      }
+    final authenticated = await UnifiedBiometricHelper.authenticate(
+      context: context,
+      title: 'تحقق من الهوية',
+      subtitle: 'يرجى التحقق من هويتك للمتابعة',
+      reason: 'تحقق من هويتك بعد تسجيل الدخول',
+    );
 
-      authenticated = await UnifiedBiometricHelper.authenticate(
-        context: context,
-        title: 'تحقق من الهوية',
-        subtitle: 'يرجى التحقق من هويتك للمتابعة',
-        reason: 'تحقق من هويتك بعد تسجيل الدخول',
-      );
-
-      if (!authenticated && mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('يجب التحقق من هويتك للمتابعة'),
-            duration: Duration(seconds: 2),
-          ),
-        );
-        await Future.delayed(const Duration(seconds: 2));
-      }
+    if (!mounted) {
+      HomeScreenPage._isAuthenticating = false;
+      return;
     }
 
     if (authenticated) {
       HomeScreenPage._didAuthenticateThisSession = true;
+      _setBiometricLocked(false);
+      setState(() => _showBiometricGateScreen = false);
+    } else {
+      // Cancel / miss → dedicated sign-in screen (session stays logged in).
+      _setBiometricLocked(true);
+      setState(() => _showBiometricGateScreen = true);
     }
     HomeScreenPage._isAuthenticating = false;
   }
@@ -165,6 +198,11 @@ class _HomeScreenState extends State<HomeScreenPage>
       // مزامنة حالة الحضور من السيرفر عند العودة من الخلفية
       // لضمان تحديث الأوقات والعداد بدون الحاجة لتسجيل خروج/دخول
       AttendanceStatusSyncService.refreshFromServer(reason: 'app_resumed');
+      if (mounted) {
+        final container = ProviderScope.containerOf(context);
+        // ignore: unawaited_futures
+        LoginSessionRefreshService.refreshRoles(container: container);
+      }
     }
   }
 
@@ -207,17 +245,23 @@ class _HomeScreenState extends State<HomeScreenPage>
   Widget build(BuildContext context) {
     // final screenWidth = MediaQuery.of(context).size.width;
     // final drawerWidth = screenWidth * 0.75; // 75% of screen width
+    final gateLocked = _isBiometricLocked || HomeScreenPage.isSessionUiLocked;
     return Scaffold(
       backgroundColor: HomeGlassTheme.silverLeft,
       extendBody: false,
       body: Stack(
         children: [
-          const MainHomeContentWidget(),
+          AbsorbPointer(
+            absorbing: gateLocked,
+            child: const MainHomeContentWidget(),
+          ),
           BlocBuilder<HomeBloc, HomeState>(
             buildWhen: (previous, current) => current is ReorderModeChanged,
             builder: (context, state) {
               final bloc = HomeBloc.get(context);
-              if (!bloc.isReorderMode) return const SizedBox.shrink();
+              if (!bloc.isReorderMode || gateLocked) {
+                return const SizedBox.shrink();
+              }
               return Positioned(
                 bottom: 120.h,
                 right: 20.w,
@@ -259,7 +303,71 @@ class _HomeScreenState extends State<HomeScreenPage>
               );
             },
           ),
+          if (gateLocked && _showBiometricGateScreen)
+            Positioned.fill(
+              child: BiometricSignInGateScreen(
+                onSignInWithBiometric: () =>
+                    _authenticateAfterLogin(fromButton: true),
+              ),
+            )
+          else if (gateLocked)
+            const Positioned.fill(
+              child: _BiometricLockOverlay(),
+            ),
         ],
+      ),
+    );
+  }
+}
+
+/// Full-screen non-dismissible barrier while Face ID / fingerprint is required.
+class _BiometricLockOverlay extends StatelessWidget {
+  const _BiometricLockOverlay();
+
+  @override
+  Widget build(BuildContext context) {
+    return AbsorbPointer(
+      absorbing: true,
+      child: Material(
+        color: Colors.black.withValues(alpha: 0.72),
+        child: SafeArea(
+          child: Center(
+            child: Padding(
+              padding: EdgeInsets.symmetric(horizontal: 28.w),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    Icons.fingerprint_rounded,
+                    size: 56.sp,
+                    color: Colors.white,
+                  ),
+                  SizedBox(height: 16.h),
+                  Text(
+                    'Authentication required',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 18.sp,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  SizedBox(height: 8.h),
+                  Text(
+                    'Use Face ID or fingerprint to unlock the app.\nYou cannot use the app until authentication succeeds.',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      color: Colors.white.withValues(alpha: 0.88),
+                      fontSize: 13.sp,
+                      fontWeight: FontWeight.w500,
+                      height: 1.35,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
       ),
     );
   }

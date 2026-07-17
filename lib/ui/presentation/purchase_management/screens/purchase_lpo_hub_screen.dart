@@ -1,3 +1,4 @@
+import 'package:el_race/core/utils/responsive_breakpoints.dart';
 import 'dart:async';
 
 import 'package:el_race/core/purchase/purchase_dev_role_provider.dart';
@@ -30,7 +31,8 @@ class _PurchaseLpoHubScreenState extends State<PurchaseLpoHubScreen> {
   final _searchController = TextEditingController();
   Timer? _debounce;
 
-  static const _filters = ['', 'LPO_OPEN', 'LPO_CLOSED'];
+  // Backend: empty status returns RFQs too — LPOS = purchase + done only.
+  static const _filters = ['LPOS', 'LPO_OPEN', 'LPO_CLOSED'];
   static const _filterLabels = ['All', 'Open', 'Closed'];
 
   List<RfqItem> _items = [];
@@ -40,7 +42,7 @@ class _PurchaseLpoHubScreenState extends State<PurchaseLpoHubScreen> {
   int _currentPage = 1;
   bool _hasMore = false;
   String _keyword = '';
-  String _statusFilter = '';
+  String _statusFilter = 'LPOS';
   PurchaseListFilters _smartFilters = const PurchaseListFilters();
 
   @override
@@ -172,28 +174,28 @@ class _PurchaseLpoHubScreenState extends State<PurchaseLpoHubScreen> {
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   Padding(
-                    padding: EdgeInsets.fromLTRB(4.w, 0, 14.w, 2.h),
+                    padding: EdgeInsets.fromLTRB(4.tw, 0, 14.tw, 2.th),
                     child: Row(
                       children: [
                         IconButton(
                           onPressed: () => Navigator.pop(context),
                           icon: Icon(
                             Icons.arrow_back_ios_new_rounded,
-                            size: 18.sp,
+                            size: 18.tsp,
                             color: PurchaseTheme.accentDeep,
                           ),
                           padding: EdgeInsets.zero,
                           constraints: BoxConstraints(
-                            minWidth: 36.w,
-                            minHeight: 36.w,
+                            minWidth: 36.tw,
+                            minHeight: 36.tw,
                           ),
                         ),
                         Expanded(
                           child: Container(
-                            height: 38.h,
+                            height: 38.th,
                             decoration: BoxDecoration(
                               color: Colors.white.withValues(alpha: 0.88),
-                              borderRadius: BorderRadius.circular(20.r),
+                              borderRadius: BorderRadius.circular(20.tr),
                               border: Border.all(
                                 color: Colors.white.withValues(alpha: 0.95),
                               ),
@@ -202,37 +204,37 @@ class _PurchaseLpoHubScreenState extends State<PurchaseLpoHubScreen> {
                               controller: _searchController,
                               style: GoogleFonts.poppins(
                                 color: PurchaseTheme.textPrimary,
-                                fontSize: 13.sp,
+                                fontSize: 13.tsp,
                               ),
                               decoration: InputDecoration(
                                 hintText: 'Search LPOs…',
                                 hintStyle: GoogleFonts.poppins(
                                   color: PurchaseTheme.textMuted,
-                                  fontSize: 13.sp,
+                                  fontSize: 13.tsp,
                                 ),
                                 prefixIcon: Icon(
                                   Icons.search,
-                                  size: 18.sp,
+                                  size: 18.tsp,
                                   color: PurchaseTheme.accentBlue,
                                 ),
                                 border: InputBorder.none,
                                 contentPadding: EdgeInsets.symmetric(
-                                  vertical: 8.h,
-                                  horizontal: 10.w,
+                                  vertical: 8.th,
+                                  horizontal: 10.tw,
                                 ),
                               ),
                             ),
                           ),
                         ),
-                        SizedBox(width: 8.w),
+                        SizedBox(width: 8.tw),
                         Stack(
                           clipBehavior: Clip.none,
                           children: [
                             GestureDetector(
                               onTap: _showFilterSheet,
                               child: Container(
-                                width: 38.w,
-                                height: 38.w,
+                                width: 38.tw,
+                                height: 38.tw,
                                 decoration: BoxDecoration(
                                   color: smartCount > 0
                                       ? PurchaseTheme.accentBlue
@@ -248,7 +250,7 @@ class _PurchaseLpoHubScreenState extends State<PurchaseLpoHubScreen> {
                                 ),
                                 child: Icon(
                                   Icons.tune_rounded,
-                                  size: 18.sp,
+                                  size: 18.tsp,
                                   color: smartCount > 0
                                       ? Colors.white
                                       : PurchaseTheme.accentDeep,
@@ -261,8 +263,8 @@ class _PurchaseLpoHubScreenState extends State<PurchaseLpoHubScreen> {
                                 right: -4,
                                 child: Container(
                                   padding: EdgeInsets.symmetric(
-                                    horizontal: 5.w,
-                                    vertical: 2.h,
+                                    horizontal: 5.tw,
+                                    vertical: 2.th,
                                   ),
                                   decoration: BoxDecoration(
                                     color: PurchaseTheme.accentDeep,
@@ -271,7 +273,7 @@ class _PurchaseLpoHubScreenState extends State<PurchaseLpoHubScreen> {
                                   child: Text(
                                     '$smartCount',
                                     style: GoogleFonts.poppins(
-                                      fontSize: 8.sp,
+                                      fontSize: 8.tsp,
                                       fontWeight: FontWeight.w700,
                                       color: Colors.white,
                                     ),
@@ -314,7 +316,7 @@ class _PurchaseLpoHubScreenState extends State<PurchaseLpoHubScreen> {
         child: Text(
           _error!,
           style: GoogleFonts.poppins(
-              color: PurchaseTheme.textPrimary, fontSize: 13.sp),
+              color: PurchaseTheme.textPrimary, fontSize: 13.tsp),
         ),
       );
     }
@@ -323,7 +325,7 @@ class _PurchaseLpoHubScreenState extends State<PurchaseLpoHubScreen> {
         child: Text(
           'No LPOs found',
           style: GoogleFonts.poppins(
-              color: PurchaseTheme.textMuted, fontSize: 14.sp),
+              color: PurchaseTheme.textMuted, fontSize: 14.tsp),
         ),
       );
     }
@@ -357,18 +359,18 @@ class _PurchaseLpoHubScreenState extends State<PurchaseLpoHubScreen> {
                       child: Text(
                         item.name,
                         style: GoogleFonts.poppins(
-                          fontSize: 12.sp,
+                          fontSize: 12.tsp,
                           fontWeight: FontWeight.w600,
                           color: PurchaseTheme.accentDeep,
                         ),
                       ),
                     ),
                     if (item.dateOrder.isNotEmpty) ...[
-                      SizedBox(width: 6.w),
+                      SizedBox(width: 6.tw),
                       Text(
                         item.dateOrder,
                         style: GoogleFonts.poppins(
-                          fontSize: 10.sp,
+                          fontSize: 10.tsp,
                           color: PurchaseTheme.textMuted,
                         ),
                       ),
@@ -377,11 +379,11 @@ class _PurchaseLpoHubScreenState extends State<PurchaseLpoHubScreen> {
                 ),
                 // Row 2: project title
                 if (item.project.isNotEmpty) ...[
-                  SizedBox(height: 6.h),
+                  SizedBox(height: 6.th),
                   Text(
                     item.project,
                     style: GoogleFonts.poppins(
-                      fontSize: 13.sp,
+                      fontSize: 13.tsp,
                       fontWeight: FontWeight.w700,
                       color: PurchaseTheme.textPrimary,
                     ),
@@ -391,11 +393,11 @@ class _PurchaseLpoHubScreenState extends State<PurchaseLpoHubScreen> {
                 ],
                 // Row 3: vendor
                 if (item.vendorName.isNotEmpty) ...[
-                  SizedBox(height: 4.h),
+                  SizedBox(height: 4.th),
                   Text(
                     'For ${item.vendorName}',
                     style: GoogleFonts.poppins(
-                      fontSize: 11.sp,
+                      fontSize: 11.tsp,
                       color: PurchaseTheme.textSecondary,
                     ),
                     maxLines: 1,
@@ -404,7 +406,7 @@ class _PurchaseLpoHubScreenState extends State<PurchaseLpoHubScreen> {
                 ],
                 // Row 4: amount right-aligned
                 if (item.amountTotal > 0) ...[
-                  SizedBox(height: 8.h),
+                  SizedBox(height: 8.th),
                   Align(
                     alignment: Alignment.centerRight,
                     child: Text(
@@ -412,7 +414,7 @@ class _PurchaseLpoHubScreenState extends State<PurchaseLpoHubScreen> {
                         item.amountTotal,
                       ),
                       style: GoogleFonts.poppins(
-                        fontSize: 17.sp,
+                        fontSize: 17.tsp,
                         fontWeight: FontWeight.w800,
                         color: const Color(0xFFE8694D),
                       ),

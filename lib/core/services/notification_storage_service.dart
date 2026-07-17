@@ -6,6 +6,9 @@ import 'package:shared_preferences/shared_preferences.dart';
 class NotificationStorageService {
   static const String _notificationsKey = 'stored_notifications';
   static const String _unreadCountKey = 'unread_notification_count';
+  static const String _badgeAckAtKey = 'notification_badge_ack_at_iso';
+  static const String _badgeUnreadBaselineKey =
+      'notification_badge_unread_baseline_v1';
   static const String _muteSettingsKey = 'notification_mute_settings_v1';
   static const String _muteSettingsFetchedAtKey =
       'notification_mute_settings_v1_fetched_at';
@@ -404,16 +407,18 @@ class NotificationStorageService {
       final prefs = await SharedPreferences.getInstance();
       var notifications = await _getStoredNotifications();
 
-      final serverId = (data?['notification_id'] ??
-              data?['id'] ??
-              data?['record_id'] ??
-              data?['res_id'] ??
+      // Prefer unique per-delivery ids. Never key only on record_id — reusing
+      // the same approval/record silently skipped badge bumps on iOS.
+      final serverId = (data?['notification_user_id'] ??
+              data?['notification_id'] ??
+              data?['fcm_message_id'] ??
+              data?['message_id'] ??
               '')
           .toString()
           .trim();
       final id = serverId.isNotEmpty
           ? serverId
-          : DateTime.now().millisecondsSinceEpoch.toString();
+          : 'fcm_${DateTime.now().millisecondsSinceEpoch}';
 
       // Avoid duplicates when the same push is delivered more than once.
       final existingIndex =
@@ -562,9 +567,44 @@ class NotificationStorageService {
   }
 
   /// Home bell badge = new notifications since last Notification Center open.
-  /// Does NOT equal total unread rows in the list.
   static Future<int> getBadgeCount() async {
     return getLocalStoredCount();
+  }
+
+  /// Refresh home bell as `max(0, serverUnread - unreadAtLastOpen)`.
+  ///
+  /// This matches Android LinkedIn-style behavior without depending on iOS
+  /// waking Dart for FCM, and without treating old opened rows as new.
+  static Future<int> syncBadgeFromServer() async {
+    try {
+      final result = await NotificationApiService.getNotifications(
+        limit: 1,
+        offset: 0,
+      );
+      final unread = result.unreadCount;
+      if (unread == null) {
+        return getLocalStoredCount();
+      }
+
+      final prefs = await SharedPreferences.getInstance();
+      final baseline = prefs.getInt(_badgeUnreadBaselineKey);
+      final remoteBadge =
+          baseline == null ? unread : (unread - baseline < 0 ? 0 : unread - baseline);
+
+      final previous = prefs.getInt(_unreadCountKey) ?? 0;
+      // Raise to server-computed "new since open". Keep a higher local value
+      // briefly so a foreground FCM bump is not wiped before Odoo indexes.
+      final next = remoteBadge > previous ? remoteBadge : previous;
+      if (next != previous) {
+        await prefs.setInt(_unreadCountKey, next);
+        onCountChanged?.call();
+      }
+      return next;
+    } catch (e) {
+      // ignore: avoid_print
+      print('⚠️ syncBadgeFromServer failed: $e');
+      return getLocalStoredCount();
+    }
   }
 
   static Future<void> _incrementBadge([int by = 1]) async {
@@ -691,11 +731,32 @@ class NotificationStorageService {
     }
   }
 
-  /// Clears the home badge without changing per-item read flags in the list.
-  static Future<void> acknowledgeBadge() async {
+  /// Clears the home badge and snapshots server unread as the baseline.
+  /// New bell count = serverUnread - baseline (only notifications after open).
+  static Future<void> acknowledgeBadge({Iterable<String>? knownIds}) async {
     try {
       final prefs = await SharedPreferences.getInstance();
+
+      var baseline = prefs.getInt(_badgeUnreadBaselineKey) ?? 0;
+      try {
+        final result = await NotificationApiService.getNotifications(
+          limit: 1,
+          offset: 0,
+        );
+        if (result.unreadCount != null) {
+          baseline = result.unreadCount!;
+        }
+      } catch (_) {
+        // Keep previous baseline if offline.
+      }
+
+      await prefs.setInt(_badgeUnreadBaselineKey, baseline);
       await prefs.setInt(_unreadCountKey, 0);
+      await prefs.setString(
+        _badgeAckAtKey,
+        DateTime.now().toUtc().toIso8601String(),
+      );
+      // knownIds kept for API compatibility; baseline is the source of truth.
       onCountChanged?.call();
     } catch (_) {
       // Ignore badge-only failures.

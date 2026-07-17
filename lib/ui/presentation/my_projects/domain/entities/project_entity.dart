@@ -62,8 +62,14 @@ class ProjectEntity extends Equatable {
   final int? openIssuesCount;
   final List<ProjectSupervisorEntity> supervisors;
 
-  /// Internal / general projects must not appear in mobile portfolio UIs.
-  bool get isGeneralWo => isInternalProject;
+  /// Internal / “general” projects must not appear in mobile portfolio UIs
+  /// (client bars, lists, KPIs). Covers `x_internal_project` and `wo_type`.
+  bool get isGeneralWo {
+    if (isInternalProject) return true;
+    final wo = woTypeNoOffice?.trim().toLowerCase();
+    if (wo == 'general') return true;
+    return false;
+  }
 
   const ProjectEntity({
     required this.projectId,

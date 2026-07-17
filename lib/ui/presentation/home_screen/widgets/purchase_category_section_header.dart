@@ -1,6 +1,5 @@
+import 'package:el_race/ui/presentation/home_screen/widgets/home_category_section_header.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_screenutil/flutter_screenutil.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 /// Purchase section row — icon + title only.
 class PurchaseCategorySectionHeader extends StatelessWidget {
@@ -8,40 +7,10 @@ class PurchaseCategorySectionHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.center,
-      children: [
-        Container(
-          width: 32.w,
-          height: 32.w,
-          decoration: BoxDecoration(
-            color: const Color(0xFF1E2A4A),
-            borderRadius: BorderRadius.circular(10.r),
-            boxShadow: [
-              BoxShadow(
-                color: const Color(0xFF1E2A4A).withValues(alpha: 0.25),
-                blurRadius: 6,
-                offset: const Offset(0, 2),
-              ),
-            ],
-          ),
-          child: Icon(
-            Icons.receipt_long_rounded,
-            size: 18.sp,
-            color: Colors.white,
-          ),
-        ),
-        SizedBox(width: 10.w),
-        Text(
-          'Purchase',
-          style: GoogleFonts.poppins(
-            fontSize: 16.sp,
-            fontWeight: FontWeight.w700,
-            color: const Color(0xFF1A2A4F),
-            height: 1.1,
-          ),
-        ),
-      ],
+    return const HomeCategorySectionHeader(
+      title: 'Purchase',
+      icon: Icons.receipt_long_rounded,
+      iconColor: Color(0xFF1E2A4A),
     );
   }
 }

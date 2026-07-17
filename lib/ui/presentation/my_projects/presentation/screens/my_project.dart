@@ -1,3 +1,4 @@
+import 'package:el_race/core/utils/responsive_breakpoints.dart';
 import 'dart:async';
 
 import 'package:el_race/core/ui/device_ui_capability.dart';
@@ -473,16 +474,17 @@ class _MyProjectState extends State<MyProject> {
         projectStatusCompute: 'in_progress',
       );
       if (!mounted) return;
+      final visible = projects.where((p) => !p.isGeneralWo).toList();
       setState(() {
         if (ProjectsDashboardAccess.shouldApplyDomainScope &&
             !ds.projectsHubV2Available) {
           _inProgressProjects =
               ProjectsDashboardAggregator.filterProjectsForAccessibleAgreements(
-            projects: projects,
+            projects: visible,
             agreements: _domainAgreements,
           );
         } else {
-          _inProgressProjects = projects;
+          _inProgressProjects = visible;
         }
         _chartLoading = false;
       });
@@ -525,7 +527,7 @@ class _MyProjectState extends State<MyProject> {
                             parent: BouncingScrollPhysics(),
                           ),
                     // Keep content clear of the pinned agreements panel.
-                    padding: EdgeInsets.only(bottom: panelCollapsedH + 8.h),
+                    padding: EdgeInsets.only(bottom: panelCollapsedH + 8.th),
                     children: [
                       AnimatedOpacity(
                         opacity: _showContent ? 1 : 0.88,
@@ -548,7 +550,7 @@ class _MyProjectState extends State<MyProject> {
                                 onAiTap: _openAiAssistant,
                               ),
                             ),
-                            SizedBox(height: 10.h),
+                            SizedBox(height: 10.th),
                             ProjectsMetallicKpiRow(
                               stats: _boxStats,
                               isLoading: _isLoading,
@@ -651,7 +653,7 @@ class _MyProjectState extends State<MyProject> {
         child: _error != null && !_isLoading
                 ? Center(
                     child: Padding(
-                      padding: EdgeInsets.all(24.w),
+                      padding: EdgeInsets.all(24.tw),
                       child: Column(
                         mainAxisSize: MainAxisSize.min,
                         children: [
@@ -662,7 +664,7 @@ class _MyProjectState extends State<MyProject> {
                             ),
                             textAlign: TextAlign.center,
                           ),
-                          SizedBox(height: 16.h),
+                          SizedBox(height: 16.th),
                           TextButton(
                             onPressed: _loadDashboard,
                             child: Text(
@@ -707,9 +709,9 @@ Widget buildProjectCard({
   const cardDataGray = Color(0xB8484848);
 
   return Container(
-    margin: EdgeInsets.symmetric(horizontal: 16.w, vertical: 7.h),
+    margin: EdgeInsets.symmetric(horizontal: 16.tw, vertical: 7.th),
     decoration: BoxDecoration(
-      borderRadius: BorderRadius.circular(22.r),
+      borderRadius: BorderRadius.circular(22.tr),
       border: Border.all(color: const Color(0xFF2C2F36), width: 1),
       gradient: const LinearGradient(
         colors: [Color(0xFFD6D6D6), Color(0xFFADB2BD)],
@@ -725,7 +727,7 @@ Widget buildProjectCard({
       ],
     ),
     child: ClipRRect(
-      borderRadius: BorderRadius.circular(22.r),
+      borderRadius: BorderRadius.circular(22.tr),
       child: Stack(
         children: [
           Positioned(
@@ -737,7 +739,7 @@ Widget buildProjectCard({
                 opacity: 0.08,
                 child: Image.asset(
                   'assets/newapp/for_attachments.png',
-                  width: 150.w,
+                  width: 150.tw,
                   fit: BoxFit.fitHeight,
                   alignment: Alignment.centerRight,
                   errorBuilder: (_, __, ___) => const SizedBox(),
@@ -746,12 +748,12 @@ Widget buildProjectCard({
             ),
           ),
           Padding(
-            padding: EdgeInsets.fromLTRB(18.w, 14.h, 18.w, 12.h),
+            padding: EdgeInsets.fromLTRB(18.tw, 14.th, 18.tw, 12.th),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
                 SizedBox(
-                  height: 18.h,
+                  height: 18.th,
                   child: Stack(
                     children: [
                       Align(
@@ -759,7 +761,7 @@ Widget buildProjectCard({
                         child: Text(
                           DateFormat('MM/dd/yyyy').format(DateTime.now()),
                           style: GoogleFonts.inter(
-                            fontSize: 10.sp,
+                            fontSize: 10.tsp,
                             fontWeight: FontWeight.w600,
                             color: cardDataGray,
                           ),
@@ -770,11 +772,11 @@ Widget buildProjectCard({
                     ],
                   ),
                 ),
-                SizedBox(height: 10.h),
+                SizedBox(height: 10.th),
                 Text(
                   id.isNotEmpty ? id : '-',
                   style: GoogleFonts.inter(
-                    fontSize: 13.sp,
+                    fontSize: 13.tsp,
                     fontWeight: FontWeight.w700,
                     color: Colors.black,
                   ),
@@ -782,11 +784,11 @@ Widget buildProjectCard({
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                 ),
-                SizedBox(height: 10.h),
+                SizedBox(height: 10.th),
                 Text(
                   name.trim().isNotEmpty ? name.trim() : '-',
                   style: GoogleFonts.inter(
-                    fontSize: 13.sp,
+                    fontSize: 13.tsp,
                     fontWeight: FontWeight.w700,
                     color: Colors.black,
                   ),
@@ -794,7 +796,7 @@ Widget buildProjectCard({
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                 ),
-                SizedBox(height: 14.h),
+                SizedBox(height: 14.th),
                 Row(
                   children: [
                     Expanded(
@@ -803,7 +805,7 @@ Widget buildProjectCard({
                         overflow: TextOverflow.ellipsis,
                         text: TextSpan(
                           style: GoogleFonts.inter(
-                            fontSize: 12.sp,
+                            fontSize: 12.tsp,
                             fontWeight: FontWeight.w700,
                             color: Colors.black,
                           ),
@@ -812,7 +814,7 @@ Widget buildProjectCard({
                             TextSpan(
                               text: '$projectsCount',
                               style: GoogleFonts.inter(
-                                fontSize: 12.sp,
+                                fontSize: 12.tsp,
                                 fontWeight: FontWeight.w600,
                                 color: cardDataGray,
                               ),
@@ -821,7 +823,7 @@ Widget buildProjectCard({
                         ),
                       ),
                     ),
-                    SizedBox(width: 10.w),
+                    SizedBox(width: 10.tw),
                     Expanded(
                       child: Align(
                         alignment: Alignment.centerRight,
@@ -830,7 +832,7 @@ Widget buildProjectCard({
                           overflow: TextOverflow.ellipsis,
                           text: TextSpan(
                             style: GoogleFonts.inter(
-                              fontSize: 12.sp,
+                              fontSize: 12.tsp,
                               fontWeight: FontWeight.w700,
                               color: Colors.black,
                             ),
@@ -839,7 +841,7 @@ Widget buildProjectCard({
                               TextSpan(
                                 text: formattedAmount,
                                 style: GoogleFonts.inter(
-                                  fontSize: 12.sp,
+                                  fontSize: 12.tsp,
                                   fontWeight: FontWeight.w600,
                                   color: cardDataGray,
                                 ),
@@ -851,12 +853,12 @@ Widget buildProjectCard({
                     ),
                   ],
                 ),
-                SizedBox(height: 10.h),
+                SizedBox(height: 10.th),
                 Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    Icon(Icons.location_on, size: 16.w, color: red),
-                    SizedBox(width: 4.w),
+                    Icon(Icons.location_on, size: 16.tw, color: red),
+                    SizedBox(width: 4.tw),
                     Flexible(
                       child: Text(
                         cityId.trim().isNotEmpty
@@ -865,7 +867,7 @@ Widget buildProjectCard({
                                 ? location.trim()
                                 : '-',
                         style: GoogleFonts.inter(
-                          fontSize: 11.5.sp,
+                          fontSize: 11.5.tsp,
                           fontWeight: FontWeight.w700,
                           color: cardDataGray,
                         ),
@@ -879,11 +881,11 @@ Widget buildProjectCard({
             ),
           ),
           PositionedDirectional(
-            start: 10.w,
-            top: 10.h,
+            start: 10.tw,
+            top: 10.th,
             child: Container(
-              width: 34.w,
-              height: 34.w,
+              width: 34.tw,
+              height: 34.tw,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
                 color: Colors.white,
@@ -908,14 +910,14 @@ Widget buildProjectCard({
                         },
                         errorBuilder: (_, __, ___) => Icon(
                           Icons.business,
-                          size: 18.w,
+                          size: 18.tw,
                           color: appFontColor,
                         ),
                       ),
                     )
                   : Icon(
                       Icons.business,
-                      size: 18.w,
+                      size: 18.tw,
                       color: appFontColor,
                     ),
             ),
@@ -1033,24 +1035,24 @@ class _ProjectManagersScreenState extends State<_ProjectManagersScreen> {
                           _error!,
                           style: GoogleFonts.poppins(
                             color: const Color(0xFFBA1719),
-                            fontSize: 12.sp,
+                            fontSize: 12.tsp,
                           ),
                         ),
                       )
                     : ListView.separated(
                         padding: EdgeInsets.only(
-                          left: 14.w,
-                          right: 14.w,
-                          top: 6.h,
-                          bottom: 20.h,
+                          left: 14.tw,
+                          right: 14.tw,
+                          top: 6.th,
+                          bottom: 20.th,
                         ),
                         itemCount: _managers.length,
                         separatorBuilder: (_, __) => Divider(
                           height: 1,
                           color: const Color(0xFFD5D5D5),
                           thickness: 1,
-                          indent: 10.w,
-                          endIndent: 10.w,
+                          indent: 10.tw,
+                          endIndent: 10.tw,
                         ),
                         itemBuilder: (context, index) {
                           final manager = _managers[index];
@@ -1060,16 +1062,16 @@ class _ProjectManagersScreenState extends State<_ProjectManagersScreen> {
                             onTap: () => _openManagerProjects(manager),
                             child: Padding(
                               padding: EdgeInsets.symmetric(
-                                horizontal: 4.w,
-                                vertical: 10.h,
+                                horizontal: 4.tw,
+                                vertical: 10.th,
                               ),
                               child: Row(
                                 children: [
                                   CircleAvatar(
-                                    radius: 27.r,
+                                    radius: 27.tr,
                                     backgroundColor: Colors.white,
                                     child: CircleAvatar(
-                                      radius: 25.r,
+                                      radius: 25.tr,
                                       backgroundColor: const Color(0xFFE8E8E8),
                                       backgroundImage: avatarUrl != null &&
                                               avatarUrl.isNotEmpty
@@ -1083,7 +1085,7 @@ class _ProjectManagersScreenState extends State<_ProjectManagersScreen> {
                                                   : manager.name[0]
                                                       .toUpperCase(),
                                               style: GoogleFonts.poppins(
-                                                fontSize: 18.sp,
+                                                fontSize: 18.tsp,
                                                 fontWeight: FontWeight.w700,
                                                 color: const Color(0xFF5C5C5C),
                                               ),
@@ -1091,7 +1093,7 @@ class _ProjectManagersScreenState extends State<_ProjectManagersScreen> {
                                           : null,
                                     ),
                                   ),
-                                  SizedBox(width: 12.w),
+                                  SizedBox(width: 12.tw),
                                   Expanded(
                                     child: Column(
                                       crossAxisAlignment:
@@ -1101,16 +1103,16 @@ class _ProjectManagersScreenState extends State<_ProjectManagersScreen> {
                                           manager.name,
                                           maxLines: 5,
                                           style: GoogleFonts.poppins(
-                                            fontSize: 21.sp,
+                                            fontSize: 21.tsp,
                                             fontWeight: FontWeight.w700,
                                             color: const Color(0xFF3A3A3A),
                                           ),
                                         ),
-                                        SizedBox(height: 2.h),
+                                        SizedBox(height: 2.th),
                                         Text(
                                           _lastUpdateText(manager.lastUpdate),
                                           style: GoogleFonts.poppins(
-                                            fontSize: 15.sp,
+                                            fontSize: 15.tsp,
                                             fontWeight: FontWeight.w500,
                                             color: const Color(0xFFA2A2A2),
                                           ),
@@ -1119,11 +1121,11 @@ class _ProjectManagersScreenState extends State<_ProjectManagersScreen> {
                                     ),
                                   ),
                                   Container(
-                                    width: 50.w,
-                                    height: 54.h,
+                                    width: 50.tw,
+                                    height: 54.th,
                                     alignment: Alignment.center,
                                     decoration: BoxDecoration(
-                                      borderRadius: BorderRadius.circular(12.r),
+                                      borderRadius: BorderRadius.circular(12.tr),
                                       gradient: const LinearGradient(
                                         begin: Alignment.topCenter,
                                         end: Alignment.bottomCenter,
@@ -1136,7 +1138,7 @@ class _ProjectManagersScreenState extends State<_ProjectManagersScreen> {
                                     child: Text(
                                       manager.projectCount.toString(),
                                       style: GoogleFonts.poppins(
-                                        fontSize: 20.sp,
+                                        fontSize: 20.tsp,
                                         fontWeight: FontWeight.w700,
                                         color: Colors.white,
                                       ),
@@ -1264,24 +1266,24 @@ class _ClientsScreenState extends State<_ClientsScreen> {
                           _error!,
                           style: GoogleFonts.poppins(
                             color: const Color(0xFFBA1719),
-                            fontSize: 12.sp,
+                            fontSize: 12.tsp,
                           ),
                         ),
                       )
                     : ListView.separated(
                         padding: EdgeInsets.only(
-                          left: 14.w,
-                          right: 14.w,
-                          top: 6.h,
-                          bottom: 20.h,
+                          left: 14.tw,
+                          right: 14.tw,
+                          top: 6.th,
+                          bottom: 20.th,
                         ),
                         itemCount: _clients.length,
                         separatorBuilder: (_, __) => Divider(
                           height: 1,
                           color: const Color(0xFFD5D5D5),
                           thickness: 1,
-                          indent: 10.w,
-                          endIndent: 10.w,
+                          indent: 10.tw,
+                          endIndent: 10.tw,
                         ),
                         itemBuilder: (context, index) {
                           final client = _clients[index];
@@ -1291,16 +1293,16 @@ class _ClientsScreenState extends State<_ClientsScreen> {
                             onTap: () => _openClientProjects(client),
                             child: Padding(
                               padding: EdgeInsets.symmetric(
-                                horizontal: 4.w,
-                                vertical: 10.h,
+                                horizontal: 4.tw,
+                                vertical: 10.th,
                               ),
                               child: Row(
                                 children: [
                                   CircleAvatar(
-                                    radius: 27.r,
+                                    radius: 27.tr,
                                     backgroundColor: Colors.white,
                                     child: CircleAvatar(
-                                      radius: 25.r,
+                                      radius: 25.tr,
                                       backgroundColor: const Color(0xFFE8E8E8),
                                       backgroundImage: avatarUrl != null &&
                                               avatarUrl.isNotEmpty
@@ -1314,7 +1316,7 @@ class _ClientsScreenState extends State<_ClientsScreen> {
                                                   : client.name[0]
                                                       .toUpperCase(),
                                               style: GoogleFonts.poppins(
-                                                fontSize: 18.sp,
+                                                fontSize: 18.tsp,
                                                 fontWeight: FontWeight.w700,
                                                 color: const Color(0xFF5C5C5C),
                                               ),
@@ -1322,7 +1324,7 @@ class _ClientsScreenState extends State<_ClientsScreen> {
                                           : null,
                                     ),
                                   ),
-                                  SizedBox(width: 12.w),
+                                  SizedBox(width: 12.tw),
                                   Expanded(
                                     child: Column(
                                       crossAxisAlignment:
@@ -1332,16 +1334,16 @@ class _ClientsScreenState extends State<_ClientsScreen> {
                                           client.name,
                                           maxLines: 5,
                                           style: GoogleFonts.poppins(
-                                            fontSize: 21.sp,
+                                            fontSize: 21.tsp,
                                             fontWeight: FontWeight.w700,
                                             color: const Color(0xFF3A3A3A),
                                           ),
                                         ),
-                                        SizedBox(height: 2.h),
+                                        SizedBox(height: 2.th),
                                         Text(
                                           _lastUpdateText(client.lastUpdate),
                                           style: GoogleFonts.poppins(
-                                            fontSize: 15.sp,
+                                            fontSize: 15.tsp,
                                             fontWeight: FontWeight.w500,
                                             color: const Color(0xFFA2A2A2),
                                           ),
@@ -1350,11 +1352,11 @@ class _ClientsScreenState extends State<_ClientsScreen> {
                                     ),
                                   ),
                                   Container(
-                                    width: 50.w,
-                                    height: 54.h,
+                                    width: 50.tw,
+                                    height: 54.th,
                                     alignment: Alignment.center,
                                     decoration: BoxDecoration(
-                                      borderRadius: BorderRadius.circular(12.r),
+                                      borderRadius: BorderRadius.circular(12.tr),
                                       gradient: const LinearGradient(
                                         begin: Alignment.topCenter,
                                         end: Alignment.bottomCenter,
@@ -1367,7 +1369,7 @@ class _ClientsScreenState extends State<_ClientsScreen> {
                                     child: Text(
                                       client.projectCount.toString(),
                                       style: GoogleFonts.poppins(
-                                        fontSize: 20.sp,
+                                        fontSize: 20.tsp,
                                         fontWeight: FontWeight.w700,
                                         color: Colors.white,
                                       ),
@@ -1495,24 +1497,24 @@ class _CitiesScreenState extends State<_CitiesScreen> {
                           _error!,
                           style: GoogleFonts.poppins(
                             color: const Color(0xFFBA1719),
-                            fontSize: 12.sp,
+                            fontSize: 12.tsp,
                           ),
                         ),
                       )
                     : ListView.separated(
                         padding: EdgeInsets.only(
-                          left: 14.w,
-                          right: 14.w,
-                          top: 6.h,
-                          bottom: 20.h,
+                          left: 14.tw,
+                          right: 14.tw,
+                          top: 6.th,
+                          bottom: 20.th,
                         ),
                         itemCount: _cities.length,
                         separatorBuilder: (_, __) => Divider(
                           height: 1,
                           color: const Color(0xFFD5D5D5),
                           thickness: 1,
-                          indent: 10.w,
-                          endIndent: 10.w,
+                          indent: 10.tw,
+                          endIndent: 10.tw,
                         ),
                         itemBuilder: (context, index) {
                           final city = _cities[index];
@@ -1521,17 +1523,17 @@ class _CitiesScreenState extends State<_CitiesScreen> {
                             onTap: () => _openCityProjects(city),
                             child: Padding(
                               padding: EdgeInsets.symmetric(
-                                horizontal: 4.w,
-                                vertical: 10.h,
+                                horizontal: 4.tw,
+                                vertical: 10.th,
                               ),
                               child: Row(
                                 children: [
                                   Icon(
                                     Icons.location_on,
                                     color: const Color(0xFFD61518),
-                                    size: 40.sp,
+                                    size: 40.tsp,
                                   ),
-                                  SizedBox(width: 8.w),
+                                  SizedBox(width: 8.tw),
                                   Expanded(
                                     child: Column(
                                       crossAxisAlignment:
@@ -1541,16 +1543,16 @@ class _CitiesScreenState extends State<_CitiesScreen> {
                                           city.name,
                                           maxLines: 5,
                                           style: GoogleFonts.poppins(
-                                            fontSize: 21.sp,
+                                            fontSize: 21.tsp,
                                             fontWeight: FontWeight.w700,
                                             color: const Color(0xFF3A3A3A),
                                           ),
                                         ),
-                                        SizedBox(height: 2.h),
+                                        SizedBox(height: 2.th),
                                         Text(
                                           _lastUpdateText(city.lastUpdate),
                                           style: GoogleFonts.poppins(
-                                            fontSize: 15.sp,
+                                            fontSize: 15.tsp,
                                             fontWeight: FontWeight.w500,
                                             color: const Color(0xFFA2A2A2),
                                           ),
@@ -1559,11 +1561,11 @@ class _CitiesScreenState extends State<_CitiesScreen> {
                                     ),
                                   ),
                                   Container(
-                                    width: 50.w,
-                                    height: 54.h,
+                                    width: 50.tw,
+                                    height: 54.th,
                                     alignment: Alignment.center,
                                     decoration: BoxDecoration(
-                                      borderRadius: BorderRadius.circular(12.r),
+                                      borderRadius: BorderRadius.circular(12.tr),
                                       gradient: const LinearGradient(
                                         begin: Alignment.topCenter,
                                         end: Alignment.bottomCenter,
@@ -1576,7 +1578,7 @@ class _CitiesScreenState extends State<_CitiesScreen> {
                                     child: Text(
                                       city.projectCount.toString(),
                                       style: GoogleFonts.poppins(
-                                        fontSize: 20.sp,
+                                        fontSize: 20.tsp,
                                         fontWeight: FontWeight.w700,
                                         color: Colors.white,
                                       ),

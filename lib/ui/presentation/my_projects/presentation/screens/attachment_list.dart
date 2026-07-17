@@ -1,3 +1,4 @@
+import 'package:el_race/core/utils/responsive_breakpoints.dart';
 import 'dart:convert';
 import 'dart:io';
 import 'package:el_race/ui/presentation/my_projects/presentation/bloc/project_list_bloc.dart';
@@ -66,20 +67,20 @@ class _AttachmentListScreenState extends State<AttachmentListScreen> {
               children: [
                 const SizedBox(height: 10),
                 Padding(
-                  padding: EdgeInsets.symmetric(horizontal: 16.w),
+                  padding: EdgeInsets.symmetric(horizontal: 16.tw),
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
                       Image.asset(
                         'assets/newapp/attachment.png',
-                        height: 24.w,
-                        width: 24.w,
+                        height: 24.tw,
+                        width: 24.tw,
                       ),
-                      SizedBox(width: 4.w),
+                      SizedBox(width: 4.tw),
                       Text(
                         'ATTACHMENTS',
                         style: GoogleFonts.poppins(
-                          fontSize: 22.sp,
+                          fontSize: 22.tsp,
                           fontWeight: FontWeight.w500,
                           color: appFontColor,
                         ),
@@ -111,14 +112,14 @@ class _AttachmentListScreenState extends State<AttachmentListScreen> {
                           children: [
                             Icon(
                               Icons.attach_file,
-                              size: 48.w,
+                              size: 48.tw,
                               color: Colors.grey,
                             ),
-                            SizedBox(height: 12.h),
+                            SizedBox(height: 12.th),
                             Text(
                               'No attachments',
                               style: GoogleFonts.poppins(
-                                fontSize: 16.sp,
+                                fontSize: 16.tsp,
                                 fontWeight: FontWeight.w600,
                                 color: Colors.grey,
                               ),
@@ -131,13 +132,13 @@ class _AttachmentListScreenState extends State<AttachmentListScreen> {
 
                   return SliverPadding(
                     padding:
-                        EdgeInsets.symmetric(horizontal: 20.w, vertical: 20.h),
+                        EdgeInsets.symmetric(horizontal: 20.tw, vertical: 20.th),
                     sliver: SliverList(
                       delegate: SliverChildBuilderDelegate(
                         (context, index) {
                           final attachment = list[index];
                           return Padding(
-                            padding: EdgeInsets.only(bottom: 14.h),
+                            padding: EdgeInsets.only(bottom: 14.th),
                             child: _buildAttachmentRowCard(attachment),
                           );
                         },
@@ -154,15 +155,15 @@ class _AttachmentListScreenState extends State<AttachmentListScreen> {
                           Text(
                             'Error loading attachments',
                             style: GoogleFonts.poppins(
-                              fontSize: 16.sp,
+                              fontSize: 16.tsp,
                               color: Colors.red,
                             ),
                           ),
-                          SizedBox(height: 8.h),
+                          SizedBox(height: 8.th),
                           Text(
                             state.message,
                             style: GoogleFonts.poppins(
-                              fontSize: 12.sp,
+                              fontSize: 12.tsp,
                               color: Colors.grey,
                             ),
                           ),
@@ -202,7 +203,7 @@ class _AttachmentListScreenState extends State<AttachmentListScreen> {
     return GestureDetector(
       onTap: () => _downloadFile(url, name),
       child: Container(
-        height: 82.h,
+        height: 82.th,
         decoration: BoxDecoration(
           gradient: const LinearGradient(
             begin: Alignment.topCenter,
@@ -214,10 +215,10 @@ class _AttachmentListScreenState extends State<AttachmentListScreen> {
             ],
             stops: [0.0, 0.4, 1.0],
           ),
-          borderRadius: BorderRadius.circular(18.r),
+          borderRadius: BorderRadius.circular(18.tr),
         ),
         child: ClipRRect(
-          borderRadius: BorderRadius.circular(18.r),
+          borderRadius: BorderRadius.circular(18.tr),
           child: Stack(
             children: [
               Positioned.fill(
@@ -230,7 +231,7 @@ class _AttachmentListScreenState extends State<AttachmentListScreen> {
                         colorFilter: const ColorFilter.mode(
                             Colors.grey, BlendMode.srcIn),
                         child: SizedBox(
-                          width: 150.w,
+                          width: 150.tw,
                           height: double.infinity,
                           child: Image.asset(
                             'assets/newapp/for_attachments.png',
@@ -244,22 +245,22 @@ class _AttachmentListScreenState extends State<AttachmentListScreen> {
                 ),
               ),
               Padding(
-                padding: EdgeInsets.symmetric(horizontal: 14.w, vertical: 12.h),
+                padding: EdgeInsets.symmetric(horizontal: 14.tw, vertical: 12.th),
                 child: Row(
                   children: [
                     SizedBox(
-                      width: 62.w,
-                      height: 62.w,
+                      width: 62.tw,
+                      height: 62.tw,
                       child: Center(
                         child: Image.asset(
                           iconPath,
-                          width: 150.w,
-                          height: 150.w,
+                          width: 150.tw,
+                          height: 150.tw,
                           fit: BoxFit.contain,
                         ),
                       ),
                     ),
-                    SizedBox(width: 16.w),
+                    SizedBox(width: 16.tw),
                     Expanded(
                       child: Center(
                         child: Text(
@@ -268,7 +269,7 @@ class _AttachmentListScreenState extends State<AttachmentListScreen> {
                           overflow: TextOverflow.visible,
                           textAlign: TextAlign.center,
                           style: GoogleFonts.poppins(
-                            fontSize: 16.sp,
+                            fontSize: 16.tsp,
                             fontWeight: FontWeight.w700,
                             color: const Color(0xFF2E3445),
                           ),
@@ -290,7 +291,7 @@ class _AttachmentListScreenState extends State<AttachmentListScreen> {
       onTap: () => _showAddDocumentDialog(),
       child: Container(
         decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(24.r),
+          borderRadius: BorderRadius.circular(24.tr),
           border: Border.all(
             color: const Color(0xFFD9D9D9),
             width: 2,
@@ -302,14 +303,14 @@ class _AttachmentListScreenState extends State<AttachmentListScreen> {
           children: [
             SvgPicture.asset(
               'assets/png/add_doc.svg',
-              width: 60.w,
-              height: 60.w,
+              width: 60.tw,
+              height: 60.tw,
             ),
-            SizedBox(height: 10.h),
+            SizedBox(height: 10.th),
             Text(
               'Add New Document',
               style: GoogleFonts.poppins(
-                fontSize: 10.sp,
+                fontSize: 10.tsp,
                 fontWeight: FontWeight.w400,
                 fontStyle: FontStyle.italic,
                 letterSpacing: 0.10,
@@ -357,7 +358,7 @@ class _AttachmentListScreenState extends State<AttachmentListScreen> {
       onTap: () => _downloadFile(url, name),
       child: Container(
         decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(24.r),
+          borderRadius: BorderRadius.circular(24.tr),
           border: Border.all(
             color: const Color(0xFFD9D9D9),
             width: 2,
@@ -365,7 +366,7 @@ class _AttachmentListScreenState extends State<AttachmentListScreen> {
           color: Colors.white,
         ),
         child: Padding(
-          padding: EdgeInsets.symmetric(vertical: 12.h, horizontal: 8.w),
+          padding: EdgeInsets.symmetric(vertical: 12.th, horizontal: 8.tw),
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             mainAxisSize: MainAxisSize.min,
@@ -373,35 +374,35 @@ class _AttachmentListScreenState extends State<AttachmentListScreen> {
               // File Icon
               Image.asset(
                 iconPath,
-                width: 60.w,
-                height: 60.w,
+                width: 60.tw,
+                height: 60.tw,
                 errorBuilder: (_, __, ___) => Icon(
                   Icons.insert_drive_file,
-                  size: 60.w,
+                  size: 60.tw,
                   color: Colors.grey,
                 ),
               ),
-              SizedBox(height: 8.h),
+              SizedBox(height: 8.th),
 
               // File Type Label
               Text(
                 fileType,
                 style: GoogleFonts.poppins(
-                  fontSize: 11.sp,
+                  fontSize: 11.tsp,
                   fontWeight: FontWeight.w600,
                   color: Colors.black,
                   letterSpacing: 0.5,
                 ),
               ),
-              SizedBox(height: 4.h),
+              SizedBox(height: 4.th),
 
               // File Name
               Padding(
-                padding: EdgeInsets.symmetric(horizontal: 8.w),
+                padding: EdgeInsets.symmetric(horizontal: 8.tw),
                 child: Text(
                   name,
                   style: GoogleFonts.poppins(
-                    fontSize: 10.sp,
+                    fontSize: 10.tsp,
                     fontWeight: FontWeight.w400,
                     color: const Color(0xFFBA1719),
                   ),
@@ -689,14 +690,14 @@ class _AddDocumentDialogState extends State<_AddDocumentDialog>
     return Dialog(
       backgroundColor: Colors.transparent,
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(20.r),
+        borderRadius: BorderRadius.circular(20.tr),
       ),
       child: Container(
         decoration: BoxDecoration(
           color: const Color(0xFFFFFFFF),
-          borderRadius: BorderRadius.circular(20.r),
+          borderRadius: BorderRadius.circular(20.tr),
         ),
-        padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 24.h),
+        padding: EdgeInsets.symmetric(horizontal: 16.tw, vertical: 24.th),
         child: SingleChildScrollView(
           child: Column(
             mainAxisSize: MainAxisSize.min,
@@ -708,8 +709,8 @@ class _AddDocumentDialogState extends State<_AddDocumentDialog>
                   GestureDetector(
                     onTap: () => Navigator.pop(context),
                     child: Container(
-                      width: 35.w,
-                      height: 35.w,
+                      width: 35.tw,
+                      height: 35.tw,
                       decoration: const BoxDecoration(
                         color: Color(0xFFBA1719),
                         shape: BoxShape.circle,
@@ -717,13 +718,13 @@ class _AddDocumentDialogState extends State<_AddDocumentDialog>
                       child: Icon(
                         Icons.close,
                         color: Colors.white,
-                        size: 20.w,
+                        size: 20.tw,
                       ),
                     ),
                   ),
                 ],
               ),
-              SizedBox(height: 16.h),
+              SizedBox(height: 16.th),
 
               // W.O Name field
               Column(
@@ -732,12 +733,12 @@ class _AddDocumentDialogState extends State<_AddDocumentDialog>
                   Text(
                     'W.O Name',
                     style: GoogleFonts.poppins(
-                      fontSize: 16.sp,
+                      fontSize: 16.tsp,
                       fontWeight: FontWeight.w600,
                       color: Colors.black,
                     ),
                   ),
-                  SizedBox(height: 8.h),
+                  SizedBox(height: 8.th),
                   Container(
                     decoration: BoxDecoration(
                       gradient: const LinearGradient(
@@ -745,7 +746,7 @@ class _AddDocumentDialogState extends State<_AddDocumentDialog>
                         begin: Alignment.topLeft,
                         end: Alignment.bottomRight,
                       ),
-                      borderRadius: BorderRadius.circular(30.r),
+                      borderRadius: BorderRadius.circular(30.tr),
                       border: Border.all(
                         color: const Color(0xFF000000),
                         width: 1,
@@ -756,7 +757,7 @@ class _AddDocumentDialogState extends State<_AddDocumentDialog>
                       decoration: InputDecoration(
                         hintText: 'Alfouaa Police Station',
                         hintStyle: GoogleFonts.poppins(
-                          fontSize: 14.sp,
+                          fontSize: 14.tsp,
                           color: Colors.grey[600],
                         ),
                         filled: false,
@@ -764,15 +765,15 @@ class _AddDocumentDialogState extends State<_AddDocumentDialog>
                         enabledBorder: InputBorder.none,
                         focusedBorder: InputBorder.none,
                         contentPadding: EdgeInsets.symmetric(
-                          horizontal: 20.w,
-                          vertical: 9.h,
+                          horizontal: 20.tw,
+                          vertical: 9.th,
                         ),
                       ),
                     ),
                   ),
                 ],
               ),
-              SizedBox(height: 16.h),
+              SizedBox(height: 16.th),
 
               // Folder dropdown
               Column(
@@ -781,12 +782,12 @@ class _AddDocumentDialogState extends State<_AddDocumentDialog>
                   Text(
                     'Folder',
                     style: GoogleFonts.poppins(
-                      fontSize: 16.sp,
+                      fontSize: 16.tsp,
                       fontWeight: FontWeight.w600,
                       color: Colors.black,
                     ),
                   ),
-                  SizedBox(height: 8.h),
+                  SizedBox(height: 8.th),
                   _isLoadingFolders
                       ? Container(
                           decoration: BoxDecoration(
@@ -799,26 +800,26 @@ class _AddDocumentDialogState extends State<_AddDocumentDialog>
                               color: const Color(0xFF000000),
                               width: 1,
                             ),
-                            borderRadius: BorderRadius.circular(30.r),
+                            borderRadius: BorderRadius.circular(30.tr),
                           ),
                           padding: EdgeInsets.symmetric(
-                            horizontal: 20.w,
-                            vertical: 9.h,
+                            horizontal: 20.tw,
+                            vertical: 9.th,
                           ),
                           child: Row(
                             children: [
                               SizedBox(
-                                width: 16.w,
-                                height: 16.w,
+                                width: 16.tw,
+                                height: 16.tw,
                                 child: const CircularProgressIndicator(
                                   strokeWidth: 2,
                                 ),
                               ),
-                              SizedBox(width: 12.w),
+                              SizedBox(width: 12.tw),
                               Text(
                                 'Loading folders...',
                                 style: GoogleFonts.poppins(
-                                  fontSize: 14.sp,
+                                  fontSize: 14.tsp,
                                   color: Colors.grey,
                                 ),
                               ),
@@ -832,7 +833,7 @@ class _AddDocumentDialogState extends State<_AddDocumentDialog>
                               begin: Alignment.topLeft,
                               end: Alignment.bottomRight,
                             ),
-                            borderRadius: BorderRadius.circular(30.r),
+                            borderRadius: BorderRadius.circular(30.tr),
                             border: Border.all(
                               color: const Color(0xFF000000),
                               width: 1,
@@ -841,8 +842,8 @@ class _AddDocumentDialogState extends State<_AddDocumentDialog>
                           child: DropdownButtonFormField<FolderModel>(
                             decoration: InputDecoration(
                               contentPadding: EdgeInsets.symmetric(
-                                horizontal: 20.w,
-                                vertical: 9.h,
+                                horizontal: 20.tw,
+                                vertical: 9.th,
                               ),
                               border: InputBorder.none,
                               enabledBorder: InputBorder.none,
@@ -852,7 +853,7 @@ class _AddDocumentDialogState extends State<_AddDocumentDialog>
                             hint: Text(
                               'Select folder',
                               style: GoogleFonts.poppins(
-                                fontSize: 14.sp,
+                                fontSize: 14.tsp,
                                 color: Colors.grey,
                               ),
                             ),
@@ -865,7 +866,7 @@ class _AddDocumentDialogState extends State<_AddDocumentDialog>
                                           child: Text(
                                             folder.name,
                                             style: GoogleFonts.poppins(
-                                              fontSize: 14.sp,
+                                              fontSize: 14.tsp,
                                               color: Colors.black,
                                             ),
                                           ),
@@ -883,11 +884,11 @@ class _AddDocumentDialogState extends State<_AddDocumentDialog>
                         ),
                 ],
               ),
-              SizedBox(height: 20.h),
+              SizedBox(height: 20.th),
 
               // Attach your file - Row with animated arrow and slide
               Padding(
-                padding: EdgeInsets.symmetric(horizontal: 30.w),
+                padding: EdgeInsets.symmetric(horizontal: 30.tw),
                 child: Row(
                   children: [
                     // Animated arrow
@@ -899,7 +900,7 @@ class _AddDocumentDialogState extends State<_AddDocumentDialog>
                           child: Icon(
                             Icons.arrow_forward_ios,
                             color: Colors.grey,
-                            size: 28.w,
+                            size: 28.tw,
                           ),
                         );
                       },
@@ -908,10 +909,10 @@ class _AddDocumentDialogState extends State<_AddDocumentDialog>
                     // Slide action
                     Expanded(
                       child: Container(
-                        height: 50.h,
+                        height: 50.th,
                         decoration: BoxDecoration(
                           color: Colors.white,
-                          borderRadius: BorderRadius.circular(30.r),
+                          borderRadius: BorderRadius.circular(30.tr),
                           border: Border.all(
                             color: const Color(0xFF000000),
                             width: 1,
@@ -922,28 +923,28 @@ class _AddDocumentDialogState extends State<_AddDocumentDialog>
                           sliderButtonIcon: Icon(
                             Icons.attach_file,
                             color: Colors.white,
-                            size: 25.w,
+                            size: 25.tw,
                           ),
                           sliderButtonIconPadding: 10,
                           text: _isPickingFiles
                               ? 'Loading...'
                               : '      Attach your file',
                           textStyle: GoogleFonts.poppins(
-                            fontSize: 14.sp,
+                            fontSize: 14.tsp,
                             fontWeight: FontWeight.w400,
                             color: const Color(0xFF9E9E9E),
                           ),
                           innerColor: const Color(0xFF151544),
                           outerColor: Colors.white,
                           sliderRotate: false,
-                          borderRadius: 30.r,
+                          borderRadius: 30.tr,
                           elevation: 0,
                           animationDuration: const Duration(milliseconds: 100),
                           reversed: false,
                           submittedIcon: Icon(
                             Icons.attach_file,
                             color: Colors.white,
-                            size: 20.w,
+                            size: 20.tw,
                           ),
                         ),
                       ),
@@ -951,18 +952,18 @@ class _AddDocumentDialogState extends State<_AddDocumentDialog>
                   ],
                 ),
               ),
-              SizedBox(height: 8.h),
+              SizedBox(height: 8.th),
 
               // Number of attachments
               if (_selectedFiles.isNotEmpty)
                 Text(
                   'No. of attachments ${_selectedFiles.length}',
                   style: GoogleFonts.poppins(
-                    fontSize: 12.sp,
+                    fontSize: 12.tsp,
                     color: Colors.grey,
                   ),
                 ),
-              SizedBox(height: 24.h),
+              SizedBox(height: 24.th),
 
               // Buttons
               Row(
@@ -973,35 +974,35 @@ class _AddDocumentDialogState extends State<_AddDocumentDialog>
                       style: ElevatedButton.styleFrom(
                         backgroundColor: const Color(0xFFBA1719),
                         shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(30.r),
+                          borderRadius: BorderRadius.circular(30.tr),
                         ),
-                        padding: EdgeInsets.symmetric(vertical: 9.h),
+                        padding: EdgeInsets.symmetric(vertical: 9.th),
                       ),
                       child: Text(
                         'Cancel',
                         style: GoogleFonts.poppins(
-                          fontSize: 16.sp,
+                          fontSize: 16.tsp,
                           fontWeight: FontWeight.w600,
                           color: Colors.white,
                         ),
                       ),
                     ),
                   ),
-                  SizedBox(width: 16.w),
+                  SizedBox(width: 16.tw),
                   Expanded(
                     child: ElevatedButton(
                       onPressed: _isUploading ? null : _uploadFiles,
                       style: ElevatedButton.styleFrom(
                         backgroundColor: const Color(0xFF009859),
                         shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(30.r),
+                          borderRadius: BorderRadius.circular(30.tr),
                         ),
-                        padding: EdgeInsets.symmetric(vertical: 9.h),
+                        padding: EdgeInsets.symmetric(vertical: 9.th),
                       ),
                       child: _isUploading
                           ? SizedBox(
-                              width: 20.w,
-                              height: 20.w,
+                              width: 20.tw,
+                              height: 20.tw,
                               child: const CircularProgressIndicator(
                                 color: Colors.white,
                                 strokeWidth: 2,
@@ -1010,7 +1011,7 @@ class _AddDocumentDialogState extends State<_AddDocumentDialog>
                           : Text(
                               'Submit',
                               style: GoogleFonts.poppins(
-                                fontSize: 16.sp,
+                                fontSize: 16.tsp,
                                 fontWeight: FontWeight.w600,
                                 color: Colors.white,
                               ),

@@ -1,3 +1,4 @@
+import 'package:el_race/core/utils/responsive_breakpoints.dart';
 import 'package:el_race/core/hr_management/hr_effective_view.dart';
 import 'package:el_race/core/hr_management/models/hr_request_summary.dart';
 import 'package:el_race/core/hr_management/providers/hr_management_providers.dart';
@@ -57,7 +58,7 @@ class HrEmployeeLandingScreen extends ConsumerWidget {
         label: Text(
           'New request',
           style: HrModuleTypography.button().copyWith(
-                fontSize: 14.sp,
+                fontSize: 14.tsp,
                 color: Colors.white,
               ),
         ),

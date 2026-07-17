@@ -28,6 +28,8 @@ class MyActionsSection extends StatelessWidget {
     this.dense = false,
     this.showTitle = true,
     this.inGlass = true,
+    this.dockMode = false,
+    this.expandToWidth = false,
   });
 
   final bool compact;
@@ -35,6 +37,12 @@ class MyActionsSection extends StatelessWidget {
   final bool dense;
   final bool showTitle;
   final bool inGlass;
+
+  /// macOS-style floating dock: compact icons in a centered glass pill.
+  final bool dockMode;
+
+  /// When true with [dockMode], dock stretches to parent width (tablet mid).
+  final bool expandToWidth;
 
   static const _items = [
     _ActionItem(
@@ -102,6 +110,10 @@ class MyActionsSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    if (dockMode) {
+      return _buildDock(context);
+    }
+
     final tileSize = dense ? 46.w : (compact ? 54.w : 64.w);
     final iconSize = dense ? 23.w : (compact ? 27.w : 32.w);
     final tileWidth = dense ? 62.w : (compact ? 70.w : 76.w);
@@ -213,6 +225,81 @@ class MyActionsSection extends StatelessWidget {
       ),
     );
   }
+
+  Widget _buildDock(BuildContext context) {
+    // Crisp raw pixels — no ScreenUtil, no backdrop blur (blur looked soft).
+    const tileSize = 44.0;
+    const iconSize = 26.0;
+    const gap = 6.0;
+    const labelGap = 4.0;
+    const labelFontSize = 10.0;
+
+    final tiles = <Widget>[
+      for (var i = 0; i < _items.length; i++) ...[
+        if (expandToWidth)
+          Expanded(
+            child: _MyActionTile(
+              iconAsset: _items[i].iconAsset,
+              label: _items[i].label,
+              tint: _items[i].tint,
+              tileSize: tileSize,
+              iconSize: iconSize,
+              tileWidth: double.infinity,
+              labelGap: labelGap,
+              labelFontSize: labelFontSize,
+              labelMaxLines: 1,
+              crisp: true,
+              onTap: () =>
+                  HomeMyActionsNavigation.open(context, _items[i].action),
+            ),
+          )
+        else
+          _MyActionTile(
+            iconAsset: _items[i].iconAsset,
+            label: _items[i].label,
+            tint: _items[i].tint,
+            tileSize: tileSize,
+            iconSize: iconSize,
+            tileWidth: 58,
+            labelGap: labelGap,
+            labelFontSize: labelFontSize,
+            labelMaxLines: 1,
+            crisp: true,
+            onTap: () =>
+                HomeMyActionsNavigation.open(context, _items[i].action),
+          ),
+        if (i != _items.length - 1) const SizedBox(width: gap),
+      ],
+    ];
+
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.94),
+        borderRadius: BorderRadius.circular(22),
+        border: Border.all(color: Colors.white, width: 1.2),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFF1B2A4A).withValues(alpha: 0.08),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      padding: const EdgeInsets.fromLTRB(14, 10, 14, 10),
+      child: expandToWidth
+          ? Row(children: tiles)
+          : ClipRect(
+              child: SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                physics: const BouncingScrollPhysics(),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: tiles,
+                ),
+              ),
+            ),
+    );
+  }
 }
 
 class _MyActionTile extends StatelessWidget {
@@ -227,6 +314,7 @@ class _MyActionTile extends StatelessWidget {
     required this.labelFontSize,
     required this.labelMaxLines,
     required this.onTap,
+    this.crisp = false,
   });
 
   final String iconAsset;
@@ -239,10 +327,120 @@ class _MyActionTile extends StatelessWidget {
   final double labelFontSize;
   final int labelMaxLines;
   final VoidCallback onTap;
+  /// Dock mode: solid tiles, high-quality icons (no backdrop blur).
+  final bool crisp;
 
   @override
   Widget build(BuildContext context) {
-    final borderRadius = BorderRadius.circular(16.r);
+    final borderRadius = BorderRadius.circular(crisp ? 14.0 : 16.r);
+
+    final iconTile = Container(
+      width: tileSize,
+      height: tileSize,
+      decoration: BoxDecoration(
+        borderRadius: borderRadius,
+        color: crisp ? Colors.white : null,
+        border: crisp
+            ? Border.all(color: const Color(0xFFE8ECF2), width: 1)
+            : null,
+        gradient: crisp
+            ? LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [
+                  tint.withValues(alpha: 0.65),
+                  tint.withValues(alpha: 0.28),
+                ],
+              )
+            : null,
+        boxShadow: crisp
+            ? [
+                BoxShadow(
+                  color: const Color(0xFF1B2A4A).withValues(alpha: 0.06),
+                  blurRadius: 6,
+                  offset: const Offset(0, 2),
+                ),
+              ]
+            : null,
+      ),
+      child: Center(
+        child: Image.asset(
+          iconAsset,
+          width: iconSize,
+          height: iconSize,
+          fit: BoxFit.contain,
+          filterQuality: FilterQuality.high,
+          isAntiAlias: true,
+        ),
+      ),
+    );
+
+    final body = Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        if (crisp)
+          iconTile
+        else
+          ClipRRect(
+            borderRadius: borderRadius,
+            child: AdaptiveGlassLayer(
+              borderRadius: borderRadius,
+              sigma: 6,
+              fallbackColor: Colors.white.withValues(alpha: 0.92),
+              fallbackBorder: Border.all(color: Colors.white, width: 1.1),
+              child: Container(
+                width: tileSize,
+                height: tileSize,
+                decoration: BoxDecoration(
+                  borderRadius: borderRadius,
+                  boxShadow: [
+                    BoxShadow(
+                      color: const Color(0xFF1B2A4A).withValues(alpha: 0.06),
+                      blurRadius: 8,
+                      offset: const Offset(0, 3),
+                    ),
+                  ],
+                ),
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                      colors: [
+                        tint.withValues(alpha: 0.55),
+                        tint.withValues(alpha: 0.22),
+                      ],
+                    ),
+                    borderRadius: BorderRadius.circular(14.r),
+                  ),
+                  child: Center(
+                    child: Image.asset(
+                      iconAsset,
+                      width: iconSize,
+                      height: iconSize,
+                      fit: BoxFit.contain,
+                      filterQuality: FilterQuality.high,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        SizedBox(height: labelGap),
+        Text(
+          label,
+          maxLines: labelMaxLines,
+          textAlign: TextAlign.center,
+          overflow: TextOverflow.ellipsis,
+          style: GoogleFonts.poppins(
+            fontSize: labelFontSize,
+            fontWeight: FontWeight.w600,
+            height: 1.1,
+            color: HomeGlassTheme.textPrimary,
+          ),
+        ),
+      ],
+    );
 
     return Material(
       color: Colors.transparent,
@@ -250,69 +448,8 @@ class _MyActionTile extends StatelessWidget {
         borderRadius: borderRadius,
         onTap: onTap,
         child: SizedBox(
-          width: tileWidth,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              ClipRRect(
-                borderRadius: borderRadius,
-                child: AdaptiveGlassLayer(
-                  borderRadius: borderRadius,
-                  sigma: 6,
-                  fallbackColor: Colors.white.withValues(alpha: 0.92),
-                  fallbackBorder: Border.all(color: Colors.white, width: 1.1),
-                  child: Container(
-                    width: tileSize,
-                    height: tileSize,
-                    decoration: BoxDecoration(
-                      borderRadius: borderRadius,
-                      boxShadow: [
-                        BoxShadow(
-                          color: const Color(0xFF1B2A4A).withValues(alpha: 0.06),
-                          blurRadius: 8,
-                          offset: const Offset(0, 3),
-                        ),
-                      ],
-                    ),
-                    child: DecoratedBox(
-                      decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
-                          colors: [
-                            tint.withValues(alpha: 0.55),
-                            tint.withValues(alpha: 0.22),
-                          ],
-                        ),
-                        borderRadius: BorderRadius.circular(14.r),
-                      ),
-                      child: Center(
-                        child: Image.asset(
-                          iconAsset,
-                          width: iconSize,
-                          height: iconSize,
-                          fit: BoxFit.contain,
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-              SizedBox(height: labelGap),
-              Text(
-                label,
-                maxLines: labelMaxLines,
-                textAlign: TextAlign.center,
-                overflow: TextOverflow.ellipsis,
-                style: GoogleFonts.poppins(
-                  fontSize: labelFontSize,
-                  fontWeight: FontWeight.w600,
-                  height: 1.1,
-                  color: HomeGlassTheme.textPrimary,
-                ),
-              ),
-            ],
-          ),
+          width: tileWidth.isFinite ? tileWidth : null,
+          child: body,
         ),
       ),
     );

@@ -1,3 +1,4 @@
+import 'package:el_race/core/utils/responsive_breakpoints.dart';
 import 'dart:convert';
 
 import 'package:el_race/core/hr_management/network/hr_api_client.dart';
@@ -162,20 +163,20 @@ class _HrSimCardRequestScreenState extends ConsumerState<HrSimCardRequestScreen>
         foregroundColor: HrModuleColors.text,
         title: Text(
           'SIM Card Request',
-          style: HrModuleTypography.sectionHeading().copyWith(fontSize: 18.sp),
+          style: HrModuleTypography.sectionHeading().copyWith(fontSize: 18.tsp),
         ),
       ),
       body: Form(
         key: _formKey,
         child: ListView(
-          padding: EdgeInsets.all(HrModuleLayout.screenPaddingH.w),
+          padding: EdgeInsets.all(HrModuleLayout.screenPaddingH.tw),
           children: [
             Text(
               'Submit a request for a corporate SIM card',
-              style: HrModuleTypography.body().copyWith(fontSize: 14.sp),
+              style: HrModuleTypography.body().copyWith(fontSize: 14.tsp),
             ),
-            SizedBox(height: 16.h),
-            Text('Request Reason *', style: HrModuleTypography.caption().copyWith(fontSize: 12.sp)),
+            SizedBox(height: 16.th),
+            Text('Request Reason *', style: HrModuleTypography.caption().copyWith(fontSize: 12.tsp)),
             DropdownButtonFormField<String>(
               value: _reason,
               items: _reasons
@@ -185,8 +186,8 @@ class _HrSimCardRequestScreenState extends ConsumerState<HrSimCardRequestScreen>
               validator: (v) => v == null || v.isEmpty ? 'Required' : null,
               decoration: _fieldDecoration('Select reason'),
             ),
-            SizedBox(height: HrModuleLayout.formFieldSpacingV.h),
-            Text('Plan Type *', style: HrModuleTypography.caption().copyWith(fontSize: 12.sp)),
+            SizedBox(height: HrModuleLayout.formFieldSpacingV.th),
+            Text('Plan Type *', style: HrModuleTypography.caption().copyWith(fontSize: 12.tsp)),
             DropdownButtonFormField<String>(
               value: _planType,
               items: _plans
@@ -196,14 +197,14 @@ class _HrSimCardRequestScreenState extends ConsumerState<HrSimCardRequestScreen>
               validator: (v) => v == null || v.isEmpty ? 'Required' : null,
               decoration: _fieldDecoration('Select plan'),
             ),
-            SizedBox(height: HrModuleLayout.formFieldSpacingV.h),
-            Text('Required By Date *', style: HrModuleTypography.caption().copyWith(fontSize: 12.sp)),
+            SizedBox(height: HrModuleLayout.formFieldSpacingV.th),
+            Text('Required By Date *', style: HrModuleTypography.caption().copyWith(fontSize: 12.tsp)),
             OutlinedButton(
               onPressed: _pickDate,
               child: Text(dateLabel),
             ),
-            SizedBox(height: HrModuleLayout.formFieldSpacingV.h),
-            Text('Justification *', style: HrModuleTypography.caption().copyWith(fontSize: 12.sp)),
+            SizedBox(height: HrModuleLayout.formFieldSpacingV.th),
+            Text('Justification *', style: HrModuleTypography.caption().copyWith(fontSize: 12.tsp)),
             TextFormField(
               controller: _justification,
               minLines: 3,
@@ -216,10 +217,10 @@ class _HrSimCardRequestScreenState extends ConsumerState<HrSimCardRequestScreen>
                 return null;
               },
             ),
-            SizedBox(height: HrModuleLayout.formFieldSpacingV.h),
+            SizedBox(height: HrModuleLayout.formFieldSpacingV.th),
             Text(
               'Current Phone Number (if replacement / plan change)',
-              style: HrModuleTypography.caption().copyWith(fontSize: 12.sp),
+              style: HrModuleTypography.caption().copyWith(fontSize: 12.tsp),
             ),
             TextFormField(
               controller: _phone,
@@ -233,41 +234,41 @@ class _HrSimCardRequestScreenState extends ConsumerState<HrSimCardRequestScreen>
                 return null;
               },
             ),
-            SizedBox(height: HrModuleLayout.formFieldSpacingV.h),
+            SizedBox(height: HrModuleLayout.formFieldSpacingV.th),
             OutlinedButton.icon(
               onPressed: _pickFile,
               icon: const Icon(Icons.attach_file),
               label: Text(_attachmentName ?? 'Attachment (optional)'),
             ),
-            SizedBox(height: 24.h),
+            SizedBox(height: 24.th),
             Row(
               children: [
                 Expanded(
                   child: OutlinedButton(
                     onPressed: _saveDraft,
                     style: OutlinedButton.styleFrom(
-                      minimumSize: Size.fromHeight(HrModuleLayout.buttonHeight.h),
+                      minimumSize: Size.fromHeight(HrModuleLayout.buttonHeight.th),
                     ),
                     child: Text(
                       'Save Draft',
                       style: HrModuleTypography.button().copyWith(
-                            fontSize: 14.sp,
+                            fontSize: 14.tsp,
                             color: HrModuleColors.primary,
                           ),
                     ),
                   ),
                 ),
-                SizedBox(width: 12.w),
+                SizedBox(width: 12.tw),
                 Expanded(
                   child: FilledButton(
                     onPressed: () => _submit(api),
                     style: FilledButton.styleFrom(
                       backgroundColor: HrModuleColors.primary,
-                      minimumSize: Size.fromHeight(HrModuleLayout.buttonHeight.h),
+                      minimumSize: Size.fromHeight(HrModuleLayout.buttonHeight.th),
                     ),
                     child: Text(
                       'Submit Request',
-                      style: HrModuleTypography.button().copyWith(fontSize: 14.sp),
+                      style: HrModuleTypography.button().copyWith(fontSize: 14.tsp),
                     ),
                   ),
                 ),
@@ -285,7 +286,7 @@ class _HrSimCardRequestScreenState extends ConsumerState<HrSimCardRequestScreen>
       filled: true,
       fillColor: HrModuleColors.surface,
       border: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(HrModuleLayout.cardRadius.r),
+        borderRadius: BorderRadius.circular(HrModuleLayout.cardRadius.tr),
         borderSide: const BorderSide(color: HrModuleColors.border),
       ),
     );

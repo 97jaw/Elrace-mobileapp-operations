@@ -1,3 +1,4 @@
+import 'package:el_race/core/utils/responsive_breakpoints.dart';
 import 'package:el_race/ui/presentation/PettyCash/theme/petty_cash_theme.dart';
 import 'package:el_race/ui/presentation/PettyCash/utils/petty_cash_holder_utils.dart';
 import 'package:el_race/ui/presentation/PettyCash/widgets/petty_cash_hero_card_clipper.dart';
@@ -37,11 +38,11 @@ class PettyCashBalanceCardStack extends StatelessWidget {
     final batch = batchLabel?.trim().isNotEmpty == true
         ? batchLabel!
         : 'Petty Cash';
-    final cardRadius = 26.r;
-    final buttonW = 136.w;
-    final buttonH = 44.h;
-    final notchGap = 8.w;
-    final cardH = 208.h;
+    final cardRadius = 26.tr;
+    final buttonW = 136.tw;
+    final buttonH = 44.th;
+    final notchGap = 8.tw;
+    final cardH = 208.th;
 
     return LayoutBuilder(
       builder: (context, constraints) {
@@ -53,7 +54,7 @@ class PettyCashBalanceCardStack extends StatelessWidget {
         );
 
         return SizedBox(
-          height: cardH + 30.h,
+          height: cardH + 30.th,
           child: Stack(
             clipBehavior: Clip.none,
             alignment: Alignment.topCenter,
@@ -61,24 +62,24 @@ class PettyCashBalanceCardStack extends StatelessWidget {
               // Back card
               Positioned(
                 top: 0,
-                left: 32.w,
-                right: 32.w,
+                left: 32.tw,
+                right: 32.tw,
                 child: Transform.rotate(
                   angle: -0.035,
                   child: Container(
-                    height: 132.h,
+                    height: 132.th,
                     decoration: BoxDecoration(
                       gradient: PettyCashTheme.backCardGradient,
-                      borderRadius: BorderRadius.circular(22.r),
+                      borderRadius: BorderRadius.circular(22.tr),
                       border: Border.all(color: PettyCashTheme.glassBorder),
                     ),
-                    padding: EdgeInsets.fromLTRB(20.w, 14.h, 20.w, 8.h),
+                    padding: EdgeInsets.fromLTRB(20.tw, 14.th, 20.tw, 8.th),
                     child: Align(
                       alignment: Alignment.topRight,
                       child: Text(
                         _maskedBatch(batchLabel),
                         style: GoogleFonts.poppins(
-                          fontSize: 12.sp,
+                          fontSize: 12.tsp,
                           fontWeight: FontWeight.w600,
                           color: PettyCashTheme.textMuted,
                         ),
@@ -89,9 +90,9 @@ class PettyCashBalanceCardStack extends StatelessWidget {
               ),
               // Hero card + in-cutout button
               Positioned(
-                top: 26.h,
-                left: 16.w,
-                right: 16.w,
+                top: 26.th,
+                left: 16.tw,
+                right: 16.tw,
                 height: cardH,
                 child: LayoutBuilder(
                   builder: (context, cardConstraints) {
@@ -114,10 +115,10 @@ class PettyCashBalanceCardStack extends StatelessWidget {
                               gradient: PettyCashTheme.heroCardGradient,
                             ),
                             padding: EdgeInsets.fromLTRB(
-                              20.w,
-                              18.h,
-                              20.w,
-                              clipper.notchHeight + 4.h,
+                              20.tw,
+                              18.th,
+                              20.tw,
+                              clipper.notchHeight + 4.th,
                             ),
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
@@ -128,7 +129,7 @@ class PettyCashBalanceCardStack extends StatelessWidget {
                                       Icons.account_balance_wallet_outlined,
                                       color: PettyCashTheme.white
                                           .withValues(alpha: 0.88),
-                                      size: 22.sp,
+                                      size: 22.tsp,
                                     ),
                                     const Spacer(),
                                     Text(
@@ -136,18 +137,18 @@ class PettyCashBalanceCardStack extends StatelessWidget {
                                           ? '${batch.substring(0, 16)}…'
                                           : batch,
                                       style: GoogleFonts.poppins(
-                                        fontSize: 11.sp,
+                                        fontSize: 11.tsp,
                                         fontWeight: FontWeight.w600,
                                         color: PettyCashTheme.textSecondary,
                                       ),
                                     ),
                                   ],
                                 ),
-                                SizedBox(height: 10.h),
+                                SizedBox(height: 10.th),
                                 Text(
                                   'Balance',
                                   style: GoogleFonts.poppins(
-                                    fontSize: 12.sp,
+                                    fontSize: 12.tsp,
                                     fontWeight: FontWeight.w500,
                                     color: PettyCashTheme.textMuted,
                                   ),
@@ -155,7 +156,7 @@ class PettyCashBalanceCardStack extends StatelessWidget {
                                 Text(
                                   PettyCashHolderUtils.formatAed(balance),
                                   style: GoogleFonts.poppins(
-                                    fontSize: 28.sp,
+                                    fontSize: 28.tsp,
                                     fontWeight: FontWeight.w700,
                                     color: PettyCashTheme.white,
                                     height: 1.05,
@@ -177,7 +178,7 @@ class PettyCashBalanceCardStack extends StatelessWidget {
                                             Text(
                                               'Name',
                                               style: GoogleFonts.poppins(
-                                                fontSize: 10.sp,
+                                                fontSize: 10.tsp,
                                                 color:
                                                     PettyCashTheme.textMuted,
                                               ),
@@ -187,7 +188,7 @@ class PettyCashBalanceCardStack extends StatelessWidget {
                                               maxLines: 2,
                                               overflow: TextOverflow.ellipsis,
                                               style: GoogleFonts.poppins(
-                                                fontSize: 13.sp,
+                                                fontSize: 13.tsp,
                                                 fontWeight: FontWeight.w600,
                                                 color: PettyCashTheme.white,
                                                 height: 1.2,
@@ -204,7 +205,7 @@ class PettyCashBalanceCardStack extends StatelessWidget {
                                         Text(
                                           'Draft',
                                           style: GoogleFonts.poppins(
-                                            fontSize: 10.sp,
+                                            fontSize: 10.tsp,
                                             color: PettyCashTheme.textMuted,
                                           ),
                                         ),
@@ -213,7 +214,7 @@ class PettyCashBalanceCardStack extends StatelessWidget {
                                             draftAmount,
                                           ),
                                           style: GoogleFonts.poppins(
-                                            fontSize: 12.sp,
+                                            fontSize: 12.tsp,
                                             fontWeight: FontWeight.w700,
                                             color:
                                                 PettyCashTheme.textSecondary,
@@ -277,26 +278,26 @@ class _AddExpensePill extends StatelessWidget {
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               Container(
-                width: 24.w,
-                height: 24.w,
+                width: 24.tw,
+                height: 24.tw,
                 decoration: const BoxDecoration(
                   color: PettyCashTheme.white,
                   shape: BoxShape.circle,
                 ),
                 child: Icon(
                   Icons.add,
-                  size: 15.sp,
+                  size: 15.tsp,
                   color: PettyCashTheme.black,
                 ),
               ),
-              SizedBox(width: 7.w),
+              SizedBox(width: 7.tw),
               Flexible(
                 child: Text(
                   'Add expense',
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: GoogleFonts.poppins(
-                    fontSize: 12.sp,
+                    fontSize: 12.tsp,
                     fontWeight: FontWeight.w600,
                     color: PettyCashTheme.white,
                   ),

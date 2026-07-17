@@ -1,3 +1,4 @@
+import 'package:el_race/core/utils/responsive_breakpoints.dart';
 import 'package:el_race/ui/presentation/home_screen/providers/home_library_widgets_provider.dart';
 import 'package:el_race/ui/presentation/home_screen/widgets/category_widget_gradient_border.dart';
 import 'package:el_race/ui/presentation/home_screen/widgets/parayer_widgets/parayer_widget.dart';
@@ -11,7 +12,12 @@ import 'package:google_fonts/google_fonts.dart';
 
 /// v7 Library category — Documents, Media, Prayer Times (stacked full-width).
 class LibraryCategoryMyDocumentsCard extends ConsumerWidget {
-  const LibraryCategoryMyDocumentsCard({super.key});
+  const LibraryCategoryMyDocumentsCard({
+    super.key,
+    this.tabletCompact = false,
+  });
+
+  final bool tabletCompact;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -19,7 +25,7 @@ class LibraryCategoryMyDocumentsCard extends ConsumerWidget {
     final trendColor = _documentsTrendColor(data.trendColor);
 
     return _LibraryFullCardShell(
-      height: 140.h,
+      height: tabletCompact ? double.infinity : 140.uh,
       onTap: () => Util.pushPage(const MyDocumentsScreen(), context),
       gradient: const LinearGradient(
         begin: Alignment.topLeft,
@@ -34,35 +40,35 @@ class LibraryCategoryMyDocumentsCard extends ConsumerWidget {
       iconBadge: const _DocumentsIconBadge(),
       pattern: CustomPaint(
         painter: _StackedPapersPainter(),
-        size: Size(168.w, 168.h),
+        size: Size(168.w, 168.uh),
       ),
-      contentPadding: EdgeInsets.fromLTRB(14.w, 12.h, 14.w, 10.h),
+      contentPadding: EdgeInsets.fromLTRB(14.w, 12.uh, 14.w, 10.uh),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
             'PERSONAL',
             style: GoogleFonts.poppins(
-              fontSize: 10.sp,
+              fontSize: 10.usp,
               fontWeight: FontWeight.w600,
               color: const Color(0xFFB8860B),
               letterSpacing: 0.55,
             ),
           ),
-          SizedBox(height: 3.h),
+          SizedBox(height: 3.uh),
           Text(
             'My Documents',
             style: GoogleFonts.poppins(
-              fontSize: 17.sp,
+              fontSize: 17.usp,
               fontWeight: FontWeight.w700,
               color: const Color(0xFF1A2A4F),
             ),
           ),
-          const Spacer(),
+          SizedBox(height: 8),
           Text(
             '${data.totalCount}',
             style: GoogleFonts.poppins(
-              fontSize: 34.sp,
+              fontSize: 34.usp,
               fontWeight: FontWeight.w700,
               color: const Color(0xFF1A2A4F),
               height: 1,
@@ -74,7 +80,7 @@ class LibraryCategoryMyDocumentsCard extends ConsumerWidget {
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               style: GoogleFonts.poppins(
-                fontSize: 11.sp,
+                fontSize: 11.usp,
                 fontWeight: FontWeight.w600,
                 color: trendColor,
               ),
@@ -86,7 +92,12 @@ class LibraryCategoryMyDocumentsCard extends ConsumerWidget {
 }
 
 class LibraryCategoryMediaCard extends ConsumerWidget {
-  const LibraryCategoryMediaCard({super.key});
+  const LibraryCategoryMediaCard({
+    super.key,
+    this.tabletCompact = false,
+  });
+
+  final bool tabletCompact;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -94,7 +105,7 @@ class LibraryCategoryMediaCard extends ConsumerWidget {
     const accentGreen = Color(0xFF86EFAC);
 
     return _LibraryFullCardShell(
-      height: 150.h,
+      height: tabletCompact ? double.infinity : 150.uh,
       onTap: () => Util.pushPage(const MediaListScreen(), context),
       gradient: const LinearGradient(
         begin: Alignment.topLeft,
@@ -107,53 +118,51 @@ class LibraryCategoryMediaCard extends ConsumerWidget {
         ],
       ),
       background: const _MediaCardBackground(),
-      contentPadding: EdgeInsets.fromLTRB(16.w, 14.h, 16.w, 14.h),
-      child: SizedBox(
-        height: 122.h,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
+      contentPadding: EdgeInsets.fromLTRB(16.w, 14.uh, 16.w, 14.uh),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'GALLERY',
+            style: GoogleFonts.poppins(
+              fontSize: 10.usp,
+              fontWeight: FontWeight.w600,
+              color: accentGreen,
+              letterSpacing: 0.55,
+            ),
+          ),
+          SizedBox(height: 3.uh),
+          Text(
+            'Media',
+            style: GoogleFonts.poppins(
+              fontSize: 18.usp,
+              fontWeight: FontWeight.w700,
+              color: Colors.white,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            '${data.totalCount}',
+            style: GoogleFonts.poppins(
+              fontSize: 36.usp,
+              fontWeight: FontWeight.w800,
+              color: Colors.white,
+              height: 1,
+            ),
+          ),
+          if (data.trendMessage.isNotEmpty)
             Text(
-              'GALLERY',
+              data.trendMessage,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
               style: GoogleFonts.poppins(
-                fontSize: 10.sp,
+                fontSize: 12.usp,
                 fontWeight: FontWeight.w600,
                 color: accentGreen,
-                letterSpacing: 0.55,
               ),
             ),
-            SizedBox(height: 3.h),
-            Text(
-              'Media',
-              style: GoogleFonts.poppins(
-                fontSize: 18.sp,
-                fontWeight: FontWeight.w700,
-                color: Colors.white,
-              ),
-            ),
-            const Spacer(),
-            Text(
-              '${data.totalCount}',
-              style: GoogleFonts.poppins(
-                fontSize: 36.sp,
-                fontWeight: FontWeight.w800,
-                color: Colors.white,
-                height: 1,
-              ),
-            ),
-            if (data.trendMessage.isNotEmpty)
-              Text(
-                data.trendMessage,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: GoogleFonts.poppins(
-                  fontSize: 12.sp,
-                  fontWeight: FontWeight.w600,
-                  color: accentGreen,
-                ),
-              ),
-          ],
-        ),
+        ],
       ),
     );
   }
@@ -181,7 +190,7 @@ class _MediaCardBackground extends StatelessWidget {
         ),
         Positioned(
           right: -28.w,
-          bottom: -30.h,
+          bottom: -30.uh,
           child: Container(
             width: 140.w,
             height: 140.w,
@@ -196,7 +205,7 @@ class _MediaCardBackground extends StatelessWidget {
         ),
         Positioned(
           right: -10.w,
-          bottom: -12.h,
+          bottom: -12.uh,
           child: Container(
             width: 100.w,
             height: 100.w,
@@ -215,7 +224,12 @@ class _MediaCardBackground extends StatelessWidget {
 }
 
 class LibraryCategoryPrayerTimesCard extends StatelessWidget {
-  const LibraryCategoryPrayerTimesCard({super.key});
+  const LibraryCategoryPrayerTimesCard({
+    super.key,
+    this.tabletCompact = false,
+  });
+
+  final bool tabletCompact;
 
   @override
   Widget build(BuildContext context) {
@@ -260,21 +274,21 @@ class _LibraryFullCardShell extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final innerRadius =
-        (22.r - CategoryWidgetGradientBorder.width).clamp(0.0, double.infinity);
+        (22.ur - CategoryWidgetGradientBorder.width).clamp(0.0, double.infinity);
     final rightPad = iconBadge != null ? 46.w : 16.w;
 
     return Material(
       color: Colors.transparent,
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(22.r),
+        borderRadius: BorderRadius.circular(22.ur),
         child: Container(
           height: height,
-          decoration: CategoryWidgetGradientBorder.outer(borderRadius: 22.r),
+          decoration: CategoryWidgetGradientBorder.outer(borderRadius: 22.ur),
           padding: CategoryWidgetGradientBorder.padding,
           child: Container(
             decoration: CategoryWidgetGradientBorder.inner(
-              borderRadius: 22.r,
+              borderRadius: 22.ur,
               fillGradient: gradient,
             ),
             child: ClipRRect(
@@ -291,11 +305,27 @@ class _LibraryFullCardShell extends StatelessWidget {
                     ),
                   Padding(
                     padding: contentPadding ??
-                        EdgeInsets.fromLTRB(14.w, 12.h, rightPad, 12.h),
-                    child: child,
+                        EdgeInsets.fromLTRB(14.w, 12.uh, rightPad, 12.uh),
+                    child: LayoutBuilder(
+                      builder: (context, constraints) {
+                        return Align(
+                          alignment: Alignment.topLeft,
+                          child: FittedBox(
+                            fit: BoxFit.scaleDown,
+                            alignment: Alignment.topLeft,
+                            child: ConstrainedBox(
+                              constraints: BoxConstraints(
+                                maxWidth: constraints.maxWidth,
+                              ),
+                              child: child,
+                            ),
+                          ),
+                        );
+                      },
+                    ),
                   ),
                   if (iconBadge != null)
-                    Positioned(top: 8.h, right: 8.w, child: iconBadge!),
+                    Positioned(top: 8.uh, right: 8.w, child: iconBadge!),
                 ],
               ),
             ),
@@ -318,7 +348,7 @@ class _DocumentsIconBadge extends StatelessWidget {
         gradient: const LinearGradient(
           colors: [Color(0xFFD4AF37), Color(0xFFB8860B)],
         ),
-        borderRadius: BorderRadius.circular(10.r),
+        borderRadius: BorderRadius.circular(10.ur),
         boxShadow: [
           BoxShadow(
             color: const Color(0xFFB8860B).withValues(alpha: 0.35),
@@ -327,7 +357,7 @@ class _DocumentsIconBadge extends StatelessWidget {
           ),
         ],
       ),
-      child: Icon(Icons.description_outlined, color: Colors.white, size: 20.sp),
+      child: Icon(Icons.description_outlined, color: Colors.white, size: 20.usp),
     );
   }
 }

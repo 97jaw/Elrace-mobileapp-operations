@@ -1,3 +1,4 @@
+import 'package:el_race/core/utils/responsive_breakpoints.dart';
 import 'package:el_race/ui/presentation/PettyCash/theme/petty_cash_theme.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
@@ -22,15 +23,15 @@ class PettyCashActionChip extends StatelessWidget {
         color: Colors.transparent,
         child: InkWell(
           onTap: onTap,
-          borderRadius: BorderRadius.circular(16.r),
+          borderRadius: BorderRadius.circular(16.tr),
           child: Padding(
-            padding: EdgeInsets.symmetric(vertical: 8.h),
+            padding: EdgeInsets.symmetric(vertical: 8.th),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
                 Container(
-                  width: 50.w,
-                  height: 50.w,
+                  width: 50.tw,
+                  height: 50.tw,
                   decoration: BoxDecoration(
                     color: PettyCashTheme.iconCircleBg,
                     shape: BoxShape.circle,
@@ -39,17 +40,17 @@ class PettyCashActionChip extends StatelessWidget {
                   child: Icon(
                     icon,
                     color: PettyCashTheme.white,
-                    size: 22.sp,
+                    size: 22.tsp,
                   ),
                 ),
-                SizedBox(height: 8.h),
+                SizedBox(height: 8.th),
                 Text(
                   label,
                   textAlign: TextAlign.center,
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                   style: GoogleFonts.poppins(
-                    fontSize: 11.sp,
+                    fontSize: 11.tsp,
                     fontWeight: FontWeight.w600,
                     color: PettyCashTheme.textSecondary,
                     height: 1.2,
@@ -92,17 +93,17 @@ class PettyCashExpenseTile extends StatelessWidget {
       color: highlight
           ? PettyCashTheme.mint.withValues(alpha: 0.12)
           : Colors.transparent,
-      borderRadius: BorderRadius.circular(14.r),
+      borderRadius: BorderRadius.circular(14.tr),
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(14.r),
+        borderRadius: BorderRadius.circular(14.tr),
         child: Padding(
-          padding: EdgeInsets.symmetric(vertical: 12.h, horizontal: 4.w),
+          padding: EdgeInsets.symmetric(vertical: 12.th, horizontal: 4.tw),
           child: Row(
             children: [
               Container(
-                width: 46.w,
-                height: 46.w,
+                width: 46.tw,
+                height: 46.tw,
                 decoration: BoxDecoration(
                   color: PettyCashTheme.iconCircleBg,
                   shape: BoxShape.circle,
@@ -114,13 +115,13 @@ class PettyCashExpenseTile extends StatelessWidget {
                 ),
                 child: Icon(
                   icon,
-                  size: 20.sp,
+                  size: 20.tsp,
                   color: highlight
                       ? PettyCashTheme.mint
                       : PettyCashTheme.textSecondary,
                 ),
               ),
-              SizedBox(width: 12.w),
+              SizedBox(width: 12.tw),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -130,18 +131,18 @@ class PettyCashExpenseTile extends StatelessWidget {
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: GoogleFonts.poppins(
-                        fontSize: 14.sp,
+                        fontSize: 14.tsp,
                         fontWeight: FontWeight.w700,
                         color: PettyCashTheme.white,
                       ),
                     ),
-                    SizedBox(height: 2.h),
+                    SizedBox(height: 2.th),
                     Text(
                       subtitle,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: GoogleFonts.poppins(
-                        fontSize: 11.sp,
+                        fontSize: 11.tsp,
                         fontWeight: FontWeight.w500,
                         color: PettyCashTheme.textMuted,
                       ),
@@ -149,17 +150,17 @@ class PettyCashExpenseTile extends StatelessWidget {
                   ],
                 ),
               ),
-              SizedBox(width: 8.w),
+              SizedBox(width: 8.tw),
               Text(
                 amount,
                 style: GoogleFonts.poppins(
-                  fontSize: 14.sp,
+                  fontSize: 14.tsp,
                   fontWeight: FontWeight.w700,
                   color: amountColor ?? PettyCashTheme.white,
                 ),
               ),
               if (trailing != null) ...[
-                SizedBox(width: 6.w),
+                SizedBox(width: 6.tw),
                 trailing!,
               ],
             ],

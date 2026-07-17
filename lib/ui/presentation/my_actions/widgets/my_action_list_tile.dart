@@ -1,3 +1,4 @@
+import 'package:el_race/core/utils/responsive_breakpoints.dart';
 import 'package:el_race/ui/presentation/my_actions/data/my_actions_models.dart';
 import 'package:el_race/ui/presentation/my_actions/theme/my_actions_module_theme.dart';
 import 'package:el_race/ui/presentation/my_actions/widgets/my_action_employee_avatar.dart';
@@ -55,11 +56,11 @@ class MyActionListTile extends StatelessWidget {
       color: Colors.transparent,
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(compact ? 16.r : 20.r),
+        borderRadius: BorderRadius.circular(compact ? 16.tr : 20.tr),
         child: Container(
           padding: EdgeInsets.symmetric(
-            horizontal: compact ? 14.w : 16.w,
-            vertical: compact ? 12.h : 14.h,
+            horizontal: compact ? 14.tw : 16.tw,
+            vertical: compact ? 12.th : 14.th,
           ),
           decoration: theme.glassCard(radius: compact ? 16 : 20),
           child: Row(
@@ -70,7 +71,7 @@ class MyActionListTile extends StatelessWidget {
                 fallbackTint: theme.tint,
                 fallbackIcon: theme.primary.withValues(alpha: 0.65),
               ),
-              SizedBox(width: 12.w),
+              SizedBox(width: 12.tw),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -80,10 +81,10 @@ class MyActionListTile extends StatelessWidget {
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: theme.cardTitle.copyWith(
-                        fontSize: compact ? 14.sp : 15.sp,
+                        fontSize: compact ? 14.tsp : 15.tsp,
                       ),
                     ),
-                    SizedBox(height: 3.h),
+                    SizedBox(height: 3.th),
                     Text(
                       _subtitle,
                       maxLines: 1,
@@ -91,11 +92,11 @@ class MyActionListTile extends StatelessWidget {
                       style: theme.cardSubtitle,
                     ),
                     if (dateLabel.isNotEmpty) ...[
-                      SizedBox(height: 2.h),
+                      SizedBox(height: 2.th),
                       Text(
                         dateLabel,
                         style: GoogleFonts.poppins(
-                          fontSize: 11.sp,
+                          fontSize: 11.tsp,
                           color: MyActionsModuleTheme.textMuted,
                         ),
                       ),
@@ -103,7 +104,7 @@ class MyActionListTile extends StatelessWidget {
                   ],
                 ),
               ),
-              SizedBox(width: 8.w),
+              SizedBox(width: 8.tw),
               _StatusPill(status: item.status, color: statusColor),
             ],
           ),
@@ -123,7 +124,7 @@ class _StatusPill extends StatelessWidget {
   Widget build(BuildContext context) {
     final label = status.trim().isEmpty ? 'Pending' : status.trim();
     return Container(
-      padding: EdgeInsets.symmetric(horizontal: 10.w, vertical: 5.h),
+      padding: EdgeInsets.symmetric(horizontal: 10.tw, vertical: 5.th),
       decoration: BoxDecoration(
         color: color.withValues(alpha: 0.14),
         borderRadius: BorderRadius.circular(999),
@@ -131,7 +132,7 @@ class _StatusPill extends StatelessWidget {
       child: Text(
         label,
         style: GoogleFonts.poppins(
-          fontSize: 10.sp,
+          fontSize: 10.tsp,
           fontWeight: FontWeight.w600,
           color: color,
         ),

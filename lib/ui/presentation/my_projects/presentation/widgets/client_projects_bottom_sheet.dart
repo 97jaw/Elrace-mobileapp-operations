@@ -1,3 +1,4 @@
+import 'package:el_race/core/utils/responsive_breakpoints.dart';
 import 'dart:math' as math;
 
 import 'package:el_race/ui/presentation/my_projects/domain/entities/project_entity.dart';
@@ -164,7 +165,7 @@ class _ClientProjectsSheetState extends State<_ClientProjectsSheet>
         child: FadeTransition(
           opacity: _fadeAnimation,
           child: ClipRRect(
-            borderRadius: BorderRadius.vertical(top: Radius.circular(24.r)),
+            borderRadius: BorderRadius.vertical(top: Radius.circular(24.tr)),
             child: Material(
               color: Colors.transparent,
               child: DecoratedBox(
@@ -178,14 +179,14 @@ class _ClientProjectsSheetState extends State<_ClientProjectsSheet>
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
                       Padding(
-                        padding: EdgeInsets.fromLTRB(20.w, 18.h, 20.w, 8.h),
+                        padding: EdgeInsets.fromLTRB(20.tw, 18.th, 20.tw, 8.th),
                         child: Row(
                           children: [
                             Expanded(
                               child: Text(
                                 widget.client.clientName,
                                 style: GoogleFonts.poppins(
-                                  fontSize: 16.sp,
+                                  fontSize: 16.tsp,
                                   fontWeight: FontWeight.w700,
                                   color: ProjectsDashboardTheme.white,
                                 ),
@@ -193,13 +194,13 @@ class _ClientProjectsSheetState extends State<_ClientProjectsSheet>
                             ),
                             Container(
                               padding: EdgeInsets.symmetric(
-                                horizontal: 10.w,
-                                vertical: 4.h,
+                                horizontal: 10.tw,
+                                vertical: 4.th,
                               ),
                               decoration: BoxDecoration(
                                 color: ProjectsDashboardTheme.maroon
                                     .withValues(alpha: 0.22),
-                                borderRadius: BorderRadius.circular(20.r),
+                                borderRadius: BorderRadius.circular(20.tr),
                                 border: Border.all(
                                   color: ProjectsDashboardTheme.maroon
                                       .withValues(alpha: 0.65),
@@ -208,7 +209,7 @@ class _ClientProjectsSheetState extends State<_ClientProjectsSheet>
                               child: Text(
                                 '${filtered.length} projects',
                                 style: GoogleFonts.poppins(
-                                  fontSize: 11.sp,
+                                  fontSize: 11.tsp,
                                   fontWeight: FontWeight.w600,
                                   color: ProjectsDashboardTheme.white,
                                 ),
@@ -219,24 +220,24 @@ class _ClientProjectsSheetState extends State<_ClientProjectsSheet>
                               icon: Icon(
                                 Icons.close_rounded,
                                 color: ProjectsDashboardTheme.white,
-                                size: 22.sp,
+                                size: 22.tsp,
                               ),
                             ),
                           ],
                         ),
                       ),
                       Padding(
-                        padding: EdgeInsets.symmetric(horizontal: 16.w),
+                        padding: EdgeInsets.symmetric(horizontal: 16.tw),
                         child: TextField(
                           controller: _searchController,
                           style: GoogleFonts.poppins(
-                            fontSize: 13.sp,
+                            fontSize: 13.tsp,
                             color: ProjectsDashboardTheme.white,
                           ),
                           decoration: InputDecoration(
                             hintText: 'Search projects…',
                             hintStyle: GoogleFonts.poppins(
-                              fontSize: 13.sp,
+                              fontSize: 13.tsp,
                               color: ProjectsDashboardTheme.greyPanel
                                   .withValues(alpha: 0.85),
                             ),
@@ -244,31 +245,31 @@ class _ClientProjectsSheetState extends State<_ClientProjectsSheet>
                               Icons.search_rounded,
                               color: ProjectsDashboardTheme.white
                                   .withValues(alpha: 0.9),
-                              size: 22.sp,
+                              size: 22.tsp,
                             ),
                             filled: true,
                             fillColor: ProjectsDashboardTheme.greyPanel
                                 .withValues(alpha: 0.22),
                             contentPadding: EdgeInsets.symmetric(
-                              horizontal: 14.w,
-                              vertical: 10.h,
+                              horizontal: 14.tw,
+                              vertical: 10.th,
                             ),
                             border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(14.r),
+                              borderRadius: BorderRadius.circular(14.tr),
                               borderSide: BorderSide(
                                 color: ProjectsDashboardTheme.maroon
                                     .withValues(alpha: 0.35),
                               ),
                             ),
                             enabledBorder: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(14.r),
+                              borderRadius: BorderRadius.circular(14.tr),
                               borderSide: BorderSide(
                                 color: ProjectsDashboardTheme.white
                                     .withValues(alpha: 0.28),
                               ),
                             ),
                             focusedBorder: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(14.r),
+                              borderRadius: BorderRadius.circular(14.tr),
                               borderSide: BorderSide(
                                 color: ProjectsDashboardTheme.white
                                     .withValues(alpha: 0.55),
@@ -282,14 +283,14 @@ class _ClientProjectsSheetState extends State<_ClientProjectsSheet>
                         child: _initialLoading
                             ? ListView.separated(
                                 padding: EdgeInsets.fromLTRB(
-                                  16.w,
+                                  16.tw,
                                   0,
-                                  16.w,
-                                  bottomInset + 16.h,
+                                  16.tw,
+                                  bottomInset + 16.th,
                                 ),
                                 itemCount: 6,
                                 separatorBuilder: (_, __) =>
-                                    SizedBox(height: 10.h),
+                                    SizedBox(height: 10.th),
                                 itemBuilder: (_, __) =>
                                     const ProjectsProjectRowShimmer(),
                               )
@@ -298,7 +299,7 @@ class _ClientProjectsSheetState extends State<_ClientProjectsSheet>
                                     child: Text(
                                       'No projects found',
                                       style: GoogleFonts.poppins(
-                                        fontSize: 13.sp,
+                                        fontSize: 13.tsp,
                                         color: ProjectsDashboardTheme.white,
                                       ),
                                     ),
@@ -307,15 +308,15 @@ class _ClientProjectsSheetState extends State<_ClientProjectsSheet>
                                     controller: _scrollController,
                                     physics: const BouncingScrollPhysics(),
                                     padding: EdgeInsets.fromLTRB(
-                                      16.w,
+                                      16.tw,
                                       0,
-                                      16.w,
-                                      bottomInset + 16.h,
+                                      16.tw,
+                                      bottomInset + 16.th,
                                     ),
                                     itemCount:
                                         visible.length + (showFooter ? 1 : 0),
                                     separatorBuilder: (_, __) =>
-                                        SizedBox(height: 10.h),
+                                        SizedBox(height: 10.th),
                                     itemBuilder: (context, index) {
                                       if (index >= visible.length) {
                                         return ProjectsListLoadMoreFooter(
@@ -398,14 +399,14 @@ class _ProjectRow extends StatelessWidget {
       color: Colors.transparent,
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(14.r),
+        borderRadius: BorderRadius.circular(14.tr),
         child: Container(
-          padding: EdgeInsets.all(12.w),
+          padding: EdgeInsets.all(12.tw),
           decoration: ProjectsDashboardTheme.frostedPanel(radius: 14),
           child: Row(
             children: [
               _PmAvatar(photoUrl: pmPhoto, name: pmName),
-              SizedBox(width: 12.w),
+              SizedBox(width: 12.tw),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -413,18 +414,18 @@ class _ProjectRow extends StatelessWidget {
                     Text(
                       pmName,
                       style: GoogleFonts.poppins(
-                        fontSize: 13.sp,
+                        fontSize: 13.tsp,
                         fontWeight: FontWeight.w700,
                         color: ProjectsDashboardTheme.white,
                       ),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
-                    SizedBox(height: 4.h),
+                    SizedBox(height: 4.th),
                     Text(
                       project.name,
                       style: GoogleFonts.poppins(
-                        fontSize: 11.sp,
+                        fontSize: 11.tsp,
                         color: ProjectsDashboardTheme.greyPanel
                             .withValues(alpha: 0.95),
                         fontWeight: FontWeight.w500,
@@ -435,18 +436,18 @@ class _ProjectRow extends StatelessWidget {
                   ],
                 ),
               ),
-              SizedBox(width: 8.w),
+              SizedBox(width: 8.tw),
               Icon(
                 Icons.chevron_right_rounded,
                 color: ProjectsDashboardTheme.white.withValues(alpha: 0.85),
-                size: 22.sp,
+                size: 22.tsp,
               ),
-              SizedBox(width: 4.w),
+              SizedBox(width: 4.tw),
               Container(
-                padding: EdgeInsets.symmetric(horizontal: 10.w, vertical: 6.h),
+                padding: EdgeInsets.symmetric(horizontal: 10.tw, vertical: 6.th),
                 decoration: BoxDecoration(
                   color: ProjectsDashboardTheme.maroon.withValues(alpha: 0.22),
-                  borderRadius: BorderRadius.circular(10.r),
+                  borderRadius: BorderRadius.circular(10.tr),
                   border: Border.all(
                     color: ProjectsDashboardTheme.maroon.withValues(
                       alpha: 0.65,
@@ -456,7 +457,7 @@ class _ProjectRow extends StatelessWidget {
                 child: Text(
                   wo,
                   style: GoogleFonts.poppins(
-                    fontSize: 10.sp,
+                    fontSize: 10.tsp,
                     fontWeight: FontWeight.w700,
                     color: ProjectsDashboardTheme.white,
                   ),
@@ -484,13 +485,13 @@ class _PmAvatar extends StatelessWidget {
 
     if (photoUrl.isNotEmpty) {
       return CircleAvatar(
-        radius: 22.r,
+        radius: 22.tr,
         backgroundImage: NetworkImage(photoUrl),
         onBackgroundImageError: (_, __) {},
       );
     }
     return CircleAvatar(
-      radius: 22.r,
+      radius: 22.tr,
       backgroundColor: ProjectsDashboardTheme.navy,
       child: Text(
         initial,

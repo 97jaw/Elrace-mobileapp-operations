@@ -275,6 +275,26 @@ class TaskNotificationService {
     }
   }
 
+  /// Cancel pending local task notifications after the user mutes Tasks.
+  Future<void> cancelAllPendingTaskNotifications() async {
+    await initialize();
+    try {
+      final pending = await _notificationsPlugin.pendingNotificationRequests();
+      for (final p in pending) {
+        final id = p.id;
+        final inNew = id >= _baseNewTask && id < _baseNewTask + 1000;
+        final inDeadline = id >= _baseDeadline && id < _baseDeadline + 1000;
+        final inCompleted = id >= _baseCompleted && id < _baseCompleted + 1000;
+        final inMessage = id >= _baseMessage && id < _baseMessage + 1000;
+        if (inNew || inDeadline || inCompleted || inMessage) {
+          await _notificationsPlugin.cancel(id);
+        }
+      }
+    } catch (e) {
+      debugPrint('⚠️ cancelAllPendingTaskNotifications failed: $e');
+    }
+  }
+
   // ──────────────────────────────────────────────────────────────────────
   // Internal helpers
   // ──────────────────────────────────────────────────────────────────────

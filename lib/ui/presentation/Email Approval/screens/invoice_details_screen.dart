@@ -1,3 +1,4 @@
+import 'package:el_race/core/utils/responsive_breakpoints.dart';
 import 'dart:convert';
 
 import 'package:el_race/core/utils/shared_pref.dart';
@@ -362,15 +363,15 @@ class _InvoiceDetailsScreenState extends State<InvoiceDetailsScreen> {
 
   Widget _tagChip(String text, Color bg, Color fg) {
     return Container(
-      padding: EdgeInsets.symmetric(horizontal: 8.w, vertical: 3.w),
+      padding: EdgeInsets.symmetric(horizontal: 8.tw, vertical: 3.tw),
       decoration: BoxDecoration(
         color: bg,
-        borderRadius: BorderRadius.circular(8.r),
+        borderRadius: BorderRadius.circular(8.tr),
       ),
       child: Text(
         text,
         style: GoogleFonts.poppins(
-          fontSize: 9.sp,
+          fontSize: 9.tsp,
           fontWeight: FontWeight.w700,
           color: fg,
         ),
@@ -383,20 +384,20 @@ class _InvoiceDetailsScreenState extends State<InvoiceDetailsScreen> {
       fillAlpha: 0.9,
       blurSigma: 8,
       radius: 16,
-      padding: EdgeInsets.fromLTRB(12.w, 10.h, 12.w, 10.h),
+      padding: EdgeInsets.fromLTRB(12.tw, 10.th, 12.tw, 10.th),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
             title.toUpperCase(),
             style: GoogleFonts.poppins(
-              fontSize: 10.sp,
+              fontSize: 10.tsp,
               fontWeight: FontWeight.w700,
               letterSpacing: 0.7,
               color: ApprovalsOverviewTheme.screenDeep,
             ),
           ),
-          SizedBox(height: 6.h),
+          SizedBox(height: 6.th),
           child,
         ],
       ),
@@ -407,10 +408,10 @@ class _InvoiceDetailsScreenState extends State<InvoiceDetailsScreen> {
       {bool highlight = false}) {
     return Container(
       width: double.infinity,
-      padding: EdgeInsets.symmetric(horizontal: 8.w, vertical: 6.h),
+      padding: EdgeInsets.symmetric(horizontal: 8.tw, vertical: 6.th),
       decoration: BoxDecoration(
         color: ApprovalsOverviewTheme.screenTintLight.withValues(alpha: 0.65),
-        borderRadius: BorderRadius.circular(12.r),
+        borderRadius: BorderRadius.circular(12.tr),
         border: Border.all(color: Colors.white.withValues(alpha: 0.85)),
       ),
       child: Column(
@@ -421,18 +422,18 @@ class _InvoiceDetailsScreenState extends State<InvoiceDetailsScreen> {
             maxLines: 2,
             overflow: TextOverflow.ellipsis,
             style: GoogleFonts.poppins(
-              fontSize: 9.sp,
+              fontSize: 9.tsp,
               fontWeight: FontWeight.w500,
               color: ApprovalsOverviewTheme.textSoft,
             ),
           ),
-          SizedBox(height: 2.h),
+          SizedBox(height: 2.th),
           Text(
             _displayOrDash(value),
             maxLines: 3,
             overflow: TextOverflow.ellipsis,
             style: GoogleFonts.poppins(
-              fontSize: 11.sp,
+              fontSize: 11.tsp,
               fontWeight: FontWeight.w700,
               color: highlight
                   ? ApprovalsOverviewTheme.invoice
@@ -455,13 +456,13 @@ class _InvoiceDetailsScreenState extends State<InvoiceDetailsScreen> {
       fillAlpha: 0.88,
       blurSigma: 10,
       radius: 16,
-      padding: EdgeInsets.symmetric(horizontal: 10.w, vertical: 8.h),
+      padding: EdgeInsets.symmetric(horizontal: 10.tw, vertical: 8.th),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
           Container(
-            width: 62.w,
-            height: 62.w,
+            width: 62.tw,
+            height: 62.tw,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
               border: Border.all(
@@ -480,7 +481,7 @@ class _InvoiceDetailsScreenState extends State<InvoiceDetailsScreen> {
               child: _buildAvatar(imageUrl: imageUrl, name: projectName),
             ),
           ),
-          SizedBox(width: 10.w),
+          SizedBox(width: 10.tw),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -491,39 +492,39 @@ class _InvoiceDetailsScreenState extends State<InvoiceDetailsScreen> {
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                   style: GoogleFonts.poppins(
-                    fontSize: 14.sp,
+                    fontSize: 14.tsp,
                     fontWeight: FontWeight.w700,
                     color: ApprovalsOverviewTheme.textDark,
                     height: 1.2,
                   ),
                 ),
                 if (department.trim().isNotEmpty) ...[
-                  SizedBox(height: 2.h),
+                  SizedBox(height: 2.th),
                   Text(
                     department,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: GoogleFonts.poppins(
-                      fontSize: 11.sp,
+                      fontSize: 11.tsp,
                       fontWeight: FontWeight.w500,
                       color: ApprovalsOverviewTheme.textMuted,
                     ),
                   ),
                 ],
-                SizedBox(height: 6.h),
+                SizedBox(height: 6.th),
                 Container(
-                  padding: EdgeInsets.symmetric(horizontal: 8.w, vertical: 4.h),
+                  padding: EdgeInsets.symmetric(horizontal: 8.tw, vertical: 4.th),
                   decoration: BoxDecoration(
                     color: ApprovalsOverviewTheme.screenTintMid
                         .withValues(alpha: 0.75),
-                    borderRadius: BorderRadius.circular(16.r),
+                    borderRadius: BorderRadius.circular(16.tr),
                   ),
                   child: Text(
                     _displayOrDash(requestNo),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: GoogleFonts.poppins(
-                      fontSize: 10.sp,
+                      fontSize: 10.tsp,
                       fontWeight: FontWeight.w700,
                       color: ApprovalsOverviewTheme.textDark,
                     ),
@@ -532,7 +533,7 @@ class _InvoiceDetailsScreenState extends State<InvoiceDetailsScreen> {
               ],
             ),
           ),
-          SizedBox(width: 6.w),
+          SizedBox(width: 6.tw),
           _buildCompletionDonut(completionPercent, compact: true),
         ],
       ),
@@ -544,7 +545,7 @@ class _InvoiceDetailsScreenState extends State<InvoiceDetailsScreen> {
       fillAlpha: 0.9,
       blurSigma: 8,
       radius: 16,
-      padding: EdgeInsets.fromLTRB(10.w, 8.h, 10.w, 8.h),
+      padding: EdgeInsets.fromLTRB(10.tw, 8.th, 10.tw, 8.th),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -553,7 +554,7 @@ class _InvoiceDetailsScreenState extends State<InvoiceDetailsScreen> {
               Text(
                 'COMMENT',
                 style: GoogleFonts.poppins(
-                  fontSize: 10.sp,
+                  fontSize: 10.tsp,
                   fontWeight: FontWeight.w700,
                   letterSpacing: 0.8,
                   color: ApprovalsOverviewTheme.screenDeep,
@@ -563,28 +564,28 @@ class _InvoiceDetailsScreenState extends State<InvoiceDetailsScreen> {
               Text(
                 '${comment.characters.length}/50',
                 style: GoogleFonts.poppins(
-                  fontSize: 9.sp,
+                  fontSize: 9.tsp,
                   fontWeight: FontWeight.w500,
                   color: ApprovalsOverviewTheme.textSoft,
                 ),
               ),
             ],
           ),
-          SizedBox(height: 5.h),
+          SizedBox(height: 5.th),
           Container(
             width: double.infinity,
-            constraints: BoxConstraints(minHeight: 36.h),
-            padding: EdgeInsets.symmetric(horizontal: 10.w, vertical: 7.h),
+            constraints: BoxConstraints(minHeight: 36.th),
+            padding: EdgeInsets.symmetric(horizontal: 10.tw, vertical: 7.th),
             decoration: BoxDecoration(
               color:
                   ApprovalsOverviewTheme.screenTintLight.withValues(alpha: 0.7),
-              borderRadius: BorderRadius.circular(12.r),
+              borderRadius: BorderRadius.circular(12.tr),
               border: Border.all(color: Colors.white.withValues(alpha: 0.85)),
             ),
             child: Text(
               comment.trim().isEmpty ? 'No comment' : comment,
               style: GoogleFonts.poppins(
-                fontSize: 12.sp,
+                fontSize: 12.tsp,
                 fontWeight:
                     comment.trim().isEmpty ? FontWeight.w400 : FontWeight.w500,
                 color: comment.trim().isEmpty
@@ -604,7 +605,7 @@ class _InvoiceDetailsScreenState extends State<InvoiceDetailsScreen> {
   Widget _floatingApprovalBar(String userId) {
     return Container(
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(20.r),
+        borderRadius: BorderRadius.circular(20.tr),
         boxShadow: [
           BoxShadow(
             color: ApprovalsOverviewTheme.screenDeep.withValues(alpha: 0.12),
@@ -617,7 +618,7 @@ class _InvoiceDetailsScreenState extends State<InvoiceDetailsScreen> {
         fillAlpha: 0.78,
         blurSigma: 14,
         radius: 20,
-        padding: EdgeInsets.symmetric(horizontal: 8.w, vertical: 6.h),
+        padding: EdgeInsets.symmetric(horizontal: 8.tw, vertical: 6.th),
         child: ApprovalActionButtons(
           requestId: widget.requestId,
           type: widget.type,
@@ -633,7 +634,7 @@ class _InvoiceDetailsScreenState extends State<InvoiceDetailsScreen> {
   Widget _buildAvatar({required String imageUrl, required String name}) {
     return ApprovalDisplayHelpers.buildCircleAvatar(
       imageData: imageUrl,
-      size: 62.w,
+      size: 62.tw,
       initials: name,
     );
   }
@@ -647,7 +648,7 @@ class _InvoiceDetailsScreenState extends State<InvoiceDetailsScreen> {
     final badgeText = _safe(percentBadge, fallback: '');
 
     return Padding(
-      padding: EdgeInsets.only(bottom: 6.h),
+      padding: EdgeInsets.only(bottom: 6.th),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
@@ -661,7 +662,7 @@ class _InvoiceDetailsScreenState extends State<InvoiceDetailsScreen> {
             ),
           ),
           if (badgeText.isNotEmpty && badgeText != '-') ...[
-            SizedBox(width: 6.w),
+            SizedBox(width: 6.tw),
             _buildMiniPercentBadge(badgeText),
           ],
         ],
@@ -674,8 +675,8 @@ class _InvoiceDetailsScreenState extends State<InvoiceDetailsScreen> {
     final text = parsed > 0 ? '${parsed.round()}%' : _displayOrDash(badgeText);
 
     return Container(
-      width: 26.w,
-      height: 26.w,
+      width: 26.tw,
+      height: 26.tw,
       decoration: BoxDecoration(
         shape: BoxShape.circle,
         gradient: const LinearGradient(
@@ -696,7 +697,7 @@ class _InvoiceDetailsScreenState extends State<InvoiceDetailsScreen> {
       child: Text(
         text,
         style: GoogleFonts.poppins(
-          fontSize: 8.5.sp,
+          fontSize: 8.5.tsp,
           fontWeight: FontWeight.w700,
           color: const Color(0xFF151515),
           height: 1,
@@ -707,8 +708,8 @@ class _InvoiceDetailsScreenState extends State<InvoiceDetailsScreen> {
 
   Widget _buildCompletionDonut(double percent, {bool compact = false}) {
     final p = percent.clamp(0, 100).toDouble();
-    final outer = compact ? 54.w : 74.w;
-    final inner = compact ? 46.w : 64.w;
+    final outer = compact ? 54.tw : 74.tw;
+    final inner = compact ? 46.tw : 64.tw;
     return SizedBox(
       width: outer,
       height: outer,
@@ -739,7 +740,7 @@ class _InvoiceDetailsScreenState extends State<InvoiceDetailsScreen> {
           Text(
             '${p.round()}%',
             style: GoogleFonts.poppins(
-              fontSize: compact ? 11.sp : 15.sp,
+              fontSize: compact ? 11.tsp : 15.tsp,
               fontWeight: FontWeight.w800,
               color: ApprovalsOverviewTheme.textDark,
             ),
@@ -906,11 +907,11 @@ class _InvoiceDetailsScreenState extends State<InvoiceDetailsScreen> {
                       : _error.isNotEmpty
                           ? Center(
                               child: Padding(
-                                padding: EdgeInsets.all(16.w),
+                                padding: EdgeInsets.all(16.tw),
                                 child: Text(
                                   _error,
                                   style: GoogleFonts.poppins(
-                                    fontSize: 13.sp,
+                                    fontSize: 13.tsp,
                                     fontWeight: FontWeight.w600,
                                     color: Colors.red,
                                   ),
@@ -926,7 +927,7 @@ class _InvoiceDetailsScreenState extends State<InvoiceDetailsScreen> {
                                   children: [
                                     Padding(
                                       padding: EdgeInsets.fromLTRB(
-                                          16.w, 4.h, 16.w, 0),
+                                          16.tw, 4.th, 16.tw, 0),
                                       child: _invoiceRequestHeader(
                                         imageUrl: vendorPhotoUrl,
                                         projectName: projectName,
@@ -935,15 +936,15 @@ class _InvoiceDetailsScreenState extends State<InvoiceDetailsScreen> {
                                         completionPercent: completionPercent,
                                       ),
                                     ),
-                                    SizedBox(height: 6.h),
+                                    SizedBox(height: 6.th),
                                     Expanded(
                                       child: SingleChildScrollView(
                                         physics: const ClampingScrollPhysics(),
                                         padding: EdgeInsets.fromLTRB(
-                                          16.w,
+                                          16.tw,
                                           0,
-                                          16.w,
-                                          68.h + context.systemBottomInset,
+                                          16.tw,
+                                          68.th + context.systemBottomInset,
                                         ),
                                         child: Column(
                                           children: [
@@ -954,7 +955,7 @@ class _InvoiceDetailsScreenState extends State<InvoiceDetailsScreen> {
                                                     (context, constraints) {
                                                   final cellW =
                                                       (constraints.maxWidth -
-                                                              6.w) /
+                                                              6.tw) /
                                                           2;
                                                   return Column(
                                                     crossAxisAlignment:
@@ -962,8 +963,8 @@ class _InvoiceDetailsScreenState extends State<InvoiceDetailsScreen> {
                                                             .start,
                                                     children: [
                                                       Wrap(
-                                                        spacing: 6.w,
-                                                        runSpacing: 6.h,
+                                                        spacing: 6.tw,
+                                                        runSpacing: 6.th,
                                                         children: [
                                                           SizedBox(
                                                             width: cellW,
@@ -994,10 +995,10 @@ class _InvoiceDetailsScreenState extends State<InvoiceDetailsScreen> {
                                                         ],
                                                       ),
                                                       if (tags.isNotEmpty) ...[
-                                                        SizedBox(height: 6.h),
+                                                        SizedBox(height: 6.th),
                                                         Wrap(
-                                                          spacing: 6.w,
-                                                          runSpacing: 4.h,
+                                                          spacing: 6.tw,
+                                                          runSpacing: 4.th,
                                                           children: [
                                                             for (int i = 0;
                                                                 i < tags.length;
@@ -1033,7 +1034,7 @@ class _InvoiceDetailsScreenState extends State<InvoiceDetailsScreen> {
                                                 },
                                               ),
                                             ),
-                                            SizedBox(height: 6.h),
+                                            SizedBox(height: 6.th),
                                             _glassSectionCard(
                                               title: 'Financial Details',
                                               child: Column(
@@ -1077,25 +1078,25 @@ class _InvoiceDetailsScreenState extends State<InvoiceDetailsScreen> {
                                                 ],
                                               ),
                                             ),
-                                            SizedBox(height: 6.h),
+                                            SizedBox(height: 6.th),
                                             _buildSimCommentCard(comment),
                                             if (canViewReport) ...[
-                                              SizedBox(height: 8.h),
+                                              SizedBox(height: 8.th),
                                               Material(
                                                 color: Colors.transparent,
                                                 child: InkWell(
                                                   onTap: _viewAttachment,
                                                   borderRadius:
                                                       BorderRadius.circular(
-                                                          14.r),
+                                                          14.tr),
                                                   child: Ink(
                                                     padding:
                                                         EdgeInsets.symmetric(
-                                                            vertical: 11.h),
+                                                            vertical: 11.th),
                                                     decoration: BoxDecoration(
                                                       borderRadius:
                                                           BorderRadius.circular(
-                                                              14.r),
+                                                              14.tr),
                                                       gradient: LinearGradient(
                                                         colors: [
                                                           ApprovalsOverviewTheme
@@ -1114,14 +1115,14 @@ class _InvoiceDetailsScreenState extends State<InvoiceDetailsScreen> {
                                                           Icons
                                                               .attach_file_rounded,
                                                           color: Colors.white,
-                                                          size: 18.sp,
+                                                          size: 18.tsp,
                                                         ),
-                                                        SizedBox(width: 6.w),
+                                                        SizedBox(width: 6.tw),
                                                         Text(
                                                           'View Attachments',
                                                           style: GoogleFonts
                                                               .poppins(
-                                                            fontSize: 13.sp,
+                                                            fontSize: 13.tsp,
                                                             fontWeight:
                                                                 FontWeight.w700,
                                                             color: Colors.white,
@@ -1133,7 +1134,7 @@ class _InvoiceDetailsScreenState extends State<InvoiceDetailsScreen> {
                                                 ),
                                               ),
                                             ],
-                                            SizedBox(height: 8.h),
+                                            SizedBox(height: 8.th),
                                           ],
                                         ),
                                       ),
@@ -1141,9 +1142,9 @@ class _InvoiceDetailsScreenState extends State<InvoiceDetailsScreen> {
                                   ],
                                 ),
                                 Positioned(
-                                  left: 16.w,
-                                  right: 16.w,
-                                  bottom: context.systemBottomInset + 8.h,
+                                  left: 16.tw,
+                                  right: 16.tw,
+                                  bottom: context.systemBottomInset + 8.th,
                                   child: _floatingApprovalBar(userId),
                                 ),
                               ],

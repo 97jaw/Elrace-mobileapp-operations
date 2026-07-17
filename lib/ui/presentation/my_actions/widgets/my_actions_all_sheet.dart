@@ -1,3 +1,4 @@
+import 'package:el_race/core/utils/responsive_breakpoints.dart';
 import 'dart:async';
 
 import 'package:el_race/ui/presentation/my_actions/data/my_actions_models.dart';
@@ -174,7 +175,7 @@ class _MyActionsAllSheetState extends State<MyActionsAllSheet> {
     return Container(
       decoration: BoxDecoration(
         color: MyActionsModuleTheme.white,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(28.r)),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(28.tr)),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withValues(alpha: 0.12),
@@ -185,61 +186,61 @@ class _MyActionsAllSheetState extends State<MyActionsAllSheet> {
       ),
       child: Column(
         children: [
-          SizedBox(height: 10.h),
+          SizedBox(height: 10.th),
           Container(
-            width: 40.w,
-            height: 4.h,
+            width: 40.tw,
+            height: 4.th,
             decoration: BoxDecoration(
               color: MyActionsModuleTheme.textMuted.withValues(alpha: 0.35),
               borderRadius: BorderRadius.circular(999),
             ),
           ),
           Padding(
-            padding: EdgeInsets.fromLTRB(20.w, 16.h, 12.w, 8.h),
+            padding: EdgeInsets.fromLTRB(20.tw, 16.th, 12.tw, 8.th),
             child: Row(
               children: [
                 Text('All ${theme.title}', style: theme.sectionTitle),
                 const Spacer(),
                 IconButton(
                   onPressed: () => Navigator.pop(context),
-                  icon: Icon(Icons.close_rounded, size: 22.sp),
+                  icon: Icon(Icons.close_rounded, size: 22.tsp),
                   color: MyActionsModuleTheme.textMuted,
                 ),
               ],
             ),
           ),
           Padding(
-            padding: EdgeInsets.symmetric(horizontal: 20.w),
+            padding: EdgeInsets.symmetric(horizontal: 20.tw),
             child: TextField(
               controller: _searchController,
               decoration: InputDecoration(
                 hintText: 'Search by reference, name, project…',
                 hintStyle: GoogleFonts.poppins(
-                  fontSize: 13.sp,
+                  fontSize: 13.tsp,
                   color: MyActionsModuleTheme.textMuted,
                 ),
                 prefixIcon: Icon(
                   Icons.search_rounded,
                   color: MyActionsModuleTheme.textMuted,
-                  size: 22.sp,
+                  size: 22.tsp,
                 ),
                 filled: true,
                 fillColor: theme.wash,
-                contentPadding: EdgeInsets.symmetric(vertical: 12.h),
+                contentPadding: EdgeInsets.symmetric(vertical: 12.th),
                 border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(16.r),
+                  borderRadius: BorderRadius.circular(16.tr),
                   borderSide: BorderSide.none,
                 ),
               ),
             ),
           ),
-          SizedBox(height: 12.h),
+          SizedBox(height: 12.th),
           _FilterStrip(
             theme: theme,
             active: _filter,
             onChanged: (f) => setState(() => _filter = f),
           ),
-          SizedBox(height: 8.h),
+          SizedBox(height: 8.th),
           Expanded(
             child: _loading
                 ? Center(
@@ -257,18 +258,18 @@ class _MyActionsAllSheetState extends State<MyActionsAllSheet> {
                         : ListView.separated(
                             controller: _listController,
                             padding: EdgeInsets.fromLTRB(
-                              20.w,
-                              4.h,
-                              20.w,
-                              20.h + bottomInset,
+                              20.tw,
+                              4.th,
+                              20.tw,
+                              20.th + bottomInset,
                             ),
                             itemCount:
                                 filtered.length + (_loadingMore ? 1 : 0),
-                            separatorBuilder: (_, __) => SizedBox(height: 10.h),
+                            separatorBuilder: (_, __) => SizedBox(height: 10.th),
                             itemBuilder: (context, index) {
                               if (index >= filtered.length) {
                                 return Padding(
-                                  padding: EdgeInsets.symmetric(vertical: 12.h),
+                                  padding: EdgeInsets.symmetric(vertical: 12.th),
                                   child: Center(
                                     child: CircularProgressIndicator(
                                       strokeWidth: 2,
@@ -312,18 +313,18 @@ class _FilterStrip extends StatelessWidget {
   Widget build(BuildContext context) {
     return SingleChildScrollView(
       scrollDirection: Axis.horizontal,
-      padding: EdgeInsets.symmetric(horizontal: 20.w),
+      padding: EdgeInsets.symmetric(horizontal: 20.tw),
       child: Row(
         children: MyActionFilter.values.map((filter) {
           final selected = filter == active;
           return Padding(
-            padding: EdgeInsets.only(right: 8.w),
+            padding: EdgeInsets.only(right: 8.tw),
             child: ChoiceChip(
               label: Text(_label(filter)),
               selected: selected,
               onSelected: (_) => onChanged(filter),
               labelStyle: GoogleFonts.poppins(
-                fontSize: 12.sp,
+                fontSize: 12.tsp,
                 fontWeight: FontWeight.w600,
                 color: selected ? theme.primary : MyActionsModuleTheme.textMuted,
               ),
@@ -367,23 +368,23 @@ class _EmptyState extends StatelessWidget {
   Widget build(BuildContext context) {
     return Center(
       child: Padding(
-        padding: EdgeInsets.all(32.w),
+        padding: EdgeInsets.all(32.tw),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             Icon(
               Icons.inbox_outlined,
-              size: 48.sp,
+              size: 48.tsp,
               color: MyActionsModuleTheme.textMuted,
             ),
-            SizedBox(height: 12.h),
+            SizedBox(height: 12.th),
             Text(
               keyword.isEmpty
                   ? 'No requests found'
                   : 'No results for "$keyword"',
               textAlign: TextAlign.center,
               style: GoogleFonts.poppins(
-                fontSize: 13.sp,
+                fontSize: 13.tsp,
                 color: MyActionsModuleTheme.textMuted,
               ),
             ),

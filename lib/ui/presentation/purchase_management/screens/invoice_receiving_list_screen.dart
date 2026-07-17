@@ -1,3 +1,4 @@
+import 'package:el_race/core/utils/responsive_breakpoints.dart';
 import 'package:el_race/core/purchase/purchase_dev_role_provider.dart';
 import 'package:el_race/ui/presentation/purchase_management/data/purchase_models.dart';
 import 'package:el_race/ui/presentation/purchase_management/data/purchase_repository.dart';
@@ -189,8 +190,8 @@ class _InvoiceReceivingListScreenState
                 ),
                 if (access.canCreateInvoice)
                   Positioned(
-                    right: 16.w,
-                    bottom: 16.h,
+                    right: 16.tw,
+                    bottom: 16.th,
                     child: FloatingActionButton.extended(
                       onPressed: _openCreate,
                       backgroundColor: PurchaseTheme.accentBlue,
@@ -221,21 +222,21 @@ class _InvoiceReceivingListScreenState
     if (_error != null) {
       return Center(
         child: Text(_error!,
-            style: GoogleFonts.poppins(color: Colors.red, fontSize: 13.sp)),
+            style: GoogleFonts.poppins(color: Colors.red, fontSize: 13.tsp)),
       );
     }
     if (_items.isEmpty) {
       return Center(
         child: Text(
           translate('home.purchase.no_records'),
-          style: GoogleFonts.poppins(color: Colors.white54, fontSize: 14.sp),
+          style: GoogleFonts.poppins(color: Colors.white54, fontSize: 14.tsp),
         ),
       );
     }
     return ListView.builder(
       controller: _scrollController,
       physics: const BouncingScrollPhysics(),
-      padding: EdgeInsets.only(bottom: 72.h),
+      padding: EdgeInsets.only(bottom: 72.th),
       itemCount: _items.length + (_isLoadingMore ? 1 : 0),
       itemBuilder: (context, index) {
         if (index == _items.length) {
@@ -281,11 +282,11 @@ class _InvoiceReceivingRow extends StatelessWidget {
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        margin: EdgeInsets.symmetric(horizontal: 14.w, vertical: 6.h),
-        padding: EdgeInsets.fromLTRB(14.w, 12.h, 14.w, 12.h),
+        margin: EdgeInsets.symmetric(horizontal: 14.tw, vertical: 6.th),
+        padding: EdgeInsets.fromLTRB(14.tw, 12.th, 14.tw, 12.th),
         decoration: BoxDecoration(
           color: Colors.white.withValues(alpha: 0.07),
-          borderRadius: BorderRadius.circular(14.r),
+          borderRadius: BorderRadius.circular(14.tr),
           border: Border.all(
               color: Colors.white.withValues(alpha: 0.12), width: 0.8),
         ),
@@ -303,7 +304,7 @@ class _InvoiceReceivingRow extends StatelessWidget {
                       Text(
                         displayName,
                         style: GoogleFonts.poppins(
-                          fontSize: 14.sp,
+                          fontSize: 14.tsp,
                           fontWeight: FontWeight.w800,
                           color: Colors.white,
                         ),
@@ -312,7 +313,7 @@ class _InvoiceReceivingRow extends StatelessWidget {
                         Text(
                           '- ${item.invoiceNo}',
                           style: GoogleFonts.poppins(
-                            fontSize: 10.sp,
+                            fontSize: 10.tsp,
                             color: Colors.white54,
                             fontWeight: FontWeight.w400,
                           ),
@@ -320,17 +321,17 @@ class _InvoiceReceivingRow extends StatelessWidget {
                     ],
                   ),
                 ),
-                SizedBox(width: 8.w),
+                SizedBox(width: 8.tw),
                 PurchaseStatusChip(label: status.label, color: status.color),
               ],
             ),
             // Row 2: partner name
             if (item.partner.isNotEmpty) ...[
-              SizedBox(height: 6.h),
+              SizedBox(height: 6.th),
               Text(
                 'For ${item.partner}',
                 style: GoogleFonts.poppins(
-                  fontSize: 11.sp,
+                  fontSize: 11.tsp,
                   color: Colors.white70,
                   fontWeight: FontWeight.w500,
                 ),
@@ -339,7 +340,7 @@ class _InvoiceReceivingRow extends StatelessWidget {
               ),
             ],
             // Row 3: invoice date (left) + amount (right)
-            SizedBox(height: 8.h),
+            SizedBox(height: 8.th),
             Row(
               crossAxisAlignment: CrossAxisAlignment.end,
               children: [
@@ -347,7 +348,7 @@ class _InvoiceReceivingRow extends StatelessWidget {
                   Text(
                     item.invoiceDate,
                     style: GoogleFonts.poppins(
-                      fontSize: 11.sp,
+                      fontSize: 11.tsp,
                       color: Colors.white54,
                       fontWeight: FontWeight.w400,
                     ),
@@ -357,7 +358,7 @@ class _InvoiceReceivingRow extends StatelessWidget {
                   Text(
                     amountText,
                     style: GoogleFonts.poppins(
-                      fontSize: 16.sp,
+                      fontSize: 16.tsp,
                       fontWeight: FontWeight.w800,
                       color: const Color(0xFFE8694D),
                     ),

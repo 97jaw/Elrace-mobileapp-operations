@@ -1,3 +1,4 @@
+import 'package:el_race/core/utils/responsive_breakpoints.dart';
 import 'package:el_race/core/theme/hr_module_colors.dart';
 import 'package:el_race/core/theme/hr_module_typography.dart';
 import 'package:flutter/material.dart';
@@ -58,14 +59,14 @@ class AttendanceWeekStripCard extends StatelessWidget {
 
     return Container(
       padding: EdgeInsets.fromLTRB(
-        12.w,
-        showWeekStrip ? 12.h : 8.h,
-        12.w,
-        showWeekStrip ? 14.h : 10.h,
+        12.tw,
+        showWeekStrip ? 12.th : 8.th,
+        12.tw,
+        showWeekStrip ? 14.th : 10.th,
       ),
       decoration: BoxDecoration(
         color: surfaceColor,
-        borderRadius: BorderRadius.circular(18.r),
+        borderRadius: BorderRadius.circular(18.tr),
         border: useAttendanceTheme
             ? Border.all(color: attendancePrimary.withValues(alpha: 0.12))
             : inPrimaryHeader
@@ -88,14 +89,14 @@ class AttendanceWeekStripCard extends StatelessWidget {
                 visualDensity: VisualDensity.compact,
                 onPressed: onPreviousMonth,
                 icon: Icon(Icons.chevron_left,
-                    size: 26.sp, color: titleColor),
+                    size: 26.tsp, color: titleColor),
               ),
               Expanded(
                 child: Text(
                   monthTitle,
                   textAlign: TextAlign.center,
                   style: HrModuleTypography.sectionHeading().copyWith(
-                        fontSize: 16.sp,
+                        fontSize: 16.tsp,
                         fontWeight: FontWeight.w800,
                         color: titleColor,
                       ),
@@ -105,12 +106,12 @@ class AttendanceWeekStripCard extends StatelessWidget {
                 visualDensity: VisualDensity.compact,
                 onPressed: onNextMonth,
                 icon: Icon(Icons.chevron_right,
-                    size: 26.sp, color: titleColor),
+                    size: 26.tsp, color: titleColor),
               ),
             ],
           ),
           if (showWeekStrip) ...[
-            SizedBox(height: 10.h),
+            SizedBox(height: 10.th),
             Row(
               children: [
                 for (var i = 0; i < 7; i++)
@@ -119,7 +120,7 @@ class AttendanceWeekStripCard extends StatelessWidget {
                       child: Text(
                         labels[i],
                         style: HrModuleTypography.caption().copyWith(
-                              fontSize: 11.sp,
+                              fontSize: 11.tsp,
                               fontWeight: FontWeight.w600,
                               color: useAttendanceTheme
                                   ? attendancePrimary.withValues(alpha: 0.55)
@@ -130,7 +131,7 @@ class AttendanceWeekStripCard extends StatelessWidget {
                   ),
               ],
             ),
-            SizedBox(height: 8.h),
+            SizedBox(height: 8.th),
             Row(
               children: [
                 for (final day in week)
@@ -188,7 +189,7 @@ class _DayOrb extends StatelessWidget {
         day.day == selectedDay.day;
 
     final numStyle = HrModuleTypography.body().copyWith(
-      fontSize: 13.sp,
+      fontSize: 13.tsp,
       fontWeight: FontWeight.w700,
     );
 
@@ -200,8 +201,8 @@ class _DayOrb extends StatelessWidget {
               ? HrModuleColors.primary
               : accentGold;
       child = Container(
-        width: 36.w,
-        height: 36.w,
+        width: 36.tw,
+        height: 36.tw,
         alignment: Alignment.center,
         decoration: BoxDecoration(
           color: selectedFill,
@@ -214,8 +215,8 @@ class _DayOrb extends StatelessWidget {
       );
     } else if (weekendStriped && inMonth) {
       child = Container(
-        width: 36.w,
-        height: 36.w,
+        width: 36.tw,
+        height: 36.tw,
         alignment: Alignment.center,
         decoration: const BoxDecoration(
           color: Color(0xFFD8DADE),
@@ -237,8 +238,8 @@ class _DayOrb extends StatelessWidget {
       );
     } else {
       child = Container(
-        width: 36.w,
-        height: 36.w,
+        width: 36.tw,
+        height: 36.tw,
         alignment: Alignment.center,
         decoration: BoxDecoration(
           color: inMonth

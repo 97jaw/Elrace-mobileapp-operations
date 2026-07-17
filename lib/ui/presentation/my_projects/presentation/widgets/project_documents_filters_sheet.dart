@@ -1,7 +1,7 @@
+import 'package:el_race/core/utils/responsive_breakpoints.dart';
 import 'package:el_race/ui/presentation/my_projects/presentation/models/projects_group_hub_filters.dart';
 import 'package:el_race/ui/presentation/my_projects/presentation/theme/projects_dashboard_theme.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter_translate/flutter_translate.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
@@ -22,7 +22,7 @@ class ProjectDocumentsFiltersSheet extends StatefulWidget {
       barrierColor: Colors.black.withValues(alpha: 0.52),
       builder: (ctx) => Dialog(
         backgroundColor: Colors.transparent,
-        insetPadding: EdgeInsets.symmetric(horizontal: 22.w),
+        insetPadding: EdgeInsets.symmetric(horizontal: 22.tw),
         child: ProjectDocumentsFiltersSheet(initial: initial),
       ),
     );
@@ -91,7 +91,7 @@ class _ProjectDocumentsFiltersSheetState extends State<ProjectDocumentsFiltersSh
         constraints:
             BoxConstraints(maxHeight: MediaQuery.sizeOf(context).height * 0.72),
         decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(22.r),
+          borderRadius: BorderRadius.circular(22.tr),
           gradient: LinearGradient(
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
@@ -105,9 +105,9 @@ class _ProjectDocumentsFiltersSheetState extends State<ProjectDocumentsFiltersSh
           ),
         ),
         child: ClipRRect(
-          borderRadius: BorderRadius.circular(22.r),
+          borderRadius: BorderRadius.circular(22.tr),
           child: SingleChildScrollView(
-            padding: EdgeInsets.fromLTRB(20.w, 18.h, 20.w, 16.h),
+            padding: EdgeInsets.fromLTRB(20.tw, 18.th, 20.tw, 16.th),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
@@ -117,7 +117,7 @@ class _ProjectDocumentsFiltersSheetState extends State<ProjectDocumentsFiltersSh
                       child: Text(
                         'Document scope',
                         style: GoogleFonts.poppins(
-                          fontSize: 17.sp,
+                          fontSize: 17.tsp,
                           fontWeight: FontWeight.w700,
                           color: ProjectsDashboardTheme.white,
                         ),
@@ -128,7 +128,7 @@ class _ProjectDocumentsFiltersSheetState extends State<ProjectDocumentsFiltersSh
                       icon: Icon(
                         Icons.close_rounded,
                         color: ProjectsDashboardTheme.white.withValues(alpha: 0.85),
-                        size: 22.sp,
+                        size: 22.tsp,
                       ),
                     ),
                   ],
@@ -136,21 +136,21 @@ class _ProjectDocumentsFiltersSheetState extends State<ProjectDocumentsFiltersSh
                 Text(
                   'Limit which project documents appear (folders, files, uploaders). Use the search bar to find by name.',
                   style: GoogleFonts.poppins(
-                    fontSize: 11.sp,
+                    fontSize: 11.tsp,
                     color: ProjectsDashboardTheme.white.withValues(alpha: 0.88),
                     height: 1.35,
                   ),
                 ),
-                SizedBox(height: 16.h),
+                SizedBox(height: 16.th),
                 Text(
                   translate('projects_dashboard.filter_year_month'),
                   style: GoogleFonts.poppins(
-                    fontSize: 12.sp,
+                    fontSize: 12.tsp,
                     fontWeight: FontWeight.w600,
                     color: ProjectsDashboardTheme.white,
                   ),
                 ),
-                SizedBox(height: 8.h),
+                SizedBox(height: 8.th),
                 Row(
                   children: [
                     Expanded(
@@ -164,7 +164,7 @@ class _ProjectDocumentsFiltersSheetState extends State<ProjectDocumentsFiltersSh
                               translate('projects_dashboard.filter_all'),
                               style: GoogleFonts.poppins(
                                 color: ProjectsDashboardTheme.white,
-                                fontSize: 13.sp,
+                                fontSize: 13.tsp,
                               ),
                             ),
                           ),
@@ -175,7 +175,7 @@ class _ProjectDocumentsFiltersSheetState extends State<ProjectDocumentsFiltersSh
                                 '$y',
                                 style: GoogleFonts.poppins(
                                   color: ProjectsDashboardTheme.white,
-                                  fontSize: 13.sp,
+                                  fontSize: 13.tsp,
                                 ),
                               ),
                             ),
@@ -184,7 +184,7 @@ class _ProjectDocumentsFiltersSheetState extends State<ProjectDocumentsFiltersSh
                         onChanged: (v) => setState(() => _year = v),
                       ),
                     ),
-                    SizedBox(width: 10.w),
+                    SizedBox(width: 10.tw),
                     Expanded(
                       child: _DropdownField<int?>(
                         label: translate('projects_dashboard.filter_month'),
@@ -196,7 +196,7 @@ class _ProjectDocumentsFiltersSheetState extends State<ProjectDocumentsFiltersSh
                               translate('projects_dashboard.filter_all'),
                               style: GoogleFonts.poppins(
                                 color: ProjectsDashboardTheme.white,
-                                fontSize: 13.sp,
+                                fontSize: 13.tsp,
                               ),
                             ),
                           ),
@@ -207,7 +207,7 @@ class _ProjectDocumentsFiltersSheetState extends State<ProjectDocumentsFiltersSh
                                 DateFormat.MMMM().format(DateTime(2000, m)),
                                 style: GoogleFonts.poppins(
                                   color: ProjectsDashboardTheme.white,
-                                  fontSize: 13.sp,
+                                  fontSize: 13.tsp,
                                 ),
                               ),
                             ),
@@ -218,150 +218,109 @@ class _ProjectDocumentsFiltersSheetState extends State<ProjectDocumentsFiltersSh
                     ),
                   ],
                 ),
-                SizedBox(height: 14.h),
+                SizedBox(height: 14.th),
                 Text(
                   translate('projects_dashboard.filter_status_compute'),
                   style: GoogleFonts.poppins(
-                    fontSize: 12.sp,
+                    fontSize: 12.tsp,
                     fontWeight: FontWeight.w600,
                     color: ProjectsDashboardTheme.white,
                   ),
                 ),
-                SizedBox(height: 8.h),
+                SizedBox(height: 8.th),
                 Wrap(
-                  spacing: 8.w,
-                  runSpacing: 8.h,
+                  spacing: 8.tw,
+                  runSpacing: 8.th,
                   children: _statusOptions.map((opt) {
                     final selected = (_statusCompute ?? '') == opt.$1;
-                    return FilterChip(
-                      label: Text(translate(opt.$2)),
+                    return _ScopeFilterChip(
+                      label: translate(opt.$2),
                       selected: selected,
-                      onSelected: (_) => setState(() {
+                      onTap: () => setState(() {
                         _statusCompute = opt.$1.isEmpty ? null : opt.$1;
                       }),
-                      backgroundColor:
-                          ProjectsDashboardTheme.white.withValues(alpha: 0.12),
-                      selectedColor: ProjectsDashboardTheme.maroon,
-                      checkmarkColor: ProjectsDashboardTheme.white,
-                      labelStyle: GoogleFonts.poppins(
-                        fontSize: 11.sp,
-                        fontWeight: FontWeight.w500,
-                        color: selected
-                            ? ProjectsDashboardTheme.white
-                            : ProjectsDashboardTheme.white,
-                      ),
-                      side: BorderSide(
-                        color: selected
-                            ? ProjectsDashboardTheme.maroon
-                            : ProjectsDashboardTheme.white
-                                .withValues(alpha: 0.22),
-                      ),
                     );
                   }).toList(),
                 ),
-                SizedBox(height: 14.h),
+                SizedBox(height: 14.th),
                 TextField(
                   controller: _woRefController,
                   style: GoogleFonts.poppins(
                     color: ProjectsDashboardTheme.white,
-                    fontSize: 13.sp,
+                    fontSize: 13.tsp,
                   ),
                   decoration: InputDecoration(
                     labelText: translate('projects_dashboard.filter_wo_ref'),
                     labelStyle: GoogleFonts.poppins(
                       color: ProjectsDashboardTheme.white.withValues(alpha: 0.85),
-                      fontSize: 12.sp,
+                      fontSize: 12.tsp,
                     ),
                     hintStyle: GoogleFonts.poppins(
                       color: ProjectsDashboardTheme.white.withValues(alpha: 0.45),
-                      fontSize: 13.sp,
+                      fontSize: 13.tsp,
                     ),
                     filled: true,
                     fillColor: ProjectsDashboardTheme.white.withValues(alpha: 0.16),
                     border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(14.r),
+                      borderRadius: BorderRadius.circular(14.tr),
                       borderSide: BorderSide(
                         color: ProjectsDashboardTheme.white.withValues(alpha: 0.22),
                       ),
                     ),
                     enabledBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(14.r),
+                      borderRadius: BorderRadius.circular(14.tr),
                       borderSide: BorderSide(
                         color: ProjectsDashboardTheme.white.withValues(alpha: 0.22),
                       ),
                     ),
                     focusedBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(14.r),
+                      borderRadius: BorderRadius.circular(14.tr),
                       borderSide: BorderSide(
                         color: ProjectsDashboardTheme.maroon.withValues(alpha: 0.85),
                       ),
                     ),
                   ),
                 ),
-                SizedBox(height: 14.h),
+                SizedBox(height: 14.th),
                 Text(
                   translate('projects_dashboard.filter_wo_type'),
                   style: GoogleFonts.poppins(
-                    fontSize: 12.sp,
+                    fontSize: 12.tsp,
                     fontWeight: FontWeight.w600,
                     color: ProjectsDashboardTheme.white,
                   ),
                 ),
-                SizedBox(height: 8.h),
+                SizedBox(height: 8.th),
                 Row(
                   children: [
                     Expanded(
-                      child: FilterChip(
-                        label: Text(translate('projects_dashboard.wo_type_active')),
+                      child: _ScopeFilterChip(
+                        label: translate('projects_dashboard.wo_type_active'),
                         selected: _woType == ProjectsWoTypeFilter.active,
-                        onSelected: (_) => setState(() {
+                        expand: true,
+                        onTap: () => setState(() {
                           _woType = _woType == ProjectsWoTypeFilter.active
                               ? null
                               : ProjectsWoTypeFilter.active;
                         }),
-                        selectedColor: ProjectsDashboardTheme.maroon,
-                        backgroundColor:
-                            ProjectsDashboardTheme.white.withValues(alpha: 0.12),
-                        labelStyle: GoogleFonts.poppins(
-                          fontSize: 11.sp,
-                          fontWeight: FontWeight.w500,
-                          color: _woType == ProjectsWoTypeFilter.active
-                              ? ProjectsDashboardTheme.white
-                              : ProjectsDashboardTheme.white,
-                        ),
-                        side: BorderSide(
-                          color: ProjectsDashboardTheme.white.withValues(alpha: 0.22),
-                        ),
                       ),
                     ),
-                    SizedBox(width: 8.w),
+                    SizedBox(width: 8.tw),
                     Expanded(
-                      child: FilterChip(
-                        label: Text(translate('projects_dashboard.wo_type_pending')),
+                      child: _ScopeFilterChip(
+                        label: translate('projects_dashboard.wo_type_pending'),
                         selected: _woType == ProjectsWoTypeFilter.pending,
-                        onSelected: (_) => setState(() {
+                        expand: true,
+                        onTap: () => setState(() {
                           _woType = _woType == ProjectsWoTypeFilter.pending
                               ? null
                               : ProjectsWoTypeFilter.pending;
                         }),
-                        selectedColor: ProjectsDashboardTheme.maroon,
-                        backgroundColor:
-                            ProjectsDashboardTheme.white.withValues(alpha: 0.12),
-                        labelStyle: GoogleFonts.poppins(
-                          fontSize: 11.sp,
-                          fontWeight: FontWeight.w500,
-                          color: _woType == ProjectsWoTypeFilter.pending
-                              ? ProjectsDashboardTheme.white
-                              : ProjectsDashboardTheme.white,
-                        ),
-                        side: BorderSide(
-                          color: ProjectsDashboardTheme.white.withValues(alpha: 0.22),
-                        ),
                       ),
                     ),
                   ],
                 ),
-                SizedBox(height: 20.h),
+                SizedBox(height: 20.th),
                 Row(
                   children: [
                     TextButton.icon(
@@ -369,7 +328,7 @@ class _ProjectDocumentsFiltersSheetState extends State<ProjectDocumentsFiltersSh
                           Navigator.pop(context, const ProjectsGroupHubFilters()),
                       icon: Icon(
                         Icons.clear_all_rounded,
-                        size: 18.sp,
+                        size: 18.tsp,
                         color: ProjectsDashboardTheme.maroonSoft,
                       ),
                       label: Text(
@@ -387,11 +346,11 @@ class _ProjectDocumentsFiltersSheetState extends State<ProjectDocumentsFiltersSh
                         backgroundColor: ProjectsDashboardTheme.maroon,
                         foregroundColor: ProjectsDashboardTheme.white,
                         padding: EdgeInsets.symmetric(
-                          horizontal: 22.w,
-                          vertical: 12.h,
+                          horizontal: 22.tw,
+                          vertical: 12.th,
                         ),
                         shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(14.r),
+                          borderRadius: BorderRadius.circular(14.tr),
                         ),
                       ),
                       child: Text(
@@ -407,6 +366,59 @@ class _ProjectDocumentsFiltersSheetState extends State<ProjectDocumentsFiltersSh
         ),
       ),
     );
+  }
+}
+
+class _ScopeFilterChip extends StatelessWidget {
+  const _ScopeFilterChip({
+    required this.label,
+    required this.selected,
+    required this.onTap,
+    this.expand = false,
+  });
+
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+  final bool expand;
+
+  @override
+  Widget build(BuildContext context) {
+    final child = Material(
+      color: selected
+          ? ProjectsDashboardTheme.maroon
+          : ProjectsDashboardTheme.white.withValues(alpha: 0.18),
+      borderRadius: BorderRadius.circular(999),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(999),
+        child: Container(
+          width: expand ? double.infinity : null,
+          alignment: expand ? Alignment.center : null,
+          padding: EdgeInsets.symmetric(horizontal: 14.tw, vertical: 10.th),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(999),
+            border: Border.all(
+              color: selected
+                  ? ProjectsDashboardTheme.maroon
+                  : ProjectsDashboardTheme.white.withValues(alpha: 0.35),
+            ),
+          ),
+          child: Text(
+            label,
+            textAlign: TextAlign.center,
+            style: GoogleFonts.poppins(
+              fontSize: 11.tsp,
+              fontWeight: FontWeight.w600,
+              // Explicit white — Material FilterChip was painting light fill
+              // and swallowing labelStyle, making labels invisible.
+              color: ProjectsDashboardTheme.white,
+            ),
+          ),
+        ),
+      ),
+    );
+    return expand ? child : child;
   }
 }
 
@@ -430,33 +442,33 @@ class _DropdownField<T> extends StatelessWidget {
         labelText: label,
         floatingLabelStyle: GoogleFonts.poppins(
           color: ProjectsDashboardTheme.white.withValues(alpha: 0.9),
-          fontSize: 11.sp,
+          fontSize: 11.tsp,
         ),
         labelStyle: GoogleFonts.poppins(
           color: ProjectsDashboardTheme.white.withValues(alpha: 0.85),
-          fontSize: 11.sp,
+          fontSize: 11.tsp,
         ),
         filled: true,
         fillColor: ProjectsDashboardTheme.white.withValues(alpha: 0.16),
         border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(14.r),
+          borderRadius: BorderRadius.circular(14.tr),
           borderSide: BorderSide(
             color: ProjectsDashboardTheme.white.withValues(alpha: 0.32),
           ),
         ),
         enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(14.r),
+          borderRadius: BorderRadius.circular(14.tr),
           borderSide: BorderSide(
             color: ProjectsDashboardTheme.white.withValues(alpha: 0.32),
           ),
         ),
         focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(14.r),
+          borderRadius: BorderRadius.circular(14.tr),
           borderSide: BorderSide(
             color: ProjectsDashboardTheme.maroon.withValues(alpha: 0.9),
           ),
         ),
-        contentPadding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 4.h),
+        contentPadding: EdgeInsets.symmetric(horizontal: 12.tw, vertical: 4.th),
       ),
       child: DropdownButtonHideUnderline(
         child: DropdownButton<T>(
@@ -466,7 +478,7 @@ class _DropdownField<T> extends StatelessWidget {
           iconEnabledColor: ProjectsDashboardTheme.white.withValues(alpha: 0.9),
           style: GoogleFonts.poppins(
             color: ProjectsDashboardTheme.white,
-            fontSize: 13.sp,
+            fontSize: 13.tsp,
             fontWeight: FontWeight.w500,
           ),
           items: items,

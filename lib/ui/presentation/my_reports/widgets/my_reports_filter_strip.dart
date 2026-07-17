@@ -1,3 +1,4 @@
+import 'package:el_race/core/utils/responsive_breakpoints.dart';
 import 'package:el_race/ui/presentation/my_reports/theme/my_reports_theme.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
@@ -22,12 +23,12 @@ class MyReportsFilterStrip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: EdgeInsets.symmetric(horizontal: 16.w),
+      padding: EdgeInsets.symmetric(horizontal: 16.tw),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           SizedBox(
-            height: 34.h,
+            height: 34.th,
             child: ListView.separated(
               scrollDirection: Axis.horizontal,
               itemBuilder: (_, i) {
@@ -37,12 +38,12 @@ class MyReportsFilterStrip extends StatelessWidget {
                   onTap: () => onPeriodChanged(label),
                   child: AnimatedContainer(
                     duration: const Duration(milliseconds: 180),
-                    padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 7.h),
+                    padding: EdgeInsets.symmetric(horizontal: 12.tw, vertical: 7.th),
                     decoration: BoxDecoration(
                       color: active
                           ? MyReportsTheme.accent.withValues(alpha: 0.18)
                           : Colors.white.withValues(alpha: 0.42),
-                      borderRadius: BorderRadius.circular(14.r),
+                      borderRadius: BorderRadius.circular(14.tr),
                       border: Border.all(
                         color: active
                             ? MyReportsTheme.accent.withValues(alpha: 0.65)
@@ -52,7 +53,7 @@ class MyReportsFilterStrip extends StatelessWidget {
                     child: Text(
                       label,
                       style: TextStyle(
-                        fontSize: 11.sp,
+                        fontSize: 11.tsp,
                         fontWeight: FontWeight.w600,
                         color: MyReportsTheme.textPrimary,
                       ),
@@ -60,30 +61,30 @@ class MyReportsFilterStrip extends StatelessWidget {
                   ),
                 );
               },
-              separatorBuilder: (_, __) => SizedBox(width: 8.w),
+              separatorBuilder: (_, __) => SizedBox(width: 8.tw),
               itemCount: periods.length,
             ),
           ),
-          SizedBox(height: 8.h),
+          SizedBox(height: 8.th),
           Row(
             children: [
-              Icon(Icons.filter_alt_outlined, size: 16.sp, color: MyReportsTheme.textPrimary),
-              SizedBox(width: 6.w),
+              Icon(Icons.filter_alt_outlined, size: 16.tsp, color: MyReportsTheme.textPrimary),
+              SizedBox(width: 6.tw),
               Text(
                 'Filter',
                 style: TextStyle(
                   fontWeight: FontWeight.w700,
-                  fontSize: 12.sp,
+                  fontSize: 12.tsp,
                   color: MyReportsTheme.textPrimary,
                 ),
               ),
-              SizedBox(width: 8.w),
+              SizedBox(width: 8.tw),
               Expanded(
                 child: Container(
-                  padding: EdgeInsets.symmetric(horizontal: 10.w),
+                  padding: EdgeInsets.symmetric(horizontal: 10.tw),
                   decoration: BoxDecoration(
                     color: Colors.white.withValues(alpha: 0.55),
-                    borderRadius: BorderRadius.circular(12.r),
+                    borderRadius: BorderRadius.circular(12.tr),
                     border: Border.all(color: Colors.white.withValues(alpha: 0.8)),
                   ),
                   child: DropdownButtonHideUnderline(

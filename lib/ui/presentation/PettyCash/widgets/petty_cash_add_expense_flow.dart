@@ -1,3 +1,4 @@
+import 'package:el_race/core/utils/responsive_breakpoints.dart';
 import 'package:el_race/ui/presentation/PettyCash/petty_cash_draft_summary_screen.dart';
 import 'package:el_race/ui/presentation/PettyCash/theme/petty_cash_theme.dart';
 import 'package:flutter/material.dart';
@@ -83,8 +84,8 @@ class _AddExpenseTypeSheet extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      margin: EdgeInsets.fromLTRB(16.w, 0, 16.w, 24.h),
-      padding: EdgeInsets.fromLTRB(20.w, 20.h, 20.w, 16.h),
+      margin: EdgeInsets.fromLTRB(16.tw, 0, 16.tw, 24.th),
+      padding: EdgeInsets.fromLTRB(20.tw, 20.th, 20.tw, 16.th),
       decoration: PettyCashTheme.glassPanel(radius: 28),
       child: Column(
         mainAxisSize: MainAxisSize.min,
@@ -93,27 +94,27 @@ class _AddExpenseTypeSheet extends StatelessWidget {
           Text(
             'Add expense',
             style: GoogleFonts.poppins(
-              fontSize: 18.sp,
+              fontSize: 18.tsp,
               fontWeight: FontWeight.w700,
               color: PettyCashTheme.textPrimary,
             ),
           ),
-          SizedBox(height: 6.h),
+          SizedBox(height: 6.th),
           Text(
             'Choose the expense category',
             style: GoogleFonts.poppins(
-              fontSize: 13.sp,
+              fontSize: 13.tsp,
               color: PettyCashTheme.textSecondary,
             ),
           ),
-          SizedBox(height: 20.h),
+          SizedBox(height: 20.th),
           _TypeTile(
             icon: Icons.local_gas_station_outlined,
             label: 'Transportation',
             subtitle: 'Fuel, fleet & travel',
             onTap: () => Navigator.pop(context, 'fleet'),
           ),
-          SizedBox(height: 10.h),
+          SizedBox(height: 10.th),
           _TypeTile(
             icon: Icons.receipt_long_rounded,
             label: 'Miscellaneous',
@@ -143,17 +144,17 @@ class _TypeTile extends StatelessWidget {
   Widget build(BuildContext context) {
     return Material(
       color: PettyCashTheme.glassFill,
-      borderRadius: BorderRadius.circular(16.r),
+      borderRadius: BorderRadius.circular(16.tr),
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(16.r),
+        borderRadius: BorderRadius.circular(16.tr),
         child: Padding(
-          padding: EdgeInsets.symmetric(horizontal: 14.w, vertical: 14.h),
+          padding: EdgeInsets.symmetric(horizontal: 14.tw, vertical: 14.th),
           child: Row(
             children: [
               Container(
-                width: 44.w,
-                height: 44.w,
+                width: 44.tw,
+                height: 44.tw,
                 decoration: BoxDecoration(
                   color: PettyCashTheme.iconCircleBg,
                   shape: BoxShape.circle,
@@ -161,7 +162,7 @@ class _TypeTile extends StatelessWidget {
                 ),
                 child: Icon(icon, color: PettyCashTheme.mint),
               ),
-              SizedBox(width: 12.w),
+              SizedBox(width: 12.tw),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -169,7 +170,7 @@ class _TypeTile extends StatelessWidget {
                     Text(
                       label,
                       style: GoogleFonts.poppins(
-                        fontSize: 15.sp,
+                        fontSize: 15.tsp,
                         fontWeight: FontWeight.w700,
                         color: PettyCashTheme.textPrimary,
                       ),
@@ -177,7 +178,7 @@ class _TypeTile extends StatelessWidget {
                     Text(
                       subtitle,
                       style: GoogleFonts.poppins(
-                        fontSize: 12.sp,
+                        fontSize: 12.tsp,
                         color: PettyCashTheme.textMuted,
                       ),
                     ),

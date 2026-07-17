@@ -5,8 +5,6 @@ import 'package:el_race/core/hr_management/providers/hr_management_providers.dar
 import 'package:el_race/core/timesheet/providers/timesheet_session_reset.dart';
 import 'package:el_race/ui/presentation/attendance_reports/attendance_reports_session.dart';
 import 'package:el_race/core/utils/shared_pref.dart';
-import 'package:el_race/auth/uaepass_auth_cubit.dart';
-import 'package:el_race/ui/auth/auth_loading_screen.dart';
 import 'package:el_race/chat/chat.dart';
 import 'package:el_race/chat/services/chat_credential_storage.dart';
 import 'package:el_race/ui/presentation/home_screen/bloc/home_bloc.dart';
@@ -77,8 +75,6 @@ class _SignInScreenState extends State<SignInScreen> {
   // Register face and print embeddings
   @override
   Widget build(BuildContext context) {
-    final uaepassCubit = context.read<UaepassAuthCubit>();
-    final uaepassConfig = uaepassCubit.config;
     return BlocConsumer<SignInBloc, SignInState>(
       listener: (context, state) async {
         log('Listener state: $state');
@@ -315,70 +311,7 @@ class _SignInScreenState extends State<SignInScreen> {
                             ),
                           ),
                         ),
-                        const SizedBox(height: 16),
-                        SizedBox(
-                          width: 227,
-                          child: Row(
-                            children: [
-                              Expanded(
-                                child: Container(
-                                  height: 1,
-                                  color: HexColor("#DDDDDD"),
-                                ),
-                              ),
-                              Padding(
-                                padding:
-                                    const EdgeInsets.symmetric(horizontal: 16),
-                                child: Text(
-                                  'or',
-                                  style: TextStyle(
-                                    color: HexColor("#999999"),
-                                    fontSize: 14.0,
-                                  ),
-                                ),
-                              ),
-                              Expanded(
-                                child: Container(
-                                  height: 1,
-                                  color: HexColor("#DDDDDD"),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        const SizedBox(height: 16),
-                        SizedBox(
-                          width: 227,
-                          child: GestureDetector(
-                            onTap: () {
-                              Navigator.of(context).push(
-                                MaterialPageRoute(
-                                  builder: (_) => const AuthLoadingScreen(),
-                                ),
-                              );
-                              uaepassCubit.startLogin();
-                            },
-                            child: Image.asset(
-                              'assets/newapp/uae-pass-button.png',
-                              width: 227,
-                              fit: BoxFit.contain,
-                              errorBuilder: (context, _, __) => Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 24,
-                                  vertical: 12,
-                                ),
-                                decoration: BoxDecoration(
-                                  borderRadius: BorderRadius.circular(8),
-                                  border: Border.all(color: Colors.black12),
-                                ),
-                                child: const Text('Sign in with UAE PASS'),
-                              ),
-                            ),
-                          ),
-                        ),
-                        const SizedBox(
-                          height: 7,
-                        ),
+                        const SizedBox(height: 7),
                         SizedBox(height: SizeConfig().getHeight(70)),
                         Text(
                           'Contact with Support',

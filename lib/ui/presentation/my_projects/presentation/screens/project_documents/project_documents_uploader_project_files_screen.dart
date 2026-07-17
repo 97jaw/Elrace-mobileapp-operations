@@ -1,3 +1,4 @@
+import 'package:el_race/core/utils/responsive_breakpoints.dart';
 import 'package:el_race/ui/presentation/my_projects/data/datasources/project_documents_remote_datasource.dart';
 import 'package:el_race/ui/presentation/my_projects/data/models/project_documents_models.dart';
 import 'package:el_race/ui/presentation/my_projects/data/repositories/project_documents_repository.dart';
@@ -127,12 +128,12 @@ class _ProjectDocumentsUploaderProjectFilesScreenState
     if (_error != null && _files.isEmpty) {
       return Center(
         child: Padding(
-          padding: EdgeInsets.symmetric(horizontal: 24.w),
+          padding: EdgeInsets.symmetric(horizontal: 24.tw),
           child: Text(
             _error!,
             textAlign: TextAlign.center,
             style: GoogleFonts.poppins(
-              fontSize: 13.sp,
+              fontSize: 13.tsp,
               color: ProjectsDashboardTheme.white,
             ),
           ),
@@ -144,7 +145,7 @@ class _ProjectDocumentsUploaderProjectFilesScreenState
         child: Text(
           'No files from ${widget.uploader.name}',
           style: GoogleFonts.poppins(
-            fontSize: 13.sp,
+            fontSize: 13.tsp,
             color: ProjectsDashboardTheme.greyPanel,
           ),
         ),
@@ -168,9 +169,9 @@ class _ProjectDocumentsUploaderProjectFilesScreenState
           physics: const AlwaysScrollableScrollPhysics(
             parent: BouncingScrollPhysics(),
           ),
-          padding: EdgeInsets.fromLTRB(16.w, 8.h, 16.w, 16.h),
+          padding: EdgeInsets.fromLTRB(16.tw, 8.th, 16.tw, 16.th),
           itemCount: _files.length + (_loading ? 1 : 0),
-          separatorBuilder: (_, __) => SizedBox(height: 12.h),
+          separatorBuilder: (_, __) => SizedBox(height: 12.th),
           itemBuilder: (context, index) {
             if (index >= _files.length) {
               return const Center(

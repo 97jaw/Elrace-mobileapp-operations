@@ -1,3 +1,4 @@
+import 'package:el_race/core/utils/responsive_breakpoints.dart';
 import 'package:el_race/ui/presentation/my_projects/data/models/project_expense_summary_model.dart';
 import 'package:el_race/ui/presentation/my_projects/presentation/theme/projects_dashboard_theme.dart';
 import 'package:fl_chart/fl_chart.dart';
@@ -41,7 +42,7 @@ enum _AnalyticsDetailView { graph, summary }
 
 BoxDecoration analyticsGlassPanel({double radius = 14}) => BoxDecoration(
       color: kAnalyticsFadedPanel,
-      borderRadius: BorderRadius.circular(radius.r),
+      borderRadius: BorderRadius.circular(radius.tr),
       border: Border.all(color: kAnalyticsFadedPanelBorder),
       boxShadow: [
         BoxShadow(
@@ -54,7 +55,7 @@ BoxDecoration analyticsGlassPanel({double radius = 14}) => BoxDecoration(
 
 BoxDecoration kpiFadedFill(Color accent) => BoxDecoration(
       color: accent.withValues(alpha: 0.2),
-      borderRadius: BorderRadius.circular(14.r),
+      borderRadius: BorderRadius.circular(14.tr),
       border: Border.all(color: accent.withValues(alpha: 0.38)),
     );
 
@@ -82,14 +83,14 @@ class _ProjectExpenseSummaryPanelState extends State<ProjectExpenseSummaryPanel>
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         _KpiGrid(summary: widget.summary, formatMoney: _formatMoney),
-        SizedBox(height: 10.h),
+        SizedBox(height: 10.th),
         _DetailViewToggle(
           selected: _detailView,
           onGraph: () => setState(() => _detailView = _AnalyticsDetailView.graph),
           onSummary: () =>
               setState(() => _detailView = _AnalyticsDetailView.summary),
         ),
-        SizedBox(height: 10.h),
+        SizedBox(height: 10.th),
         Expanded(
           child: AnimatedSwitcher(
             duration: const Duration(milliseconds: 220),
@@ -133,7 +134,7 @@ class _DetailViewToggle extends StatelessWidget {
             onTap: onGraph,
           ),
         ),
-        SizedBox(width: 10.w),
+        SizedBox(width: 10.tw),
         Expanded(
           child: _ToggleChip(
             label: 'Summary',
@@ -166,13 +167,13 @@ class _ToggleChip extends StatelessWidget {
       color: Colors.transparent,
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(14.r),
+        borderRadius: BorderRadius.circular(14.tr),
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 200),
-          padding: EdgeInsets.symmetric(vertical: 11.h),
+          padding: EdgeInsets.symmetric(vertical: 11.th),
           decoration: selected
               ? BoxDecoration(
-                  borderRadius: BorderRadius.circular(14.r),
+                  borderRadius: BorderRadius.circular(14.tr),
                   gradient: LinearGradient(
                     colors: [
                       ProjectsDashboardTheme.navy.withValues(alpha: 0.88),
@@ -189,16 +190,16 @@ class _ToggleChip extends StatelessWidget {
             children: [
               Icon(
                 icon,
-                size: 18.sp,
+                size: 18.tsp,
                 color: selected
                     ? ProjectsDashboardTheme.white
                     : ProjectsDashboardTheme.greyPanel,
               ),
-              SizedBox(width: 8.w),
+              SizedBox(width: 8.tw),
               Text(
                 label,
                 style: GoogleFonts.poppins(
-                  fontSize: 12.sp,
+                  fontSize: 12.tsp,
                   fontWeight: FontWeight.w700,
                   color: selected
                       ? ProjectsDashboardTheme.white
@@ -256,15 +257,15 @@ class _KpiGrid extends StatelessWidget {
         Row(
           children: [
             Expanded(child: _KpiTile(spec: _tiles[0], value: values[0])),
-            SizedBox(width: 8.w),
+            SizedBox(width: 8.tw),
             Expanded(child: _KpiTile(spec: _tiles[1], value: values[1])),
           ],
         ),
-        SizedBox(height: 8.h),
+        SizedBox(height: 8.th),
         Row(
           children: [
             Expanded(child: _KpiTile(spec: _tiles[2], value: values[2])),
-            SizedBox(width: 8.w),
+            SizedBox(width: 8.tw),
             Expanded(child: _KpiTile(spec: _tiles[3], value: values[3])),
           ],
         ),
@@ -282,38 +283,38 @@ class _KpiTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: EdgeInsets.symmetric(horizontal: 8.w, vertical: 8.h),
+      padding: EdgeInsets.symmetric(horizontal: 8.tw, vertical: 8.th),
       decoration: kpiFadedFill(spec.accent),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(spec.icon, color: kpiIconColor(spec.accent), size: 18.sp),
-          SizedBox(height: 5.h),
+          Icon(spec.icon, color: kpiIconColor(spec.accent), size: 18.tsp),
+          SizedBox(height: 5.th),
           Container(
-            padding: EdgeInsets.symmetric(horizontal: 6.w, vertical: 2.h),
+            padding: EdgeInsets.symmetric(horizontal: 6.tw, vertical: 2.th),
             decoration: BoxDecoration(
               color: spec.accent.withValues(alpha: 0.28),
-              borderRadius: BorderRadius.circular(6.r),
+              borderRadius: BorderRadius.circular(6.tr),
             ),
             child: Text(
               spec.label,
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
               style: GoogleFonts.poppins(
-                fontSize: 9.sp,
+                fontSize: 9.tsp,
                 fontWeight: FontWeight.w700,
                 color: ProjectsDashboardTheme.white,
               ),
             ),
           ),
-          SizedBox(height: 4.h),
+          SizedBox(height: 4.th),
           Text(
             value,
             maxLines: 2,
             overflow: TextOverflow.ellipsis,
             style: GoogleFonts.poppins(
-              fontSize: 13.sp,
+              fontSize: 13.tsp,
               fontWeight: FontWeight.w800,
               color: ProjectsDashboardTheme.white,
             ),
@@ -349,7 +350,7 @@ class _TopThreeExpenseChart extends StatelessWidget {
 
     return Container(
       width: double.infinity,
-      padding: EdgeInsets.fromLTRB(12.w, 10.h, 12.w, 8.h),
+      padding: EdgeInsets.fromLTRB(12.tw, 10.th, 12.tw, 8.th),
       decoration: analyticsGlassPanel(radius: 16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -364,7 +365,7 @@ class _TopThreeExpenseChart extends StatelessWidget {
                     Text(
                       'Top 3 expenses',
                       style: GoogleFonts.poppins(
-                        fontSize: 14.sp,
+                        fontSize: 14.tsp,
                         fontWeight: FontWeight.w700,
                         color: ProjectsDashboardTheme.white,
                       ),
@@ -372,7 +373,7 @@ class _TopThreeExpenseChart extends StatelessWidget {
                     Text(
                       'Share of project spend',
                       style: GoogleFonts.poppins(
-                        fontSize: 10.sp,
+                        fontSize: 10.tsp,
                         color: ProjectsDashboardTheme.greyPanel,
                       ),
                     ),
@@ -382,21 +383,21 @@ class _TopThreeExpenseChart extends StatelessWidget {
               Text(
                 '${leadPct.toStringAsFixed(1)}%',
                 style: GoogleFonts.poppins(
-                  fontSize: 22.sp,
+                  fontSize: 22.tsp,
                   fontWeight: FontWeight.w800,
                   color: ProjectsDashboardTheme.white,
                 ),
               ),
             ],
           ),
-          SizedBox(height: 8.h),
+          SizedBox(height: 8.th),
           Expanded(
             child: items.isEmpty
                 ? Center(
                     child: Text(
                       'No top expense data',
                       style: GoogleFonts.poppins(
-                        fontSize: 12.sp,
+                        fontSize: 12.tsp,
                         color: ProjectsDashboardTheme.greyPanel,
                       ),
                     ),
@@ -456,7 +457,7 @@ class _TopThreeSplineChart extends StatelessWidget {
           leftTitles: AxisTitles(
             sideTitles: SideTitles(
               showTitles: true,
-              reservedSize: 28.w,
+              reservedSize: 28.tw,
               interval: chartMax / 4,
               getTitlesWidget: (value, meta) {
                 if (value < 0 || value > chartMax) {
@@ -465,7 +466,7 @@ class _TopThreeSplineChart extends StatelessWidget {
                 return Text(
                   '${value.toInt()}%',
                   style: GoogleFonts.poppins(
-                    fontSize: 9.sp,
+                    fontSize: 9.tsp,
                     color: ProjectsDashboardTheme.greyPanel,
                     fontWeight: FontWeight.w600,
                   ),
@@ -476,23 +477,23 @@ class _TopThreeSplineChart extends StatelessWidget {
           bottomTitles: AxisTitles(
             sideTitles: SideTitles(
               showTitles: true,
-              reservedSize: 24.h,
+              reservedSize: 24.th,
               getTitlesWidget: (value, meta) {
                 final i = value.round();
                 if (i < 0 || i >= items.length) {
                   return const SizedBox.shrink();
                 }
                 return Padding(
-                  padding: EdgeInsets.only(top: 4.h),
+                  padding: EdgeInsets.only(top: 4.th),
                   child: SizedBox(
-                    width: 40.w,
+                    width: 40.tw,
                     child: Text(
                       shortName(items[i].name),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       textAlign: TextAlign.center,
                       style: GoogleFonts.poppins(
-                        fontSize: 8.sp,
+                        fontSize: 8.tsp,
                         fontWeight: FontWeight.w600,
                         color: ProjectsDashboardTheme.white,
                       ),
@@ -559,22 +560,22 @@ class _TopExpenseLegendRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: EdgeInsets.only(top: 3.h),
+      padding: EdgeInsets.only(top: 3.th),
       child: Row(
         children: [
           Container(
-            width: 8.w,
-            height: 8.w,
+            width: 8.tw,
+            height: 8.tw,
             decoration: BoxDecoration(color: color, shape: BoxShape.circle),
           ),
-          SizedBox(width: 8.w),
+          SizedBox(width: 8.tw),
           Expanded(
             child: Text(
               item.name,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               style: GoogleFonts.poppins(
-                fontSize: 11.sp,
+                fontSize: 11.tsp,
                 fontWeight: FontWeight.w600,
                 color: ProjectsDashboardTheme.white,
               ),
@@ -583,7 +584,7 @@ class _TopExpenseLegendRow extends StatelessWidget {
           Text(
             '${item.percent.toStringAsFixed(1)}%',
             style: GoogleFonts.poppins(
-              fontSize: 12.sp,
+              fontSize: 12.tsp,
               fontWeight: FontWeight.w800,
               color: kpiIconColor(color),
             ),
@@ -614,11 +615,11 @@ class _ExpenseSummaryTable extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Padding(
-            padding: EdgeInsets.fromLTRB(12.w, 10.h, 12.w, 6.h),
+            padding: EdgeInsets.fromLTRB(12.tw, 10.th, 12.tw, 6.th),
             child: Text(
               'Expense summary',
               style: GoogleFonts.poppins(
-                fontSize: 13.sp,
+                fontSize: 13.tsp,
                 fontWeight: FontWeight.w700,
                 color: ProjectsDashboardTheme.white,
               ),
@@ -658,7 +659,7 @@ class _SummaryTableHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 9.h),
+      padding: EdgeInsets.symmetric(horizontal: 12.tw, vertical: 9.th),
       decoration: BoxDecoration(
         color: ProjectsDashboardTheme.navy.withValues(alpha: 0.35),
         border: Border(
@@ -672,7 +673,7 @@ class _SummaryTableHeader extends StatelessWidget {
             child: Text(
               'Expense',
               style: GoogleFonts.poppins(
-                fontSize: 10.sp,
+                fontSize: 10.tsp,
                 fontWeight: FontWeight.w700,
                 color: ProjectsDashboardTheme.white,
               ),
@@ -681,7 +682,7 @@ class _SummaryTableHeader extends StatelessWidget {
           Text(
             'Amount (AED)',
             style: GoogleFonts.poppins(
-              fontSize: 10.sp,
+              fontSize: 10.tsp,
               fontWeight: FontWeight.w700,
               color: ProjectsDashboardTheme.white,
             ),
@@ -714,7 +715,7 @@ class _SummaryRow extends StatelessWidget {
             : Colors.transparent;
 
     return Container(
-      padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 10.h),
+      padding: EdgeInsets.symmetric(horizontal: 12.tw, vertical: 10.th),
       decoration: BoxDecoration(
         color: rowBg,
         border: Border(
@@ -727,7 +728,7 @@ class _SummaryRow extends StatelessWidget {
             child: Text(
               label,
               style: GoogleFonts.poppins(
-                fontSize: emphasized ? 13.sp : 12.sp,
+                fontSize: emphasized ? 13.tsp : 12.tsp,
                 fontWeight: emphasized ? FontWeight.w700 : FontWeight.w600,
                 color: ProjectsDashboardTheme.white,
               ),
@@ -736,7 +737,7 @@ class _SummaryRow extends StatelessWidget {
           Text(
             value,
             style: GoogleFonts.poppins(
-              fontSize: emphasized ? 13.sp : 12.sp,
+              fontSize: emphasized ? 13.tsp : 12.tsp,
               fontWeight: FontWeight.w700,
               color: emphasized
                   ? ProjectsDashboardTheme.white

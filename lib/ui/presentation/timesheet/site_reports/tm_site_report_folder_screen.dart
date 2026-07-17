@@ -9,6 +9,7 @@ import 'package:el_race/ui/presentation/timesheet/site_reports/tm_site_report_co
 import 'package:el_race/ui/presentation/timesheet/site_reports/tm_site_report_gallery_screen.dart';
 import 'package:el_race/ui/presentation/timesheet/site_reports/tm_site_report_pdf_screen.dart';
 import 'package:el_race/ui/presentation/timesheet/site_reports/tm_site_report_view_pdf.dart';
+import 'package:el_race/ui/presentation/timesheet/site_reports/widgets/tm_site_report_company_app_bar.dart';
 import 'package:el_race/ui/presentation/timesheet/timesheet_async_state.dart';
 import 'package:el_race/ui/presentation/timesheet/widgets/tm_site_report_row.dart';
 import 'package:flutter/material.dart';
@@ -174,28 +175,8 @@ class _TmSiteReportFolderScreenState extends State<TmSiteReportFolderScreen> {
   Widget build(BuildContext context) {
     final reports = _filtered;
 
-    return Scaffold(
-      backgroundColor: TimesheetModuleColors.bgGradientEnd,
-      appBar: AppBar(
-        backgroundColor: TimesheetModuleColors.surface,
-        foregroundColor: TimesheetModuleColors.text,
-        elevation: 0,
-        title: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              widget.folder.name,
-              style: TimesheetModuleTypography.h2(),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-            ),
-            Text(
-              widget.projectName,
-              style: TimesheetModuleTypography.caption(),
-            ),
-          ],
-        ),
-      ),
+    return TmSiteReportGlassShell(
+      title: widget.folder.name,
       floatingActionButton: FloatingActionButton.extended(
         backgroundColor: TimesheetModuleColors.primary,
         foregroundColor: TimesheetModuleColors.surface,

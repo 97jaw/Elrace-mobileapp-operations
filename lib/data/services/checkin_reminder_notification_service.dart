@@ -34,28 +34,18 @@ class CheckInReminderNotificationService {
   Future<void> initialize() async {
     if (_initialized) return;
 
-    // تهيئة منطقة التوقيت
     tz.initializeTimeZones();
-
-    // تعيين توقيت الإمارات (GMT+4)
     try {
       tz.setLocalLocation(tz.getLocation('Asia/Dubai'));
     } catch (e) {
-      // print('⚠️ Could not set Asia/Dubai timezone, falling back to UTC+4 offset: $e');
-      // Fallback: use a fixed UTC+4 offset so notifications still fire at the right Dubai time
       try {
         tz.setLocalLocation(tz.getLocation('Etc/GMT-4'));
       } catch (_) {}
     }
 
-    // طلب صلاحية الإشعارات
-    await _requestNotificationPermissions();
-
-    // NOTE: Do NOT call _notificationsPlugin.initialize() here.\n    // FirebaseService.initialize() already set up the shared native platform\n    // with the unified tap-handler. A second initialize() call would OVERRIDE\n    // that handler, breaking notification-tap routing for all other services.\n    // Channel creation + permission requests work via the static singleton.\n\n    // إنشاء قنوات الإشعارات لـ Android
-    await _createNotificationChannels();
-
+    // Cancel any leftover check-in/out schedules from older builds.
+    await cancelAllReminders();
     _initialized = true;
-    // print('🔔 Check-in/out reminder notification service initialized');
   }
 
   /// طلب صلاحيات الإشعارات والإشعارات الدقيقة + إيقاف تحسين البطارية (Samsung)
@@ -176,6 +166,8 @@ class CheckInReminderNotificationService {
 
   /// جدولة إشعارات التذكير بـ check out (من 4 مساءً - 5 مساءً)
   Future<void> scheduleCheckOutReminders() async {
+    // Product decision: check-in/out local reminders removed from the app.
+    return;
     await initialize();
     await cancelCheckOutReminders(); // إلغاء أي إشعارات سابقة
 
@@ -301,6 +293,8 @@ class CheckInReminderNotificationService {
 
   /// جدولة إشعارات التذكير بـ check in (من 8 صباحاً - 9 صباحاً)
   Future<void> scheduleCheckInReminders() async {
+    // Product decision: check-in/out local reminders removed from the app.
+    return;
     await initialize();
     await cancelCheckInReminders(); // إلغاء أي إشعارات سابقة
 
@@ -447,31 +441,8 @@ class CheckInReminderNotificationService {
   /// تحديث الإشعارات حسب حالة check in/out
   /// يتحقق أولاً من حالة تسجيل الدخول — إذا كان المستخدم عامل logout يلغي كل التذكيرات
   Future<void> updateReminders() async {
-    // إذا المستخدم مو مسجّل دخول، ألغي كل التذكيرات ولا تجدول شي جديد
-    if (!SharedPref.isUserAuthenticated()) {
-      await cancelAllReminders();
-      print('📱 User not authenticated — cancelled all check-in/out reminders');
-      return;
-    }
-
-    final effectiveCheckedInState = _hasActiveCheckInState();
-    print('📱 updateReminders: effectiveCheckedInState=$effectiveCheckedInState');
-
-    if (effectiveCheckedInState) {
-      // المستخدم عامل check in:
-      // - ألغي تذكيرات check in (ما لازم توصلو لأنو خلاص عمل check in)
-      // - جدول تذكيرات check out (لتذكيره يعمل check out)
-      await cancelCheckInReminders();
-      await scheduleCheckOutReminders();
-      print('📱 Updated: Cancelled check-in reminders, scheduled check-out reminders (user IS checked in)');
-    } else {
-      // المستخدم ما عامل check in (أو عمل check out):
-      // - ألغي تذكيرات check out (ما لازم توصلو لأنو خلاص عمل check out)
-      // - جدول تذكيرات check in (لتذكيره يعمل check in)
-      await cancelCheckOutReminders();
-      await scheduleCheckInReminders();
-      print('📱 Updated: Cancelled check-out reminders, scheduled check-in reminders (user is NOT checked in)');
-    }
+    // Check-in / check-out local reminders removed — cancel any leftover schedules.
+    await cancelAllReminders();
   }
 
   /// إلغاء جميع التذكيرات

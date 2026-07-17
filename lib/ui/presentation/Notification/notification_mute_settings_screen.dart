@@ -1,13 +1,16 @@
+import 'package:el_race/core/utils/responsive_breakpoints.dart';
 import 'package:el_race/core/services/notification_storage_service.dart';
 import 'package:el_race/data/services/hive_service.dart';
+import 'package:el_race/data/services/prayer_audio_service.dart';
+import 'package:el_race/data/services/prayer_background_service.dart';
 import 'package:el_race/data/services/prayer_notification_service.dart';
+import 'package:el_race/data/services/task_notification_service.dart';
 import 'package:el_race/ui/presentation/Notification/model/notification_category_listview_model.dart';
 import 'package:el_race/ui/widgets/glass_sub_app_screen_header.dart';
 import 'package:el_race/ui/widgets/global_search_theme.dart';
 import 'package:el_race/utils/color_utils.dart';
 import 'package:el_race/utils/safe_insets.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 class NotificationMuteSettingsScreen extends StatefulWidget {
@@ -57,7 +60,7 @@ class _NotificationMuteSettingsScreenState
       color: Color(0xFF00897B),
     ),
     'prayer': _CategoryUiMeta(
-      title: 'Prayer Reminders',
+      title: 'Prayer / Adhan',
       icon: Icons.mosque_rounded,
       color: Color(0xFF00695C),
     ),
@@ -70,6 +73,16 @@ class _NotificationMuteSettingsScreenState
       title: 'Shared Folders',
       icon: Icons.folder_shared_rounded,
       color: Color(0xFF0277BD),
+    ),
+    'hr.employee.document': _CategoryUiMeta(
+      title: 'Document expiry',
+      icon: Icons.description_outlined,
+      color: Color(0xFF5D4037),
+    ),
+    'document_expiry_soon': _CategoryUiMeta(
+      title: 'Document expiry',
+      icon: Icons.description_outlined,
+      color: Color(0xFF5D4037),
     ),
     'alert': _CategoryUiMeta(
       title: 'Alerts',
@@ -91,18 +104,12 @@ class _NotificationMuteSettingsScreenState
       icon: Icons.task_alt_rounded,
       color: Color(0xFF5C6BC0),
     ),
-    'adhan': _CategoryUiMeta(
-      title: 'Adhan Sound',
-      icon: Icons.volume_up_rounded,
-      color: Color(0xFF2E7D32),
-    ),
   };
 
-  /// فئات محلية فقط (لا تأتي من الـ API) - تُضاف تلقائياً إلى قائمة الإعدادات.
+  /// Local-only categories (not from API). Adhan is merged into `prayer`.
   static const List<String> _localOnlyCategories = <String>[
     'chat_message',
     'task',
-    'adhan',
   ];
 
   List<NotificationCategoryModel> _categories =
@@ -196,20 +203,27 @@ class _NotificationMuteSettingsScreenState
       for (final entry in settings.entries) {
         final key = entry.key.trim().toLowerCase();
         if (_isAlwaysOnCategory(key)) continue;
+        // Adhan is merged into Prayer — drop standalone row.
+        if (key == 'adhan') continue;
         merged[key] = entry.value;
       }
 
-      // إضافة الفئات المحلية فقط (chat, task, adhan) التي لا تأتي من الـ API
+      // Local-only categories (chat, task) that do not come from the API.
       for (final localKey in _localOnlyCategories) {
         if (!merged.containsKey(localKey)) {
-          if (localKey == 'adhan') {
-            // مزامنة حالة كتم الأذان من Hive
-            final adhanMuted = await HiveService.isPrayerSoundMuted();
-            merged[localKey] = adhanMuted;
-          } else {
-            merged[localKey] = settings[localKey] ?? false;
-          }
+          merged[localKey] = settings[localKey] ?? false;
         }
+      }
+
+      // Keep Prayer/Adhan mute in sync with Hive (canonical for local azan).
+      if (merged.containsKey('prayer')) {
+        final adhanMuted = await HiveService.isPrayerSoundMuted();
+        if (adhanMuted && merged['prayer'] != true) {
+          merged['prayer'] = true;
+        }
+      } else {
+        final adhanMuted = await HiveService.isPrayerSoundMuted();
+        merged['prayer'] = settings['prayer'] ?? adhanMuted;
       }
 
       final fixedCategoryModels = _alwaysOnCategories
@@ -217,10 +231,13 @@ class _NotificationMuteSettingsScreenState
           .toList(growable: false);
 
       final dynamicCategoryModels = merged.entries
+          .where((entry) => entry.key != 'adhan')
           .map((entry) => _toCategoryModel(
                 entry.key,
                 entry.value,
-                apiTitle: apiTitles[entry.key],
+                apiTitle: entry.key == 'prayer'
+                    ? 'Prayer / Adhan'
+                    : apiTitles[entry.key],
               ))
           .toList(growable: false)
         ..sort((a, b) => a.title.compareTo(b.title));
@@ -278,18 +295,31 @@ class _NotificationMuteSettingsScreenState
     try {
       // الفئات المحلية فقط: تخزين محلي بدون مزامنة API
       if (isLocalOnly) {
-        if (model == 'adhan') {
-          // مزامنة حالة كتم الأذان مع Hive (المصدر الرسمي لـ PrayerAudioService)
-          await HiveService.setPrayerSoundMuted(muted);
-          // إلغاء الإشعارات المجدولة إذا تم الكتم
-          if (muted) {
-            await PrayerNotificationService().cancelAllPendingAdhan();
-          }
-        }
-        // حفظ في SharedPreferences أيضاً للفئات المحلية
         await NotificationStorageService.setLocalMuteSetting(model, muted);
+        if (model == 'task' && muted) {
+          await TaskNotificationService().cancelAllPendingTaskNotifications();
+        }
       } else {
         await NotificationStorageService.setMuteSetting(model, muted);
+        // Prayer / Adhan are one control: also drive local azan mute.
+        if (model == 'prayer') {
+          await HiveService.setPrayerSoundMuted(muted);
+          await NotificationStorageService.setLocalMuteSetting('adhan', muted);
+          if (muted) {
+            await PrayerNotificationService().cancelAllPendingAdhan();
+          } else {
+            // Re-arm local adhan schedules after unmute.
+            try {
+              await PrayerAudioService().rescheduleBackgroundNotifications();
+            } catch (_) {}
+            try {
+              await PrayerBackgroundService.reschedule();
+            } catch (_) {}
+          }
+        }
+        if (model == 'task' && muted) {
+          await TaskNotificationService().cancelAllPendingTaskNotifications();
+        }
       }
     } catch (e) {
       if (mounted) {
@@ -339,21 +369,23 @@ class _NotificationMuteSettingsScreenState
 
     return Container(
       width: double.infinity,
-      padding: EdgeInsets.symmetric(horizontal: 14.w, vertical: 12.h),
+      padding: EdgeInsets.symmetric(horizontal: 14.tw, vertical: 12.th),
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(14.r),
+        borderRadius: BorderRadius.circular(14.tr),
         color: appFontColor.withValues(alpha: 0.06),
         border: Border.all(color: appFontColor.withValues(alpha: 0.12)),
       ),
       child: Row(
         children: [
-          Icon(Icons.tune_rounded, color: appFontColor, size: 22.sp),
-          SizedBox(width: 10.w),
+          Icon(Icons.tune_rounded, color: appFontColor, size: 22.tsp),
+          SizedBox(width: 10.tw),
           Expanded(
             child: Text(
               statusText,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
               style: GoogleFonts.poppins(
-                fontSize: 12.sp,
+                fontSize: 12.tsp,
                 fontWeight: FontWeight.w500,
                 color: const Color(0xFF5F6F89),
                 height: 1.35,
@@ -364,14 +396,14 @@ class _NotificationMuteSettingsScreenState
             TextButton(
               onPressed: _isBulkUpdating ? null : _unmuteAll,
               style: TextButton.styleFrom(
-                padding: EdgeInsets.symmetric(horizontal: 8.w),
-                minimumSize: Size(0, 32.h),
+                padding: EdgeInsets.symmetric(horizontal: 8.tw),
+                minimumSize: Size(0, 32.th),
                 tapTargetSize: MaterialTapTargetSize.shrinkWrap,
               ),
               child: Text(
                 'Unmute all',
                 style: GoogleFonts.poppins(
-                  fontSize: 11.sp,
+                  fontSize: 11.tsp,
                   fontWeight: FontWeight.w700,
                   color: appFontColor,
                 ),
@@ -387,10 +419,10 @@ class _NotificationMuteSettingsScreenState
     final isAlwaysOn = _isAlwaysOnCategory(category.model);
 
     return Container(
-      margin: EdgeInsets.only(bottom: 10.h),
-      padding: EdgeInsets.fromLTRB(12.w, 10.h, 10.w, 10.h),
+      margin: EdgeInsets.only(bottom: 10.th),
+      padding: EdgeInsets.fromLTRB(12.tw, 10.th, 10.tw, 10.th),
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(16.r),
+        borderRadius: BorderRadius.circular(16.tr),
         color: category.muted
             ? category.color.withValues(alpha: 0.08)
             : const Color(0xFFF7F9FC),
@@ -403,32 +435,36 @@ class _NotificationMuteSettingsScreenState
       child: Row(
         children: [
           Container(
-            width: 38.w,
-            height: 38.w,
+            width: 38.tw,
+            height: 38.tw,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
               color: category.color.withValues(alpha: 0.14),
             ),
-            child: Icon(category.icon, color: category.color, size: 21.sp),
+            child: Icon(category.icon, color: category.color, size: 21.tsp),
           ),
-          SizedBox(width: 10.w),
+          SizedBox(width: 10.tw),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
                   category.title,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
                   style: GoogleFonts.poppins(
-                    fontSize: 13.sp,
+                    fontSize: 13.tsp,
                     fontWeight: FontWeight.w700,
                     color: const Color(0xFF111D3A),
                   ),
                 ),
-                SizedBox(height: 2.h),
+                SizedBox(height: 2.th),
                 Text(
                   category.model,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                   style: GoogleFonts.poppins(
-                    fontSize: 10.5.sp,
+                    fontSize: 10.5.tsp,
                     fontWeight: FontWeight.w600,
                     color: const Color(0xFF5F6F89),
                   ),
@@ -437,7 +473,7 @@ class _NotificationMuteSettingsScreenState
                   Text(
                     'Always enabled',
                     style: GoogleFonts.poppins(
-                      fontSize: 10.sp,
+                      fontSize: 10.tsp,
                       fontWeight: FontWeight.w700,
                       color: category.color,
                     ),
@@ -447,8 +483,8 @@ class _NotificationMuteSettingsScreenState
           ),
           if (isSaving)
             SizedBox(
-              width: 18.w,
-              height: 18.w,
+              width: 18.tw,
+              height: 18.tw,
               child: CircularProgressIndicator(
                 strokeWidth: 2,
                 color: category.color,
@@ -497,23 +533,23 @@ class _NotificationMuteSettingsScreenState
       color: appFontColor,
       child: ListView(
         padding: EdgeInsets.fromLTRB(
-          14.w,
-          10.h,
-          14.w,
-          context.systemBottomInset + 24.h,
+          14.tw,
+          10.th,
+          14.tw,
+          context.systemBottomInset + 24.th,
         ),
         physics: const BouncingScrollPhysics(
           parent: AlwaysScrollableScrollPhysics(),
         ),
         children: [
           _buildStatusBanner(),
-          SizedBox(height: 14.h),
+          SizedBox(height: 14.th),
           if (_error != null)
             Container(
-              margin: EdgeInsets.only(bottom: 10.h),
-              padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 10.h),
+              margin: EdgeInsets.only(bottom: 10.th),
+              padding: EdgeInsets.symmetric(horizontal: 12.tw, vertical: 10.th),
               decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(14.r),
+                borderRadius: BorderRadius.circular(14.tr),
                 color: Colors.red.shade50,
                 border: Border.all(color: Colors.red.shade200),
               ),
@@ -521,19 +557,19 @@ class _NotificationMuteSettingsScreenState
                 _error!,
                 style: GoogleFonts.poppins(
                   color: Colors.red.shade700,
-                  fontSize: 11.sp,
+                  fontSize: 11.tsp,
                   fontWeight: FontWeight.w500,
                 ),
               ),
             ),
           if (_categories.isEmpty)
             Padding(
-              padding: EdgeInsets.symmetric(vertical: 26.h),
+              padding: EdgeInsets.symmetric(vertical: 26.th),
               child: Center(
                 child: Text(
                   'No notification categories available.',
                   style: GoogleFonts.poppins(
-                    fontSize: 12.sp,
+                    fontSize: 12.tsp,
                     color: const Color(0xFF5F6F89),
                     fontWeight: FontWeight.w500,
                   ),

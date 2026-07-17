@@ -1,3 +1,4 @@
+import 'package:el_race/core/utils/responsive_breakpoints.dart';
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
@@ -114,7 +115,7 @@ class GlassTabWidget extends StatelessWidget {
                 children: [
                   Image.asset(
                     icon,
-                    height: 25.w,
+                    height: 25.tw,
                     color: isSelected ? Colors.white : const Color(0xFF1A237E),
                   ),
                   const SizedBox(width: 6),
@@ -123,7 +124,7 @@ class GlassTabWidget extends StatelessWidget {
                     style: GoogleFonts.poppins(
                       color:
                           isSelected ? Colors.white : const Color(0xFF1A237E),
-                      fontSize: 18.sp,
+                      fontSize: 18.tsp,
                       fontWeight: FontWeight.bold,
                       letterSpacing: 1.7,
                       shadows: isSelected
