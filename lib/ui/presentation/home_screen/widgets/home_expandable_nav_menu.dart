@@ -31,7 +31,7 @@ class _HomeExpandableNavMenuState extends State<HomeExpandableNavMenu> {
       context,
       routeName: '/chat_list',
       shell: GlassSubScreenShell.chat,
-      child: const ChatHomeScreen(),
+      child: const ChatListScreen(),
     );
   }
 
