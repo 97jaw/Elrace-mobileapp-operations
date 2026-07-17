@@ -1,3 +1,4 @@
+import 'package:el_race/core/utils/responsive_breakpoints.dart';
 import 'package:el_race/ui/presentation/my_projects/data/datasources/project_remote_datasource.dart';
 import 'package:el_race/ui/presentation/my_projects/data/models/project_document_item_model.dart';
 import 'package:el_race/ui/presentation/my_projects/presentation/models/project_document_hub_kind.dart';
@@ -177,7 +178,7 @@ class _CloudDocumentsScreenState extends State<CloudDocumentsScreen> {
               transparentGlassBar: true,
             ),
             Padding(
-              padding: EdgeInsets.fromLTRB(4.w, 4.h, 8.w, 8.h),
+              padding: EdgeInsets.fromLTRB(4.tw, 4.th, 8.tw, 8.th),
               child: ProjectDocumentsDrillHeader(
                 title: _headerTitle,
                 kind: ProjectDocumentHubKind.cloud,
@@ -198,7 +199,7 @@ class _CloudDocumentsScreenState extends State<CloudDocumentsScreen> {
                               child: Text(
                                 'No documents found',
                                 style: GoogleFonts.poppins(
-                                  fontSize: 13.sp,
+                                  fontSize: 13.tsp,
                                   color: ProjectsDashboardTheme.greyPanel,
                                 ),
                               ),
@@ -210,12 +211,12 @@ class _CloudDocumentsScreenState extends State<CloudDocumentsScreen> {
                                 physics: const AlwaysScrollableScrollPhysics(
                                   parent: BouncingScrollPhysics(),
                                 ),
-                                padding: EdgeInsets.fromLTRB(16.w, 0, 16.w, 20.h),
+                                padding: EdgeInsets.fromLTRB(16.tw, 0, 16.tw, 20.th),
                                 children: [
                                   if (folders.isNotEmpty) ...[
                                     for (final folder in folders)
                                       Padding(
-                                        padding: EdgeInsets.only(bottom: 14.h),
+                                        padding: EdgeInsets.only(bottom: 14.th),
                                         child: ProjectDocumentsSectionTile(
                                           title: folder.name,
                                           kind: ProjectDocumentHubKind.cloud,
@@ -233,7 +234,7 @@ class _CloudDocumentsScreenState extends State<CloudDocumentsScreen> {
                                   if (files.isNotEmpty) ...[
                                     for (final file in files)
                                       Padding(
-                                        padding: EdgeInsets.only(bottom: 14.h),
+                                        padding: EdgeInsets.only(bottom: 14.th),
                                         child: ProjectDocumentsFileRow(
                                           fileName: file.name,
                                           showChevron: false,
@@ -262,28 +263,28 @@ class _ErrorState extends StatelessWidget {
   Widget build(BuildContext context) {
     return Center(
       child: Padding(
-        padding: EdgeInsets.all(24.w),
+        padding: EdgeInsets.all(24.tw),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Text(
               'Error loading SharePoint documents',
               style: GoogleFonts.poppins(
-                fontSize: 14.sp,
+                fontSize: 14.tsp,
                 fontWeight: FontWeight.w600,
                 color: ProjectsDashboardTheme.white,
               ),
             ),
-            SizedBox(height: 8.h),
+            SizedBox(height: 8.th),
             Text(
               message,
               textAlign: TextAlign.center,
               style: GoogleFonts.poppins(
-                fontSize: 12.sp,
+                fontSize: 12.tsp,
                 color: ProjectsDashboardTheme.greyPanel,
               ),
             ),
-            SizedBox(height: 16.h),
+            SizedBox(height: 16.th),
             TextButton(
               onPressed: onRetry,
               child: Text(

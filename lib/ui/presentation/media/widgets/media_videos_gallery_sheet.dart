@@ -20,6 +20,8 @@ class MediaVideosGallerySheet extends StatelessWidget {
     required this.onHandleTap,
     required this.filterTabs,
     this.singleVideoHero = false,
+    this.emptyTitle,
+    this.emptySubtitle,
   });
 
   final ScrollController scrollController;
@@ -29,9 +31,13 @@ class MediaVideosGallerySheet extends StatelessWidget {
   final VoidCallback onHandleTap;
   final Widget filterTabs;
   final bool singleVideoHero;
+  final String? emptyTitle;
+  final String? emptySubtitle;
 
   @override
   Widget build(BuildContext context) {
+    final title = emptyTitle ??
+        (singleVideoHero ? 'No other videos yet' : 'No videos to show');
     return MediaGallerySheet(
       scrollController: scrollController,
       onHandleTap: onHandleTap,
@@ -41,9 +47,8 @@ class MediaVideosGallerySheet extends StatelessWidget {
               SliverFillRemaining(
                 hasScrollBody: false,
                 child: _buildEmptySheetMessage(
-                  singleVideoHero
-                      ? 'No other videos yet'
-                      : 'No videos to show',
+                  title,
+                  subtitle: emptySubtitle,
                 ),
               ),
             ]
@@ -132,18 +137,35 @@ class MediaVideosGallerySheet extends StatelessWidget {
     );
   }
 
-  Widget _buildEmptySheetMessage(String message) {
+  Widget _buildEmptySheetMessage(String message, {String? subtitle}) {
     return Padding(
-      padding: EdgeInsets.symmetric(horizontal: 24.w, vertical: 32.h),
+      padding: EdgeInsets.symmetric(horizontal: 24.w, vertical: 24.h),
       child: Center(
-        child: Text(
-          message,
-          textAlign: TextAlign.center,
-          style: GoogleFonts.poppins(
-            fontSize: 14.sp,
-            fontWeight: FontWeight.w500,
-            color: MediaTheme.textMuted,
-          ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              message,
+              textAlign: TextAlign.center,
+              style: GoogleFonts.poppins(
+                fontSize: 14.sp,
+                fontWeight: FontWeight.w600,
+                color: MediaTheme.textSecondary,
+              ),
+            ),
+            if (subtitle != null && subtitle.isNotEmpty) ...[
+              SizedBox(height: 6.h),
+              Text(
+                subtitle,
+                textAlign: TextAlign.center,
+                style: GoogleFonts.poppins(
+                  fontSize: 12.sp,
+                  fontWeight: FontWeight.w500,
+                  color: MediaTheme.textMuted,
+                ),
+              ),
+            ],
+          ],
         ),
       ),
     );

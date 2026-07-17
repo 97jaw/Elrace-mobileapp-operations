@@ -1,3 +1,4 @@
+import 'package:el_race/core/utils/responsive_breakpoints.dart';
 import 'dart:async';
 
 import 'package:el_race/ui/presentation/Email%20Approval/delayed/data/delayed_approvals_repository.dart';
@@ -155,16 +156,16 @@ class _RecordsSheetBodyState extends State<_RecordsSheetBody> {
 
     return Material(
       color: const Color(0xFFF4F6F9),
-      borderRadius: BorderRadius.vertical(top: Radius.circular(22.r)),
+      borderRadius: BorderRadius.vertical(top: Radius.circular(22.tr)),
       clipBehavior: Clip.antiAlias,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          SizedBox(height: 10.h),
+          SizedBox(height: 10.th),
           Center(
             child: Container(
-              width: 40.w,
-              height: 4.h,
+              width: 40.tw,
+              height: 4.th,
               decoration: BoxDecoration(
                 color: const Color(0xFFD1D5DB),
                 borderRadius: BorderRadius.circular(99),
@@ -172,7 +173,7 @@ class _RecordsSheetBodyState extends State<_RecordsSheetBody> {
             ),
           ),
           Padding(
-            padding: EdgeInsets.fromLTRB(18.w, 14.h, 8.w, 4.h),
+            padding: EdgeInsets.fromLTRB(18.tw, 14.th, 8.tw, 4.th),
             child: Row(
               children: [
                 Expanded(
@@ -182,7 +183,7 @@ class _RecordsSheetBodyState extends State<_RecordsSheetBody> {
                       Text(
                         widget.title,
                         style: GoogleFonts.poppins(
-                          fontSize: 18.sp,
+                          fontSize: 18.tsp,
                           fontWeight: FontWeight.w700,
                           color: ApprovalsOverviewTheme.textDark,
                         ),
@@ -192,7 +193,7 @@ class _RecordsSheetBodyState extends State<_RecordsSheetBody> {
                             ? 'Loading records…'
                             : '${items.length} record${items.length == 1 ? '' : 's'}',
                         style: GoogleFonts.poppins(
-                          fontSize: 11.sp,
+                          fontSize: 11.tsp,
                           fontWeight: FontWeight.w500,
                           color: ApprovalsOverviewTheme.textMuted,
                         ),
@@ -202,7 +203,7 @@ class _RecordsSheetBodyState extends State<_RecordsSheetBody> {
                 ),
                 IconButton(
                   onPressed: () => Navigator.pop(context),
-                  icon: Icon(Icons.close_rounded, size: 22.sp),
+                  icon: Icon(Icons.close_rounded, size: 22.tsp),
                   color: ApprovalsOverviewTheme.textMuted,
                 ),
               ],
@@ -216,20 +217,20 @@ class _RecordsSheetBodyState extends State<_RecordsSheetBody> {
                         child: Text(
                           'No records found',
                           style: GoogleFonts.poppins(
-                            fontSize: 13.sp,
+                            fontSize: 13.tsp,
                             color: ApprovalsOverviewTheme.textSoft,
                           ),
                         ),
                       )
                     : ListView.separated(
                         padding: EdgeInsets.fromLTRB(
-                          14.w,
-                          4.h,
-                          14.w,
-                          context.systemBottomInset + 16.h,
+                          14.tw,
+                          4.th,
+                          14.tw,
+                          context.systemBottomInset + 16.th,
                         ),
                         itemCount: items.length,
-                        separatorBuilder: (_, __) => SizedBox(height: 8.h),
+                        separatorBuilder: (_, __) => SizedBox(height: 8.th),
                         itemBuilder: (context, index) {
                           final item = items[index];
                           return _ApprovalRecordTile(
@@ -303,16 +304,16 @@ class _DelayedRecordsSheetBodyState extends State<_DelayedRecordsSheetBody> {
   Widget build(BuildContext context) {
     return Material(
       color: const Color(0xFFF4F6F9),
-      borderRadius: BorderRadius.vertical(top: Radius.circular(22.r)),
+      borderRadius: BorderRadius.vertical(top: Radius.circular(22.tr)),
       clipBehavior: Clip.antiAlias,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          SizedBox(height: 10.h),
+          SizedBox(height: 10.th),
           Center(
             child: Container(
-              width: 40.w,
-              height: 4.h,
+              width: 40.tw,
+              height: 4.th,
               decoration: BoxDecoration(
                 color: const Color(0xFFD1D5DB),
                 borderRadius: BorderRadius.circular(99),
@@ -320,7 +321,7 @@ class _DelayedRecordsSheetBodyState extends State<_DelayedRecordsSheetBody> {
             ),
           ),
           Padding(
-            padding: EdgeInsets.fromLTRB(18.w, 14.h, 8.w, 4.h),
+            padding: EdgeInsets.fromLTRB(18.tw, 14.th, 8.tw, 4.th),
             child: Row(
               children: [
                 Expanded(
@@ -330,7 +331,7 @@ class _DelayedRecordsSheetBodyState extends State<_DelayedRecordsSheetBody> {
                       Text(
                         'Delayed Requests',
                         style: GoogleFonts.poppins(
-                          fontSize: 18.sp,
+                          fontSize: 18.tsp,
                           fontWeight: FontWeight.w700,
                           color: ApprovalsOverviewTheme.textDark,
                         ),
@@ -339,7 +340,7 @@ class _DelayedRecordsSheetBodyState extends State<_DelayedRecordsSheetBody> {
                         Text(
                           '${_items.length} record${_items.length == 1 ? '' : 's'}',
                           style: GoogleFonts.poppins(
-                            fontSize: 11.sp,
+                            fontSize: 11.tsp,
                             fontWeight: FontWeight.w500,
                             color: ApprovalsOverviewTheme.textMuted,
                           ),
@@ -349,7 +350,7 @@ class _DelayedRecordsSheetBodyState extends State<_DelayedRecordsSheetBody> {
                 ),
                 IconButton(
                   onPressed: () => Navigator.pop(context),
-                  icon: Icon(Icons.close_rounded, size: 22.sp),
+                  icon: Icon(Icons.close_rounded, size: 22.tsp),
                   color: ApprovalsOverviewTheme.textMuted,
                 ),
               ],
@@ -361,11 +362,11 @@ class _DelayedRecordsSheetBodyState extends State<_DelayedRecordsSheetBody> {
                 : _error != null
                     ? Center(
                         child: Padding(
-                          padding: EdgeInsets.symmetric(horizontal: 24.w),
+                          padding: EdgeInsets.symmetric(horizontal: 24.tw),
                           child: Text(
                             _error!,
                             textAlign: TextAlign.center,
-                            style: GoogleFonts.poppins(fontSize: 12.sp),
+                            style: GoogleFonts.poppins(fontSize: 12.tsp),
                           ),
                         ),
                       )
@@ -374,20 +375,20 @@ class _DelayedRecordsSheetBodyState extends State<_DelayedRecordsSheetBody> {
                             child: Text(
                               'No delayed records',
                               style: GoogleFonts.poppins(
-                                fontSize: 13.sp,
+                                fontSize: 13.tsp,
                                 color: ApprovalsOverviewTheme.textSoft,
                               ),
                             ),
                           )
                         : ListView.separated(
                             padding: EdgeInsets.fromLTRB(
-                              14.w,
-                              4.h,
-                              14.w,
-                              context.systemBottomInset + 16.h,
+                              14.tw,
+                              4.th,
+                              14.tw,
+                              context.systemBottomInset + 16.th,
                             ),
                             itemCount: _items.length,
-                            separatorBuilder: (_, __) => SizedBox(height: 8.h),
+                            separatorBuilder: (_, __) => SizedBox(height: 8.th),
                             itemBuilder: (context, index) {
                               final item = _items[index];
                               return _ApprovalRecordTile(
@@ -702,6 +703,15 @@ class _ApprovalRecordTile extends StatelessWidget {
     return _requester();
   }
 
+  /// Requester label for "For …" row — empty when unknown so the row is hidden.
+  String _requesterLabel() {
+    final value = _requester().trim();
+    if (value.isEmpty) return '';
+    final upper = value.toUpperCase();
+    if (upper == 'N/A' || upper == 'UNKNOWN') return '';
+    return value;
+  }
+
   String _hrMidRowLabel() {
     final leaveSubtype = HrApprovalDisplay.leaveSubtypeLabel(item);
     if (leaveSubtype.isNotEmpty) return leaveSubtype;
@@ -774,7 +784,7 @@ class _ApprovalRecordTile extends StatelessWidget {
               TextSpan(
                 text: seq,
                 style: GoogleFonts.poppins(
-                  fontSize: 9.sp,
+                  fontSize: 9.tsp,
                   fontWeight: FontWeight.w700,
                   color: ApprovalsOverviewTheme.textSoft,
                   letterSpacing: 0.4,
@@ -784,7 +794,7 @@ class _ApprovalRecordTile extends StatelessWidget {
                 TextSpan(
                   text: '  –  $invNo',
                   style: GoogleFonts.poppins(
-                    fontSize: 8.sp,
+                    fontSize: 8.tsp,
                     fontWeight: FontWeight.w400,
                     color: ApprovalsOverviewTheme.textSoft,
                   ),
@@ -806,7 +816,7 @@ class _ApprovalRecordTile extends StatelessWidget {
       maxLines: 1,
       overflow: TextOverflow.ellipsis,
       style: GoogleFonts.poppins(
-        fontSize: 9.sp,
+        fontSize: 9.tsp,
         fontWeight: FontWeight.w600,
         color: ApprovalsOverviewTheme.textSoft,
         letterSpacing: 0.4,
@@ -825,7 +835,7 @@ class _ApprovalRecordTile extends StatelessWidget {
             Text(
               _fullDateLabel(),
               style: GoogleFonts.poppins(
-                fontSize: 11.sp,
+                fontSize: 11.tsp,
                 fontWeight: FontWeight.w500,
                 color: ApprovalsOverviewTheme.textMuted,
               ),
@@ -836,7 +846,7 @@ class _ApprovalRecordTile extends StatelessWidget {
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             style: GoogleFonts.poppins(
-              fontSize: 16.sp,
+              fontSize: 16.tsp,
               fontWeight: FontWeight.w800,
               color: ApprovalsOverviewTheme.invoice,
             ),
@@ -855,7 +865,7 @@ class _ApprovalRecordTile extends StatelessWidget {
               child: Text(
                 dateLabel,
                 style: GoogleFonts.poppins(
-                  fontSize: 12.sp,
+                  fontSize: 12.tsp,
                   fontWeight: FontWeight.w500,
                   color: ApprovalsOverviewTheme.textMuted,
                 ),
@@ -868,7 +878,7 @@ class _ApprovalRecordTile extends StatelessWidget {
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             style: GoogleFonts.poppins(
-              fontSize: 16.sp,
+              fontSize: 16.tsp,
               fontWeight: FontWeight.w800,
               color: ApprovalsOverviewTheme.rfq,
             ),
@@ -887,7 +897,7 @@ class _ApprovalRecordTile extends StatelessWidget {
               child: Text(
                 dateLabel,
                 style: GoogleFonts.poppins(
-                  fontSize: 12.sp,
+                  fontSize: 12.tsp,
                   fontWeight: FontWeight.w500,
                   color: ApprovalsOverviewTheme.textMuted,
                 ),
@@ -900,7 +910,7 @@ class _ApprovalRecordTile extends StatelessWidget {
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             style: GoogleFonts.poppins(
-              fontSize: 16.sp,
+              fontSize: 16.tsp,
               fontWeight: FontWeight.w800,
               color: ApprovalsOverviewTheme.petty,
             ),
@@ -916,7 +926,7 @@ class _ApprovalRecordTile extends StatelessWidget {
         maxLines: 1,
         overflow: TextOverflow.ellipsis,
         style: GoogleFonts.poppins(
-          fontSize: 16.sp,
+          fontSize: 16.tsp,
           fontWeight: FontWeight.w800,
           color: ApprovalsOverviewTheme.invoice,
         ),
@@ -932,11 +942,11 @@ class _ApprovalRecordTile extends StatelessWidget {
       color: Colors.transparent,
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(14.r),
+        borderRadius: BorderRadius.circular(14.tr),
         child: Ink(
           decoration: BoxDecoration(
             color: Colors.white.withValues(alpha: 0.92),
-            borderRadius: BorderRadius.circular(14.r),
+            borderRadius: BorderRadius.circular(14.tr),
             border: Border.all(color: Colors.white, width: 1.2),
             boxShadow: [
               BoxShadow(
@@ -951,21 +961,21 @@ class _ApprovalRecordTile extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.center,
               children: [
                 Container(
-                  width: 4.w,
+                  width: 4.tw,
                   decoration: BoxDecoration(
                     color: color,
                     borderRadius: BorderRadius.horizontal(
-                      left: Radius.circular(14.r),
+                      left: Radius.circular(14.tr),
                     ),
                   ),
                 ),
                 Padding(
                   padding:
-                      EdgeInsets.symmetric(horizontal: 10.w, vertical: 12.h),
+                      EdgeInsets.symmetric(horizontal: 10.tw, vertical: 12.th),
                   child: ApprovalListAvatar(
                     item: item,
                     kind: _avatarKind(),
-                    size: 44.w,
+                    size: 44.tw,
                     initials: _avatarInitials(),
                     lazyLoadCategory:
                         ApprovalPhotoCache.fromCategoryKey(categoryKey),
@@ -973,7 +983,7 @@ class _ApprovalRecordTile extends StatelessWidget {
                 ),
                 Expanded(
                   child: Padding(
-                    padding: EdgeInsets.fromLTRB(0, 12.h, 12.w, 12.h),
+                    padding: EdgeInsets.fromLTRB(0, 12.th, 12.tw, 12.th),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       mainAxisAlignment: MainAxisAlignment.center,
@@ -981,8 +991,8 @@ class _ApprovalRecordTile extends StatelessWidget {
                         Row(
                           children: [
                             Icon(Icons.layers_rounded,
-                                size: 14.sp, color: color),
-                            SizedBox(width: 5.w),
+                                size: 14.tsp, color: color),
+                            SizedBox(width: 5.tw),
                             Expanded(
                               child: _buildHeaderLabel(color),
                             ),
@@ -991,25 +1001,25 @@ class _ApprovalRecordTile extends StatelessWidget {
                               Text(
                                 _fullDateLabel(),
                                 style: GoogleFonts.poppins(
-                                  fontSize: 9.sp,
+                                  fontSize: 9.tsp,
                                   fontWeight: FontWeight.w500,
                                   color: ApprovalsOverviewTheme.textMuted,
                                 ),
                               )
                             else if (_status().isNotEmpty) ...[
                               Container(
-                                width: 6.w,
-                                height: 6.w,
+                                width: 6.tw,
+                                height: 6.tw,
                                 decoration: BoxDecoration(
                                   color: color,
                                   shape: BoxShape.circle,
                                 ),
                               ),
-                              SizedBox(width: 4.w),
+                              SizedBox(width: 4.tw),
                               Text(
                                 _status(),
                                 style: GoogleFonts.poppins(
-                                  fontSize: 9.sp,
+                                  fontSize: 9.tsp,
                                   fontWeight: FontWeight.w600,
                                   color: ApprovalsOverviewTheme.textSoft,
                                 ),
@@ -1017,13 +1027,13 @@ class _ApprovalRecordTile extends StatelessWidget {
                             ],
                           ],
                         ),
-                        SizedBox(height: 8.h),
+                        SizedBox(height: 8.th),
                         Text(
                           _title(),
                           maxLines: 2,
                           overflow: TextOverflow.ellipsis,
                           style: GoogleFonts.poppins(
-                            fontSize: 14.sp,
+                            fontSize: 14.tsp,
                             fontWeight: FontWeight.w700,
                             color: ApprovalsOverviewTheme.textDark,
                             height: 1.25,
@@ -1031,29 +1041,29 @@ class _ApprovalRecordTile extends StatelessWidget {
                         ),
                         if (categoryKey == 'hr' &&
                             _hrMidRowLabel().isNotEmpty) ...[
-                          SizedBox(height: 4.h),
+                          SizedBox(height: 4.th),
                           Text(
                             _hrMidRowLabel(),
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                             style: GoogleFonts.poppins(
-                              fontSize: 11.sp,
+                              fontSize: 11.tsp,
                               fontWeight: FontWeight.w600,
                               color: ApprovalsOverviewTheme.hr,
                             ),
                           ),
                         ],
-                        if (categoryKey != 'petty_cash') ...[
-                          SizedBox(height: 6.h),
+                        if (categoryKey != 'petty_cash' && _requesterLabel().isNotEmpty) ...[
+                          SizedBox(height: 6.th),
                           Row(
                             children: [
                               Expanded(
                                 child: Text(
-                                  'For ${_requester()}',
+                                  'For ${_requesterLabel()}',
                                   maxLines: 1,
                                   overflow: TextOverflow.ellipsis,
                                   style: GoogleFonts.poppins(
-                                    fontSize: 11.sp,
+                                    fontSize: 11.tsp,
                                     fontWeight: FontWeight.w500,
                                     color: ApprovalsOverviewTheme.textMuted,
                                   ),
@@ -1066,7 +1076,7 @@ class _ApprovalRecordTile extends StatelessWidget {
                                 Text(
                                   _timeLabel(),
                                   style: GoogleFonts.poppins(
-                                    fontSize: 10.sp,
+                                    fontSize: 10.tsp,
                                     fontWeight: FontWeight.w500,
                                     color: ApprovalsOverviewTheme.textSoft,
                                   ),
@@ -1076,7 +1086,7 @@ class _ApprovalRecordTile extends StatelessWidget {
                           ),
                         ],
                         if (_showsAmount) ...[
-                          SizedBox(height: 4.h),
+                          SizedBox(height: 4.th),
                           _buildAmountFooter(),
                         ],
                       ],

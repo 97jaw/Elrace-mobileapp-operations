@@ -1,3 +1,4 @@
+import 'package:el_race/core/utils/responsive_breakpoints.dart';
 import 'dart:typed_data';
 
 import 'package:el_race/core/utils/shared_pref.dart';
@@ -208,11 +209,11 @@ class _ProjectsFileViewerScreenState extends State<ProjectsFileViewerScreen> {
               color: ProjectsDashboardTheme.white,
               strokeWidth: 2.6,
             ),
-            SizedBox(height: 14.h),
+            SizedBox(height: 14.th),
             Text(
               'Loading file…',
               style: GoogleFonts.poppins(
-                fontSize: 13.sp,
+                fontSize: 13.tsp,
                 color: ProjectsDashboardTheme.greyPanel,
               ),
             ),
@@ -224,25 +225,25 @@ class _ProjectsFileViewerScreenState extends State<ProjectsFileViewerScreen> {
     if (_error != null) {
       return Center(
         child: Padding(
-          padding: EdgeInsets.symmetric(horizontal: 28.w),
+          padding: EdgeInsets.symmetric(horizontal: 28.tw),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
               Icon(
                 Icons.error_outline_rounded,
-                size: 48.sp,
+                size: 48.tsp,
                 color: ProjectsDashboardTheme.white.withValues(alpha: 0.9),
               ),
-              SizedBox(height: 12.h),
+              SizedBox(height: 12.th),
               Text(
                 _error!,
                 textAlign: TextAlign.center,
                 style: GoogleFonts.poppins(
-                  fontSize: 13.sp,
+                  fontSize: 13.tsp,
                   color: ProjectsDashboardTheme.white.withValues(alpha: 0.92),
                 ),
               ),
-              SizedBox(height: 18.h),
+              SizedBox(height: 18.th),
               FilledButton(
                 onPressed: widget.mode == ProjectsFileViewerMode.pdf
                     ? _loadPdf
@@ -250,9 +251,9 @@ class _ProjectsFileViewerScreenState extends State<ProjectsFileViewerScreen> {
                 style: FilledButton.styleFrom(
                   backgroundColor: ProjectsDashboardTheme.maroon,
                   foregroundColor: ProjectsDashboardTheme.white,
-                  padding: EdgeInsets.symmetric(horizontal: 22.w, vertical: 10.h),
+                  padding: EdgeInsets.symmetric(horizontal: 22.tw, vertical: 10.th),
                   shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12.r),
+                    borderRadius: BorderRadius.circular(12.tr),
                   ),
                 ),
                 child: Text(
@@ -267,11 +268,11 @@ class _ProjectsFileViewerScreenState extends State<ProjectsFileViewerScreen> {
     }
 
     return Padding(
-      padding: EdgeInsets.fromLTRB(12.w, 0, 12.w, 12.h),
+      padding: EdgeInsets.fromLTRB(12.tw, 0, 12.tw, 12.th),
       child: DecoratedBox(
         decoration: BoxDecoration(
           color: ProjectsDashboardTheme.white.withValues(alpha: 0.96),
-          borderRadius: BorderRadius.circular(16.r),
+          borderRadius: BorderRadius.circular(16.tr),
           border: Border.all(
             color: ProjectsDashboardTheme.white.withValues(alpha: 0.65),
           ),
@@ -284,7 +285,7 @@ class _ProjectsFileViewerScreenState extends State<ProjectsFileViewerScreen> {
           ],
         ),
         child: ClipRRect(
-          borderRadius: BorderRadius.circular(16.r),
+          borderRadius: BorderRadius.circular(16.tr),
           child: widget.mode == ProjectsFileViewerMode.pdf
               ? _buildPdfViewer()
               : _buildImageViewer(),
@@ -337,20 +338,20 @@ class _ProjectsFileViewerScreenState extends State<ProjectsFileViewerScreen> {
             );
           },
           errorBuilder: (_, __, ___) => Padding(
-            padding: EdgeInsets.all(20.w),
+            padding: EdgeInsets.all(20.tw),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
                 Icon(
                   Icons.broken_image_outlined,
-                  size: 42.sp,
+                  size: 42.tsp,
                   color: ProjectsDashboardTheme.greyDark,
                 ),
-                SizedBox(height: 8.h),
+                SizedBox(height: 8.th),
                 Text(
                   'Failed to load image',
                   style: GoogleFonts.poppins(
-                    fontSize: 13.sp,
+                    fontSize: 13.tsp,
                     color: ProjectsDashboardTheme.greyDark,
                   ),
                 ),
@@ -377,23 +378,23 @@ class _ViewerHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: EdgeInsets.fromLTRB(4.w, 4.h, 8.w, 10.h),
+      padding: EdgeInsets.fromLTRB(4.tw, 4.th, 8.tw, 10.th),
       child: Row(
         children: [
           IconButton(
             onPressed: onBack,
             icon: Icon(
               Icons.arrow_back_ios_new_rounded,
-              size: 18.sp,
+              size: 18.tsp,
               color: ProjectsDashboardTheme.white,
             ),
             padding: EdgeInsets.zero,
-            constraints: BoxConstraints(minWidth: 38.w, minHeight: 38.w),
+            constraints: BoxConstraints(minWidth: 38.tw, minHeight: 38.tw),
           ),
           Expanded(
             child: ProjectDocumentsOneLineMarquee(
               text: title.isEmpty ? 'File' : title,
-              fontSize: 15.sp,
+              fontSize: 15.tsp,
               fontWeight: FontWeight.w600,
               italic: false,
               color: ProjectsDashboardTheme.white,
@@ -404,7 +405,7 @@ class _ViewerHeader extends StatelessWidget {
               onPressed: onShare,
               icon: Icon(
                 Icons.ios_share_rounded,
-                size: 20.sp,
+                size: 20.tsp,
                 color: ProjectsDashboardTheme.white,
               ),
               tooltip: 'Share',
@@ -427,15 +428,15 @@ class _PageFooter extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: EdgeInsets.fromLTRB(16.w, 0, 16.w, 10.h),
+      padding: EdgeInsets.fromLTRB(16.tw, 0, 16.tw, 10.th),
       child: Container(
-        padding: EdgeInsets.symmetric(vertical: 8.h, horizontal: 14.w),
+        padding: EdgeInsets.symmetric(vertical: 8.th, horizontal: 14.tw),
         decoration: ProjectsDashboardTheme.frostedPanel(radius: 14),
         child: Center(
           child: Text(
             'Page $currentPage of $totalPages',
             style: GoogleFonts.poppins(
-              fontSize: 12.sp,
+              fontSize: 12.tsp,
               fontWeight: FontWeight.w500,
               color: ProjectsDashboardTheme.white,
             ),

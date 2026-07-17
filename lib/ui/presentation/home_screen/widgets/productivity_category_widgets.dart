@@ -1,3 +1,4 @@
+import 'package:el_race/core/utils/responsive_breakpoints.dart';
 import 'package:el_race/ui/presentation/home_screen/providers/home_notes_widget_provider.dart';
 import 'package:el_race/ui/presentation/home_screen/widgets/category_widget_gradient_border.dart';
 import 'package:el_race/ui/presentation/home_screen/widgets/home_productivity_navigation.dart';
@@ -14,7 +15,12 @@ import 'package:provider/provider.dart';
 
 /// v7 Productivity category — Task Management (full), Notes + Tickets (half).
 class ProductivityCategoryTaskManagementCard extends StatefulWidget {
-  const ProductivityCategoryTaskManagementCard({super.key});
+  const ProductivityCategoryTaskManagementCard({
+    super.key,
+    this.tabletCompact = false,
+  });
+
+  final bool tabletCompact;
 
   @override
   State<ProductivityCategoryTaskManagementCard> createState() =>
@@ -40,7 +46,7 @@ class _ProductivityCategoryTaskManagementCardState
 
         return _ProductivityFullCardShell(
       onTap: () => HomeProductivityNavigation.openTaskManagement(context),
-      height: 150.h,
+      height: widget.tabletCompact ? double.infinity : 150.uh,
       gradient: const LinearGradient(
         begin: Alignment.topLeft,
         end: Alignment.bottomRight,
@@ -62,7 +68,7 @@ class _ProductivityCategoryTaskManagementCardState
         children: [
           Positioned(
             right: -48.w,
-            top: -52.h,
+            top: -52.uh,
             child: Container(
               width: 200.w,
               height: 200.w,
@@ -82,84 +88,79 @@ class _ProductivityCategoryTaskManagementCardState
           ),
         ],
       ),
-      child: SizedBox(
-        height: 118.h,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Today',
+            style: GoogleFonts.poppins(
+              fontSize: 8.usp,
+              fontWeight: FontWeight.w600,
+              color: Colors.white.withValues(alpha: 0.72),
+              letterSpacing: 0.4,
+            ),
+          ),
+          SizedBox(height: 2.uh),
+          Text(
+            'Task Management',
+            style: GoogleFonts.poppins(
+              fontSize: 14.usp,
+              fontWeight: FontWeight.w700,
+              color: Colors.white,
+              height: 1.1,
+            ),
+          ),
+          SizedBox(height: 8.uh),
+          IntrinsicHeight(
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                _TaskStatColumn(
+                  label: 'Open',
+                  value: '${data.openCount}',
+                  valueColor: Colors.white,
+                  onTap: () => HomeProductivityNavigation.openTaskManagement(
+                    context,
+                    filter: TaskFilter.open,
+                  ),
+                ),
+                const _TaskStatDivider(),
+                _TaskStatColumn(
+                  label: 'In Progress',
+                  value: '${data.inProgressCount}',
+                  valueColor: const Color(0xFFF4C842),
+                  onTap: () => HomeProductivityNavigation.openTaskManagement(
+                    context,
+                    filter: TaskFilter.inProgress,
+                  ),
+                ),
+                const _TaskStatDivider(),
+                _TaskStatColumn(
+                  label: 'Done',
+                  value: '${data.doneCount}',
+                  valueColor: const Color(0xFF4ADE80),
+                  onTap: () => HomeProductivityNavigation.openTaskManagement(
+                    context,
+                    filter: TaskFilter.completed,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 8),
+          if (data.dueTodayMessage.isNotEmpty)
             Text(
-              'Today',
+              data.dueTodayMessage,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
               style: GoogleFonts.poppins(
-                fontSize: 8.sp,
+                fontSize: 10.usp,
                 fontWeight: FontWeight.w600,
-                color: Colors.white.withValues(alpha: 0.72),
-                letterSpacing: 0.4,
+                color: Colors.white.withValues(alpha: 0.88),
               ),
             ),
-            SizedBox(height: 2.h),
-            Text(
-              'Task Management',
-              style: GoogleFonts.poppins(
-                fontSize: 14.sp,
-                fontWeight: FontWeight.w700,
-                color: Colors.white,
-                height: 1.1,
-              ),
-            ),
-            SizedBox(height: 8.h),
-            SizedBox(
-              height: 52.h,
-              child: IntrinsicHeight(
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    _TaskStatColumn(
-                      label: 'Open',
-                      value: '${data.openCount}',
-                      valueColor: Colors.white,
-                      onTap: () => HomeProductivityNavigation.openTaskManagement(
-                        context,
-                        filter: TaskFilter.open,
-                      ),
-                    ),
-                    const _TaskStatDivider(),
-                    _TaskStatColumn(
-                      label: 'In Progress',
-                      value: '${data.inProgressCount}',
-                      valueColor: const Color(0xFFF4C842),
-                      onTap: () => HomeProductivityNavigation.openTaskManagement(
-                        context,
-                        filter: TaskFilter.inProgress,
-                      ),
-                    ),
-                    const _TaskStatDivider(),
-                    _TaskStatColumn(
-                      label: 'Done',
-                      value: '${data.doneCount}',
-                      valueColor: const Color(0xFF4ADE80),
-                      onTap: () => HomeProductivityNavigation.openTaskManagement(
-                        context,
-                        filter: TaskFilter.completed,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-            const Spacer(),
-            if (data.dueTodayMessage.isNotEmpty)
-              Text(
-                data.dueTodayMessage,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: GoogleFonts.poppins(
-                  fontSize: 10.sp,
-                  fontWeight: FontWeight.w600,
-                  color: Colors.white.withValues(alpha: 0.88),
-                ),
-              ),
-          ],
-        ),
+        ],
       ),
         );
       },
@@ -168,13 +169,19 @@ class _ProductivityCategoryTaskManagementCardState
 }
 
 class ProductivityCategoryNotesCard extends ConsumerWidget {
-  const ProductivityCategoryNotesCard({super.key});
+  const ProductivityCategoryNotesCard({
+    super.key,
+    this.tabletCompact = false,
+  });
+
+  final bool tabletCompact;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final data = ref.watch(homeNotesWidgetProvider);
 
     return _ProductivityHalfCardShell(
+      height: null,
       onTap: () => Navigator.push(
         context,
         SlideRightPageRoute(child: const MyNotesScreen()),
@@ -195,41 +202,40 @@ class ProductivityCategoryNotesCard extends ConsumerWidget {
         background: Color(0x554A2F1F),
       ),
       pattern: CustomPaint(painter: _NotebookLinesPainter()),
-      child: SizedBox(
-        height: 108.h,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'Quick capture',
-              style: GoogleFonts.poppins(
-                fontSize: 7.5.sp,
-                fontWeight: FontWeight.w600,
-                color: const Color(0xFF6B3F2A),
-                letterSpacing: 0.35,
-              ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Quick capture',
+            style: GoogleFonts.poppins(
+              fontSize: 7.5.usp,
+              fontWeight: FontWeight.w600,
+              color: const Color(0xFF6B3F2A),
+              letterSpacing: 0.35,
             ),
-          SizedBox(height: 2.h),
+          ),
+          SizedBox(height: 2.uh),
           Text(
             'Notes',
             style: GoogleFonts.poppins(
-              fontSize: 13.sp,
+              fontSize: 13.usp,
               fontWeight: FontWeight.w700,
               color: const Color(0xFF4A2F1F),
               height: 1.1,
             ),
           ),
-          const Spacer(),
+          const SizedBox(height: 8),
           Text(
             '${data.totalCount}',
             style: GoogleFonts.poppins(
-              fontSize: 30.sp,
+              fontSize: 30.usp,
               fontWeight: FontWeight.w800,
               color: const Color(0xFF4A2F1F),
               height: 1,
             ),
           ),
-          SizedBox(height: 4.h),
+          SizedBox(height: 4.uh),
           GestureDetector(
             onTap: data.lastNoteId != null
                 ? () => Navigator.push(
@@ -242,21 +248,25 @@ class ProductivityCategoryNotesCard extends ConsumerWidget {
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               style: GoogleFonts.poppins(
-                fontSize: 10.sp,
+                fontSize: 10.usp,
                 fontWeight: FontWeight.w600,
                 color: const Color(0xFF6B3F2A),
               ),
             ),
           ),
-          ],
-        ),
+        ],
       ),
     );
   }
 }
 
 class ProductivityCategoryTicketsCard extends StatelessWidget {
-  const ProductivityCategoryTicketsCard({super.key});
+  const ProductivityCategoryTicketsCard({
+    super.key,
+    this.tabletCompact = false,
+  });
+
+  final bool tabletCompact;
 
   @override
   Widget build(BuildContext context) {
@@ -272,6 +282,7 @@ class ProductivityCategoryTicketsCard extends StatelessWidget {
         final trendColor = _ticketsTrendColor(data.trendColor);
 
         return _ProductivityHalfCardShell(
+      height: null,
       onTap: () => HomeProductivityNavigation.openTickets(context),
       gradient: const LinearGradient(
         begin: Alignment.topLeft,
@@ -294,7 +305,7 @@ class ProductivityCategoryTicketsCard extends StatelessWidget {
         children: [
           Positioned(
             left: -16.w,
-            top: -20.h,
+            top: -20.uh,
             child: Container(
               width: 90.w,
               height: 90.w,
@@ -314,63 +325,61 @@ class ProductivityCategoryTicketsCard extends StatelessWidget {
           ),
         ],
       ),
-      child: SizedBox(
-        height: 108.h,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'Support',
-              style: GoogleFonts.poppins(
-                fontSize: 7.5.sp,
-                fontWeight: FontWeight.w600,
-                color: const Color(0xFFD8B4E8),
-                letterSpacing: 0.35,
-              ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Support',
+            style: GoogleFonts.poppins(
+              fontSize: 7.5.usp,
+              fontWeight: FontWeight.w600,
+              color: const Color(0xFFD8B4E8),
+              letterSpacing: 0.35,
             ),
-            SizedBox(height: 2.h),
-            Text(
-              'Tickets',
-              style: GoogleFonts.poppins(
-                fontSize: 13.sp,
-                fontWeight: FontWeight.w700,
-                color: Colors.white,
-                height: 1.1,
-              ),
+          ),
+          SizedBox(height: 2.uh),
+          Text(
+            'Tickets',
+            style: GoogleFonts.poppins(
+              fontSize: 13.usp,
+              fontWeight: FontWeight.w700,
+              color: Colors.white,
+              height: 1.1,
             ),
-            const Spacer(),
-            Text(
-              '${data.totalOpen}',
-              style: GoogleFonts.poppins(
-                fontSize: 30.sp,
-                fontWeight: FontWeight.w800,
-                color: Colors.white,
-                height: 1,
-              ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            '${data.totalOpen}',
+            style: GoogleFonts.poppins(
+              fontSize: 30.usp,
+              fontWeight: FontWeight.w800,
+              color: Colors.white,
+              height: 1,
             ),
-            if (data.trendMessage.isNotEmpty) ...[
-              SizedBox(height: 4.h),
-              GestureDetector(
-                onTap: data.highPriorityCount > 0
-                    ? () => HomeProductivityNavigation.openTickets(
-                          context,
-                          highPriorityOnly: true,
-                        )
-                    : null,
-                child: Text(
-                  data.trendMessage,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: GoogleFonts.poppins(
-                    fontSize: 10.sp,
-                    fontWeight: FontWeight.w600,
-                    color: trendColor,
-                  ),
+          ),
+          if (data.trendMessage.isNotEmpty) ...[
+            SizedBox(height: 4.uh),
+            GestureDetector(
+              onTap: data.highPriorityCount > 0
+                  ? () => HomeProductivityNavigation.openTickets(
+                        context,
+                        highPriorityOnly: true,
+                      )
+                  : null,
+              child: Text(
+                data.trendMessage,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: GoogleFonts.poppins(
+                  fontSize: 10.usp,
+                  fontWeight: FontWeight.w600,
+                  color: trendColor,
                 ),
               ),
-            ],
+            ),
           ],
-        ),
+        ],
       ),
         );
       },
@@ -409,20 +418,20 @@ class _ProductivityFullCardShell extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final innerRadius =
-        (22.r - CategoryWidgetGradientBorder.width).clamp(0.0, double.infinity);
+        (22.ur - CategoryWidgetGradientBorder.width).clamp(0.0, double.infinity);
 
     return Material(
       color: Colors.transparent,
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(22.r),
+        borderRadius: BorderRadius.circular(22.ur),
         child: Container(
-          height: height ?? 150.h,
-          decoration: CategoryWidgetGradientBorder.outer(borderRadius: 22.r),
+          height: height ?? double.infinity,
+          decoration: CategoryWidgetGradientBorder.outer(borderRadius: 22.ur),
           padding: CategoryWidgetGradientBorder.padding,
           child: Container(
             decoration: CategoryWidgetGradientBorder.inner(
-              borderRadius: 22.r,
+              borderRadius: 22.ur,
               fillGradient: gradient,
             ),
             child: ClipRRect(
@@ -434,10 +443,26 @@ class _ProductivityFullCardShell extends StatelessWidget {
                   if (pattern != null)
                     IgnorePointer(child: pattern!),
                   Padding(
-                    padding: EdgeInsets.fromLTRB(14.w, 12.h, 46.w, 12.h),
-                    child: child,
+                    padding: EdgeInsets.fromLTRB(14.w, 12.uh, 46.w, 12.uh),
+                    child: LayoutBuilder(
+                      builder: (context, constraints) {
+                        return Align(
+                          alignment: Alignment.topLeft,
+                          child: FittedBox(
+                            fit: BoxFit.scaleDown,
+                            alignment: Alignment.topLeft,
+                            child: ConstrainedBox(
+                              constraints: BoxConstraints(
+                                maxWidth: constraints.maxWidth,
+                              ),
+                              child: child,
+                            ),
+                          ),
+                        );
+                      },
+                    ),
                   ),
-                  Positioned(top: 8.h, right: 8.w, child: iconBadge),
+                  Positioned(top: 8.uh, right: 8.w, child: iconBadge),
                 ],
               ),
             ),
@@ -455,6 +480,7 @@ class _ProductivityHalfCardShell extends StatelessWidget {
     required this.iconBadge,
     this.pattern,
     this.onTap,
+    this.height,
   });
 
   final Widget child;
@@ -462,24 +488,25 @@ class _ProductivityHalfCardShell extends StatelessWidget {
   final Widget iconBadge;
   final Widget? pattern;
   final VoidCallback? onTap;
+  final double? height;
 
   @override
   Widget build(BuildContext context) {
     final innerRadius =
-        (22.r - CategoryWidgetGradientBorder.width).clamp(0.0, double.infinity);
+        (22.ur - CategoryWidgetGradientBorder.width).clamp(0.0, double.infinity);
 
     return Material(
       color: Colors.transparent,
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(22.r),
+        borderRadius: BorderRadius.circular(22.ur),
         child: Container(
-          height: 140.h,
-          decoration: CategoryWidgetGradientBorder.outer(borderRadius: 22.r),
+          height: height ?? double.infinity,
+          decoration: CategoryWidgetGradientBorder.outer(borderRadius: 22.ur),
           padding: CategoryWidgetGradientBorder.padding,
           child: Container(
             decoration: CategoryWidgetGradientBorder.inner(
-              borderRadius: 22.r,
+              borderRadius: 22.ur,
               fillGradient: gradient,
             ),
             child: ClipRRect(
@@ -491,10 +518,26 @@ class _ProductivityHalfCardShell extends StatelessWidget {
                   if (pattern != null)
                     IgnorePointer(child: pattern!),
                   Padding(
-                    padding: EdgeInsets.fromLTRB(12.w, 10.h, 40.w, 10.h),
-                    child: child,
+                    padding: EdgeInsets.fromLTRB(12.w, 10.uh, 40.w, 10.uh),
+                    child: LayoutBuilder(
+                      builder: (context, constraints) {
+                        return Align(
+                          alignment: Alignment.topLeft,
+                          child: FittedBox(
+                            fit: BoxFit.scaleDown,
+                            alignment: Alignment.topLeft,
+                            child: ConstrainedBox(
+                              constraints: BoxConstraints(
+                                maxWidth: constraints.maxWidth,
+                              ),
+                              child: child,
+                            ),
+                          ),
+                        );
+                      },
+                    ),
                   ),
-                  Positioned(top: 8.h, right: 8.w, child: iconBadge),
+                  Positioned(top: 8.uh, right: 8.w, child: iconBadge),
                 ],
               ),
             ),
@@ -522,11 +565,11 @@ class _GlassIconBadge extends StatelessWidget {
       width: 32.w,
       height: 32.w,
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(10.r),
+        borderRadius: BorderRadius.circular(10.ur),
         color: background,
         border: Border.all(color: Colors.white.withValues(alpha: 0.18)),
       ),
-      child: Icon(icon, size: 17.sp, color: iconColor),
+      child: Icon(icon, size: 17.usp, color: iconColor),
     );
   }
 }
@@ -549,7 +592,7 @@ class _TaskStatColumn extends StatelessWidget {
     return Expanded(
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(8.r),
+        borderRadius: BorderRadius.circular(8.ur),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           mainAxisAlignment: MainAxisAlignment.center,
@@ -557,17 +600,17 @@ class _TaskStatColumn extends StatelessWidget {
             Text(
               label.toUpperCase(),
               style: GoogleFonts.poppins(
-                fontSize: 7.sp,
+                fontSize: 7.usp,
                 fontWeight: FontWeight.w600,
                 color: Colors.white.withValues(alpha: 0.62),
                 letterSpacing: 0.3,
               ),
             ),
-            SizedBox(height: 4.h),
+            SizedBox(height: 4.uh),
             Text(
               value,
               style: GoogleFonts.poppins(
-                fontSize: 24.sp,
+                fontSize: 24.usp,
                 fontWeight: FontWeight.w800,
                 color: valueColor,
                 height: 1,
@@ -587,7 +630,7 @@ class _TaskStatDivider extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       width: 1,
-      margin: EdgeInsets.symmetric(horizontal: 6.w, vertical: 4.h),
+      margin: EdgeInsets.symmetric(horizontal: 6.w, vertical: 4.uh),
       color: Colors.white.withValues(alpha: 0.18),
     );
   }

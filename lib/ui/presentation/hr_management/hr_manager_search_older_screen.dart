@@ -1,3 +1,4 @@
+import 'package:el_race/core/utils/responsive_breakpoints.dart';
 import 'package:el_race/core/hr_management/models/hr_request_summary.dart';
 import 'package:el_race/core/hr_management/providers/hr_management_providers.dart';
 import 'package:el_race/core/theme/hr_module_colors.dart';
@@ -171,7 +172,7 @@ class _HrManagerSearchOlderScreenState extends ConsumerState<HrManagerSearchOlde
         scrolledUnderElevation: 0,
         title: Text(
           'Search team requests',
-          style: HrModuleTypography.sectionHeading().copyWith(fontSize: 18.sp),
+          style: HrModuleTypography.sectionHeading().copyWith(fontSize: 18.tsp),
         ),
       ),
       body: SafeArea(
@@ -179,10 +180,10 @@ class _HrManagerSearchOlderScreenState extends ConsumerState<HrManagerSearchOlde
           children: [
             Padding(
               padding: EdgeInsets.fromLTRB(
-                HrModuleLayout.screenPaddingH.w,
-                8.h,
-                HrModuleLayout.screenPaddingH.w,
-                8.h,
+                HrModuleLayout.screenPaddingH.tw,
+                8.th,
+                HrModuleLayout.screenPaddingH.tw,
+                8.th,
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -192,7 +193,7 @@ class _HrManagerSearchOlderScreenState extends ConsumerState<HrManagerSearchOlde
                     hintText: 'Reference, type, or employee',
                     onDebouncedChanged: (_) {},
                   ),
-                  SizedBox(height: 10.h),
+                  SizedBox(height: 10.th),
                   HrThemedPickerField<String?>(
                     label: 'Department',
                     value: _department,
@@ -216,7 +217,7 @@ class _HrManagerSearchOlderScreenState extends ConsumerState<HrManagerSearchOlde
                     ],
                     onChanged: (v) => setState(() => _department = v),
                   ),
-                  SizedBox(height: 10.h),
+                  SizedBox(height: 10.th),
                   HrThemedPickerField<String?>(
                     label: 'Request type',
                     value: _type,
@@ -240,7 +241,7 @@ class _HrManagerSearchOlderScreenState extends ConsumerState<HrManagerSearchOlde
                     ],
                     onChanged: (v) => setState(() => _type = v),
                   ),
-                  SizedBox(height: 10.h),
+                  SizedBox(height: 10.th),
                   HrThemedPickerField<String>(
                     label: 'Status',
                     value: _status,
@@ -258,7 +259,7 @@ class _HrManagerSearchOlderScreenState extends ConsumerState<HrManagerSearchOlde
                         .toList(),
                     onChanged: (v) => setState(() => _status = v ?? 'all'),
                   ),
-                  SizedBox(height: 12.h),
+                  SizedBox(height: 12.th),
                   Row(
                     children: [
                       Expanded(
@@ -266,12 +267,12 @@ class _HrManagerSearchOlderScreenState extends ConsumerState<HrManagerSearchOlde
                           onPressed: _loading ? null : () => _search(reset: true),
                           style: FilledButton.styleFrom(
                             backgroundColor: HrModuleColors.primary,
-                            padding: EdgeInsets.symmetric(vertical: 12.h),
+                            padding: EdgeInsets.symmetric(vertical: 12.th),
                           ),
                           child: const Text('Apply filters'),
                         ),
                       ),
-                      SizedBox(width: 12.w),
+                      SizedBox(width: 12.tw),
                       OutlinedButton(
                         onPressed: _loading
                             ? null
@@ -293,20 +294,20 @@ class _HrManagerSearchOlderScreenState extends ConsumerState<HrManagerSearchOlde
             ),
             if (_error != null)
               Padding(
-                padding: EdgeInsets.symmetric(horizontal: 16.w),
+                padding: EdgeInsets.symmetric(horizontal: 16.tw),
                 child: Text(
                   _error!,
-                  style: TextStyle(color: HrModuleColors.danger, fontSize: 12.sp),
+                  style: TextStyle(color: HrModuleColors.danger, fontSize: 12.tsp),
                 ),
               ),
             Padding(
-              padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 4.h),
+              padding: EdgeInsets.symmetric(horizontal: 16.tw, vertical: 4.th),
               child: Align(
                 alignment: Alignment.centerLeft,
                 child: Text(
                   '${_items.length} result(s)',
                   style: HrModuleTypography.caption().copyWith(
-                    fontSize: 11.sp,
+                    fontSize: 11.tsp,
                     color: HrModuleColors.mutedText,
                   ),
                 ),
@@ -318,19 +319,19 @@ class _HrManagerSearchOlderScreenState extends ConsumerState<HrManagerSearchOlde
                       child: Text(
                         'Submit a search to see results',
                         style: HrModuleTypography.body().copyWith(
-                          fontSize: 14.sp,
+                          fontSize: 14.tsp,
                           color: HrModuleColors.mutedText,
                         ),
                       ),
                     )
                   : ListView.builder(
                       controller: _scroll,
-                      padding: EdgeInsets.fromLTRB(16.w, 0, 16.w, 24.h),
+                      padding: EdgeInsets.fromLTRB(16.tw, 0, 16.tw, 24.th),
                       itemCount: _items.length + (_loading ? 1 : 0),
                       itemBuilder: (context, i) {
                         if (i >= _items.length) {
                           return Padding(
-                            padding: EdgeInsets.all(16.r),
+                            padding: EdgeInsets.all(16.tr),
                             child: const Center(
                               child: CircularProgressIndicator(),
                             ),
@@ -346,7 +347,7 @@ class _HrManagerSearchOlderScreenState extends ConsumerState<HrManagerSearchOlde
                             e.relativeSubmittedLabel,
                         ].join(' · ');
                         return Padding(
-                          padding: EdgeInsets.only(bottom: 12.h),
+                          padding: EdgeInsets.only(bottom: 12.th),
                           child: HrRequestCard(
                             showEmployeeHeader: true,
                             employeeName: e.employeeName,

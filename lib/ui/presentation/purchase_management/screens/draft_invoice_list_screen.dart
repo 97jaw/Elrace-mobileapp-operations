@@ -1,3 +1,4 @@
+import 'package:el_race/core/utils/responsive_breakpoints.dart';
 import 'dart:async';
 
 import 'package:el_race/core/purchase/purchase_dev_role_provider.dart';
@@ -141,13 +142,13 @@ class _DraftInvoiceListScreenState extends State<DraftInvoiceListScreen> {
                   ),
                   if (_total > 0)
                     Padding(
-                      padding: EdgeInsets.fromLTRB(16.w, 4.h, 16.w, 8.h),
+                      padding: EdgeInsets.fromLTRB(16.tw, 4.th, 16.tw, 8.th),
                       child: Align(
                         alignment: Alignment.centerLeft,
                         child: Text(
                           '$_total pending drafts',
                           style: GoogleFonts.poppins(
-                            fontSize: 11.sp,
+                            fontSize: 11.tsp,
                             color: PurchaseTheme.textMuted,
                           ),
                         ),
@@ -155,7 +156,7 @@ class _DraftInvoiceListScreenState extends State<DraftInvoiceListScreen> {
                     ),
                   Expanded(
                     child: Container(
-                      margin: EdgeInsets.symmetric(horizontal: 12.w),
+                      margin: EdgeInsets.symmetric(horizontal: 12.tw),
                       decoration: PurchaseTheme.glassPanel(),
                       clipBehavior: Clip.antiAlias,
                       child: _buildBody(),
@@ -180,7 +181,7 @@ class _DraftInvoiceListScreenState extends State<DraftInvoiceListScreen> {
       return Center(
         child: Text(
           _error!,
-          style: GoogleFonts.poppins(color: Colors.red, fontSize: 13.sp),
+          style: GoogleFonts.poppins(color: Colors.red, fontSize: 13.tsp),
         ),
       );
     }
@@ -190,7 +191,7 @@ class _DraftInvoiceListScreenState extends State<DraftInvoiceListScreen> {
           translate('home.purchase.no_records'),
           style: GoogleFonts.poppins(
             color: PurchaseTheme.textMuted,
-            fontSize: 14.sp,
+            fontSize: 14.tsp,
           ),
         ),
       );

@@ -1,3 +1,4 @@
+import 'package:el_race/core/utils/responsive_breakpoints.dart';
 import 'package:el_race/ui/presentation/purchase_management/theme/purchase_theme.dart';
 import 'package:el_race/ui/presentation/purchase_management/widgets/purchase_background.dart';
 import 'package:el_race/ui/presentation/purchase_management/widgets/purchase_glass_header.dart';
@@ -78,7 +79,7 @@ class PurchaseHubListScaffold extends StatelessWidget {
                     ),
                   if (onSmartFilterTap != null)
                     Padding(
-                      padding: EdgeInsets.fromLTRB(14.w, 10.h, 14.w, 4.h),
+                      padding: EdgeInsets.fromLTRB(14.tw, 10.th, 14.tw, 4.th),
                       child: Row(
                         children: [
                           Expanded(
@@ -88,7 +89,7 @@ class PurchaseHubListScaffold extends StatelessWidget {
                               embedded: true,
                             ),
                           ),
-                          SizedBox(width: 8.w),
+                          SizedBox(width: 8.tw),
                           _SmartFilterButton(
                             count: smartFilterCount,
                             onTap: onSmartFilterTap!,
@@ -131,7 +132,7 @@ class PurchaseHubListScaffold extends StatelessWidget {
       return Center(
         child: Text(
           error!,
-          style: GoogleFonts.poppins(color: Colors.red, fontSize: 13.sp),
+          style: GoogleFonts.poppins(color: Colors.red, fontSize: 13.tsp),
         ),
       );
     }
@@ -141,7 +142,7 @@ class PurchaseHubListScaffold extends StatelessWidget {
           translate('home.purchase.no_records'),
           style: GoogleFonts.poppins(
             color: PurchaseTheme.textMuted,
-            fontSize: 14.sp,
+            fontSize: 14.tsp,
           ),
         ),
       );
@@ -192,8 +193,8 @@ class _SmartFilterButton extends StatelessWidget {
         GestureDetector(
           onTap: onTap,
           child: Container(
-            width: 40.w,
-            height: 40.w,
+            width: 40.tw,
+            height: 40.tw,
             decoration: BoxDecoration(
               color: count > 0
                   ? PurchaseTheme.accentBlue
@@ -208,7 +209,7 @@ class _SmartFilterButton extends StatelessWidget {
             ),
             child: Icon(
               Icons.tune_rounded,
-              size: 18.sp,
+              size: 18.tsp,
               color: count > 0 ? Colors.white : PurchaseTheme.accentDeep,
             ),
           ),
@@ -218,7 +219,7 @@ class _SmartFilterButton extends StatelessWidget {
             right: -2,
             top: -2,
             child: Container(
-              padding: EdgeInsets.all(4.w),
+              padding: EdgeInsets.all(4.tw),
               decoration: const BoxDecoration(
                 color: Color(0xFFDC2626),
                 shape: BoxShape.circle,
@@ -226,7 +227,7 @@ class _SmartFilterButton extends StatelessWidget {
               child: Text(
                 '$count',
                 style: GoogleFonts.poppins(
-                  fontSize: 8.sp,
+                  fontSize: 8.tsp,
                   fontWeight: FontWeight.w700,
                   color: Colors.white,
                 ),
@@ -252,10 +253,10 @@ class _SegmentControl extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: EdgeInsets.fromLTRB(14.w, 10.h, 14.w, 4.h),
+      padding: EdgeInsets.fromLTRB(14.tw, 10.th, 14.tw, 4.th),
       child: Container(
-        padding: EdgeInsets.all(4.w),
-        decoration: PurchaseTheme.glassPanel(radius: 14.r),
+        padding: EdgeInsets.all(4.tw),
+        decoration: PurchaseTheme.glassPanel(radius: 14.tr),
         child: Row(
           children: [
             for (var i = 0; i < labels.length; i++)
@@ -264,19 +265,19 @@ class _SegmentControl extends StatelessWidget {
                   onTap: onChanged == null ? null : () => onChanged!(i),
                   child: AnimatedContainer(
                     duration: const Duration(milliseconds: 180),
-                    padding: EdgeInsets.symmetric(vertical: 8.h),
+                    padding: EdgeInsets.symmetric(vertical: 8.th),
                     decoration: BoxDecoration(
                       color: selected == i
                           ? PurchaseTheme.accentBlue.withValues(alpha: 0.88)
                           : Colors.transparent,
-                      borderRadius: BorderRadius.circular(10.r),
+                      borderRadius: BorderRadius.circular(10.tr),
                     ),
                     alignment: Alignment.center,
                     child: Text(
                       labels[i],
                       textAlign: TextAlign.center,
                       style: GoogleFonts.poppins(
-                        fontSize: 10.5.sp,
+                        fontSize: 10.5.tsp,
                         fontWeight:
                             selected == i ? FontWeight.w600 : FontWeight.w400,
                         color: selected == i
@@ -312,15 +313,15 @@ class PurchaseGlassListCard extends StatelessWidget {
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        margin: EdgeInsets.symmetric(horizontal: 14.w, vertical: 6.h),
+        margin: EdgeInsets.symmetric(horizontal: 14.tw, vertical: 6.th),
         decoration: urgent
-            ? PurchaseTheme.glassCard(radius: 14.r).copyWith(
+            ? PurchaseTheme.glassCard(radius: 14.tr).copyWith(
                 border: Border.all(
                   color: PurchaseTheme.urgentOrange.withValues(alpha: 0.45),
                 ),
               )
-            : PurchaseTheme.glassCard(radius: 14.r),
-        padding: EdgeInsets.all(14.w),
+            : PurchaseTheme.glassCard(radius: 14.tr),
+        padding: EdgeInsets.all(14.tw),
         child: child,
       ),
     );

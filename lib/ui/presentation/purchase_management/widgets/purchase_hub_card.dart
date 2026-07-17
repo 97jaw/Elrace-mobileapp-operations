@@ -1,3 +1,4 @@
+import 'package:el_race/core/utils/responsive_breakpoints.dart';
 import 'package:el_race/ui/presentation/purchase_management/data/purchase_models.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
@@ -27,10 +28,10 @@ class PurchaseHubCardTile extends StatelessWidget {
       color: Colors.transparent,
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(18.r),
+        borderRadius: BorderRadius.circular(18.tr),
         child: Ink(
           decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(18.r),
+            borderRadius: BorderRadius.circular(18.tr),
             gradient: LinearGradient(
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
@@ -45,51 +46,51 @@ class PurchaseHubCardTile extends StatelessWidget {
             ),
           ),
           child: Padding(
-            padding: EdgeInsets.all(16.w),
+            padding: EdgeInsets.all(16.tw),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Row(
                   children: [
                     Container(
-                      width: 36.w,
-                      height: 36.w,
+                      width: 36.tw,
+                      height: 36.tw,
                       decoration: BoxDecoration(
                         color: accent.withValues(alpha: 0.18),
-                        borderRadius: BorderRadius.circular(12.r),
+                        borderRadius: BorderRadius.circular(12.tr),
                       ),
-                      child: Icon(icon, color: accent, size: 20.sp),
+                      child: Icon(icon, color: accent, size: 20.tsp),
                     ),
                     const Spacer(),
                     Icon(Icons.chevron_right_rounded,
-                        color: Colors.white38, size: 22.sp),
+                        color: Colors.white38, size: 22.tsp),
                   ],
                 ),
-                SizedBox(height: 14.h),
+                SizedBox(height: 14.th),
                 Text(
                   title,
                   style: GoogleFonts.poppins(
-                    fontSize: 13.sp,
+                    fontSize: 13.tsp,
                     fontWeight: FontWeight.w700,
                     color: Colors.white,
                   ),
                 ),
-                SizedBox(height: 4.h),
+                SizedBox(height: 4.th),
                 Text(
                   subtitle,
                   style: GoogleFonts.poppins(
-                    fontSize: 10.sp,
+                    fontSize: 10.tsp,
                     fontWeight: FontWeight.w500,
                     color: Colors.white54,
                   ),
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                 ),
-                SizedBox(height: 12.h),
+                SizedBox(height: 12.th),
                 Text(
                   count,
                   style: GoogleFonts.poppins(
-                    fontSize: 24.sp,
+                    fontSize: 24.tsp,
                     fontWeight: FontWeight.w800,
                     color: accent,
                     height: 1,

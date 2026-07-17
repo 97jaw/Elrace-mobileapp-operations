@@ -1,3 +1,4 @@
+import 'package:el_race/core/utils/responsive_breakpoints.dart';
 import 'dart:async';
 
 import 'package:el_race/ui/presentation/purchase_management/data/purchase_models.dart';
@@ -34,7 +35,7 @@ class PurchaseFilterPickerDialog extends StatefulWidget {
       barrierColor: Colors.black.withValues(alpha: 0.55),
       builder: (ctx) => Dialog(
         backgroundColor: Colors.transparent,
-        insetPadding: EdgeInsets.symmetric(horizontal: 20.w, vertical: 28.h),
+        insetPadding: EdgeInsets.symmetric(horizontal: 20.tw, vertical: 28.th),
         child: PurchaseFilterPickerDialog(
           title: title,
           selectedIds: selectedIds,
@@ -128,13 +129,13 @@ class _PurchaseFilterPickerDialogState extends State<PurchaseFilterPickerDialog>
   @override
   Widget build(BuildContext context) {
     final screenH = MediaQuery.sizeOf(context).height;
-    final dialogHeight = (screenH * 0.55).clamp(340.h, 520.h);
+    final dialogHeight = (screenH * 0.55).clamp(340.th, 520.th);
 
     return Container(
       height: dialogHeight,
       decoration: BoxDecoration(
         color: const Color(0xFFF4F9FD),
-        borderRadius: BorderRadius.circular(20.r),
+        borderRadius: BorderRadius.circular(20.tr),
         border: Border.all(
           color: PurchaseTheme.accentBlue.withValues(alpha: 0.22),
           width: 1.2,
@@ -151,14 +152,14 @@ class _PurchaseFilterPickerDialogState extends State<PurchaseFilterPickerDialog>
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Padding(
-            padding: EdgeInsets.fromLTRB(18.w, 16.h, 8.w, 8.h),
+            padding: EdgeInsets.fromLTRB(18.tw, 16.th, 8.tw, 8.th),
             child: Row(
               children: [
                 Expanded(
                   child: Text(
                     widget.title,
                     style: GoogleFonts.poppins(
-                      fontSize: 16.sp,
+                      fontSize: 16.tsp,
                       fontWeight: FontWeight.w700,
                       color: PurchaseTheme.textPrimary,
                     ),
@@ -166,51 +167,51 @@ class _PurchaseFilterPickerDialogState extends State<PurchaseFilterPickerDialog>
                 ),
                 IconButton(
                   onPressed: () => Navigator.pop(context),
-                  icon: Icon(Icons.close_rounded, size: 20.sp),
+                  icon: Icon(Icons.close_rounded, size: 20.tsp),
                   color: PurchaseTheme.textMuted,
                 ),
               ],
             ),
           ),
           Padding(
-            padding: EdgeInsets.symmetric(horizontal: 18.w),
+            padding: EdgeInsets.symmetric(horizontal: 18.tw),
             child: TextField(
               controller: _searchCtrl,
-              style: GoogleFonts.poppins(fontSize: 13.sp),
+              style: GoogleFonts.poppins(fontSize: 13.tsp),
               decoration: InputDecoration(
                 hintText: 'Search…',
                 hintStyle: GoogleFonts.poppins(
-                  fontSize: 13.sp,
+                  fontSize: 13.tsp,
                   color: PurchaseTheme.textMuted,
                 ),
                 prefixIcon: Icon(
                   Icons.search_rounded,
                   color: PurchaseTheme.accentBlue,
-                  size: 20.sp,
+                  size: 20.tsp,
                 ),
                 filled: true,
                 fillColor: Colors.white,
                 border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12.r),
+                  borderRadius: BorderRadius.circular(12.tr),
                   borderSide: BorderSide(
                     color: PurchaseTheme.textMuted.withValues(alpha: 0.25),
                   ),
                 ),
                 enabledBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12.r),
+                  borderRadius: BorderRadius.circular(12.tr),
                   borderSide: BorderSide(
                     color: PurchaseTheme.textMuted.withValues(alpha: 0.25),
                   ),
                 ),
                 contentPadding:
-                    EdgeInsets.symmetric(horizontal: 12.w, vertical: 10.h),
+                    EdgeInsets.symmetric(horizontal: 12.tw, vertical: 10.th),
               ),
             ),
           ),
-          SizedBox(height: 10.h),
+          SizedBox(height: 10.th),
           Expanded(child: _buildOptionsList()),
           Padding(
-            padding: EdgeInsets.fromLTRB(18.w, 10.h, 18.w, 18.h),
+            padding: EdgeInsets.fromLTRB(18.tw, 10.th, 18.tw, 18.th),
             child: Row(
               children: [
                 TextButton(
@@ -218,7 +219,7 @@ class _PurchaseFilterPickerDialogState extends State<PurchaseFilterPickerDialog>
                   child: Text(
                     'Clear',
                     style: GoogleFonts.poppins(
-                      fontSize: 13.sp,
+                      fontSize: 13.tsp,
                       fontWeight: FontWeight.w600,
                       color: PurchaseTheme.textSecondary,
                     ),
@@ -228,16 +229,16 @@ class _PurchaseFilterPickerDialogState extends State<PurchaseFilterPickerDialog>
                 FilledButton(
                   style: FilledButton.styleFrom(
                     backgroundColor: PurchaseTheme.accentBlue,
-                    minimumSize: Size(120.w, 42.h),
+                    minimumSize: Size(120.tw, 42.th),
                     shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12.r),
+                      borderRadius: BorderRadius.circular(12.tr),
                     ),
                   ),
                   onPressed: () => Navigator.pop(context, _selected.toList()),
                   child: Text(
                     'Apply',
                     style: GoogleFonts.poppins(
-                      fontSize: 13.sp,
+                      fontSize: 13.tsp,
                       fontWeight: FontWeight.w600,
                     ),
                   ),
@@ -261,7 +262,7 @@ class _PurchaseFilterPickerDialogState extends State<PurchaseFilterPickerDialog>
         child: Text(
           _loadError!,
           style: GoogleFonts.poppins(
-            fontSize: 13.sp,
+            fontSize: 13.tsp,
             color: PurchaseTheme.textMuted,
           ),
         ),
@@ -272,7 +273,7 @@ class _PurchaseFilterPickerDialogState extends State<PurchaseFilterPickerDialog>
         child: Text(
           'No options found',
           style: GoogleFonts.poppins(
-            fontSize: 13.sp,
+            fontSize: 13.tsp,
             color: PurchaseTheme.textMuted,
           ),
         ),
@@ -280,7 +281,7 @@ class _PurchaseFilterPickerDialogState extends State<PurchaseFilterPickerDialog>
     }
 
     return ListView.separated(
-      padding: EdgeInsets.symmetric(horizontal: 12.w),
+      padding: EdgeInsets.symmetric(horizontal: 12.tw),
       itemCount: _visible.length,
       separatorBuilder: (_, __) => Divider(
         height: 1,
@@ -303,21 +304,21 @@ class _PurchaseFilterPickerDialogState extends State<PurchaseFilterPickerDialog>
               }
             });
           },
-          borderRadius: BorderRadius.circular(10.r),
+          borderRadius: BorderRadius.circular(10.tr),
           child: Padding(
-            padding: EdgeInsets.symmetric(horizontal: 8.w, vertical: 10.h),
+            padding: EdgeInsets.symmetric(horizontal: 8.tw, vertical: 10.th),
             child: Row(
               children: [
                 if (widget.coloredChips) ...[
                   Flexible(
                     child: Container(
                       padding: EdgeInsets.symmetric(
-                        horizontal: 8.w,
-                        vertical: 4.h,
+                        horizontal: 8.tw,
+                        vertical: 4.th,
                       ),
                       decoration: BoxDecoration(
                         color: chipColor.withValues(alpha: 0.15),
-                        borderRadius: BorderRadius.circular(8.r),
+                        borderRadius: BorderRadius.circular(8.tr),
                         border: Border.all(
                           color: chipColor.withValues(alpha: 0.45),
                         ),
@@ -327,7 +328,7 @@ class _PurchaseFilterPickerDialogState extends State<PurchaseFilterPickerDialog>
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
                         style: GoogleFonts.poppins(
-                          fontSize: 11.sp,
+                          fontSize: 11.tsp,
                           fontWeight: FontWeight.w600,
                           color: chipColor,
                         ),
@@ -339,7 +340,7 @@ class _PurchaseFilterPickerDialogState extends State<PurchaseFilterPickerDialog>
                     child: Text(
                       option.label,
                       style: GoogleFonts.poppins(
-                        fontSize: 13.sp,
+                        fontSize: 13.tsp,
                         fontWeight: FontWeight.w500,
                         color: PurchaseTheme.textPrimary,
                       ),

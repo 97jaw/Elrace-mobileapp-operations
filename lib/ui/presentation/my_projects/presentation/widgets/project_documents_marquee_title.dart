@@ -1,3 +1,4 @@
+import 'package:el_race/core/utils/responsive_breakpoints.dart';
 import 'package:el_race/ui/presentation/my_projects/presentation/theme/projects_dashboard_theme.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
@@ -36,14 +37,14 @@ class _ProjectDocumentsOneLineMarqueeState
   double _lastWidth = 0;
 
   TextStyle get _style => GoogleFonts.poppins(
-        fontSize: widget.fontSize ?? 14.sp,
+        fontSize: widget.fontSize ?? 14.tsp,
         fontStyle: widget.italic ? FontStyle.italic : FontStyle.normal,
         fontWeight: widget.fontWeight,
         color: widget.color ?? ProjectsDashboardTheme.greyDeep,
         height: widget.lineHeight,
       );
 
-  double get _lineHeightPx => (widget.fontSize ?? 14.sp) * widget.lineHeight;
+  double get _lineHeightPx => (widget.fontSize ?? 14.tsp) * widget.lineHeight;
 
   @override
   void dispose() {
@@ -74,7 +75,7 @@ class _ProjectDocumentsOneLineMarqueeState
         maxLines: 1,
         textDirection: TextDirection.ltr,
       )..layout(maxWidth: double.infinity);
-      _overflow = (full.width - maxWidth + 24.w).clamp(0, double.infinity);
+      _overflow = (full.width - maxWidth + 24.tw).clamp(0, double.infinity);
       _controller = AnimationController(
         vsync: this,
         duration: Duration(milliseconds: (9000 + _overflow * 12).round()),

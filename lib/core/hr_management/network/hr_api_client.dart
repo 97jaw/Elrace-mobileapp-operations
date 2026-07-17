@@ -82,6 +82,24 @@ class HrApiClient {
     );
   }
 
+  /// All Odoo `request.type` rows for filter pickers.
+  Future<HrApiEnvelope<List<Map<String, dynamic>>>> fetchRequestTypes() async {
+    if (useMock) {
+      await Future<void>.delayed(const Duration(milliseconds: 80));
+      return HrApiEnvelope<List<Map<String, dynamic>>>(
+        success: true,
+        data: const [
+          {'id': 1, 'name': 'Leave Request', 'label': 'Leave Request', 'code': 'ANNUALLEAVE'},
+          {'id': 2, 'name': 'Job Mission', 'label': 'Job Mission', 'code': 'JM'},
+          {'id': 3, 'name': 'Temporary Permission', 'label': 'Temporary Permission', 'code': 'TEMP'},
+        ],
+        error: null,
+        uiStatus: null,
+      );
+    }
+    return _postList('/api/hr/request_types', {});
+  }
+
   /// Fast KPI counts for Requests tab (`POST /api/hr/team_requests/kpis`).
   Future<HrApiEnvelope<Map<String, dynamic>>> fetchTeamKpis({
     String period = 'month',

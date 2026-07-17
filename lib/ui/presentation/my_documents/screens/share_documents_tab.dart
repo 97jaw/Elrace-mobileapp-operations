@@ -1,3 +1,4 @@
+import 'package:el_race/core/utils/responsive_breakpoints.dart';
 import 'dart:convert';
 import 'dart:io';
 
@@ -582,11 +583,11 @@ class _ShareDocumentsTabState extends State<ShareDocumentsTab> {
               return Dialog(
                 backgroundColor: Colors.transparent,
                 insetPadding:
-                    EdgeInsets.symmetric(horizontal: 12.w, vertical: 18.h),
+                    EdgeInsets.symmetric(horizontal: 12.tw, vertical: 18.th),
                 child: Container(
-                  width: 360.w,
+                  width: 360.tw,
                   decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(22.r),
+                    borderRadius: BorderRadius.circular(22.tr),
                     gradient: const LinearGradient(
                       begin: Alignment.topLeft,
                       end: Alignment.bottomRight,
@@ -604,7 +605,7 @@ class _ShareDocumentsTabState extends State<ShareDocumentsTab> {
                     ],
                   ),
                   child: Padding(
-                    padding: EdgeInsets.fromLTRB(18.w, 12.h, 18.w, 18.h),
+                    padding: EdgeInsets.fromLTRB(18.tw, 12.th, 18.tw, 18.th),
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
                       children: [
@@ -617,10 +618,10 @@ class _ShareDocumentsTabState extends State<ShareDocumentsTab> {
                                 Navigator.pop(ctx);
                               }
                             },
-                            borderRadius: BorderRadius.circular(20.r),
+                            borderRadius: BorderRadius.circular(20.tr),
                             child: Container(
-                              width: 36.w,
-                              height: 36.w,
+                              width: 36.tw,
+                              height: 36.tw,
                               decoration: const BoxDecoration(
                                 color: Color(0xFFF2F2F2),
                                 shape: BoxShape.circle,
@@ -628,27 +629,27 @@ class _ShareDocumentsTabState extends State<ShareDocumentsTab> {
                               child: Icon(
                                 Icons.close,
                                 color: const Color(0xFF2C2C2C),
-                                size: 22.sp,
+                                size: 22.tsp,
                               ),
                             ),
                           ),
                         ),
-                        SizedBox(height: 6.h),
+                        SizedBox(height: 6.th),
                         Text(
                           'Create Folder',
                           style: GoogleFonts.poppins(
-                            fontSize: 36.sp,
+                            fontSize: 36.tsp,
                             fontWeight: FontWeight.w700,
                             color: const Color(0xFFF1F1F1),
                             letterSpacing: 0.8,
                           ),
                         ),
-                        SizedBox(height: 12.h),
+                        SizedBox(height: 12.th),
                         Container(
-                          height: 42.h,
+                          height: 42.th,
                           decoration: BoxDecoration(
                             color: const Color(0xFFF5F5F5),
-                            borderRadius: BorderRadius.circular(24.r),
+                            borderRadius: BorderRadius.circular(24.tr),
                           ),
                           child: TextField(
                             controller: nameController,
@@ -663,7 +664,7 @@ class _ShareDocumentsTabState extends State<ShareDocumentsTab> {
                               });
                             },
                             style: GoogleFonts.poppins(
-                              fontSize: 14.sp,
+                              fontSize: 14.tsp,
                               fontWeight: FontWeight.w600,
                               color: const Color(0xFF3B3B3B),
                               letterSpacing: 1.2,
@@ -671,7 +672,7 @@ class _ShareDocumentsTabState extends State<ShareDocumentsTab> {
                             decoration: InputDecoration(
                               hintText: 'Folder Name',
                               hintStyle: GoogleFonts.poppins(
-                                fontSize: 14.sp,
+                                fontSize: 14.tsp,
                                 fontWeight: FontWeight.w600,
                                 color: const Color(0xFF9D9D9D),
                                 letterSpacing: 1.2,
@@ -679,13 +680,13 @@ class _ShareDocumentsTabState extends State<ShareDocumentsTab> {
                               border: InputBorder.none,
                               counterText: '',
                               contentPadding: EdgeInsets.symmetric(
-                                horizontal: 12.w,
-                                vertical: 10.h,
+                                horizontal: 12.tw,
+                                vertical: 10.th,
                               ),
                             ),
                           ),
                         ),
-                        SizedBox(height: 4.h),
+                        SizedBox(height: 4.th),
                         Align(
                           alignment: Alignment.centerRight,
                           child: Text(
@@ -693,7 +694,7 @@ class _ShareDocumentsTabState extends State<ShareDocumentsTab> {
                                 ? 'Reached max: 15 characters'
                                 : '${15 - nameLength} characters left',
                             style: GoogleFonts.poppins(
-                              fontSize: 10.sp,
+                              fontSize: 10.tsp,
                               fontWeight: FontWeight.w500,
                               color: nameLength >= 15
                                   ? const Color(0xFFFFE3E3)
@@ -701,28 +702,28 @@ class _ShareDocumentsTabState extends State<ShareDocumentsTab> {
                             ),
                           ),
                         ),
-                        SizedBox(height: 12.h),
+                        SizedBox(height: 12.th),
                         InkWell(
                           onTap: isPickingFiles ? null : pickAttachments,
-                          borderRadius: BorderRadius.circular(12.r),
+                          borderRadius: BorderRadius.circular(12.tr),
                           child: Padding(
                             padding: EdgeInsets.symmetric(
-                                horizontal: 8.w, vertical: 6.h),
+                                horizontal: 8.tw, vertical: 6.th),
                             child: Row(
                               mainAxisSize: MainAxisSize.min,
                               children: [
                                 Icon(
                                   Icons.upload_file_rounded,
-                                  size: 20.sp,
+                                  size: 20.tsp,
                                   color: const Color(0xFFEDEDED),
                                 ),
-                                SizedBox(width: 4.w),
+                                SizedBox(width: 4.tw),
                                 Text(
                                   isPickingFiles
                                       ? 'Attaching...'
                                       : 'Attach Files',
                                   style: GoogleFonts.poppins(
-                                    fontSize: 13.sp,
+                                    fontSize: 13.tsp,
                                     fontWeight: FontWeight.w700,
                                     color: const Color(0xFFF2F2F2),
                                     decoration: TextDecoration.underline,
@@ -734,24 +735,24 @@ class _ShareDocumentsTabState extends State<ShareDocumentsTab> {
                           ),
                         ),
                         if (pickedAttachments.isNotEmpty) ...[
-                          SizedBox(height: 4.h),
+                          SizedBox(height: 4.th),
                           Text(
                             '${pickedAttachments.length} file(s) selected',
                             style: GoogleFonts.poppins(
-                              fontSize: 10.sp,
+                              fontSize: 10.tsp,
                               color: const Color(0xFFE7E7E7),
                               fontWeight: FontWeight.w500,
                             ),
                           ),
                         ],
-                        SizedBox(height: 14.h),
+                        SizedBox(height: 14.th),
                         SizedBox(
-                          height: 46.h,
+                          height: 46.th,
                           child: Material(
                             color: const Color(0xFFE7E7E7),
-                            borderRadius: BorderRadius.circular(24.r),
+                            borderRadius: BorderRadius.circular(24.tr),
                             child: InkWell(
-                              borderRadius: BorderRadius.circular(24.r),
+                              borderRadius: BorderRadius.circular(24.tr),
                               onTap: () {
                                 final value = nameController.text.trim();
                                 if (value.isEmpty) {
@@ -781,7 +782,7 @@ class _ShareDocumentsTabState extends State<ShareDocumentsTab> {
                                     child: Text(
                                       'Submit',
                                       style: GoogleFonts.poppins(
-                                        fontSize: 20.sp,
+                                        fontSize: 20.tsp,
                                         fontWeight: FontWeight.w500,
                                         color: const Color(0xFF7B7B7B),
                                         letterSpacing: 1.1,
@@ -789,11 +790,11 @@ class _ShareDocumentsTabState extends State<ShareDocumentsTab> {
                                     ),
                                   ),
                                   Positioned(
-                                    left: 4.w,
-                                    top: 4.h,
-                                    bottom: 4.h,
+                                    left: 4.tw,
+                                    top: 4.th,
+                                    bottom: 4.th,
                                     child: Container(
-                                      width: 38.w,
+                                      width: 38.tw,
                                       decoration: const BoxDecoration(
                                         shape: BoxShape.circle,
                                         color: Color(0xFF5B616B),
@@ -801,7 +802,7 @@ class _ShareDocumentsTabState extends State<ShareDocumentsTab> {
                                       child: Icon(
                                         Icons.chevron_right,
                                         color: Colors.white,
-                                        size: 26.sp,
+                                        size: 26.tsp,
                                       ),
                                     ),
                                   ),
@@ -939,26 +940,26 @@ class _ShareDocumentsTabState extends State<ShareDocumentsTab> {
 
               return Dialog(
                 insetPadding:
-                    EdgeInsets.symmetric(horizontal: 10.w, vertical: 14.h),
+                    EdgeInsets.symmetric(horizontal: 10.tw, vertical: 14.th),
                 shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(18.r),
+                  borderRadius: BorderRadius.circular(18.tr),
                 ),
                 child: SizedBox(
-                  height: 640.h,
+                  height: 640.th,
                   child: Padding(
-                    padding: EdgeInsets.fromLTRB(14.w, 12.h, 14.w, 16.h),
+                    padding: EdgeInsets.fromLTRB(14.tw, 12.th, 14.tw, 16.th),
                     child: Column(
                       children: [
                         Align(
                           alignment: Alignment.topRight,
                           child: InkWell(
                             onTap: () => Navigator.pop(ctx),
-                            borderRadius: BorderRadius.circular(10.r),
+                            borderRadius: BorderRadius.circular(10.tr),
                             child: Container(
-                              width: 34.w,
-                              height: 34.w,
+                              width: 34.tw,
+                              height: 34.tw,
                               decoration: BoxDecoration(
-                                borderRadius: BorderRadius.circular(10.r),
+                                borderRadius: BorderRadius.circular(10.tr),
                                 border: Border.all(
                                   color: const Color(0xFFD95959),
                                   width: 1.2,
@@ -966,13 +967,13 @@ class _ShareDocumentsTabState extends State<ShareDocumentsTab> {
                               ),
                               child: Icon(
                                 Icons.close,
-                                size: 18.sp,
+                                size: 18.tsp,
                                 color: const Color(0xFFD95959),
                               ),
                             ),
                           ),
                         ),
-                        SizedBox(height: 8.h),
+                        SizedBox(height: 8.th),
                         TextField(
                           controller: searchController,
                           onChanged: (value) {
@@ -983,43 +984,43 @@ class _ShareDocumentsTabState extends State<ShareDocumentsTab> {
                           decoration: InputDecoration(
                             hintText: 'Search Phone Number',
                             hintStyle: GoogleFonts.poppins(
-                              fontSize: 13.sp,
+                              fontSize: 13.tsp,
                               color: const Color(0xFFA1A1A1),
                             ),
                             suffixIcon: Icon(
                               Icons.search,
                               color: const Color(0xFF8A8A8A),
-                              size: 22.sp,
+                              size: 22.tsp,
                             ),
                             contentPadding: EdgeInsets.symmetric(
-                              horizontal: 14.w,
-                              vertical: 10.h,
+                              horizontal: 14.tw,
+                              vertical: 10.th,
                             ),
                             border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(22.r),
+                              borderRadius: BorderRadius.circular(22.tr),
                               borderSide: const BorderSide(
                                 color: Color(0xFFB7B7B7),
                               ),
                             ),
                             enabledBorder: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(22.r),
+                              borderRadius: BorderRadius.circular(22.tr),
                               borderSide: const BorderSide(
                                 color: Color(0xFFB7B7B7),
                               ),
                             ),
                             focusedBorder: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(22.r),
+                              borderRadius: BorderRadius.circular(22.tr),
                               borderSide: const BorderSide(
                                 color: Color(0xFF9C9C9C),
                               ),
                             ),
                           ),
                         ),
-                        SizedBox(height: 10.h),
+                        SizedBox(height: 10.th),
                         Expanded(
                           child: ListView.separated(
                             itemCount: results.length,
-                            separatorBuilder: (_, __) => SizedBox(height: 8.h),
+                            separatorBuilder: (_, __) => SizedBox(height: 8.th),
                             itemBuilder: (context, index) {
                               final m = results[index];
                               final employeeId = m.employeeId ?? m.id;
@@ -1030,7 +1031,7 @@ class _ShareDocumentsTabState extends State<ShareDocumentsTab> {
                               return Row(
                                 children: [
                                   CircleAvatar(
-                                    radius: 17.r,
+                                    radius: 17.tr,
                                     backgroundColor: const Color(0xFFE4E4E9),
                                     backgroundImage: (m.image != null &&
                                             m.image!.trim().isNotEmpty)
@@ -1041,14 +1042,14 @@ class _ShareDocumentsTabState extends State<ShareDocumentsTab> {
                                         ? Text(
                                             _userInitial(m.name),
                                             style: GoogleFonts.poppins(
-                                              fontSize: 11.sp,
+                                              fontSize: 11.tsp,
                                               fontWeight: FontWeight.w700,
                                               color: const Color(0xFF565656),
                                             ),
                                           )
                                         : null,
                                   ),
-                                  SizedBox(width: 12.w),
+                                  SizedBox(width: 12.tw),
                                   Expanded(
                                     child: Column(
                                       crossAxisAlignment:
@@ -1059,7 +1060,7 @@ class _ShareDocumentsTabState extends State<ShareDocumentsTab> {
                                           maxLines: 1,
                                           overflow: TextOverflow.ellipsis,
                                           style: GoogleFonts.poppins(
-                                            fontSize: 14.sp,
+                                            fontSize: 14.tsp,
                                             fontWeight: FontWeight.w500,
                                             color: const Color(0xFF222222),
                                           ),
@@ -1069,7 +1070,7 @@ class _ShareDocumentsTabState extends State<ShareDocumentsTab> {
                                           maxLines: 1,
                                           overflow: TextOverflow.ellipsis,
                                           style: GoogleFonts.poppins(
-                                            fontSize: 12.sp,
+                                            fontSize: 12.tsp,
                                             color: const Color(0xFF8B8B8B),
                                           ),
                                         ),
@@ -1088,13 +1089,13 @@ class _ShareDocumentsTabState extends State<ShareDocumentsTab> {
                                               }
                                             });
                                           },
-                                    borderRadius: BorderRadius.circular(9.r),
+                                    borderRadius: BorderRadius.circular(9.tr),
                                     child: Container(
-                                      width: 34.w,
-                                      height: 34.w,
+                                      width: 34.tw,
+                                      height: 34.tw,
                                       decoration: BoxDecoration(
                                         borderRadius:
-                                            BorderRadius.circular(9.r),
+                                            BorderRadius.circular(9.tr),
                                         color: isSelected
                                             ? const Color(0xFF090A38)
                                             : Colors.transparent,
@@ -1109,7 +1110,7 @@ class _ShareDocumentsTabState extends State<ShareDocumentsTab> {
                                           ? Icon(
                                               Icons.check,
                                               color: Colors.white,
-                                              size: 20.sp,
+                                              size: 20.tsp,
                                             )
                                           : null,
                                     ),
@@ -1119,7 +1120,7 @@ class _ShareDocumentsTabState extends State<ShareDocumentsTab> {
                             },
                           ),
                         ),
-                        SizedBox(height: 10.h),
+                        SizedBox(height: 10.th),
                         InkWell(
                           onTap: selected.isEmpty
                               ? null
@@ -1127,12 +1128,12 @@ class _ShareDocumentsTabState extends State<ShareDocumentsTab> {
                                     ctx,
                                     selected.toList(growable: false),
                                   ),
-                          borderRadius: BorderRadius.circular(22.r),
+                          borderRadius: BorderRadius.circular(22.tr),
                           child: Ink(
-                            width: 125.w,
-                            height: 42.h,
+                            width: 125.tw,
+                            height: 42.th,
                             decoration: BoxDecoration(
-                              borderRadius: BorderRadius.circular(22.r),
+                              borderRadius: BorderRadius.circular(22.tr),
                               gradient: const LinearGradient(
                                 begin: Alignment.centerLeft,
                                 end: Alignment.centerRight,
@@ -1146,7 +1147,7 @@ class _ShareDocumentsTabState extends State<ShareDocumentsTab> {
                               child: Text(
                                 'ADD',
                                 style: GoogleFonts.poppins(
-                                  fontSize: 24.sp,
+                                  fontSize: 24.tsp,
                                   fontWeight: FontWeight.w700,
                                   color: Colors.white,
                                   letterSpacing: 1.0,
@@ -1389,29 +1390,29 @@ class _ShareDocumentsTabState extends State<ShareDocumentsTab> {
     required String subtitle,
   }) {
     return Padding(
-      padding: EdgeInsets.symmetric(vertical: 16.h, horizontal: 8.w),
+      padding: EdgeInsets.symmetric(vertical: 16.th, horizontal: 8.tw),
       child: Column(
         children: [
           Icon(
             icon,
-            size: 60.sp,
+            size: 60.tsp,
             color: const Color(0xFF98A0AE),
           ),
-          SizedBox(height: 10.h),
+          SizedBox(height: 10.th),
           Text(
             title,
             style: GoogleFonts.poppins(
-              fontSize: 15.sp,
+              fontSize: 15.tsp,
               fontWeight: FontWeight.w700,
               color: const Color(0xFF3B4352),
             ),
           ),
-          SizedBox(height: 6.h),
+          SizedBox(height: 6.th),
           Text(
             subtitle,
             textAlign: TextAlign.center,
             style: GoogleFonts.poppins(
-              fontSize: 12.sp,
+              fontSize: 12.tsp,
               fontWeight: FontWeight.w500,
               color: const Color(0xFF7B8290),
               height: 1.35,
@@ -1425,7 +1426,7 @@ class _ShareDocumentsTabState extends State<ShareDocumentsTab> {
   Widget _buildFoldersSlider() {
     if (_folders.isEmpty) {
       return Padding(
-        padding: EdgeInsets.only(top: 24.h),
+        padding: EdgeInsets.only(top: 24.th),
         child: _buildEmptyState(
           icon: Icons.folder_off_rounded,
           title: 'No Shared Folders',
@@ -1435,7 +1436,7 @@ class _ShareDocumentsTabState extends State<ShareDocumentsTab> {
     }
 
     return SizedBox(
-      height: 265.h,
+      height: 265.th,
       child: PageView.builder(
         controller: _foldersPageController,
         padEnds: false,
@@ -1451,7 +1452,7 @@ class _ShareDocumentsTabState extends State<ShareDocumentsTab> {
           final users = _toMapList(folder['allowed_users']);
 
           return Padding(
-            padding: EdgeInsets.only(left: index == 0 ? 0.w : 8.w, right: 8.w),
+            padding: EdgeInsets.only(left: index == 0 ? 0.tw : 8.tw, right: 8.tw),
             child: _SharedFolderCard(
               title: _folderNameForUi(folder),
               users: users,
@@ -1476,7 +1477,7 @@ class _ShareDocumentsTabState extends State<ShareDocumentsTab> {
           child: Text(
             'No files in this folder',
             style: GoogleFonts.poppins(
-              fontSize: 13.sp,
+              fontSize: 13.tsp,
               fontWeight: FontWeight.w500,
               color: const Color(0xFF7A7A7A),
             ),
@@ -1489,13 +1490,13 @@ class _ShareDocumentsTabState extends State<ShareDocumentsTab> {
       child: Column(
         children: [
           Padding(
-            padding: EdgeInsets.only(left: 28.w, right: 18.w, bottom: 8.h),
+            padding: EdgeInsets.only(left: 28.tw, right: 18.tw, bottom: 8.th),
             child: Row(
               children: [
                 Text(
                   'No of files ${_selectedFolderAttachments.length}',
                   style: GoogleFonts.poppins(
-                    fontSize: 16.sp,
+                    fontSize: 16.tsp,
                     fontWeight: FontWeight.w500,
                     color: const Color(0xFF808080),
                   ),
@@ -1505,37 +1506,37 @@ class _ShareDocumentsTabState extends State<ShareDocumentsTab> {
           ),
           Expanded(
             child: GridView.builder(
-              padding: EdgeInsets.symmetric(horizontal: 22.w, vertical: 4.h),
+              padding: EdgeInsets.symmetric(horizontal: 22.tw, vertical: 4.th),
               itemCount: _selectedFolderAttachments.length,
               gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
                 crossAxisCount: 2,
-                crossAxisSpacing: 20.w,
-                mainAxisSpacing: 18.h,
-                mainAxisExtent: 178.h,
+                crossAxisSpacing: 20.tw,
+                mainAxisSpacing: 18.th,
+                mainAxisExtent: 178.th,
               ),
               itemBuilder: (context, index) {
                 final item = _selectedFolderAttachments[index];
                 return InkWell(
-                  borderRadius: BorderRadius.circular(12.r),
+                  borderRadius: BorderRadius.circular(12.tr),
                   onTap: () => _openAttachment(item),
                   child: Column(
                     children: [
                       SizedBox(
-                        width: 92.w,
-                        height: 92.w,
+                        width: 92.tw,
+                        height: 92.tw,
                         child: Image.asset(
                           'assets/newapp/pdf.png',
                           fit: BoxFit.contain,
                         ),
                       ),
-                      SizedBox(height: 8.h),
+                      SizedBox(height: 8.th),
                       Text(
                         item.name,
                         textAlign: TextAlign.center,
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
                         style: GoogleFonts.poppins(
-                          fontSize: 15.sp,
+                          fontSize: 15.tsp,
                           fontWeight: FontWeight.w500,
                           color: const Color(0xFF111111),
                           letterSpacing: 0.4,
@@ -1560,7 +1561,7 @@ class _ShareDocumentsTabState extends State<ShareDocumentsTab> {
       children: [
         Padding(
           padding:
-              EdgeInsets.only(left: 10.w, right: 12.w, top: 6.h, bottom: 6.h),
+              EdgeInsets.only(left: 10.tw, right: 12.tw, top: 6.th, bottom: 6.th),
           child: Row(
             children: [
               IconButton(
@@ -1575,19 +1576,19 @@ class _ShareDocumentsTabState extends State<ShareDocumentsTab> {
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: GoogleFonts.poppins(
-                    fontSize: 16.sp,
+                    fontSize: 16.tsp,
                     fontWeight: FontWeight.w700,
                     color: const Color(0xFF1D2445),
                     letterSpacing: 1.0,
                   ),
                 ),
               ),
-              SizedBox(width: 40.w),
+              SizedBox(width: 40.tw),
             ],
           ),
         ),
         _buildGivenAccessSection(),
-        SizedBox(height: 16.h),
+        SizedBox(height: 16.th),
         _buildFilesSection(),
       ],
     );
@@ -1601,27 +1602,27 @@ class _ShareDocumentsTabState extends State<ShareDocumentsTab> {
         Text(
           'Given access',
           style: GoogleFonts.poppins(
-            fontSize: 15.sp,
+            fontSize: 15.tsp,
             fontWeight: FontWeight.w500,
             color: const Color(0xFF666666),
           ),
         ),
-        SizedBox(height: 14.h),
+        SizedBox(height: 14.th),
         SizedBox(
-          height: 84.h,
+          height: 84.th,
           child: ListView.separated(
             scrollDirection: Axis.horizontal,
-            padding: EdgeInsets.symmetric(horizontal: 20.w),
+            padding: EdgeInsets.symmetric(horizontal: 20.tw),
             itemCount: users.length + 1,
-            separatorBuilder: (_, __) => SizedBox(width: 12.w),
+            separatorBuilder: (_, __) => SizedBox(width: 12.tw),
             itemBuilder: (context, index) {
               if (index == 0) {
                 return InkWell(
                   onTap: _isAddingUser ? null : _showAddUserDialog,
-                  borderRadius: BorderRadius.circular(28.r),
+                  borderRadius: BorderRadius.circular(28.tr),
                   child: SizedBox(
-                    width: 56.w,
-                    height: 56.w,
+                    width: 56.tw,
+                    height: 56.tw,
                     child: CustomPaint(
                       painter: _DashedCirclePainter(
                         color: const Color(0xFF0B0D2F),
@@ -1629,8 +1630,8 @@ class _ShareDocumentsTabState extends State<ShareDocumentsTab> {
                       child: Center(
                         child: _isAddingUser
                             ? SizedBox(
-                                width: 16.w,
-                                height: 16.w,
+                                width: 16.tw,
+                                height: 16.tw,
                                 child: const CircularProgressIndicator(
                                   strokeWidth: 2,
                                   color: Color(0xFF090A38),
@@ -1639,7 +1640,7 @@ class _ShareDocumentsTabState extends State<ShareDocumentsTab> {
                             : Icon(
                                 Icons.add,
                                 color: const Color(0xFF090A38),
-                                size: 28.sp,
+                                size: 28.tsp,
                               ),
                       ),
                     ),
@@ -1652,7 +1653,7 @@ class _ShareDocumentsTabState extends State<ShareDocumentsTab> {
               final avatarUrl = _userAvatarUrlFrom(user);
 
               return CircleAvatar(
-                radius: 28.r,
+                radius: 28.tr,
                 backgroundColor: const Color(0xFFD6D6DC),
                 backgroundImage:
                     avatarUrl != null ? NetworkImage(avatarUrl) : null,
@@ -1660,7 +1661,7 @@ class _ShareDocumentsTabState extends State<ShareDocumentsTab> {
                     ? Text(
                         _userInitial(name),
                         style: GoogleFonts.poppins(
-                          fontSize: 16.sp,
+                          fontSize: 16.tsp,
                           fontWeight: FontWeight.w700,
                           color: const Color(0xFF4D4D4D),
                         ),
@@ -1681,21 +1682,21 @@ class _ShareDocumentsTabState extends State<ShareDocumentsTab> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Padding(
-          padding: EdgeInsets.symmetric(horizontal: 22.w),
+          padding: EdgeInsets.symmetric(horizontal: 22.tw),
           child: Text(
             'RECENT ACTIVITY',
             style: GoogleFonts.poppins(
-              fontSize: 12.sp,
+              fontSize: 12.tsp,
               fontWeight: FontWeight.w700,
               color: const Color(0xFF626262),
               letterSpacing: 1.2,
             ),
           ),
         ),
-        SizedBox(height: 10.h),
+        SizedBox(height: 10.th),
         if (activities.isEmpty)
           Padding(
-            padding: EdgeInsets.only(bottom: 2.h),
+            padding: EdgeInsets.only(bottom: 2.th),
             child: Center(
               child: _buildEmptyState(
                 icon: Icons.history_toggle_off_rounded,
@@ -1706,10 +1707,10 @@ class _ShareDocumentsTabState extends State<ShareDocumentsTab> {
           )
         else
           Container(
-            margin: EdgeInsets.symmetric(horizontal: 18.w),
+            margin: EdgeInsets.symmetric(horizontal: 18.tw),
             decoration: BoxDecoration(
               color: const Color(0xFFF3F3F3),
-              borderRadius: BorderRadius.circular(2.r),
+              borderRadius: BorderRadius.circular(2.tr),
             ),
             child: Column(
               children:
@@ -1727,13 +1728,13 @@ class _ShareDocumentsTabState extends State<ShareDocumentsTab> {
 
                 return Container(
                   padding:
-                      EdgeInsets.symmetric(horizontal: 12.w, vertical: 14.h),
+                      EdgeInsets.symmetric(horizontal: 12.tw, vertical: 14.th),
                   decoration: BoxDecoration(
                     border: index == 0
                         ? Border(
                             bottom: BorderSide(
                               color: const Color(0xFFE5E5E5),
-                              width: 1.w,
+                              width: 1.tw,
                             ),
                           )
                         : null,
@@ -1741,7 +1742,7 @@ class _ShareDocumentsTabState extends State<ShareDocumentsTab> {
                   child: Row(
                     children: [
                       CircleAvatar(
-                        radius: 17.r,
+                        radius: 17.tr,
                         backgroundColor: const Color(0xFFE4E4E9),
                         backgroundImage:
                             avatarUrl != null ? NetworkImage(avatarUrl) : null,
@@ -1749,31 +1750,31 @@ class _ShareDocumentsTabState extends State<ShareDocumentsTab> {
                             ? Text(
                                 _userInitial(actorName),
                                 style: GoogleFonts.poppins(
-                                  fontSize: 11.sp,
+                                  fontSize: 11.tsp,
                                   fontWeight: FontWeight.w700,
                                   color: const Color(0xFF565656),
                                 ),
                               )
                             : null,
                       ),
-                      SizedBox(width: 10.w),
+                      SizedBox(width: 10.tw),
                       Expanded(
                         child: Text(
                           message,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           style: GoogleFonts.poppins(
-                            fontSize: 14.sp,
+                            fontSize: 14.tsp,
                             fontWeight: FontWeight.w500,
                             color: const Color(0xFF2F2F2F),
                           ),
                         ),
                       ),
-                      SizedBox(width: 6.w),
+                      SizedBox(width: 6.tw),
                       Text(
                         time,
                         style: GoogleFonts.poppins(
-                          fontSize: 12.sp,
+                          fontSize: 12.tsp,
                           fontWeight: FontWeight.w500,
                           color: const Color(0xFF5E5E5E),
                         ),
@@ -1807,7 +1808,7 @@ class _ShareDocumentsTabState extends State<ShareDocumentsTab> {
           if (_error != null && _folders.isEmpty) {
             return Center(
               child: Padding(
-                padding: EdgeInsets.symmetric(horizontal: 20.w),
+                padding: EdgeInsets.symmetric(horizontal: 20.tw),
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
@@ -1816,10 +1817,10 @@ class _ShareDocumentsTabState extends State<ShareDocumentsTab> {
                       textAlign: TextAlign.center,
                       style: GoogleFonts.poppins(
                         color: const Color(0xFFBA1719),
-                        fontSize: 12.sp,
+                        fontSize: 12.tsp,
                       ),
                     ),
-                    SizedBox(height: 12.h),
+                    SizedBox(height: 12.th),
                     OutlinedButton(
                       onPressed: _fetchSharedFolders,
                       child: const Text('Retry'),
@@ -1838,16 +1839,16 @@ class _ShareDocumentsTabState extends State<ShareDocumentsTab> {
             children: [
               ListView(
                 physics: const BouncingScrollPhysics(),
-                padding: EdgeInsets.only(top: 8.h, bottom: 10.h),
+                padding: EdgeInsets.only(top: 8.th, bottom: 10.th),
                 children: [
                   Padding(
-                    padding: EdgeInsets.symmetric(horizontal: 20.w),
+                    padding: EdgeInsets.symmetric(horizontal: 20.tw),
                     child: Row(
                       children: [
                         Text(
                           'Folders no ${_folders.length}',
                           style: GoogleFonts.poppins(
-                            fontSize: 14.sp,
+                            fontSize: 14.tsp,
                             fontWeight: FontWeight.w500,
                             color: const Color(0xFF7A7A7A),
                             letterSpacing: 1.4,
@@ -1862,15 +1863,15 @@ class _ShareDocumentsTabState extends State<ShareDocumentsTab> {
                             backgroundColor: const Color(0xFF090A38),
                             elevation: 0,
                             padding: EdgeInsets.symmetric(
-                                horizontal: 18.w, vertical: 10.h),
+                                horizontal: 18.tw, vertical: 10.th),
                             shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(20.r),
+                              borderRadius: BorderRadius.circular(20.tr),
                             ),
                           ),
                           child: _isCreatingFolder
                               ? SizedBox(
-                                  width: 14.w,
-                                  height: 14.w,
+                                  width: 14.tw,
+                                  height: 14.tw,
                                   child: const CircularProgressIndicator(
                                     strokeWidth: 2,
                                     color: Colors.white,
@@ -1879,7 +1880,7 @@ class _ShareDocumentsTabState extends State<ShareDocumentsTab> {
                               : Text(
                                   'Create Folder',
                                   style: GoogleFonts.poppins(
-                                    fontSize: 11.sp,
+                                    fontSize: 11.tsp,
                                     color: Colors.white,
                                     fontWeight: FontWeight.w700,
                                   ),
@@ -1888,10 +1889,10 @@ class _ShareDocumentsTabState extends State<ShareDocumentsTab> {
                       ],
                     ),
                   ),
-                  SizedBox(height: 8.h),
+                  SizedBox(height: 8.th),
                   _buildFoldersSlider(),
                   _buildGivenAccessSection(),
-                  SizedBox(height: 16.h),
+                  SizedBox(height: 16.th),
                   _buildRecentActivitySection(),
                 ],
               ),
@@ -1944,14 +1945,14 @@ class _SharedFolderCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return InkWell(
       onTap: onTap,
-      borderRadius: BorderRadius.circular(16.r),
+      borderRadius: BorderRadius.circular(16.tr),
       child: SizedBox(
-        height: 245.h,
+        height: 245.th,
         child: Stack(
           children: [
             Positioned.fill(
               child: ClipRRect(
-                borderRadius: BorderRadius.circular(16.r),
+                borderRadius: BorderRadius.circular(16.tr),
                 child: Image.asset(
                   'assets/newapp/shared_folder_new_image.png',
                   fit: BoxFit.contain,
@@ -1960,16 +1961,16 @@ class _SharedFolderCard extends StatelessWidget {
               ),
             ),
             Positioned(
-              top: 35.h,
-              right: 24.w,
+              top: 35.th,
+              right: 24.tw,
               child: ConstrainedBox(
-                constraints: BoxConstraints(maxWidth: 160.w),
+                constraints: BoxConstraints(maxWidth: 160.tw),
                 child: Text(
                   title,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: GoogleFonts.poppins(
-                    fontSize: 11.sp,
+                    fontSize: 11.tsp,
                     fontWeight: FontWeight.w700,
                     color: const Color(0xFF121212),
                   ),
@@ -1978,23 +1979,23 @@ class _SharedFolderCard extends StatelessWidget {
             ),
             if (users.isNotEmpty)
               Positioned(
-                right: 16.w,
-                bottom: 34.h,
+                right: 16.tw,
+                bottom: 34.th,
                 child: SizedBox(
-                  width: 100.w,
-                  height: 36.h,
+                  width: 100.tw,
+                  height: 36.th,
                   child: Stack(
                     children: [
                       for (int i = 0;
                           i < (users.length > 3 ? 3 : users.length);
                           i++)
                         Positioned(
-                          right: i * 22.w,
+                          right: i * 22.tw,
                           child: CircleAvatar(
-                            radius: 17.r,
+                            radius: 17.tr,
                             backgroundColor: Colors.white,
                             child: CircleAvatar(
-                              radius: 15.r,
+                              radius: 15.tr,
                               backgroundImage: _avatarFrom(users[i]) != null
                                   ? NetworkImage(_avatarFrom(users[i])!)
                                   : null,
@@ -2012,7 +2013,7 @@ class _SharedFolderCard extends StatelessWidget {
                                               .toUpperCase())
                                           : 'U'),
                                       style: GoogleFonts.poppins(
-                                        fontSize: 11.sp,
+                                        fontSize: 11.tsp,
                                         fontWeight: FontWeight.w700,
                                         color: const Color(0xFF5A5A5A),
                                       ),

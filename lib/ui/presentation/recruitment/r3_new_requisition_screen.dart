@@ -1,3 +1,4 @@
+import 'package:el_race/core/utils/responsive_breakpoints.dart';
 import 'package:el_race/core/hr_management/providers/hr_management_providers.dart';
 import 'package:el_race/core/recruitment/recruitment_salary_visibility.dart';
 import 'package:el_race/core/theme/hr_module_colors.dart';
@@ -73,7 +74,7 @@ class _R3NewRequisitionScreenState extends ConsumerState<R3NewRequisitionScreen>
         filled: true,
         fillColor: HrModuleColors.surface,
         border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(HrModuleLayout.cardRadius.r),
+          borderRadius: BorderRadius.circular(HrModuleLayout.cardRadius.tr),
         ),
       );
 
@@ -172,13 +173,13 @@ class _R3NewRequisitionScreenState extends ConsumerState<R3NewRequisitionScreen>
         foregroundColor: HrModuleColors.text,
         title: Text(
           'New requisition',
-          style: HrModuleTypography.sectionHeading().copyWith(fontSize: 18.sp),
+          style: HrModuleTypography.sectionHeading().copyWith(fontSize: 18.tsp),
         ),
       ),
       body: Form(
         key: _formKey,
         child: ListView(
-          padding: EdgeInsets.all(HrModuleLayout.screenPaddingH.w),
+          padding: EdgeInsets.all(HrModuleLayout.screenPaddingH.tw),
           children: [
             _section('POSITION'),
             Text('Job title *', style: HrModuleTypography.caption()),
@@ -192,7 +193,7 @@ class _R3NewRequisitionScreenState extends ConsumerState<R3NewRequisitionScreen>
               decoration: _dec('Search or select'),
               validator: (v) => v == null ? 'Required' : null,
             ),
-            SizedBox(height: HrModuleLayout.formFieldSpacingV.h),
+            SizedBox(height: HrModuleLayout.formFieldSpacingV.th),
             Text('Department *', style: HrModuleTypography.caption()),
             DropdownButtonFormField<String>(
               // ignore: deprecated_member_use
@@ -204,7 +205,7 @@ class _R3NewRequisitionScreenState extends ConsumerState<R3NewRequisitionScreen>
               decoration: _dec('Select'),
               validator: (v) => v == null ? 'Required' : null,
             ),
-            SizedBox(height: HrModuleLayout.formFieldSpacingV.h),
+            SizedBox(height: HrModuleLayout.formFieldSpacingV.th),
             Text('Location *', style: HrModuleTypography.caption()),
             DropdownButtonFormField<String>(
               // ignore: deprecated_member_use
@@ -216,14 +217,14 @@ class _R3NewRequisitionScreenState extends ConsumerState<R3NewRequisitionScreen>
               decoration: _dec('Select'),
               validator: (v) => v == null ? 'Required' : null,
             ),
-            SizedBox(height: HrModuleLayout.formFieldSpacingV.h),
+            SizedBox(height: HrModuleLayout.formFieldSpacingV.th),
             Text('Vacancies *', style: HrModuleTypography.caption()),
             TextFormField(
               controller: _vacancies,
               keyboardType: TextInputType.number,
               decoration: _dec('1–50'),
             ),
-            SizedBox(height: HrModuleLayout.formFieldSpacingV.h),
+            SizedBox(height: HrModuleLayout.formFieldSpacingV.th),
             Text('Employment type *', style: HrModuleTypography.caption()),
             DropdownButtonFormField<String>(
               // ignore: deprecated_member_use
@@ -235,7 +236,7 @@ class _R3NewRequisitionScreenState extends ConsumerState<R3NewRequisitionScreen>
               decoration: _dec('Select'),
               validator: (v) => v == null ? 'Required' : null,
             ),
-            SizedBox(height: HrModuleLayout.formFieldSpacingV.h),
+            SizedBox(height: HrModuleLayout.formFieldSpacingV.th),
             Text('Experience level', style: HrModuleTypography.caption()),
             DropdownButtonFormField<String>(
               // ignore: deprecated_member_use
@@ -247,7 +248,7 @@ class _R3NewRequisitionScreenState extends ConsumerState<R3NewRequisitionScreen>
               decoration: _dec('Optional'),
             ),
             if (showSalary) ...[
-              SizedBox(height: 16.h),
+              SizedBox(height: 16.th),
               _section('COMPENSATION'),
               Text('Salary min (AED)', style: HrModuleTypography.caption()),
               TextFormField(
@@ -262,7 +263,7 @@ class _R3NewRequisitionScreenState extends ConsumerState<R3NewRequisitionScreen>
                 decoration: _dec('Optional'),
               ),
             ],
-            SizedBox(height: HrModuleLayout.formFieldSpacingV.h),
+            SizedBox(height: HrModuleLayout.formFieldSpacingV.th),
             Text('Required by', style: HrModuleTypography.caption()),
             OutlinedButton(
               onPressed: _pickDate,
@@ -272,7 +273,7 @@ class _R3NewRequisitionScreenState extends ConsumerState<R3NewRequisitionScreen>
                     : '${_requiredBy!.day}/${_requiredBy!.month}/${_requiredBy!.year}',
               ),
             ),
-            SizedBox(height: 16.h),
+            SizedBox(height: 16.th),
             _section('POSITION DESCRIPTION'),
             Text('Job description *', style: HrModuleTypography.caption()),
             TextFormField(
@@ -293,13 +294,13 @@ class _R3NewRequisitionScreenState extends ConsumerState<R3NewRequisitionScreen>
               maxLines: 5,
               decoration: _dec('Optional — one bullet per line'),
             ),
-            SizedBox(height: 8.h),
+            SizedBox(height: 8.th),
             Text('Required skills', style: HrModuleTypography.caption()),
             RecruitmentTagInputField(
               tags: _skills,
               onChanged: (t) => setState(() => _skills = t),
             ),
-            SizedBox(height: 16.h),
+            SizedBox(height: 16.th),
             _section('JUSTIFICATION'),
             Text('Justification *', style: HrModuleTypography.caption()),
             TextFormField(
@@ -320,13 +321,13 @@ class _R3NewRequisitionScreenState extends ConsumerState<R3NewRequisitionScreen>
               onChanged: (v) => setState(() => _replacement = v),
               decoration: _dec('Optional'),
             ),
-            SizedBox(height: HrModuleLayout.formFieldSpacingV.h),
+            SizedBox(height: HrModuleLayout.formFieldSpacingV.th),
             OutlinedButton.icon(
               onPressed: _pickFile,
               icon: const Icon(Icons.attach_file),
               label: Text(_attachmentName ?? 'Attachment (optional)'),
             ),
-            SizedBox(height: 28.h),
+            SizedBox(height: 28.th),
             Row(
               children: [
                 Expanded(
@@ -335,7 +336,7 @@ class _R3NewRequisitionScreenState extends ConsumerState<R3NewRequisitionScreen>
                     child: const Text('Save draft'),
                   ),
                 ),
-                SizedBox(width: 12.w),
+                SizedBox(width: 12.tw),
                 Expanded(
                   child: FilledButton(
                     onPressed: () => _submit(draft: false),
@@ -355,10 +356,10 @@ class _R3NewRequisitionScreenState extends ConsumerState<R3NewRequisitionScreen>
 
   Widget _section(String title) {
     return Padding(
-      padding: EdgeInsets.only(bottom: 8.h, top: 4.h),
+      padding: EdgeInsets.only(bottom: 8.th, top: 4.th),
       child: Text(
         title,
-        style: HrModuleTypography.sectionHeading().copyWith(fontSize: 13.sp),
+        style: HrModuleTypography.sectionHeading().copyWith(fontSize: 13.tsp),
       ),
     );
   }

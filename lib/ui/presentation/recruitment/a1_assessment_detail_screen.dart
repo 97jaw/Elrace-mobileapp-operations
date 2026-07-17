@@ -1,3 +1,4 @@
+import 'package:el_race/core/utils/responsive_breakpoints.dart';
 import 'package:el_race/core/recruitment/providers/requisition_providers.dart';
 import 'package:el_race/core/theme/hr_module_colors.dart';
 import 'package:el_race/core/theme/hr_module_layout.dart';
@@ -70,7 +71,7 @@ class A1AssessmentDetailScreen extends ConsumerWidget {
             foregroundColor: HrModuleColors.text,
             title: Text(
               a.roundName,
-              style: HrModuleTypography.sectionHeading().copyWith(fontSize: 18.sp),
+              style: HrModuleTypography.sectionHeading().copyWith(fontSize: 18.tsp),
             ),
             actions: [
               if (canEdit)
@@ -90,26 +91,26 @@ class A1AssessmentDetailScreen extends ConsumerWidget {
             ],
           ),
           body: ListView(
-            padding: EdgeInsets.all(HrModuleLayout.screenPaddingH.w),
+            padding: EdgeInsets.all(HrModuleLayout.screenPaddingH.tw),
             children: [
               Text(
                 a.candidateName,
-                style: HrModuleTypography.cardTitle().copyWith(fontSize: 17.sp),
+                style: HrModuleTypography.cardTitle().copyWith(fontSize: 17.tsp),
               ),
               Text(
                 '${a.interviewer} · ${DateFormat('dd MMM yyyy').format(a.interviewDate)}',
                 style: HrModuleTypography.caption(),
               ),
-              SizedBox(height: 8.h),
+              SizedBox(height: 8.th),
               Text(
                 'Overall (avg): ${avg.toStringAsFixed(1)} / 5',
                 style: HrModuleTypography.body(),
               ),
               RecruitmentStarDisplay(value: avg),
-              SizedBox(height: 20.h),
+              SizedBox(height: 20.th),
               Text(
                 'Criteria',
-                style: HrModuleTypography.sectionHeading().copyWith(fontSize: 14.sp),
+                style: HrModuleTypography.sectionHeading().copyWith(fontSize: 14.tsp),
               ),
               HrDetailRow(
                 label: 'Technical knowledge',
@@ -127,25 +128,25 @@ class A1AssessmentDetailScreen extends ConsumerWidget {
                 label: 'Cultural fit',
                 value: '${a.culturalFit} / 5',
               ),
-              SizedBox(height: 12.h),
+              SizedBox(height: 12.th),
               Text(
                 'Strengths',
-                style: HrModuleTypography.sectionHeading().copyWith(fontSize: 14.sp),
+                style: HrModuleTypography.sectionHeading().copyWith(fontSize: 14.tsp),
               ),
               Text(a.strengths, style: HrModuleTypography.body()),
-              SizedBox(height: 12.h),
+              SizedBox(height: 12.th),
               Text(
                 'Concerns',
-                style: HrModuleTypography.sectionHeading().copyWith(fontSize: 14.sp),
+                style: HrModuleTypography.sectionHeading().copyWith(fontSize: 14.tsp),
               ),
               Text(a.concerns, style: HrModuleTypography.body()),
-              SizedBox(height: 12.h),
+              SizedBox(height: 12.th),
               Text(
                 'Recommendation',
-                style: HrModuleTypography.sectionHeading().copyWith(fontSize: 14.sp),
+                style: HrModuleTypography.sectionHeading().copyWith(fontSize: 14.tsp),
               ),
               Container(
-                padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 6.h),
+                padding: EdgeInsets.symmetric(horizontal: 12.tw, vertical: 6.th),
                 decoration: BoxDecoration(
                   color: _recColor(a.recommendation).withValues(alpha: 0.12),
                   borderRadius: BorderRadius.circular(999),
@@ -155,14 +156,14 @@ class A1AssessmentDetailScreen extends ConsumerWidget {
                   style: TextStyle(
                     color: _recColor(a.recommendation),
                     fontWeight: FontWeight.w600,
-                    fontSize: 13.sp,
+                    fontSize: 13.tsp,
                   ),
                 ),
               ),
-              SizedBox(height: 12.h),
+              SizedBox(height: 12.th),
               Text(
                 'Comments',
-                style: HrModuleTypography.sectionHeading().copyWith(fontSize: 14.sp),
+                style: HrModuleTypography.sectionHeading().copyWith(fontSize: 14.tsp),
               ),
               Text(a.comments, style: HrModuleTypography.body()),
             ],

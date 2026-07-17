@@ -2,6 +2,7 @@ import 'package:el_race/report_module/data/models/folder_model.dart';
 import 'package:el_race/report_module/data/models/report_model.dart';
 import 'package:el_race/report_module/data/models/report_item_model.dart';
 import 'package:el_race/report_module/data/models/report_pdf_model.dart';
+import 'package:el_race/report_module/data/repositories/company_repository.dart';
 import 'package:el_race/report_module/data/services/report_hive_service.dart';
 import 'package:el_race/ui/presentation/call_screen/data/repository.dart';
 import 'package:flutter/foundation.dart';
@@ -47,16 +48,7 @@ class ReportProvider extends ChangeNotifier {
     final index = _reports.indexWhere((r) => r.id == reportId);
     if (index >= 0 && _reports[index].reportType != reportType) {
       final r = _reports[index];
-      _reports[index] = ReportModel(
-        id: r.id,
-        name: r.name,
-        companyId: r.companyId,
-        folderId: r.folderId,
-        createdAt: r.createdAt,
-        updatedAt: r.updatedAt,
-        reportType: reportType.trim(),
-        reportLink: r.reportLink,
-      );
+      _reports[index] = r.copyWith(reportType: reportType.trim());
       notifyListeners();
     }
   }
@@ -99,16 +91,7 @@ class ReportProvider extends ChangeNotifier {
       if (_reports[i].reportType == null) {
         final cached = prefs.getString('$_reportTypePrefix${_reports[i].id}');
         if (cached != null) {
-          _reports[i] = ReportModel(
-            id: _reports[i].id,
-            name: _reports[i].name,
-            companyId: _reports[i].companyId,
-            folderId: _reports[i].folderId,
-            createdAt: _reports[i].createdAt,
-            updatedAt: _reports[i].updatedAt,
-            reportType: cached,
-            reportLink: _reports[i].reportLink,
-          );
+          _reports[i] = _reports[i].copyWith(reportType: cached);
         }
       }
     }
@@ -259,15 +242,7 @@ class ReportProvider extends ChangeNotifier {
     var createdReport = ReportModel.fromJson(jsonData['data']);
     if (createdReport.reportType == null &&
         (reportType?.trim().isNotEmpty ?? false)) {
-      createdReport = ReportModel(
-        id: createdReport.id,
-        name: createdReport.name,
-        companyId: createdReport.companyId,
-        folderId: createdReport.folderId,
-        createdAt: createdReport.createdAt,
-        updatedAt: createdReport.updatedAt,
-        reportType: reportType!.trim(),
-      );
+      createdReport = createdReport.copyWith(reportType: reportType!.trim());
     }
     // Persist report type locally so it survives app restart
     if (createdReport.reportType != null) {
@@ -277,6 +252,151 @@ class ReportProvider extends ChangeNotifier {
     _sortReportsNewestFirst();
     notifyListeners();
     return createdReport;
+  }
+
+  /// Flat Site Report list (all employee reports; no project/folder UX).
+  ///
+  /// Pass [offset]/[limit] for pagination. When [append] is true, pages are
+  /// concatenated into [_reports]; otherwise the list is replaced.
+  Future<({List<ReportModel> reports, int total, bool hasMore})>
+      fetchSiteReports({
+    int offset = 0,
+    int limit = 15,
+    bool append = false,
+  }) async {
+    if (empID.isEmpty || companyId.isEmpty) {
+      await init(base: baseUrl);
+    }
+    if (!append) _setLoading(true);
+    try {
+      final request = http.MultipartRequest(
+        'POST',
+        Uri.parse('$baseUrl/api/site_reports/list'),
+      )..fields.addAll({
+          'emp_id': empID,
+          'company_id': companyId,
+          'offset': '$offset',
+          'limit': '$limit',
+        });
+      final jsonData = await _handleResponse(await request.send());
+      final rawData = jsonData['data'];
+
+      List<Map<String, dynamic>> rawList = const [];
+      var total = 0;
+      var hasMore = false;
+
+      if (rawData is Map) {
+        final map = Map<String, dynamic>.from(rawData);
+        rawList = (map['reports'] as List? ?? const [])
+            .whereType<Map>()
+            .map((e) => Map<String, dynamic>.from(e))
+            .toList();
+        total = int.tryParse('${map['total'] ?? rawList.length}') ??
+            rawList.length;
+        hasMore = map['has_more'] == true ||
+            (offset + rawList.length) < total;
+      } else if (rawData is List) {
+        // Backward-compatible flat list response.
+        rawList = rawData
+            .whereType<Map>()
+            .map((e) => Map<String, dynamic>.from(e))
+            .toList();
+        total = rawList.length;
+        hasMore = false;
+      }
+
+      final Map<String, String?> oldTypes = {
+        for (final r in _reports)
+          if (r.reportType != null) r.id: r.reportType,
+      };
+      var page = rawList
+          .where((item) {
+            final id = item['id'];
+            return id != null && id != false && id.toString().trim().isNotEmpty;
+          })
+          .map((item) => ReportModel.fromJson(item))
+          .toList();
+      for (var i = 0; i < page.length; i++) {
+        final prev = oldTypes[page[i].id];
+        if (prev != null && page[i].reportType == null) {
+          page[i] = page[i].copyWith(reportType: prev);
+        }
+      }
+
+      if (append) {
+        final existingIds = {for (final r in _reports) r.id};
+        _reports = [
+          ..._reports,
+          ...page.where((r) => !existingIds.contains(r.id)),
+        ];
+      } else {
+        _reports = page;
+      }
+      if (!append || offset == 0) {
+        _sortReportsNewestFirst();
+      }
+      notifyListeners();
+      return (
+        reports: List<ReportModel>.from(_reports),
+        total: total,
+        hasMore: hasMore,
+      );
+    } catch (e) {
+      debugPrint('Error in fetchSiteReports: $e');
+      if (!append) _reports = [];
+      return (
+        reports: List<ReportModel>.from(_reports),
+        total: _reports.length,
+        hasMore: false,
+      );
+    } finally {
+      if (!append) _setLoading(false);
+    }
+  }
+
+  /// Create report under the employee's hidden default folder (flat Site Report UX).
+  Future<ReportModel?> createSiteReport({
+    required String title,
+    String? reportType,
+  }) async {
+    if (empID.isEmpty || companyId.isEmpty) {
+      await init(base: baseUrl);
+    }
+    _setLoading(true);
+    try {
+      final request = http.MultipartRequest(
+        'POST',
+        Uri.parse('$baseUrl/api/site_reports/create'),
+      )..fields.addAll({
+          'emp_id': empID,
+          'name': title,
+          'company_id': companyId,
+          'company': CompanyRepository.company?.companyName ?? 'test',
+          if (reportType?.trim().isNotEmpty ?? false)
+            'report_type': reportType!.trim(),
+        });
+      final jsonData = await _handleResponse(await request.send());
+      if (jsonData['data'] == null) return null;
+      var createdReport = ReportModel.fromJson(
+        Map<String, dynamic>.from(jsonData['data'] as Map),
+      );
+      if (createdReport.reportType == null &&
+          (reportType?.trim().isNotEmpty ?? false)) {
+        createdReport = createdReport.copyWith(reportType: reportType!.trim());
+      }
+      if (createdReport.reportType != null) {
+        _saveReportType(createdReport.id, createdReport.reportType!);
+      }
+      _reports.insert(0, createdReport);
+      _sortReportsNewestFirst();
+      notifyListeners();
+      return createdReport;
+    } catch (e) {
+      debugPrint('Error in createSiteReport: $e');
+      return null;
+    } finally {
+      _setLoading(false);
+    }
   }
 
   Future<void> updateReport(
@@ -296,15 +416,10 @@ class ReportProvider extends ChangeNotifier {
       int index = _reports.indexWhere((r) => r.id == updatedReport.id);
       if (index != -1) {
         final prev = _reports[index];
-        _reports[index] = ReportModel(
-          id: updatedReport.id,
-          name: updatedReport.name,
-          companyId: updatedReport.companyId,
-          folderId: updatedReport.folderId,
-          createdAt: updatedReport.createdAt,
-          updatedAt: updatedReport.updatedAt,
+        _reports[index] = updatedReport.copyWith(
           reportType: updatedReport.reportType ?? prev.reportType,
           reportLink: updatedReport.reportLink ?? prev.reportLink,
+          latestItemImages: prev.latestItemImages,
         );
         notifyListeners();
       }
@@ -439,15 +554,8 @@ class ReportProvider extends ChangeNotifier {
     for (int i = 0; i < _reports.length; i++) {
       if (_reports[i].reportType == null &&
           oldTypes.containsKey(_reports[i].id)) {
-        _reports[i] = ReportModel(
-          id: _reports[i].id,
-          name: _reports[i].name,
-          companyId: _reports[i].companyId,
-          folderId: _reports[i].folderId,
-          createdAt: _reports[i].createdAt,
-          updatedAt: _reports[i].updatedAt,
+        _reports[i] = _reports[i].copyWith(
           reportType: oldTypes[_reports[i].id],
-          reportLink: _reports[i].reportLink,
         );
       }
     }
@@ -697,14 +805,8 @@ class ReportProvider extends ChangeNotifier {
             final index = _reports.indexWhere((r) => r.id == linkedReportId);
             if (index >= 0) {
               final prev = _reports[index];
-              _reports[index] = ReportModel(
-                id: prev.id,
-                name: prev.name,
-                companyId: prev.companyId,
-                folderId: prev.folderId,
-                createdAt: prev.createdAt,
+              _reports[index] = prev.copyWith(
                 updatedAt: DateTime.now(),
-                reportType: prev.reportType,
                 reportLink: reportLink,
               );
               notifyListeners();

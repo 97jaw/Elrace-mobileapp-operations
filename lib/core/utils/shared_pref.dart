@@ -169,6 +169,33 @@ class SharedPref {
     return data['loginResponse'] as LoginResponseModel?;
   }
 
+  /// Merge server role/profile fields into cached login `result.data`.
+  static Future<bool> mergeLoginRoleFields(Map<String, dynamic> roleData) async {
+    final loginJson = sharedPreferences.getString('loginResponse') ??
+        sharedPreferences.getString('LOGIN_RESPONSE');
+    if (loginJson == null || loginJson.isEmpty) return false;
+
+    try {
+      final decoded = jsonDecode(loginJson);
+      if (decoded is! Map<String, dynamic>) return false;
+
+      final result = decoded['result'];
+      if (result is! Map<String, dynamic>) return false;
+
+      final data = result['data'];
+      if (data is! Map<String, dynamic>) return false;
+
+      for (final entry in roleData.entries) {
+        data[entry.key] = entry.value;
+      }
+
+      await sharedPreferences.setString('loginResponse', jsonEncode(decoded));
+      return true;
+    } catch (_) {
+      return false;
+    }
+  }
+
   /// Merge pull-to-refresh visibility flags into cached login `default_widgets`.
   static Future<bool> mergeDefaultWidgetsVisibility(
     Map<String, dynamic> widgetsData,

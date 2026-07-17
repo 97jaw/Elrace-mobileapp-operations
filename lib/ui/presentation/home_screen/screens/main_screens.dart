@@ -294,7 +294,7 @@ class _CustomBottomNavBarState extends State<CustomBottomNavBar> {
               context,
               routeName: '/chat_list',
               shell: GlassSubScreenShell.chat,
-              child: const ChatListScreen(),
+              child: const ChatHomeScreen(),
             );
             return;
           }
@@ -313,7 +313,7 @@ class _CustomBottomNavBarState extends State<CustomBottomNavBar> {
               context,
               routeName: '/chat_list',
               shell: GlassSubScreenShell.chat,
-              child: const ChatListScreen(),
+              child: const ChatHomeScreen(),
             );
             return;
           }

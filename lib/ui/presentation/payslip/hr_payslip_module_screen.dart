@@ -1,3 +1,4 @@
+import 'package:el_race/core/utils/responsive_breakpoints.dart';
 import 'package:el_race/core/payslip/providers/payslip_providers.dart';
 import 'package:el_race/core/theme/hr_module_colors.dart';
 import 'package:el_race/core/theme/hr_module_layout.dart';
@@ -50,10 +51,10 @@ class _HrPayslipModuleScreenState extends ConsumerState<HrPayslipModuleScreen> {
           ),
           Padding(
             padding: EdgeInsets.fromLTRB(
-              HrModuleLayout.screenPaddingH.w,
-              12.h,
-              HrModuleLayout.screenPaddingH.w,
-              8.h,
+              HrModuleLayout.screenPaddingH.tw,
+              12.th,
+              HrModuleLayout.screenPaddingH.tw,
+              8.th,
             ),
             child: HrSearchBar(
               controller: _searchCtrl,
@@ -71,10 +72,10 @@ class _HrPayslipModuleScreenState extends ConsumerState<HrPayslipModuleScreen> {
                     return ListView(
                       physics: const AlwaysScrollableScrollPhysics(),
                       padding: EdgeInsets.fromLTRB(
-                        HrModuleLayout.screenPaddingH.w,
-                        48.h,
-                        HrModuleLayout.screenPaddingH.w,
-                        32.h,
+                        HrModuleLayout.screenPaddingH.tw,
+                        48.th,
+                        HrModuleLayout.screenPaddingH.tw,
+                        32.th,
                       ),
                       children: [
                         Center(
@@ -89,13 +90,13 @@ class _HrPayslipModuleScreenState extends ConsumerState<HrPayslipModuleScreen> {
                   return ListView.separated(
                     physics: const AlwaysScrollableScrollPhysics(),
                     padding: EdgeInsets.fromLTRB(
-                      HrModuleLayout.screenPaddingH.w,
-                      4.h,
-                      HrModuleLayout.screenPaddingH.w,
-                      32.h,
+                      HrModuleLayout.screenPaddingH.tw,
+                      4.th,
+                      HrModuleLayout.screenPaddingH.tw,
+                      32.th,
                     ),
                     itemCount: list.length + 1,
-                    separatorBuilder: (_, __) => SizedBox(height: 10.h),
+                    separatorBuilder: (_, __) => SizedBox(height: 10.th),
                     itemBuilder: (context, index) {
                       if (index == list.length) {
                         return TextButton(
@@ -122,7 +123,7 @@ class _HrPayslipModuleScreenState extends ConsumerState<HrPayslipModuleScreen> {
                   physics: const AlwaysScrollableScrollPhysics(),
                   children: [
                     Padding(
-                      padding: EdgeInsets.only(top: 48.h),
+                      padding: EdgeInsets.only(top: 48.th),
                       child: const Center(child: CircularProgressIndicator()),
                     ),
                   ],
@@ -130,10 +131,10 @@ class _HrPayslipModuleScreenState extends ConsumerState<HrPayslipModuleScreen> {
                 error: (e, _) => ListView(
                   physics: const AlwaysScrollableScrollPhysics(),
                   padding: EdgeInsets.fromLTRB(
-                    HrModuleLayout.screenPaddingH.w,
-                    48.h,
-                    HrModuleLayout.screenPaddingH.w,
-                    32.h,
+                    HrModuleLayout.screenPaddingH.tw,
+                    48.th,
+                    HrModuleLayout.screenPaddingH.tw,
+                    32.th,
                   ),
                   children: [
                     Text(

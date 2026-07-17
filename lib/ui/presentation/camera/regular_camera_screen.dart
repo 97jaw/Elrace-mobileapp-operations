@@ -1,3 +1,4 @@
+import 'package:el_race/core/utils/responsive_breakpoints.dart';
 import 'package:camera/camera.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
@@ -228,19 +229,19 @@ class _RegularCameraScreenState extends State<RegularCameraScreen> {
 
           // Top Logo with RCC Image
           Positioned(
-            top: 60.h,
+            top: 60.th,
             left: 0,
             right: 0,
             child: Center(
               child: Container(
-                padding: EdgeInsets.symmetric(horizontal: 24.w, vertical: 10.h),
+                padding: EdgeInsets.symmetric(horizontal: 24.tw, vertical: 10.th),
                 decoration: BoxDecoration(
                   color: Colors.black.withOpacity(0.4),
-                  borderRadius: BorderRadius.circular(8.r),
+                  borderRadius: BorderRadius.circular(8.tr),
                 ),
                 child: Image.asset(
                   'assets/logo/rcc2.png',
-                  height: 42.h,
+                  height: 42.th,
                 ),
               ),
             ),
@@ -248,8 +249,8 @@ class _RegularCameraScreenState extends State<RegularCameraScreen> {
 
           // Back Button
           Positioned(
-            top: 50.h,
-            left: 20.w,
+            top: 50.th,
+            left: 20.tw,
             child: IconButton(
               icon: const Icon(Icons.arrow_back, color: Colors.white, size: 30),
               onPressed: () => Navigator.pop(context),
@@ -259,8 +260,8 @@ class _RegularCameraScreenState extends State<RegularCameraScreen> {
           // Switch Camera Button
           if (widget.cameras.length > 1)
             Positioned(
-              top: 50.h,
-              right: 20.w,
+              top: 50.th,
+              right: 20.tw,
               child: IconButton(
                 icon: const Icon(
                   Icons.flip_camera_ios,
@@ -273,13 +274,13 @@ class _RegularCameraScreenState extends State<RegularCameraScreen> {
 
           // Date, Time and Location at bottom right
           Positioned(
-            bottom: 120.h,
-            right: 20.w,
+            bottom: 120.th,
+            right: 20.tw,
             child: Container(
-              padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 8.h),
+              padding: EdgeInsets.symmetric(horizontal: 12.tw, vertical: 8.th),
               decoration: BoxDecoration(
                 color: Colors.black.withOpacity(0.5),
-                borderRadius: BorderRadius.circular(8.r),
+                borderRadius: BorderRadius.circular(8.tr),
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.end,
@@ -289,18 +290,18 @@ class _RegularCameraScreenState extends State<RegularCameraScreen> {
                     _currentDateTime,
                     style: TextStyle(
                       color: Colors.white,
-                      fontSize: 13.sp,
+                      fontSize: 13.tsp,
                       fontWeight: FontWeight.w600,
                     ),
                     textAlign: TextAlign.right,
                   ),
                   if (_currentLocation.isNotEmpty) ...[
-                    SizedBox(height: 4.h),
+                    SizedBox(height: 4.th),
                     Text(
                       _currentLocation,
                       style: TextStyle(
                         color: Colors.white,
-                        fontSize: 11.sp,
+                        fontSize: 11.tsp,
                         fontWeight: FontWeight.w500,
                       ),
                       textAlign: TextAlign.right,
@@ -313,15 +314,15 @@ class _RegularCameraScreenState extends State<RegularCameraScreen> {
 
           // Capture Button
           Positioned(
-            bottom: 40.h,
+            bottom: 40.th,
             left: 0,
             right: 0,
             child: Center(
               child: GestureDetector(
                 onTap: _isCapturing ? null : _capturePhoto,
                 child: Container(
-                  width: 75.w,
-                  height: 75.w,
+                  width: 75.tw,
+                  height: 75.tw,
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
                     color: Colors.white.withOpacity(_isCapturing ? 0.5 : 0.9),
@@ -339,7 +340,7 @@ class _RegularCameraScreenState extends State<RegularCameraScreen> {
                   ),
                   child: _isCapturing
                       ? Padding(
-                          padding: EdgeInsets.all(20.w),
+                          padding: EdgeInsets.all(20.tw),
                           child: const CircularProgressIndicator(
                             color: Colors.black,
                             strokeWidth: 3,
@@ -347,8 +348,8 @@ class _RegularCameraScreenState extends State<RegularCameraScreen> {
                         )
                       : Center(
                           child: Container(
-                            width: 65.w,
-                            height: 65.w,
+                            width: 65.tw,
+                            height: 65.tw,
                             decoration: const BoxDecoration(
                               shape: BoxShape.circle,
                               color: Colors.white,
@@ -362,14 +363,14 @@ class _RegularCameraScreenState extends State<RegularCameraScreen> {
 
           // Small thumbnail preview at bottom left (optional)
           Positioned(
-            bottom: 50.h,
-            left: 30.w,
+            bottom: 50.th,
+            left: 30.tw,
             child: Container(
-              width: 50.w,
-              height: 50.w,
+              width: 50.tw,
+              height: 50.tw,
               decoration: BoxDecoration(
                 color: Colors.black.withOpacity(0.3),
-                borderRadius: BorderRadius.circular(8.r),
+                borderRadius: BorderRadius.circular(8.tr),
                 border: Border.all(
                   color: Colors.white.withOpacity(0.5),
                   width: 2,
@@ -378,7 +379,7 @@ class _RegularCameraScreenState extends State<RegularCameraScreen> {
               child: Icon(
                 Icons.photo_library,
                 color: Colors.white.withOpacity(0.7),
-                size: 24.sp,
+                size: 24.tsp,
               ),
             ),
           ),

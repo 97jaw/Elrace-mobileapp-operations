@@ -5,8 +5,8 @@ import 'package:el_race/core/widgets/timesheet/timesheet_widgets.dart';
 import 'package:el_race/ui/presentation/timesheet/project_record_card.dart';
 import 'package:el_race/ui/presentation/timesheet/timesheet_async_state.dart';
 import 'package:el_race/ui/presentation/timesheet/timesheet_route_args.dart';
+import 'package:el_race/ui/presentation/timesheet/site_reports/tm_site_reports_list_screen.dart';
 import 'package:el_race/ui/presentation/timesheet/widgets/tm_project_face_enroll_tab.dart';
-import 'package:el_race/ui/presentation/timesheet/widgets/tm_project_site_reports_tab.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:phosphor_flutter/phosphor_flutter.dart';
@@ -114,9 +114,9 @@ class Fm2ProjectDetail extends ConsumerWidget {
                       ),
                     ),
                     _TasksTab(projectId: project.id, tasksAsync: tasksAsync),
-                    TmProjectSiteReportsTab(
-                      projectId: project.id,
-                      projectName: project.name,
+                    const TmSiteReportsListScreen(
+                      embedInParent: true,
+                      title: 'Site Reports',
                     ),
                     _TeamsTab(projectId: project.id),
                     TmProjectFaceEnrollTab(

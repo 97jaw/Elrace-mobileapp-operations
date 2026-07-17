@@ -1,3 +1,4 @@
+import 'package:el_race/core/utils/responsive_breakpoints.dart';
 import 'package:el_race/core/theme/hr_module_colors.dart';
 import 'package:el_race/core/theme/hr_service_screen_backdrop.dart';
 import 'package:el_race/core/theme/hr_module_typography.dart';
@@ -54,7 +55,7 @@ class AttendanceReportsModuleScreen extends ConsumerWidget {
           elevation: 0,
           title: Text(
             'Attendance',
-            style: HrModuleTypography.pageTitle().copyWith(fontSize: 18.sp),
+            style: HrModuleTypography.pageTitle().copyWith(fontSize: 18.tsp),
           ),
         ),
         body: HrServiceScreenBackdrop.wrap(
@@ -71,14 +72,14 @@ class AttendanceReportsModuleScreen extends ConsumerWidget {
           elevation: 0,
           title: Text(
             'Attendance',
-            style: HrModuleTypography.pageTitle().copyWith(fontSize: 18.sp),
+            style: HrModuleTypography.pageTitle().copyWith(fontSize: 18.tsp),
           ),
         ),
         body: HrServiceScreenBackdrop.wrap(
           kind: HrServiceScreenKind.attendance,
           child: Center(
             child: Padding(
-              padding: EdgeInsets.all(24.w),
+              padding: EdgeInsets.all(24.tw),
               child: Text(
                 '$e',
                 textAlign: TextAlign.center,

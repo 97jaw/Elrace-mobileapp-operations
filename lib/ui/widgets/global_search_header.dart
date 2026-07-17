@@ -1,3 +1,4 @@
+import 'package:el_race/core/utils/responsive_breakpoints.dart';
 import 'package:el_race/ui/chat/widgets/chat_sub_app_glass_bar.dart';
 import 'package:el_race/ui/chat/widgets/chat_unified_header_backdrop.dart';
 import 'package:el_race/ui/navigation/home_navigation.dart';
@@ -21,7 +22,7 @@ class GlobalSearchHeader extends StatelessWidget {
   final VoidCallback onSearchClear;
 
   static double extent(BuildContext context) {
-    return SubAppGlassAppBar.extent(context) + 112.h;
+    return SubAppGlassAppBar.extent(context) + 112.th;
   }
 
   @override
@@ -29,7 +30,7 @@ class GlobalSearchHeader extends StatelessWidget {
     return SizedBox(
       height: extent(context),
       child: ClipRRect(
-        borderRadius: BorderRadius.vertical(bottom: Radius.circular(20.r)),
+        borderRadius: BorderRadius.vertical(bottom: Radius.circular(20.tr)),
         child: Stack(
           fit: StackFit.expand,
           children: [
@@ -40,7 +41,7 @@ class GlobalSearchHeader extends StatelessWidget {
                 const SubAppGlassAppBar(),
                 Expanded(
                   child: Padding(
-                    padding: EdgeInsets.fromLTRB(14.w, 4.h, 14.w, 12.h),
+                    padding: EdgeInsets.fromLTRB(14.tw, 4.th, 14.tw, 12.th),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
@@ -52,19 +53,19 @@ class GlobalSearchHeader extends StatelessWidget {
                               icon: Icon(
                                 Icons.arrow_back_ios_new_rounded,
                                 color: Colors.white,
-                                size: 18.sp,
+                                size: 18.tsp,
                               ),
                               padding: EdgeInsets.zero,
                               constraints: BoxConstraints(
-                                minWidth: 32.w,
-                                minHeight: 32.w,
+                                minWidth: 32.tw,
+                                minHeight: 32.tw,
                               ),
                             ),
                             Expanded(
                               child: Text(
                                 translate('search.global_title'),
                                 style: GoogleFonts.poppins(
-                                  fontSize: 17.sp,
+                                  fontSize: 17.tsp,
                                   fontWeight: FontWeight.w700,
                                   color: Colors.white,
                                 ),
@@ -72,11 +73,11 @@ class GlobalSearchHeader extends StatelessWidget {
                             ),
                           ],
                         ),
-                        SizedBox(height: 10.h),
+                        SizedBox(height: 10.th),
                         Expanded(
                           child: DecoratedBox(
                             decoration: BoxDecoration(
-                              borderRadius: BorderRadius.circular(14.r),
+                              borderRadius: BorderRadius.circular(14.tr),
                               gradient: GlobalSearchTheme.searchBarGradient,
                               border: Border.all(
                                 color: Colors.white.withValues(alpha: 0.75),
@@ -96,7 +97,7 @@ class GlobalSearchHeader extends StatelessWidget {
                               onChanged: onSearchChanged,
                               autofocus: true,
                               style: GoogleFonts.poppins(
-                                fontSize: 14.sp,
+                                fontSize: 14.tsp,
                                 color: GlobalSearchTheme.searchInputText,
                                 fontWeight: FontWeight.w600,
                               ),
@@ -106,38 +107,38 @@ class GlobalSearchHeader extends StatelessWidget {
                                 hintText:
                                     translate('search.global_placeholder'),
                                 hintStyle: GoogleFonts.poppins(
-                                  fontSize: 13.sp,
+                                  fontSize: 13.tsp,
                                   color: GlobalSearchTheme.searchHintText,
                                   fontWeight: FontWeight.w500,
                                 ),
                                 filled: false,
                                 border: InputBorder.none,
                                 contentPadding: EdgeInsets.symmetric(
-                                  horizontal: 14.w,
-                                  vertical: 12.h,
+                                  horizontal: 14.tw,
+                                  vertical: 12.th,
                                 ),
                                 prefixIcon: Icon(
                                   Icons.search_rounded,
                                   color: const Color(0xFF3B6FD4),
-                                  size: 22.sp,
+                                  size: 22.tsp,
                                 ),
                                 prefixIconConstraints: BoxConstraints(
-                                  minWidth: 44.w,
-                                  minHeight: 40.h,
+                                  minWidth: 44.tw,
+                                  minHeight: 40.th,
                                 ),
                                 suffixIcon: searchController.text.isNotEmpty
                                     ? IconButton(
                                         icon: Icon(
                                           Icons.close_rounded,
-                                          size: 20.sp,
+                                          size: 20.tsp,
                                           color: const Color(0xFF6B7A99),
                                         ),
                                         onPressed: onSearchClear,
                                       )
                                     : null,
                                 suffixIconConstraints: BoxConstraints(
-                                  minWidth: 40.w,
-                                  minHeight: 40.h,
+                                  minWidth: 40.tw,
+                                  minHeight: 40.th,
                                 ),
                               ),
                             ),

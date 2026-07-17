@@ -1030,16 +1030,24 @@ class HrmsWidgetRecord {
 
   factory HrmsWidgetRecord.fromMap(Map<String, dynamic> m) {
     final scope = m['scope']?.toString() ?? 'employee';
-    final isManager = scope == 'manager';
+    final isManager = scope == 'manager' || scope == 'management';
     final direct = _readInt(m['direct_reports_count']);
+    final allStaff = _readInt(m['all_staff_count']);
     final pending = _readInt(m['pending_requests_count']);
+    final headline = _readInt(m['headline_count']);
     return HrmsWidgetRecord(
       isManagerScope: isManager,
-      headlineCount: _readInt(m['headline_count']) > 0
-          ? _readInt(m['headline_count'])
-          : (isManager ? direct : pending),
+      headlineCount: headline > 0
+          ? headline
+          : (scope == 'management'
+              ? (allStaff > 0 ? allStaff : direct)
+              : (isManager ? direct : pending)),
       trendLabel: m['trend_label']?.toString() ??
-          (isManager ? '$direct under your team' : '$pending pending requests'),
+          (scope == 'management'
+              ? '${allStaff > 0 ? allStaff : direct} staff company-wide'
+              : (isManager
+                  ? '$direct under your team'
+                  : '$pending pending requests')),
       directReportsCount: direct,
       pendingRequestsCount: pending,
       departmentName: m['department_name']?.toString(),

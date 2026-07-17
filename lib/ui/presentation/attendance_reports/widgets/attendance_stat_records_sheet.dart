@@ -1,3 +1,4 @@
+import 'package:el_race/core/utils/responsive_breakpoints.dart';
 import 'dart:async';
 
 import 'package:el_race/ui/presentation/Attendace_list/repository/attendance_repository.dart';
@@ -178,7 +179,7 @@ class _StatRecordsSheetState extends State<_StatRecordsSheet> {
               end: Alignment.bottomCenter,
               colors: [_kSkyLight, Color(0xFFF8FAFF), Colors.white],
             ),
-            borderRadius: BorderRadius.vertical(top: Radius.circular(24.r)),
+            borderRadius: BorderRadius.vertical(top: Radius.circular(24.tr)),
             border: Border.all(color: Colors.white.withValues(alpha: 0.9)),
             boxShadow: [
               BoxShadow(
@@ -190,25 +191,25 @@ class _StatRecordsSheetState extends State<_StatRecordsSheet> {
           ),
           child: Column(
             children: [
-              SizedBox(height: 10.h),
+              SizedBox(height: 10.th),
               Container(
-                width: 40.w,
-                height: 4.h,
+                width: 40.tw,
+                height: 4.th,
                 decoration: BoxDecoration(
                   color: _kPrimary.withValues(alpha: 0.18),
                   borderRadius: BorderRadius.circular(99),
                 ),
               ),
-              SizedBox(height: 14.h),
+              SizedBox(height: 14.th),
               Padding(
-                padding: EdgeInsets.symmetric(horizontal: 18.w),
+                padding: EdgeInsets.symmetric(horizontal: 18.tw),
                 child: Row(
                   children: [
                     Expanded(
                       child: Text(
                         widget.title,
                         style: TextStyle(
-                          fontSize: 17.sp,
+                          fontSize: 17.tsp,
                           fontWeight: FontWeight.w800,
                           color: _kPrimary,
                         ),
@@ -218,17 +219,17 @@ class _StatRecordsSheetState extends State<_StatRecordsSheet> {
                       Text(
                         '$_total',
                         style: TextStyle(
-                          fontSize: 12.sp,
+                          fontSize: 12.tsp,
                           fontWeight: FontWeight.w700,
                           color: AttendanceDashboardTheme.textMuted,
                         ),
                       ),
-                    SizedBox(width: 8.w),
+                    SizedBox(width: 8.tw),
                     GestureDetector(
                       onTap: () => Navigator.of(context).pop(),
                       child: Container(
-                        width: 32.w,
-                        height: 32.w,
+                        width: 32.tw,
+                        height: 32.tw,
                         decoration: BoxDecoration(
                           color: Colors.white.withValues(alpha: 0.85),
                           shape: BoxShape.circle,
@@ -237,21 +238,21 @@ class _StatRecordsSheetState extends State<_StatRecordsSheet> {
                           ),
                         ),
                         child: Icon(Icons.close_rounded,
-                            size: 18.sp, color: _kPrimary),
+                            size: 18.tsp, color: _kPrimary),
                       ),
                     ),
                   ],
                 ),
               ),
-              SizedBox(height: 12.h),
+              SizedBox(height: 12.th),
               Padding(
-                padding: EdgeInsets.symmetric(horizontal: 18.w),
+                padding: EdgeInsets.symmetric(horizontal: 18.tw),
                 child: _SheetSearchField(controller: _searchCtrl),
               ),
-              SizedBox(height: 10.h),
+              SizedBox(height: 10.th),
               if (_error != null)
                 Padding(
-                  padding: EdgeInsets.symmetric(horizontal: 18.w),
+                  padding: EdgeInsets.symmetric(horizontal: 18.tw),
                   child: _SheetErrorBanner(
                     message: _error!,
                     onRetry: () => _load(reset: true),
@@ -268,19 +269,19 @@ class _StatRecordsSheetState extends State<_StatRecordsSheet> {
                             child: ListView.separated(
                               controller: _scroll,
                               physics: const AlwaysScrollableScrollPhysics(),
-                              padding: EdgeInsets.fromLTRB(18.w, 4.h, 18.w, 28.h),
+                              padding: EdgeInsets.fromLTRB(18.tw, 4.th, 18.tw, 28.th),
                               itemCount:
                                   _records.length + (_loading ? 1 : 0),
                               separatorBuilder: (_, __) =>
-                                  SizedBox(height: 12.h),
+                                  SizedBox(height: 12.th),
                               itemBuilder: (_, i) {
                                 if (i >= _records.length) {
                                   return Center(
                                     child: Padding(
-                                      padding: EdgeInsets.all(12.h),
+                                      padding: EdgeInsets.all(12.th),
                                       child: SizedBox(
-                                        width: 22.w,
-                                        height: 22.w,
+                                        width: 22.tw,
+                                        height: 22.tw,
                                         child: const CircularProgressIndicator(
                                           strokeWidth: 2,
                                           color: _kPrimary,
@@ -315,7 +316,7 @@ class _SheetRecordRow extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           _BlueDateTag(date: record.checkDate),
-          SizedBox(width: 10.w),
+          SizedBox(width: 10.tw),
           Expanded(child: _GlassRecordCard(record: record)),
         ],
       ),
@@ -330,8 +331,8 @@ class _BlueDateTag extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      width: 46.w,
-      padding: EdgeInsets.symmetric(vertical: 8.h, horizontal: 4.w),
+      width: 46.tw,
+      padding: EdgeInsets.symmetric(vertical: 8.th, horizontal: 4.tw),
       decoration: BoxDecoration(
         gradient: LinearGradient(
           begin: Alignment.topCenter,
@@ -341,7 +342,7 @@ class _BlueDateTag extends StatelessWidget {
             Colors.white.withValues(alpha: 0.92),
           ],
         ),
-        borderRadius: BorderRadius.circular(10.r),
+        borderRadius: BorderRadius.circular(10.tr),
         border: Border.all(color: _kPrimary.withValues(alpha: 0.14)),
         boxShadow: [
           BoxShadow(
@@ -357,17 +358,17 @@ class _BlueDateTag extends StatelessWidget {
           Text(
             DateFormat('MMM').format(date),
             style: TextStyle(
-              fontSize: 9.sp,
+              fontSize: 9.tsp,
               fontWeight: FontWeight.w700,
               color: _kPrimary.withValues(alpha: 0.65),
               letterSpacing: 0.3,
             ),
           ),
-          SizedBox(height: 2.h),
+          SizedBox(height: 2.th),
           Text(
             DateFormat('dd').format(date),
             style: TextStyle(
-              fontSize: 18.sp,
+              fontSize: 18.tsp,
               fontWeight: FontWeight.w900,
               color: _kPrimary,
               height: 1.0,
@@ -397,7 +398,7 @@ class _GlassRecordCard extends StatelessWidget {
         : formatAttendanceDate(record.checkIn);
 
     return Container(
-      padding: EdgeInsets.fromLTRB(12.w, 12.h, 12.w, 12.h),
+      padding: EdgeInsets.fromLTRB(12.tw, 12.th, 12.tw, 12.th),
       decoration: BoxDecoration(
         gradient: LinearGradient(
           begin: Alignment.topLeft,
@@ -408,7 +409,7 @@ class _GlassRecordCard extends StatelessWidget {
             _kSkyMid.withValues(alpha: 0.35),
           ],
         ),
-        borderRadius: BorderRadius.circular(14.r),
+        borderRadius: BorderRadius.circular(14.tr),
         border: Border.all(color: Colors.white.withValues(alpha: 0.92)),
         boxShadow: [
           BoxShadow(
@@ -425,21 +426,21 @@ class _GlassRecordCard extends StatelessWidget {
             children: [
               _GlassIconCircle(
                 child: AttendanceNetworkAvatar(
-                  radius: 15.r,
+                  radius: 15.tr,
                   imageUrl: record.employeeImageUrl,
                   fallback: Text(
                     record.employeeName.isNotEmpty
                         ? record.employeeName[0].toUpperCase()
                         : '?',
                     style: TextStyle(
-                      fontSize: 10.sp,
+                      fontSize: 10.tsp,
                       fontWeight: FontWeight.w800,
                       color: _kPrimary,
                     ),
                   ),
                 ),
               ),
-              SizedBox(width: 8.w),
+              SizedBox(width: 8.tw),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -447,7 +448,7 @@ class _GlassRecordCard extends StatelessWidget {
                     Text(
                       record.employeeName,
                       style: TextStyle(
-                        fontSize: 12.sp,
+                        fontSize: 12.tsp,
                         fontWeight: FontWeight.w700,
                         color: AttendanceDashboardTheme.textPrimary,
                       ),
@@ -459,7 +460,7 @@ class _GlassRecordCard extends StatelessWidget {
                       Text(
                         record.empIdCode!.trim(),
                         style: TextStyle(
-                          fontSize: 10.sp,
+                          fontSize: 10.tsp,
                           fontWeight: FontWeight.w500,
                           color: AttendanceDashboardTheme.textSecondary,
                         ),
@@ -473,16 +474,16 @@ class _GlassRecordCard extends StatelessWidget {
                 _GlassIconCircle(
                   size: 28,
                   child: Icon(Icons.flag_rounded,
-                      size: 14.sp, color: const Color(0xFFDB2777)),
+                      size: 14.tsp, color: const Color(0xFFDB2777)),
                 ),
             ],
           ),
-          SizedBox(height: 8.h),
+          SizedBox(height: 8.th),
           Row(
             children: [
               _CategoryBadge(badge: badge),
               if (record.hasRequestRef) ...[
-                SizedBox(width: 6.w),
+                SizedBox(width: 6.tw),
                 Flexible(
                   child: _RequestRefBadge(label: record.requestRefLabel),
                 ),
@@ -490,10 +491,10 @@ class _GlassRecordCard extends StatelessWidget {
             ],
           ),
           if (detailRows.isNotEmpty) ...[
-            SizedBox(height: 8.h),
+            SizedBox(height: 8.th),
             _GlassDetailPanel(rows: detailRows),
           ],
-          SizedBox(height: 8.h),
+          SizedBox(height: 8.th),
           Row(
             children: [
               Row(
@@ -502,13 +503,13 @@ class _GlassRecordCard extends StatelessWidget {
                   _GlassIconCircle(
                     size: 22,
                     child: Icon(Icons.schedule_rounded,
-                        size: 12.sp, color: _kPrimary.withValues(alpha: 0.7)),
+                        size: 12.tsp, color: _kPrimary.withValues(alpha: 0.7)),
                   ),
-                  SizedBox(width: 6.w),
+                  SizedBox(width: 6.tw),
                   Text(
                     timeLabel,
                     style: TextStyle(
-                      fontSize: 11.sp,
+                      fontSize: 11.tsp,
                       color: AttendanceDashboardTheme.textMuted,
                       fontWeight: FontWeight.w600,
                     ),
@@ -519,7 +520,7 @@ class _GlassRecordCard extends StatelessWidget {
               Text(
                 dateLabel,
                 style: TextStyle(
-                  fontSize: 11.sp,
+                  fontSize: 11.tsp,
                   color: AttendanceDashboardTheme.textMuted,
                   fontWeight: FontWeight.w600,
                 ),
@@ -540,8 +541,8 @@ class _GlassIconCircle extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      width: size.w,
-      height: size.w,
+      width: size.tw,
+      height: size.tw,
       decoration: BoxDecoration(
         shape: BoxShape.circle,
         gradient: LinearGradient(
@@ -572,7 +573,7 @@ class _RequestRefBadge extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: EdgeInsets.symmetric(horizontal: 8.w, vertical: 4.h),
+      padding: EdgeInsets.symmetric(horizontal: 8.tw, vertical: 4.th),
       decoration: BoxDecoration(
         gradient: LinearGradient(
           colors: [
@@ -580,18 +581,18 @@ class _RequestRefBadge extends StatelessWidget {
             _kPrimary.withValues(alpha: 0.06),
           ],
         ),
-        borderRadius: BorderRadius.circular(8.r),
+        borderRadius: BorderRadius.circular(8.tr),
         border: Border.all(color: _kPrimary.withValues(alpha: 0.2)),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(Icons.tag_rounded, size: 12.sp, color: _kPrimary),
-          SizedBox(width: 4.w),
+          Icon(Icons.tag_rounded, size: 12.tsp, color: _kPrimary),
+          SizedBox(width: 4.tw),
           Text(
             label,
             style: TextStyle(
-              fontSize: 10.sp,
+              fontSize: 10.tsp,
               fontWeight: FontWeight.w700,
               color: _kPrimary,
             ),
@@ -611,7 +612,7 @@ class _GlassDetailPanel extends StatelessWidget {
     return Container(
       decoration: BoxDecoration(
         color: Colors.white.withValues(alpha: 0.55),
-        borderRadius: BorderRadius.circular(10.r),
+        borderRadius: BorderRadius.circular(10.tr),
         border: Border.all(color: _kPrimary.withValues(alpha: 0.08)),
       ),
       child: Column(
@@ -623,7 +624,7 @@ class _GlassDetailPanel extends StatelessWidget {
                 color: _kPrimary.withValues(alpha: 0.06),
               ),
             Padding(
-              padding: EdgeInsets.symmetric(horizontal: 10.w, vertical: 7.h),
+              padding: EdgeInsets.symmetric(horizontal: 10.tw, vertical: 7.th),
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -632,7 +633,7 @@ class _GlassDetailPanel extends StatelessWidget {
                     child: Text(
                       rows[i].label,
                       style: TextStyle(
-                        fontSize: 10.sp,
+                        fontSize: 10.tsp,
                         fontWeight: FontWeight.w700,
                         color: _kPrimary.withValues(alpha: 0.75),
                       ),
@@ -643,7 +644,7 @@ class _GlassDetailPanel extends StatelessWidget {
                     child: Text(
                       rows[i].value,
                       style: TextStyle(
-                        fontSize: 10.sp,
+                        fontSize: 10.tsp,
                         fontWeight: FontWeight.w600,
                         color: AttendanceDashboardTheme.textPrimary,
                       ),
@@ -666,7 +667,7 @@ class _CategoryBadge extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: EdgeInsets.symmetric(horizontal: 8.w, vertical: 3.h),
+      padding: EdgeInsets.symmetric(horizontal: 8.tw, vertical: 3.th),
       decoration: BoxDecoration(
         color: badge.color.withValues(alpha: 0.10),
         borderRadius: BorderRadius.circular(999),
@@ -676,18 +677,18 @@ class _CategoryBadge extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         children: [
           Container(
-            width: 6.w,
-            height: 6.w,
+            width: 6.tw,
+            height: 6.tw,
             decoration: BoxDecoration(
               color: badge.color,
               shape: BoxShape.circle,
             ),
           ),
-          SizedBox(width: 5.w),
+          SizedBox(width: 5.tw),
           Text(
             badge.label,
             style: TextStyle(
-              fontSize: 11.sp,
+              fontSize: 11.tsp,
               fontWeight: FontWeight.w700,
               color: badge.color,
             ),
@@ -707,7 +708,7 @@ class _SheetSearchField extends StatelessWidget {
     return Container(
       decoration: BoxDecoration(
         color: Colors.white.withValues(alpha: 0.9),
-        borderRadius: BorderRadius.circular(14.r),
+        borderRadius: BorderRadius.circular(14.tr),
         border: Border.all(color: _kPrimary.withValues(alpha: 0.12)),
         boxShadow: [
           BoxShadow(
@@ -723,16 +724,16 @@ class _SheetSearchField extends StatelessWidget {
           hintText: 'Search employee…',
           hintStyle: TextStyle(
             color: AttendanceDashboardTheme.textMuted,
-            fontSize: 13.sp,
+            fontSize: 13.tsp,
           ),
           prefixIcon: Icon(
             Icons.search_rounded,
-            size: 20.sp,
+            size: 20.tsp,
             color: _kPrimary.withValues(alpha: 0.5),
           ),
           border: InputBorder.none,
           contentPadding:
-              EdgeInsets.symmetric(horizontal: 14.w, vertical: 13.h),
+              EdgeInsets.symmetric(horizontal: 14.tw, vertical: 13.th),
         ),
       ),
     );
@@ -749,12 +750,12 @@ class _SheetEmptyState extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         children: [
           Icon(Icons.inbox_rounded,
-              size: 48.sp, color: _kPrimary.withValues(alpha: 0.2)),
-          SizedBox(height: 10.h),
+              size: 48.tsp, color: _kPrimary.withValues(alpha: 0.2)),
+          SizedBox(height: 10.th),
           Text(
             'No records found',
             style: TextStyle(
-              fontSize: 14.sp,
+              fontSize: 14.tsp,
               fontWeight: FontWeight.w700,
               color: AttendanceDashboardTheme.textMuted,
             ),
@@ -773,11 +774,11 @@ class _SheetErrorBanner extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      margin: EdgeInsets.only(bottom: 8.h),
-      padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 8.h),
+      margin: EdgeInsets.only(bottom: 8.th),
+      padding: EdgeInsets.symmetric(horizontal: 12.tw, vertical: 8.th),
       decoration: BoxDecoration(
         color: const Color(0xFFDC2626).withValues(alpha: 0.06),
-        borderRadius: BorderRadius.circular(10.r),
+        borderRadius: BorderRadius.circular(10.tr),
         border: Border.all(
           color: const Color(0xFFDC2626).withValues(alpha: 0.2),
         ),
@@ -787,7 +788,7 @@ class _SheetErrorBanner extends StatelessWidget {
           Expanded(
             child: Text(
               message,
-              style: TextStyle(fontSize: 11.sp, color: const Color(0xFFDC2626)),
+              style: TextStyle(fontSize: 11.tsp, color: const Color(0xFFDC2626)),
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
             ),
@@ -832,26 +833,26 @@ class _SheetSkeletonListState extends State<_SheetSkeletonList>
     return AnimatedBuilder(
       animation: _anim,
       builder: (_, __) => ListView.separated(
-        padding: EdgeInsets.fromLTRB(18.w, 8.h, 18.w, 24.h),
+        padding: EdgeInsets.fromLTRB(18.tw, 8.th, 18.tw, 24.th),
         itemCount: 5,
-        separatorBuilder: (_, __) => SizedBox(height: 12.h),
+        separatorBuilder: (_, __) => SizedBox(height: 12.th),
         itemBuilder: (_, __) => Row(
           children: [
             Container(
-              width: 46.w,
-              height: 52.h,
+              width: 46.tw,
+              height: 52.th,
               decoration: BoxDecoration(
                 color: _kSkyMid.withValues(alpha: _anim.value),
-                borderRadius: BorderRadius.circular(10.r),
+                borderRadius: BorderRadius.circular(10.tr),
               ),
             ),
-            SizedBox(width: 10.w),
+            SizedBox(width: 10.tw),
             Expanded(
               child: Container(
-                height: 88.h,
+                height: 88.th,
                 decoration: BoxDecoration(
                   color: Colors.white.withValues(alpha: _anim.value),
-                  borderRadius: BorderRadius.circular(14.r),
+                  borderRadius: BorderRadius.circular(14.tr),
                   border: Border.all(
                     color: _kPrimary.withValues(alpha: 0.08),
                   ),

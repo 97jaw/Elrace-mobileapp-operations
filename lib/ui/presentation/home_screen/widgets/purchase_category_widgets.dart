@@ -1,3 +1,4 @@
+import 'package:el_race/core/utils/responsive_breakpoints.dart';
 import 'package:el_race/ui/presentation/home_screen/providers/home_lpo_widget_provider.dart';
 import 'package:el_race/ui/presentation/home_screen/widgets/category_widget_gradient_border.dart';
 import 'package:el_race/ui/presentation/purchase_management/providers/purchase_providers.dart';
@@ -10,7 +11,9 @@ import 'package:google_fonts/google_fonts.dart';
 
 /// v7 Purchase category — LPO full-width card.
 class PurchaseCategoryLpoCard extends ConsumerWidget {
-  const PurchaseCategoryLpoCard({super.key});
+  const PurchaseCategoryLpoCard({super.key, this.tabletCompact = false});
+
+  final bool tabletCompact;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -26,6 +29,7 @@ class PurchaseCategoryLpoCard extends ConsumerWidget {
         : (data.monthLabel.isNotEmpty ? 'LPO · ${data.monthLabel}' : 'LPO');
 
     return _LpoFullCardShell(
+      height: null,
       onTap: () => Util.pushPage(const PurchaseManagementHubScreen(), context),
       iconBadge: const _LpoIconBadge(),
       pattern: Stack(
@@ -33,7 +37,7 @@ class PurchaseCategoryLpoCard extends ConsumerWidget {
         children: [
           Positioned(
             right: -28.w,
-            bottom: -32.h,
+            bottom: -32.uh,
             child: Container(
               width: 178.w,
               height: 178.w,
@@ -55,77 +59,74 @@ class PurchaseCategoryLpoCard extends ConsumerWidget {
           ),
         ],
       ),
-      child: SizedBox(
-        height: 114.h,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'PURCHASE MANAGEMENT',
-              style: GoogleFonts.poppins(
-                fontSize: 8.sp,
-                fontWeight: FontWeight.w600,
-                color: const Color(0xFF7DB3E8),
-                letterSpacing: 0.55,
-                height: 1.1,
-              ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'PURCHASE MANAGEMENT',
+            style: GoogleFonts.poppins(
+              fontSize: 8.usp,
+              fontWeight: FontWeight.w600,
+              color: const Color(0xFF7DB3E8),
+              letterSpacing: 0.55,
+              height: 1.1,
             ),
-            SizedBox(height: 3.h),
+          ),
+          SizedBox(height: 3.uh),
+          Text(
+            title,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: GoogleFonts.poppins(
+              fontSize: 14.usp,
+              fontWeight: FontWeight.w700,
+              color: Colors.white,
+              height: 1.1,
+            ),
+          ),
+          SizedBox(height: 8.uh),
+          IntrinsicHeight(
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                _LpoStatColumn(
+                  label: 'Total',
+                  value: '${data.pendingCount + data.approvedCount}',
+                  valueColor: Colors.white,
+                  valueFontSize: 26.usp,
+                ),
+                const _LpoStatDivider(),
+                _LpoStatColumn(
+                  label: 'Open',
+                  value: data.pendingLabel,
+                  valueColor: const Color(0xFFF59E0D),
+                  valueFontSize: 26.usp,
+                ),
+                const _LpoStatDivider(),
+                _LpoStatColumn(
+                  label: 'Closed',
+                  value: data.approvedLabel,
+                  valueColor: const Color(0xFF4ADE80),
+                  valueFontSize: 26.usp,
+                ),
+              ],
+            ),
+          ),
+          SizedBox(height: 6.uh),
+          if (data.trendLabel.isNotEmpty)
             Text(
-              title,
+              data.trendLabel,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               style: GoogleFonts.poppins(
-                fontSize: 14.sp,
-                fontWeight: FontWeight.w700,
-                color: Colors.white,
-                height: 1.1,
+                fontSize: 10.usp,
+                fontWeight: FontWeight.w600,
+                color: const Color(0xFF7FC0FF),
+                height: 1.15,
               ),
             ),
-            SizedBox(height: 8.h),
-            Expanded(
-              child: IntrinsicHeight(
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    _LpoStatColumn(
-                      label: 'Total',
-                      value: '${data.pendingCount + data.approvedCount}',
-                      valueColor: Colors.white,
-                      valueFontSize: 26.sp,
-                    ),
-                    const _LpoStatDivider(),
-                    _LpoStatColumn(
-                      label: 'Open',
-                      value: data.pendingLabel,
-                      valueColor: const Color(0xFFF59E0D),
-                      valueFontSize: 26.sp,
-                    ),
-                    const _LpoStatDivider(),
-                    _LpoStatColumn(
-                      label: 'Closed',
-                      value: data.approvedLabel,
-                      valueColor: const Color(0xFF4ADE80),
-                      valueFontSize: 26.sp,
-                    ),
-                  ],
-                ),
-              ),
-            ),
-            if (data.trendLabel.isNotEmpty)
-              Text(
-                data.trendLabel,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: GoogleFonts.poppins(
-                  fontSize: 10.sp,
-                  fontWeight: FontWeight.w600,
-                  color: const Color(0xFF7FC0FF),
-                  height: 1.15,
-                ),
-              ),
-          ],
-        ),
+        ],
       ),
     );
   }
@@ -138,40 +139,38 @@ class _LpoUnauthorizedCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return _LpoFullCardShell(
       iconBadge: const _LpoIconBadge(),
-      child: SizedBox(
-        height: 114.h,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'PURCHASE MANAGEMENT',
-              style: GoogleFonts.poppins(
-                fontSize: 8.sp,
-                fontWeight: FontWeight.w600,
-                color: const Color(0xFF7DB3E8),
-                letterSpacing: 0.55,
-              ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'PURCHASE MANAGEMENT',
+            style: GoogleFonts.poppins(
+              fontSize: 8.usp,
+              fontWeight: FontWeight.w600,
+              color: const Color(0xFF7DB3E8),
+              letterSpacing: 0.55,
             ),
-            SizedBox(height: 3.h),
-            Text(
-              'Purchase Mgmt',
-              style: GoogleFonts.poppins(
-                fontSize: 14.sp,
-                fontWeight: FontWeight.w700,
-                color: Colors.white,
-              ),
+          ),
+          SizedBox(height: 3.uh),
+          Text(
+            'Purchase Mgmt',
+            style: GoogleFonts.poppins(
+              fontSize: 14.usp,
+              fontWeight: FontWeight.w700,
+              color: Colors.white,
             ),
-            const Spacer(),
-            Text(
-              'Not authorized',
-              style: GoogleFonts.poppins(
-                fontSize: 12.sp,
-                fontWeight: FontWeight.w600,
-                color: Colors.white.withValues(alpha: 0.72),
-              ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Not authorized',
+            style: GoogleFonts.poppins(
+              fontSize: 12.usp,
+              fontWeight: FontWeight.w600,
+              color: Colors.white.withValues(alpha: 0.72),
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
@@ -183,12 +182,14 @@ class _LpoFullCardShell extends StatelessWidget {
     required this.iconBadge,
     this.pattern,
     this.onTap,
+    this.height,
   });
 
   final Widget child;
   final Widget iconBadge;
   final Widget? pattern;
   final VoidCallback? onTap;
+  final double? height;
 
   static const _gradient = LinearGradient(
     begin: Alignment.topLeft,
@@ -204,42 +205,68 @@ class _LpoFullCardShell extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final innerRadius =
-        (22.r - CategoryWidgetGradientBorder.width).clamp(0.0, double.infinity);
+        (22.ur - CategoryWidgetGradientBorder.width).clamp(0.0, double.infinity);
 
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(22.r),
-        child: Container(
-          height: 140.h,
-          decoration: CategoryWidgetGradientBorder.outer(borderRadius: 22.r),
-          padding: CategoryWidgetGradientBorder.padding,
-          child: Container(
-            decoration: CategoryWidgetGradientBorder.inner(
-              borderRadius: 22.r,
-              fillGradient: _gradient,
-            ),
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(innerRadius),
-              child: Stack(
-                clipBehavior: Clip.hardEdge,
-                children: [
-                  if (pattern != null)
-                    Positioned.fill(
-                      child: IgnorePointer(child: pattern!),
-                    ),
-                  Padding(
-                    padding: EdgeInsets.fromLTRB(14.w, 12.h, 46.w, 12.h),
-                    child: child,
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final shellH = ResponsiveBreakpoints.shellHeight(
+          constraints,
+          explicit: height,
+        );
+        return Material(
+          color: Colors.transparent,
+          child: InkWell(
+            onTap: onTap,
+            borderRadius: BorderRadius.circular(22.ur),
+            child: Container(
+              height: shellH,
+              width: constraints.hasBoundedWidth ? constraints.maxWidth : null,
+              decoration:
+                  CategoryWidgetGradientBorder.outer(borderRadius: 22.ur),
+              padding: CategoryWidgetGradientBorder.padding,
+              child: Container(
+                decoration: CategoryWidgetGradientBorder.inner(
+                  borderRadius: 22.ur,
+                  fillGradient: _gradient,
+                ),
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(innerRadius),
+                  child: Stack(
+                    clipBehavior: Clip.hardEdge,
+                    children: [
+                      if (pattern != null)
+                        Positioned.fill(
+                          child: IgnorePointer(child: pattern!),
+                        ),
+                      Padding(
+                        padding: EdgeInsets.fromLTRB(14.w, 12.uh, 46.w, 12.uh),
+                        child: LayoutBuilder(
+                          builder: (context, inner) {
+                            return Align(
+                              alignment: Alignment.topLeft,
+                              child: FittedBox(
+                                fit: BoxFit.scaleDown,
+                                alignment: Alignment.topLeft,
+                                child: ConstrainedBox(
+                                  constraints: BoxConstraints(
+                                    maxWidth: inner.maxWidth,
+                                  ),
+                                  child: child,
+                                ),
+                              ),
+                            );
+                          },
+                        ),
+                      ),
+                      Positioned(top: 8.uh, right: 8.w, child: iconBadge),
+                    ],
                   ),
-                  Positioned(top: 8.h, right: 8.w, child: iconBadge),
-                ],
+                ),
               ),
             ),
           ),
-        ),
-      ),
+        );
+      },
     );
   }
 }
@@ -253,7 +280,7 @@ class _LpoIconBadge extends StatelessWidget {
       width: 34.w,
       height: 34.w,
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(11.r),
+        borderRadius: BorderRadius.circular(11.ur),
         gradient: const LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
@@ -267,7 +294,7 @@ class _LpoIconBadge extends StatelessWidget {
           ),
         ],
       ),
-      child: Icon(Icons.receipt_long_rounded, size: 18.sp, color: Colors.white),
+      child: Icon(Icons.receipt_long_rounded, size: 18.usp, color: Colors.white),
     );
   }
 }
@@ -295,14 +322,14 @@ class _LpoStatColumn extends StatelessWidget {
           Text(
             label.toUpperCase(),
             style: GoogleFonts.poppins(
-              fontSize: 7.5.sp,
+              fontSize: 7.5.usp,
               fontWeight: FontWeight.w600,
               color: const Color(0xFF8A9BB5),
               letterSpacing: 0.35,
               height: 1.1,
             ),
           ),
-          SizedBox(height: 5.h),
+          SizedBox(height: 5.uh),
           FittedBox(
             fit: BoxFit.scaleDown,
             alignment: Alignment.centerLeft,

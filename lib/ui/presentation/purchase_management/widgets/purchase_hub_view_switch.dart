@@ -1,3 +1,4 @@
+import 'package:el_race/core/utils/responsive_breakpoints.dart';
 import 'dart:ui';
 
 import 'package:el_race/ui/presentation/purchase_management/theme/purchase_theme.dart';
@@ -10,7 +11,7 @@ enum PurchaseHubViewMode { hub, analytics, ai }
 /// Bottom scroll inset when the floating view bar is visible.
 abstract final class PurchaseHubViewBarLayout {
   static double scrollBottomPadding(BuildContext context) {
-    return 82.h + MediaQuery.paddingOf(context).bottom + 10.h;
+    return 82.th + MediaQuery.paddingOf(context).bottom + 10.th;
   }
 }
 
@@ -34,13 +35,13 @@ class PurchaseHubFloatingViewBar extends StatelessWidget {
     final bottomSafe = MediaQuery.paddingOf(context).bottom;
 
     return Padding(
-      padding: EdgeInsets.fromLTRB(18.w, 0, 18.w, bottomSafe + 10.h),
+      padding: EdgeInsets.fromLTRB(18.tw, 0, 18.tw, bottomSafe + 10.th),
       child: ClipRRect(
-        borderRadius: BorderRadius.circular(26.r),
+        borderRadius: BorderRadius.circular(26.tr),
         child: BackdropFilter(
           filter: ImageFilter.blur(sigmaX: 14, sigmaY: 14),
           child: Container(
-            padding: EdgeInsets.symmetric(horizontal: 14.w, vertical: 10.h),
+            padding: EdgeInsets.symmetric(horizontal: 14.tw, vertical: 10.th),
             decoration: BoxDecoration(
               gradient: LinearGradient(
                 begin: Alignment.topCenter,
@@ -50,7 +51,7 @@ class PurchaseHubFloatingViewBar extends StatelessWidget {
                   const Color(0xFFD4EBFA).withValues(alpha: 0.88),
                 ],
               ),
-              borderRadius: BorderRadius.circular(26.r),
+              borderRadius: BorderRadius.circular(26.tr),
               border: Border.all(
                 color: Colors.white.withValues(alpha: 0.85),
                 width: 1.2,
@@ -108,15 +109,15 @@ class _ModeIcon extends StatelessWidget {
   Widget build(BuildContext context) {
     return InkWell(
       onTap: onTap,
-      borderRadius: BorderRadius.circular(14.r),
+      borderRadius: BorderRadius.circular(14.tr),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
           Container(
-            width: 44.w,
-            height: 44.w,
+            width: 44.tw,
+            height: 44.tw,
             decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(14.r),
+              borderRadius: BorderRadius.circular(14.tr),
               gradient: isActive
                   ? const LinearGradient(
                       colors: [
@@ -147,14 +148,14 @@ class _ModeIcon extends StatelessWidget {
             child: Icon(
               icon,
               color: isActive ? Colors.white : PurchaseTheme.accentDeep,
-              size: 22.sp,
+              size: 22.tsp,
             ),
           ),
-          SizedBox(height: 3.h),
+          SizedBox(height: 3.th),
           Text(
             label,
             style: GoogleFonts.poppins(
-              fontSize: 9.sp,
+              fontSize: 9.tsp,
               fontWeight: FontWeight.w600,
               color: isActive
                   ? PurchaseTheme.accentDeep
@@ -177,15 +178,15 @@ class _AiModeIcon extends StatelessWidget {
   Widget build(BuildContext context) {
     return InkWell(
       onTap: onTap,
-      borderRadius: BorderRadius.circular(14.r),
+      borderRadius: BorderRadius.circular(14.tr),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
           Container(
-            width: 44.w,
-            height: 44.w,
+            width: 44.tw,
+            height: 44.tw,
             decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(14.r),
+              borderRadius: BorderRadius.circular(14.tr),
               gradient: LinearGradient(
                 colors: isActive
                     ? const [
@@ -215,11 +216,11 @@ class _AiModeIcon extends StatelessWidget {
               alignment: Alignment.center,
               children: [
                 Positioned(
-                  top: 6.h,
-                  right: 8.w,
+                  top: 6.th,
+                  right: 8.tw,
                   child: Icon(
                     Icons.auto_awesome,
-                    size: 8.sp,
+                    size: 8.tsp,
                     color: isActive
                         ? Colors.white.withValues(alpha: 0.85)
                         : const Color(0xFF7C3AED),
@@ -228,7 +229,7 @@ class _AiModeIcon extends StatelessWidget {
                 Text(
                   'Ai',
                   style: GoogleFonts.poppins(
-                    fontSize: 16.sp,
+                    fontSize: 16.tsp,
                     fontWeight: FontWeight.w800,
                     color: isActive ? Colors.white : const Color(0xFF5B21B6),
                     height: 1,
@@ -237,11 +238,11 @@ class _AiModeIcon extends StatelessWidget {
               ],
             ),
           ),
-          SizedBox(height: 3.h),
+          SizedBox(height: 3.th),
           Text(
             'AI',
             style: GoogleFonts.poppins(
-              fontSize: 9.sp,
+              fontSize: 9.tsp,
               fontWeight: FontWeight.w600,
               color: isActive
                   ? const Color(0xFF6D28D9)

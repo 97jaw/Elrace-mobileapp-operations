@@ -1,3 +1,4 @@
+import 'package:el_race/core/utils/responsive_breakpoints.dart';
 import 'package:el_race/utils/color_utils.dart';
 import 'package:el_race/utils/safe_insets.dart';
 import 'package:flutter/material.dart';
@@ -36,7 +37,7 @@ class MyActionCard extends StatelessWidget {
           return ListView.separated(
             physics: const BouncingScrollPhysics(),
             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4) +
-                EdgeInsets.only(bottom: totalBottomPadding, top: 100.w),
+                EdgeInsets.only(bottom: totalBottomPadding, top: 100.tw),
             itemCount: approvalItems.length,
             separatorBuilder: (context, index) => const SizedBox(height: 4),
             itemBuilder: (context, index) {
@@ -99,15 +100,15 @@ class MyActionCard extends StatelessWidget {
                   padding: const EdgeInsets.symmetric(
                       vertical: 0.0, horizontal: 8.0),
                   child: SizedBox(
-                    height: 60.w,
+                    height: 60.tw,
                     child: Stack(
                       children: [
                         // 🔹 الطبقة الأساسية (Collapsed)
                         Container(
-                          height: 60.w,
+                          height: 60.tw,
                           alignment: Alignment.center,
-                          padding: EdgeInsets.symmetric(horizontal: 20.w) +
-                              EdgeInsets.only(bottom: 10.w),
+                          padding: EdgeInsets.symmetric(horizontal: 20.tw) +
+                              EdgeInsets.only(bottom: 10.tw),
                           decoration: BoxDecoration(
                             image: DecorationImage(
                               image: AssetImage(backgroundImage),
@@ -128,7 +129,7 @@ class MyActionCard extends StatelessWidget {
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
                               SizedBox(
-                                width: 80.w,
+                                width: 80.tw,
                                 child: Text(
                                   parsedDate != null
                                       ? DateFormat('dd MMM yy')
@@ -137,7 +138,7 @@ class MyActionCard extends StatelessWidget {
                                       : 'N/A',
                                   textAlign: TextAlign.center,
                                   style: GoogleFonts.poppins(
-                                    fontSize: 13.sp,
+                                    fontSize: 13.tsp,
                                     fontWeight: FontWeight.bold,
                                     color: appFontColor,
                                   ),
@@ -167,7 +168,7 @@ class MyActionCard extends StatelessWidget {
                                       reqNo,
                                       textAlign: TextAlign.center,
                                       style: GoogleFonts.poppins(
-                                        fontSize: 11.sp,
+                                        fontSize: 11.tsp,
                                         fontWeight: FontWeight.w500,
                                         color: Colors.black,
                                       ),
@@ -189,7 +190,7 @@ class MyActionCard extends StatelessWidget {
                                   title,
                                   textAlign: TextAlign.center,
                                   style: GoogleFonts.poppins(
-                                    fontSize: 14.sp,
+                                    fontSize: 14.tsp,
                                     fontWeight: FontWeight.bold,
                                     color: appFontColor,
                                   ),
@@ -208,9 +209,9 @@ class MyActionCard extends StatelessWidget {
                           child: IgnorePointer(
                             ignoring: !isExpanded,
                             child: Container(
-                              height: 55.w,
+                              height: 55.tw,
                               alignment: Alignment.center,
-                              padding: EdgeInsets.symmetric(horizontal: 20.w),
+                              padding: EdgeInsets.symmetric(horizontal: 20.tw),
                               decoration: BoxDecoration(
                                 gradient: LinearGradient(
                                   colors: [bgStart, bgEnd],
@@ -250,10 +251,10 @@ class MyActionCard extends StatelessWidget {
                     //   duration: const Duration(milliseconds: 900),
                     //   curve: Curves.easeInOut,
                     //   child: Container(
-                    //     margin: EdgeInsets.symmetric(horizontal: 10.w),
+                    //     margin: EdgeInsets.symmetric(horizontal: 10.tw),
                     //     key: ValueKey(isExpanded),
-                    //     width: 50.w,
-                    //     height: 50.w,
+                    //     width: 50.tw,
+                    //     height: 50.tw,
                     //     decoration: BoxDecoration(
                     //       shape: BoxShape.circle,
                     //       border: Border.all(color: Colors.white, width: 2),

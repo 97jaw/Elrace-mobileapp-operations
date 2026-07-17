@@ -1,3 +1,4 @@
+import 'package:el_race/core/utils/responsive_breakpoints.dart';
 import 'package:el_race/ui/presentation/my_reports/theme/my_reports_theme.dart';
 import 'package:el_race/ui/presentation/my_reports/widgets/my_reports_background.dart';
 import 'package:el_race/ui/presentation/my_reports/widgets/my_reports_glass_header.dart';
@@ -23,34 +24,34 @@ class MyReportsAiReportScreen extends StatelessWidget {
             ),
             Expanded(
               child: ListView(
-                padding: EdgeInsets.fromLTRB(16.w, 12.h, 16.w, 16.h),
+                padding: EdgeInsets.fromLTRB(16.tw, 12.th, 16.tw, 16.th),
                 children: [
                   Container(
-                    padding: EdgeInsets.all(16.w),
-                    decoration: MyReportsTheme.glassCard(radius: 20.r),
+                    padding: EdgeInsets.all(16.tw),
+                    decoration: MyReportsTheme.glassCard(radius: 20.tr),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Row(
                           children: [
                             Container(
-                              padding: EdgeInsets.all(8.w),
+                              padding: EdgeInsets.all(8.tw),
                               decoration: BoxDecoration(
                                 color: MyReportsTheme.accent.withValues(alpha: 0.16),
-                                borderRadius: BorderRadius.circular(10.r),
+                                borderRadius: BorderRadius.circular(10.tr),
                               ),
                               child: Icon(
                                 Icons.auto_awesome_rounded,
-                                size: 18.sp,
+                                size: 18.tsp,
                                 color: MyReportsTheme.textPrimary,
                               ),
                             ),
-                            SizedBox(width: 10.w),
+                            SizedBox(width: 10.tw),
                             Expanded(
                               child: Text(
                                 'AI Report Builder',
                                 style: GoogleFonts.poppins(
-                                  fontSize: 15.sp,
+                                  fontSize: 15.tsp,
                                   fontWeight: FontWeight.w800,
                                   color: MyReportsTheme.textPrimary,
                                 ),
@@ -58,16 +59,16 @@ class MyReportsAiReportScreen extends StatelessWidget {
                             ),
                           ],
                         ),
-                        SizedBox(height: 10.h),
+                        SizedBox(height: 10.th),
                         Text(
                           'Prepare final report with AI summary, anomalies, and recommendations.',
                           style: GoogleFonts.poppins(
-                            fontSize: 11.sp,
+                            fontSize: 11.tsp,
                             color: MyReportsTheme.textSecondary,
                             height: 1.4,
                           ),
                         ),
-                        SizedBox(height: 12.h),
+                        SizedBox(height: 12.th),
                         ...const [
                           _AiStep(label: 'Collect source report data'),
                           _AiStep(label: 'Generate narrative summary'),
@@ -77,9 +78,9 @@ class MyReportsAiReportScreen extends StatelessWidget {
                       ],
                     ),
                   ),
-                  SizedBox(height: 14.h),
+                  SizedBox(height: 14.th),
                   SizedBox(
-                    height: 48.h,
+                    height: 48.th,
                     child: ElevatedButton.icon(
                       onPressed: () {
                         showProductivityComingSoonSnackBar(
@@ -111,16 +112,16 @@ class _AiStep extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: EdgeInsets.only(bottom: 8.h),
+      padding: EdgeInsets.only(bottom: 8.th),
       child: Row(
         children: [
-          Icon(Icons.check_circle_outline, size: 16.sp, color: MyReportsTheme.accent),
-          SizedBox(width: 8.w),
+          Icon(Icons.check_circle_outline, size: 16.tsp, color: MyReportsTheme.accent),
+          SizedBox(width: 8.tw),
           Expanded(
             child: Text(
               label,
               style: GoogleFonts.poppins(
-                fontSize: 11.sp,
+                fontSize: 11.tsp,
                 color: MyReportsTheme.textPrimary,
               ),
             ),

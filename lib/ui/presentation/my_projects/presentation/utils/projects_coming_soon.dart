@@ -1,3 +1,4 @@
+import 'package:el_race/core/utils/responsive_breakpoints.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -15,13 +16,13 @@ void showProjectsComingSoonSnackBar(
     SnackBar(
       behavior: SnackBarBehavior.floating,
       backgroundColor: const Color(0xFF1A1F2E),
-      margin: EdgeInsets.fromLTRB(16.w, 0, 16.w, 24.h),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14.r)),
+      margin: EdgeInsets.fromLTRB(16.tw, 0, 16.tw, 24.th),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14.tr)),
       content: Row(
         children: [
           Container(
-            width: 32.w,
-            height: 32.w,
+            width: 32.tw,
+            height: 32.tw,
             decoration: const BoxDecoration(
               shape: BoxShape.circle,
               gradient: LinearGradient(
@@ -29,15 +30,15 @@ void showProjectsComingSoonSnackBar(
               ),
             ),
             child: Icon(Icons.auto_awesome_rounded,
-                color: Colors.white, size: 18.sp),
+                color: Colors.white, size: 18.tsp),
           ),
-          SizedBox(width: 12.w),
+          SizedBox(width: 12.tw),
           Expanded(
             child: Text(
               '$featureLabel — Coming soon',
               style: GoogleFonts.poppins(
                 color: Colors.white,
-                fontSize: 13.sp,
+                fontSize: 13.tsp,
                 fontWeight: FontWeight.w600,
               ),
             ),

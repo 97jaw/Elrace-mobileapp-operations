@@ -39,6 +39,8 @@ class MediaModel {
   final String? clientLogo;
   final String? description;
   final dynamic view360;
+  /// From Odoo `ir.attachment.is_favorite` (via get_media `is_favorite`).
+  final bool isFavorite;
 
   const MediaModel({
     required this.id,
@@ -54,6 +56,7 @@ class MediaModel {
     this.clientLogo,
     this.description,
     this.view360,
+    this.isFavorite = false,
   });
 
   factory MediaModel.fromJson(Map<String, dynamic> json) {
@@ -88,6 +91,7 @@ class MediaModel {
       clientLogo: _parseClientLogo(json),
       description: json['description']?.toString(),
       view360: json['360_view'],
+      isFavorite: _parseBool(json['is_favorite']),
     );
   }
 
@@ -102,6 +106,7 @@ class MediaModel {
       'client_logo': clientLogo,
       'description': description,
       '360_view': view360,
+      'is_favorite': isFavorite,
       'type': type.name,
       'dateCreated': dateCreated.toIso8601String(),
       'duration': duration,
@@ -123,6 +128,7 @@ class MediaModel {
     String? clientLogo,
     String? description,
     dynamic view360,
+    bool? isFavorite,
   }) {
     return MediaModel(
       id: id ?? this.id,
@@ -138,6 +144,7 @@ class MediaModel {
       clientLogo: clientLogo ?? this.clientLogo,
       description: description ?? this.description,
       view360: view360 ?? this.view360,
+      isFavorite: isFavorite ?? this.isFavorite,
     );
   }
 
@@ -204,6 +211,16 @@ class MediaModel {
       return fileName.split('.').last.toLowerCase();
     }
     return '';
+  }
+
+  static bool _parseBool(dynamic value) {
+    if (value == true || value == 1) return true;
+    if (value == false || value == 0 || value == null) return false;
+    if (value is String) {
+      final s = value.trim().toLowerCase();
+      return s == 'true' || s == '1';
+    }
+    return false;
   }
 
   static String? _parseClientLogo(Map<String, dynamic> json) {

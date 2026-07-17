@@ -1,3 +1,4 @@
+import 'package:el_race/core/utils/responsive_breakpoints.dart';
 import 'package:el_race/ui/presentation/my_projects/presentation/theme/projects_dashboard_theme.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
@@ -14,9 +15,9 @@ class ProjectDocumentsMimeBadge extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: EdgeInsets.symmetric(horizontal: 8.w, vertical: 3.h),
+      padding: EdgeInsets.symmetric(horizontal: 8.tw, vertical: 3.th),
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(8.r),
+        borderRadius: BorderRadius.circular(8.tr),
         color: ProjectsDashboardTheme.greyDark.withValues(alpha: 0.12),
         border: Border.all(
           color: ProjectsDashboardTheme.greyDark.withValues(alpha: 0.28),
@@ -25,7 +26,7 @@ class ProjectDocumentsMimeBadge extends StatelessWidget {
       child: Text(
         label,
         style: GoogleFonts.poppins(
-          fontSize: 9.sp,
+          fontSize: 9.tsp,
           fontWeight: FontWeight.w600,
           letterSpacing: 0.4,
           color: ProjectsDashboardTheme.greyDeep,

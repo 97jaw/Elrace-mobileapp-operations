@@ -1,3 +1,4 @@
+import 'package:el_race/core/utils/responsive_breakpoints.dart';
 import 'dart:async';
 
 import 'package:el_race/core/purchase/purchase_dev_role_provider.dart';
@@ -162,7 +163,7 @@ class _PurchaseMrHubScreenState extends State<PurchaseMrHubScreen> {
                     child: Text(
                       item.name,
                       style: GoogleFonts.poppins(
-                        fontSize: 14.sp,
+                        fontSize: 14.tsp,
                         fontWeight: FontWeight.w700,
                         color: PurchaseTheme.textPrimary,
                       ),
@@ -170,19 +171,19 @@ class _PurchaseMrHubScreenState extends State<PurchaseMrHubScreen> {
                   ),
                   if (item.isUrgent)
                     Container(
-                      margin: EdgeInsets.only(right: 8.w),
+                      margin: EdgeInsets.only(right: 8.tw),
                       padding: EdgeInsets.symmetric(
-                        horizontal: 8.w,
-                        vertical: 3.h,
+                        horizontal: 8.tw,
+                        vertical: 3.th,
                       ),
                       decoration: BoxDecoration(
                         gradient: PurchaseTheme.urgentAccentGradient,
-                        borderRadius: BorderRadius.circular(8.r),
+                        borderRadius: BorderRadius.circular(8.tr),
                       ),
                       child: Text(
                         'URGENT',
                         style: GoogleFonts.poppins(
-                          fontSize: 9.sp,
+                          fontSize: 9.tsp,
                           fontWeight: FontWeight.w700,
                           color: PurchaseTheme.pendingBadge,
                         ),
@@ -195,7 +196,7 @@ class _PurchaseMrHubScreenState extends State<PurchaseMrHubScreen> {
                 ],
               ),
               if (item.requester.isNotEmpty) ...[
-                SizedBox(height: 8.h),
+                SizedBox(height: 8.th),
                 Row(
                   children: [
                     PurchaseAvatar(
@@ -203,12 +204,12 @@ class _PurchaseMrHubScreenState extends State<PurchaseMrHubScreen> {
                       photoUrl: item.requesterPhoto,
                       radius: 14,
                     ),
-                    SizedBox(width: 8.w),
+                    SizedBox(width: 8.tw),
                     Expanded(
                       child: Text(
                         item.requester,
                         style: GoogleFonts.poppins(
-                          fontSize: 11.5.sp,
+                          fontSize: 11.5.tsp,
                           color: PurchaseTheme.textSecondary,
                         ),
                       ),
@@ -217,7 +218,7 @@ class _PurchaseMrHubScreenState extends State<PurchaseMrHubScreen> {
                 ),
               ],
               if (item.projectManager.isNotEmpty) ...[
-                SizedBox(height: 6.h),
+                SizedBox(height: 6.th),
                 Row(
                   children: [
                     PurchaseAvatar(
@@ -225,12 +226,12 @@ class _PurchaseMrHubScreenState extends State<PurchaseMrHubScreen> {
                       photoUrl: item.projectManagerPhoto,
                       radius: 14,
                     ),
-                    SizedBox(width: 8.w),
+                    SizedBox(width: 8.tw),
                     Expanded(
                       child: Text(
                         'PM: ${item.projectManager}',
                         style: GoogleFonts.poppins(
-                          fontSize: 11.sp,
+                          fontSize: 11.tsp,
                           color: PurchaseTheme.textMuted,
                         ),
                       ),
@@ -239,11 +240,11 @@ class _PurchaseMrHubScreenState extends State<PurchaseMrHubScreen> {
                 ),
               ],
               if (item.department.isNotEmpty) ...[
-                SizedBox(height: 4.h),
+                SizedBox(height: 4.th),
                 Text(
                   item.department,
                   style: GoogleFonts.poppins(
-                    fontSize: 11.sp,
+                    fontSize: 11.tsp,
                     color: PurchaseTheme.textMuted,
                   ),
                 ),

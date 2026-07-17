@@ -1,3 +1,4 @@
+import 'package:el_race/core/utils/responsive_breakpoints.dart';
 import 'package:el_race/ui/presentation/my_projects/presentation/models/project_document_hub_kind.dart';
 import 'package:el_race/ui/presentation/my_projects/presentation/theme/projects_dashboard_theme.dart';
 import 'package:el_race/ui/presentation/my_projects/presentation/utils/project_documents_mime_utils.dart';
@@ -11,7 +12,7 @@ import 'package:google_fonts/google_fonts.dart';
 
 /// Shared light-tile decoration for DMS file rows (dashboard + sub-screens).
 BoxDecoration projectDocumentsFileRowDecoration() => BoxDecoration(
-      borderRadius: BorderRadius.circular(16.r),
+      borderRadius: BorderRadius.circular(16.tr),
       gradient: LinearGradient(
         begin: Alignment.centerLeft,
         end: Alignment.centerRight,
@@ -34,7 +35,7 @@ BoxDecoration projectDocumentsFileRowDecoration() => BoxDecoration(
     );
 
 TextStyle projectDocumentsUpdatedMetaStyle() => GoogleFonts.poppins(
-      fontSize: 10.sp,
+      fontSize: 10.tsp,
       fontStyle: FontStyle.italic,
       fontWeight: FontWeight.w500,
       color: ProjectsDashboardTheme.greyDeep,
@@ -69,40 +70,40 @@ class ProjectDocumentsFileRow extends StatelessWidget {
       color: Colors.transparent,
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(16.r),
+        borderRadius: BorderRadius.circular(16.tr),
         child: Container(
           decoration: projectDocumentsFileRowDecoration(),
-          padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 10.h),
+          padding: EdgeInsets.symmetric(horizontal: 12.tw, vertical: 10.th),
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
               ProjectDocumentsIcons.image(isFile: true, size: 46),
-              SizedBox(width: 10.w),
+              SizedBox(width: 10.tw),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     ProjectDocumentsOneLineMarquee(
                       text: fileName,
-                      fontSize: 14.sp,
+                      fontSize: 14.tsp,
                       fontWeight: FontWeight.w500,
                       color: ProjectsDashboardTheme.greyDeep,
                       lineHeight: 1.2,
                     ),
                     if (subtitle != null && subtitle!.trim().isNotEmpty) ...[
-                      SizedBox(height: 3.h),
+                      SizedBox(height: 3.th),
                       Text(
                         subtitle!,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: GoogleFonts.poppins(
-                          fontSize: 10.sp,
+                          fontSize: 10.tsp,
                           color: ProjectsDashboardTheme.greyDark
                               .withValues(alpha: 0.88),
                         ),
                       ),
                     ],
-                    SizedBox(height: 3.h),
+                    SizedBox(height: 3.th),
                     Row(
                       crossAxisAlignment: CrossAxisAlignment.center,
                       children: [
@@ -119,7 +120,7 @@ class ProjectDocumentsFileRow extends StatelessWidget {
                           const Spacer(),
                         if (kind != null) ...[
                           ProjectDocumentsKindBadge(kind: kind!),
-                          SizedBox(width: 6.w),
+                          SizedBox(width: 6.tw),
                         ],
                         ProjectDocumentsMimeBadge(label: mime),
                       ],
@@ -130,7 +131,7 @@ class ProjectDocumentsFileRow extends StatelessWidget {
               if (showChevron)
                 Icon(
                   Icons.chevron_right_rounded,
-                  size: 22.sp,
+                  size: 22.tsp,
                   color: ProjectsDashboardTheme.greyDark.withValues(alpha: 0.55),
                 ),
             ],

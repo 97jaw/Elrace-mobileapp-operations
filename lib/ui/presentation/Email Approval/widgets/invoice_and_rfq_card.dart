@@ -1,3 +1,4 @@
+import 'package:el_race/core/utils/responsive_breakpoints.dart';
 import 'package:el_race/core/services/approval_viewed_service.dart';
 import 'package:el_race/core/services/approval_count_service.dart';
 import 'package:el_race/ui/presentation/Email%20Approval/Approval_confirmation.dart';
@@ -76,10 +77,10 @@ class InvoiceAndRfqCard extends StatelessWidget {
     final itemMap = item as Map<dynamic, dynamic>;
 
     return Container(
-      constraints: BoxConstraints(minHeight: 150.w),
-      width: 350.w,
-      margin: EdgeInsets.symmetric(horizontal: 10.w, vertical: 5.w),
-      padding: EdgeInsets.symmetric(horizontal: 10.w, vertical: 10.w),
+      constraints: BoxConstraints(minHeight: 150.tw),
+      width: 350.tw,
+      margin: EdgeInsets.symmetric(horizontal: 10.tw, vertical: 5.tw),
+      padding: EdgeInsets.symmetric(horizontal: 10.tw, vertical: 10.tw),
       decoration: BoxDecoration(
         gradient: const LinearGradient(
           colors: [
@@ -89,22 +90,22 @@ class InvoiceAndRfqCard extends StatelessWidget {
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
-        borderRadius: BorderRadius.circular(16.r),
+        borderRadius: BorderRadius.circular(16.tr),
         border: Border.all(color: const Color(0xFF8F969F), width: 0.8),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           SizedBox(
-            height: 34.w,
+            height: 34.tw,
             child: Stack(
               alignment: Alignment.center,
               children: [
                 Align(
                   alignment: Alignment.centerLeft,
                   child: Container(
-                    width: 38.w,
-                    height: 38.w,
+                    width: 38.tw,
+                    height: 38.tw,
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
                       border: Border.all(color: Colors.white, width: 1),
@@ -112,7 +113,7 @@ class InvoiceAndRfqCard extends StatelessWidget {
                     child: _buildCardAvatar(
                       itemMap: itemMap,
                       kind: ApprovalAvatarKind.vendor,
-                      size: 38.w,
+                      size: 38.tw,
                       initials: subtitle.isNotEmpty ? subtitle : refNo,
                       lazyLoadCategory: ApprovalListCategory.rfq,
                     ),
@@ -120,13 +121,13 @@ class InvoiceAndRfqCard extends StatelessWidget {
                 ),
                 Center(
                   child: Padding(
-                    padding: EdgeInsets.symmetric(horizontal: 38.w),
+                    padding: EdgeInsets.symmetric(horizontal: 38.tw),
                     child: FittedBox(
                       fit: BoxFit.scaleDown,
                       child: Text(
                         refNo.toUpperCase(),
                         style: GoogleFonts.poppins(
-                          fontSize: 16.sp,
+                          fontSize: 16.tsp,
                           fontWeight: FontWeight.w800,
                           color: const Color(0xFF0B2D5E),
                           letterSpacing: 0.25,
@@ -140,28 +141,28 @@ class InvoiceAndRfqCard extends StatelessWidget {
               ],
             ),
           ),
-          SizedBox(height: 10.w),
+          SizedBox(height: 10.tw),
           Text(
             title.toUpperCase(),
             style: GoogleFonts.poppins(
-              fontSize: 14.sp,
+              fontSize: 14.tsp,
               fontWeight: FontWeight.w900,
               color: const Color(0xFF0F1114),
               height: 1.1,
             ),
           ),
-          SizedBox(height: 4.w),
+          SizedBox(height: 4.tw),
           Text(
             subtitle,
             style: GoogleFonts.poppins(
-              fontSize: 12.sp,
+              fontSize: 12.tsp,
               fontWeight: FontWeight.w800,
               color: const Color(0xFF737A83),
               letterSpacing: 0.2,
               height: 1.0,
             ),
           ),
-          SizedBox(height: 10.w),
+          SizedBox(height: 10.tw),
           Row(
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
@@ -169,14 +170,14 @@ class InvoiceAndRfqCard extends StatelessWidget {
                 child: Text(
                   date,
                   style: GoogleFonts.poppins(
-                    fontSize: 10.sp,
+                    fontSize: 10.tsp,
                     fontWeight: FontWeight.w700,
                     color: const Color(0xFF8C939C),
                     letterSpacing: 0.1,
                   ),
                 ),
               ),
-              SizedBox(width: 10.w),
+              SizedBox(width: 10.tw),
               Expanded(
                 child: Align(
                   alignment: Alignment.centerRight,
@@ -184,7 +185,7 @@ class InvoiceAndRfqCard extends StatelessWidget {
                     amountText,
                     textAlign: TextAlign.right,
                     style: GoogleFonts.poppins(
-                      fontSize: 26.sp,
+                      fontSize: 26.tsp,
                       fontWeight: FontWeight.w900,
                       color: const Color(0xFF0B387A),
                       letterSpacing: 0.2,
@@ -212,10 +213,10 @@ class InvoiceAndRfqCard extends StatelessWidget {
     final itemMap = item as Map<dynamic, dynamic>;
 
     return Container(
-      constraints: BoxConstraints(minHeight: 150.w),
-      width: 350.w,
-      margin: EdgeInsets.symmetric(horizontal: 10.w, vertical: 5.w),
-      padding: EdgeInsets.symmetric(horizontal: 10.w, vertical: 10.w),
+      constraints: BoxConstraints(minHeight: 150.tw),
+      width: 350.tw,
+      margin: EdgeInsets.symmetric(horizontal: 10.tw, vertical: 5.tw),
+      padding: EdgeInsets.symmetric(horizontal: 10.tw, vertical: 10.tw),
       decoration: BoxDecoration(
         gradient: const LinearGradient(
           colors: [
@@ -225,22 +226,22 @@ class InvoiceAndRfqCard extends StatelessWidget {
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
-        borderRadius: BorderRadius.circular(16.r),
+        borderRadius: BorderRadius.circular(16.tr),
         border: Border.all(color: const Color(0xFF8F969F), width: 0.8),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           SizedBox(
-            height: 34.w,
+            height: 34.tw,
             child: Stack(
               alignment: Alignment.center,
               children: [
                 Align(
                   alignment: Alignment.centerLeft,
                   child: Container(
-                    width: 38.w,
-                    height: 38.w,
+                    width: 38.tw,
+                    height: 38.tw,
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
                       border: Border.all(color: Colors.white, width: 1),
@@ -248,7 +249,7 @@ class InvoiceAndRfqCard extends StatelessWidget {
                     child: _buildCardAvatar(
                       itemMap: itemMap,
                       kind: ApprovalAvatarKind.vendor,
-                      size: 38.w,
+                      size: 38.tw,
                       initials: client.isNotEmpty ? client : refNo,
                       lazyLoadCategory: ApprovalListCategory.invoice,
                     ),
@@ -256,13 +257,13 @@ class InvoiceAndRfqCard extends StatelessWidget {
                 ),
                 Center(
                   child: Padding(
-                    padding: EdgeInsets.symmetric(horizontal: 38.w),
+                    padding: EdgeInsets.symmetric(horizontal: 38.tw),
                     child: FittedBox(
                       fit: BoxFit.scaleDown,
                       child: Text(
                         refNo.toUpperCase(),
                         style: GoogleFonts.poppins(
-                          fontSize: 16.sp,
+                          fontSize: 16.tsp,
                           fontWeight: FontWeight.w800,
                           color: const Color(0xFF0B2D5E),
                           letterSpacing: 0.25,
@@ -276,28 +277,28 @@ class InvoiceAndRfqCard extends StatelessWidget {
               ],
             ),
           ),
-          SizedBox(height: 10.w),
+          SizedBox(height: 10.tw),
           Text(
             title.toUpperCase(),
             style: GoogleFonts.poppins(
-              fontSize: 16.sp,
+              fontSize: 16.tsp,
               fontWeight: FontWeight.w900,
               color: const Color(0xFF0F1114),
               height: 1.1,
             ),
           ),
-          SizedBox(height: 4.w),
+          SizedBox(height: 4.tw),
           Text(
             client,
             style: GoogleFonts.poppins(
-              fontSize: 13.sp,
+              fontSize: 13.tsp,
               fontWeight: FontWeight.w800,
               color: const Color(0xFF737A83),
               letterSpacing: 0.2,
               height: 1.0,
             ),
           ),
-          SizedBox(height: 10.w),
+          SizedBox(height: 10.tw),
           Row(
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
@@ -305,14 +306,14 @@ class InvoiceAndRfqCard extends StatelessWidget {
                 child: Text(
                   date,
                   style: GoogleFonts.poppins(
-                    fontSize: 10.sp,
+                    fontSize: 10.tsp,
                     fontWeight: FontWeight.w700,
                     color: const Color(0xFF8C939C),
                     letterSpacing: 0.1,
                   ),
                 ),
               ),
-              SizedBox(width: 10.w),
+              SizedBox(width: 10.tw),
               Expanded(
                 child: Align(
                   alignment: Alignment.centerRight,
@@ -320,7 +321,7 @@ class InvoiceAndRfqCard extends StatelessWidget {
                     amountText,
                     textAlign: TextAlign.right,
                     style: GoogleFonts.poppins(
-                      fontSize: 26.sp,
+                      fontSize: 26.tsp,
                       fontWeight: FontWeight.w900,
                       color: const Color(0xFF0B387A),
                       letterSpacing: 0.2,
@@ -346,12 +347,12 @@ class InvoiceAndRfqCard extends StatelessWidget {
 
     // Calculate safe bottom padding for devices with navigation bars
     final totalBottomPadding =
-        kBottomNavigationBarHeight + context.systemBottomInset + 100.h;
+        kBottomNavigationBarHeight + context.systemBottomInset + 100.th;
 
     return ListView.separated(
       physics: const BouncingScrollPhysics(),
       padding: const EdgeInsets.symmetric(horizontal: 5) +
-          EdgeInsets.only(bottom: totalBottomPadding, top: 8.h),
+          EdgeInsets.only(bottom: totalBottomPadding, top: 8.th),
       itemCount: approvalItems.length,
       separatorBuilder: (context, index) => const SizedBox(height: 1),
       itemBuilder: (context, index) {

@@ -1,3 +1,4 @@
+import 'package:el_race/core/utils/responsive_breakpoints.dart';
 import 'package:el_race/ui/presentation/my_projects/presentation/models/project_document_hub_kind.dart';
 import 'package:el_race/ui/presentation/my_projects/presentation/widgets/project_documents_kind_heading.dart';
 import 'package:flutter/material.dart';
@@ -35,11 +36,11 @@ class ProjectDocumentsRecordCard extends StatelessWidget {
     return GestureDetector(
       onTap: onTap,
       child: SizedBox(
-        height: cardHeight.h,
+        height: cardHeight.th,
         child: DecoratedBox(
           decoration: BoxDecoration(
             color: const Color(0xFFEDEFF2),
-            borderRadius: BorderRadius.circular(20.r),
+            borderRadius: BorderRadius.circular(20.tr),
             border: Border.all(
               color: Colors.white.withValues(alpha: 0.85),
               width: 1.2,
@@ -53,18 +54,18 @@ class ProjectDocumentsRecordCard extends StatelessWidget {
             ],
           ),
           child: ClipRRect(
-            borderRadius: BorderRadius.circular(20.r),
+            borderRadius: BorderRadius.circular(20.tr),
             child: Column(
               children: [
                 Expanded(
                   child: Padding(
-                    padding: EdgeInsets.fromLTRB(12.w, 10.h, 12.w, 8.h),
+                    padding: EdgeInsets.fromLTRB(12.tw, 10.th, 12.tw, 8.th),
                     child: Row(
                       crossAxisAlignment: CrossAxisAlignment.center,
                       children: [
                         SizedBox(
-                          width: 56.w,
-                          height: 56.w,
+                          width: 56.tw,
+                          height: 56.tw,
                           child: leading ??
                               ProjectDocumentsIcons.image(
                                 kind: kind,
@@ -73,7 +74,7 @@ class ProjectDocumentsRecordCard extends StatelessWidget {
                                 size: 56,
                               ),
                         ),
-                        SizedBox(width: 12.w),
+                        SizedBox(width: 12.tw),
                         Expanded(
                           child: Column(
                             mainAxisAlignment: MainAxisAlignment.center,
@@ -82,13 +83,13 @@ class ProjectDocumentsRecordCard extends StatelessWidget {
                               ProjectDocumentsItalicTitle(text: title),
                               if (bodySubtitle != null &&
                                   bodySubtitle!.trim().isNotEmpty) ...[
-                                SizedBox(height: 4.h),
+                                SizedBox(height: 4.th),
                                 Text(
                                   bodySubtitle!,
                                   maxLines: 1,
                                   overflow: TextOverflow.ellipsis,
                                   style: GoogleFonts.poppins(
-                                    fontSize: 11.sp,
+                                    fontSize: 11.tsp,
                                     fontStyle: FontStyle.italic,
                                     fontWeight: FontWeight.w400,
                                     color: const Color(0xFF6B7280),
@@ -105,17 +106,17 @@ class ProjectDocumentsRecordCard extends StatelessWidget {
                 ),
                 if (footer != null && footer!.trim().isNotEmpty)
                   Container(
-                    height: footerHeight.h,
+                    height: footerHeight.th,
                     width: double.infinity,
                     alignment: Alignment.centerLeft,
-                    padding: EdgeInsets.symmetric(horizontal: 14.w),
+                    padding: EdgeInsets.symmetric(horizontal: 14.tw),
                     color: const Color(0xFF3A3D46),
                     child: Text(
                       footer!,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: GoogleFonts.poppins(
-                        fontSize: 10.5.sp,
+                        fontSize: 10.5.tsp,
                         fontWeight: FontWeight.w500,
                         color: Colors.white.withValues(alpha: 0.94),
                       ),
@@ -151,7 +152,7 @@ class _ProjectDocumentsItalicTitleState extends State<ProjectDocumentsItalicTitl
   static const _styleColor = Color(0xFF1F2430);
 
   TextStyle get _style => GoogleFonts.poppins(
-        fontSize: 14.sp,
+        fontSize: 14.tsp,
         fontStyle: FontStyle.italic,
         fontWeight: FontWeight.w600,
         color: _styleColor,
@@ -189,7 +190,7 @@ class _ProjectDocumentsItalicTitleState extends State<ProjectDocumentsItalicTitl
         maxLines: 1,
         textDirection: TextDirection.ltr,
       )..layout(maxWidth: double.infinity);
-      _overflow = (single.width - maxWidth + 32.w).clamp(0, double.infinity);
+      _overflow = (single.width - maxWidth + 32.tw).clamp(0, double.infinity);
       _controller = AnimationController(
         vsync: this,
         duration: Duration(milliseconds: (8000 + _overflow * 10).round()),
@@ -209,7 +210,7 @@ class _ProjectDocumentsItalicTitleState extends State<ProjectDocumentsItalicTitl
 
         if (_marquee && _controller != null) {
           return SizedBox(
-            height: _twoLineHeight.h,
+            height: _twoLineHeight.th,
             child: Align(
               alignment: Alignment.centerLeft,
               child: ClipRect(
@@ -233,7 +234,7 @@ class _ProjectDocumentsItalicTitleState extends State<ProjectDocumentsItalicTitl
         }
 
         return SizedBox(
-          height: _twoLineHeight.h,
+          height: _twoLineHeight.th,
           child: Align(
             alignment: Alignment.centerLeft,
             child: Text(

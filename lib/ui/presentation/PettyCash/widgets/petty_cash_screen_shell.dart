@@ -1,3 +1,4 @@
+import 'package:el_race/core/utils/responsive_breakpoints.dart';
 import 'package:el_race/ui/presentation/PettyCash/theme/petty_cash_theme.dart';
 import 'package:flutter/material.dart';
 
@@ -24,7 +25,7 @@ class PettyCashScreenShell extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             if (header != null) header!,
-            Expanded(child: body),
+            Expanded(child: TabletContentFrame(child: body)),
           ],
         ),
       ),

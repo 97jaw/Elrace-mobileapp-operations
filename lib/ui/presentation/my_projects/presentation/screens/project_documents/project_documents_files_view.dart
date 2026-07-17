@@ -1,3 +1,4 @@
+import 'package:el_race/core/utils/responsive_breakpoints.dart';
 import 'package:el_race/ui/presentation/my_projects/data/models/project_documents_models.dart';
 import 'package:el_race/ui/presentation/my_projects/presentation/bloc/project_documents/project_documents_cubit.dart';
 import 'package:el_race/ui/presentation/my_projects/presentation/bloc/project_documents/project_documents_state.dart';
@@ -25,7 +26,7 @@ class ProjectDocumentsFilesView extends StatelessWidget {
               state.error!,
               textAlign: TextAlign.center,
               style: GoogleFonts.poppins(
-                fontSize: 13.sp,
+                fontSize: 13.tsp,
                 color: ProjectsDashboardTheme.white,
               ),
             ),
@@ -36,7 +37,7 @@ class ProjectDocumentsFilesView extends StatelessWidget {
             child: Text(
               'No files found',
               style: GoogleFonts.poppins(
-                fontSize: 13.sp,
+                fontSize: 13.tsp,
                 color: ProjectsDashboardTheme.greyPanel,
               ),
             ),
@@ -66,7 +67,7 @@ class ProjectDocumentsFilesView extends StatelessWidget {
               ),
               padding: ProjectDocumentsLayout.listPadding(context),
               itemCount: state.files.length + (state.filesLoading ? 1 : 0),
-              separatorBuilder: (_, __) => SizedBox(height: 12.h),
+              separatorBuilder: (_, __) => SizedBox(height: 12.th),
               itemBuilder: (context, index) {
                 if (index >= state.files.length) {
                   return const Center(

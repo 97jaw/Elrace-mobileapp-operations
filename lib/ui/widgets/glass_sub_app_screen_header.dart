@@ -1,3 +1,4 @@
+import 'package:el_race/core/utils/responsive_breakpoints.dart';
 import 'package:el_race/ui/chat/widgets/chat_sub_app_glass_bar.dart';
 import 'package:el_race/ui/chat/widgets/chat_unified_header_backdrop.dart';
 import 'package:el_race/ui/navigation/home_navigation.dart';
@@ -41,13 +42,13 @@ class GlassSubAppScreenHeader extends StatelessWidget {
     double bottomHeight = 0,
     bool showTitleRow = true,
   }) {
-    final titleH = showTitleRow ? titleRowHeight.h : 0.0;
+    final titleH = showTitleRow ? titleRowHeight.th : 0.0;
     return SubAppGlassAppBar.extent(context) + titleH + bottomHeight;
   }
 
   @override
   Widget build(BuildContext context) {
-    final tabStripH = tabsHeight ?? headerTabsHeight.h;
+    final tabStripH = tabsHeight ?? headerTabsHeight.th;
     final bottomHeight = bottom != null ? tabStripH : 0.0;
 
     final header = SizedBox(
@@ -69,9 +70,9 @@ class GlassSubAppScreenHeader extends StatelessWidget {
               ),
               if (showTitleRow)
                 SizedBox(
-                  height: titleRowHeight.h,
+                  height: titleRowHeight.th,
                   child: Padding(
-                    padding: EdgeInsets.fromLTRB(14.w, 2.h, 8.w, 4.h),
+                    padding: EdgeInsets.fromLTRB(14.tw, 2.th, 8.tw, 4.th),
                     child: Row(
                       children: [
                         IconButton(
@@ -80,27 +81,27 @@ class GlassSubAppScreenHeader extends StatelessWidget {
                           icon: Icon(
                             Icons.arrow_back_ios_new_rounded,
                             color: Colors.white,
-                            size: 18.sp,
+                            size: 18.tsp,
                           ),
                           padding: EdgeInsets.zero,
                           constraints: BoxConstraints(
-                            minWidth: 32.w,
-                            minHeight: 32.w,
+                            minWidth: 32.tw,
+                            minHeight: 32.tw,
                           ),
                         ),
                         if (titleIcon != null) ...[
                           Icon(
                             titleIcon,
                             color: Colors.white,
-                            size: 20.sp,
+                            size: 20.tsp,
                           ),
-                          SizedBox(width: 6.w),
+                          SizedBox(width: 6.tw),
                         ],
                         Expanded(
                           child: Text(
                             title,
                             style: GoogleFonts.poppins(
-                              fontSize: 16.sp,
+                              fontSize: 16.tsp,
                               fontWeight: FontWeight.w700,
                               color: Colors.white,
                               height: 1.1,
@@ -125,7 +126,7 @@ class GlassSubAppScreenHeader extends StatelessWidget {
                 SizedBox(
                   height: tabStripH,
                   child: Padding(
-                    padding: EdgeInsets.fromLTRB(6.w, 4.h, 6.w, 2.h),
+                    padding: EdgeInsets.fromLTRB(6.tw, 4.th, 6.tw, 2.th),
                     child: Align(
                       alignment: Alignment.topCenter,
                       child: bottom!,
@@ -140,7 +141,7 @@ class GlassSubAppScreenHeader extends StatelessWidget {
 
     if (!roundedBottom || bottom != null) return header;
     return ClipRRect(
-      borderRadius: BorderRadius.vertical(bottom: Radius.circular(20.r)),
+      borderRadius: BorderRadius.vertical(bottom: Radius.circular(20.tr)),
       child: header,
     );
   }
@@ -185,10 +186,10 @@ class GlassHeaderIconChip extends StatelessWidget {
         alignment: Alignment.center,
         children: [
           Container(
-            width: size.w,
-            height: size.w,
+            width: size.tw,
+            height: size.tw,
             decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(14.r),
+              borderRadius: BorderRadius.circular(14.tr),
               border: Border.all(
                 color: isSelected
                     ? Colors.white.withValues(alpha: faded ? 0.55 : 1.0)
@@ -208,7 +209,7 @@ class GlassHeaderIconChip extends StatelessWidget {
             child: Container(
               margin: const EdgeInsets.all(1.2),
               decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(12.r),
+                borderRadius: BorderRadius.circular(12.tr),
                 gradient: LinearGradient(
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
@@ -226,7 +227,7 @@ class GlassHeaderIconChip extends StatelessWidget {
               child: Center(
                 child: Icon(
                   icon,
-                  size: 22.sp,
+                  size: 22.tsp,
                   color: iconColor,
                 ),
               ),
@@ -234,14 +235,14 @@ class GlassHeaderIconChip extends StatelessWidget {
           ),
           if (showCount)
             Positioned(
-              top: -2.h,
-              right: -2.w,
+              top: -2.th,
+              right: -2.tw,
               child: Container(
-                padding: EdgeInsets.symmetric(horizontal: 5.w, vertical: 2.h),
-                constraints: BoxConstraints(minWidth: 16.w),
+                padding: EdgeInsets.symmetric(horizontal: 5.tw, vertical: 2.th),
+                constraints: BoxConstraints(minWidth: 16.tw),
                 decoration: BoxDecoration(
                   color: const Color(0xFFE53935),
-                  borderRadius: BorderRadius.circular(10.r),
+                  borderRadius: BorderRadius.circular(10.tr),
                   border: Border.all(color: Colors.white, width: 1.4),
                 ),
                 alignment: Alignment.center,
@@ -249,7 +250,7 @@ class GlassHeaderIconChip extends StatelessWidget {
                   badgeCount > 99 ? '99+' : '$badgeCount',
                   style: TextStyle(
                     color: Colors.white,
-                    fontSize: 8.sp,
+                    fontSize: 8.tsp,
                     fontWeight: FontWeight.w700,
                     height: 1,
                   ),
@@ -258,11 +259,11 @@ class GlassHeaderIconChip extends StatelessWidget {
             )
           else if (showDot)
             Positioned(
-              top: 2.h,
-              right: 2.w,
+              top: 2.th,
+              right: 2.tw,
               child: Container(
-                width: 9.w,
-                height: 9.w,
+                width: 9.tw,
+                height: 9.tw,
                 decoration: BoxDecoration(
                   color: const Color(0xFFE53935),
                   shape: BoxShape.circle,
@@ -305,7 +306,7 @@ class GlassHeaderBadgeTab extends StatelessWidget {
       onTap: onTap,
       behavior: HitTestBehavior.opaque,
       child: SizedBox(
-        width: tileWidth.w,
+        width: tileWidth.tw,
         child: Column(
           mainAxisSize: MainAxisSize.min,
           mainAxisAlignment: MainAxisAlignment.center,
@@ -315,10 +316,10 @@ class GlassHeaderBadgeTab extends StatelessWidget {
               alignment: Alignment.center,
               children: [
                 Container(
-                  width: tileWidth.w,
-                  height: 56.h,
+                  width: tileWidth.tw,
+                  height: 56.th,
                   decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(14.r),
+                    borderRadius: BorderRadius.circular(14.tr),
                     border: Border.all(
                       color: isSelected
                           ? Colors.white
@@ -338,7 +339,7 @@ class GlassHeaderBadgeTab extends StatelessWidget {
                   child: Container(
                     margin: EdgeInsets.all(1.2),
                     decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(12.r),
+                      borderRadius: BorderRadius.circular(12.tr),
                       color: isSelected
                           ? Colors.white
                           : Colors.white.withValues(alpha: 0.14),
@@ -348,17 +349,17 @@ class GlassHeaderBadgeTab extends StatelessWidget {
                 ),
                 if (showCount)
                   Positioned(
-                    top: 2.h,
-                    right: 2.w,
+                    top: 2.th,
+                    right: 2.tw,
                     child: Container(
                       padding: EdgeInsets.symmetric(
-                        horizontal: 5.w,
-                        vertical: 2.h,
+                        horizontal: 5.tw,
+                        vertical: 2.th,
                       ),
-                      constraints: BoxConstraints(minWidth: 17.w),
+                      constraints: BoxConstraints(minWidth: 17.tw),
                       decoration: BoxDecoration(
                         color: const Color(0xFFE53935),
-                        borderRadius: BorderRadius.circular(10.r),
+                        borderRadius: BorderRadius.circular(10.tr),
                         border: Border.all(color: Colors.white, width: 1.5),
                       ),
                       alignment: Alignment.center,
@@ -366,7 +367,7 @@ class GlassHeaderBadgeTab extends StatelessWidget {
                         badgeCount > 99 ? '99+' : '$badgeCount',
                         style: TextStyle(
                           color: Colors.white,
-                          fontSize: 8.5.sp,
+                          fontSize: 8.5.tsp,
                           fontWeight: FontWeight.w700,
                           height: 1,
                         ),
@@ -375,11 +376,11 @@ class GlassHeaderBadgeTab extends StatelessWidget {
                   )
                 else if (showDot)
                   Positioned(
-                    top: 4.h,
-                    right: 4.w,
+                    top: 4.th,
+                    right: 4.tw,
                     child: Container(
-                      width: 9.w,
-                      height: 9.w,
+                      width: 9.tw,
+                      height: 9.tw,
                       decoration: BoxDecoration(
                         color: const Color(0xFFE53935),
                         shape: BoxShape.circle,
@@ -389,16 +390,16 @@ class GlassHeaderBadgeTab extends StatelessWidget {
                   ),
               ],
             ),
-            SizedBox(height: 3.h),
+            SizedBox(height: 3.th),
             SizedBox(
-              width: tileWidth.w,
-              height: 11.h,
+              width: tileWidth.tw,
+              height: 11.th,
               child: FittedBox(
                 fit: BoxFit.scaleDown,
                 child: Text(
                   label.toUpperCase(),
                   style: GoogleFonts.poppins(
-                    fontSize: 9.sp,
+                    fontSize: 9.tsp,
                     fontWeight: FontWeight.w700,
                     color: isSelected
                         ? const Color(0xFF141B3A)
@@ -508,9 +509,9 @@ class GlassSubAppHeaderIconButton extends StatelessWidget {
   Widget build(BuildContext context) {
     final button = IconButton(
       onPressed: onPressed,
-      icon: Icon(icon, color: Colors.white, size: 22.sp),
+      icon: Icon(icon, color: Colors.white, size: 22.tsp),
       padding: EdgeInsets.zero,
-      constraints: BoxConstraints(minWidth: 36.w, minHeight: 36.w),
+      constraints: BoxConstraints(minWidth: 36.tw, minHeight: 36.tw),
     );
     if (tooltip == null) return button;
     return Tooltip(message: tooltip!, child: button);

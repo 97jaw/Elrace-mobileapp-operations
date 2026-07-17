@@ -1,3 +1,4 @@
+import 'package:el_race/core/utils/responsive_breakpoints.dart';
 import 'dart:async';
 
 import 'package:el_race/ui/presentation/my_projects/presentation/models/projects_group_hub_filters.dart';
@@ -67,15 +68,15 @@ class _ProjectDocumentsSearchBarState extends State<ProjectDocumentsSearchBar> {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: EdgeInsets.fromLTRB(16.w, 0, 16.w, 10.h),
+      padding: EdgeInsets.fromLTRB(16.tw, 0, 16.tw, 10.th),
       child: Row(
         children: [
           Expanded(
             child: Container(
-              height: 42.h,
-              padding: EdgeInsets.symmetric(horizontal: 12.w),
+              height: 42.th,
+              padding: EdgeInsets.symmetric(horizontal: 12.tw),
               decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(14.r),
+                borderRadius: BorderRadius.circular(14.tr),
                 color: ProjectsDashboardTheme.white.withValues(alpha: 0.14),
                 border: Border.all(
                   color: ProjectsDashboardTheme.white.withValues(alpha: 0.28),
@@ -85,22 +86,22 @@ class _ProjectDocumentsSearchBarState extends State<ProjectDocumentsSearchBar> {
                 children: [
                   Icon(
                     Icons.search_rounded,
-                    size: 20.sp,
+                    size: 20.tsp,
                     color: ProjectsDashboardTheme.greyPanel,
                   ),
-                  SizedBox(width: 8.w),
+                  SizedBox(width: 8.tw),
                   Expanded(
                     child: TextField(
                       controller: _controller,
                       onChanged: _onChanged,
                       style: GoogleFonts.poppins(
-                        fontSize: 13.sp,
+                        fontSize: 13.tsp,
                         color: ProjectsDashboardTheme.white,
                       ),
                       decoration: InputDecoration(
                         hintText: widget.hint,
                         hintStyle: GoogleFonts.poppins(
-                          fontSize: 13.sp,
+                          fontSize: 13.tsp,
                           color: ProjectsDashboardTheme.greyPanel
                               .withValues(alpha: 0.85),
                         ),
@@ -114,17 +115,17 @@ class _ProjectDocumentsSearchBarState extends State<ProjectDocumentsSearchBar> {
               ),
             ),
           ),
-          SizedBox(width: 8.w),
+          SizedBox(width: 8.tw),
           Material(
             color: Colors.transparent,
             child: InkWell(
               onTap: _openFilters,
-              borderRadius: BorderRadius.circular(12.r),
+              borderRadius: BorderRadius.circular(12.tr),
               child: Container(
-                width: 42.w,
-                height: 42.w,
+                width: 42.tw,
+                height: 42.tw,
                 decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(12.r),
+                  borderRadius: BorderRadius.circular(12.tr),
                   color: widget.hasActiveFilters
                       ? ProjectsDashboardTheme.maroon.withValues(alpha: 0.85)
                       : ProjectsDashboardTheme.white.withValues(alpha: 0.14),
@@ -137,16 +138,16 @@ class _ProjectDocumentsSearchBarState extends State<ProjectDocumentsSearchBar> {
                   children: [
                     Icon(
                       Icons.tune_rounded,
-                      size: 20.sp,
+                      size: 20.tsp,
                       color: ProjectsDashboardTheme.white,
                     ),
                     if (widget.hasActiveFilters)
                       Positioned(
-                        top: 8.h,
-                        right: 8.w,
+                        top: 8.th,
+                        right: 8.tw,
                         child: Container(
-                          width: 7.w,
-                          height: 7.w,
+                          width: 7.tw,
+                          height: 7.tw,
                           decoration: const BoxDecoration(
                             color: Colors.white,
                             shape: BoxShape.circle,

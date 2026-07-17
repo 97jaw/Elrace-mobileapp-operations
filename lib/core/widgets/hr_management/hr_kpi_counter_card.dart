@@ -13,6 +13,7 @@ class HrKpiCounterCard extends StatelessWidget {
     this.onTap,
     this.valueColor,
     this.fillColor,
+    this.selected = false,
   });
 
   final String value;
@@ -22,6 +23,9 @@ class HrKpiCounterCard extends StatelessWidget {
 
   /// Tint for value/label when not using [valueColor] directly.
   final Color? fillColor;
+
+  /// When true, draws a stronger border so the user can see this KPI is active.
+  final bool selected;
 
   @override
   Widget build(BuildContext context) {
@@ -42,8 +46,14 @@ class HrKpiCounterCard extends StatelessWidget {
     final child = Container(
       constraints: BoxConstraints(minHeight: 72.h),
       decoration: BoxDecoration(
-        color: HrModuleColors.surface,
+        color: selected
+            ? accent.withValues(alpha: 0.10)
+            : HrModuleColors.surface,
         borderRadius: BorderRadius.circular(radius),
+        border: Border.all(
+          color: selected ? accent : Colors.transparent,
+          width: selected ? 2 : 0,
+        ),
         boxShadow: HrModuleColors.cardShadow,
       ),
       padding: EdgeInsets.symmetric(horizontal: 8.w, vertical: 10.h),

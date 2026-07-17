@@ -282,10 +282,14 @@ class HybridLivenessGate {
         faceBox: frame.faceBox,
       );
       _lastLayer1 = result;
-      if (result.verdict == Layer1Verdict.spoof ||
-          result.verdict == Layer1Verdict.error) {
+      if (result.verdict == Layer1Verdict.spoof) {
         _blockOnDevice(result.message);
         return false;
+      }
+      // Model/engine errors: do not hard-block check-in — allow Phase A fallback.
+      if (result.verdict == Layer1Verdict.error) {
+        debugPrint('Liveness PAD error (non-blocking): ${result.message}');
+        continue;
       }
     }
     return true;

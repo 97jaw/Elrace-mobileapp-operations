@@ -1,3 +1,4 @@
+import 'package:el_race/core/utils/responsive_breakpoints.dart';
 import 'package:el_race/core/payslip/models/payslip_models.dart';
 import 'package:el_race/core/theme/hr_module_colors.dart';
 import 'package:el_race/core/theme/hr_module_typography.dart';
@@ -20,7 +21,7 @@ class PayslipRecordCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final card = Container(
-      padding: EdgeInsets.all(compact ? 12.w : 14.w),
+      padding: EdgeInsets.all(compact ? 12.tw : 14.tw),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(14),
         gradient: const LinearGradient(
@@ -48,13 +49,13 @@ class PayslipRecordCard extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             Container(
-              width: 4.w,
+              width: 4.tw,
               decoration: BoxDecoration(
                 color: HrModuleColors.primary,
                 borderRadius: BorderRadius.circular(4),
               ),
             ),
-            SizedBox(width: 12.w),
+            SizedBox(width: 12.tw),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -62,31 +63,31 @@ class PayslipRecordCard extends StatelessWidget {
                   Text(
                     summary.reference,
                     style: HrModuleTypography.sectionHeading().copyWith(
-                      fontSize: compact ? 12.sp : 13.sp,
+                      fontSize: compact ? 12.tsp : 13.tsp,
                       color: HrModuleColors.danger,
                       fontWeight: FontWeight.w800,
                     ),
                   ),
-                  SizedBox(height: 6.h),
+                  SizedBox(height: 6.th),
                   Text(
                     summary.periodTitle,
                     style: HrModuleTypography.body().copyWith(
-                      fontSize: compact ? 14.sp : 15.sp,
+                      fontSize: compact ? 14.tsp : 15.tsp,
                       fontWeight: FontWeight.w700,
                     ),
                   ),
-                  SizedBox(height: 4.h),
+                  SizedBox(height: 4.th),
                   Text(
                     '${summary.employeeName} · ${summary.designation}',
                     style: HrModuleTypography.caption()
-                        .copyWith(fontSize: 12.sp, height: 1.3),
+                        .copyWith(fontSize: 12.tsp, height: 1.3),
                   ),
                   if (summary.netSalaryAed != null) ...[
-                    SizedBox(height: 8.h),
+                    SizedBox(height: 8.th),
                     Text(
                       'Net ${_fmt(summary.netSalaryAed!)} AED',
                       style: HrModuleTypography.sectionHeading().copyWith(
-                        fontSize: compact ? 16.sp : 18.sp,
+                        fontSize: compact ? 16.tsp : 18.tsp,
                         color: HrModuleColors.success,
                         fontWeight: FontWeight.w800,
                       ),

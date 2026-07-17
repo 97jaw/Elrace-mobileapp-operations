@@ -1,3 +1,4 @@
+import 'package:el_race/core/utils/responsive_breakpoints.dart';
 import 'dart:convert';
 import 'dart:math' as math;
 import 'package:el_race/core/utils/shared_pref.dart';
@@ -367,7 +368,7 @@ class _ApprovalConfirmationScreenState
       backgroundColor: Colors.transparent,
       insetPadding: const EdgeInsets.all(16),
       child: Container(
-        padding: EdgeInsets.all(10.w),
+        padding: EdgeInsets.all(10.tw),
         width: MediaQuery.of(context).size.width,
         height: MediaQuery.of(context).size.height * 0.85,
         decoration: BoxDecoration(
@@ -386,9 +387,9 @@ class _ApprovalConfirmationScreenState
                   InkWell(
                     onTap: _showEmployeeDetailsDialog,
                     child: Container(
-                        width: 280.w,
+                        width: 280.tw,
                         padding: EdgeInsets.symmetric(
-                            horizontal: 13.w, vertical: 5.w),
+                            horizontal: 13.tw, vertical: 5.tw),
                         decoration: BoxDecoration(
                           borderRadius: BorderRadius.circular(10),
                           gradient: const LinearGradient(
@@ -401,20 +402,20 @@ class _ApprovalConfirmationScreenState
                           children: [
                             isLoading
                                 ? Container(
-                                    width: 50.w,
-                                    height: 50.w,
+                                    width: 50.tw,
+                                    height: 50.tw,
                                     decoration: BoxDecoration(
                                       color: Colors.grey[300],
                                       shape: BoxShape.circle,
                                     ),
                                   )
                                 : _buildEmployeeImage(
-                                    formData?["image_emp"], 25.w),
+                                    formData?["image_emp"], 25.tw),
                             const SizedBox(width: 8),
                             Text(
                               'Employee Details',
                               style: GoogleFonts.poppins(
-                                fontSize: 19.sp,
+                                fontSize: 19.tsp,
                                 fontWeight: FontWeight.bold,
                                 letterSpacing: 1.0,
                               ),
@@ -422,8 +423,8 @@ class _ApprovalConfirmationScreenState
                             const SizedBox(width: 5),
                             Image.asset(
                               'assets/png/tap.png',
-                              width: 40.w,
-                              height: 40.w,
+                              width: 40.tw,
+                              height: 40.tw,
                             ),
                           ],
                         )),
@@ -435,8 +436,8 @@ class _ApprovalConfirmationScreenState
                   onTap: () => Navigator.of(context).pop(),
                   child: Container(
                     margin: EdgeInsets.only(
-                        bottom: widget.type.toUpperCase() == 'HR' ? 60.w : 0),
-                    padding: EdgeInsets.all(3.w),
+                        bottom: widget.type.toUpperCase() == 'HR' ? 60.tw : 0),
+                    padding: EdgeInsets.all(3.tw),
                     decoration: const BoxDecoration(
                       color: red,
                       shape: BoxShape.circle,
@@ -449,7 +450,7 @@ class _ApprovalConfirmationScreenState
             Text(
               'Request Details',
               style: GoogleFonts.poppins(
-                fontSize: 23.sp,
+                fontSize: 23.tsp,
                 fontWeight: FontWeight.bold,
                 letterSpacing: 1.0,
               ),
@@ -609,8 +610,8 @@ class _ApprovalConfirmationScreenState
                                 },
                                 icon: Image.asset(
                                   'assets/png/attachment.png',
-                                  width: 20.w,
-                                  height: 20.w,
+                                  width: 20.tw,
+                                  height: 20.tw,
                                   color: Colors.white,
                                 ),
                                 label: Text(
@@ -730,24 +731,24 @@ class _ApprovalConfirmationScreenState
             ),
             child: Container(
               width: MediaQuery.of(context).size.width,
-              padding: EdgeInsets.fromLTRB(18.w, 18.w, 18.w, 18.w),
+              padding: EdgeInsets.fromLTRB(18.tw, 18.tw, 18.tw, 18.tw),
               decoration: BoxDecoration(
                 color: Colors.white,
-                borderRadius: BorderRadius.circular(24.r),
+                borderRadius: BorderRadius.circular(24.tr),
               ),
               child: Column(
                 children: [
-                  SizedBox(height: 6.w),
+                  SizedBox(height: 6.tw),
                   Text(
                     'REQUEST DETAILS',
                     style: GoogleFonts.poppins(
-                      fontSize: 26.sp,
+                      fontSize: 26.tsp,
                       fontWeight: FontWeight.w700,
                       letterSpacing: 1.2,
                       color: Colors.black,
                     ),
                   ),
-                  SizedBox(height: 14.w),
+                  SizedBox(height: 14.tw),
                   Expanded(
                     child: isLoading
                         ? const Center(child: CircularProgressIndicator())
@@ -758,11 +759,11 @@ class _ApprovalConfirmationScreenState
                               children: [
                                 Container(
                                   width: double.infinity,
-                                  padding: EdgeInsets.all(16.w),
+                                  padding: EdgeInsets.all(16.tw),
                                   decoration: BoxDecoration(
                                     border: Border.all(
                                         color: borderColor, width: 2),
-                                    borderRadius: BorderRadius.circular(18.r),
+                                    borderRadius: BorderRadius.circular(18.tr),
                                   ),
                                   child: Column(
                                     children: [
@@ -808,12 +809,12 @@ class _ApprovalConfirmationScreenState
                                     ],
                                   ),
                                 ),
-                                SizedBox(height: 14.w),
+                                SizedBox(height: 14.tw),
                                 _buildPettyCashPagedTable(
                                   context,
                                   borderColor: borderColor,
                                 ),
-                                SizedBox(height: 22.w),
+                                SizedBox(height: 22.tw),
                                 AbsorbPointer(
                                   absorbing: isCurrentUserInApprovals,
                                   child: ApprovalActionButtons(
@@ -842,17 +843,17 @@ class _ApprovalConfirmationScreenState
             ),
           ),
           Positioned(
-            top: -10.w,
-            right: -10.w,
+            top: -10.tw,
+            right: -10.tw,
             child: InkWell(
               onTap: () => Navigator.of(context).pop(),
               child: Container(
-                padding: EdgeInsets.all(5.w),
+                padding: EdgeInsets.all(5.tw),
                 decoration: const BoxDecoration(
                   color: red,
                   shape: BoxShape.circle,
                 ),
-                child: Icon(Icons.close, color: Colors.white, size: 22.w),
+                child: Icon(Icons.close, color: Colors.white, size: 22.tw),
               ),
             ),
           ),
@@ -869,34 +870,34 @@ class _ApprovalConfirmationScreenState
     final displayName = name.isEmpty ? '' : name;
 
     return Padding(
-      padding: EdgeInsets.symmetric(vertical: 6.w),
+      padding: EdgeInsets.symmetric(vertical: 6.tw),
       child: Row(
         children: [
           Text(
             bullet,
             style: GoogleFonts.poppins(
-              fontSize: 12.sp,
+              fontSize: 12.tsp,
               fontWeight: FontWeight.w500,
               letterSpacing: 1.0,
             ),
           ),
-          SizedBox(width: 8.w),
+          SizedBox(width: 8.tw),
           SizedBox(
-            width: 135.w,
+            width: 135.tw,
             child: Text(
               label,
               style: GoogleFonts.poppins(
-                fontSize: 15.sp,
+                fontSize: 15.tsp,
                 fontWeight: FontWeight.w700,
                 letterSpacing: 1.0,
               ),
             ),
           ),
-          SizedBox(width: 10.w),
+          SizedBox(width: 10.tw),
           if (isLoading)
             Container(
-              width: 34.w,
-              height: 34.w,
+              width: 34.tw,
+              height: 34.tw,
               decoration: BoxDecoration(
                 color: Colors.grey.shade300,
                 shape: BoxShape.circle,
@@ -904,26 +905,26 @@ class _ApprovalConfirmationScreenState
             )
           else
             Container(
-              width: 34.w,
-              height: 34.w,
+              width: 34.tw,
+              height: 34.tw,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
                 border: Border.all(color: Colors.grey.shade400, width: 1),
               ),
               child: ClipOval(
                 child: Center(
-                  child: _buildEmployeeImage(formData?['image_emp'], 17.w),
+                  child: _buildEmployeeImage(formData?['image_emp'], 17.tw),
                 ),
               ),
             ),
-          SizedBox(width: 10.w),
+          SizedBox(width: 10.tw),
           Expanded(
             child: Text(
               displayName,
               maxLines: null,
               overflow: TextOverflow.visible,
               style: GoogleFonts.poppins(
-                fontSize: 15.sp,
+                fontSize: 15.tsp,
                 fontWeight: FontWeight.w700,
                 letterSpacing: 1.0,
               ),
@@ -939,43 +940,43 @@ class _ApprovalConfirmationScreenState
     final display = value.isEmpty ? '' : value;
 
     return Padding(
-      padding: EdgeInsets.symmetric(vertical: 6.w),
+      padding: EdgeInsets.symmetric(vertical: 6.tw),
       child: Row(
         children: [
           Text(
             bullet,
             style: GoogleFonts.poppins(
-              fontSize: 12.sp,
+              fontSize: 12.tsp,
               fontWeight: FontWeight.w500,
               letterSpacing: 1.0,
             ),
           ),
-          SizedBox(width: 8.w),
+          SizedBox(width: 8.tw),
           SizedBox(
-            width: 135.w,
+            width: 135.tw,
             child: Text(
               label,
               style: GoogleFonts.poppins(
-                fontSize: 15.sp,
+                fontSize: 15.tsp,
                 fontWeight: FontWeight.w700,
                 letterSpacing: 1.0,
               ),
             ),
           ),
-          SizedBox(width: 10.w),
+          SizedBox(width: 10.tw),
           Expanded(
             child: Container(
-              padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 8.w),
+              padding: EdgeInsets.symmetric(horizontal: 12.tw, vertical: 8.tw),
               decoration: BoxDecoration(
                 color: const Color(0xFFE1E1E1),
-                borderRadius: BorderRadius.circular(22.r),
+                borderRadius: BorderRadius.circular(22.tr),
                 border: Border.all(color: const Color(0xFF4A4A4A), width: 1),
               ),
               child: Text(
                 display,
                 textAlign: TextAlign.center,
                 style: GoogleFonts.poppins(
-                  fontSize: 13.sp,
+                  fontSize: 13.tsp,
                   fontWeight: FontWeight.w500,
                   letterSpacing: 1.0,
                 ),
@@ -995,30 +996,30 @@ class _ApprovalConfirmationScreenState
     const bullet = '●';
 
     return Padding(
-      padding: EdgeInsets.symmetric(vertical: 6.w),
+      padding: EdgeInsets.symmetric(vertical: 6.tw),
       child: Row(
         children: [
           Text(
             bullet,
             style: GoogleFonts.poppins(
-              fontSize: 12.sp,
+              fontSize: 12.tsp,
               fontWeight: FontWeight.w500,
               letterSpacing: 1.0,
             ),
           ),
-          SizedBox(width: 8.w),
+          SizedBox(width: 8.tw),
           SizedBox(
-            width: 135.w,
+            width: 135.tw,
             child: Text(
               'ATTACHMENT',
               style: GoogleFonts.poppins(
-                fontSize: 15.sp,
+                fontSize: 15.tsp,
                 fontWeight: FontWeight.w700,
                 letterSpacing: 1.0,
               ),
             ),
           ),
-          SizedBox(width: 10.w),
+          SizedBox(width: 10.tw),
           Expanded(
             child: GestureDetector(
               behavior: HitTestBehavior.opaque,
@@ -1028,17 +1029,17 @@ class _ApprovalConfirmationScreenState
                 }
               },
               child: Container(
-                height: 36.w,
+                height: 36.tw,
                 alignment: Alignment.center,
                 decoration: BoxDecoration(
                   color: enabled ? const Color(0xFF1A1A53) : Colors.grey,
-                  borderRadius: BorderRadius.circular(22.r),
+                  borderRadius: BorderRadius.circular(22.tr),
                 ),
                 child: Text(
                   'VIEW',
                   textAlign: TextAlign.center,
                   style: GoogleFonts.poppins(
-                    fontSize: 14.sp,
+                    fontSize: 14.tsp,
                     fontWeight: FontWeight.w600,
                     letterSpacing: 1.0,
                     color: Colors.white,
@@ -1123,7 +1124,7 @@ class _ApprovalConfirmationScreenState
       return rows.sublist(start, end);
     }
 
-    final tableHeight = 290.w;
+    final tableHeight = 290.tw;
 
     return SizedBox(
       height: tableHeight,
@@ -1139,14 +1140,14 @@ class _ApprovalConfirmationScreenState
               itemBuilder: (context, pageIndex) {
                 final chunk = pageRows(pageIndex);
                 return Padding(
-                  padding: EdgeInsets.symmetric(horizontal: 8.w),
+                  padding: EdgeInsets.symmetric(horizontal: 8.tw),
                   child: ClipRRect(
-                    borderRadius: BorderRadius.circular(18.r),
+                    borderRadius: BorderRadius.circular(18.tr),
                     child: Container(
                       decoration: BoxDecoration(
                         border:
                             Border.all(color: Colors.grey.shade400, width: 1),
-                        borderRadius: BorderRadius.circular(18.r),
+                        borderRadius: BorderRadius.circular(18.tr),
                       ),
                       child: LayoutBuilder(
                         builder: (context, constraints) {
@@ -1165,7 +1166,7 @@ class _ApprovalConfirmationScreenState
                                         child: Text(
                                           'No items',
                                           style: GoogleFonts.poppins(
-                                            fontSize: 14.sp,
+                                            fontSize: 14.tsp,
                                             letterSpacing: 1.0,
                                             color: Colors.black54,
                                           ),
@@ -1208,7 +1209,7 @@ class _ApprovalConfirmationScreenState
               },
             ),
           ),
-          SizedBox(height: 14.w),
+          SizedBox(height: 14.tw),
           if (rows.isNotEmpty && pageCount > 1)
             Row(
               mainAxisAlignment: MainAxisAlignment.center,
@@ -1223,22 +1224,22 @@ class _ApprovalConfirmationScreenState
                   },
                   child: Icon(
                     Icons.arrow_back_ios_new,
-                    size: 28.w,
+                    size: 28.tw,
                     color: Colors.grey.shade700,
                   ),
                 ),
-                SizedBox(width: 18.w),
+                SizedBox(width: 18.tw),
                 Row(
                   children: List.generate(pageCount, (i) {
                     final active = i == _pettyCashCurrentPage;
                     return Padding(
-                      padding: EdgeInsets.symmetric(horizontal: 10.w),
+                      padding: EdgeInsets.symmetric(horizontal: 10.tw),
                       child: Column(
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           Container(
-                            width: 16.w,
-                            height: 16.w,
+                            width: 16.tw,
+                            height: 16.tw,
                             decoration: BoxDecoration(
                               shape: BoxShape.circle,
                               color: Colors.grey.shade300,
@@ -1250,11 +1251,11 @@ class _ApprovalConfirmationScreenState
                               ),
                             ),
                           ),
-                          SizedBox(height: 6.w),
+                          SizedBox(height: 6.tw),
                           Text(
                             '${i + 1}',
                             style: GoogleFonts.poppins(
-                              fontSize: 12.sp,
+                              fontSize: 12.tsp,
                               fontWeight:
                                   active ? FontWeight.w700 : FontWeight.w600,
                               letterSpacing: 1.0,
@@ -1266,7 +1267,7 @@ class _ApprovalConfirmationScreenState
                     );
                   }),
                 ),
-                SizedBox(width: 18.w),
+                SizedBox(width: 18.tw),
                 InkWell(
                   onTap: () {
                     if (_pettyCashCurrentPage >= pageCount - 1) return;
@@ -1277,7 +1278,7 @@ class _ApprovalConfirmationScreenState
                   },
                   child: Icon(
                     Icons.arrow_forward_ios,
-                    size: 28.w,
+                    size: 28.tw,
                     color: Colors.grey.shade700,
                   ),
                 ),
@@ -1345,24 +1346,24 @@ class _ApprovalConfirmationScreenState
             ),
             child: Container(
               width: MediaQuery.of(context).size.width,
-              padding: EdgeInsets.fromLTRB(18.w, 18.w, 18.w, 18.w),
+              padding: EdgeInsets.fromLTRB(18.tw, 18.tw, 18.tw, 18.tw),
               decoration: BoxDecoration(
                 color: Colors.white,
-                borderRadius: BorderRadius.circular(24.r),
+                borderRadius: BorderRadius.circular(24.tr),
               ),
               child: Column(
                 children: [
-                  SizedBox(height: 6.w),
+                  SizedBox(height: 6.tw),
                   Text(
                     'REQUEST DETAILS',
                     style: GoogleFonts.poppins(
-                      fontSize: 26.sp,
+                      fontSize: 26.tsp,
                       fontWeight: FontWeight.w700,
                       letterSpacing: 1.2,
                       color: Colors.black,
                     ),
                   ),
-                  SizedBox(height: 14.w),
+                  SizedBox(height: 14.tw),
                   Expanded(
                     child: isLoading
                         ? const Center(child: CircularProgressIndicator())
@@ -1373,12 +1374,12 @@ class _ApprovalConfirmationScreenState
                               children: [
                                 Container(
                                   width: double.infinity,
-                                  padding: EdgeInsets.all(16.w),
+                                  padding: EdgeInsets.all(16.tw),
                                   decoration: BoxDecoration(
                                     border: Border.all(
                                         color: borderColor, width: 2),
                                     borderRadius:
-                                        BorderRadius.circular(18.r),
+                                        BorderRadius.circular(18.tr),
                                   ),
                                   child: Column(
                                     children: [
@@ -1422,12 +1423,12 @@ class _ApprovalConfirmationScreenState
                                     ],
                                   ),
                                 ),
-                                SizedBox(height: 12.w),
+                                SizedBox(height: 12.tw),
                                 _buildInvoicePagedTable(
                                   context,
                                   borderColor: borderColor,
                                 ),
-                                SizedBox(height: 20.w),
+                                SizedBox(height: 20.tw),
                                 AbsorbPointer(
                                   absorbing: isCurrentUserInApprovals,
                                   child: ApprovalActionButtons(
@@ -1456,17 +1457,17 @@ class _ApprovalConfirmationScreenState
             ),
           ),
           Positioned(
-            top: -10.w,
-            right: -10.w,
+            top: -10.tw,
+            right: -10.tw,
             child: InkWell(
               onTap: () => Navigator.of(context).pop(),
               child: Container(
-                padding: EdgeInsets.all(5.w),
+                padding: EdgeInsets.all(5.tw),
                 decoration: const BoxDecoration(
                   color: red,
                   shape: BoxShape.circle,
                 ),
-                child: Icon(Icons.close, color: Colors.white, size: 22.w),
+                child: Icon(Icons.close, color: Colors.white, size: 22.tw),
               ),
             ),
           ),
@@ -1480,43 +1481,43 @@ class _ApprovalConfirmationScreenState
     final display = value.isEmpty ? '' : value;
 
     return Padding(
-      padding: EdgeInsets.symmetric(vertical: 6.w),
+      padding: EdgeInsets.symmetric(vertical: 6.tw),
       child: Row(
         children: [
           Text(
             bullet,
             style: GoogleFonts.poppins(
-              fontSize: 12.sp,
+              fontSize: 12.tsp,
               fontWeight: FontWeight.w500,
               letterSpacing: 1.0,
             ),
           ),
-          SizedBox(width: 8.w),
+          SizedBox(width: 8.tw),
           SizedBox(
-            width: 135.w,
+            width: 135.tw,
             child: Text(
               label,
               style: GoogleFonts.poppins(
-                fontSize: 15.sp,
+                fontSize: 15.tsp,
                 fontWeight: FontWeight.w700,
                 letterSpacing: 1.0,
               ),
             ),
           ),
-          SizedBox(width: 10.w),
+          SizedBox(width: 10.tw),
           Expanded(
             child: Container(
-              padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 8.w),
+              padding: EdgeInsets.symmetric(horizontal: 12.tw, vertical: 8.tw),
               decoration: BoxDecoration(
                 color: const Color(0xFFE1E1E1),
-                borderRadius: BorderRadius.circular(22.r),
+                borderRadius: BorderRadius.circular(22.tr),
                 border: Border.all(color: const Color(0xFFB0B0B0), width: 1),
               ),
               child: Text(
                 display,
                 textAlign: TextAlign.center,
                 style: GoogleFonts.poppins(
-                  fontSize: 13.sp,
+                  fontSize: 13.tsp,
                   fontWeight: FontWeight.w500,
                   letterSpacing: 1.0,
                 ),
@@ -1534,45 +1535,45 @@ class _ApprovalConfirmationScreenState
     required VoidCallback onPressed,
   }) {
     return Padding(
-      padding: EdgeInsets.symmetric(vertical: 6.w),
+      padding: EdgeInsets.symmetric(vertical: 6.tw),
       child: Row(
         children: [
           Text(
             '●',
             style: GoogleFonts.poppins(
-              fontSize: 12.sp,
+              fontSize: 12.tsp,
               fontWeight: FontWeight.w500,
               letterSpacing: 1.0,
             ),
           ),
-          SizedBox(width: 8.w),
+          SizedBox(width: 8.tw),
           SizedBox(
-            width: 135.w,
+            width: 135.tw,
             child: Text(
               'ATTACHMENT',
               style: GoogleFonts.poppins(
-                fontSize: 15.sp,
+                fontSize: 15.tsp,
                 fontWeight: FontWeight.w700,
                 letterSpacing: 1.0,
               ),
             ),
           ),
-          SizedBox(width: 10.w),
+          SizedBox(width: 10.tw),
           Expanded(
             child: InkWell(
               onTap: enabled ? onPressed : null,
-              borderRadius: BorderRadius.circular(22.r),
+              borderRadius: BorderRadius.circular(22.tr),
               child: Container(
-                padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 8.w),
+                padding: EdgeInsets.symmetric(horizontal: 12.tw, vertical: 8.tw),
                 decoration: BoxDecoration(
                   color: enabled ? const Color(0xFF1A1A53) : Colors.grey.shade400,
-                  borderRadius: BorderRadius.circular(22.r),
+                  borderRadius: BorderRadius.circular(22.tr),
                 ),
                 child: Text(
                   'View',
                   textAlign: TextAlign.center,
                   style: GoogleFonts.poppins(
-                    fontSize: 14.sp,
+                    fontSize: 14.tsp,
                     fontWeight: FontWeight.w600,
                     letterSpacing: 1.0,
                     color: Colors.white,
@@ -1677,14 +1678,14 @@ class _ApprovalConfirmationScreenState
       return rows.sublist(start, end);
     }
 
-    final tableHeight = 220.w;
-    final cellWidth = 82.w;
+    final tableHeight = 220.tw;
+    final cellWidth = 82.tw;
     final tableWidth = cellWidth * 5;
 
     Widget headerCell(String text, {bool isLast = false}) {
       return Container(
         width: cellWidth,
-        padding: EdgeInsets.symmetric(vertical: 10.w, horizontal: 8.w),
+        padding: EdgeInsets.symmetric(vertical: 10.tw, horizontal: 8.tw),
         alignment: Alignment.center,
         decoration: BoxDecoration(
           border: Border(
@@ -1697,7 +1698,7 @@ class _ApprovalConfirmationScreenState
           text,
           textAlign: TextAlign.center,
           style: GoogleFonts.poppins(
-            fontSize: 12.sp,
+            fontSize: 12.tsp,
             fontWeight: FontWeight.w700,
             letterSpacing: 1.0,
             color: Colors.white,
@@ -1710,7 +1711,7 @@ class _ApprovalConfirmationScreenState
       return Container(
         width: cellWidth,
         alignment: Alignment.center,
-        padding: EdgeInsets.symmetric(vertical: 16.w, horizontal: 10.w),
+        padding: EdgeInsets.symmetric(vertical: 16.tw, horizontal: 10.tw),
         decoration: BoxDecoration(
           border: Border(
             right: isLast
@@ -1722,7 +1723,7 @@ class _ApprovalConfirmationScreenState
           text,
           textAlign: TextAlign.center,
           style: GoogleFonts.poppins(
-            fontSize: 12.sp,
+            fontSize: 12.tsp,
             fontWeight: FontWeight.w600,
             letterSpacing: 1.0,
             color: Colors.black,
@@ -1735,9 +1736,9 @@ class _ApprovalConfirmationScreenState
 
     // حساب الارتفاع المناسب بناءً على عدد الصفوف
     final dynamicTableHeight = rows.isEmpty 
-        ? 120.w // ارتفاع صغير للجدول الفارغ
+        ? 120.tw // ارتفاع صغير للجدول الفارغ
         : (rows.length == 1 
-            ? 140.w // ارتفاع أصغر لصف واحد
+            ? 140.tw // ارتفاع أصغر لصف واحد
             : tableHeight); // الارتفاع الكامل للصفوف المتعددة
 
     return SizedBox(
@@ -1746,11 +1747,11 @@ class _ApprovalConfirmationScreenState
         children: [
           Expanded(
             child: ClipRRect(
-              borderRadius: BorderRadius.circular(18.r),
+              borderRadius: BorderRadius.circular(18.tr),
               child: Container(
                 decoration: BoxDecoration(
                   border: Border.all(color: Colors.grey.shade400, width: 1),
-                  borderRadius: BorderRadius.circular(18.r),
+                  borderRadius: BorderRadius.circular(18.tr),
                 ),
                 child: SingleChildScrollView(
                   scrollDirection: Axis.horizontal,
@@ -1785,7 +1786,7 @@ class _ApprovalConfirmationScreenState
                                   child: Text(
                                     'No items',
                                     style: GoogleFonts.poppins(
-                                      fontSize: 14.sp,
+                                      fontSize: 14.tsp,
                                       letterSpacing: 1.0,
                                       color: Colors.black54,
                                     ),
@@ -1846,7 +1847,7 @@ class _ApprovalConfirmationScreenState
               ),
             ),
           ),
-          SizedBox(height: 10.w),
+          SizedBox(height: 10.tw),
           if (rows.isNotEmpty && pageCount > 1)
             Row(
               mainAxisAlignment: MainAxisAlignment.center,
@@ -1860,16 +1861,16 @@ class _ApprovalConfirmationScreenState
                     );
                   },
                   child: Icon(Icons.arrow_back_ios,
-                      size: 18.w, color: Colors.grey.shade700),
+                      size: 18.tw, color: Colors.grey.shade700),
                 ),
-                SizedBox(width: 10.w),
+                SizedBox(width: 10.tw),
                 Row(
                   children: List.generate(pageCount, (i) {
                     final active = i == _currentPage;
                     return Container(
-                      margin: EdgeInsets.symmetric(horizontal: 6.w),
-                      width: 12.w,
-                      height: 12.w,
+                      margin: EdgeInsets.symmetric(horizontal: 6.tw),
+                      width: 12.tw,
+                      height: 12.tw,
                       decoration: BoxDecoration(
                         shape: BoxShape.circle,
                         color:
@@ -1878,7 +1879,7 @@ class _ApprovalConfirmationScreenState
                     );
                   }),
                 ),
-                SizedBox(width: 10.w),
+                SizedBox(width: 10.tw),
                 InkWell(
                   onTap: () {
                     if (_currentPage >= pageCount - 1) return;
@@ -1888,7 +1889,7 @@ class _ApprovalConfirmationScreenState
                     );
                   },
                   child: Icon(Icons.arrow_forward_ios,
-                      size: 18.w, color: Colors.grey.shade700),
+                      size: 18.tw, color: Colors.grey.shade700),
                 ),
               ],
             ),
@@ -1941,24 +1942,24 @@ class _ApprovalConfirmationScreenState
             ),
             child: Container(
               width: MediaQuery.of(context).size.width,
-              padding: EdgeInsets.fromLTRB(18.w, 18.w, 18.w, 18.w),
+              padding: EdgeInsets.fromLTRB(18.tw, 18.tw, 18.tw, 18.tw),
               decoration: BoxDecoration(
                 color: Colors.white,
-                borderRadius: BorderRadius.circular(24.r),
+                borderRadius: BorderRadius.circular(24.tr),
               ),
               child: Column(
                 children: [
-                  SizedBox(height: 6.w),
+                  SizedBox(height: 6.tw),
                   Text(
                     'REQUEST DETAILS',
                     style: GoogleFonts.poppins(
-                      fontSize: 26.sp,
+                      fontSize: 26.tsp,
                       fontWeight: FontWeight.w700,
                       letterSpacing: 1.2,
                       color: borderColor,
                     ),
                   ),
-                  SizedBox(height: 14.w),
+                  SizedBox(height: 14.tw),
                   Expanded(
                     child: isLoading
                         ? const Center(child: CircularProgressIndicator())
@@ -1969,12 +1970,12 @@ class _ApprovalConfirmationScreenState
                               children: [
                                 Container(
                                   width: double.infinity,
-                                  padding: EdgeInsets.all(16.w),
+                                  padding: EdgeInsets.all(16.tw),
                                   decoration: BoxDecoration(
                                     border: Border.all(
                                         color: borderColor, width: 2),
                                     borderRadius:
-                                        BorderRadius.circular(18.r),
+                                        BorderRadius.circular(18.tr),
                                   ),
                                   child: Column(
                                     children: [
@@ -2018,12 +2019,12 @@ class _ApprovalConfirmationScreenState
                                     ],
                                   ),
                                 ),
-                                SizedBox(height: 12.w),
+                                SizedBox(height: 12.tw),
                                 _buildPagedSummaryTable(
                                   context,
                                   borderColor: borderColor,
                                 ),
-                                SizedBox(height: 20.w),
+                                SizedBox(height: 20.tw),
                                 AbsorbPointer(
                                   absorbing: isCurrentUserInApprovals,
                                   child: ApprovalActionButtons(
@@ -2052,17 +2053,17 @@ class _ApprovalConfirmationScreenState
             ),
           ),
           Positioned(
-            top: -10.w,
-            right: -10.w,
+            top: -10.tw,
+            right: -10.tw,
             child: InkWell(
               onTap: () => Navigator.of(context).pop(),
               child: Container(
-                padding: EdgeInsets.all(5.w),
+                padding: EdgeInsets.all(5.tw),
                 decoration: const BoxDecoration(
                   color: red,
                   shape: BoxShape.circle,
                 ),
-                child: Icon(Icons.close, color: Colors.white, size: 22.w),
+                child: Icon(Icons.close, color: Colors.white, size: 22.tw),
               ),
             ),
           ),
@@ -2136,8 +2137,8 @@ class _ApprovalConfirmationScreenState
       return rows.sublist(start, end);
     }
 
-    final tableHeight = 220.w;
-    final cellWidth = 100.w;
+    final tableHeight = 220.tw;
+    final cellWidth = 100.tw;
     final tableWidth = cellWidth * 4;
 
     return SizedBox(
@@ -2146,11 +2147,11 @@ class _ApprovalConfirmationScreenState
         children: [
           Expanded(
             child: ClipRRect(
-              borderRadius: BorderRadius.circular(18.r),
+              borderRadius: BorderRadius.circular(18.tr),
               child: Container(
                 decoration: BoxDecoration(
                   border: Border.all(color: Colors.grey.shade400, width: 1),
-                  borderRadius: BorderRadius.circular(18.r),
+                  borderRadius: BorderRadius.circular(18.tr),
                 ),
                 child: SingleChildScrollView(
                   scrollDirection: Axis.horizontal,
@@ -2169,7 +2170,7 @@ class _ApprovalConfirmationScreenState
                                   child: Text(
                                     'No items',
                                     style: GoogleFonts.poppins(
-                                      fontSize: 14.sp,
+                                      fontSize: 14.tsp,
                                       letterSpacing: 1.0,
                                       color: Colors.black54,
                                     ),
@@ -2214,7 +2215,7 @@ class _ApprovalConfirmationScreenState
               ),
             ),
           ),
-          SizedBox(height: 10.w),
+          SizedBox(height: 10.tw),
           if (rows.isNotEmpty && pageCount > 1)
             Row(
               mainAxisAlignment: MainAxisAlignment.center,
@@ -2228,16 +2229,16 @@ class _ApprovalConfirmationScreenState
                     );
                   },
                   child: Icon(Icons.arrow_back_ios,
-                      size: 18.w, color: Colors.grey.shade700),
+                      size: 18.tw, color: Colors.grey.shade700),
                 ),
-                SizedBox(width: 10.w),
+                SizedBox(width: 10.tw),
                 Row(
                   children: List.generate(pageCount, (i) {
                     final active = i == _currentPage;
                     return Container(
-                      margin: EdgeInsets.symmetric(horizontal: 6.w),
-                      width: active ? 14.w : 12.w,
-                      height: active ? 14.w : 12.w,
+                      margin: EdgeInsets.symmetric(horizontal: 6.tw),
+                      width: active ? 14.tw : 12.tw,
+                      height: active ? 14.tw : 12.tw,
                       decoration: BoxDecoration(
                         shape: BoxShape.circle,
                         color: Colors.grey.shade300,
@@ -2249,7 +2250,7 @@ class _ApprovalConfirmationScreenState
                     );
                   }),
                 ),
-                SizedBox(width: 10.w),
+                SizedBox(width: 10.tw),
                 InkWell(
                   onTap: () {
                     if (_currentPage >= pageCount - 1) return;
@@ -2259,7 +2260,7 @@ class _ApprovalConfirmationScreenState
                     );
                   },
                   child: Icon(Icons.arrow_forward_ios,
-                      size: 18.w, color: Colors.grey.shade700),
+                      size: 18.tw, color: Colors.grey.shade700),
                 ),
               ],
             ),
@@ -2273,7 +2274,7 @@ class _ApprovalConfirmationScreenState
     Widget cell(String text, {bool isLast = false}) {
       return Container(
         width: cellWidth,
-        padding: EdgeInsets.symmetric(vertical: 10.w, horizontal: 8.w),
+        padding: EdgeInsets.symmetric(vertical: 10.tw, horizontal: 8.tw),
         alignment: Alignment.center,
         decoration: BoxDecoration(
           border: Border(
@@ -2286,7 +2287,7 @@ class _ApprovalConfirmationScreenState
           text,
           textAlign: TextAlign.center,
           style: GoogleFonts.poppins(
-            fontSize: 12.sp,
+            fontSize: 12.tsp,
             fontWeight: FontWeight.w700,
             letterSpacing: 1.0,
             color: Colors.white,
@@ -2325,7 +2326,7 @@ class _ApprovalConfirmationScreenState
       return Container(
         width: cellWidth,
         alignment: Alignment.center,
-        padding: EdgeInsets.symmetric(vertical: 16.w, horizontal: 10.w),
+        padding: EdgeInsets.symmetric(vertical: 16.tw, horizontal: 10.tw),
         decoration: BoxDecoration(
           border: Border(
             right: isLastCell
@@ -2337,7 +2338,7 @@ class _ApprovalConfirmationScreenState
           text.isEmpty ? '' : text,
           textAlign: TextAlign.center,
           style: GoogleFonts.poppins(
-            fontSize: 12.sp,
+            fontSize: 12.tsp,
             fontWeight: FontWeight.w600,
             letterSpacing: 1.0,
             color: Colors.black,
@@ -2373,43 +2374,43 @@ class _ApprovalConfirmationScreenState
     final display = value.isEmpty ? '-' : value;
 
     return Padding(
-      padding: EdgeInsets.symmetric(vertical: 6.w),
+      padding: EdgeInsets.symmetric(vertical: 6.tw),
       child: Row(
         children: [
           Text(
             bullet,
             style: GoogleFonts.poppins(
-              fontSize: 12.sp,
+              fontSize: 12.tsp,
               fontWeight: FontWeight.w500,
               letterSpacing: 1.0,
             ),
           ),
-          SizedBox(width: 8.w),
+          SizedBox(width: 8.tw),
           SizedBox(
-            width: 135.w,
+            width: 135.tw,
             child: Text(
               label,
               style: GoogleFonts.poppins(
-                fontSize: 15.sp,
+                fontSize: 15.tsp,
                 fontWeight: FontWeight.w700,
                 letterSpacing: 1.0,
               ),
             ),
           ),
-          SizedBox(width: 10.w),
+          SizedBox(width: 10.tw),
           Expanded(
             child: Container(
-              padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 8.w),
+              padding: EdgeInsets.symmetric(horizontal: 12.tw, vertical: 8.tw),
               decoration: BoxDecoration(
                 color: const Color(0xFFE1E1E1),
-                borderRadius: BorderRadius.circular(22.r),
+                borderRadius: BorderRadius.circular(22.tr),
                 border: Border.all(color: const Color(0xFF4A4A4A), width: 1),
               ),
               child: Text(
                 display,
                 textAlign: TextAlign.center,
                 style: GoogleFonts.poppins(
-                  fontSize: 13.sp,
+                  fontSize: 13.tsp,
                   fontWeight: FontWeight.w500,
                   letterSpacing: 1.0,
                 ),
@@ -2426,39 +2427,39 @@ class _ApprovalConfirmationScreenState
     required VoidCallback onPressed,
   }) {
     return Padding(
-      padding: EdgeInsets.symmetric(vertical: 6.w),
+      padding: EdgeInsets.symmetric(vertical: 6.tw),
       child: Row(
         children: [
           Text(
             '●',
             style: GoogleFonts.poppins(
-              fontSize: 12.sp,
+              fontSize: 12.tsp,
               fontWeight: FontWeight.w500,
               letterSpacing: 1.0,
             ),
           ),
-          SizedBox(width: 8.w),
+          SizedBox(width: 8.tw),
           SizedBox(
-            width: 135.w,
+            width: 135.tw,
             child: Text(
               'ATTACHMENT',
               style: GoogleFonts.poppins(
-                fontSize: 15.sp,
+                fontSize: 15.tsp,
                 fontWeight: FontWeight.w700,
                 letterSpacing: 1.0,
               ),
             ),
           ),
-          SizedBox(width: 10.w),
+          SizedBox(width: 10.tw),
           Expanded(
             child: InkWell(
               onTap: enabled ? onPressed : null,
-              borderRadius: BorderRadius.circular(22.r),
+              borderRadius: BorderRadius.circular(22.tr),
               child: Container(
-                padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 8.w),
+                padding: EdgeInsets.symmetric(horizontal: 12.tw, vertical: 8.tw),
                 decoration: BoxDecoration(
                   color: enabled ? const Color(0xFFE1E1E1) : Colors.grey[300],
-                  borderRadius: BorderRadius.circular(22.r),
+                  borderRadius: BorderRadius.circular(22.tr),
                   border:
                       Border.all(color: const Color(0xFF4A4A4A), width: 1),
                 ),
@@ -2466,7 +2467,7 @@ class _ApprovalConfirmationScreenState
                   'View',
                   textAlign: TextAlign.center,
                   style: GoogleFonts.poppins(
-                    fontSize: 14.sp,
+                    fontSize: 14.tsp,
                     fontWeight: FontWeight.w600,
                     letterSpacing: 1.0,
                     color: Colors.black87,
@@ -2512,10 +2513,10 @@ class _ApprovalConfirmationScreenState
               maxHeight: MediaQuery.of(context).size.height * 0.85,
             ),
             child: Container(
-              padding: EdgeInsets.fromLTRB(18.w, 18.w, 18.w, 18.w),
+              padding: EdgeInsets.fromLTRB(18.tw, 18.tw, 18.tw, 18.tw),
               decoration: BoxDecoration(
                 color: Colors.white,
-                borderRadius: BorderRadius.circular(24.r),
+                borderRadius: BorderRadius.circular(24.tr),
                 border: Border.all(color: borderColor, width: 2),
               ),
               child: SingleChildScrollView(
@@ -2525,12 +2526,12 @@ class _ApprovalConfirmationScreenState
                   children: [
                     InkWell(
                       onTap: _showEmployeeDetailsDialog,
-                      borderRadius: BorderRadius.circular(22.r),
+                      borderRadius: BorderRadius.circular(22.tr),
                       child: Container(
                         padding: EdgeInsets.symmetric(
-                            horizontal: 14.w, vertical: 10.w),
+                            horizontal: 14.tw, vertical: 10.tw),
                         decoration: BoxDecoration(
-                          borderRadius: BorderRadius.circular(22.r),
+                          borderRadius: BorderRadius.circular(22.tr),
                           gradient: const LinearGradient(
                             colors: [Color(0xFF4A4A4A), Color(0xFF101010)],
                             begin: Alignment.topLeft,
@@ -2540,8 +2541,8 @@ class _ApprovalConfirmationScreenState
                         child: Row(
                           children: [
                             Container(
-                              width: 44.w,
-                              height: 44.w,
+                              width: 44.tw,
+                              height: 44.tw,
                               decoration: BoxDecoration(
                                 shape: BoxShape.circle,
                                 border: Border.all(
@@ -2552,52 +2553,52 @@ class _ApprovalConfirmationScreenState
                                     ? Container(color: Colors.grey.shade400)
                                     : _buildEmployeeImage(
                                         formData?['image_emp'],
-                                        22.w,
+                                        22.tw,
                                       ),
                               ),
                             ),
-                            SizedBox(width: 10.w),
+                            SizedBox(width: 10.tw),
                             Expanded(
                               child: Text(
                                 employeeName.toUpperCase(),
                                 maxLines: null,
                                 overflow: TextOverflow.visible,
                                 style: GoogleFonts.poppins(
-                                  fontSize: 20.sp,
+                                  fontSize: 20.tsp,
                                   fontWeight: FontWeight.w600,
                                   letterSpacing: 1.0,
                                   color: Colors.white,
                                 ),
                               ),
                             ),
-                            SizedBox(width: 8.w),
+                            SizedBox(width: 8.tw),
                             Image.asset(
                               'assets/png/tap.png',
-                              width: 26.w,
-                              height: 26.w,
+                              width: 26.tw,
+                              height: 26.tw,
                               color: Colors.white,
                             ),
                           ],
                         ),
                       ),
                     ),
-                    SizedBox(height: 18.w),
+                    SizedBox(height: 18.tw),
                     Text(
                       'REQUEST DETAILS',
                       style: GoogleFonts.poppins(
-                        fontSize: 26.sp,
+                        fontSize: 26.tsp,
                         fontWeight: FontWeight.w700,
                         letterSpacing: 1.2,
                         color: borderColor,
                       ),
                     ),
-                    SizedBox(height: 14.w),
+                    SizedBox(height: 14.tw),
                     Container(
                       width: double.infinity,
-                      padding: EdgeInsets.all(16.w),
+                      padding: EdgeInsets.all(16.tw),
                       decoration: BoxDecoration(
                         border: Border.all(color: borderColor, width: 2),
-                        borderRadius: BorderRadius.circular(18.r),
+                        borderRadius: BorderRadius.circular(18.tr),
                       ),
                       child: Column(
                         children: [
@@ -2631,7 +2632,7 @@ class _ApprovalConfirmationScreenState
                         ],
                       ),
                     ),
-                    SizedBox(height: 22.w),
+                    SizedBox(height: 22.tw),
                     AbsorbPointer(
                       absorbing: isCurrentUserInApprovals,
                       child: ApprovalActionButtons(
@@ -2656,17 +2657,17 @@ class _ApprovalConfirmationScreenState
             ),
           ),
           Positioned(
-            top: -10.w,
-            right: -10.w,
+            top: -10.tw,
+            right: -10.tw,
             child: InkWell(
               onTap: () => Navigator.of(context).pop(),
               child: Container(
-                padding: EdgeInsets.all(5.w),
+                padding: EdgeInsets.all(5.tw),
                 decoration: const BoxDecoration(
                   color: red,
                   shape: BoxShape.circle,
                 ),
-                child: Icon(Icons.close, color: Colors.white, size: 22.w),
+                child: Icon(Icons.close, color: Colors.white, size: 22.tw),
               ),
             ),
           ),
@@ -2678,43 +2679,43 @@ class _ApprovalConfirmationScreenState
   Widget _buildHrPillRow({required String label, required String value}) {
     const bullet = '●';
     return Padding(
-      padding: EdgeInsets.symmetric(vertical: 6.w),
+      padding: EdgeInsets.symmetric(vertical: 6.tw),
       child: Row(
         children: [
           Text(
             bullet,
             style: GoogleFonts.poppins(
-              fontSize: 12.sp,
+              fontSize: 12.tsp,
               fontWeight: FontWeight.w500,
               letterSpacing: 1.0,
             ),
           ),
-          SizedBox(width: 8.w),
+          SizedBox(width: 8.tw),
           SizedBox(
-            width: 120.w,
+            width: 120.tw,
             child: Text(
               label,
               style: GoogleFonts.poppins(
-                fontSize: 15.sp,
+                fontSize: 15.tsp,
                 fontWeight: FontWeight.w700,
                 letterSpacing: 1.0,
               ),
             ),
           ),
-          SizedBox(width: 10.w),
+          SizedBox(width: 10.tw),
           Expanded(
             child: Container(
-              padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 8.w),
+              padding: EdgeInsets.symmetric(horizontal: 12.tw, vertical: 8.tw),
               decoration: BoxDecoration(
                 color: const Color(0xFFE1E1E1),
-                borderRadius: BorderRadius.circular(22.r),
+                borderRadius: BorderRadius.circular(22.tr),
                 border: Border.all(color: const Color(0xFFB0B0B0), width: 1),
               ),
               child: Text(
                 value,
                 textAlign: TextAlign.center,
                 style: GoogleFonts.poppins(
-                  fontSize: 13.sp,
+                  fontSize: 13.tsp,
                   fontWeight: FontWeight.w500,
                   letterSpacing: 1.0,
                 ),
@@ -2731,45 +2732,45 @@ class _ApprovalConfirmationScreenState
   }) {
     const navy = Color(0xFF1A1A53);
     return Padding(
-      padding: EdgeInsets.symmetric(vertical: 6.w),
+      padding: EdgeInsets.symmetric(vertical: 6.tw),
       child: Row(
         children: [
           Text(
             '●',
             style: GoogleFonts.poppins(
-              fontSize: 12.sp,
+              fontSize: 12.tsp,
               fontWeight: FontWeight.w500,
               letterSpacing: 1.0,
             ),
           ),
-          SizedBox(width: 8.w),
+          SizedBox(width: 8.tw),
           SizedBox(
-            width: 120.w,
+            width: 120.tw,
             child: Text(
               'ATTACHMENT',
               style: GoogleFonts.poppins(
-                fontSize: 15.sp,
+                fontSize: 15.tsp,
                 fontWeight: FontWeight.w700,
                 letterSpacing: 1.0,
               ),
             ),
           ),
-          SizedBox(width: 10.w),
+          SizedBox(width: 10.tw),
           Expanded(
             child: SizedBox(
-              height: 38.w,
+              height: 38.tw,
               child: ElevatedButton(
                 onPressed: onPressed,
                 style: ElevatedButton.styleFrom(
                   backgroundColor: navy,
                   shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(22.r),
+                    borderRadius: BorderRadius.circular(22.tr),
                   ),
                 ),
                 child: Text(
                   'View',
                   style: GoogleFonts.poppins(
-                    fontSize: 16.sp,
+                    fontSize: 16.tsp,
                     fontWeight: FontWeight.w600,
                     letterSpacing: 1.0,
                     color: Colors.white,
@@ -2800,7 +2801,7 @@ class _ApprovalConfirmationScreenState
               child: Text(
                 label,
                 style: GoogleFonts.poppins(
-                  fontSize: 15.sp,
+                  fontSize: 15.tsp,
                   fontWeight: FontWeight.bold,
                   letterSpacing: 1.0,
                 ),
@@ -2810,8 +2811,8 @@ class _ApprovalConfirmationScreenState
             Expanded(
               flex: 2,
               child: Container(
-                width: 150.w,
-                padding: EdgeInsets.symmetric(horizontal: 10.w, vertical: 5.w),
+                width: 150.tw,
+                padding: EdgeInsets.symmetric(horizontal: 10.tw, vertical: 5.tw),
                 decoration: BoxDecoration(
                   color: AppColors.separatorColor,
                   borderRadius: BorderRadius.circular(10),
@@ -2871,10 +2872,10 @@ class _ApprovalConfirmationScreenState
               backgroundImage: AssetImage('assets/png/profile_1.png'),
             ),
             SizedBox(
-              width: 40.w,
+              width: 40.tw,
               child: Text(
                 approver['name'] ?? '',
-                style: TextStyle(fontSize: 10.sp),
+                style: TextStyle(fontSize: 10.tsp),
                 overflow: TextOverflow.visible,
               ),
             )

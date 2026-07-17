@@ -1,3 +1,4 @@
+import 'package:el_race/core/utils/responsive_breakpoints.dart';
 import 'package:el_race/ui/chat/widgets/chat_sub_app_glass_bar.dart';
 import 'package:el_race/ui/chat/widgets/chat_unified_header_backdrop.dart';
 import 'package:el_race/ui/navigation/home_navigation.dart';
@@ -49,14 +50,15 @@ class HrModuleGlassHeader extends StatelessWidget {
     double bottomHeight = 0,
   }) {
     final titleH = (title != null && title.trim().isNotEmpty)
-        ? titleRowHeight.h
+        ? titleRowHeight.th
         : 0.0;
     return SubAppGlassAppBar.extent(context) + titleH + bottomHeight;
   }
 
   @override
   Widget build(BuildContext context) {
-    final tabStripH = tabsHeight ?? 0.0;
+    final tabStripH =
+        tabsHeight ?? (bottom != null ? 48.0 : 0.0);
     final bottomHeight = bottom != null ? tabStripH : 0.0;
     final hasTitle = title != null && title!.trim().isNotEmpty;
 
@@ -70,9 +72,9 @@ class HrModuleGlassHeader extends StatelessWidget {
         ),
         if (hasTitle)
           SizedBox(
-            height: titleRowHeight.h,
+            height: titleRowHeight.th,
             child: Padding(
-              padding: EdgeInsets.fromLTRB(8.w, 0, 8.w, 4.h),
+              padding: EdgeInsets.fromLTRB(8.tw, 0, 8.tw, 4.th),
               child: Row(
                 children: [
                   if (showBack)
@@ -82,19 +84,19 @@ class HrModuleGlassHeader extends StatelessWidget {
                       icon: Icon(
                         Icons.arrow_back_ios_new_rounded,
                         color: Colors.white,
-                        size: 18.sp,
+                        size: 18.tsp,
                       ),
                       padding: EdgeInsets.zero,
                       constraints: BoxConstraints(
-                        minWidth: 32.w,
-                        minHeight: 32.w,
+                        minWidth: 32.tw,
+                        minHeight: 32.tw,
                       ),
                     ),
                   Expanded(
                     child: Text(
                       title!,
                       style: GoogleFonts.poppins(
-                        fontSize: 16.sp,
+                        fontSize: 16.tsp,
                         fontWeight: FontWeight.w700,
                         color: Colors.white,
                         height: 1.1,
@@ -114,7 +116,7 @@ class HrModuleGlassHeader extends StatelessWidget {
           SizedBox(
             height: bottomHeight,
             child: Padding(
-              padding: EdgeInsets.fromLTRB(8.w, 0, 8.w, 6.h),
+              padding: EdgeInsets.fromLTRB(8.tw, 0, 8.tw, 6.th),
               child: bottom!,
             ),
           ),
@@ -190,7 +192,7 @@ class HrModuleGlassShell extends StatelessWidget {
             bottom: headerBottom,
             accentTint: accentTint ?? HrModuleHeaderTints.hub,
           ),
-          Expanded(child: body),
+          Expanded(child: TabletContentFrame(child: body)),
         ],
       ),
     );

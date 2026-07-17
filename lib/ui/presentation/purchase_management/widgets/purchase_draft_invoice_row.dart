@@ -1,3 +1,4 @@
+import 'package:el_race/core/utils/responsive_breakpoints.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:el_race/ui/presentation/purchase_management/data/purchase_models.dart';
 import 'package:el_race/ui/presentation/purchase_management/theme/purchase_theme.dart';
@@ -30,7 +31,7 @@ class PurchaseDraftInvoiceRow extends StatelessWidget {
               ],
             ),
             border: Border(
-              left: BorderSide(color: PurchaseTheme.accentBlue, width: 3.w),
+              left: BorderSide(color: PurchaseTheme.accentBlue, width: 3.tw),
             ),
           )
         : BoxDecoration(
@@ -50,15 +51,15 @@ class PurchaseDraftInvoiceRow extends StatelessWidget {
         onTap: onTap,
         child: Container(
           margin: EdgeInsets.symmetric(
-            horizontal: compact ? 0 : 12.w,
-            vertical: compact ? 0 : 6.h,
+            horizontal: compact ? 0 : 12.tw,
+            vertical: compact ? 0 : 6.th,
           ),
-          padding: EdgeInsets.symmetric(horizontal: 14.w, vertical: 12.h),
+          padding: EdgeInsets.symmetric(horizontal: 14.tw, vertical: 12.th),
           decoration: decoration,
           child: Row(
             children: [
               _VendorAvatar(name: item.vendor, photoUrl: item.vendorPhoto),
-              SizedBox(width: 12.w),
+              SizedBox(width: 12.tw),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -68,16 +69,16 @@ class PurchaseDraftInvoiceRow extends StatelessWidget {
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: GoogleFonts.poppins(
-                        fontSize: 13.sp,
+                        fontSize: 13.tsp,
                         fontWeight: FontWeight.w600,
                         color: PurchaseTheme.textPrimary,
                       ),
                     ),
-                    SizedBox(height: 2.h),
+                    SizedBox(height: 2.th),
                     Text(
                       item.invoiceId,
                       style: GoogleFonts.poppins(
-                        fontSize: 11.sp,
+                        fontSize: 11.tsp,
                         color: PurchaseTheme.textSecondary,
                       ),
                     ),
@@ -89,10 +90,10 @@ class PurchaseDraftInvoiceRow extends StatelessWidget {
                 children: [
                   Container(
                     padding:
-                        EdgeInsets.symmetric(horizontal: 8.w, vertical: 3.h),
+                        EdgeInsets.symmetric(horizontal: 8.tw, vertical: 3.th),
                     decoration: BoxDecoration(
                       gradient: PurchaseTheme.urgentAccentGradient,
-                      borderRadius: BorderRadius.circular(8.r),
+                      borderRadius: BorderRadius.circular(8.tr),
                       border: Border.all(
                         color: PurchaseTheme.pendingBadge.withValues(alpha: 0.35),
                       ),
@@ -100,25 +101,25 @@ class PurchaseDraftInvoiceRow extends StatelessWidget {
                     child: Text(
                       item.state,
                       style: GoogleFonts.poppins(
-                        fontSize: 9.sp,
+                        fontSize: 9.tsp,
                         fontWeight: FontWeight.w700,
                         color: PurchaseTheme.pendingBadge,
                       ),
                     ),
                   ),
-                  SizedBox(height: 4.h),
+                  SizedBox(height: 4.th),
                   Text(
                     item.timeAgo.isNotEmpty ? item.timeAgo : item.createDate,
                     style: GoogleFonts.poppins(
-                      fontSize: 10.sp,
+                      fontSize: 10.tsp,
                       color: PurchaseTheme.textMuted,
                     ),
                   ),
-                  SizedBox(height: 2.h),
+                  SizedBox(height: 2.th),
                   Text(
                     item.formattedAmount,
                     style: GoogleFonts.poppins(
-                      fontSize: 13.sp,
+                      fontSize: 13.tsp,
                       fontWeight: FontWeight.w700,
                       color: PurchaseTheme.accentDeep,
                     ),
@@ -145,13 +146,13 @@ class _VendorAvatar extends StatelessWidget {
     final url = PurchaseAvatar.sanitizeUrl(photoUrl);
     if (url != null) {
       return CircleAvatar(
-        radius: 20.r,
+        radius: 20.tr,
         backgroundColor: const Color(0xFFE8F4FC),
         child: ClipOval(
           child: CachedNetworkImage(
             imageUrl: url,
-            width: 40.r,
-            height: 40.r,
+            width: 40.tr,
+            height: 40.tr,
             fit: BoxFit.cover,
             placeholder: (_, __) => _initialAvatar(initial),
             errorWidget: (_, __, ___) => _initialAvatar(initial),
@@ -164,12 +165,12 @@ class _VendorAvatar extends StatelessWidget {
 
   Widget _initialAvatar(String initial) {
     return CircleAvatar(
-      radius: 20.r,
+      radius: 20.tr,
       backgroundColor: PurchaseTheme.accentBlue.withValues(alpha: 0.25),
       child: Text(
         initial,
         style: GoogleFonts.poppins(
-          fontSize: 14.sp,
+          fontSize: 14.tsp,
           fontWeight: FontWeight.w700,
           color: PurchaseTheme.accentDeep,
         ),
@@ -209,13 +210,13 @@ class PurchaseAvatar extends StatelessWidget {
     final url = sanitizeUrl(photoUrl);
     if (url != null) {
       return CircleAvatar(
-        radius: radius.r,
+        radius: radius.tr,
         backgroundColor: const Color(0xFFE8F4FC),
         child: ClipOval(
           child: CachedNetworkImage(
             imageUrl: url,
-            width: radius.r * 2,
-            height: radius.r * 2,
+            width: radius.tr * 2,
+            height: radius.tr * 2,
             fit: BoxFit.cover,
             placeholder: (_, __) => _fallback(initial),
             errorWidget: (_, __, ___) => _fallback(initial),
@@ -228,12 +229,12 @@ class PurchaseAvatar extends StatelessWidget {
 
   Widget _fallback(String initial) {
     return CircleAvatar(
-      radius: radius.r,
+      radius: radius.tr,
       backgroundColor: PurchaseTheme.accentBlue.withValues(alpha: 0.22),
       child: Text(
         initial,
         style: GoogleFonts.poppins(
-          fontSize: (radius * 0.7).sp,
+          fontSize: (radius * 0.7).tsp,
           fontWeight: FontWeight.w700,
           color: PurchaseTheme.accentDeep,
         ),

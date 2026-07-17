@@ -7,7 +7,7 @@ import 'package:el_race/core/widgets/timesheet/timesheet_widgets.dart';
 import 'package:el_race/ui/presentation/timesheet/project_record_card.dart';
 import 'package:el_race/ui/presentation/timesheet/timesheet_async_state.dart';
 import 'package:el_race/ui/presentation/timesheet/timesheet_route_args.dart';
-import 'package:el_race/ui/presentation/timesheet/widgets/tm_project_site_reports_tab.dart';
+import 'package:el_race/ui/presentation/timesheet/site_reports/tm_site_reports_list_screen.dart';
 import 'package:el_race/ui/presentation/timesheet/widgets/tm_team_members_sheet.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -112,9 +112,9 @@ class Pm2ProjectDetail extends ConsumerWidget {
                               },
                             ),
                     ),
-                    TmProjectSiteReportsTab(
-                      projectId: project.id,
-                      projectName: project.name,
+                    const TmSiteReportsListScreen(
+                      embedInParent: true,
+                      title: 'Site Reports',
                     ),
                     _PmTeamsTab(projectId: project.id),
                   ],

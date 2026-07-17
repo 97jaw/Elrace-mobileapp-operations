@@ -1,3 +1,4 @@
+import 'package:el_race/core/utils/responsive_breakpoints.dart';
 import 'package:el_race/ui/presentation/Email%20Approval/delayed/data/delayed_approvals_repository.dart';
 import 'package:el_race/ui/presentation/Email%20Approval/delayed/widgets/delayed_request_card.dart';
 import 'package:el_race/ui/widgets/header_widget.dart';
@@ -137,19 +138,19 @@ class _DelayedRequestsScreenState extends State<DelayedRequestsScreen> {
           SliverToBoxAdapter(
             child: Column(
               children: [
-                SizedBox(height: 18.w),
+                SizedBox(height: 18.tw),
                 Center(
                   child: Text(
                     'DELAYED REQUESTS',
                     style: GoogleFonts.poppins(
-                      fontSize: 18.sp,
+                      fontSize: 18.tsp,
                       fontWeight: FontWeight.w600,
                       color: const Color(0xFF1A1A1A),
                       letterSpacing: 1.0,
                     ),
                   ),
                 ),
-                SizedBox(height: 20.w),
+                SizedBox(height: 20.tw),
               ],
             ),
           ),
@@ -180,10 +181,10 @@ class _DelayedRequestsScreenState extends State<DelayedRequestsScreen> {
   }
 
   Widget _buildItemsSliver(List<Map<String, dynamic>> items) {
-    final totalBottomPadding = kBottomNavigationBarHeight + 12.w;
+    final totalBottomPadding = kBottomNavigationBarHeight + 12.tw;
 
     return SliverPadding(
-      padding: EdgeInsets.only(top: 2.w, bottom: totalBottomPadding),
+      padding: EdgeInsets.only(top: 2.tw, bottom: totalBottomPadding),
       sliver: SliverList(
         delegate: SliverChildBuilderDelegate(
           (context, index) {
@@ -191,7 +192,7 @@ class _DelayedRequestsScreenState extends State<DelayedRequestsScreen> {
             if (index == items.length) {
               return _isLoadingMore
                   ? Padding(
-                      padding: EdgeInsets.symmetric(vertical: 16.w),
+                      padding: EdgeInsets.symmetric(vertical: 16.tw),
                       child: const Center(
                         child: CircularProgressIndicator(
                             color: Color(0xFF0B2D5E)),
@@ -238,21 +239,21 @@ class _DelayedRequestsScreenState extends State<DelayedRequestsScreen> {
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Icon(Icons.check_circle_outline,
-                size: 64.w, color: Colors.green[400]),
-            SizedBox(height: 16.w),
+                size: 64.tw, color: Colors.green[400]),
+            SizedBox(height: 16.tw),
             Text(
               'No delayed requests',
               style: GoogleFonts.poppins(
-                fontSize: 18.sp,
+                fontSize: 18.tsp,
                 fontWeight: FontWeight.w700,
                 color: Colors.grey[700],
               ),
             ),
-            SizedBox(height: 8.w),
+            SizedBox(height: 8.tw),
             Text(
               'All requests are on track!',
               style: GoogleFonts.poppins(
-                fontSize: 14.sp,
+                fontSize: 14.tsp,
                 fontWeight: FontWeight.w500,
                 color: Colors.grey[500],
               ),
@@ -269,23 +270,23 @@ class _DelayedRequestsScreenState extends State<DelayedRequestsScreen> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.error_outline, size: 48.w, color: Colors.red[400]),
-            SizedBox(height: 16.w),
+            Icon(Icons.error_outline, size: 48.tw, color: Colors.red[400]),
+            SizedBox(height: 16.tw),
             Text(
               'Failed to load delayed requests',
               style: GoogleFonts.poppins(
-                fontSize: 16.sp,
+                fontSize: 16.tsp,
                 fontWeight: FontWeight.w600,
                 color: Colors.grey[700],
               ),
             ),
-            SizedBox(height: 8.w),
+            SizedBox(height: 8.tw),
             TextButton(
               onPressed: onRetry,
               child: Text(
                 'Retry',
                 style: GoogleFonts.poppins(
-                  fontSize: 14.sp,
+                  fontSize: 14.tsp,
                   fontWeight: FontWeight.w700,
                   color: const Color(0xFF0B2D5E),
                 ),

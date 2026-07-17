@@ -1,3 +1,4 @@
+import 'package:el_race/core/utils/responsive_breakpoints.dart';
 import 'package:el_race/chat/chat.dart';
 import 'package:el_race/core/services/notification_api_service.dart';
 import 'package:el_race/core/services/notification_storage_service.dart';
@@ -116,7 +117,7 @@ class AppSettingsWidget extends StatelessWidget {
               backgroundColor: Colors.transparent,
               insetPadding: const EdgeInsets.symmetric(horizontal: 34),
               child: Container(
-                padding: EdgeInsets.fromLTRB(18.w, 18.h, 18.w, 14.h),
+                padding: EdgeInsets.fromLTRB(18.tw, 18.th, 18.tw, 14.th),
                 decoration: BoxDecoration(
                   color: const Color(0xFFF7F7F8),
                   borderRadius: BorderRadius.circular(18),
@@ -126,7 +127,7 @@ class AppSettingsWidget extends StatelessWidget {
                   children: [
                     for (final item in channels)
                       Padding(
-                        padding: EdgeInsets.only(bottom: 10.h),
+                        padding: EdgeInsets.only(bottom: 10.th),
                         child: Row(
                           children: [
                             Expanded(
@@ -158,9 +159,9 @@ class AppSettingsWidget extends StatelessWidget {
                           ],
                         ),
                       ),
-                    SizedBox(height: 2.h),
+                    SizedBox(height: 2.th),
                     SizedBox(
-                      height: 32.h,
+                      height: 32.th,
                       child: ElevatedButton.icon(
                         onPressed: isSaving
                             ? null
@@ -174,7 +175,7 @@ class AppSettingsWidget extends StatelessWidget {
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(20),
                           ),
-                          padding: EdgeInsets.symmetric(horizontal: 20.w),
+                          padding: EdgeInsets.symmetric(horizontal: 20.tw),
                         ),
                         icon: const Icon(Icons.check_circle_outline, size: 18),
                         label: const Text(
@@ -224,8 +225,8 @@ class AppSettingsWidget extends StatelessWidget {
                     Padding(
                       padding: const EdgeInsets.symmetric(vertical: 8),
                       child: Container(
-                        width: 100.w,
-                        height: 34.w,
+                        width: 100.tw,
+                        height: 34.tw,
                         decoration: BoxDecoration(
                           gradient: LinearGradient(
                             colors: !SharedPref().isArabic()
@@ -269,8 +270,8 @@ class AppSettingsWidget extends StatelessWidget {
                     ),
                     const SizedBox(width: 10),
                     Container(
-                      width: 100.w,
-                      height: 34.w,
+                      width: 100.tw,
+                      height: 34.tw,
                       decoration: BoxDecoration(
                         borderRadius: BorderRadius.circular(20.3),
                       ),
@@ -304,7 +305,7 @@ class AppSettingsWidget extends StatelessWidget {
                 ),
               ),
 
-              SizedBox(height: 2.w),
+              SizedBox(height: 2.tw),
               // Container(
               //   height: 2,
               //   width: double.infinity,
@@ -322,7 +323,7 @@ class AppSettingsWidget extends StatelessWidget {
               // ),
 
               Container(
-                padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 14.w),
+                padding: EdgeInsets.symmetric(horizontal: 12.tw, vertical: 14.tw),
                 decoration: BoxDecoration(
                   boxShadow: [
                     BoxShadow(
@@ -374,10 +375,10 @@ class AppSettingsWidget extends StatelessWidget {
                 ),
               ),
               //🔹 Divider with shadow
-              SizedBox(height: 2.w),
+              SizedBox(height: 2.tw),
 
               Container(
-                padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 14.w),
+                padding: EdgeInsets.symmetric(horizontal: 12.tw, vertical: 14.tw),
                 decoration: BoxDecoration(
                   boxShadow: [
                     BoxShadow(
@@ -403,9 +404,9 @@ class AppSettingsWidget extends StatelessWidget {
           ),
         ),
         */
-        SizedBox(height: 40.h),
+        SizedBox(height: 40.th),
         Container(
-          padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 10.h),
+          padding: EdgeInsets.symmetric(horizontal: 12.tw, vertical: 10.th),
           decoration: BoxDecoration(
             color: Colors.white,
             boxShadow: [
@@ -434,15 +435,15 @@ class AppSettingsWidget extends StatelessWidget {
               children: [
                 Icon(
                   Icons.settings_outlined,
-                  size: 20.sp,
+                  size: 20.tsp,
                   color: const Color(0xFF1D1F5A),
                 ),
-                SizedBox(width: 10.w),
+                SizedBox(width: 10.tw),
                 Text(
                   'Notification Settings',
                   style: TextStyle(
                     color: const Color(0xFF1D1F5A),
-                    fontSize: 14.sp,
+                    fontSize: 14.tsp,
                     fontWeight: FontWeight.bold,
                   ),
                 ),
@@ -450,9 +451,9 @@ class AppSettingsWidget extends StatelessWidget {
             ),
           ),
         ),
-        SizedBox(height: 8.h),
+        SizedBox(height: 8.th),
         Container(
-          padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 10.h),
+          padding: EdgeInsets.symmetric(horizontal: 12.tw, vertical: 10.th),
           decoration: BoxDecoration(
             color: Colors.white,
             boxShadow: [
@@ -477,12 +478,12 @@ class AppSettingsWidget extends StatelessWidget {
                   width: 20,
                   height: 20,
                 ),
-                SizedBox(width: 10.w),
+                SizedBox(width: 10.tw),
                 Text(
                   'Mute Notifications',
                   style: TextStyle(
                     color: const Color(0xffBA1719),
-                    fontSize: 14.sp,
+                    fontSize: 14.tsp,
                     fontWeight: FontWeight.bold,
                   ),
                 ),
@@ -491,10 +492,10 @@ class AppSettingsWidget extends StatelessWidget {
           ),
         ),
         if (_showLogoutButton) ...[
-          SizedBox(height: 8.h),
+          SizedBox(height: 8.th),
           Container(
             padding: EdgeInsets.symmetric(
-              horizontal: 12.w,
+              horizontal: 12.tw,
             ),
             decoration: BoxDecoration(
               boxShadow: [
@@ -518,7 +519,7 @@ class AppSettingsWidget extends StatelessWidget {
               children: [
                 Image.asset('assets/png/log_out_icon.png'),
                 SizedBox(
-                  width: 25.w,
+                  width: 25.tw,
                 ),
                 TextButton(
                   onPressed: () async {

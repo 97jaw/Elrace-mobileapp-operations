@@ -1,3 +1,4 @@
+import 'package:el_race/core/utils/responsive_breakpoints.dart';
 import 'dart:math' as math;
 
 import 'package:el_race/ui/presentation/my_projects/domain/entities/project_entity.dart';
@@ -103,9 +104,9 @@ class _ProjectsStatusListScreenState extends State<ProjectsStatusListScreen> {
           Expanded(
             child: _initialLoading
                 ? ListView.separated(
-                    padding: EdgeInsets.fromLTRB(16.w, 12.h, 16.w, 24.h),
+                    padding: EdgeInsets.fromLTRB(16.tw, 12.th, 16.tw, 24.th),
                     itemCount: 6,
-                    separatorBuilder: (_, __) => SizedBox(height: 10.h),
+                    separatorBuilder: (_, __) => SizedBox(height: 10.th),
                     itemBuilder: (_, __) => const ProjectsProjectRowShimmer(),
                   )
                 : widget.projects.isEmpty
@@ -113,7 +114,7 @@ class _ProjectsStatusListScreenState extends State<ProjectsStatusListScreen> {
                         child: Text(
                           'No projects',
                           style: GoogleFonts.poppins(
-                            fontSize: 14.sp,
+                            fontSize: 14.tsp,
                             color: ProjectsDashboardTheme.grey,
                           ),
                         ),
@@ -121,9 +122,9 @@ class _ProjectsStatusListScreenState extends State<ProjectsStatusListScreen> {
                     : ListView.separated(
                         controller: _scrollController,
                         physics: const BouncingScrollPhysics(),
-                        padding: EdgeInsets.fromLTRB(16.w, 8.h, 16.w, 24.h),
+                        padding: EdgeInsets.fromLTRB(16.tw, 8.th, 16.tw, 24.th),
                         itemCount: visible.length + (showFooter ? 1 : 0),
-                        separatorBuilder: (_, __) => SizedBox(height: 10.h),
+                        separatorBuilder: (_, __) => SizedBox(height: 10.th),
                         itemBuilder: (context, index) {
                           if (index >= visible.length) {
                             return ProjectsListLoadMoreFooter(
@@ -206,9 +207,9 @@ class _ProjectRow extends StatelessWidget {
       color: Colors.transparent,
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(14.r),
+        borderRadius: BorderRadius.circular(14.tr),
         child: Container(
-          padding: EdgeInsets.all(12.w),
+          padding: EdgeInsets.all(12.tw),
           decoration: ProjectsDashboardTheme.frostedPanel(radius: 14),
           child: Row(
             children: [
@@ -219,18 +220,18 @@ class _ProjectRow extends StatelessWidget {
                     Text(
                       name,
                       style: GoogleFonts.poppins(
-                        fontSize: 13.sp,
+                        fontSize: 13.tsp,
                         fontWeight: FontWeight.w600,
                         color: const Color(0xFF1F2937),
                       ),
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                     ),
-                    SizedBox(height: 4.h),
+                    SizedBox(height: 4.th),
                     Text(
                       status,
                       style: GoogleFonts.poppins(
-                        fontSize: 11.sp,
+                        fontSize: 11.tsp,
                         color: ProjectsDashboardTheme.maroon,
                         fontWeight: FontWeight.w500,
                       ),
@@ -241,7 +242,7 @@ class _ProjectRow extends StatelessWidget {
               Icon(
                 Icons.chevron_right_rounded,
                 color: ProjectsDashboardTheme.maroon,
-                size: 24.sp,
+                size: 24.tsp,
               ),
             ],
           ),

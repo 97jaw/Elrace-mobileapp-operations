@@ -1,3 +1,4 @@
+import 'package:el_race/core/utils/responsive_breakpoints.dart';
 import 'package:el_race/ui/presentation/my_projects/presentation/models/project_document_hub_kind.dart';
 import 'package:el_race/ui/presentation/my_projects/presentation/theme/projects_dashboard_theme.dart';
 import 'package:el_race/ui/presentation/my_projects/presentation/widgets/project_documents_section_tile.dart';
@@ -61,7 +62,7 @@ class ProjectDocumentSectionHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: EdgeInsets.fromLTRB(4.w, 8.h, 4.w, 8.h),
+      padding: EdgeInsets.fromLTRB(4.tw, 8.th, 4.tw, 8.th),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -72,16 +73,16 @@ class ProjectDocumentSectionHeader extends StatelessWidget {
                 Text(
                   title,
                   style: GoogleFonts.poppins(
-                    fontSize: 15.sp,
+                    fontSize: 15.tsp,
                     fontWeight: FontWeight.w600,
                     color: ProjectsDashboardTheme.white,
                   ),
                 ),
-                SizedBox(height: 2.h),
+                SizedBox(height: 2.th),
                 Text(
                   subtitle,
                   style: GoogleFonts.poppins(
-                    fontSize: 12.sp,
+                    fontSize: 12.tsp,
                     color: ProjectsDashboardTheme.greyPanel
                         .withValues(alpha: 0.88),
                   ),
@@ -94,12 +95,12 @@ class ProjectDocumentSectionHeader extends StatelessWidget {
               color: Colors.transparent,
               child: InkWell(
                 onTap: onMoreTap,
-                borderRadius: BorderRadius.circular(10.r),
+                borderRadius: BorderRadius.circular(10.tr),
                 child: Container(
-                  width: 34.w,
-                  height: 34.w,
+                  width: 34.tw,
+                  height: 34.tw,
                   decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(10.r),
+                    borderRadius: BorderRadius.circular(10.tr),
                     color: ProjectsDashboardTheme.white.withValues(alpha: 0.12),
                     border: Border.all(
                       color: ProjectsDashboardTheme.white.withValues(alpha: 0.22),
@@ -107,7 +108,7 @@ class ProjectDocumentSectionHeader extends StatelessWidget {
                   ),
                   child: Icon(
                     Icons.more_horiz_rounded,
-                    size: 20.sp,
+                    size: 20.tsp,
                     color: ProjectsDashboardTheme.white.withValues(alpha: 0.9),
                   ),
                 ),

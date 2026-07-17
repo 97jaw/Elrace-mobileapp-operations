@@ -1,3 +1,4 @@
+import 'package:el_race/core/utils/responsive_breakpoints.dart';
 import 'package:el_race/ui/presentation/my_actions/data/my_actions_models.dart';
 import 'package:el_race/ui/presentation/my_actions/theme/my_actions_module_theme.dart';
 import 'package:el_race/ui/presentation/my_actions/widgets/my_action_list_tile.dart';
@@ -89,7 +90,7 @@ class MyActionsLandingScaffold extends StatelessWidget {
                                 slivers: [
                                   SliverToBoxAdapter(child: _HeroSection()),
                                   SliverToBoxAdapter(child: _BodySection()),
-                                  SliverToBoxAdapter(child: SizedBox(height: 32.h)),
+                                  SliverToBoxAdapter(child: SizedBox(height: 32.th)),
                                 ],
                               ),
                             ),
@@ -104,7 +105,7 @@ class MyActionsLandingScaffold extends StatelessWidget {
 
   Widget _HeroSection() {
     return Padding(
-      padding: EdgeInsets.fromLTRB(20.w, 4.h, 20.w, 28.h),
+      padding: EdgeInsets.fromLTRB(20.tw, 4.th, 20.tw, 28.th),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -113,26 +114,26 @@ class MyActionsLandingScaffold extends StatelessWidget {
             children: [
               Image.asset(
                 theme.iconAsset,
-                width: 32.w,
-                height: 32.w,
+                width: 32.tw,
+                height: 32.tw,
                 fit: BoxFit.contain,
               ),
-              SizedBox(width: 10.w),
+              SizedBox(width: 10.tw),
               Expanded(
                 child: Text(theme.title, style: theme.heroTitle),
               ),
             ],
           ),
-          SizedBox(height: 8.h),
+          SizedBox(height: 8.th),
           Text(_slogan, style: theme.heroSlogan),
           if (!underPlanning) ...[
-            SizedBox(height: 22.h),
+            SizedBox(height: 22.th),
             _QuickActionsRow(
               theme: theme,
               active: filter,
               onSelected: onFilterChanged,
             ),
-            SizedBox(height: 16.h),
+            SizedBox(height: 16.th),
             Row(
               children: [
                 Expanded(
@@ -144,7 +145,7 @@ class MyActionsLandingScaffold extends StatelessWidget {
                     tint: MyActionsModuleTheme.pending,
                   ),
                 ),
-                SizedBox(width: 12.w),
+                SizedBox(width: 12.tw),
                 Expanded(
                   child: _StatCard(
                     theme: theme,
@@ -165,28 +166,28 @@ class MyActionsLandingScaffold extends StatelessWidget {
   Widget _BodySection() {
     if (underPlanning) {
       return Transform.translate(
-        offset: Offset(0, -12.h),
+        offset: Offset(0, -12.th),
         child: Container(
           decoration: BoxDecoration(
             color: MyActionsModuleTheme.white,
-            borderRadius: BorderRadius.vertical(top: Radius.circular(28.r)),
+            borderRadius: BorderRadius.vertical(top: Radius.circular(28.tr)),
           ),
           child: Padding(
-            padding: EdgeInsets.fromLTRB(24.w, 40.h, 24.w, 48.h),
+            padding: EdgeInsets.fromLTRB(24.tw, 40.th, 24.tw, 48.th),
             child: Column(
               children: [
                 Icon(
                   Icons.construction_rounded,
-                  size: 56.sp,
+                  size: 56.tsp,
                   color: theme.primary.withValues(alpha: 0.75),
                 ),
-                SizedBox(height: 16.h),
+                SizedBox(height: 16.th),
                 Text(
                   'Under planning',
                   style: theme.sectionTitle,
                   textAlign: TextAlign.center,
                 ),
-                SizedBox(height: 8.h),
+                SizedBox(height: 8.th),
                 Text(
                   planningMessage,
                   textAlign: TextAlign.center,
@@ -202,11 +203,11 @@ class MyActionsLandingScaffold extends StatelessWidget {
     final recent = _filtered.take(4).toList();
 
     return Transform.translate(
-      offset: Offset(0, -12.h),
+      offset: Offset(0, -12.th),
       child: Container(
         decoration: BoxDecoration(
           color: MyActionsModuleTheme.white,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(28.r)),
+          borderRadius: BorderRadius.vertical(top: Radius.circular(28.tr)),
           boxShadow: [
             BoxShadow(
               color: theme.deep.withValues(alpha: 0.06),
@@ -216,7 +217,7 @@ class MyActionsLandingScaffold extends StatelessWidget {
           ],
         ),
         child: Padding(
-          padding: EdgeInsets.fromLTRB(20.w, 22.h, 20.w, 0),
+          padding: EdgeInsets.fromLTRB(20.tw, 22.th, 20.tw, 0),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -229,7 +230,7 @@ class MyActionsLandingScaffold extends StatelessWidget {
                     child: Text(
                       'Show all',
                       style: GoogleFonts.poppins(
-                        fontSize: 14.sp,
+                        fontSize: 14.tsp,
                         fontWeight: FontWeight.w600,
                         color: theme.primary,
                       ),
@@ -237,19 +238,19 @@ class MyActionsLandingScaffold extends StatelessWidget {
                   ),
                 ],
               ),
-              SizedBox(height: 4.h),
+              SizedBox(height: 4.th),
               if (recent.isEmpty)
                 Padding(
-                  padding: EdgeInsets.symmetric(vertical: 40.h),
+                  padding: EdgeInsets.symmetric(vertical: 40.th),
                   child: Center(
                     child: Column(
                       children: [
                         Icon(
                           Icons.inbox_outlined,
-                          size: 48.sp,
+                          size: 48.tsp,
                           color: MyActionsModuleTheme.textMuted,
                         ),
-                        SizedBox(height: 10.h),
+                        SizedBox(height: 10.th),
                         Text('No requests in this view', style: theme.cardSubtitle),
                       ],
                     ),
@@ -258,7 +259,7 @@ class MyActionsLandingScaffold extends StatelessWidget {
               else
                 ...recent.map(
                   (item) => Padding(
-                    padding: EdgeInsets.only(bottom: 10.h),
+                    padding: EdgeInsets.only(bottom: 10.th),
                     child: MyActionListTile(
                       item: item,
                       theme: theme,
@@ -297,7 +298,7 @@ class _QuickActionsRow extends StatelessWidget {
           selected: active == MyActionFilter.all,
           onTap: () => onSelected(MyActionFilter.all),
         ),
-        SizedBox(width: 8.w),
+        SizedBox(width: 8.tw),
         _QuickAction(
           theme: theme,
           icon: Icons.schedule_rounded,
@@ -305,7 +306,7 @@ class _QuickActionsRow extends StatelessWidget {
           selected: active == MyActionFilter.pending,
           onTap: () => onSelected(MyActionFilter.pending),
         ),
-        SizedBox(width: 8.w),
+        SizedBox(width: 8.tw),
         _QuickAction(
           theme: theme,
           icon: Icons.check_rounded,
@@ -313,7 +314,7 @@ class _QuickActionsRow extends StatelessWidget {
           selected: active == MyActionFilter.approved,
           onTap: () => onSelected(MyActionFilter.approved),
         ),
-        SizedBox(width: 8.w),
+        SizedBox(width: 8.tw),
         _QuickAction(
           theme: theme,
           icon: Icons.close_rounded,
@@ -348,13 +349,13 @@ class _QuickAction extends StatelessWidget {
         color: Colors.transparent,
         child: InkWell(
           onTap: onTap,
-          borderRadius: BorderRadius.circular(14.r),
+          borderRadius: BorderRadius.circular(14.tr),
           child: AnimatedContainer(
             duration: const Duration(milliseconds: 200),
-            padding: EdgeInsets.symmetric(vertical: 13.h),
+            padding: EdgeInsets.symmetric(vertical: 13.th),
             decoration: BoxDecoration(
               color: selected ? theme.primary : MyActionsModuleTheme.white,
-              borderRadius: BorderRadius.circular(14.r),
+              borderRadius: BorderRadius.circular(14.tr),
               border: Border.all(
                 color: selected ? theme.primary : MyActionsModuleTheme.white,
                 width: 1.4,
@@ -372,16 +373,16 @@ class _QuickAction extends StatelessWidget {
               children: [
                 Icon(
                   icon,
-                  size: 21.sp,
+                  size: 21.tsp,
                   color: selected
                       ? MyActionsModuleTheme.white
                       : theme.primary,
                 ),
-                SizedBox(height: 5.h),
+                SizedBox(height: 5.th),
                 Text(
                   label,
                   style: GoogleFonts.poppins(
-                    fontSize: 11.sp,
+                    fontSize: 11.tsp,
                     fontWeight: FontWeight.w700,
                     color: selected
                         ? MyActionsModuleTheme.white
@@ -415,20 +416,20 @@ class _StatCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: EdgeInsets.all(14.w),
+      padding: EdgeInsets.all(14.tw),
       decoration: theme.statCard(),
       child: Row(
         children: [
           Container(
-            width: 36.w,
-            height: 36.w,
+            width: 36.tw,
+            height: 36.tw,
             decoration: BoxDecoration(
               color: tint.withValues(alpha: 0.15),
               shape: BoxShape.circle,
             ),
-            child: Icon(icon, color: tint, size: 18.sp),
+            child: Icon(icon, color: tint, size: 18.tsp),
           ),
-          SizedBox(width: 10.w),
+          SizedBox(width: 10.tw),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -436,7 +437,7 @@ class _StatCard extends StatelessWidget {
                 Text(
                   value,
                   style: GoogleFonts.poppins(
-                    fontSize: 20.sp,
+                    fontSize: 20.tsp,
                     fontWeight: FontWeight.w700,
                     color: MyActionsModuleTheme.textDark,
                   ),
@@ -464,7 +465,7 @@ class _ErrorBody extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         children: [
           Text('Could not load requests', style: theme.heroSlogan),
-          SizedBox(height: 12.h),
+          SizedBox(height: 12.th),
           TextButton(
             onPressed: onRetry,
             child: Text(

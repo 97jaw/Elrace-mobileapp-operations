@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:el_race/core/biometric/unified_biometric_helper.dart';
 import 'package:el_race/core/services/attendance_status_sync_service.dart';
+import 'package:el_race/core/session/login_session_refresh_service.dart';
 import 'package:el_race/ui/presentation/home_screen/bloc/home_bloc.dart';
 import 'package:el_race/ui/presentation/home_screen/bloc/location_bloc/location_bloc.dart';
 import 'package:el_race/ui/presentation/home_screen/screens/main_home_content_widget.dart';
@@ -11,11 +12,13 @@ import 'package:el_race/ui/presentation/home_screen/widgets/timer_controller.dar
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter_translate/flutter_translate.dart';
 import 'package:get/get.dart';
 import 'package:location/location.dart';
 import 'package:el_race/core/services/app_config_service.dart';
+import 'package:el_race/ui/presentation/home_screen/screens/biometric_sign_in_gate_screen.dart';
 
 class HomeScreen extends StatelessWidget {
   const HomeScreen({super.key});
@@ -56,8 +59,10 @@ class _HomeScreenState extends State<HomeScreenPage>
 
   // bool isMuted = false; // default value
   bool isCheckedIn = false;
-  /// Blocks home UI until biometrics succeed (covers cancel → re-prompt gaps).
+  /// Blocks home UI until biometrics succeed (covers cancel → gate screen).
   bool _isBiometricLocked = false;
+  /// After cancel/miss: show logo + "Sign in with biometric" screen.
+  bool _showBiometricGateScreen = false;
   final _locationBloc = LocationBloc();
   final Location _location = Location();
 
@@ -102,62 +107,57 @@ class _HomeScreenState extends State<HomeScreenPage>
 
   /// Authenticate user right after login using device biometrics only.
   /// PIN, passcode, password, and pattern fallback are not allowed.
-  Future<void> _authenticateAfterLogin() async {
-    if (HomeScreenPage._didAuthenticateThisSession || HomeScreenPage._isAuthenticating) {
-      return;
-    }
+  /// On cancel/miss, show [BiometricSignInGateScreen] instead of auto-reprompting.
+  Future<void> _authenticateAfterLogin({bool fromButton = false}) async {
+    if (HomeScreenPage._didAuthenticateThisSession) return;
+    if (HomeScreenPage._isAuthenticating && !fromButton) return;
 
     HomeScreenPage._isAuthenticating = true;
     _setBiometricLocked(true);
+    if (mounted) setState(() => _showBiometricGateScreen = false);
 
-    // Brief settle so the first frame paints the lock before OS prompt.
-    await Future.delayed(const Duration(milliseconds: 350));
+    if (!fromButton) {
+      await Future.delayed(const Duration(milliseconds: 350));
+    }
     if (!mounted) {
       HomeScreenPage._isAuthenticating = false;
       HomeScreenPage._sessionUiLocked = false;
       return;
     }
 
-    // Now actually authenticate (Face ID / fingerprint only)
-    bool authenticated = false;
-    while (!authenticated && mounted) {
-      // Keep absorbing input for the whole gate — including between cancel and
-      // the next system prompt.
-      _setBiometricLocked(true);
+    final hasBiometrics = await UnifiedBiometricHelper.isBiometricAvailable();
+    if (!mounted) {
+      HomeScreenPage._isAuthenticating = false;
+      return;
+    }
 
-      final hasBiometrics = await UnifiedBiometricHelper.isBiometricAvailable();
-      if (!mounted) break;
+    if (!hasBiometrics) {
+      await _showBiometricRequiredDialog();
+      HomeScreenPage._isAuthenticating = false;
+      if (mounted) setState(() => _showBiometricGateScreen = true);
+      return;
+    }
 
-      if (!hasBiometrics && mounted) {
-        await _showBiometricRequiredDialog();
-        continue;
-      }
+    final authenticated = await UnifiedBiometricHelper.authenticate(
+      context: context,
+      title: 'تحقق من الهوية',
+      subtitle: 'يرجى التحقق من هويتك للمتابعة',
+      reason: 'تحقق من هويتك بعد تسجيل الدخول',
+    );
 
-      authenticated = await UnifiedBiometricHelper.authenticate(
-        context: context,
-        title: 'تحقق من الهوية',
-        subtitle: 'يرجى التحقق من هويتك للمتابعة',
-        reason: 'تحقق من هويتك بعد تسجيل الدخول',
-      );
-
-      if (!authenticated && mounted) {
-        // Stay locked; short debounce only before re-prompt — never unlock UI.
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('يجب التحقق من هويتك للمتابعة'),
-            duration: Duration(milliseconds: 1200),
-          ),
-        );
-        await Future.delayed(const Duration(milliseconds: 900));
-      }
+    if (!mounted) {
+      HomeScreenPage._isAuthenticating = false;
+      return;
     }
 
     if (authenticated) {
       HomeScreenPage._didAuthenticateThisSession = true;
       _setBiometricLocked(false);
+      setState(() => _showBiometricGateScreen = false);
     } else {
-      // Keep locked if we left without success (e.g. disposed while prompting).
+      // Cancel / miss → dedicated sign-in screen (session stays logged in).
       _setBiometricLocked(true);
+      setState(() => _showBiometricGateScreen = true);
     }
     HomeScreenPage._isAuthenticating = false;
   }
@@ -198,6 +198,11 @@ class _HomeScreenState extends State<HomeScreenPage>
       // مزامنة حالة الحضور من السيرفر عند العودة من الخلفية
       // لضمان تحديث الأوقات والعداد بدون الحاجة لتسجيل خروج/دخول
       AttendanceStatusSyncService.refreshFromServer(reason: 'app_resumed');
+      if (mounted) {
+        final container = ProviderScope.containerOf(context);
+        // ignore: unawaited_futures
+        LoginSessionRefreshService.refreshRoles(container: container);
+      }
     }
   }
 
@@ -298,7 +303,14 @@ class _HomeScreenState extends State<HomeScreenPage>
               );
             },
           ),
-          if (gateLocked)
+          if (gateLocked && _showBiometricGateScreen)
+            Positioned.fill(
+              child: BiometricSignInGateScreen(
+                onSignInWithBiometric: () =>
+                    _authenticateAfterLogin(fromButton: true),
+              ),
+            )
+          else if (gateLocked)
             const Positioned.fill(
               child: _BiometricLockOverlay(),
             ),

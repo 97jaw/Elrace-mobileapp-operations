@@ -1,3 +1,4 @@
+import 'package:el_race/core/utils/responsive_breakpoints.dart';
 import 'package:el_race/core/payslip/models/payslip_models.dart';
 import 'package:el_race/core/payslip/providers/payslip_providers.dart';
 import 'package:el_race/core/theme/hr_module_colors.dart';
@@ -36,31 +37,31 @@ class EmployeePayslipModuleScreen extends ConsumerWidget {
           Expanded(
             child: ListView(
           padding: EdgeInsets.fromLTRB(
-            HrModuleLayout.screenPaddingH.w,
-            16.h,
-            HrModuleLayout.screenPaddingH.w,
-            32.h,
+            HrModuleLayout.screenPaddingH.tw,
+            16.th,
+            HrModuleLayout.screenPaddingH.tw,
+            32.th,
           ),
           children: [
           Text(
             'Filters',
-            style: HrModuleTypography.sectionHeading().copyWith(fontSize: 15.sp),
+            style: HrModuleTypography.sectionHeading().copyWith(fontSize: 15.tsp),
           ),
-          SizedBox(height: 8.h),
+          SizedBox(height: 8.th),
           Text(
             'Month',
             style: HrModuleTypography.caption().copyWith(
-                  fontSize: 12.sp,
+                  fontSize: 12.tsp,
                   fontWeight: FontWeight.w600,
                 ),
           ),
-          SizedBox(height: 6.h),
+          SizedBox(height: 6.th),
           InputDecorator(
             decoration: InputDecoration(
               filled: true,
               fillColor: HrModuleColors.surface,
               contentPadding:
-                  EdgeInsets.symmetric(horizontal: 12.w, vertical: 4.h),
+                  EdgeInsets.symmetric(horizontal: 12.tw, vertical: 4.th),
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(10),
                 borderSide: BorderSide(color: HrModuleColors.border),
@@ -90,7 +91,7 @@ class EmployeePayslipModuleScreen extends ConsumerWidget {
               ),
             ),
           ),
-          SizedBox(height: 8.h),
+          SizedBox(height: 8.th),
           Align(
             alignment: Alignment.centerLeft,
             child: TextButton.icon(
@@ -103,12 +104,12 @@ class EmployeePayslipModuleScreen extends ConsumerWidget {
               label: const Text('Jump to current month'),
             ),
           ),
-          SizedBox(height: 20.h),
+          SizedBox(height: 20.th),
           Text(
             'Payslip for selected month',
-            style: HrModuleTypography.sectionHeading().copyWith(fontSize: 15.sp),
+            style: HrModuleTypography.sectionHeading().copyWith(fontSize: 15.tsp),
           ),
-          SizedBox(height: 10.h),
+          SizedBox(height: 10.th),
           monthAsync.when(
             data: (list) {
               final PayslipSummary? selected =
@@ -116,7 +117,7 @@ class EmployeePayslipModuleScreen extends ConsumerWidget {
               if (selected == null) {
                 return Container(
                   width: double.infinity,
-                  padding: EdgeInsets.all(20.w),
+                  padding: EdgeInsets.all(20.tw),
                   decoration: BoxDecoration(
                     color: HrModuleColors.surface,
                     borderRadius: BorderRadius.circular(12),
@@ -124,7 +125,7 @@ class EmployeePayslipModuleScreen extends ConsumerWidget {
                   ),
                   child: Text(
                     'No payslip for ${DateFormat('MMMM yyyy').format(filterMonth)}.',
-                    style: HrModuleTypography.body().copyWith(fontSize: 14.sp),
+                    style: HrModuleTypography.body().copyWith(fontSize: 14.tsp),
                   ),
                 );
               }
@@ -145,17 +146,17 @@ class EmployeePayslipModuleScreen extends ConsumerWidget {
             ),
             error: (e, _) => Text('Error: $e'),
           ),
-          SizedBox(height: 28.h),
+          SizedBox(height: 28.th),
           Text(
             'Recent payslips',
-            style: HrModuleTypography.sectionHeading().copyWith(fontSize: 15.sp),
+            style: HrModuleTypography.sectionHeading().copyWith(fontSize: 15.tsp),
           ),
-          SizedBox(height: 6.h),
+          SizedBox(height: 6.th),
           Text(
             'Last five pay periods',
-            style: HrModuleTypography.caption().copyWith(fontSize: 12.sp),
+            style: HrModuleTypography.caption().copyWith(fontSize: 12.tsp),
           ),
-          SizedBox(height: 12.h),
+          SizedBox(height: 12.th),
           recentAsync.when(
             data: (list) {
               final selectedId = monthAsync.maybeWhen(
@@ -185,7 +186,7 @@ class EmployeePayslipModuleScreen extends ConsumerWidget {
                             : s.periodTitle,
                       ),
                     ),
-                    SizedBox(height: 10.h),
+                    SizedBox(height: 10.th),
                   ],
                 ],
               );

@@ -1,3 +1,4 @@
+import 'package:el_race/core/utils/responsive_breakpoints.dart';
 import 'package:el_race/core/widgets/hr_management/hr_module_glass_header.dart';
 import 'package:el_race/ui/navigation/home_navigation.dart';
 import 'package:el_race/ui/presentation/call_screen/data/model.dart';
@@ -336,12 +337,12 @@ class _EmployeesProfileScreenState extends State<EmployeesProfileScreen> {
         accentTint: HrModuleHeaderTints.employeesProfile,
         body: Center(
           child: Padding(
-            padding: EdgeInsets.all(24.w),
+            padding: EdgeInsets.all(24.tw),
             child: Text(
               'This service is available to management users only.',
               textAlign: TextAlign.center,
               style: GoogleFonts.poppins(
-                fontSize: 14.sp,
+                fontSize: 14.tsp,
                 color: _ProfilePalette.muted,
                 fontWeight: FontWeight.w500,
               ),
@@ -420,7 +421,7 @@ class _SearchPane extends StatelessWidget {
     final hasQuery = _queryIsActive(query);
 
     final searchHeader = Padding(
-      padding: EdgeInsets.symmetric(horizontal: 22.w),
+      padding: EdgeInsets.symmetric(horizontal: 22.tw),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
@@ -428,7 +429,7 @@ class _SearchPane extends StatelessWidget {
             duration: const Duration(milliseconds: 280),
             curve: Curves.easeOutCubic,
             style: GoogleFonts.poppins(
-              fontSize: hasQuery ? 14.sp : 16.sp,
+              fontSize: hasQuery ? 14.tsp : 16.tsp,
               fontWeight: FontWeight.w700,
               color: _ProfilePalette.accent,
               height: 1.3,
@@ -438,7 +439,7 @@ class _SearchPane extends StatelessWidget {
               textAlign: TextAlign.center,
             ),
           ),
-          SizedBox(height: hasQuery ? 10.h : 14.h),
+          SizedBox(height: hasQuery ? 10.th : 14.th),
           _GlassSearchField(
             controller: controller,
             focusNode: focusNode,
@@ -459,7 +460,7 @@ class _SearchPane extends StatelessWidget {
               child: IgnorePointer(
                 ignoring: !hasQuery,
                 child: Padding(
-                  padding: EdgeInsets.only(top: 118.h),
+                  padding: EdgeInsets.only(top: 118.th),
                   child: !hasQuery
                       ? const SizedBox.shrink()
                       : results.isEmpty
@@ -467,17 +468,17 @@ class _SearchPane extends StatelessWidget {
                               child: Text(
                                 'No profiles match “${query.trim()}”',
                                 style: GoogleFonts.poppins(
-                                  fontSize: 13.sp,
+                                  fontSize: 13.tsp,
                                   color: _ProfilePalette.muted,
                                 ),
                               ),
                             )
                           : ListView.separated(
                               padding:
-                                  EdgeInsets.fromLTRB(16.w, 4.h, 16.w, 20.h),
+                                  EdgeInsets.fromLTRB(16.tw, 4.th, 16.tw, 20.th),
                               itemCount: results.length,
                               separatorBuilder: (_, __) =>
-                                  SizedBox(height: 8.h),
+                                  SizedBox(height: 8.th),
                               itemBuilder: (context, index) {
                                 final item = results[index];
                                 return _SuggestionCard(
@@ -497,7 +498,7 @@ class _SearchPane extends StatelessWidget {
             child: AnimatedPadding(
               duration: const Duration(milliseconds: 320),
               curve: Curves.easeOutCubic,
-              padding: EdgeInsets.only(top: hasQuery ? 12.h : 0),
+              padding: EdgeInsets.only(top: hasQuery ? 12.th : 0),
               child: searchHeader,
             ),
           ),
@@ -505,7 +506,7 @@ class _SearchPane extends StatelessWidget {
             Positioned(
               left: 0,
               right: 0,
-              bottom: 28.h,
+              bottom: 28.th,
               child: loading
                   ? const Center(
                       child: CircularProgressIndicator(
@@ -515,7 +516,7 @@ class _SearchPane extends StatelessWidget {
                     )
                   : error != null
                       ? Padding(
-                          padding: EdgeInsets.symmetric(horizontal: 24.w),
+                          padding: EdgeInsets.symmetric(horizontal: 24.tw),
                           child: Column(
                             mainAxisSize: MainAxisSize.min,
                             children: [
@@ -523,7 +524,7 @@ class _SearchPane extends StatelessWidget {
                                 error!,
                                 textAlign: TextAlign.center,
                                 style: GoogleFonts.poppins(
-                                  fontSize: 13.sp,
+                                  fontSize: 13.tsp,
                                   color: _ProfilePalette.muted,
                                 ),
                               ),
@@ -544,7 +545,7 @@ class _SearchPane extends StatelessWidget {
                           'Type at least 3 letters (or 2 digits for file id)',
                           textAlign: TextAlign.center,
                           style: GoogleFonts.poppins(
-                            fontSize: 12.5.sp,
+                            fontSize: 12.5.tsp,
                             color: _ProfilePalette.muted,
                             fontWeight: FontWeight.w500,
                           ),
@@ -571,12 +572,12 @@ class _GlassSearchField extends StatelessWidget {
   Widget build(BuildContext context) {
     return Material(
       color: Colors.transparent,
-      borderRadius: BorderRadius.circular(18.r),
+      borderRadius: BorderRadius.circular(18.tr),
       clipBehavior: Clip.antiAlias,
       child: DecoratedBox(
         decoration: BoxDecoration(
           color: _ProfilePalette.glassWhite,
-          borderRadius: BorderRadius.circular(18.r),
+          borderRadius: BorderRadius.circular(18.tr),
           border: Border.all(
             color: _ProfilePalette.accent.withValues(alpha: 0.22),
           ),
@@ -584,7 +585,7 @@ class _GlassSearchField extends StatelessWidget {
             BoxShadow(
               color: _ProfilePalette.accent.withValues(alpha: 0.08),
               blurRadius: 16,
-              offset: Offset(0, 6.h),
+              offset: Offset(0, 6.th),
             ),
           ],
         ),
@@ -595,7 +596,7 @@ class _GlassSearchField extends StatelessWidget {
           autofocus: false,
           textInputAction: TextInputAction.search,
           style: GoogleFonts.poppins(
-            fontSize: 14.sp,
+            fontSize: 14.tsp,
             fontWeight: FontWeight.w500,
             color: _ProfilePalette.ink,
           ),
@@ -603,14 +604,14 @@ class _GlassSearchField extends StatelessWidget {
           decoration: InputDecoration(
             hintText: 'Type name or file id',
             hintStyle: GoogleFonts.poppins(
-              fontSize: 13.5.sp,
+              fontSize: 13.5.tsp,
               color: _ProfilePalette.muted.withValues(alpha: 0.85),
               fontWeight: FontWeight.w400,
             ),
             prefixIcon: Icon(
               Icons.search_rounded,
               color: _ProfilePalette.accentSoft,
-              size: 22.sp,
+              size: 22.tsp,
             ),
             suffixIcon: ValueListenableBuilder<TextEditingValue>(
               valueListenable: controller,
@@ -621,7 +622,7 @@ class _GlassSearchField extends StatelessWidget {
                   onPressed: controller.clear,
                   icon: Icon(
                     Icons.close_rounded,
-                    size: 20.sp,
+                    size: 20.tsp,
                     color: _ProfilePalette.muted,
                   ),
                 );
@@ -629,8 +630,8 @@ class _GlassSearchField extends StatelessWidget {
             ),
             border: InputBorder.none,
             contentPadding: EdgeInsets.symmetric(
-              horizontal: 8.w,
-              vertical: 14.h,
+              horizontal: 8.tw,
+              vertical: 14.th,
             ),
           ),
         ),
@@ -654,10 +655,10 @@ class _SuggestionCard extends StatelessWidget {
       color: Colors.transparent,
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(16.r),
+        borderRadius: BorderRadius.circular(16.tr),
         child: Ink(
           decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(16.r),
+            borderRadius: BorderRadius.circular(16.tr),
             color: Colors.white,
             border: Border.all(
               color: _ProfilePalette.accent.withValues(alpha: 0.12),
@@ -666,16 +667,16 @@ class _SuggestionCard extends StatelessWidget {
               BoxShadow(
                 color: Colors.black.withValues(alpha: 0.05),
                 blurRadius: 10,
-                offset: Offset(0, 3.h),
+                offset: Offset(0, 3.th),
               ),
             ],
           ),
           child: Padding(
-            padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 10.h),
+            padding: EdgeInsets.symmetric(horizontal: 12.tw, vertical: 10.th),
             child: Row(
               children: [
                 _Avatar(url: item.photoUrl, name: item.displayName, radius: 26),
-                SizedBox(width: 12.w),
+                SizedBox(width: 12.tw),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -685,12 +686,12 @@ class _SuggestionCard extends StatelessWidget {
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: GoogleFonts.poppins(
-                          fontSize: 14.sp,
+                          fontSize: 14.tsp,
                           fontWeight: FontWeight.w700,
                           color: _ProfilePalette.ink,
                         ),
                       ),
-                      SizedBox(height: 2.h),
+                      SizedBox(height: 2.th),
                       Text(
                         [
                           if (item.designation.isNotEmpty) item.designation,
@@ -699,27 +700,27 @@ class _SuggestionCard extends StatelessWidget {
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: GoogleFonts.poppins(
-                          fontSize: 11.5.sp,
+                          fontSize: 11.5.tsp,
                           color: _ProfilePalette.muted,
                           fontWeight: FontWeight.w500,
                         ),
                       ),
                       if (item.fileId.isNotEmpty) ...[
-                        SizedBox(height: 4.h),
+                        SizedBox(height: 4.th),
                         Container(
                           padding: EdgeInsets.symmetric(
-                            horizontal: 8.w,
-                            vertical: 2.h,
+                            horizontal: 8.tw,
+                            vertical: 2.th,
                           ),
                           decoration: BoxDecoration(
                             color:
                                 _ProfilePalette.accent.withValues(alpha: 0.08),
-                            borderRadius: BorderRadius.circular(8.r),
+                            borderRadius: BorderRadius.circular(8.tr),
                           ),
                           child: Text(
                             'File ID ${item.fileId}',
                             style: GoogleFonts.poppins(
-                              fontSize: 11.sp,
+                              fontSize: 11.tsp,
                               fontWeight: FontWeight.w600,
                               color: _ProfilePalette.accent,
                             ),
@@ -732,7 +733,7 @@ class _SuggestionCard extends StatelessWidget {
                 Icon(
                   Icons.chevron_right_rounded,
                   color: _ProfilePalette.accent.withValues(alpha: 0.55),
-                  size: 22.sp,
+                  size: 22.tsp,
                 ),
               ],
             ),
@@ -777,7 +778,7 @@ class _ProfileDetailView extends StatelessWidget {
     final section = profile?.section?.trim() ?? '';
 
     return Padding(
-      padding: EdgeInsets.fromLTRB(12.w, 6.h, 12.w, 10.h),
+      padding: EdgeInsets.fromLTRB(12.tw, 6.th, 12.tw, 10.th),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -791,7 +792,7 @@ class _ProfileDetailView extends StatelessWidget {
             department: department,
             section: section,
           ),
-          SizedBox(height: 8.h),
+          SizedBox(height: 8.th),
           if (loading)
             const Expanded(child: Center(child: _KpiShimmer()))
           else if (error != null)
@@ -801,15 +802,15 @@ class _ProfileDetailView extends StatelessWidget {
               flex: 5,
               child: _KpiTable(kpis: profile!.kpis),
             ),
-            SizedBox(height: 8.h),
+            SizedBox(height: 8.th),
             Expanded(
               flex: 6,
               child: _InfoTable(info: profile!.info),
             ),
-            SizedBox(height: 8.h),
+            SizedBox(height: 8.th),
             SizedBox(
               width: double.infinity,
-              height: 44.h,
+              height: 44.th,
               child: ElevatedButton(
                 onPressed: () {
                   final id = profile?.employeeId ?? listItem.odooEmployeeId;
@@ -825,13 +826,13 @@ class _ProfileDetailView extends StatelessWidget {
                   foregroundColor: Colors.white,
                   elevation: 0,
                   shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12.r),
+                    borderRadius: BorderRadius.circular(12.tr),
                   ),
                 ),
                 child: Text(
                   'Request more info',
                   style: GoogleFonts.poppins(
-                    fontSize: 13.5.sp,
+                    fontSize: 13.5.tsp,
                     fontWeight: FontWeight.w700,
                   ),
                 ),
@@ -869,17 +870,17 @@ class _HeaderCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: EdgeInsets.all(10.w),
+      padding: EdgeInsets.all(10.tw),
       decoration: BoxDecoration(
         color: _ProfilePalette.panel,
-        borderRadius: BorderRadius.circular(14.r),
+        borderRadius: BorderRadius.circular(14.tr),
         border: Border.all(color: _ProfilePalette.line),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
           _Avatar(url: photoUrl, name: name, radius: 30),
-          SizedBox(width: 10.w),
+          SizedBox(width: 10.tw),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -887,27 +888,27 @@ class _HeaderCard extends StatelessWidget {
                 _MarqueeText(
                   text: name,
                   style: GoogleFonts.poppins(
-                    fontSize: 15.sp,
+                    fontSize: 15.tsp,
                     fontWeight: FontWeight.w700,
                     color: _ProfilePalette.navy,
                     height: 1.2,
                   ),
                 ),
                 if (arabicName != null && arabicName!.trim().isNotEmpty) ...[
-                  SizedBox(height: 2.h),
+                  SizedBox(height: 2.th),
                   _MarqueeText(
                     text: arabicName!.trim(),
                     textDirection: TextDirection.rtl,
                     style: GoogleFonts.poppins(
-                      fontSize: 12.sp,
+                      fontSize: 12.tsp,
                       fontWeight: FontWeight.w600,
                       color: _ProfilePalette.teal,
                     ),
                   ),
                 ],
-                SizedBox(height: 8.h),
+                SizedBox(height: 8.th),
                 SizedBox(
-                  height: 28.h,
+                  height: 28.th,
                   child: ListView(
                     scrollDirection: Axis.horizontal,
                     children: [
@@ -916,19 +917,19 @@ class _HeaderCard extends StatelessWidget {
                           child: Text(
                             jobTitle,
                             style: GoogleFonts.poppins(
-                              fontSize: 12.5.sp,
+                              fontSize: 12.5.tsp,
                               fontWeight: FontWeight.w600,
                               color: _ProfilePalette.ink,
                             ),
                           ),
                         ),
                         Padding(
-                          padding: EdgeInsets.symmetric(horizontal: 6.w),
+                          padding: EdgeInsets.symmetric(horizontal: 6.tw),
                           child: Center(
                             child: Text(
                               ':',
                               style: GoogleFonts.poppins(
-                                fontSize: 12.5.sp,
+                                fontSize: 12.5.tsp,
                                 fontWeight: FontWeight.w600,
                                 color: _ProfilePalette.muted,
                               ),
@@ -938,7 +939,7 @@ class _HeaderCard extends StatelessWidget {
                       ],
                       if (fileId.isNotEmpty)
                         Padding(
-                          padding: EdgeInsets.only(right: 6.w),
+                          padding: EdgeInsets.only(right: 6.tw),
                           child: _Chip(
                             label: 'File ID $fileId',
                             fg: _ProfilePalette.accent,
@@ -947,7 +948,7 @@ class _HeaderCard extends StatelessWidget {
                         ),
                       if (positionType.isNotEmpty)
                         Padding(
-                          padding: EdgeInsets.only(right: 6.w),
+                          padding: EdgeInsets.only(right: 6.tw),
                           child: _Chip(
                             label: positionType.toUpperCase(),
                             fg: Colors.white,
@@ -956,7 +957,7 @@ class _HeaderCard extends StatelessWidget {
                         ),
                       if (department.isNotEmpty)
                         Padding(
-                          padding: EdgeInsets.only(right: 6.w),
+                          padding: EdgeInsets.only(right: 6.tw),
                           child: _Chip(
                             label: department,
                             fg: _ProfilePalette.navy,
@@ -965,7 +966,7 @@ class _HeaderCard extends StatelessWidget {
                         ),
                       if (section.isNotEmpty)
                         Padding(
-                          padding: EdgeInsets.only(right: 6.w),
+                          padding: EdgeInsets.only(right: 6.tw),
                           child: _Chip(
                             label: section,
                             fg: _ProfilePalette.navy,
@@ -1012,15 +1013,15 @@ class _Chip extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       alignment: Alignment.center,
-      padding: EdgeInsets.symmetric(horizontal: 8.w, vertical: 4.h),
+      padding: EdgeInsets.symmetric(horizontal: 8.tw, vertical: 4.th),
       decoration: BoxDecoration(
         color: bg,
-        borderRadius: BorderRadius.circular(8.r),
+        borderRadius: BorderRadius.circular(8.tr),
       ),
       child: Text(
         label,
         style: GoogleFonts.poppins(
-          fontSize: 10.5.sp,
+          fontSize: 10.5.tsp,
           fontWeight: FontWeight.w700,
           color: fg,
         ),
@@ -1059,7 +1060,7 @@ class _KpiTable extends StatelessWidget {
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(12.r),
+        borderRadius: BorderRadius.circular(12.tr),
         border: Border.all(color: _ProfilePalette.line),
       ),
       clipBehavior: Clip.antiAlias,
@@ -1067,12 +1068,12 @@ class _KpiTable extends StatelessWidget {
         children: [
           Container(
             width: double.infinity,
-            padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 8.h),
+            padding: EdgeInsets.symmetric(horizontal: 12.tw, vertical: 8.th),
             color: _ProfilePalette.softHeader,
             child: Text(
               'KPI SUMMARY',
               style: GoogleFonts.poppins(
-                fontSize: 11.5.sp,
+                fontSize: 11.5.tsp,
                 fontWeight: FontWeight.w700,
                 letterSpacing: 0.4,
                 color: _ProfilePalette.navy,
@@ -1082,7 +1083,7 @@ class _KpiTable extends StatelessWidget {
           for (var i = 0; i < rows.length; i++) ...[
             Expanded(
               child: Padding(
-                padding: EdgeInsets.symmetric(horizontal: 12.w),
+                padding: EdgeInsets.symmetric(horizontal: 12.tw),
                 child: Row(
                   children: [
                     Expanded(
@@ -1092,7 +1093,7 @@ class _KpiTable extends StatelessWidget {
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: GoogleFonts.poppins(
-                          fontSize: 12.sp,
+                          fontSize: 12.tsp,
                           fontWeight: FontWeight.w700,
                           color: _ProfilePalette.ink,
                         ),
@@ -1100,19 +1101,19 @@ class _KpiTable extends StatelessWidget {
                     ),
                     Container(
                       width: 1,
-                      height: 16.h,
+                      height: 16.th,
                       color: _ProfilePalette.line,
                     ),
                     Expanded(
                       flex: 6,
                       child: Padding(
-                        padding: EdgeInsets.only(left: 10.w),
+                        padding: EdgeInsets.only(left: 10.tw),
                         child: Text(
                           rows[i].$2,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           style: GoogleFonts.poppins(
-                            fontSize: 12.sp,
+                            fontSize: 12.tsp,
                             fontWeight: FontWeight.w700,
                             color: _ProfilePalette.ink,
                           ),
@@ -1169,7 +1170,7 @@ class _InfoTable extends StatelessWidget {
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(12.r),
+        borderRadius: BorderRadius.circular(12.tr),
         border: Border.all(color: _ProfilePalette.line),
       ),
       clipBehavior: Clip.antiAlias,
@@ -1177,12 +1178,12 @@ class _InfoTable extends StatelessWidget {
         children: [
           Container(
             width: double.infinity,
-            padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 8.h),
+            padding: EdgeInsets.symmetric(horizontal: 12.tw, vertical: 8.th),
             color: _ProfilePalette.softHeader,
             child: Text(
               'INFORMATION',
               style: GoogleFonts.poppins(
-                fontSize: 11.5.sp,
+                fontSize: 11.5.tsp,
                 fontWeight: FontWeight.w700,
                 letterSpacing: 0.4,
                 color: _ProfilePalette.navy,
@@ -1242,7 +1243,7 @@ class _InfoCell extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: EdgeInsets.symmetric(horizontal: 10.w, vertical: 4.h),
+      padding: EdgeInsets.symmetric(horizontal: 10.tw, vertical: 4.th),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisAlignment: MainAxisAlignment.center,
@@ -1252,18 +1253,18 @@ class _InfoCell extends StatelessWidget {
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             style: GoogleFonts.poppins(
-              fontSize: 10.sp,
+              fontSize: 10.tsp,
               fontWeight: FontWeight.w600,
               color: _ProfilePalette.muted,
             ),
           ),
-          SizedBox(height: 1.h),
+          SizedBox(height: 1.th),
           Text(
             value,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             style: GoogleFonts.poppins(
-              fontSize: 12.sp,
+              fontSize: 12.tsp,
               fontWeight: FontWeight.w700,
               color: _ProfilePalette.ink,
             ),
@@ -1286,11 +1287,11 @@ class _KpiShimmer extends StatelessWidget {
           color: _ProfilePalette.accent,
           strokeWidth: 2.4,
         ),
-        SizedBox(height: 10.h),
+        SizedBox(height: 10.th),
         Text(
           'Loading profile details…',
           style: GoogleFonts.poppins(
-            fontSize: 12.5.sp,
+            fontSize: 12.5.tsp,
             color: _ProfilePalette.muted,
           ),
         ),
@@ -1314,7 +1315,7 @@ class _ErrorBlock extends StatelessWidget {
           message,
           textAlign: TextAlign.center,
           style: GoogleFonts.poppins(
-            fontSize: 13.sp,
+            fontSize: 13.tsp,
             color: _ProfilePalette.muted,
           ),
         ),
@@ -1348,7 +1349,7 @@ class _Avatar extends StatelessWidget {
   Widget build(BuildContext context) {
     final initials = _initials(name);
     return CircleAvatar(
-      radius: radius.r,
+      radius: radius.tr,
       backgroundColor: _ProfilePalette.accent.withValues(alpha: 0.12),
       backgroundImage: url.isNotEmpty ? NetworkImage(url) : null,
       onBackgroundImageError: url.isNotEmpty ? (_, __) {} : null,
@@ -1356,7 +1357,7 @@ class _Avatar extends StatelessWidget {
           ? Text(
               initials,
               style: GoogleFonts.poppins(
-                fontSize: (radius * 0.55).sp,
+                fontSize: (radius * 0.55).tsp,
                 fontWeight: FontWeight.w700,
                 color: _ProfilePalette.accent,
               ),

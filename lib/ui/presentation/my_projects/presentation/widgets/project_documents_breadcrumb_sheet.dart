@@ -1,3 +1,4 @@
+import 'package:el_race/core/utils/responsive_breakpoints.dart';
 import 'package:el_race/ui/presentation/my_projects/presentation/models/project_document_hub_kind.dart';
 import 'package:el_race/ui/presentation/my_projects/presentation/models/project_documents_breadcrumb.dart';
 import 'package:el_race/ui/presentation/my_projects/presentation/theme/projects_dashboard_theme.dart';
@@ -34,11 +35,11 @@ class ProjectDocumentsBreadcrumbSheet extends StatelessWidget {
   Widget build(BuildContext context) {
     return Dialog(
       backgroundColor: Colors.transparent,
-      insetPadding: EdgeInsets.symmetric(horizontal: 22.w, vertical: 48.h),
+      insetPadding: EdgeInsets.symmetric(horizontal: 22.tw, vertical: 48.th),
       child: Container(
-        constraints: BoxConstraints(maxWidth: 360.w, maxHeight: 480.h),
+        constraints: BoxConstraints(maxWidth: 360.tw, maxHeight: 480.th),
         decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(22.r),
+          borderRadius: BorderRadius.circular(22.tr),
           gradient: LinearGradient(
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
@@ -60,25 +61,25 @@ class ProjectDocumentsBreadcrumbSheet extends StatelessWidget {
           ],
         ),
         child: ClipRRect(
-          borderRadius: BorderRadius.circular(22.r),
+          borderRadius: BorderRadius.circular(22.tr),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
               Padding(
-                padding: EdgeInsets.fromLTRB(18.w, 16.h, 12.w, 10.h),
+                padding: EdgeInsets.fromLTRB(18.tw, 16.th, 12.tw, 10.th),
                 child: Row(
                   children: [
                     Icon(
                       Icons.route_rounded,
-                      size: 20.sp,
+                      size: 20.tsp,
                       color: ProjectsDashboardTheme.white.withValues(alpha: 0.9),
                     ),
-                    SizedBox(width: 8.w),
+                    SizedBox(width: 8.tw),
                     Expanded(
                       child: Text(
                         'Path hierarchy',
                         style: GoogleFonts.poppins(
-                          fontSize: 15.sp,
+                          fontSize: 15.tsp,
                           fontWeight: FontWeight.w600,
                           color: ProjectsDashboardTheme.white,
                         ),
@@ -89,7 +90,7 @@ class ProjectDocumentsBreadcrumbSheet extends StatelessWidget {
                       icon: Icon(
                         Icons.close_rounded,
                         color: ProjectsDashboardTheme.white.withValues(alpha: 0.8),
-                        size: 22.sp,
+                        size: 22.tsp,
                       ),
                     ),
                   ],
@@ -101,7 +102,7 @@ class ProjectDocumentsBreadcrumbSheet extends StatelessWidget {
               ),
               Flexible(
                 child: SingleChildScrollView(
-                  padding: EdgeInsets.fromLTRB(16.w, 14.h, 16.w, 18.h),
+                  padding: EdgeInsets.fromLTRB(16.tw, 14.th, 16.tw, 18.th),
                   child: Column(
                     children: [
                       for (var i = 0; i < trail.length; i++)
@@ -166,7 +167,7 @@ class _BreadcrumbNode extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           SizedBox(
-            width: 34.w,
+            width: 34.tw,
             child: Column(
               children: [
                 if (!isFirst)
@@ -187,19 +188,19 @@ class _BreadcrumbNode extends StatelessWidget {
               ],
             ),
           ),
-          SizedBox(width: 10.w),
+          SizedBox(width: 10.tw),
           Expanded(
             child: Padding(
-              padding: EdgeInsets.only(bottom: isLast ? 0 : 12.h),
+              padding: EdgeInsets.only(bottom: isLast ? 0 : 12.th),
               child: Material(
                 color: Colors.transparent,
                 child: InkWell(
                   onTap: onTap,
-                  borderRadius: BorderRadius.circular(12.r),
+                  borderRadius: BorderRadius.circular(12.tr),
                   child: Container(
-                    padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 10.h),
+                    padding: EdgeInsets.symmetric(horizontal: 12.tw, vertical: 10.th),
                     decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(12.r),
+                      borderRadius: BorderRadius.circular(12.tr),
                       color: isCurrent
                           ? ProjectsDashboardTheme.white.withValues(alpha: 0.14)
                           : onTap != null
@@ -214,14 +215,14 @@ class _BreadcrumbNode extends StatelessWidget {
                     child: Row(
                       children: [
                         _NodeIcon(item: item, isCurrent: isCurrent),
-                        SizedBox(width: 10.w),
+                        SizedBox(width: 10.tw),
                         Expanded(
                           child: Text(
                             item.label,
                             maxLines: 2,
                             overflow: TextOverflow.ellipsis,
                             style: GoogleFonts.poppins(
-                              fontSize: 13.sp,
+                              fontSize: 13.tsp,
                               fontWeight:
                                   isCurrent ? FontWeight.w600 : FontWeight.w500,
                               color: ProjectsDashboardTheme.white.withValues(
@@ -233,7 +234,7 @@ class _BreadcrumbNode extends StatelessWidget {
                         if (onTap != null)
                           Icon(
                             Icons.chevron_right_rounded,
-                            size: 18.sp,
+                            size: 18.tsp,
                             color: ProjectsDashboardTheme.white.withValues(alpha: 0.5),
                           ),
                       ],
@@ -257,8 +258,8 @@ class _NodeDot extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      width: 10.w,
-      height: 10.w,
+      width: 10.tw,
+      height: 10.tw,
       decoration: BoxDecoration(
         shape: BoxShape.circle,
         color: isCurrent
@@ -286,19 +287,19 @@ class _NodeIcon extends StatelessWidget {
     return switch (item.type) {
       ProjectDocumentsBreadcrumbType.home => Icon(
           Icons.home_rounded,
-          size: size.sp,
+          size: size.tsp,
           color: ProjectsDashboardTheme.white.withValues(alpha: 0.92),
         ),
       ProjectDocumentsBreadcrumbType.kind when item.kind != null =>
         ProjectDocumentsIcons.image(kind: item.kind, size: size),
       ProjectDocumentsBreadcrumbType.project => Icon(
           Icons.work_outline_rounded,
-          size: size.sp,
+          size: size.tsp,
           color: ProjectsDashboardTheme.white.withValues(alpha: 0.88),
         ),
       ProjectDocumentsBreadcrumbType.uploader => Icon(
           Icons.person_rounded,
-          size: size.sp,
+          size: size.tsp,
           color: ProjectsDashboardTheme.white.withValues(alpha: 0.88),
         ),
       ProjectDocumentsBreadcrumbType.sharePointFolder ||

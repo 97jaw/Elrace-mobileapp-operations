@@ -1,3 +1,4 @@
+import 'package:el_race/core/utils/responsive_breakpoints.dart';
 import 'dart:async';
 
 import 'package:el_race/core/purchase/purchase_dev_role_provider.dart';
@@ -247,14 +248,14 @@ class _RfqListScreenState extends State<RfqListScreen>
     if (_error != null) {
       return Center(
         child: Text(_error!,
-            style: GoogleFonts.poppins(color: Colors.red, fontSize: 13.sp)),
+            style: GoogleFonts.poppins(color: Colors.red, fontSize: 13.tsp)),
       );
     }
     if (_items.isEmpty) {
       return Center(
         child: Text(
           translate('home.purchase.no_records'),
-          style: GoogleFonts.poppins(color: Colors.white54, fontSize: 14.sp),
+          style: GoogleFonts.poppins(color: Colors.white54, fontSize: 14.tsp),
         ),
       );
     }
@@ -296,11 +297,11 @@ class _RfqCard extends StatelessWidget {
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        margin: EdgeInsets.symmetric(horizontal: 14.w, vertical: 6.h),
-        padding: EdgeInsets.all(14.w),
+        margin: EdgeInsets.symmetric(horizontal: 14.tw, vertical: 6.th),
+        padding: EdgeInsets.all(14.tw),
         decoration: BoxDecoration(
           color: Colors.white.withValues(alpha: 0.07),
-          borderRadius: BorderRadius.circular(14.r),
+          borderRadius: BorderRadius.circular(14.tr),
           border: Border.all(
               color: Colors.white.withValues(alpha: 0.12), width: 0.8),
         ),
@@ -314,34 +315,34 @@ class _RfqCard extends StatelessWidget {
                   child: Text(
                     item.name,
                     style: GoogleFonts.poppins(
-                      fontSize: 13.sp,
+                      fontSize: 13.tsp,
                       fontWeight: FontWeight.w700,
                       color: const Color(0xFF7DB3E8),
                     ),
                   ),
                 ),
                 if (item.dateOrder.isNotEmpty) ...[
-                  SizedBox(width: 6.w),
+                  SizedBox(width: 6.tw),
                   Text(
                     item.dateOrder,
                     style: GoogleFonts.poppins(
-                      fontSize: 10.sp,
+                      fontSize: 10.tsp,
                       color: Colors.white60,
                       fontWeight: FontWeight.w500,
                     ),
                   ),
-                  SizedBox(width: 8.w),
+                  SizedBox(width: 8.tw),
                 ],
                 PurchaseStatusChip(label: status.label, color: status.color),
               ],
             ),
             // Row 2: project / title
             if (item.project.isNotEmpty) ...[
-              SizedBox(height: 6.h),
+              SizedBox(height: 6.th),
               Text(
                 item.project,
                 style: GoogleFonts.poppins(
-                  fontSize: 13.sp,
+                  fontSize: 13.tsp,
                   fontWeight: FontWeight.w700,
                   color: Colors.white,
                 ),
@@ -351,7 +352,7 @@ class _RfqCard extends StatelessWidget {
             ],
             // Row 3: "For [vendor]" + requested-by
             if (item.vendorName.isNotEmpty || item.requestedBy.isNotEmpty) ...[
-              SizedBox(height: 6.h),
+              SizedBox(height: 6.th),
               Row(
                 children: [
                   if (item.vendorName.isNotEmpty)
@@ -359,7 +360,7 @@ class _RfqCard extends StatelessWidget {
                       child: Text(
                         'For ${item.vendorName}',
                         style: GoogleFonts.poppins(
-                          fontSize: 11.sp,
+                          fontSize: 11.tsp,
                           color: Colors.white70,
                           fontWeight: FontWeight.w500,
                         ),
@@ -371,7 +372,7 @@ class _RfqCard extends StatelessWidget {
                     Text(
                       item.requestedBy,
                       style: GoogleFonts.poppins(
-                        fontSize: 10.sp,
+                        fontSize: 10.tsp,
                         color: Colors.white54,
                       ),
                     ),
@@ -380,7 +381,7 @@ class _RfqCard extends StatelessWidget {
             ],
             // Row 4: amount right-aligned
             if (item.amountDisplay.isNotEmpty || item.amountTotal > 0) ...[
-              SizedBox(height: 8.h),
+              SizedBox(height: 8.th),
               Align(
                 alignment: Alignment.centerRight,
                 child: Text(
@@ -388,7 +389,7 @@ class _RfqCard extends StatelessWidget {
                       ? item.amountDisplay
                       : 'AED ${item.amountTotal.toStringAsFixed(0)}',
                   style: GoogleFonts.poppins(
-                    fontSize: 17.sp,
+                    fontSize: 17.tsp,
                     fontWeight: FontWeight.w800,
                     color: const Color(0xFFE8694D),
                   ),
@@ -418,29 +419,29 @@ class _RfqQuickViewSheet extends StatelessWidget {
         color: Color(0xFFF5F6FA),
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
-      padding: EdgeInsets.fromLTRB(16.w, 12.h, 16.w, 32.h),
+      padding: EdgeInsets.fromLTRB(16.tw, 12.th, 16.tw, 32.th),
       child: SingleChildScrollView(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Center(
               child: Container(
-                width: 40.w,
-                height: 4.h,
+                width: 40.tw,
+                height: 4.th,
                 decoration: BoxDecoration(
                   color: const Color(0xFFD0D2D6),
-                  borderRadius: BorderRadius.circular(2.r),
+                  borderRadius: BorderRadius.circular(2.tr),
                 ),
               ),
             ),
-            SizedBox(height: 16.h),
+            SizedBox(height: 16.th),
             Row(
               children: [
                 Expanded(
                   child: Text(
                     item.name,
                     style: GoogleFonts.poppins(
-                      fontSize: 16.sp,
+                      fontSize: 16.tsp,
                       fontWeight: FontWeight.w800,
                       color: const Color(0xFF1E2A4A),
                     ),
@@ -450,7 +451,7 @@ class _RfqQuickViewSheet extends StatelessWidget {
                     label: status.label, color: status.color),
               ],
             ),
-            SizedBox(height: 14.h),
+            SizedBox(height: 14.th),
             _SheetRow(label: 'Vendor', value: item.vendorName),
             _SheetRow(label: 'Project', value: item.project),
             _SheetRow(label: 'Department', value: item.department),
@@ -480,22 +481,22 @@ class _SheetRow extends StatelessWidget {
   Widget build(BuildContext context) {
     if (value.isEmpty) return const SizedBox.shrink();
     return Padding(
-      padding: EdgeInsets.only(bottom: 10.h),
+      padding: EdgeInsets.only(bottom: 10.th),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           SizedBox(
-            width: 120.w,
+            width: 120.tw,
             child: Text(label,
                 style: GoogleFonts.poppins(
-                    fontSize: 11.sp,
+                    fontSize: 11.tsp,
                     fontWeight: FontWeight.w600,
                     color: const Color(0xFF8A9BB5))),
           ),
           Expanded(
             child: Text(value,
                 style: GoogleFonts.poppins(
-                    fontSize: 12.sp,
+                    fontSize: 12.tsp,
                     fontWeight: FontWeight.w500,
                     color: const Color(0xFF1E2A4A))),
           ),

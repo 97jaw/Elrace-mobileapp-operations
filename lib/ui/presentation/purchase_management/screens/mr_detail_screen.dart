@@ -1,3 +1,4 @@
+import 'package:el_race/core/utils/responsive_breakpoints.dart';
 import 'package:el_race/ui/presentation/purchase_management/data/purchase_models.dart';
 import 'package:el_race/ui/presentation/purchase_management/data/purchase_status.dart';
 import 'package:el_race/ui/presentation/purchase_management/providers/purchase_providers.dart';
@@ -53,7 +54,7 @@ class MrDetailScreen extends ConsumerWidget {
               child: Center(
                 child: Text(
                   e.toString(),
-                  style: GoogleFonts.poppins(color: Colors.red, fontSize: 13.sp),
+                  style: GoogleFonts.poppins(color: Colors.red, fontSize: 13.tsp),
                 ),
               ),
             ),
@@ -104,7 +105,7 @@ class _MrSummaryContent extends StatelessWidget {
         _MrStatusStepper(current: status),
         Expanded(
           child: ListView(
-            padding: EdgeInsets.all(14.w),
+            padding: EdgeInsets.all(14.tw),
             children: [
               _SectionCard(
                 title: 'SUMMARY',
@@ -129,32 +130,32 @@ class _MrSummaryContent extends StatelessWidget {
                 ],
               ),
               if (detail.approvalTrail.isNotEmpty) ...[
-                SizedBox(height: 12.h),
+                SizedBox(height: 12.th),
                 Text(
                   'APPROVAL STATUS',
                   style: GoogleFonts.poppins(
-                    fontSize: 11.sp,
+                    fontSize: 11.tsp,
                     fontWeight: FontWeight.w700,
                     color: PurchaseTheme.textPrimary,
                   ),
                 ),
-                SizedBox(height: 8.h),
+                SizedBox(height: 8.th),
                 ...detail.approvalTrail.map((s) => _ApprovalRow(step: s)),
               ],
               if (detail.attachments.isNotEmpty) ...[
-                SizedBox(height: 12.h),
+                SizedBox(height: 12.th),
                 Text(
                   'ATTACHMENTS',
                   style: GoogleFonts.poppins(
-                    fontSize: 11.sp,
+                    fontSize: 11.tsp,
                     fontWeight: FontWeight.w700,
                     color: PurchaseTheme.textPrimary,
                   ),
                 ),
-                SizedBox(height: 8.h),
+                SizedBox(height: 8.th),
                 ...detail.attachments.map((a) => _AttachmentRow(file: a)),
               ],
-              SizedBox(height: 24.h),
+              SizedBox(height: 24.th),
             ],
           ),
         ),
@@ -173,7 +174,7 @@ class _MrStatusStepper extends StatelessWidget {
     final currentStep = current.stepIndex;
     return Container(
       color: PurchaseTheme.accentBlue.withValues(alpha: 0.12),
-      padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 10.h),
+      padding: EdgeInsets.symmetric(horizontal: 12.tw, vertical: 10.th),
       child: Row(
         children: List.generate(steps.length, (i) {
           final isDone = currentStep > i;
@@ -182,8 +183,8 @@ class _MrStatusStepper extends StatelessWidget {
             child: Column(
               children: [
                 Container(
-                  width: 10.w,
-                  height: 10.w,
+                  width: 10.tw,
+                  height: 10.tw,
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
                     color: isDone
@@ -193,12 +194,12 @@ class _MrStatusStepper extends StatelessWidget {
                             : PurchaseTheme.textMuted.withValues(alpha: 0.4),
                   ),
                 ),
-                SizedBox(height: 4.h),
+                SizedBox(height: 4.th),
                 Text(
                   steps[i],
                   textAlign: TextAlign.center,
                   style: GoogleFonts.poppins(
-                    fontSize: 7.5.sp,
+                    fontSize: 7.5.tsp,
                     fontWeight: isActive ? FontWeight.w700 : FontWeight.w400,
                     color: isActive
                         ? PurchaseTheme.textPrimary
@@ -223,20 +224,20 @@ class _SectionCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: EdgeInsets.all(14.w),
-      decoration: PurchaseTheme.glassPanel(radius: 12.r),
+      padding: EdgeInsets.all(14.tw),
+      decoration: PurchaseTheme.glassPanel(radius: 12.tr),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
             title,
             style: GoogleFonts.poppins(
-              fontSize: 10.sp,
+              fontSize: 10.tsp,
               fontWeight: FontWeight.w700,
               color: PurchaseTheme.textMuted,
             ),
           ),
-          SizedBox(height: 10.h),
+          SizedBox(height: 10.th),
           ...children,
         ],
       ),
@@ -253,16 +254,16 @@ class _Row extends StatelessWidget {
   Widget build(BuildContext context) {
     if (value.isEmpty) return const SizedBox.shrink();
     return Padding(
-      padding: EdgeInsets.only(bottom: 8.h),
+      padding: EdgeInsets.only(bottom: 8.th),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           SizedBox(
-            width: 120.w,
+            width: 120.tw,
             child: Text(
               label,
               style: GoogleFonts.poppins(
-                fontSize: 11.sp,
+                fontSize: 11.tsp,
                 color: PurchaseTheme.textMuted,
                 fontWeight: FontWeight.w600,
               ),
@@ -272,7 +273,7 @@ class _Row extends StatelessWidget {
             child: Text(
               value,
               style: GoogleFonts.poppins(
-                fontSize: 11.5.sp,
+                fontSize: 11.5.tsp,
                 color: PurchaseTheme.textPrimary,
               ),
             ),
@@ -298,28 +299,28 @@ class _PersonRow extends StatelessWidget {
   Widget build(BuildContext context) {
     if (name.isEmpty) return const SizedBox.shrink();
     return Padding(
-      padding: EdgeInsets.only(bottom: 10.h),
+      padding: EdgeInsets.only(bottom: 10.th),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
           SizedBox(
-            width: 120.w,
+            width: 120.tw,
             child: Text(
               label,
               style: GoogleFonts.poppins(
-                fontSize: 11.sp,
+                fontSize: 11.tsp,
                 color: PurchaseTheme.textMuted,
                 fontWeight: FontWeight.w600,
               ),
             ),
           ),
           PurchaseAvatar(name: name, photoUrl: photoUrl, radius: 16),
-          SizedBox(width: 10.w),
+          SizedBox(width: 10.tw),
           Expanded(
             child: Text(
               name,
               style: GoogleFonts.poppins(
-                fontSize: 11.5.sp,
+                fontSize: 11.5.tsp,
                 fontWeight: FontWeight.w600,
                 color: PurchaseTheme.textPrimary,
               ),
@@ -338,9 +339,9 @@ class _ApprovalRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      margin: EdgeInsets.only(bottom: 6.h),
-      padding: EdgeInsets.all(12.w),
-      decoration: PurchaseTheme.glassPanel(radius: 10.r),
+      margin: EdgeInsets.only(bottom: 6.th),
+      padding: EdgeInsets.all(12.tw),
+      decoration: PurchaseTheme.glassPanel(radius: 10.tr),
       child: Row(
         children: [
           Icon(
@@ -348,26 +349,26 @@ class _ApprovalRow extends StatelessWidget {
                 ? Icons.radio_button_unchecked
                 : Icons.check_circle_outline,
             color: PurchaseTheme.accentBlue,
-            size: 18.sp,
+            size: 18.tsp,
           ),
-          SizedBox(width: 10.w),
+          SizedBox(width: 10.tw),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(step.reviewer,
                     style: GoogleFonts.poppins(
-                        fontWeight: FontWeight.w600, fontSize: 12.sp)),
+                        fontWeight: FontWeight.w600, fontSize: 12.tsp)),
                 if (step.date.isNotEmpty)
                   Text(step.date,
                       style: GoogleFonts.poppins(
-                          fontSize: 10.sp, color: PurchaseTheme.textMuted)),
+                          fontSize: 10.tsp, color: PurchaseTheme.textMuted)),
               ],
             ),
           ),
           Text(step.status,
               style: GoogleFonts.poppins(
-                  fontSize: 10.sp, fontWeight: FontWeight.w600)),
+                  fontSize: 10.tsp, fontWeight: FontWeight.w600)),
         ],
       ),
     );
@@ -381,14 +382,14 @@ class _AttachmentRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      margin: EdgeInsets.only(bottom: 6.h),
-      padding: EdgeInsets.all(12.w),
-      decoration: PurchaseTheme.glassPanel(radius: 10.r),
+      margin: EdgeInsets.only(bottom: 6.th),
+      padding: EdgeInsets.all(12.tw),
+      decoration: PurchaseTheme.glassPanel(radius: 10.tr),
       child: Row(
         children: [
-          Icon(Icons.attach_file, size: 20.sp, color: PurchaseTheme.accentBlue),
-          SizedBox(width: 10.w),
-          Expanded(child: Text(file.name, style: GoogleFonts.poppins(fontSize: 12.sp))),
+          Icon(Icons.attach_file, size: 20.tsp, color: PurchaseTheme.accentBlue),
+          SizedBox(width: 10.tw),
+          Expanded(child: Text(file.name, style: GoogleFonts.poppins(fontSize: 12.tsp))),
           IconButton(
             icon: const Icon(Icons.open_in_new_rounded),
             onPressed: () async {

@@ -1,4 +1,5 @@
 import 'package:el_race/core/home/home_widget_visibility.dart';
+import 'package:el_race/core/session/login_session_refresh_service.dart';
 import 'package:el_race/ui/presentation/home_screen/providers/home_attendance_widget_provider.dart';
 import 'package:el_race/ui/presentation/home_screen/providers/home_hrms_widget_provider.dart';
 import 'package:el_race/ui/presentation/home_screen/providers/home_library_widgets_provider.dart';
@@ -18,6 +19,7 @@ class HomeWidgetRefreshService {
   HomeWidgetRefreshService._();
 
   static Future<void> refresh(ProviderContainer container) async {
+    await LoginSessionRefreshService.refreshRoles(container: container);
     await HomeWidgetConfigClient.refresh();
     final visible = visibleCategoryCodes();
     await HomeWidgetApiClient.refreshIfStale(

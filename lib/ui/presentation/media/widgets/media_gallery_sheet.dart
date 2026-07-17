@@ -45,11 +45,6 @@ class MediaGallerySheet extends StatelessWidget {
             padding: EdgeInsets.fromLTRB(12.w, 0, 4.w, 4.h),
             child: filterTabs,
           ),
-          Divider(
-            height: 1,
-            thickness: 1,
-            color: MediaTheme.white.withValues(alpha: 0.10),
-          ),
           Expanded(
             child: CustomScrollView(
               controller: scrollController,

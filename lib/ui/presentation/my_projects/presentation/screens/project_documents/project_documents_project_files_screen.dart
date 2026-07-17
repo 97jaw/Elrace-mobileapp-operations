@@ -1,3 +1,4 @@
+import 'package:el_race/core/utils/responsive_breakpoints.dart';
 import 'package:el_race/ui/presentation/my_projects/data/datasources/project_documents_remote_datasource.dart';
 import 'package:el_race/ui/presentation/my_projects/data/models/project_documents_models.dart';
 import 'package:el_race/ui/presentation/my_projects/data/repositories/project_documents_repository.dart';
@@ -132,7 +133,7 @@ class _ProjectDocumentsProjectFilesScreenState
           _error!,
           textAlign: TextAlign.center,
           style: GoogleFonts.poppins(
-            fontSize: 13.sp,
+            fontSize: 13.tsp,
             color: ProjectsDashboardTheme.white,
           ),
         ),
@@ -143,7 +144,7 @@ class _ProjectDocumentsProjectFilesScreenState
         child: Text(
           'No files',
           style: GoogleFonts.poppins(
-            fontSize: 13.sp,
+            fontSize: 13.tsp,
             color: ProjectsDashboardTheme.greyPanel,
           ),
         ),
@@ -151,9 +152,9 @@ class _ProjectDocumentsProjectFilesScreenState
     }
 
     return ListView.separated(
-      padding: EdgeInsets.fromLTRB(16.w, 8.h, 16.w, 16.h),
+      padding: EdgeInsets.fromLTRB(16.tw, 8.th, 16.tw, 16.th),
       itemCount: _files.length,
-      separatorBuilder: (_, __) => SizedBox(height: 14.h),
+      separatorBuilder: (_, __) => SizedBox(height: 14.th),
       itemBuilder: (context, index) {
         final file = _files[index];
         final updated = formatDocumentDateLabel(file.updatedAt);

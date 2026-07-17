@@ -1,3 +1,4 @@
+import 'package:el_race/core/utils/responsive_breakpoints.dart';
 import 'dart:convert';
 
 import 'package:el_race/core/utils/shared_pref.dart';
@@ -382,15 +383,15 @@ class _RfqDetailsScreenState extends State<RfqDetailsScreen> {
 
   Widget _tagChip(String text, Color bg, Color fg) {
     return Container(
-      padding: EdgeInsets.symmetric(horizontal: 8.w, vertical: 3.w),
+      padding: EdgeInsets.symmetric(horizontal: 8.tw, vertical: 3.tw),
       decoration: BoxDecoration(
         color: bg,
-        borderRadius: BorderRadius.circular(8.r),
+        borderRadius: BorderRadius.circular(8.tr),
       ),
       child: Text(
         text,
         style: GoogleFonts.poppins(
-          fontSize: 9.sp,
+          fontSize: 9.tsp,
           fontWeight: FontWeight.w700,
           color: fg,
         ),
@@ -403,20 +404,20 @@ class _RfqDetailsScreenState extends State<RfqDetailsScreen> {
       fillAlpha: 0.9,
       blurSigma: 8,
       radius: 16,
-      padding: EdgeInsets.fromLTRB(12.w, 10.h, 12.w, 10.h),
+      padding: EdgeInsets.fromLTRB(12.tw, 10.th, 12.tw, 10.th),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
             title.toUpperCase(),
             style: GoogleFonts.poppins(
-              fontSize: 10.sp,
+              fontSize: 10.tsp,
               fontWeight: FontWeight.w700,
               letterSpacing: 0.7,
               color: ApprovalsOverviewTheme.screenDeep,
             ),
           ),
-          SizedBox(height: 6.h),
+          SizedBox(height: 6.th),
           child,
         ],
       ),
@@ -426,10 +427,10 @@ class _RfqDetailsScreenState extends State<RfqDetailsScreen> {
   Widget _themeDetailCell(String label, String value, {bool highlight = false}) {
     return Container(
       width: double.infinity,
-      padding: EdgeInsets.symmetric(horizontal: 8.w, vertical: 6.h),
+      padding: EdgeInsets.symmetric(horizontal: 8.tw, vertical: 6.th),
       decoration: BoxDecoration(
         color: ApprovalsOverviewTheme.screenTintLight.withValues(alpha: 0.65),
-        borderRadius: BorderRadius.circular(12.r),
+        borderRadius: BorderRadius.circular(12.tr),
         border: Border.all(color: Colors.white.withValues(alpha: 0.85)),
       ),
       child: Column(
@@ -440,18 +441,18 @@ class _RfqDetailsScreenState extends State<RfqDetailsScreen> {
             maxLines: 2,
             overflow: TextOverflow.ellipsis,
             style: GoogleFonts.poppins(
-              fontSize: 9.sp,
+              fontSize: 9.tsp,
               fontWeight: FontWeight.w500,
               color: ApprovalsOverviewTheme.textSoft,
             ),
           ),
-          SizedBox(height: 2.h),
+          SizedBox(height: 2.th),
           Text(
             _displayOrDash(value),
             maxLines: 3,
             overflow: TextOverflow.ellipsis,
             style: GoogleFonts.poppins(
-              fontSize: 11.sp,
+              fontSize: 11.tsp,
               fontWeight: FontWeight.w700,
               color: highlight
                   ? ApprovalsOverviewTheme.rfq
@@ -466,10 +467,10 @@ class _RfqDetailsScreenState extends State<RfqDetailsScreen> {
   Widget _metaPill(String text, {required Color background, Color? textColor}) {
     return Expanded(
       child: Container(
-        padding: EdgeInsets.symmetric(horizontal: 6.w, vertical: 4.h),
+        padding: EdgeInsets.symmetric(horizontal: 6.tw, vertical: 4.th),
         decoration: BoxDecoration(
           color: background,
-          borderRadius: BorderRadius.circular(16.r),
+          borderRadius: BorderRadius.circular(16.tr),
         ),
         child: Text(
           _displayOrDash(text),
@@ -477,7 +478,7 @@ class _RfqDetailsScreenState extends State<RfqDetailsScreen> {
           overflow: TextOverflow.ellipsis,
           textAlign: TextAlign.center,
           style: GoogleFonts.poppins(
-            fontSize: 9.sp,
+            fontSize: 9.tsp,
             fontWeight: FontWeight.w700,
             color: textColor ?? ApprovalsOverviewTheme.textDark,
           ),
@@ -498,13 +499,13 @@ class _RfqDetailsScreenState extends State<RfqDetailsScreen> {
       fillAlpha: 0.88,
       blurSigma: 10,
       radius: 16,
-      padding: EdgeInsets.symmetric(horizontal: 10.w, vertical: 8.h),
+      padding: EdgeInsets.symmetric(horizontal: 10.tw, vertical: 8.th),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
           Container(
-            width: 62.w,
-            height: 62.w,
+            width: 62.tw,
+            height: 62.tw,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
               border: Border.all(
@@ -519,7 +520,7 @@ class _RfqDetailsScreenState extends State<RfqDetailsScreen> {
               ),
             ),
           ),
-          SizedBox(width: 10.w),
+          SizedBox(width: 10.tw),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -530,13 +531,13 @@ class _RfqDetailsScreenState extends State<RfqDetailsScreen> {
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                   style: GoogleFonts.poppins(
-                    fontSize: 14.sp,
+                    fontSize: 14.tsp,
                     fontWeight: FontWeight.w700,
                     color: ApprovalsOverviewTheme.textDark,
                     height: 1.2,
                   ),
                 ),
-                SizedBox(height: 6.h),
+                SizedBox(height: 6.th),
                 Row(
                   children: [
                     _metaPill(
@@ -544,13 +545,13 @@ class _RfqDetailsScreenState extends State<RfqDetailsScreen> {
                       background: ApprovalsOverviewTheme.screenTintMid
                           .withValues(alpha: 0.75),
                     ),
-                    SizedBox(width: 4.w),
+                    SizedBox(width: 4.tw),
                     _metaPill(
                       city,
                       background: ApprovalsOverviewTheme.rfq
                           .withValues(alpha: 0.22),
                     ),
-                    SizedBox(width: 4.w),
+                    SizedBox(width: 4.tw),
                     _metaPill(
                       department,
                       background: ApprovalsOverviewTheme.screenMid
@@ -571,7 +572,7 @@ class _RfqDetailsScreenState extends State<RfqDetailsScreen> {
       fillAlpha: 0.9,
       blurSigma: 8,
       radius: 16,
-      padding: EdgeInsets.fromLTRB(10.w, 8.h, 10.w, 8.h),
+      padding: EdgeInsets.fromLTRB(10.tw, 8.th, 10.tw, 8.th),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -580,7 +581,7 @@ class _RfqDetailsScreenState extends State<RfqDetailsScreen> {
               Text(
                 'COMMENT',
                 style: GoogleFonts.poppins(
-                  fontSize: 10.sp,
+                  fontSize: 10.tsp,
                   fontWeight: FontWeight.w700,
                   letterSpacing: 0.8,
                   color: ApprovalsOverviewTheme.screenDeep,
@@ -590,27 +591,27 @@ class _RfqDetailsScreenState extends State<RfqDetailsScreen> {
               Text(
                 '${comment.characters.length}/50',
                 style: GoogleFonts.poppins(
-                  fontSize: 9.sp,
+                  fontSize: 9.tsp,
                   fontWeight: FontWeight.w500,
                   color: ApprovalsOverviewTheme.textSoft,
                 ),
               ),
             ],
           ),
-          SizedBox(height: 5.h),
+          SizedBox(height: 5.th),
           Container(
             width: double.infinity,
-            constraints: BoxConstraints(minHeight: 36.h),
-            padding: EdgeInsets.symmetric(horizontal: 10.w, vertical: 7.h),
+            constraints: BoxConstraints(minHeight: 36.th),
+            padding: EdgeInsets.symmetric(horizontal: 10.tw, vertical: 7.th),
             decoration: BoxDecoration(
               color: ApprovalsOverviewTheme.screenTintLight.withValues(alpha: 0.7),
-              borderRadius: BorderRadius.circular(12.r),
+              borderRadius: BorderRadius.circular(12.tr),
               border: Border.all(color: Colors.white.withValues(alpha: 0.85)),
             ),
             child: Text(
               comment.trim().isEmpty ? 'No comment' : comment,
               style: GoogleFonts.poppins(
-                fontSize: 12.sp,
+                fontSize: 12.tsp,
                 fontWeight: comment.trim().isEmpty
                     ? FontWeight.w400
                     : FontWeight.w500,
@@ -631,7 +632,7 @@ class _RfqDetailsScreenState extends State<RfqDetailsScreen> {
   Widget _floatingApprovalBar(String userId) {
     return Container(
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(20.r),
+        borderRadius: BorderRadius.circular(20.tr),
         boxShadow: [
           BoxShadow(
             color: ApprovalsOverviewTheme.screenDeep.withValues(alpha: 0.12),
@@ -644,7 +645,7 @@ class _RfqDetailsScreenState extends State<RfqDetailsScreen> {
         fillAlpha: 0.78,
         blurSigma: 14,
         radius: 20,
-        padding: EdgeInsets.symmetric(horizontal: 8.w, vertical: 6.h),
+        padding: EdgeInsets.symmetric(horizontal: 8.tw, vertical: 6.th),
         child: ApprovalActionButtons(
           requestId: widget.requestId,
           type: widget.type,
@@ -667,7 +668,7 @@ class _RfqDetailsScreenState extends State<RfqDetailsScreen> {
         child: Text(
           initials,
           style: GoogleFonts.poppins(
-            fontSize: 16.sp,
+            fontSize: 16.tsp,
             fontWeight: FontWeight.w800,
             color: const Color(0xFF4A607A),
           ),
@@ -825,11 +826,11 @@ class _RfqDetailsScreenState extends State<RfqDetailsScreen> {
                       : _error.isNotEmpty
                           ? Center(
                               child: Padding(
-                                padding: EdgeInsets.all(16.w),
+                                padding: EdgeInsets.all(16.tw),
                                 child: Text(
                                   _error,
                                   style: GoogleFonts.poppins(
-                                    fontSize: 13.sp,
+                                    fontSize: 13.tsp,
                                     fontWeight: FontWeight.w600,
                                     color: Colors.red,
                                   ),
@@ -851,7 +852,7 @@ class _RfqDetailsScreenState extends State<RfqDetailsScreen> {
                                       ),
                                     Padding(
                                       padding: EdgeInsets.fromLTRB(
-                                          16.w, 4.h, 16.w, 0),
+                                          16.tw, 4.th, 16.tw, 0),
                                       child: _rfqRequestHeader(
                                         imageUrl: clientPhotoUrl,
                                         projectName: projectName,
@@ -861,16 +862,16 @@ class _RfqDetailsScreenState extends State<RfqDetailsScreen> {
                                         vendorName: vendorName,
                                       ),
                                     ),
-                                    SizedBox(height: 6.h),
+                                    SizedBox(height: 6.th),
                                     Expanded(
                                       child: SingleChildScrollView(
                                         physics:
                                             const ClampingScrollPhysics(),
                                         padding: EdgeInsets.fromLTRB(
-                                          16.w,
+                                          16.tw,
                                           0,
-                                          16.w,
-                                          68.h + context.systemBottomInset,
+                                          16.tw,
+                                          68.th + context.systemBottomInset,
                                         ),
                                         child: Column(
                                           children: [
@@ -886,10 +887,10 @@ class _RfqDetailsScreenState extends State<RfqDetailsScreen> {
                                                     highlight: true,
                                                   ),
                                                   if (tags.isNotEmpty) ...[
-                                                    SizedBox(height: 6.h),
+                                                    SizedBox(height: 6.th),
                                                     Wrap(
-                                                      spacing: 6.w,
-                                                      runSpacing: 4.h,
+                                                      spacing: 6.tw,
+                                                      runSpacing: 4.th,
                                                       children: [
                                                         for (int i = 0;
                                                             i < tags.length;
@@ -923,7 +924,7 @@ class _RfqDetailsScreenState extends State<RfqDetailsScreen> {
                                                 ],
                                               ),
                                             ),
-                                            SizedBox(height: 6.h),
+                                            SizedBox(height: 6.th),
                                             _glassSectionCard(
                                               title: 'RFQ Info',
                                               child: LayoutBuilder(
@@ -931,11 +932,11 @@ class _RfqDetailsScreenState extends State<RfqDetailsScreen> {
                                                     (context, constraints) {
                                                   final cellW =
                                                       (constraints.maxWidth -
-                                                              6.w) /
+                                                              6.tw) /
                                                           2;
                                                   return Wrap(
-                                                    spacing: 6.w,
-                                                    runSpacing: 6.h,
+                                                    spacing: 6.tw,
+                                                    runSpacing: 6.th,
                                                     children: [
                                                       SizedBox(
                                                         width: cellW,
@@ -972,25 +973,25 @@ class _RfqDetailsScreenState extends State<RfqDetailsScreen> {
                                                 },
                                               ),
                                             ),
-                                            SizedBox(height: 6.h),
+                                            SizedBox(height: 6.th),
                                             _buildSimCommentCard(comment),
                                             if (canViewReport) ...[
-                                              SizedBox(height: 8.h),
+                                              SizedBox(height: 8.th),
                                               Material(
                                                 color: Colors.transparent,
                                                 child: InkWell(
                                                   onTap: _viewAttachment,
                                                   borderRadius:
                                                       BorderRadius.circular(
-                                                          14.r),
+                                                          14.tr),
                                                   child: Ink(
                                                     padding: EdgeInsets
                                                         .symmetric(
-                                                            vertical: 11.h),
+                                                            vertical: 11.th),
                                                     decoration: BoxDecoration(
                                                       borderRadius:
                                                           BorderRadius.circular(
-                                                              14.r),
+                                                              14.tr),
                                                       gradient:
                                                           const LinearGradient(
                                                         colors: [
@@ -1010,14 +1011,14 @@ class _RfqDetailsScreenState extends State<RfqDetailsScreen> {
                                                           Icons
                                                               .attach_file_rounded,
                                                           color: Colors.white,
-                                                          size: 18.sp,
+                                                          size: 18.tsp,
                                                         ),
-                                                        SizedBox(width: 6.w),
+                                                        SizedBox(width: 6.tw),
                                                         Text(
                                                           'View Attachments',
                                                           style: GoogleFonts
                                                               .poppins(
-                                                            fontSize: 13.sp,
+                                                            fontSize: 13.tsp,
                                                             fontWeight:
                                                                 FontWeight.w700,
                                                             color: Colors.white,
@@ -1029,7 +1030,7 @@ class _RfqDetailsScreenState extends State<RfqDetailsScreen> {
                                                 ),
                                               ),
                                             ],
-                                            SizedBox(height: 8.h),
+                                            SizedBox(height: 8.th),
                                           ],
                                         ),
                                       ),
@@ -1037,10 +1038,10 @@ class _RfqDetailsScreenState extends State<RfqDetailsScreen> {
                                   ],
                                 ),
                                 Positioned(
-                                  left: 16.w,
-                                  right: 16.w,
+                                  left: 16.tw,
+                                  right: 16.tw,
                                   bottom:
-                                      context.systemBottomInset + 8.h,
+                                      context.systemBottomInset + 8.th,
                                   child: _floatingApprovalBar(userId),
                                 ),
                               ],

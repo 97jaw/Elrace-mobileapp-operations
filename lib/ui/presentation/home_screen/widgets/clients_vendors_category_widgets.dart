@@ -1,5 +1,6 @@
 import 'dart:math' as math;
 
+import 'package:el_race/core/utils/responsive_breakpoints.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -10,7 +11,12 @@ const _kCvAssetRoot = 'assets/images/clients_vendors';
 const double _kCvCardHeight = 182;
 
 class ClientsVendorsCategoryClientsCard extends StatelessWidget {
-  const ClientsVendorsCategoryClientsCard({super.key});
+  const ClientsVendorsCategoryClientsCard({
+    super.key,
+    this.tabletCompact = false,
+  });
+
+  final bool tabletCompact;
 
   @override
   Widget build(BuildContext context) {
@@ -63,17 +69,17 @@ class ClientsVendorsCategoryClientsCard extends StatelessWidget {
           Text(
             '▲ 12 overdue invoices',
             style: GoogleFonts.poppins(
-              fontSize: 12.5.sp,
+              fontSize: 12.5.usp,
               fontWeight: FontWeight.w600,
               color: const Color(0xFFE53935),
               height: 1.2,
             ),
           ),
-          SizedBox(height: 4.h),
+          SizedBox(height: 4.uh),
           Text(
             '2 agreements expiring',
             style: GoogleFonts.poppins(
-              fontSize: 12.5.sp,
+              fontSize: 12.5.usp,
               fontWeight: FontWeight.w600,
               color: const Color(0xFF111111),
               height: 1.2,
@@ -86,7 +92,12 @@ class ClientsVendorsCategoryClientsCard extends StatelessWidget {
 }
 
 class ClientsVendorsCategoryVendorsCard extends StatelessWidget {
-  const ClientsVendorsCategoryVendorsCard({super.key});
+  const ClientsVendorsCategoryVendorsCard({
+    super.key,
+    this.tabletCompact = false,
+  });
+
+  final bool tabletCompact;
 
   @override
   Widget build(BuildContext context) {
@@ -124,7 +135,7 @@ class ClientsVendorsCategoryVendorsCard extends StatelessWidget {
       footer: Text.rich(
         TextSpan(
           style: GoogleFonts.poppins(
-            fontSize: 12.5.sp,
+            fontSize: 12.5.usp,
             fontWeight: FontWeight.w600,
             height: 1.2,
           ),
@@ -159,7 +170,7 @@ class ClientsVendorsCategoryVendorsSubContractorsRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return SizedBox(
-      height: _rowHeight.h,
+      height: ResponsiveBreakpoints.landscapeAwareCardHeight(_rowHeight),
       child: Row(
         children: [
           Expanded(
@@ -187,7 +198,7 @@ class ClientsVendorsCategoryVendorsSubContractorsRow extends StatelessWidget {
                 footer: Text.rich(
                   TextSpan(
                     style: GoogleFonts.poppins(
-                      fontSize: 9.sp,
+                      fontSize: 9.usp,
                       fontWeight: FontWeight.w600,
                       height: 1.2,
                     ),
@@ -240,7 +251,7 @@ class ClientsVendorsCategoryVendorsSubContractorsRow extends StatelessWidget {
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: GoogleFonts.poppins(
-                    fontSize: 9.sp,
+                    fontSize: 9.usp,
                     fontWeight: FontWeight.w600,
                     color: const Color(0xFFFED7AA),
                     height: 1.2,
@@ -279,9 +290,9 @@ class _SharedSkylineHalfCard extends StatelessWidget {
       color: Colors.transparent,
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(22.r),
+        borderRadius: BorderRadius.circular(22.ur),
         child: ClipRRect(
-          borderRadius: BorderRadius.circular(22.r),
+          borderRadius: BorderRadius.circular(22.ur),
           child: Stack(
             fit: StackFit.expand,
             children: [
@@ -361,82 +372,89 @@ class _CompactHalfPanel extends StatelessWidget {
   Widget build(BuildContext context) {
     final detailLabelColor = statLabelColor ?? labelColor;
     return Padding(
-      padding: EdgeInsets.fromLTRB(12.w, 10.h, 12.w, 10.h),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            label,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: GoogleFonts.poppins(
-              fontSize: 9.sp,
-              fontWeight: FontWeight.w800,
-              letterSpacing: 0.7,
-              color: labelColor,
-              height: 1.1,
-            ),
-          ),
-          SizedBox(height: 4.h),
-          Text.rich(
-            TextSpan(
-              children: [
-                TextSpan(
-                  text: '$activeCount ',
-                  style: GoogleFonts.poppins(
-                    fontSize: 18.sp,
-                    fontWeight: FontWeight.w800,
-                    color: Colors.white,
-                    height: 1.05,
-                  ),
-                ),
-                TextSpan(
-                  text: 'Active',
-                  style: GoogleFonts.poppins(
-                    fontSize: 11.sp,
-                    fontWeight: FontWeight.w600,
-                    color: Colors.white.withValues(alpha: 0.95),
-                    height: 1.05,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          // Extra top margin so the remaining detail block breathes.
-          SizedBox(height: 14.h),
-          for (var i = 0; i < stats.length; i++) ...[
-            if (i > 0) SizedBox(height: 8.h),
+      padding: EdgeInsets.fromLTRB(14.w, 12.uh, 14.w, 12.uh),
+      child: _cvScaleDownContent(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
             Text(
-              stats[i].label,
+              label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
               style: GoogleFonts.poppins(
-                fontSize: 9.sp,
+                fontSize: 9.usp,
                 fontWeight: FontWeight.w800,
                 letterSpacing: 0.7,
-                color: detailLabelColor,
+                color: labelColor,
                 height: 1.1,
               ),
             ),
-            SizedBox(height: 4.h),
-            Text(
-              stats[i].value,
-              style: GoogleFonts.poppins(
-                fontSize: 14.sp,
-                fontWeight: FontWeight.w800,
-                color: Colors.white,
-                height: 1.1,
+            SizedBox(height: 4.uh),
+            Text.rich(
+              TextSpan(
+                children: [
+                  TextSpan(
+                    text: '$activeCount ',
+                    style: GoogleFonts.poppins(
+                      fontSize: 18.usp,
+                      fontWeight: FontWeight.w800,
+                      color: Colors.white,
+                      height: 1.05,
+                    ),
+                  ),
+                  TextSpan(
+                    text: 'Active',
+                    style: GoogleFonts.poppins(
+                      fontSize: 11.usp,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.white.withValues(alpha: 0.95),
+                      height: 1.05,
+                    ),
+                  ),
+                ],
               ),
             ),
+            SizedBox(height: 14.uh),
+            for (var i = 0; i < stats.length; i++) ...[
+              if (i > 0) SizedBox(height: 8.uh),
+              Text(
+                stats[i].label,
+                style: GoogleFonts.poppins(
+                  fontSize: 9.usp,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: 0.7,
+                  color: detailLabelColor,
+                  height: 1.1,
+                ),
+              ),
+              SizedBox(height: 4.uh),
+              Text(
+                stats[i].value,
+                style: GoogleFonts.poppins(
+                  fontSize: 14.usp,
+                  fontWeight: FontWeight.w800,
+                  color: Colors.white,
+                  height: 1.1,
+                ),
+              ),
+            ],
+            SizedBox(height: 10.uh),
+            footer,
           ],
-          const Spacer(),
-          footer,
-        ],
+        ),
       ),
     );
   }
 }
 
 class ClientsVendorsCategorySubContractorsCard extends StatelessWidget {
-  const ClientsVendorsCategorySubContractorsCard({super.key});
+  const ClientsVendorsCategorySubContractorsCard({
+    super.key,
+    this.tabletCompact = false,
+  });
+
+  final bool tabletCompact;
 
   @override
   Widget build(BuildContext context) {
@@ -476,7 +494,7 @@ class ClientsVendorsCategorySubContractorsCard extends StatelessWidget {
       footer: Text(
         '⚠  1 agreement expiring in 15 days',
         style: GoogleFonts.poppins(
-          fontSize: 12.5.sp,
+          fontSize: 12.5.usp,
           fontWeight: FontWeight.w600,
           color: const Color(0xFFFED7AA),
           height: 1.2,
@@ -593,15 +611,22 @@ class _ClientsVendorsHeroCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final layers = _artLayers;
-    return SizedBox(
-      height: _kCvCardHeight.h,
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final h = ResponsiveBreakpoints.shellHeight(
+          constraints,
+          design: _kCvCardHeight,
+        );
+        return SizedBox(
+      height: h,
+      width: constraints.hasBoundedWidth ? constraints.maxWidth : null,
       child: Material(
         color: Colors.transparent,
         child: InkWell(
           onTap: onTap,
-          borderRadius: BorderRadius.circular(26.r),
+          borderRadius: BorderRadius.circular(26.ur),
           child: ClipRRect(
-            borderRadius: BorderRadius.circular(26.r),
+            borderRadius: BorderRadius.circular(26.ur),
             child: Stack(
               clipBehavior: Clip.hardEdge,
               children: [
@@ -635,9 +660,9 @@ class _ClientsVendorsHeroCard extends StatelessWidget {
 
                       final double top;
                       if (artCenterVertically) {
-                        top = (cardH - h) / 2 + artVerticalOffset.h;
+                        top = (cardH - h) / 2 + artVerticalOffset.uh;
                       } else {
-                        top = artVerticalOffset.h;
+                        top = artVerticalOffset.uh;
                       }
 
                       // Back layers first. Left-anchored stack grows rightward
@@ -702,84 +727,88 @@ class _ClientsVendorsHeroCard extends StatelessWidget {
                 ),
                 Padding(
                   padding: EdgeInsets.all(20.w),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
-                        label,
-                        style: GoogleFonts.poppins(
-                          fontSize: 11.sp,
-                          fontWeight: FontWeight.w800,
-                          letterSpacing: 0.88,
-                          color: labelColor,
-                          height: 1.1,
-                        ),
-                      ),
-                      SizedBox(height: 4.h),
-                      Text.rich(
-                        TextSpan(
-                          children: [
-                            TextSpan(
-                              text: '$activeCount ',
-                              style: GoogleFonts.poppins(
-                                fontSize: 21.sp,
-                                fontWeight: FontWeight.w800,
-                                color: activeCountColor,
-                                height: 1.1,
-                              ),
-                            ),
-                            TextSpan(
-                              text: 'Active',
-                              style: GoogleFonts.poppins(
-                                fontSize: 14.sp,
-                                fontWeight: FontWeight.w600,
-                                color: activeCountColor,
-                                height: 1.1,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      SizedBox(height: 16.h),
-                      Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Expanded(
-                            child: _StatColumn(
-                              label: leftStatLabel,
-                              value: leftStatValue,
-                              valueSize: 19.sp,
-                              valueWeight: FontWeight.w800,
-                              labelColor: statLabelColor,
-                              valueColor: statValueColor,
-                            ),
+                  // MainAxisSize.min column — safe to scaleDown on phone & tablet
+                  // so footer/metadata never overflow the fixed card height.
+                  child: _cvScaleDownContent(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          label,
+                          style: GoogleFonts.poppins(
+                            fontSize: 11.usp,
+                            fontWeight: FontWeight.w800,
+                            letterSpacing: 0.88,
+                            color: labelColor,
+                            height: 1.1,
                           ),
-                          if (rightStatLabel != null &&
-                              rightStatValue != null) ...[
-                            Container(
-                              width: 1,
-                              height: 36.h,
-                              margin: EdgeInsets.only(right: 22.w),
-                              color: dividerColor ??
-                                  Colors.white.withValues(alpha: 0.15),
-                            ),
+                        ),
+                        SizedBox(height: 4.uh),
+                        Text.rich(
+                          TextSpan(
+                            children: [
+                              TextSpan(
+                                text: '$activeCount ',
+                                style: GoogleFonts.poppins(
+                                  fontSize: 21.usp,
+                                  fontWeight: FontWeight.w800,
+                                  color: activeCountColor,
+                                  height: 1.1,
+                                ),
+                              ),
+                              TextSpan(
+                                text: 'Active',
+                                style: GoogleFonts.poppins(
+                                  fontSize: 14.usp,
+                                  fontWeight: FontWeight.w600,
+                                  color: activeCountColor,
+                                  height: 1.1,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        SizedBox(height: 16.uh),
+                        Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
                             Expanded(
                               child: _StatColumn(
-                                label: rightStatLabel!,
-                                value: rightStatValue!,
-                                valueSize: 15.sp,
-                                valueWeight: FontWeight.w700,
+                                label: leftStatLabel,
+                                value: leftStatValue,
+                                valueSize: 19.usp,
+                                valueWeight: FontWeight.w800,
                                 labelColor: statLabelColor,
                                 valueColor: statValueColor,
                               ),
                             ),
+                            if (rightStatLabel != null &&
+                                rightStatValue != null) ...[
+                              Container(
+                                width: 1,
+                                height: 36.uh,
+                                margin: EdgeInsets.only(right: 22.w),
+                                color: dividerColor ??
+                                    Colors.white.withValues(alpha: 0.15),
+                              ),
+                              Expanded(
+                                child: _StatColumn(
+                                  label: rightStatLabel!,
+                                  value: rightStatValue!,
+                                  valueSize: 15.usp,
+                                  valueWeight: FontWeight.w700,
+                                  labelColor: statLabelColor,
+                                  valueColor: statValueColor,
+                                ),
+                              ),
+                            ],
                           ],
-                        ],
-                      ),
-                      SizedBox(height: 14.h),
-                      footer,
-                    ],
+                        ),
+                        SizedBox(height: 14.uh),
+                        footer,
+                      ],
+                    ),
                   ),
                 ),
               ],
@@ -787,6 +816,8 @@ class _ClientsVendorsHeroCard extends StatelessWidget {
           ),
         ),
       ),
+        );
+      },
     );
   }
 }
@@ -816,14 +847,14 @@ class _StatColumn extends StatelessWidget {
         Text(
           label,
           style: GoogleFonts.poppins(
-            fontSize: 10.sp,
+            fontSize: 10.usp,
             fontWeight: FontWeight.w600,
             letterSpacing: 0.5,
             color: labelColor ?? Colors.white.withValues(alpha: 0.55),
             height: 1.1,
           ),
         ),
-        SizedBox(height: 4.h),
+        SizedBox(height: 4.uh),
         Text(
           value,
           style: GoogleFonts.poppins(
@@ -856,4 +887,22 @@ class _DotTexturePainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
+}
+
+/// Scale-down guard for CV cards (MainAxisSize.min content, no Spacer).
+/// Child lays out at natural size, then shrinks uniformly if taller/wider
+/// than the card — no RenderFlex overflow on phone or tablet.
+Widget _cvScaleDownContent({required Widget child}) {
+  return LayoutBuilder(
+    builder: (context, constraints) {
+      return FittedBox(
+        fit: BoxFit.scaleDown,
+        alignment: Alignment.topLeft,
+        child: SizedBox(
+          width: constraints.maxWidth,
+          child: child,
+        ),
+      );
+    },
+  );
 }

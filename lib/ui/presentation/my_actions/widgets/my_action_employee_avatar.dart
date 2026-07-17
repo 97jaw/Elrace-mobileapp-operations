@@ -1,3 +1,4 @@
+import 'package:el_race/core/utils/responsive_breakpoints.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:el_race/ui/presentation/my_actions/theme/my_actions_module_theme.dart';
 import 'package:flutter/material.dart';
@@ -29,8 +30,8 @@ abstract final class MyActionEmployeeAvatar {
       clipBehavior: Clip.none,
       children: [
         Container(
-          width: size.w,
-          height: size.w,
+          width: size.tw,
+          height: size.tw,
           decoration: BoxDecoration(
             color: fallbackTint,
             shape: BoxShape.circle,
@@ -51,8 +52,8 @@ abstract final class MyActionEmployeeAvatar {
           bottom: -1,
           right: -1,
           child: Container(
-            width: 12.w,
-            height: 12.w,
+            width: 12.tw,
+            height: 12.tw,
             decoration: BoxDecoration(
               color: statusColor,
               shape: BoxShape.circle,

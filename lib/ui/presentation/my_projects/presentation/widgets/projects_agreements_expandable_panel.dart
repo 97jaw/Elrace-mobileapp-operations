@@ -1,3 +1,4 @@
+import 'package:el_race/core/utils/responsive_breakpoints.dart';
 import 'dart:math' as math;
 
 import 'package:el_race/core/ui/device_ui_capability.dart';
@@ -13,10 +14,10 @@ import 'package:google_fonts/google_fonts.dart';
 const int _kAgreementsPageSize = 10;
 
 /// Approximate rendered height of one [AgreementListCard] (incl. margins).
-double _agreementCardExtent(BuildContext context) => 132.h;
+double _agreementCardExtent(BuildContext context) => 132.th;
 
 /// How much of the next card peeks in the collapsed panel.
-double _agreementPeekExtent(BuildContext context) => 56.h;
+double _agreementPeekExtent(BuildContext context) => 56.th;
 
 /// Bottom agreements panel — collapsed shows one card + peek; drag header / tap arrow to expand.
 class ProjectsAgreementsExpandablePanel extends StatefulWidget {
@@ -45,14 +46,14 @@ class ProjectsAgreementsExpandablePanel extends StatefulWidget {
     required bool hasAgreements,
     int agreementCount = 0,
   }) {
-    final headerH = 48.h;
+    final headerH = 48.th;
     final bottom = MediaQuery.paddingOf(context).bottom;
     if (!hasAgreements) {
-      return headerH + bottom + 6.h;
+      return headerH + bottom + 6.th;
     }
     final cardH = _agreementCardExtent(context);
     final peek = agreementCount > 1 ? _agreementPeekExtent(context) : 0.0;
-    return headerH + cardH + peek + bottom + 4.h;
+    return headerH + cardH + peek + bottom + 4.th;
   }
 
   /// Max panel height when expanded (fills area below greeting header).
@@ -61,7 +62,7 @@ class ProjectsAgreementsExpandablePanel extends StatefulWidget {
     final screen = mq.size.height;
     final top = mq.padding.top;
     final bottom = mq.padding.bottom;
-    return (screen - top - bottom - 76.h).clamp(320.0, screen * 0.92);
+    return (screen - top - bottom - 76.th).clamp(320.0, screen * 0.92);
   }
 
   @override
@@ -247,7 +248,7 @@ class _ProjectsAgreementsExpandablePanelState
       height: height,
       width: double.infinity,
       child: ClipRRect(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(22.r)),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(22.tr)),
         child: Material(
           color: ProjectsDashboardTheme.greyDeep.withValues(alpha: 0.96),
           elevation: DeviceUiCapability.isLowEnd ? 4 : 12,
@@ -268,17 +269,17 @@ class _ProjectsAgreementsExpandablePanelState
               ),
               if (_isExpanded)
                 Padding(
-                  padding: EdgeInsets.fromLTRB(16.w, 0, 16.w, 8.h),
+                  padding: EdgeInsets.fromLTRB(16.tw, 0, 16.tw, 8.th),
                   child: TextField(
                     controller: _searchController,
                     style: GoogleFonts.poppins(
-                      fontSize: 13.sp,
+                      fontSize: 13.tsp,
                       color: ProjectsDashboardTheme.white,
                     ),
                     decoration: InputDecoration(
                       hintText: 'Search agreements…',
                       hintStyle: GoogleFonts.poppins(
-                        fontSize: 13.sp,
+                        fontSize: 13.tsp,
                         color: ProjectsDashboardTheme.greyPanel
                             .withValues(alpha: 0.85),
                       ),
@@ -286,31 +287,31 @@ class _ProjectsAgreementsExpandablePanelState
                         Icons.search_rounded,
                         color: ProjectsDashboardTheme.white
                             .withValues(alpha: 0.9),
-                        size: 22.sp,
+                        size: 22.tsp,
                       ),
                       filled: true,
                       fillColor: ProjectsDashboardTheme.greyPanel
                           .withValues(alpha: 0.18),
                       contentPadding: EdgeInsets.symmetric(
-                        horizontal: 14.w,
-                        vertical: 10.h,
+                        horizontal: 14.tw,
+                        vertical: 10.th,
                       ),
                       border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(14.r),
+                        borderRadius: BorderRadius.circular(14.tr),
                         borderSide: BorderSide(
                           color: ProjectsDashboardTheme.white
                               .withValues(alpha: 0.22),
                         ),
                       ),
                       enabledBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(14.r),
+                        borderRadius: BorderRadius.circular(14.tr),
                         borderSide: BorderSide(
                           color: ProjectsDashboardTheme.white
                               .withValues(alpha: 0.22),
                         ),
                       ),
                       focusedBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(14.r),
+                        borderRadius: BorderRadius.circular(14.tr),
                         borderSide: BorderSide(
                           color: ProjectsDashboardTheme.maroonLight
                               .withValues(alpha: 0.75),
@@ -329,7 +330,7 @@ class _ProjectsAgreementsExpandablePanelState
                               widget.emptyMessage,
                               textAlign: TextAlign.center,
                               style: GoogleFonts.poppins(
-                                fontSize: 13.sp,
+                                fontSize: 13.tsp,
                                 color: ProjectsDashboardTheme.greyPanel
                                     .withValues(alpha: 0.9),
                               ),
@@ -341,7 +342,7 @@ class _ProjectsAgreementsExpandablePanelState
                                   'No agreements match your search',
                                   textAlign: TextAlign.center,
                                   style: GoogleFonts.poppins(
-                                    fontSize: 13.sp,
+                                    fontSize: 13.tsp,
                                     color: ProjectsDashboardTheme.greyPanel
                                         .withValues(alpha: 0.9),
                                   ),
@@ -353,7 +354,7 @@ class _ProjectsAgreementsExpandablePanelState
                                     ? const ClampingScrollPhysics()
                                     : const NeverScrollableScrollPhysics(),
                                 padding: EdgeInsets.only(
-                                  bottom: _isExpanded ? 8.h : 0,
+                                  bottom: _isExpanded ? 8.th : 0,
                                 ),
                                 itemCount: displayCount + (hasMore ? 1 : 0),
                                 itemBuilder: (context, index) {
@@ -406,14 +407,14 @@ class _PanelHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: EdgeInsets.fromLTRB(16.w, 10.h, 4.w, 4.h),
+      padding: EdgeInsets.fromLTRB(16.tw, 10.th, 4.tw, 4.th),
       child: Row(
         children: [
           Expanded(
             child: Text(
               title,
               style: GoogleFonts.poppins(
-                fontSize: 16.sp,
+                fontSize: 16.tsp,
                 fontWeight: FontWeight.w600,
                 color: ProjectsDashboardTheme.white,
               ),
@@ -423,15 +424,15 @@ class _PanelHeader extends StatelessWidget {
             color: Colors.transparent,
             child: InkWell(
               onTap: onToggle,
-              borderRadius: BorderRadius.circular(20.r),
+              borderRadius: BorderRadius.circular(20.tr),
               child: Padding(
-                padding: EdgeInsets.all(8.w),
+                padding: EdgeInsets.all(8.tw),
                 child: Icon(
                   expanded
                       ? Icons.keyboard_arrow_down_rounded
                       : Icons.keyboard_arrow_up_rounded,
                   color: ProjectsDashboardTheme.white,
-                  size: 26.sp,
+                  size: 26.tsp,
                 ),
               ),
             ),

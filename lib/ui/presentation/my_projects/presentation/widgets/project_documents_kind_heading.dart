@@ -1,3 +1,4 @@
+import 'package:el_race/core/utils/responsive_breakpoints.dart';
 import 'package:el_race/ui/presentation/my_projects/presentation/models/project_document_hub_kind.dart';
 import 'package:el_race/ui/presentation/my_projects/presentation/theme/projects_dashboard_theme.dart';
 import 'package:flutter/material.dart';
@@ -34,8 +35,8 @@ abstract final class ProjectDocumentsIcons {
   }) {
     return Image.asset(
       pathFor(kind: kind, isFolder: isFolder, isFile: isFile),
-      width: size.w,
-      height: size.w,
+      width: size.tw,
+      height: size.tw,
       fit: BoxFit.contain,
       filterQuality: FilterQuality.high,
       errorBuilder: (_, __, ___) => Icon(
@@ -44,7 +45,7 @@ abstract final class ProjectDocumentsIcons {
             : isFolder
                 ? Icons.folder_rounded
                 : Icons.folder_copy_rounded,
-        size: (size * 0.62).sp,
+        size: (size * 0.62).tsp,
         color: const Color(0xFF2E3445),
       ),
     );
@@ -79,7 +80,7 @@ class ProjectDocumentsKindHeading extends StatelessWidget {
       mainAxisSize: expand ? MainAxisSize.max : MainAxisSize.min,
       children: [
         ProjectDocumentsIcons.image(kind: kind, size: iconSize),
-        SizedBox(width: 10.w),
+        SizedBox(width: 10.tw),
         if (expand)
           Expanded(
             child: Text(
@@ -87,7 +88,7 @@ class ProjectDocumentsKindHeading extends StatelessWidget {
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               style: GoogleFonts.poppins(
-                fontSize: fontSize ?? 17.sp,
+                fontSize: fontSize ?? 17.tsp,
                 fontWeight: fontWeight,
                 color: color ?? ProjectsDashboardTheme.white,
                 height: 1.15,
@@ -100,7 +101,7 @@ class ProjectDocumentsKindHeading extends StatelessWidget {
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             style: GoogleFonts.poppins(
-              fontSize: fontSize ?? 17.sp,
+              fontSize: fontSize ?? 17.tsp,
               fontWeight: fontWeight,
               color: color ?? ProjectsDashboardTheme.white,
               height: 1.15,

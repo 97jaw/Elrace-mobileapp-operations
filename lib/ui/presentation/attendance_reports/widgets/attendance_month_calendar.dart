@@ -1,3 +1,4 @@
+import 'package:el_race/core/utils/responsive_breakpoints.dart';
 import 'package:el_race/core/theme/hr_module_colors.dart';
 import 'package:el_race/core/theme/hr_module_typography.dart';
 import 'package:el_race/core/theme/day_status_colors.dart';
@@ -159,7 +160,7 @@ class AttendanceMonthCalendar extends StatelessWidget {
                   child: Text(
                     h,
                     style: HrModuleTypography.caption().copyWith(
-                          fontSize: 11.sp,
+                          fontSize: 11.tsp,
                           fontWeight: FontWeight.w600,
                           color: useAttendanceTheme
                               ? _attendancePrimary.withValues(alpha: 0.55)
@@ -170,14 +171,14 @@ class AttendanceMonthCalendar extends StatelessWidget {
               ),
           ],
         ),
-        SizedBox(height: useAttendanceTheme ? 6.h : 10.h),
+        SizedBox(height: useAttendanceTheme ? 6.th : 10.th),
         GridView.builder(
           shrinkWrap: true,
           physics: const NeverScrollableScrollPhysics(),
           gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
             crossAxisCount: 7,
-            mainAxisSpacing: useAttendanceTheme ? 6.h : 8.h,
-            crossAxisSpacing: useAttendanceTheme ? 6.w : 8.w,
+            mainAxisSpacing: useAttendanceTheme ? 6.th : 8.th,
+            crossAxisSpacing: useAttendanceTheme ? 6.tw : 8.tw,
             childAspectRatio: 0.95,
           ),
           itemCount: totalCells,
@@ -200,14 +201,14 @@ class AttendanceMonthCalendar extends StatelessWidget {
 
             return Material(
               color: Colors.transparent,
-              borderRadius: BorderRadius.circular(16.r),
+              borderRadius: BorderRadius.circular(16.tr),
               child: InkWell(
                 onTap: isFuture ? null : () => onDayTap(date, rec),
-                borderRadius: BorderRadius.circular(16.r),
+                borderRadius: BorderRadius.circular(16.tr),
                 child: Container(
                   decoration: BoxDecoration(
                     color: style.fill,
-                    borderRadius: BorderRadius.circular(16.r),
+                    borderRadius: BorderRadius.circular(16.tr),
                     border: Border.all(
                       color: isToday
                           ? _primary
@@ -227,7 +228,7 @@ class AttendanceMonthCalendar extends StatelessWidget {
                       if (style.stripe)
                         Positioned.fill(
                           child: ClipRRect(
-                            borderRadius: BorderRadius.circular(16.r),
+                            borderRadius: BorderRadius.circular(16.tr),
                             child: CustomPaint(
                               painter: _LightStripePainter(),
                             ),
@@ -237,7 +238,7 @@ class AttendanceMonthCalendar extends StatelessWidget {
                         child: Text(
                           '$day',
                           style: HrModuleTypography.body().copyWith(
-                                fontSize: 13.sp,
+                                fontSize: 13.tsp,
                                 fontWeight: isToday
                                     ? FontWeight.w800
                                     : FontWeight.w700,
@@ -268,8 +269,8 @@ class AttendanceMonthCalendar extends StatelessWidget {
             Row(
               children: [
                 Container(
-                  width: 40.r,
-                  height: 40.r,
+                  width: 40.tr,
+                  height: 40.tr,
                   decoration: BoxDecoration(
                     color: HrModuleColors.lightBg,
                     shape: BoxShape.circle,
@@ -283,16 +284,16 @@ class AttendanceMonthCalendar extends StatelessWidget {
                   ),
                   child: Icon(
                     Icons.calendar_month_rounded,
-                    size: 22.sp,
+                    size: 22.tsp,
                     color: HrModuleColors.secondary,
                   ),
                 ),
-                SizedBox(width: 12.w),
+                SizedBox(width: 12.tw),
                 Expanded(
                   child: Text(
                     title,
                     style: HrModuleTypography.cardTitle().copyWith(
-                          fontSize: 17.sp,
+                          fontSize: 17.tsp,
                           fontWeight: FontWeight.w800,
                         ),
                   ),
@@ -301,14 +302,14 @@ class AttendanceMonthCalendar extends StatelessWidget {
                   icon: Icons.chevron_left,
                   onTap: prev,
                 ),
-                SizedBox(width: 8.w),
+                SizedBox(width: 8.tw),
                 _RoundNavIcon(
                   icon: Icons.chevron_right,
                   onTap: next,
                 ),
               ],
             ),
-            SizedBox(height: 16.h),
+            SizedBox(height: 16.th),
             grid,
           ],
         );
@@ -322,10 +323,10 @@ class AttendanceMonthCalendar extends StatelessWidget {
     return Container(
       width: double.infinity,
       padding: EdgeInsets.fromLTRB(
-        useAttendanceTheme ? 12.w : 16.w,
-        useAttendanceTheme ? 12.h : 18.h,
-        useAttendanceTheme ? 12.w : 16.w,
-        useAttendanceTheme ? 12.h : 18.h,
+        useAttendanceTheme ? 12.tw : 16.tw,
+        useAttendanceTheme ? 12.th : 18.th,
+        useAttendanceTheme ? 12.tw : 16.tw,
+        useAttendanceTheme ? 12.th : 18.th,
       ),
       decoration: BoxDecoration(
         gradient: useAttendanceTheme
@@ -339,7 +340,7 @@ class AttendanceMonthCalendar extends StatelessWidget {
               )
             : null,
         color: useAttendanceTheme ? null : HrModuleColors.surface,
-        borderRadius: BorderRadius.circular(20.r),
+        borderRadius: BorderRadius.circular(20.tr),
         border: useAttendanceTheme
             ? Border.all(color: _attendancePrimary.withValues(alpha: 0.12))
             : null,
@@ -389,8 +390,8 @@ class _RoundNavIcon extends StatelessWidget {
         customBorder: const CircleBorder(),
         onTap: onTap,
         child: Padding(
-          padding: EdgeInsets.all(8.r),
-          child: Icon(icon, size: 22.sp, color: HrModuleColors.text),
+          padding: EdgeInsets.all(8.tr),
+          child: Icon(icon, size: 22.tsp, color: HrModuleColors.text),
         ),
       ),
     );
@@ -404,13 +405,13 @@ class _CalendarPadCell extends StatelessWidget {
     return Container(
       decoration: BoxDecoration(
         color: const Color(0xFFF0F2F5),
-        borderRadius: BorderRadius.circular(16.r),
+        borderRadius: BorderRadius.circular(16.tr),
         border: Border.all(
           color: HrModuleColors.border.withValues(alpha: 0.2),
         ),
       ),
       child: ClipRRect(
-        borderRadius: BorderRadius.circular(16.r),
+        borderRadius: BorderRadius.circular(16.tr),
         child: CustomPaint(
           painter: _LightStripePainter(
             lineColor: Colors.white.withValues(alpha: 0.65),

@@ -6,6 +6,7 @@ import 'package:flutter/foundation.dart' show kDebugMode;
 import 'package:el_race/core/ui/device_ui_capability.dart';
 import 'package:el_race/core/services/notification_storage_service.dart';
 import 'package:el_race/core/timesheet/services/capture_queue_service.dart';
+import 'package:el_race/core/utils/app_orientations.dart';
 import 'package:el_race/core/utils/shared_pref.dart';
 import 'package:el_race/chat/chat.dart';
 import 'package:el_race/data/services/hive_service.dart';
@@ -399,13 +400,13 @@ Future<void> _initPrayerAndCheckoutServices() async {
     print('❌ Service init error: $e');
   }
 
-  // Check-in reminders & attendance sync (only if logged in)
+  // Attendance sync only (check-in/out local reminders disabled).
   if (SharedPref.isUserAuthenticated()) {
     try {
       await Future.wait<void>([
-        CheckInReminderNotificationService().initialize().timeout(
+        CheckInReminderNotificationService().cancelAllReminders().timeout(
               const Duration(seconds: 5),
-              onTimeout: () => print('⚠️ Check-in reminder timeout'),
+              onTimeout: () {},
             ),
         _syncAttendanceStatusIfLoggedIn(),
       ]);
@@ -415,10 +416,8 @@ Future<void> _initPrayerAndCheckoutServices() async {
         await AutoCheckoutService.scheduleAutoCheckout();
         debugPrint('✅ Auto checkout scheduled');
       }
-      await CheckInReminderNotificationService().updateReminders();
-      debugPrint('✅ Reminders refreshed');
     } catch (e) {
-      print('❌ Reminder/attendance error: $e');
+      print('❌ Attendance sync error: $e');
     }
   }
 }
@@ -452,6 +451,8 @@ Future<void> _logFcmToken() async {
 Timer? _androidSystemBarsTimer;
 
 Future<void> _configureAppSystemUi() async {
+  await _lockPortraitOrientation();
+
   if (Platform.isAndroid) {
     await _enableAndroidImmersiveMode();
     return;
@@ -470,6 +471,35 @@ Future<void> _configureAppSystemUi() async {
 }
 
 const _systemUiChannel = MethodChannel('ae.elrace.mobile/system_ui');
+
+/// Phones stay portrait-only. Tablets may rotate so Home multi-pane can use
+/// landscape width (otherwise both orientations report ~phone/portrait width).
+Future<void> _configureAppOrientations() async {
+  final views = WidgetsBinding.instance.platformDispatcher.views;
+  var isTablet = false;
+  if (views.isNotEmpty) {
+    final view = views.first;
+    final logical = view.physicalSize / view.devicePixelRatio;
+    // shortestSide >= 600 ≈ Material tablet breakpoint
+    isTablet = logical.shortestSide >= 600;
+  }
+
+  if (isTablet) {
+    await SystemChrome.setPreferredOrientations(const [
+      DeviceOrientation.portraitUp,
+      DeviceOrientation.landscapeLeft,
+      DeviceOrientation.landscapeRight,
+    ]);
+  } else {
+    await SystemChrome.setPreferredOrientations(const [
+      DeviceOrientation.portraitUp,
+    ]);
+  }
+}
+
+/// @Deprecated — use [_configureAppOrientations]. Kept name for call sites.
+Future<void> _lockPortraitOrientation() => _configureAppOrientations();
+
 
 Future<void> _enableAndroidImmersiveMode() async {
   if (!Platform.isAndroid) return;
@@ -599,6 +629,8 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
       _enableAndroidImmersiveMode();
+      // ignore: unawaited_futures
+      _lockPortraitOrientation();
 
       // Foreground owns azan again — cancel OS schedules; timer plays once.
       // ignore: unawaited_futures
@@ -698,8 +730,11 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
             ],
             child: ScreenUtilInit(
               designSize: const Size(411.4, 843.4),
+              minTextAdapt: true,
+              splitScreenMode: true,
               child: MaterialApp(
                 debugShowCheckedModeBanner: false,
+                navigatorObservers: [AppOrientations.routeObserver],
                 builder: (context, child) {
                   ScreenSizeUtil.context = context;
                   return NotificationListener<ScrollUpdateNotification>(

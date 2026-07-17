@@ -34,17 +34,24 @@ class FaceRecognitionService {
 
   bool _syncReady = false;
   bool _engineReady = false;
+  bool _engineLoadFailed = false;
   FaceSyncResult? _lastSync;
 
   FaceSyncResult? get lastSync => _lastSync;
   bool get isReady => _syncReady;
 
   FaceRecognitionAvailability get availability {
-    if (!_engineReady && _lastSync != null) {
+    if (_lastSync == null) {
+      return FaceRecognitionAvailability.notInitialized;
+    }
+    // Empty face DB is not an engine failure (was misreported before).
+    if (_lastSync!.status == FaceSyncStatus.empty) {
+      return FaceRecognitionAvailability.noEmbeddings;
+    }
+    if (_engineLoadFailed) {
       return FaceRecognitionAvailability.engineFailed;
     }
-    return _lastSync?.toAvailability(engineReady: _syncReady) ??
-        FaceRecognitionAvailability.notInitialized;
+    return _lastSync!.toAvailability(engineReady: _syncReady && _engineReady);
   }
 
   Future<FaceSyncResult> syncFaceDb() async {
@@ -61,6 +68,7 @@ class FaceRecognitionService {
       '${result.message ?? ''}',
     );
     _engineReady = false;
+    _engineLoadFailed = false;
     if (_syncReady) {
       try {
         await _embedder.ensureLoaded();
@@ -69,6 +77,7 @@ class FaceRecognitionService {
         debugPrint('FaceRecognition: TFLite preload failed: $e');
         _syncReady = false;
         _engineReady = false;
+        _engineLoadFailed = true;
       }
     }
     return result;
@@ -88,6 +97,7 @@ class FaceRecognitionService {
       'templates=${result.count} ready=$_syncReady',
     );
     _engineReady = false;
+    _engineLoadFailed = false;
     if (_syncReady) {
       try {
         await _embedder.ensureLoaded();
@@ -96,6 +106,7 @@ class FaceRecognitionService {
         debugPrint('FaceRecognition: TFLite preload failed: $e');
         _syncReady = false;
         _engineReady = false;
+        _engineLoadFailed = true;
       }
     }
     return result;

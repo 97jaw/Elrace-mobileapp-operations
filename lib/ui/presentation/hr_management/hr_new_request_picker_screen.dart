@@ -1,3 +1,4 @@
+import 'package:el_race/core/utils/responsive_breakpoints.dart';
 import 'package:el_race/core/hr_management/routing/hr_route_names.dart';
 import 'package:el_race/core/theme/hr_module_colors.dart';
 import 'package:el_race/core/theme/hr_module_layout.dart';
@@ -61,7 +62,7 @@ class HrNewRequestPickerScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final pad = HrModuleLayout.screenPaddingH.w;
+    final pad = HrModuleLayout.screenPaddingH.tw;
 
     return HrRequestsGradientScaffold(
       appBar: AppBar(
@@ -71,12 +72,12 @@ class HrNewRequestPickerScreen extends StatelessWidget {
         scrolledUnderElevation: 0,
         title: Text(
           'New request',
-          style: HrModuleTypography.pageTitle().copyWith(fontSize: 20.sp),
+          style: HrModuleTypography.pageTitle().copyWith(fontSize: 20.tsp),
         ),
       ),
       body: SafeArea(
         child: ListView(
-          padding: EdgeInsets.fromLTRB(pad, 8.h, pad, 32.h),
+          padding: EdgeInsets.fromLTRB(pad, 8.th, pad, 32.th),
           children: [
             _SectionCard(
               title: 'Frequent',
@@ -84,8 +85,8 @@ class HrNewRequestPickerScreen extends StatelessWidget {
                 shrinkWrap: true,
                 physics: const NeverScrollableScrollPhysics(),
                 crossAxisCount: 3,
-                mainAxisSpacing: 12.h,
-                crossAxisSpacing: 12.w,
+                mainAxisSpacing: 12.th,
+                crossAxisSpacing: 12.tw,
                 childAspectRatio: HrModuleLayout.tileAspectRatio,
                 children: [
                   _RequestTypeTile(
@@ -127,7 +128,7 @@ class HrNewRequestPickerScreen extends StatelessWidget {
                 ],
               ),
             ),
-            SizedBox(height: 12.h),
+            SizedBox(height: 12.th),
             Theme(
               data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
               child: ExpansionTile(
@@ -140,7 +141,7 @@ class HrNewRequestPickerScreen extends StatelessWidget {
                 title: Text(
                   'More request types',
                   style: HrModuleTypography.sectionHeading()
-                      .copyWith(fontSize: 16.sp),
+                      .copyWith(fontSize: 16.tsp),
                 ),
                 children: [
                   _SectionCard(
@@ -149,8 +150,8 @@ class HrNewRequestPickerScreen extends StatelessWidget {
                       shrinkWrap: true,
                       physics: const NeverScrollableScrollPhysics(),
                       crossAxisCount: 3,
-                      mainAxisSpacing: 12.h,
-                      crossAxisSpacing: 12.w,
+                      mainAxisSpacing: 12.th,
+                      crossAxisSpacing: 12.tw,
                       childAspectRatio: HrModuleLayout.tileAspectRatio,
                       children: [
                         _RequestTypeTile(
@@ -181,7 +182,7 @@ class HrNewRequestPickerScreen extends StatelessWidget {
               ),
             ),
             if (kDebugMode) ...[
-              SizedBox(height: 16.h),
+              SizedBox(height: 16.th),
               TextButton(
                 onPressed: () {
                   Navigator.of(context).pushNamed(HrRouteNames.widgetSandbox);
@@ -189,7 +190,7 @@ class HrNewRequestPickerScreen extends StatelessWidget {
                 child: Text(
                   'F.2 widget sandbox',
                   style: HrModuleTypography.body().copyWith(
-                    fontSize: 13.sp,
+                    fontSize: 13.tsp,
                     color: HrModuleColors.primary,
                     fontWeight: FontWeight.w600,
                   ),
@@ -213,10 +214,10 @@ class _SectionCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       width: double.infinity,
-      padding: EdgeInsets.all(14.r),
+      padding: EdgeInsets.all(14.tr),
       decoration: BoxDecoration(
         color: HrModuleColors.surface,
-        borderRadius: BorderRadius.circular(HrModuleLayout.cardRadius.r),
+        borderRadius: BorderRadius.circular(HrModuleLayout.cardRadius.tr),
         boxShadow: HrModuleColors.cardShadow,
       ),
       child: Column(
@@ -224,9 +225,9 @@ class _SectionCard extends StatelessWidget {
         children: [
           Text(
             title,
-            style: HrModuleTypography.sectionHeading().copyWith(fontSize: 15.sp),
+            style: HrModuleTypography.sectionHeading().copyWith(fontSize: 15.tsp),
           ),
-          SizedBox(height: 12.h),
+          SizedBox(height: 12.th),
           child,
         ],
       ),
@@ -261,19 +262,19 @@ class _RequestTypeTile extends StatelessWidget {
             border: Border.all(color: HrModuleColors.border.withValues(alpha: 0.5)),
           ),
           child: Padding(
-            padding: EdgeInsets.symmetric(horizontal: 6.w, vertical: 10.h),
+            padding: EdgeInsets.symmetric(horizontal: 6.tw, vertical: 10.th),
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Icon(icon, size: 28.sp, color: iconColor),
-                SizedBox(height: 8.h),
+                Icon(icon, size: 28.tsp, color: iconColor),
+                SizedBox(height: 8.th),
                 Text(
                   label,
                   textAlign: TextAlign.center,
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                   style: HrModuleTypography.caption().copyWith(
-                    fontSize: 11.sp,
+                    fontSize: 11.tsp,
                     color: HrModuleColors.text,
                     fontWeight: FontWeight.w600,
                     height: 1.15,

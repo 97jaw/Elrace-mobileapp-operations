@@ -23,19 +23,36 @@ import 'package:phosphor_flutter/phosphor_flutter.dart';
 import 'package:provider/provider.dart';
 
 /// New or edit report: capture/upload → describe → format → generate → return PDF URL.
+///
+/// Flat Site Report mode: set [useDefaultFolder] true and omit [folder];
+/// create goes through `/api/site_reports/create` (hidden default folder).
 class TmSiteReportComposerScreen extends StatefulWidget {
   const TmSiteReportComposerScreen({
     super.key,
-    required this.folder,
-    required this.projectName,
+    this.folder,
+    this.projectName = '',
+    this.locationHint = '',
+    this.useDefaultFolder = false,
     this.existingReport,
-  });
+  }) : assert(
+          useDefaultFolder || folder != null || existingReport != null,
+          'folder is required unless useDefaultFolder or editing an existing report',
+        );
 
-  final FolderModel folder;
+  final FolderModel? folder;
   final String projectName;
+  /// Default photo location label (flat mode); falls back to [projectName].
+  final String locationHint;
+  final bool useDefaultFolder;
   final ReportModel? existingReport;
 
   bool get isEditMode => existingReport != null;
+
+  String get _effectiveLocation {
+    final hint = locationHint.trim();
+    if (hint.isNotEmpty) return hint;
+    return projectName.trim();
+  }
 
   @override
   State<TmSiteReportComposerScreen> createState() =>
@@ -57,10 +74,6 @@ class _TmSiteReportComposerScreenState extends State<TmSiteReportComposerScreen>
 
   List<TmSitePhotoDraft> get _activeDrafts =>
       _drafts.where((d) => !d.pendingDelete).toList();
-
-  bool get _allDescriptionsFilled =>
-      _activeDrafts.length >= 3 &&
-      _activeDrafts.every((d) => d.hasDescription);
 
   @override
   void initState() {
@@ -107,10 +120,11 @@ class _TmSiteReportComposerScreenState extends State<TmSiteReportComposerScreen>
   void _addDraftFiles(Iterable<File> files) {
     if (files.isEmpty) return;
     final start = _activeDrafts.length;
+    final location = widget._effectiveLocation;
     setState(() {
       for (final f in files) {
         _drafts.add(
-          TmSitePhotoDraft.local(file: f, location: widget.projectName),
+          TmSitePhotoDraft.local(file: f, location: location),
         );
       }
       _showEditor = true;
@@ -152,11 +166,16 @@ class _TmSiteReportComposerScreenState extends State<TmSiteReportComposerScreen>
       _toast('Enter a report title');
       return false;
     }
-    final created = await _provider.createReport(
-      title: title,
-      folderID: widget.folder.id,
-      companyName: CompanyRepository.company?.companyName,
-    );
+    final ReportModel? created;
+    if (widget.useDefaultFolder || widget.folder == null) {
+      created = await _provider.createSiteReport(title: title);
+    } else {
+      created = await _provider.createReport(
+        title: title,
+        folderID: widget.folder!.id,
+        companyName: CompanyRepository.company?.companyName,
+      );
+    }
     if (created == null) {
       _toast('Could not create report');
       return false;
@@ -165,14 +184,15 @@ class _TmSiteReportComposerScreenState extends State<TmSiteReportComposerScreen>
     return true;
   }
 
+  String get _folderIdForUpload {
+    final fromReport = _report?.folderId.trim() ?? '';
+    if (fromReport.isNotEmpty) return fromReport;
+    return widget.folder?.id ?? '';
+  }
+
   Future<void> _startGenerate() async {
     if (_activeDrafts.length < 3) {
       _toast('Add at least 3 photos before generating');
-      return;
-    }
-    if (!_allDescriptionsFilled) {
-      _toast('Add a description on every photo');
-      setState(() => _showEditor = true);
       return;
     }
     final pdfName = _pdfNameController.text.trim();
@@ -246,6 +266,7 @@ class _TmSiteReportComposerScreenState extends State<TmSiteReportComposerScreen>
       }
       if (draft.pendingDelete) continue;
 
+      final fallbackLocation = widget._effectiveLocation;
       if (draft.isServer) {
         await _provider.updateReportItem(
           reportId: report.id,
@@ -253,7 +274,7 @@ class _TmSiteReportComposerScreenState extends State<TmSiteReportComposerScreen>
           description: draft.descriptionController.text.trim(),
           location: draft.locationController.text.trim().isNotEmpty
               ? draft.locationController.text.trim()
-              : widget.projectName,
+              : fallbackLocation,
         );
       } else if (draft.localFile != null) {
         await _provider.addReportItem(
@@ -261,7 +282,7 @@ class _TmSiteReportComposerScreenState extends State<TmSiteReportComposerScreen>
           imageFile: draft.localFile!,
           location: draft.locationController.text.trim().isNotEmpty
               ? draft.locationController.text.trim()
-              : widget.projectName,
+              : fallbackLocation,
           description: draft.descriptionController.text.trim(),
         );
       }
@@ -282,9 +303,15 @@ class _TmSiteReportComposerScreenState extends State<TmSiteReportComposerScreen>
       visual: TmReportGenerationVisual.generatingPdf,
     );
 
+    final pdfProjectLabel = widget.projectName.trim().isNotEmpty
+        ? widget.projectName
+        : (widget._effectiveLocation.isNotEmpty
+            ? widget._effectiveLocation
+            : 'Site Report');
+
     final pdfBytes = await PdfService().generateReportPdf(
       report: detail,
-      projectName: widget.projectName,
+      projectName: pdfProjectLabel,
       companyName: CompanyRepository.company?.companyName,
       templateType: templateId,
     );
@@ -295,11 +322,14 @@ class _TmSiteReportComposerScreenState extends State<TmSiteReportComposerScreen>
       visual: TmReportGenerationVisual.uploadingCloud,
     );
 
+    final folderId = _folderIdForUpload;
+    if (folderId.isEmpty) return null;
+
     final uploaded = await _provider.uploadReportPdf(
       empId: ReportProvider.empID,
       pdfBytes: pdfBytes,
       reportId: report.id,
-      folderId: widget.folder.id,
+      folderId: folderId,
       fileName: pdfName,
       onProgress: (uploadProgress) {
         notify(
@@ -416,7 +446,7 @@ class _TmSiteReportComposerScreenState extends State<TmSiteReportComposerScreen>
                       ),
                       const SizedBox(height: 8),
                       Text(
-                        '${active.length} photo(s) · minimum 3 · describe all before generate',
+                        '${active.length} photo(s) · minimum 3 · descriptions optional',
                         style: TimesheetModuleTypography.caption(),
                       ),
                     ],
@@ -427,8 +457,8 @@ class _TmSiteReportComposerScreenState extends State<TmSiteReportComposerScreen>
                     padding: const EdgeInsets.all(32),
                     child: TimesheetEmptyState(
                       message: widget.isEditMode
-                          ? 'No photos yet. Capture or upload, then add descriptions and regenerate the PDF.'
-                          : 'Capture or upload photos, then swipe through each one to add descriptions.',
+                          ? 'No photos yet. Capture or upload, then generate the PDF.'
+                          : 'Capture or upload at least 3 photos, then generate the report.',
                     ),
                   )
                 else if (_showEditor) ...[
@@ -447,7 +477,7 @@ class _TmSiteReportComposerScreenState extends State<TmSiteReportComposerScreen>
                       horizontal: TimesheetModuleLayout.screenPaddingH,
                     ),
                     child: TmSecondaryButton(
-                      label: 'Review & add descriptions',
+                      label: 'Review photos',
                       icon: PhosphorIcons.notePencil(),
                       onPressed: () => setState(() => _showEditor = true),
                     ),

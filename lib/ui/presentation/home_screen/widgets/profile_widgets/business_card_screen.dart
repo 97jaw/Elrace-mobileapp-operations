@@ -1,3 +1,4 @@
+import 'package:el_race/core/utils/responsive_breakpoints.dart';
 import 'dart:io';
 import 'dart:math' as math;
 import 'dart:ui' as ui;
@@ -142,8 +143,8 @@ class _BusinessCardScreenState extends State<BusinessCardScreen>
     const logoAspect = 749 / 349;
     final logoHeight = _kShareLogoHeight * pixelRatio;
     final logoWidth = logoHeight * logoAspect;
-    final padRight = 10.w * pixelRatio;
-    final padBottom = 10.h * pixelRatio;
+    final padRight = 10.tw * pixelRatio;
+    final padBottom = 10.th * pixelRatio;
 
     final canvasW = cardImage.width.toDouble();
     final canvasH = cardImage.height.toDouble();
@@ -201,7 +202,7 @@ class _BusinessCardScreenState extends State<BusinessCardScreen>
         title: Text(
           'Business Card',
           style: TextStyle(
-            fontSize: 17.sp,
+            fontSize: 17.tsp,
             fontWeight: FontWeight.w700,
           ),
         ),
@@ -210,14 +211,14 @@ class _BusinessCardScreenState extends State<BusinessCardScreen>
             onPressed: _sharing ? null : _shareCard,
             icon: _sharing
                 ? SizedBox(
-                    width: 20.w,
-                    height: 20.w,
+                    width: 20.tw,
+                    height: 20.tw,
                     child: const CircularProgressIndicator(
                       strokeWidth: 2,
                       color: Colors.white,
                     ),
                   )
-                : Icon(Icons.ios_share_rounded, size: 22.sp),
+                : Icon(Icons.ios_share_rounded, size: 22.tsp),
             tooltip: 'Share',
           ),
         ],
@@ -225,7 +226,7 @@ class _BusinessCardScreenState extends State<BusinessCardScreen>
       body: SafeArea(
         child: Center(
           child: Padding(
-            padding: EdgeInsets.symmetric(horizontal: 24.w, vertical: 16.h),
+            padding: EdgeInsets.symmetric(horizontal: 24.tw, vertical: 16.th),
             child: AnimatedBuilder(
               animation: _flipAnimation,
               builder: (context, _) {
@@ -267,8 +268,8 @@ class _BusinessCardScreenState extends State<BusinessCardScreen>
                         clipBehavior: Clip.none,
                         children: [
                           Positioned(
-                            right: 10.w,
-                            bottom: 10.h,
+                            right: 10.tw,
+                            bottom: 10.th,
                             child: _SwapButton(onPressed: _toggleSide),
                           ),
                         ],
@@ -292,7 +293,7 @@ class _BusinessCardFrame extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final maxWidth = MediaQuery.sizeOf(context).width - 48.w;
+    final maxWidth = MediaQuery.sizeOf(context).width - 48.tw;
     final maxHeight = MediaQuery.sizeOf(context).height * 0.72;
 
     return ConstrainedBox(
@@ -329,7 +330,7 @@ class _FrontCardView extends StatelessWidget {
     final website = ProfileUserInfo.displayWebsite();
 
     return ClipRRect(
-      borderRadius: BorderRadius.circular(12.r),
+      borderRadius: BorderRadius.circular(12.tr),
       child: LayoutBuilder(
         builder: (context, constraints) {
           final padH = constraints.maxWidth * 0.11;
@@ -382,9 +383,9 @@ class _FrontCardView extends StatelessWidget {
                   child: Padding(
                     padding: EdgeInsets.fromLTRB(
                       padH,
-                      14.h,
+                      14.th,
                       padH,
-                      36.h,
+                      36.th,
                     ),
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.spaceEvenly,
@@ -431,7 +432,7 @@ class _BackCardView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ClipRRect(
-      borderRadius: BorderRadius.circular(12.r),
+      borderRadius: BorderRadius.circular(12.tr),
       child: Image.asset(
         '$_kBusinessCardAssetRoot/back_template.jpeg',
         fit: BoxFit.cover,
@@ -456,9 +457,9 @@ class _IdentityBlock extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         _NameText(name: name),
-        SizedBox(height: 5.h),
+        SizedBox(height: 5.th),
         _JobTitleText(title: jobTitle),
-        SizedBox(height: 8.h),
+        SizedBox(height: 8.th),
         const _AccentDividerLine(),
       ],
     );
@@ -470,8 +471,8 @@ class _AccentDividerLine extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final redHeight = 5.h;
-    final blackHeight = 1.8.h;
+    final redHeight = 5.th;
+    final blackHeight = 1.8.th;
 
     return SizedBox(
       width: double.infinity,
@@ -480,7 +481,7 @@ class _AccentDividerLine extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
           Container(
-            width: 46.w,
+            width: 46.tw,
             height: redHeight,
             color: const Color(0xFFC62828),
           ),
@@ -504,7 +505,7 @@ class _NameText extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final parts = name.trim().split(RegExp(r'\s+'));
-    final fontSize = name.length > 28 ? 16.sp : 18.sp;
+    final fontSize = name.length > 28 ? 16.tsp : 18.tsp;
     final baseStyle = TextStyle(
       fontSize: fontSize,
       color: Colors.black,
@@ -563,7 +564,7 @@ class _JobTitleText extends StatelessWidget {
         maxLines: 2,
         overflow: TextOverflow.ellipsis,
         style: TextStyle(
-          fontSize: 12.sp,
+          fontSize: 12.tsp,
           color: _kJobGray,
           fontWeight: FontWeight.w400,
           height: 1.15,
@@ -588,21 +589,21 @@ class _ContactRow extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.center,
       children: [
         SizedBox(
-          width: 16.w,
-          height: 16.w,
+          width: 16.tw,
+          height: 16.tw,
           child: Image.asset(
             iconPath,
             fit: BoxFit.contain,
           ),
         ),
-        SizedBox(width: 10.w),
+        SizedBox(width: 10.tw),
         Expanded(
           child: Text(
             label,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             style: TextStyle(
-              fontSize: 11.sp,
+              fontSize: 11.tsp,
               fontWeight: FontWeight.w500,
               color: _kContactNavy,
               height: 1.1,
@@ -623,22 +624,22 @@ class _SwapButton extends StatelessWidget {
   Widget build(BuildContext context) {
     return Material(
       color: ProfileSheetTheme.navy.withValues(alpha: 0.88),
-      borderRadius: BorderRadius.circular(20.r),
+      borderRadius: BorderRadius.circular(20.tr),
       child: InkWell(
         onTap: onPressed,
-        borderRadius: BorderRadius.circular(20.r),
+        borderRadius: BorderRadius.circular(20.tr),
         child: Padding(
-          padding: EdgeInsets.symmetric(horizontal: 10.w, vertical: 6.h),
+          padding: EdgeInsets.symmetric(horizontal: 10.tw, vertical: 6.th),
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(Icons.swap_horiz_rounded, color: Colors.white, size: 16.sp),
-              SizedBox(width: 4.w),
+              Icon(Icons.swap_horiz_rounded, color: Colors.white, size: 16.tsp),
+              SizedBox(width: 4.tw),
               Text(
                 'Swap',
                 style: TextStyle(
                   color: Colors.white,
-                  fontSize: 11.sp,
+                  fontSize: 11.tsp,
                   fontWeight: FontWeight.w600,
                 ),
               ),

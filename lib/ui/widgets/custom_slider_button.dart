@@ -1,3 +1,4 @@
+import 'package:el_race/core/utils/responsive_breakpoints.dart';
 import 'package:el_race/utils/color_utils.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
@@ -68,7 +69,7 @@ class CustomSliderButtonState extends State<CustomSliderButton> {
           AnimatedContainer(
             duration: const Duration(milliseconds: 200),
             width: 280,
-            height: 45.h,
+            height: 45.th,
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(30),
               border: Border.all(

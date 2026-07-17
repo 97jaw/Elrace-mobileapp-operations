@@ -1,3 +1,4 @@
+import 'package:el_race/core/utils/responsive_breakpoints.dart';
 import 'dart:convert';
 
 import 'package:el_race/core/utils/shared_pref.dart';
@@ -715,18 +716,18 @@ class _PettyCashDetailsScreenState extends State<PettyCashDetailsScreen> {
     final picked = await showModalBottomSheet<({int id, String name})>(
       context: context,
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(16.r)),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16.tr)),
       ),
       builder: (ctx) => SafeArea(
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             Padding(
-              padding: EdgeInsets.fromLTRB(16.w, 14.w, 16.w, 4.w),
+              padding: EdgeInsets.fromLTRB(16.tw, 14.tw, 16.tw, 4.tw),
               child: Text(
                 'Select Attachment',
                 style: GoogleFonts.poppins(
-                  fontSize: 14.sp,
+                  fontSize: 14.tsp,
                   fontWeight: FontWeight.w700,
                 ),
               ),
@@ -736,11 +737,11 @@ class _PettyCashDetailsScreenState extends State<PettyCashDetailsScreen> {
                   leading: const Icon(Icons.picture_as_pdf_rounded),
                   title: Text(
                     item.name,
-                    style: GoogleFonts.poppins(fontSize: 13.sp),
+                    style: GoogleFonts.poppins(fontSize: 13.tsp),
                   ),
                   onTap: () => Navigator.of(ctx).pop(item),
                 )),
-            SizedBox(height: 8.w),
+            SizedBox(height: 8.tw),
           ],
         ),
       ),
@@ -757,7 +758,7 @@ class _PettyCashDetailsScreenState extends State<PettyCashDetailsScreen> {
       blurSigma: 8,
       radius: 16,
       padding:
-          padding ?? EdgeInsets.symmetric(horizontal: 12.w, vertical: 10.h),
+          padding ?? EdgeInsets.symmetric(horizontal: 12.tw, vertical: 10.th),
       child: child,
     );
   }
@@ -771,7 +772,7 @@ class _PettyCashDetailsScreenState extends State<PettyCashDetailsScreen> {
       fillAlpha: 0.9,
       blurSigma: 8,
       radius: 16,
-      padding: EdgeInsets.fromLTRB(12.w, 10.h, 12.w, 10.h),
+      padding: EdgeInsets.fromLTRB(12.tw, 10.th, 12.tw, 10.th),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -781,7 +782,7 @@ class _PettyCashDetailsScreenState extends State<PettyCashDetailsScreen> {
                 child: Text(
                   title.toUpperCase(),
                   style: GoogleFonts.poppins(
-                    fontSize: 10.sp,
+                    fontSize: 10.tsp,
                     fontWeight: FontWeight.w700,
                     letterSpacing: 0.7,
                     color: ApprovalsOverviewTheme.screenDeep,
@@ -791,7 +792,7 @@ class _PettyCashDetailsScreenState extends State<PettyCashDetailsScreen> {
               if (trailing != null) trailing,
             ],
           ),
-          SizedBox(height: 6.h),
+          SizedBox(height: 6.th),
           child,
         ],
       ),
@@ -802,10 +803,10 @@ class _PettyCashDetailsScreenState extends State<PettyCashDetailsScreen> {
       {bool highlight = false}) {
     return Container(
       width: double.infinity,
-      padding: EdgeInsets.symmetric(horizontal: 8.w, vertical: 6.h),
+      padding: EdgeInsets.symmetric(horizontal: 8.tw, vertical: 6.th),
       decoration: BoxDecoration(
         color: ApprovalsOverviewTheme.screenTintLight.withValues(alpha: 0.65),
-        borderRadius: BorderRadius.circular(12.r),
+        borderRadius: BorderRadius.circular(12.tr),
         border: Border.all(color: Colors.white.withValues(alpha: 0.85)),
       ),
       child: Column(
@@ -816,18 +817,18 @@ class _PettyCashDetailsScreenState extends State<PettyCashDetailsScreen> {
             maxLines: 2,
             overflow: TextOverflow.ellipsis,
             style: GoogleFonts.poppins(
-              fontSize: 9.sp,
+              fontSize: 9.tsp,
               fontWeight: FontWeight.w500,
               color: ApprovalsOverviewTheme.textSoft,
             ),
           ),
-          SizedBox(height: 2.h),
+          SizedBox(height: 2.th),
           Text(
             _displayOrNA(value),
             maxLines: 3,
             overflow: TextOverflow.ellipsis,
             style: GoogleFonts.poppins(
-              fontSize: 11.sp,
+              fontSize: 11.tsp,
               fontWeight: FontWeight.w700,
               color: highlight
                   ? ApprovalsOverviewTheme.petty
@@ -842,10 +843,10 @@ class _PettyCashDetailsScreenState extends State<PettyCashDetailsScreen> {
   Widget _metaPill(String text, {required Color background}) {
     return Expanded(
       child: Container(
-        padding: EdgeInsets.symmetric(horizontal: 6.w, vertical: 4.h),
+        padding: EdgeInsets.symmetric(horizontal: 6.tw, vertical: 4.th),
         decoration: BoxDecoration(
           color: background,
-          borderRadius: BorderRadius.circular(16.r),
+          borderRadius: BorderRadius.circular(16.tr),
         ),
         child: Text(
           _displayOrNA(text),
@@ -853,7 +854,7 @@ class _PettyCashDetailsScreenState extends State<PettyCashDetailsScreen> {
           overflow: TextOverflow.ellipsis,
           textAlign: TextAlign.center,
           style: GoogleFonts.poppins(
-            fontSize: 9.sp,
+            fontSize: 9.tsp,
             fontWeight: FontWeight.w700,
             color: ApprovalsOverviewTheme.textDark,
           ),
@@ -868,17 +869,17 @@ class _PettyCashDetailsScreenState extends State<PettyCashDetailsScreen> {
   }) {
     return Container(
       width: double.infinity,
-      padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 12.h),
+      padding: EdgeInsets.symmetric(horizontal: 12.tw, vertical: 12.th),
       decoration: BoxDecoration(
         color: const Color(0xFFF3E2DC),
-        borderRadius: BorderRadius.circular(12.r),
+        borderRadius: BorderRadius.circular(12.tr),
         border: Border.all(color: Colors.white.withValues(alpha: 0.85)),
       ),
       child: Row(
         children: [
           Container(
-            width: 48.w,
-            height: 48.w,
+            width: 48.tw,
+            height: 48.tw,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
               border: Border.all(color: Colors.white, width: 1.2),
@@ -893,7 +894,7 @@ class _PettyCashDetailsScreenState extends State<PettyCashDetailsScreen> {
                   : _avatarFallback(name),
             ),
           ),
-          SizedBox(width: 10.w),
+          SizedBox(width: 10.tw),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -901,18 +902,18 @@ class _PettyCashDetailsScreenState extends State<PettyCashDetailsScreen> {
                 Text(
                   'Agreement Manager',
                   style: GoogleFonts.poppins(
-                    fontSize: 10.sp,
+                    fontSize: 10.tsp,
                     fontWeight: FontWeight.w500,
                     color: ApprovalsOverviewTheme.textSoft,
                   ),
                 ),
-                SizedBox(height: 2.h),
+                SizedBox(height: 2.th),
                 Text(
                   _displayOrNA(name),
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                   style: GoogleFonts.poppins(
-                    fontSize: 13.sp,
+                    fontSize: 13.tsp,
                     fontWeight: FontWeight.w700,
                     color: ApprovalsOverviewTheme.textDark,
                   ),
@@ -933,7 +934,7 @@ class _PettyCashDetailsScreenState extends State<PettyCashDetailsScreen> {
         child: Text(
           initial,
           style: GoogleFonts.poppins(
-            fontSize: 14.sp,
+            fontSize: 14.tsp,
             fontWeight: FontWeight.w700,
             color: ApprovalsOverviewTheme.petty,
           ),
@@ -945,10 +946,10 @@ class _PettyCashDetailsScreenState extends State<PettyCashDetailsScreen> {
   Widget _totalAmountCell({required String amount}) {
     return Container(
       width: double.infinity,
-      padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 12.h),
+      padding: EdgeInsets.symmetric(horizontal: 12.tw, vertical: 12.th),
       decoration: BoxDecoration(
         color: const Color(0xFFE8F5EE),
-        borderRadius: BorderRadius.circular(12.r),
+        borderRadius: BorderRadius.circular(12.tr),
         border: Border.all(color: Colors.white.withValues(alpha: 0.85)),
       ),
       child: Row(
@@ -958,7 +959,7 @@ class _PettyCashDetailsScreenState extends State<PettyCashDetailsScreen> {
             child: Text(
               'Total Amount',
               style: GoogleFonts.poppins(
-                fontSize: 10.sp,
+                fontSize: 10.tsp,
                 fontWeight: FontWeight.w500,
                 color: ApprovalsOverviewTheme.textSoft,
               ),
@@ -967,7 +968,7 @@ class _PettyCashDetailsScreenState extends State<PettyCashDetailsScreen> {
           Text(
             _formatAmount(amount),
             style: GoogleFonts.poppins(
-              fontSize: 13.sp,
+              fontSize: 13.tsp,
               fontWeight: FontWeight.w700,
               color: const Color(0xFF1B8A4B),
             ),
@@ -986,20 +987,20 @@ class _PettyCashDetailsScreenState extends State<PettyCashDetailsScreen> {
     return Container(
       decoration: BoxDecoration(
         color: const Color(0xFFCEE3E0),
-        borderRadius: BorderRadius.circular(16.r),
+        borderRadius: BorderRadius.circular(16.tr),
         border: Border.all(color: Colors.white.withValues(alpha: 0.85)),
       ),
       child: OverviewGlassPanel(
         fillAlpha: 0.72,
         blurSigma: 10,
         radius: 16,
-        padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 12.h),
+        padding: EdgeInsets.symmetric(horizontal: 12.tw, vertical: 12.th),
         child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Container(
-            width: 62.w,
-            height: 62.w,
+            width: 62.tw,
+            height: 62.tw,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
               border: Border.all(
@@ -1008,10 +1009,10 @@ class _PettyCashDetailsScreenState extends State<PettyCashDetailsScreen> {
               ),
             ),
             child: ClipOval(
-              child: _buildAvatar(holderImage, iconSize: 30.w),
+              child: _buildAvatar(holderImage, iconSize: 30.tw),
             ),
           ),
-          SizedBox(width: 12.w),
+          SizedBox(width: 12.tw),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -1022,31 +1023,31 @@ class _PettyCashDetailsScreenState extends State<PettyCashDetailsScreen> {
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                   style: GoogleFonts.poppins(
-                    fontSize: 16.sp,
+                    fontSize: 16.tsp,
                     fontWeight: FontWeight.w700,
                     color: ApprovalsOverviewTheme.textDark,
                     height: 1.2,
                   ),
                 ),
                 if (requesterName.trim().isNotEmpty) ...[
-                  SizedBox(height: 4.h),
+                  SizedBox(height: 4.th),
                   Text(
                     'Requested by $requesterName',
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
                     style: GoogleFonts.poppins(
-                      fontSize: 12.sp,
+                      fontSize: 12.tsp,
                       fontWeight: FontWeight.w500,
                       color: ApprovalsOverviewTheme.textMuted,
                     ),
                   ),
                 ],
                 if (submitDate.trim().isNotEmpty) ...[
-                  SizedBox(height: 10.h),
+                  SizedBox(height: 10.th),
                   Text(
                     submitDate,
                     style: GoogleFonts.poppins(
-                      fontSize: 13.sp,
+                      fontSize: 13.tsp,
                       fontWeight: FontWeight.w500,
                       color: ApprovalsOverviewTheme.textSoft,
                     ),
@@ -1066,11 +1067,11 @@ class _PettyCashDetailsScreenState extends State<PettyCashDetailsScreen> {
       color: Colors.transparent,
       child: InkWell(
         onTap: _viewAttachment,
-        borderRadius: BorderRadius.circular(14.r),
+        borderRadius: BorderRadius.circular(14.tr),
         child: Ink(
-          padding: EdgeInsets.symmetric(vertical: 11.h),
+          padding: EdgeInsets.symmetric(vertical: 11.th),
           decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(14.r),
+            borderRadius: BorderRadius.circular(14.tr),
             gradient: const LinearGradient(
               colors: [
                 ApprovalsOverviewTheme.screenMid,
@@ -1084,13 +1085,13 @@ class _PettyCashDetailsScreenState extends State<PettyCashDetailsScreen> {
               Icon(
                 Icons.attach_file_rounded,
                 color: Colors.white,
-                size: 18.sp,
+                size: 18.tsp,
               ),
-              SizedBox(width: 6.w),
+              SizedBox(width: 6.tw),
               Text(
                 'View Attachments',
                 style: GoogleFonts.poppins(
-                  fontSize: 13.sp,
+                  fontSize: 13.tsp,
                   fontWeight: FontWeight.w700,
                   color: Colors.white,
                 ),
@@ -1107,7 +1108,7 @@ class _PettyCashDetailsScreenState extends State<PettyCashDetailsScreen> {
       fillAlpha: 0.9,
       blurSigma: 8,
       radius: 16,
-      padding: EdgeInsets.fromLTRB(10.w, 8.h, 10.w, 8.h),
+      padding: EdgeInsets.fromLTRB(10.tw, 8.th, 10.tw, 8.th),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -1116,7 +1117,7 @@ class _PettyCashDetailsScreenState extends State<PettyCashDetailsScreen> {
               Text(
                 'COMMENT',
                 style: GoogleFonts.poppins(
-                  fontSize: 10.sp,
+                  fontSize: 10.tsp,
                   fontWeight: FontWeight.w700,
                   letterSpacing: 0.8,
                   color: ApprovalsOverviewTheme.screenDeep,
@@ -1126,28 +1127,28 @@ class _PettyCashDetailsScreenState extends State<PettyCashDetailsScreen> {
               Text(
                 '${comment.characters.length}/50',
                 style: GoogleFonts.poppins(
-                  fontSize: 9.sp,
+                  fontSize: 9.tsp,
                   fontWeight: FontWeight.w500,
                   color: ApprovalsOverviewTheme.textSoft,
                 ),
               ),
             ],
           ),
-          SizedBox(height: 5.h),
+          SizedBox(height: 5.th),
           Container(
             width: double.infinity,
-            constraints: BoxConstraints(minHeight: 36.h),
-            padding: EdgeInsets.symmetric(horizontal: 10.w, vertical: 7.h),
+            constraints: BoxConstraints(minHeight: 36.th),
+            padding: EdgeInsets.symmetric(horizontal: 10.tw, vertical: 7.th),
             decoration: BoxDecoration(
               color:
                   ApprovalsOverviewTheme.screenTintLight.withValues(alpha: 0.7),
-              borderRadius: BorderRadius.circular(12.r),
+              borderRadius: BorderRadius.circular(12.tr),
               border: Border.all(color: Colors.white.withValues(alpha: 0.85)),
             ),
             child: Text(
               comment.trim().isEmpty ? 'No comment' : comment,
               style: GoogleFonts.poppins(
-                fontSize: 12.sp,
+                fontSize: 12.tsp,
                 fontWeight:
                     comment.trim().isEmpty ? FontWeight.w400 : FontWeight.w500,
                 color: comment.trim().isEmpty
@@ -1167,7 +1168,7 @@ class _PettyCashDetailsScreenState extends State<PettyCashDetailsScreen> {
   Widget _floatingApprovalBar(String userId, {required String apiComment}) {
     return Container(
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(20.r),
+        borderRadius: BorderRadius.circular(20.tr),
         boxShadow: [
           BoxShadow(
             color: ApprovalsOverviewTheme.screenDeep.withValues(alpha: 0.12),
@@ -1180,7 +1181,7 @@ class _PettyCashDetailsScreenState extends State<PettyCashDetailsScreen> {
         fillAlpha: 0.78,
         blurSigma: 14,
         radius: 20,
-        padding: EdgeInsets.symmetric(horizontal: 8.w, vertical: 6.h),
+        padding: EdgeInsets.symmetric(horizontal: 8.tw, vertical: 6.th),
         child: ApprovalActionButtons(
           requestId: widget.requestId,
           type: widget.type,
@@ -1199,7 +1200,7 @@ class _PettyCashDetailsScreenState extends State<PettyCashDetailsScreen> {
       text,
       textAlign: align,
       style: GoogleFonts.poppins(
-        fontSize: size ?? 11.sp,
+        fontSize: size ?? 11.tsp,
         fontWeight: FontWeight.w700,
         color: const Color(0xFFB4B4B4),
         letterSpacing: 0.2,
@@ -1213,7 +1214,7 @@ class _PettyCashDetailsScreenState extends State<PettyCashDetailsScreen> {
       _displayOrNA(text),
       textAlign: align,
       style: GoogleFonts.poppins(
-        fontSize: size ?? 14.sp,
+        fontSize: size ?? 14.tsp,
         fontWeight: weight ?? FontWeight.w700,
         color: color ?? const Color(0xFF0E0E0E),
         letterSpacing: 0.1,
@@ -1239,28 +1240,28 @@ class _PettyCashDetailsScreenState extends State<PettyCashDetailsScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  _value(description, size: 11.sp, weight: FontWeight.w700),
-                  SizedBox(height: 6.w),
-                  _label(_formatDate(lineDate), size: 8.sp),
+                  _value(description, size: 11.tsp, weight: FontWeight.w700),
+                  SizedBox(height: 6.tw),
+                  _label(_formatDate(lineDate), size: 8.tsp),
                 ],
               ),
             ),
-            SizedBox(width: 12.w),
+            SizedBox(width: 12.tw),
             _value(
               _formatAmount(amount),
-              size: 11.sp,
+              size: 11.tsp,
               weight: FontWeight.w700,
               color: ApprovalsOverviewTheme.petty,
             ),
           ],
         ),
         if (showDivider) ...[
-          SizedBox(height: 10.w),
+          SizedBox(height: 10.tw),
           const Divider(
             color: Color(0xFFD2D2D2),
             height: 1,
           ),
-          SizedBox(height: 10.w),
+          SizedBox(height: 10.tw),
         ],
       ],
     );
@@ -1283,7 +1284,7 @@ class _PettyCashDetailsScreenState extends State<PettyCashDetailsScreen> {
       return Text(
         'No expense lines',
         style: GoogleFonts.poppins(
-          fontSize: 11.sp,
+          fontSize: 11.tsp,
           fontWeight: FontWeight.w500,
           color: ApprovalsOverviewTheme.textMuted,
         ),
@@ -1294,12 +1295,12 @@ class _PettyCashDetailsScreenState extends State<PettyCashDetailsScreen> {
       children: [
         for (int i = 0; i < groups.length; i++) ...[
           if (i > 0) ...[
-            SizedBox(height: 10.h),
+            SizedBox(height: 10.th),
             Divider(
               height: 1,
               color: ApprovalsOverviewTheme.textSoft.withValues(alpha: 0.28),
             ),
-            SizedBox(height: 10.h),
+            SizedBox(height: 10.th),
           ],
           InkWell(
             onTap: () {
@@ -1309,9 +1310,9 @@ class _PettyCashDetailsScreenState extends State<PettyCashDetailsScreen> {
                 lines: groups[i].lines,
               );
             },
-            borderRadius: BorderRadius.circular(8.r),
+            borderRadius: BorderRadius.circular(8.tr),
             child: Padding(
-              padding: EdgeInsets.symmetric(vertical: 2.h),
+              padding: EdgeInsets.symmetric(vertical: 2.th),
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
@@ -1319,7 +1320,7 @@ class _PettyCashDetailsScreenState extends State<PettyCashDetailsScreen> {
                     child: Text(
                       groups[i].typeLabel,
                       style: GoogleFonts.poppins(
-                        fontSize: 13.sp,
+                        fontSize: 13.tsp,
                         fontWeight: FontWeight.w600,
                         color: ApprovalsOverviewTheme.textDark,
                       ),
@@ -1331,15 +1332,15 @@ class _PettyCashDetailsScreenState extends State<PettyCashDetailsScreen> {
                       fallback: '0',
                     ),
                     style: GoogleFonts.poppins(
-                      fontSize: 13.sp,
+                      fontSize: 13.tsp,
                       fontWeight: FontWeight.w700,
                       color: ApprovalsOverviewTheme.petty,
                     ),
                   ),
-                  SizedBox(width: 4.w),
+                  SizedBox(width: 4.tw),
                   Icon(
                     Icons.chevron_right_rounded,
-                    size: 20.sp,
+                    size: 20.tsp,
                     color: ApprovalsOverviewTheme.screenDeep,
                   ),
                 ],
@@ -1488,11 +1489,11 @@ class _PettyCashDetailsScreenState extends State<PettyCashDetailsScreen> {
                       : _error.isNotEmpty
                           ? Center(
                               child: Padding(
-                                padding: EdgeInsets.all(16.w),
+                                padding: EdgeInsets.all(16.tw),
                                 child: Text(
                                   _error,
                                   style: GoogleFonts.poppins(
-                                    fontSize: 13.sp,
+                                    fontSize: 13.tsp,
                                     fontWeight: FontWeight.w600,
                                     color: Colors.red,
                                   ),
@@ -1514,7 +1515,7 @@ class _PettyCashDetailsScreenState extends State<PettyCashDetailsScreen> {
                                       ),
                                     Padding(
                                       padding: EdgeInsets.fromLTRB(
-                                          16.w, 4.h, 16.w, 0),
+                                          16.tw, 4.th, 16.tw, 0),
                                       child: _pettyCashRequestHeader(
                                         holderImage: holderImage,
                                         holderName: displayHolderName,
@@ -1522,35 +1523,35 @@ class _PettyCashDetailsScreenState extends State<PettyCashDetailsScreen> {
                                         submitDate: submitDate,
                                       ),
                                     ),
-                                    SizedBox(height: 6.h),
+                                    SizedBox(height: 6.th),
                                     Expanded(
                                       child: SingleChildScrollView(
                                         physics: const ClampingScrollPhysics(),
                                         padding: EdgeInsets.fromLTRB(
-                                          16.w,
+                                          16.tw,
                                           0,
-                                          16.w,
-                                          (hasAttachments ? 120.h : 68.h) +
+                                          16.tw,
+                                          (hasAttachments ? 120.th : 68.th) +
                                               context.systemBottomInset,
                                         ),
                                         child: Column(
                                           children: [
-                                            SizedBox(height: 4.h),
+                                            SizedBox(height: 4.th),
                                             _agreementManagerCell(
                                               name: agreementManagerName,
                                               imageUrl: agreementManagerImage,
                                             ),
-                                            SizedBox(height: 6.h),
+                                            SizedBox(height: 6.th),
                                             _glassSectionCard(
                                               title: 'Expense Lines',
                                               trailing: InkWell(
                                                 onTap: showAllExpenseLines,
                                                 borderRadius:
-                                                    BorderRadius.circular(6.r),
+                                                    BorderRadius.circular(6.tr),
                                                 child: Padding(
                                                   padding: EdgeInsets.symmetric(
-                                                    horizontal: 4.w,
-                                                    vertical: 2.h,
+                                                    horizontal: 4.tw,
+                                                    vertical: 2.th,
                                                   ),
                                                   child: Row(
                                                     mainAxisSize:
@@ -1560,7 +1561,7 @@ class _PettyCashDetailsScreenState extends State<PettyCashDetailsScreen> {
                                                         'Show all',
                                                         style:
                                                             GoogleFonts.poppins(
-                                                          fontSize: 10.sp,
+                                                          fontSize: 10.tsp,
                                                           fontWeight:
                                                               FontWeight.w600,
                                                           color:
@@ -1571,7 +1572,7 @@ class _PettyCashDetailsScreenState extends State<PettyCashDetailsScreen> {
                                                       Icon(
                                                         Icons
                                                             .chevron_right_rounded,
-                                                        size: 16.sp,
+                                                        size: 16.tsp,
                                                         color:
                                                             ApprovalsOverviewTheme
                                                                 .screenDeep,
@@ -1584,11 +1585,11 @@ class _PettyCashDetailsScreenState extends State<PettyCashDetailsScreen> {
                                                 lines,
                                               ),
                                             ),
-                                            SizedBox(height: 6.h),
+                                            SizedBox(height: 6.th),
                                             _totalAmountCell(amount: totalAmount),
-                                            SizedBox(height: 6.h),
+                                            SizedBox(height: 6.th),
                                             _buildSimCommentCard(apiComment),
-                                            SizedBox(height: 8.h),
+                                            SizedBox(height: 8.th),
                                           ],
                                         ),
                                       ),
@@ -1597,15 +1598,15 @@ class _PettyCashDetailsScreenState extends State<PettyCashDetailsScreen> {
                                 ),
                                 if (hasAttachments)
                                   Positioned(
-                                    left: 16.w,
-                                    right: 16.w,
-                                    bottom: context.systemBottomInset + 72.h,
+                                    left: 16.tw,
+                                    right: 16.tw,
+                                    bottom: context.systemBottomInset + 72.th,
                                     child: _viewAttachmentsButton(),
                                   ),
                                 Positioned(
-                                  left: 16.w,
-                                  right: 16.w,
-                                  bottom: context.systemBottomInset + 8.h,
+                                  left: 16.tw,
+                                  right: 16.tw,
+                                  bottom: context.systemBottomInset + 8.th,
                                   child: _floatingApprovalBar(
                                     userId,
                                     apiComment: apiComment,
@@ -1685,7 +1686,7 @@ class PettyCashSeeMoreScreen extends StatelessWidget {
       _displayOrNA(text),
       textAlign: align,
       style: GoogleFonts.poppins(
-        fontSize: size ?? 14.sp,
+        fontSize: size ?? 14.tsp,
         fontWeight: weight ?? FontWeight.w700,
         color: color ?? const Color(0xFF0E0E0E),
         letterSpacing: 0.1,
@@ -1699,7 +1700,7 @@ class PettyCashSeeMoreScreen extends StatelessWidget {
     return Text(
       text,
       style: GoogleFonts.poppins(
-        fontSize: 11.sp,
+        fontSize: 11.tsp,
         fontWeight: FontWeight.w700,
         color: const Color(0xFFB4B4B4),
       ),
@@ -1733,17 +1734,17 @@ class PettyCashSeeMoreScreen extends StatelessWidget {
                 Expanded(
                   child: SingleChildScrollView(
                     padding: EdgeInsets.fromLTRB(
-                      16.w,
-                      6.h,
-                      16.w,
-                      68.h + context.systemBottomInset,
+                      16.tw,
+                      6.th,
+                      16.tw,
+                      68.th + context.systemBottomInset,
                     ),
                     child: OverviewGlassPanel(
                       fillAlpha: 0.9,
                       blurSigma: 8,
                       radius: 16,
                       padding: EdgeInsets.symmetric(
-                          horizontal: 12.w, vertical: 10.h),
+                          horizontal: 12.tw, vertical: 10.th),
                       child: Column(
                         children: [
                           if (lines.isNotEmpty)
@@ -1781,28 +1782,28 @@ class PettyCashSeeMoreScreen extends StatelessWidget {
                                           crossAxisAlignment:
                                               CrossAxisAlignment.start,
                                           children: [
-                                            _value(description, size: 14.sp),
-                                            SizedBox(height: 6.w),
+                                            _value(description, size: 14.tsp),
+                                            SizedBox(height: 6.tw),
                                             _label(_formatDate(lineDate)),
                                           ],
                                         ),
                                       ),
-                                      SizedBox(width: 12.w),
+                                      SizedBox(width: 12.tw),
                                       _value(
                                         _formatAmount(amount),
-                                        size: 14.sp,
+                                        size: 14.tsp,
                                         color: ApprovalsOverviewTheme.petty,
                                       ),
                                     ],
                                   ),
                                   if (i < lines.length - 1) ...[
-                                    SizedBox(height: 10.w),
+                                    SizedBox(height: 10.tw),
                                     Divider(
                                       color: ApprovalsOverviewTheme.textSoft
                                           .withValues(alpha: 0.35),
                                       height: 1,
                                     ),
-                                    SizedBox(height: 10.w),
+                                    SizedBox(height: 10.tw),
                                   ],
                                 ],
                               );
@@ -1817,16 +1818,16 @@ class PettyCashSeeMoreScreen extends StatelessWidget {
                                     crossAxisAlignment:
                                         CrossAxisAlignment.start,
                                     children: [
-                                      _value(projectName, size: 14.sp),
-                                      SizedBox(height: 6.w),
+                                      _value(projectName, size: 14.tsp),
+                                      SizedBox(height: 6.tw),
                                       _label(_formatDate(date)),
                                     ],
                                   ),
                                 ),
-                                SizedBox(width: 12.w),
+                                SizedBox(width: 12.tw),
                                 _value(
                                   _formatAmount(''),
-                                  size: 14.sp,
+                                  size: 14.tsp,
                                   color: ApprovalsOverviewTheme.petty,
                                 ),
                               ],
@@ -1839,12 +1840,12 @@ class PettyCashSeeMoreScreen extends StatelessWidget {
               ],
             ),
             Positioned(
-              left: 16.w,
-              right: 16.w,
-              bottom: context.systemBottomInset + 8.h,
+              left: 16.tw,
+              right: 16.tw,
+              bottom: context.systemBottomInset + 8.th,
               child: Container(
                 decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(20.r),
+                  borderRadius: BorderRadius.circular(20.tr),
                   boxShadow: [
                     BoxShadow(
                       color: ApprovalsOverviewTheme.screenDeep
@@ -1858,7 +1859,7 @@ class PettyCashSeeMoreScreen extends StatelessWidget {
                   fillAlpha: 0.78,
                   blurSigma: 14,
                   radius: 20,
-                  padding: EdgeInsets.symmetric(horizontal: 8.w, vertical: 6.h),
+                  padding: EdgeInsets.symmetric(horizontal: 8.tw, vertical: 6.th),
                   child: ApprovalActionButtons(
                     requestId: requestId,
                     type: type,

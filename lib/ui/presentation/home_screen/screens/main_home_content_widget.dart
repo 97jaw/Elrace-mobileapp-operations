@@ -1,5 +1,6 @@
 import 'package:flutter_cache_manager/flutter_cache_manager.dart';
 import 'package:el_race/core/services/attendance_status_sync_service.dart';
+import 'package:el_race/core/utils/responsive_breakpoints.dart';
 import 'package:el_race/ui/presentation/home_screen/provider/slider_provider.dart';
 import 'package:el_race/ui/presentation/home_screen/widgets/home_city_helper.dart';
 import 'package:el_race/ui/presentation/home_screen/widgets/home_floating_comms_bar.dart';
@@ -7,6 +8,7 @@ import 'package:el_race/ui/presentation/home_screen/widgets/home_glass_app_bar.d
 import 'package:el_race/ui/presentation/home_screen/widgets/home_glass_theme.dart';
 import 'package:el_race/ui/presentation/home_screen/widgets/home_greeting_section.dart';
 import 'package:el_race/ui/presentation/home_screen/widgets/home_news_card.dart';
+import 'package:el_race/ui/presentation/home_screen/widgets/home_tablet_layout.dart';
 import 'package:el_race/ui/presentation/home_screen/widgets/home_widgets_panel.dart';
 import 'package:el_race/ui/presentation/home_screen/widgets/mid_section_scroll_lock.dart';
 import 'package:el_race/ui/presentation/home_screen/widgets/my_actions_section.dart';
@@ -96,6 +98,10 @@ class _MainHomeContentWidgetState extends State<MainHomeContentWidget> {
 
   @override
   Widget build(BuildContext context) {
+    if (ResponsiveBreakpoints.useTabletLayout(context)) {
+      return HomeTabletLayout(onRefresh: _onRefresh);
+    }
+
     final screenHeight = MediaQuery.sizeOf(context).height;
 
     return MidSectionScrollLock(
@@ -137,7 +143,7 @@ class _MainHomeContentWidgetState extends State<MainHomeContentWidget> {
                           valueListenable: _expandProgress,
                           builder: (context, t, _) {
                             final homeOpacity = (1 - t).clamp(0.0, 1.0);
-                            final homeSlideUp = -28.h * t;
+                            final homeSlideUp = -28.th * t;
                             final externalBarOpacity =
                                 (1 - (t / 0.78)).clamp(0.0, 1.0);
                             final hideExternalAppBar = t >= 0.78;
@@ -217,7 +223,7 @@ class _SilverHeaderZone extends StatelessWidget {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                SizedBox(height: MediaQuery.paddingOf(context).top + 6.h),
+                SizedBox(height: MediaQuery.paddingOf(context).top + 6.th),
                 HomeGlassAppBar(expandProgress: expandProgress),
               ],
             ),
@@ -237,7 +243,7 @@ class _SilverHeaderZone extends StatelessWidget {
                   dense: true,
                   showTitle: false,
                 ),
-                SizedBox(height: 7.h),
+                SizedBox(height: 7.th),
               ],
             ),
           ),

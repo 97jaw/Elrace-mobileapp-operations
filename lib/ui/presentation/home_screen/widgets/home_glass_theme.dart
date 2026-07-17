@@ -2,6 +2,7 @@ import 'dart:ui';
 
 import 'package:el_race/core/ui/adaptive_glass.dart';
 import 'package:el_race/core/ui/device_ui_capability.dart';
+import 'package:el_race/core/utils/responsive_breakpoints.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
@@ -203,7 +204,7 @@ abstract final class HomeGlassTheme {
     BorderRadius? borderRadius,
     EdgeInsetsGeometry? padding,
   }) {
-    final radius = borderRadius ?? BorderRadius.circular(18.r);
+    final radius = borderRadius ?? BorderRadius.circular(18.ur);
     switch (shell) {
       case MidSectionShell.dual:
         return _dualMidSectionShell(
@@ -239,7 +240,7 @@ abstract final class HomeGlassTheme {
     required EdgeInsetsGeometry padding,
     required Widget child,
   }) {
-    final borderRadius = BorderRadius.circular(22.r);
+    final borderRadius = BorderRadius.circular(22.ur);
 
     return Material(
       color: Colors.transparent,

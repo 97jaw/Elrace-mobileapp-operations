@@ -1,3 +1,4 @@
+import 'package:el_race/core/utils/responsive_breakpoints.dart';
 import 'dart:convert';
 import 'package:el_race/utils/color_utils.dart';
 import 'package:flutter/material.dart';
@@ -90,9 +91,9 @@ class ApprovalCardTypeTwo extends StatelessWidget {
     return InkWell(
       onTap: onTap,
       child: Container(
-        height: 105.w,
-        width: 350.w,
-        margin: EdgeInsets.symmetric(horizontal: 10.w),
+        height: 105.tw,
+        width: 350.tw,
+        margin: EdgeInsets.symmetric(horizontal: 10.tw),
         decoration: BoxDecoration(
           color: Colors.grey[300],
           borderRadius: BorderRadius.circular(20),
@@ -104,9 +105,9 @@ class ApprovalCardTypeTwo extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
               Container(
-                height: 73.w,
-                width: 73.w,
-                padding: EdgeInsets.all(6.w),
+                height: 73.tw,
+                width: 73.tw,
+                padding: EdgeInsets.all(6.tw),
                 decoration: const BoxDecoration(
                   color: Colors.white,
                   shape: BoxShape.circle,
@@ -123,7 +124,7 @@ class ApprovalCardTypeTwo extends StatelessWidget {
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     SizedBox(
-                      width: 130.w,
+                      width: 130.tw,
                       child: Text(
                         requesterName,
                         style: const TextStyle(fontWeight: FontWeight.bold),
@@ -131,10 +132,10 @@ class ApprovalCardTypeTwo extends StatelessWidget {
                         maxLines: null,
                       ),
                     ),
-                    SizedBox(height: 5.w),
+                    SizedBox(height: 5.tw),
                     Text(
                       name,
-                      style: TextStyle(color: greyText, fontSize: 13.sp),
+                      style: TextStyle(color: greyText, fontSize: 13.tsp),
                       overflow: TextOverflow.visible,
                       maxLines: null,
                     ),
@@ -143,19 +144,19 @@ class ApprovalCardTypeTwo extends StatelessWidget {
               ),
               Expanded(
                 child: Container(
-                  padding: EdgeInsets.symmetric(vertical: 6.w, horizontal: 8.w),
+                  padding: EdgeInsets.symmetric(vertical: 6.tw, horizontal: 8.tw),
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     crossAxisAlignment: CrossAxisAlignment.center,
                     children: [
                       const InfoContainer(text: 'Job Mission'),
-                      SizedBox(height: 6.w),
+                      SizedBox(height: 6.tw),
                       InfoContainer(text: name),
-                      SizedBox(height: 6.w),
+                      SizedBox(height: 6.tw),
                       InfoContainer(
                         text: date,
                         icon: Image.asset('assets/newapp/calendar.png',
-                            width: 14.w, height: 14.w),
+                            width: 14.tw, height: 14.tw),
                       ),
                     ],
                   ),
@@ -187,11 +188,11 @@ class InfoContainer extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       alignment: Alignment.center,
-      height: 27.w,
-      width: width ?? 120.w,
+      height: 27.tw,
+      width: width ?? 120.tw,
       decoration: BoxDecoration(
         border: Border.all(color: const Color(0xFF1A1A53), width: 1),
-        borderRadius: BorderRadius.circular(13.r),
+        borderRadius: BorderRadius.circular(13.tr),
       ),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.center,
@@ -199,12 +200,12 @@ class InfoContainer extends StatelessWidget {
         children: [
           if (icon != null) ...[
             icon!,
-            SizedBox(width: 2.w),
+            SizedBox(width: 2.tw),
           ],
           Text(
             text,
             style: GoogleFonts.poppins(
-              fontSize: fontSize ?? 11.sp,
+              fontSize: fontSize ?? 11.tsp,
               fontWeight: FontWeight.bold,
               color: const Color(0xFF1A1A53),
             ),

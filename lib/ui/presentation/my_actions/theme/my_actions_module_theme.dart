@@ -1,3 +1,4 @@
+import 'package:el_race/core/utils/responsive_breakpoints.dart';
 import 'package:el_race/core/utils/shared_pref.dart';
 import 'package:el_race/ui/presentation/my_actions/data/my_actions_models.dart';
 import 'package:flutter/material.dart';
@@ -267,7 +268,7 @@ class MyActionsModuleTheme {
   BoxDecoration glassCard({double radius = 22}) {
     return BoxDecoration(
       color: white.withValues(alpha: 0.94),
-      borderRadius: BorderRadius.circular(radius.r),
+      borderRadius: BorderRadius.circular(radius.tr),
       border: Border.all(color: white, width: 1.2),
       boxShadow: [
         BoxShadow(
@@ -282,7 +283,7 @@ class MyActionsModuleTheme {
   BoxDecoration statCard() {
     return BoxDecoration(
       color: white,
-      borderRadius: BorderRadius.circular(20.r),
+      borderRadius: BorderRadius.circular(20.tr),
       boxShadow: [
         BoxShadow(
           color: Colors.black.withValues(alpha: 0.06),
@@ -294,33 +295,33 @@ class MyActionsModuleTheme {
   }
 
   TextStyle get heroTitle => GoogleFonts.poppins(
-        fontSize: 28.sp,
+        fontSize: 28.tsp,
         fontWeight: FontWeight.w700,
         color: textOnGradient,
         height: 1.15,
       );
 
   TextStyle get heroSlogan => GoogleFonts.poppins(
-        fontSize: 14.sp,
+        fontSize: 14.tsp,
         fontWeight: FontWeight.w500,
         color: textOnGradient.withValues(alpha: 0.9),
         height: 1.35,
       );
 
   TextStyle get sectionTitle => GoogleFonts.poppins(
-        fontSize: 17.sp,
+        fontSize: 17.tsp,
         fontWeight: FontWeight.w700,
         color: textDark,
       );
 
   TextStyle get cardTitle => GoogleFonts.poppins(
-        fontSize: 15.sp,
+        fontSize: 15.tsp,
         fontWeight: FontWeight.w600,
         color: textDark,
       );
 
   TextStyle get cardSubtitle => GoogleFonts.poppins(
-        fontSize: 12.sp,
+        fontSize: 12.tsp,
         fontWeight: FontWeight.w500,
         color: textMuted,
       );

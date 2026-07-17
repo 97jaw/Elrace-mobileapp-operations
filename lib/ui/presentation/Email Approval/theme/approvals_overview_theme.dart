@@ -1,3 +1,4 @@
+import 'package:el_race/core/utils/responsive_breakpoints.dart';
 import 'dart:ui';
 
 import 'package:el_race/core/ui/adaptive_glass.dart';
@@ -185,7 +186,7 @@ class ApprovalsOverviewTheme {
   static BoxDecoration waitingHeadingDecoration({double radius = 22}) {
     return BoxDecoration(
       gradient: waitingHeadingGradient,
-      borderRadius: BorderRadius.circular(radius.r),
+      borderRadius: BorderRadius.circular(radius.tr),
       border: Border.all(color: Colors.white.withValues(alpha: 0.22)),
       boxShadow: [
         BoxShadow(
@@ -203,7 +204,7 @@ class ApprovalsOverviewTheme {
     double borderAlpha = 0.55,
   }) {
     return BoxDecoration(
-      borderRadius: BorderRadius.circular(radius.r),
+      borderRadius: BorderRadius.circular(radius.tr),
       color: white.withValues(alpha: fillAlpha),
       border: Border.all(
         color: white.withValues(alpha: borderAlpha),
@@ -244,14 +245,14 @@ class OverviewGlassPanel extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final content = Padding(
-      padding: padding ?? EdgeInsets.all(14.w),
+      padding: padding ?? EdgeInsets.all(14.tw),
       child: child,
     );
 
     return ClipRRect(
-      borderRadius: BorderRadius.circular(radius.r),
+      borderRadius: BorderRadius.circular(radius.tr),
       child: AdaptiveGlassLayer(
-        borderRadius: BorderRadius.circular(radius.r),
+        borderRadius: BorderRadius.circular(radius.tr),
         sigma: blurSigma,
         fallbackColor: ApprovalsOverviewTheme.white
             .withValues(alpha: fillAlpha.clamp(0.75, 0.92)),
@@ -262,7 +263,7 @@ class OverviewGlassPanel extends StatelessWidget {
           color: Colors.transparent,
           child: InkWell(
             onTap: onTap,
-            borderRadius: BorderRadius.circular(radius.r),
+            borderRadius: BorderRadius.circular(radius.tr),
             child: Ink(
               decoration: ApprovalsOverviewTheme.whiteFadedGlass(
                 radius: radius,
@@ -291,8 +292,8 @@ class OverviewArrowButton extends StatelessWidget {
       onTap: onTap,
       behavior: HitTestBehavior.opaque,
       child: Container(
-        width: size.w,
-        height: size.w,
+        width: size.tw,
+        height: size.tw,
         decoration: BoxDecoration(
           color: ApprovalsOverviewTheme.white,
           shape: BoxShape.circle,
@@ -300,7 +301,7 @@ class OverviewArrowButton extends StatelessWidget {
         ),
         child: Icon(
           Icons.north_east_rounded,
-          size: (size * 0.46).sp,
+          size: (size * 0.46).tsp,
           color: ApprovalsOverviewTheme.textDark,
         ),
       ),

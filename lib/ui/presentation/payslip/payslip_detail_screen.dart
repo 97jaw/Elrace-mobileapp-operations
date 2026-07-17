@@ -1,3 +1,4 @@
+import 'package:el_race/core/utils/responsive_breakpoints.dart';
 import 'dart:io';
 
 import 'package:el_race/core/payslip/models/payslip_models.dart';
@@ -75,7 +76,7 @@ class PayslipDetailScreen extends ConsumerWidget {
         title: Text(
           'Payslip',
           style: HrModuleTypography.pageTitle().copyWith(
-                fontSize: 18.sp,
+                fontSize: 18.tsp,
                 fontWeight: FontWeight.w800,
                 color: HrModuleColors.text,
               ),
@@ -93,15 +94,15 @@ class PayslipDetailScreen extends ConsumerWidget {
             }
             return ListView(
               padding: EdgeInsets.fromLTRB(
-                HrModuleLayout.screenPaddingH.w,
-                16.h,
-                HrModuleLayout.screenPaddingH.w,
-                32.h,
+                HrModuleLayout.screenPaddingH.tw,
+                16.th,
+                HrModuleLayout.screenPaddingH.tw,
+                32.th,
               ),
               children: [
                 Wrap(
-                  spacing: 8.w,
-                  runSpacing: 8.h,
+                  spacing: 8.tw,
+                  runSpacing: 8.th,
                   children: [
                     FilledButton.icon(
                       onPressed: () => _openPdf(context, record),
@@ -123,7 +124,7 @@ class PayslipDetailScreen extends ConsumerWidget {
                     ),
                   ],
                 ),
-                SizedBox(height: 16.h),
+                SizedBox(height: 16.th),
                 PayslipDocumentView(record: record),
               ],
             );
@@ -131,7 +132,7 @@ class PayslipDetailScreen extends ConsumerWidget {
           loading: () => const Center(child: CircularProgressIndicator()),
           error: (e, _) => Center(
             child: Padding(
-              padding: EdgeInsets.all(24.w),
+              padding: EdgeInsets.all(24.tw),
               child: Text(
                 'Could not load payslip.\n$e',
                 textAlign: TextAlign.center,

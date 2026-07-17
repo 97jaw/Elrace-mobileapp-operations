@@ -1,3 +1,4 @@
+import 'package:el_race/core/utils/responsive_breakpoints.dart';
 import 'dart:async';
 import 'dart:math' as math;
 
@@ -317,49 +318,49 @@ class _ProjectListScreenState extends State<ProjectListScreen> {
             onBack: () => Navigator.of(context).maybePop(),
           ),
         Padding(
-          padding: EdgeInsets.fromLTRB(16.w, 0, 16.w, 10.h),
+          padding: EdgeInsets.fromLTRB(16.tw, 0, 16.tw, 10.th),
           child: Row(
             children: [
               Expanded(
                 child: TextField(
                   controller: _searchController,
                   style: GoogleFonts.poppins(
-                    fontSize: 13.sp,
+                    fontSize: 13.tsp,
                     color: ProjectsDashboardTheme.white,
                   ),
                   decoration: InputDecoration(
                     hintText: translate('projects_dashboard.search_name_hint'),
                     hintStyle: GoogleFonts.poppins(
-                      fontSize: 13.sp,
+                      fontSize: 13.tsp,
                       color: ProjectsDashboardTheme.greyPanel.withValues(alpha: 0.85),
                     ),
                     prefixIcon: Icon(
                       Icons.search_rounded,
                       color: ProjectsDashboardTheme.white.withValues(alpha: 0.9),
-                      size: 22.sp,
+                      size: 22.tsp,
                     ),
                     filled: true,
                     fillColor: ProjectsDashboardTheme.greyPanel.withValues(
                       alpha: 0.18,
                     ),
                     contentPadding: EdgeInsets.symmetric(
-                      horizontal: 14.w,
-                      vertical: 10.h,
+                      horizontal: 14.tw,
+                      vertical: 10.th,
                     ),
                     border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(14.r),
+                      borderRadius: BorderRadius.circular(14.tr),
                       borderSide: BorderSide(
                         color: ProjectsDashboardTheme.white.withValues(alpha: 0.22),
                       ),
                     ),
                     enabledBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(14.r),
+                      borderRadius: BorderRadius.circular(14.tr),
                       borderSide: BorderSide(
                         color: ProjectsDashboardTheme.white.withValues(alpha: 0.22),
                       ),
                     ),
                     focusedBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(14.r),
+                      borderRadius: BorderRadius.circular(14.tr),
                       borderSide: BorderSide(
                         color: ProjectsDashboardTheme.maroonLight.withValues(
                           alpha: 0.75,
@@ -371,7 +372,7 @@ class _ProjectListScreenState extends State<ProjectListScreen> {
                 ),
               ),
               if (!_usesPreloadedList) ...[
-                SizedBox(width: 8.w),
+                SizedBox(width: 8.tw),
                 ProjectsHubFilterButton(
                   active: _hubFilters.hasActiveFilters,
                   onTap: _openHubFilters,
@@ -412,9 +413,9 @@ class _ProjectListScreenState extends State<ProjectListScreen> {
                   if (state is ProjectListLoading &&
                       bloc.visibleProjects.isEmpty) {
                     return ListView.separated(
-                      padding: EdgeInsets.symmetric(horizontal: 16.w),
+                      padding: EdgeInsets.symmetric(horizontal: 16.tw),
                       itemCount: 6,
-                      separatorBuilder: (_, __) => SizedBox(height: 10.h),
+                      separatorBuilder: (_, __) => SizedBox(height: 10.th),
                       itemBuilder: (_, __) => const ProjectsProjectRowShimmer(),
                     );
                   }
@@ -436,7 +437,7 @@ class _ProjectListScreenState extends State<ProjectListScreen> {
                       child: Text(
                         'No projects found',
                         style: GoogleFonts.poppins(
-                          fontSize: 14.sp,
+                          fontSize: 14.tsp,
                           color: ProjectsDashboardTheme.greyPanel,
                         ),
                       ),
@@ -450,10 +451,10 @@ class _ProjectListScreenState extends State<ProjectListScreen> {
                   return ListView.separated(
                     controller: _scrollController,
                     physics: const BouncingScrollPhysics(),
-                    padding: EdgeInsets.only(bottom: 100.h),
+                    padding: EdgeInsets.only(bottom: 100.th),
                     itemCount: list.length +
                         (showLoadingFooter || showFooter ? 1 : 0),
-                    separatorBuilder: (_, __) => SizedBox(height: 10.h),
+                    separatorBuilder: (_, __) => SizedBox(height: 10.th),
                     itemBuilder: (context, index) {
                       if (index >= list.length) {
                         return ProjectsListLoadMoreFooter(

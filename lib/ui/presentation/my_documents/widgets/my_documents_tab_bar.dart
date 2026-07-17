@@ -1,3 +1,4 @@
+import 'package:el_race/core/utils/responsive_breakpoints.dart';
 import 'package:el_race/ui/presentation/productivity/theme/productivity_theme.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
@@ -31,10 +32,10 @@ class MyDocumentsTabBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: EdgeInsets.symmetric(horizontal: 14.w),
+      padding: EdgeInsets.symmetric(horizontal: 14.tw),
       child: Container(
-        height: 44.h,
-        padding: EdgeInsets.all(4.w),
+        height: 44.th,
+        padding: EdgeInsets.all(4.tw),
         decoration: BoxDecoration(
           color: Colors.white.withValues(alpha: 0.78),
           borderRadius: BorderRadius.circular(999),
@@ -50,7 +51,7 @@ class MyDocumentsTabBar extends StatelessWidget {
         child: Row(
           children: [
             for (var i = 0; i < tabs.length; i++) ...[
-              if (i > 0) SizedBox(width: 4.w),
+              if (i > 0) SizedBox(width: 4.tw),
               Expanded(
                 child: _TabChip(
                   label: tabs[i].label,
@@ -111,17 +112,17 @@ class _TabChip extends StatelessWidget {
           children: [
             Icon(
               selected ? iconSelected : icon,
-              size: 15.sp,
+              size: 15.tsp,
               color: selected ? Colors.white : ProductivityTheme.textSecondary,
             ),
-            SizedBox(width: 5.w),
+            SizedBox(width: 5.tw),
             Flexible(
               child: Text(
                 label,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: GoogleFonts.poppins(
-                  fontSize: 10.sp,
+                  fontSize: 10.tsp,
                   fontWeight: selected ? FontWeight.w700 : FontWeight.w600,
                   color: selected
                       ? Colors.white

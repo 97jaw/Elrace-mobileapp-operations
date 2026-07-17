@@ -1,3 +1,4 @@
+import 'package:el_race/core/utils/responsive_breakpoints.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -68,7 +69,7 @@ class ApprovalActionButtons extends StatelessWidget {
               listenToBloc: true,
             ),
           ),
-          SizedBox(width: 12.w),
+          SizedBox(width: 12.tw),
           Expanded(
             child: _buildRectangleActionButton(
               context,
@@ -96,7 +97,7 @@ class ApprovalActionButtons extends StatelessWidget {
               listenToBloc: true,
             ),
           ),
-          SizedBox(width: 10.w),
+          SizedBox(width: 10.tw),
           Expanded(
             child: _buildGlassActionButton(
               context,
@@ -125,7 +126,7 @@ class ApprovalActionButtons extends StatelessWidget {
               expand: pillWidth == null,
             ),
           ),
-          SizedBox(width: pillSpacing ?? 12.w),
+          SizedBox(width: pillSpacing ?? 12.tw),
           Expanded(
             child: _buildPillActionButton(
               context,
@@ -143,8 +144,8 @@ class ApprovalActionButtons extends StatelessWidget {
 
     return LayoutBuilder(
       builder: (context, constraints) {
-        final compact = constraints.maxWidth < 320.w;
-        final gap = compact ? 16.w : 24.w;
+        final compact = constraints.maxWidth < 320.tw;
+        final gap = compact ? 16.tw : 24.tw;
         return Row(
           children: [
             Expanded(
@@ -240,7 +241,7 @@ class ApprovalActionButtons extends StatelessWidget {
 
         return SizedBox(
           width: double.infinity,
-          height: 52.w,
+          height: 52.tw,
           child: ElevatedButton(
             onPressed: isButtonDisabled
                 ? null
@@ -322,14 +323,14 @@ class ApprovalActionButtons extends StatelessWidget {
               backgroundColor: color,
               disabledBackgroundColor: color.withValues(alpha: 0.4),
               shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(10.r),
+                borderRadius: BorderRadius.circular(10.tr),
               ),
               elevation: isSelected ? 6 : 2,
             ),
             child: Text(
               label,
               style: GoogleFonts.poppins(
-                fontSize: 20.sp,
+                fontSize: 20.tsp,
                 fontWeight: FontWeight.w700,
                 letterSpacing: 1.2,
                 color: Colors.white,
@@ -405,8 +406,8 @@ class ApprovalActionButtons extends StatelessWidget {
         final isButtonDisabled = disabled || isLoading;
 
         return SizedBox(
-          width: expand ? double.infinity : (pillWidth ?? 150.w),
-          height: pillHeight ?? 52.w,
+          width: expand ? double.infinity : (pillWidth ?? 150.tw),
+          height: pillHeight ?? 52.tw,
           child: ElevatedButton(
             onPressed: isButtonDisabled
                 ? null
@@ -523,7 +524,7 @@ class ApprovalActionButtons extends StatelessWidget {
               '${label.substring(0, 1)}${label.substring(1).toLowerCase()}',
               style: pillTextStyle ??
                   GoogleFonts.poppins(
-                    fontSize: 18.sp,
+                    fontSize: 18.tsp,
                     fontWeight: FontWeight.w600,
                     letterSpacing: 1.0,
                     color: Colors.white,
@@ -629,10 +630,10 @@ class ApprovalActionButtons extends StatelessWidget {
           builder: (ctx, setModalState) {
             return Dialog(
               shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(18.r),
+                borderRadius: BorderRadius.circular(18.tr),
               ),
               child: Padding(
-                padding: EdgeInsets.symmetric(horizontal: 18.w, vertical: 18.w),
+                padding: EdgeInsets.symmetric(horizontal: 18.tw, vertical: 18.tw),
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
@@ -640,18 +641,18 @@ class ApprovalActionButtons extends StatelessWidget {
                       'Are you sure you want to $actionText ?',
                       textAlign: TextAlign.center,
                       style: GoogleFonts.poppins(
-                        fontSize: 16.sp,
+                        fontSize: 16.tsp,
                         fontWeight: FontWeight.w700,
                         color: const Color(0xFF1F1F1F),
                       ),
                     ),
-                    SizedBox(height: 16.h),
+                    SizedBox(height: 16.th),
                     Row(
                       children: [
                         Text(
                           'Comments',
                           style: GoogleFonts.poppins(
-                            fontSize: 13.sp,
+                            fontSize: 13.tsp,
                             fontWeight: FontWeight.w600,
                             color: const Color(0xFF555555),
                           ),
@@ -660,14 +661,14 @@ class ApprovalActionButtons extends StatelessWidget {
                         Text(
                           '${commentController.text.length}/50',
                           style: GoogleFonts.poppins(
-                            fontSize: 12.sp,
+                            fontSize: 12.tsp,
                             fontWeight: FontWeight.w500,
                             color: const Color(0xFF9E9E9E),
                           ),
                         ),
                       ],
                     ),
-                    SizedBox(height: 8.h),
+                    SizedBox(height: 8.th),
                     TextField(
                       controller: commentController,
                       maxLength: 50,
@@ -678,31 +679,31 @@ class ApprovalActionButtons extends StatelessWidget {
                         hintText: 'Write your comment...',
                         counterText: '',
                         contentPadding: EdgeInsets.symmetric(
-                            horizontal: 12.w, vertical: 10.h),
+                            horizontal: 12.tw, vertical: 10.th),
                         border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(10.r),
+                          borderRadius: BorderRadius.circular(10.tr),
                           borderSide:
                               const BorderSide(color: Color(0xFFD8D8D8)),
                         ),
                         enabledBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(10.r),
+                          borderRadius: BorderRadius.circular(10.tr),
                           borderSide:
                               const BorderSide(color: Color(0xFFD8D8D8)),
                         ),
                         focusedBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(10.r),
+                          borderRadius: BorderRadius.circular(10.tr),
                           borderSide:
                               const BorderSide(color: Color(0xFFBDBDBD)),
                         ),
                       ),
                     ),
-                    SizedBox(height: 14.h),
+                    SizedBox(height: 14.th),
                     SizedBox(
-                      height: 52.h,
+                      height: 52.th,
                       width: double.infinity,
                       child: LayoutBuilder(
                         builder: (context, constraints) {
-                          final knobSize = 42.w;
+                          final knobSize = 42.tw;
                           final maxLeft = constraints.maxWidth - knobSize;
                           final knobLeft =
                               (maxLeft * sliderProgress).clamp(0.0, maxLeft);
@@ -711,11 +712,11 @@ class ApprovalActionButtons extends StatelessWidget {
                             alignment: Alignment.center,
                             children: [
                               Container(
-                                height: 40.h,
-                                padding: EdgeInsets.symmetric(horizontal: 22.w),
+                                height: 40.th,
+                                padding: EdgeInsets.symmetric(horizontal: 22.tw),
                                 decoration: BoxDecoration(
                                   color: Colors.white,
-                                  borderRadius: BorderRadius.circular(22.r),
+                                  borderRadius: BorderRadius.circular(22.tr),
                                   border: Border.all(
                                     color: const Color(0xFFD6D6D6),
                                   ),
@@ -734,7 +735,7 @@ class ApprovalActionButtons extends StatelessWidget {
                                       child: Text(
                                         'No',
                                         style: GoogleFonts.poppins(
-                                          fontSize: 14.sp,
+                                          fontSize: 14.tsp,
                                           fontWeight: FontWeight.w700,
                                           color: const Color(0xFFBA1719),
                                         ),
@@ -753,7 +754,7 @@ class ApprovalActionButtons extends StatelessWidget {
                                       child: Text(
                                         'Yes',
                                         style: GoogleFonts.poppins(
-                                          fontSize: 14.sp,
+                                          fontSize: 14.tsp,
                                           fontWeight: FontWeight.w700,
                                           color: const Color(0xFF009859),
                                         ),
@@ -989,11 +990,11 @@ class ApprovalActionButtons extends StatelessWidget {
           color: Colors.transparent,
           child: InkWell(
             onTap: isButtonDisabled ? null : handleTap,
-            borderRadius: BorderRadius.circular(14.r),
+            borderRadius: BorderRadius.circular(14.tr),
             child: Ink(
-              height: 44.h,
+              height: 44.th,
               decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(14.r),
+                borderRadius: BorderRadius.circular(14.tr),
                 gradient: LinearGradient(
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
@@ -1018,8 +1019,8 @@ class ApprovalActionButtons extends StatelessWidget {
                 children: [
                   if (isLoading)
                     SizedBox(
-                      width: 18.w,
-                      height: 18.w,
+                      width: 18.tw,
+                      height: 18.tw,
                       child: CircularProgressIndicator(
                         strokeWidth: 2,
                         color: color,
@@ -1027,8 +1028,8 @@ class ApprovalActionButtons extends StatelessWidget {
                     )
                   else ...[
                     Container(
-                      width: 26.w,
-                      height: 26.w,
+                      width: 26.tw,
+                      height: 26.tw,
                       decoration: BoxDecoration(
                         shape: BoxShape.circle,
                         color: color.withValues(alpha: 0.18),
@@ -1036,13 +1037,13 @@ class ApprovalActionButtons extends StatelessWidget {
                           color: color.withValues(alpha: 0.25),
                         ),
                       ),
-                      child: Icon(icon, size: 15.sp, color: color),
+                      child: Icon(icon, size: 15.tsp, color: color),
                     ),
-                    SizedBox(width: 7.w),
+                    SizedBox(width: 7.tw),
                     Text(
                       label,
                       style: GoogleFonts.poppins(
-                        fontSize: 13.sp,
+                        fontSize: 13.tsp,
                         fontWeight: FontWeight.w700,
                         color: color,
                         height: 1,
@@ -1373,13 +1374,13 @@ class _AnimatedCircleButtonState extends State<AnimatedCircleButton>
             animation: _controller,
             builder: (context, child) {
               return Container(
-                width: 80.w,
-                height: 80.w,
+                width: 80.tw,
+                height: 80.tw,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
                   border: Border.all(
                     color: widget.color,
-                    width: 3.w,
+                    width: 3.tw,
                   ),
                   color:
                       widget.color.withValues(alpha: _controller.value * 0.8),
@@ -1387,8 +1388,8 @@ class _AnimatedCircleButtonState extends State<AnimatedCircleButton>
                 child: Center(
                     child: widget.isLoading
                         ? SizedBox(
-                            width: 24.w,
-                            height: 24.w,
+                            width: 24.tw,
+                            height: 24.tw,
                             child: const CircularProgressIndicator(
                               color: Colors.white,
                               strokeWidth: 2,
@@ -1399,11 +1400,11 @@ class _AnimatedCircleButtonState extends State<AnimatedCircleButton>
             },
           ),
         ),
-        SizedBox(height: 8.w),
+        SizedBox(height: 8.tw),
         Text(
           "HOLD TO ${widget.label}",
           style: GoogleFonts.poppins(
-            fontSize: 14.sp,
+            fontSize: 14.tsp,
             fontWeight: FontWeight.w500,
             letterSpacing: 1.0,
             color: widget.isDisabled
