@@ -210,27 +210,36 @@ class _FmTimesheetRecordsScreenState
 
     return Scaffold(
       backgroundColor: TimesheetModuleColors.bgGradientEnd,
-      appBar: AppBar(
-        backgroundColor: TimesheetModuleColors.surface,
-        foregroundColor: TimesheetModuleColors.text,
-        title: Text(
-          widget.projectName ?? 'Timesheet report',
-          style: TimesheetModuleTypography.h2(),
+      body: _buildGlassBody(dateFmt),
+    );
+  }
+
+  Widget _buildGlassBody(DateFormat dateFmt) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        TmModuleGlassHeader(
+          title: widget.projectName ?? 'Timesheet report',
+          trailing: [
+            IconButton(
+              tooltip: 'Employees',
+              onPressed: _loadingRoster || _generating ? null : _pickEmployees,
+              icon: Icon(PhosphorIcons.users()),
+            ),
+            IconButton(
+              tooltip: 'Print / refresh PDF',
+              onPressed: _loadingRoster || _generating ? null : _generatePdf,
+              icon: Icon(PhosphorIcons.printer()),
+            ),
+          ],
         ),
-        actions: [
-          IconButton(
-            tooltip: 'Employees',
-            onPressed: _loadingRoster || _generating ? null : _pickEmployees,
-            icon: Icon(PhosphorIcons.users()),
-          ),
-          IconButton(
-            tooltip: 'Print / refresh PDF',
-            onPressed: _loadingRoster || _generating ? null : _generatePdf,
-            icon: Icon(PhosphorIcons.printer()),
-          ),
-        ],
-      ),
-      body: _loadingRoster
+        Expanded(child: _buildRecordsBody(dateFmt)),
+      ],
+    );
+  }
+
+  Widget _buildRecordsBody(DateFormat dateFmt) {
+    return _loadingRoster
           ? const TimesheetLoadingState(style: TimesheetLoadingStyle.list)
           : _roster.isEmpty
               ? TimesheetErrorState(
@@ -309,8 +318,7 @@ class _FmTimesheetRecordsScreenState
                   child: _buildPdfBody(),
                 ),
               ],
-            ),
-    );
+            );
   }
 
   Widget _buildPdfBody() {

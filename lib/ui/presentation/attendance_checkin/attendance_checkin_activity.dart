@@ -21,6 +21,7 @@ class AttendanceCheckInActivity extends StatefulWidget {
 
 class _AttendanceCheckInActivityState extends State<AttendanceCheckInActivity> {
   late final CheckinActivityController _controller;
+  late final bool _checkinWidgetDisabled;
   bool _searchOpen = false;
 
   @override
@@ -28,9 +29,12 @@ class _AttendanceCheckInActivityState extends State<AttendanceCheckInActivity> {
     super.initState();
     _controller = CheckinActivityController();
     _controller.addListener(_onControllerChanged);
-    AttendanceStatusSyncService.refreshFromServer(
-      reason: 'checkin_activity_open',
-    );
+    // Cached once: reading login prefs is a full JSON parse, too costly
+    // to repeat on every rebuild.
+    _checkinWidgetDisabled = _resolveCheckinWidgetDisabled();
+    // Note: no AttendanceStatusSyncService.refreshFromServer here — the
+    // checkin_context API already returns today's status, so an extra
+    // today_status round-trip on open is redundant.
     _controller.initialize();
   }
 
@@ -48,7 +52,7 @@ class _AttendanceCheckInActivityState extends State<AttendanceCheckInActivity> {
     setState(() => _searchOpen = false);
   }
 
-  bool get _checkinWidgetDisabled {
+  bool _resolveCheckinWidgetDisabled() {
     if (!SharedPref.isUserAuthenticated()) return true;
     return SharedPref.getLoginData()
             .result
@@ -61,10 +65,14 @@ class _AttendanceCheckInActivityState extends State<AttendanceCheckInActivity> {
   }
 
   Future<void> _onActionComplete() async {
-    await AttendanceStatusSyncService.refreshFromServer(
-      reason: 'checkin_activity_action',
-    );
-    await _controller.refreshContext();
+    // Sync and context refresh are independent; run them in parallel so the
+    // screen pops back as soon as both finish.
+    await Future.wait([
+      AttendanceStatusSyncService.refreshFromServer(
+        reason: 'checkin_activity_action',
+      ),
+      _controller.refreshContext(),
+    ]);
     if (mounted) Navigator.of(context).pop(true);
   }
 

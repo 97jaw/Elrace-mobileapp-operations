@@ -15,6 +15,10 @@ class HomeWidgetApiClient {
 
   static Future<void>? _inFlight;
 
+  // Endpoints that the home UI actually consumes. Removed (never read by UI):
+  // clients / vendors / sub_contractors (cards show static values),
+  // task_management (UI uses TodoFirebaseProvider), tickets (UI uses
+  // TasksProvider), prayer_times (UI uses Aladhan via HomeBloc).
   static const _fetchOrder = <_WidgetFetch>[
     _WidgetFetch(HomeWidgetCode.attendance, 'attendance'),
     _WidgetFetch(HomeWidgetCode.hrms, 'hrms'),
@@ -22,23 +26,17 @@ class HomeWidgetApiClient {
     _WidgetFetch(HomeWidgetCode.myProjects, 'my_projects'),
     _WidgetFetch(HomeWidgetCode.siteManagement, 'site_management'),
     _WidgetFetch(HomeWidgetCode.myReports, 'my_reports'),
-    _WidgetFetch(HomeWidgetCode.clients, 'clients'),
-    _WidgetFetch(HomeWidgetCode.vendors, 'vendors'),
-    _WidgetFetch(HomeWidgetCode.subContractors, 'sub_contractors'),
     _WidgetFetch(HomeWidgetCode.lpo, 'lpo'),
     _WidgetFetch(HomeWidgetCode.notes, 'notes'),
-    _WidgetFetch(HomeWidgetCode.taskManagement, 'task_management'),
-    _WidgetFetch(HomeWidgetCode.tickets, 'tickets'),
     _WidgetFetch(HomeWidgetCode.pettyCash, 'petty_cash'),
     _WidgetFetch(HomeWidgetCode.myDocuments, 'my_documents'),
     _WidgetFetch(HomeWidgetCode.media, 'media'),
-    _WidgetFetch(null, 'prayer_times'),
   ];
 
   /// Fetches home category widgets in one parallel round-trip (deduped).
   ///
-  /// When [onlyCodes] is set, skips disabled category widgets (prayer times
-  /// is always fetched).
+  /// Only widgets visible per login prefs are fetched; pass [onlyCodes] to
+  /// narrow further.
   static Future<void> refreshIfStale({
     bool force = false,
     Set<HomeWidgetCode>? onlyCodes,
@@ -58,10 +56,14 @@ class HomeWidgetApiClient {
     final token = SharedPref.getLoginDataOrNull()?.result?.token;
     if (token == null || token.isEmpty) return;
 
+    // Hidden widgets are never fetched, even when callers don't narrow.
+    final visibility = HomeWidgetVisibility.fromLoginPref();
     final targets = _fetchOrder.where((entry) {
-      if (entry.code == null) return true;
+      final code = entry.code;
+      if (code == null) return true;
+      if (!visibility.isVisible(code)) return false;
       if (onlyCodes == null) return true;
-      return onlyCodes.contains(entry.code);
+      return onlyCodes.contains(code);
     }).toList();
 
     if (targets.isEmpty) return;

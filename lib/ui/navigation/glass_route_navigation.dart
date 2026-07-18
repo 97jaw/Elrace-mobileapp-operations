@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:el_race/core/utils/app_orientations.dart';
 import 'package:el_race/core/utils/responsive_breakpoints.dart';
 import 'package:el_race/core/utils/shared_pref.dart';
@@ -219,8 +221,8 @@ Future<T?> openGlassSubScreen<T>(
   _routeOpeningLocks[routeName] = true;
 
   try {
-    // Leaving Home — allow portrait on tablet while the sub-screen is open.
-    await AppOrientations.allowTabletRotation();
+    // Don't block the push on orientation unlock — run it in parallel.
+    unawaited(AppOrientations.allowTabletRotation());
 
     final route = SlideRightPageRoute<T>(
       child: child,

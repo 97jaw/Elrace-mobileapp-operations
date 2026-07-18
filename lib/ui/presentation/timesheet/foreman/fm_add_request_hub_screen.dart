@@ -36,12 +36,7 @@ class FmAddRequestHubScreen extends StatelessWidget {
     final dateLabel = DateFormat('EEE, dd MMM yyyy').format(args.date);
 
     return TmScaffold(
-      appBar: AppBar(
-        title: Text('Add timesheet', style: TimesheetModuleTypography.h2()),
-        backgroundColor: TimesheetModuleColors.surface,
-        foregroundColor: TimesheetModuleColors.text,
-        elevation: 0,
-      ),
+      glassTitle: 'Add timesheet',
       body: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [

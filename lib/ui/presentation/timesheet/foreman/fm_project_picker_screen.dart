@@ -94,22 +94,17 @@ class _FmProjectPickerScreenState extends ConsumerState<FmProjectPickerScreen> {
   @override
   Widget build(BuildContext context) {
     return TmScaffold(
-      appBar: AppBar(
-        title: Text('All projects', style: TimesheetModuleTypography.h2()),
-        backgroundColor: TimesheetModuleColors.surface,
-        foregroundColor: TimesheetModuleColors.text,
-        elevation: 0,
-        actions: [
-          IconButton(
-            tooltip: _filtersOpen ? 'Hide filters' : 'Show filters',
-            onPressed: () => setState(() => _filtersOpen = !_filtersOpen),
-            icon: Icon(
-              _filtersOpen ? PhosphorIcons.funnelX() : PhosphorIcons.funnel(),
-              color: TimesheetModuleColors.navy,
-            ),
+      glassTitle: 'All projects',
+      glassTrailing: [
+        IconButton(
+          tooltip: _filtersOpen ? 'Hide filters' : 'Show filters',
+          onPressed: () => setState(() => _filtersOpen = !_filtersOpen),
+          icon: Icon(
+            _filtersOpen ? PhosphorIcons.funnelX() : PhosphorIcons.funnel(),
+            color: TimesheetModuleColors.navy,
           ),
-        ],
-      ),
+        ),
+      ],
       body: FutureBuilder<List<Project>>(
         key: ValueKey(_statusFilter),
         future: _loadProjects(),

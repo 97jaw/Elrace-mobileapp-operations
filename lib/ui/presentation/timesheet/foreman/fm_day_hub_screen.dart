@@ -51,12 +51,7 @@ class _FmDayHubScreenState extends ConsumerState<FmDayHubScreen> {
     final formattedDate = DateFormat('EEE, dd MMM yyyy').format(args.date);
 
     return TmScaffold(
-      appBar: AppBar(
-        title: Text(formattedDate, style: TimesheetModuleTypography.h2()),
-        backgroundColor: TimesheetModuleColors.surface,
-        foregroundColor: TimesheetModuleColors.text,
-        elevation: 0,
-      ),
+      glassTitle: formattedDate,
       body: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [

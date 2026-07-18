@@ -46,12 +46,7 @@ class _PmWorkerEnrolState extends ConsumerState<PmWorkerEnrol> {
         ref.watch(timesheetProjectTasksProvider(widget.projectId));
 
     return TmScaffold(
-      appBar: AppBar(
-        title: Text('New Worker', style: TimesheetModuleTypography.h2()),
-        backgroundColor: TimesheetModuleColors.surface,
-        foregroundColor: TimesheetModuleColors.text,
-        elevation: 0,
-      ),
+      glassTitle: 'New Worker',
       body: SingleChildScrollView(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,

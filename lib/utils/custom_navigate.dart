@@ -8,10 +8,10 @@ class CustomPageRoute<T> extends MaterialPageRoute<T> {
       : super(builder: (_) => child);
 
   @override
-  Duration get transitionDuration => const Duration(milliseconds: 650);
+  Duration get transitionDuration => const Duration(milliseconds: 300);
 
   @override
-  Duration get reverseTransitionDuration => const Duration(milliseconds: 500);
+  Duration get reverseTransitionDuration => const Duration(milliseconds: 250);
 
   @override
   Widget buildTransitions(

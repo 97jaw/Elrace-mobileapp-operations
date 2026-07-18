@@ -5,6 +5,8 @@ export 'tm_buttons.dart';
 export 'tm_faded_network_image.dart';
 export 'tm_filter_chip_row.dart';
 export 'tm_greeting_header.dart';
+export 'tm_lazy_tab.dart';
+export 'tm_module_glass_header.dart';
 export 'tm_progress_bar.dart';
 export 'tm_project_card.dart';
 export 'tm_scaffold.dart';

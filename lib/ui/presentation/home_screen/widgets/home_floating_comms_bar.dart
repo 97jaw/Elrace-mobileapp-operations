@@ -23,7 +23,7 @@ class HomeFloatingCommsBar extends StatelessWidget {
       context,
       routeName: '/chat_list',
       shell: GlassSubScreenShell.chat,
-      child: const ChatHomeScreen(),
+      child: const ChatListScreen(),
     );
   }
 

@@ -1,5 +1,6 @@
 import 'package:el_race/core/theme/timesheet_module_theme.dart';
 import 'package:el_race/core/timesheet/models/timesheet_models.dart';
+import 'package:el_race/core/widgets/map/app_map_tiles.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:geolocator/geolocator.dart';
@@ -103,11 +104,7 @@ class TmProjectLocationSection extends StatelessWidget {
                   ),
                 ),
                 children: [
-                  TileLayer(
-                    urlTemplate:
-                        'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-                    userAgentPackageName: 'com.elrace.app',
-                  ),
+                  AppMapTiles.basic(),
                   MarkerLayer(
                     markers: [
                       Marker(
@@ -321,11 +318,7 @@ class _ProjectMapPopupState extends State<_ProjectMapPopup> {
                       ),
                     ),
                     children: [
-                      TileLayer(
-                        urlTemplate:
-                            'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-                        userAgentPackageName: 'com.elrace.app',
-                      ),
+                      AppMapTiles.basic(),
                       if (widget.project.geofenceRadiusM > 0)
                         CircleLayer(
                           circles: [

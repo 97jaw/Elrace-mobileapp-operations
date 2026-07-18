@@ -23,12 +23,7 @@ class TimesheetPlaceholderScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return TmScaffold(
-      appBar: AppBar(
-        title: Text(title, style: TimesheetModuleTypography.h2()),
-        backgroundColor: TimesheetModuleColors.surface,
-        foregroundColor: TimesheetModuleColors.text,
-        elevation: 0,
-      ),
+      glassTitle: title,
       bottomNavigationBar: TmBottomNavBar(
         items: [
           TmBottomNavItem(label: 'Home', icon: PhosphorIcons.house()),
