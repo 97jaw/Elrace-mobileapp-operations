@@ -116,9 +116,66 @@ Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
   }
 }
 
+/// Last time we logged a given error signature, to avoid flooding logs when an
+/// error (e.g. a runaway async chain) repeats rapidly.
+final Map<String, DateTime> _lastGuardLogAt = {};
+
+/// Installs process-wide guards so a single unhandled error — including a
+/// runaway async error chain that manifests as a `StackOverflowError` — cannot
+/// hard-crash the app in production. Errors are logged once (deduped) with any
+/// real originating frame preserved for diagnosis.
+void _installGlobalErrorGuard() {
+  final previousFlutterOnError = FlutterError.onError;
+  FlutterError.onError = (FlutterErrorDetails details) {
+    _logGuardedError('FlutterError', details.exception, details.stack);
+    previousFlutterOnError?.call(details);
+  };
+
+  // Catches unhandled async errors in the root zone (no runZonedGuarded needed).
+  // Returning true marks the error handled so the engine does not treat it as
+  // fatal.
+  WidgetsBinding.instance.platformDispatcher.onError = (
+    Object error,
+    StackTrace stack,
+  ) {
+    _logGuardedError('PlatformDispatcher', error, stack);
+    return true;
+  };
+}
+
+void _logGuardedError(String source, Object error, StackTrace? stack) {
+  final signature = '$source:${error.runtimeType}';
+  final now = DateTime.now();
+  final last = _lastGuardLogAt[signature];
+  // Throttle identical errors to at most one log every 3 seconds.
+  if (last != null && now.difference(last) < const Duration(seconds: 3)) {
+    return;
+  }
+  _lastGuardLogAt[signature] = now;
+
+  if (error is StackOverflowError) {
+    // The async plumbing frames are useless; surface the first app-code frame
+    // (if any) so the runaway source can be identified.
+    final appFrame = stack
+        ?.toString()
+        .split('\n')
+        .firstWhere(
+          (line) => line.contains('package:el_race/'),
+          orElse: () => '(no app frame in stack — likely infinite async chain)',
+        );
+    debugPrint('🛑 [$source] StackOverflowError swallowed. First app frame: '
+        '$appFrame');
+    return;
+  }
+
+  debugPrint('🛑 [$source] Unhandled error swallowed: $error');
+}
+
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   debugPrint('🚀 main(): Flutter binding initialized');
+
+  _installGlobalErrorGuard();
 
   // await _enableGlobalScreenProtection();
 

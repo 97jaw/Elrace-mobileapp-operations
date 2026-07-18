@@ -12,6 +12,7 @@ import 'package:el_race/ui/presentation/home_screen/widgets/home_tablet_layout.d
 import 'package:el_race/ui/presentation/home_screen/widgets/home_widgets_panel.dart';
 import 'package:el_race/ui/presentation/home_screen/widgets/mid_section_scroll_lock.dart';
 import 'package:el_race/ui/presentation/home_screen/widgets/my_actions_section.dart';
+import 'package:el_race/ui/presentation/home_screen/providers/home_widget_api_client.dart';
 import 'package:el_race/ui/presentation/home_screen/providers/home_widget_refresh_service.dart';
 import 'package:el_race/utils/Util.dart';
 import 'package:flutter/material.dart';
@@ -45,7 +46,12 @@ class _MainHomeContentWidgetState extends State<MainHomeContentWidget> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       context.read<SliderProvider>().fetchAnnouncementsForBanner();
-      HomeCityHelper.fetchCity(force: true).then((_) {
+      // Warm visible widgets once at entry so card providers mostly read cache.
+      HomeWidgetApiClient.refreshIfStale(
+        onlyCodes: HomeWidgetRefreshService.visibleCategoryCodes(),
+      );
+      // Not forced: cached city is fine on open; pull-to-refresh forces.
+      HomeCityHelper.fetchCity().then((_) {
         if (mounted) setState(() {});
       });
       _measureHeaderAndInit();

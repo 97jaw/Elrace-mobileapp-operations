@@ -5,6 +5,7 @@ import 'package:el_race/chat/repositories/chat_repository.dart';
 import 'package:el_race/core/theme/timesheet_module_theme.dart';
 import 'package:el_race/core/timesheet/models/timesheet_team_member.dart';
 import 'package:el_race/core/timesheet/providers/timesheet_role_provider.dart';
+import 'package:el_race/core/widgets/timesheet/tm_module_glass_header.dart';
 import 'package:el_race/ui/chat/chat_screen.dart';
 import 'package:el_race/ui/presentation/timesheet/project_chat_contacts.dart';
 import 'package:el_race/ui/presentation/timesheet/timesheet_async_state.dart';
@@ -337,19 +338,18 @@ class _ProjectChatPickerScreenState extends ConsumerState<ProjectChatPickerScree
 
     return Scaffold(
       backgroundColor: TimesheetModuleColors.bgGradientEnd,
-      appBar: AppBar(
-        backgroundColor: TimesheetModuleColors.surface,
-        foregroundColor: TimesheetModuleColors.text,
-        title: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'Available chat',
-              style: TimesheetModuleTypography.h2(),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
+      body: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          const TmModuleGlassHeader(title: 'Available chat'),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(
+              TimesheetModuleLayout.screenPaddingH,
+              0,
+              TimesheetModuleLayout.screenPaddingH,
+              8,
             ),
-            Text(
+            child: Text(
               _shareMode
                   ? 'Send PDF or open chat'
                   : (isPm
@@ -357,22 +357,24 @@ class _ProjectChatPickerScreenState extends ConsumerState<ProjectChatPickerScree
                       : 'Supervisors, PM & staff on this project'),
               style: TimesheetModuleTypography.caption(),
             ),
-          ],
-        ),
-      ),
-      body: contactsAsync.when(
-        loading: () => const TimesheetLoadingState(
-          style: TimesheetLoadingStyle.list,
-          itemCount: 6,
-        ),
-        error: (_, __) => TimesheetErrorState(
-          message: 'Could not load contacts',
-          onRetry: () => ref.invalidate(
-            projectChatContactsProvider(widget.projectId),
           ),
-        ),
-        data: (contacts) =>
-            isPm ? _buildPmBody(contacts) : _buildFmBody(contacts),
+          Expanded(
+            child: contactsAsync.when(
+              loading: () => const TimesheetLoadingState(
+                style: TimesheetLoadingStyle.list,
+                itemCount: 6,
+              ),
+              error: (_, __) => TimesheetErrorState(
+                message: 'Could not load contacts',
+                onRetry: () => ref.invalidate(
+                  projectChatContactsProvider(widget.projectId),
+                ),
+              ),
+              data: (contacts) =>
+                  isPm ? _buildPmBody(contacts) : _buildFmBody(contacts),
+            ),
+          ),
+        ],
       ),
     );
   }

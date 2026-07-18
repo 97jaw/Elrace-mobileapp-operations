@@ -1,6 +1,7 @@
 import 'dart:typed_data';
 
 import 'package:el_race/core/theme/timesheet_module_theme.dart';
+import 'package:el_race/core/widgets/timesheet/tm_module_glass_header.dart';
 import 'package:el_race/ui/presentation/timesheet/timesheet_async_state.dart';
 import 'package:el_race/ui/presentation/timesheet/widgets/tm_share_pdf_sheet.dart';
 import 'package:flutter/material.dart';
@@ -148,30 +149,29 @@ class TmPdfBytesPreviewScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: TimesheetModuleColors.bgGradientEnd,
-      appBar: AppBar(
-        backgroundColor: TimesheetModuleColors.surface,
-        foregroundColor: TimesheetModuleColors.text,
-        elevation: 0,
-        title: Text(
-          title,
-          style: TimesheetModuleTypography.h2(),
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-        ),
-        actions: [
-          IconButton(
-            onPressed: () => _share(context),
-            icon: Icon(PhosphorIcons.shareNetwork()),
-            tooltip: 'Share',
+      body: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          TmModuleGlassHeader(
+            title: title,
+            trailing: [
+              IconButton(
+                onPressed: () => _share(context),
+                icon: Icon(PhosphorIcons.shareNetwork()),
+                tooltip: 'Share',
+              ),
+            ],
+          ),
+          Expanded(
+            child: SafeArea(
+              top: false,
+              child: TmPdfFileViewer(
+                pdfBytes: pdfBytes,
+                fileName: title,
+              ),
+            ),
           ),
         ],
-      ),
-      body: SafeArea(
-        top: false,
-        child: TmPdfFileViewer(
-          pdfBytes: pdfBytes,
-          fileName: title,
-        ),
       ),
     );
   }

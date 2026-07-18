@@ -10,6 +10,7 @@ class HomeCityHelper {
   HomeCityHelper._();
 
   static String? _cachedCity;
+  static Future<String>? _inFlight;
 
   static String get cachedCity {
     if (_cachedCity != null &&
@@ -20,14 +21,25 @@ class HomeCityHelper {
     return 'Al Ain';
   }
 
-  static Future<String> fetchCity({bool force = false}) async {
+  static Future<String> fetchCity({bool force = false}) {
     if (!force &&
         _cachedCity != null &&
         _cachedCity!.isNotEmpty &&
         _cachedCity != '...') {
-      return _cachedCity!;
+      return Future.value(_cachedCity!);
     }
 
+    // Multiple home widgets request the city on mount — share one
+    // GPS + reverse-geocode round-trip instead of running them in parallel.
+    final pending = _inFlight;
+    if (pending != null) return pending;
+
+    final future = _fetchCityUncached().whenComplete(() => _inFlight = null);
+    _inFlight = future;
+    return future;
+  }
+
+  static Future<String> _fetchCityUncached() async {
     try {
       Position? pos;
       try {

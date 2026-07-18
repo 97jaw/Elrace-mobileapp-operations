@@ -1,5 +1,6 @@
 import 'package:el_race/core/theme/timesheet_module_theme.dart';
 import 'package:el_race/core/timesheet/providers/timesheet_data_providers.dart';
+import 'package:el_race/core/widgets/map/app_map_tiles.dart';
 import 'package:el_race/core/widgets/timesheet/timesheet_widgets.dart';
 import 'package:el_race/ui/presentation/timesheet/timesheet_async_state.dart';
 import 'package:flutter/material.dart';
@@ -28,12 +29,7 @@ class _LiveLocationMapState extends ConsumerState<LiveLocationMap> {
     final projectAsync = ref.watch(timesheetProjectProvider(widget.projectId));
 
     return TmScaffold(
-      appBar: AppBar(
-        title: Text('Live Site Map', style: TimesheetModuleTypography.h2()),
-        backgroundColor: TimesheetModuleColors.surface,
-        foregroundColor: TimesheetModuleColors.text,
-        elevation: 0,
-      ),
+      glassTitle: 'Live Site Map',
       body: projectAsync.when(
         loading: () => const TimesheetLoadingState(
           style: TimesheetLoadingStyle.list,
@@ -97,11 +93,7 @@ class _LiveLocationMapState extends ConsumerState<LiveLocationMap> {
                       initialZoom: 15,
                     ),
                     children: [
-                      TileLayer(
-                        urlTemplate:
-                            'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-                        userAgentPackageName: 'com.elrace.app',
-                      ),
+                      AppMapTiles.streets(),
                       CircleLayer(
                         circles: [
                           CircleMarker(

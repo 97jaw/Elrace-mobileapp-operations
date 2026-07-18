@@ -29,12 +29,7 @@ class Pm2ProjectDetail extends ConsumerWidget {
 
     return TmScaffold(
       padding: EdgeInsets.zero,
-      appBar: AppBar(
-        title: Text('Project Detail', style: TimesheetModuleTypography.h2()),
-        backgroundColor: TimesheetModuleColors.surface,
-        foregroundColor: TimesheetModuleColors.text,
-        elevation: 0,
-      ),
+      glassTitle: 'Project Detail',
       bottomNavigationBar: _ProjectActionsBar(
         projectId: projectId,
         items: siteMode
@@ -112,11 +107,16 @@ class Pm2ProjectDetail extends ConsumerWidget {
                               },
                             ),
                     ),
-                    const TmSiteReportsListScreen(
-                      embedInParent: true,
-                      title: 'Site Reports',
+                    // Lazy tabs: built on first open, kept alive afterwards.
+                    TmLazyTab(
+                      builder: (_) => const TmSiteReportsListScreen(
+                        embedInParent: true,
+                        title: 'Site Reports',
+                      ),
                     ),
-                    _PmTeamsTab(projectId: project.id),
+                    TmLazyTab(
+                      builder: (_) => _PmTeamsTab(projectId: project.id),
+                    ),
                   ],
                 ),
               ),

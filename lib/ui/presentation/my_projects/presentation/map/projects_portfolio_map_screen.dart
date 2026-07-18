@@ -1,4 +1,5 @@
 import 'package:el_race/core/utils/responsive_breakpoints.dart';
+import 'package:el_race/core/widgets/map/app_map_tiles.dart';
 import 'dart:math' as math;
 
 import 'package:el_race/ui/presentation/my_projects/data/datasources/project_remote_datasource.dart';
@@ -16,7 +17,6 @@ import 'package:el_race/ui/presentation/my_projects/presentation/widgets/project
 import 'package:el_race/utils/color_utils.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
-import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 import 'package:latlong2/latlong.dart';
@@ -716,12 +716,7 @@ class _ProjectsPortfolioMapScreenState extends State<ProjectsPortfolioMapScreen>
                           ),
                         ),
                         children: [
-                          TileLayer(
-                            urlTemplate:
-                                'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',
-                            subdomains: const ['a', 'b', 'c', 'd'],
-                            userAgentPackageName: 'ae.elrace.mobile',
-                          ),
+                          AppMapTiles.streets(),
                           MarkerLayer(markers: markers),
                           if (_focusedProject != null && _mapZoom >= 14.5)
                             CircleLayer(

@@ -17,7 +17,15 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 export 'package:el_race/core/site_management/face_recognition/face_recognition_provider.dart';
 
-final timesheetDioProvider = Provider<Dio>((ref) => Dio());
+final timesheetDioProvider = Provider<Dio>((ref) {
+  return Dio(
+    BaseOptions(
+      connectTimeout: const Duration(seconds: 15),
+      receiveTimeout: const Duration(seconds: 30),
+      sendTimeout: const Duration(seconds: 30),
+    ),
+  );
+});
 
 final timesheetApiClientProvider = Provider<TimesheetApiClient>((ref) {
   ref.watch(loginSessionRevisionProvider);
@@ -35,9 +43,11 @@ final timesheetFunctionsClientProvider =
 });
 
 final timesheetPendingSyncCountProvider = FutureProvider<int>((ref) async {
-  final captureCount = await TimesheetCaptureQueueService().pendingCount();
-  final extrasCount = await TimesheetOfflineQueueService().pendingCount();
-  return captureCount + extrasCount;
+  final counts = await Future.wait([
+    TimesheetCaptureQueueService().pendingCount(),
+    TimesheetOfflineQueueService().pendingCount(),
+  ]);
+  return counts[0] + counts[1];
 });
 
 final timesheetMaintenanceTaskProvider = FutureProvider.autoDispose

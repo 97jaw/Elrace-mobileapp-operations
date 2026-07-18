@@ -176,15 +176,18 @@ class _FmTimesheetPrintReportScreenState
 
     return Scaffold(
       backgroundColor: TimesheetModuleColors.bgGradientEnd,
-      appBar: AppBar(
-        backgroundColor: TimesheetModuleColors.surface,
-        foregroundColor: TimesheetModuleColors.text,
-        title: Text(
-          'Timesheet report',
-          style: TimesheetModuleTypography.h2(),
-        ),
+      body: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          const TmModuleGlassHeader(title: 'Timesheet report'),
+          Expanded(child: _buildReportBody(dateFmt)),
+        ],
       ),
-      body: _loadingRoster
+    );
+  }
+
+  Widget _buildReportBody(DateFormat dateFmt) {
+    return _loadingRoster
           ? const TimesheetLoadingState(style: TimesheetLoadingStyle.list)
           : _roster.isEmpty
               ? TimesheetErrorState(
@@ -244,8 +247,7 @@ class _FmTimesheetPrintReportScreenState
                   onPressed: _generating ? null : _generate,
                 ),
               ],
-            ),
-    );
+            );
   }
 }
 

@@ -104,12 +104,7 @@ class _FmFaceEnrollFileIdScreenState
   @override
   Widget build(BuildContext context) {
     return TmScaffold(
-      appBar: AppBar(
-        title: Text('Enroll employee', style: TimesheetModuleTypography.h2()),
-        backgroundColor: TimesheetModuleColors.surface,
-        foregroundColor: TimesheetModuleColors.text,
-        elevation: 0,
-      ),
+      glassTitle: 'Enroll employee',
       body: Padding(
         padding: const EdgeInsets.all(TimesheetModuleLayout.screenPaddingH),
         child: Column(

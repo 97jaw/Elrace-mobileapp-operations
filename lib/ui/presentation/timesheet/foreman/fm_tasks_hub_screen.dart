@@ -17,12 +17,7 @@ class FmTasksHubScreen extends ConsumerWidget {
     final projectsAsync = ref.watch(timesheetProjectsProvider);
 
     return TmScaffold(
-      appBar: AppBar(
-        title: Text("Today's tasks", style: TimesheetModuleTypography.h2()),
-        backgroundColor: TimesheetModuleColors.surface,
-        foregroundColor: TimesheetModuleColors.text,
-        elevation: 0,
-      ),
+      glassTitle: "Today's tasks",
       body: projectsAsync.when(
         loading: () => const TimesheetLoadingState(
           style: TimesheetLoadingStyle.list,

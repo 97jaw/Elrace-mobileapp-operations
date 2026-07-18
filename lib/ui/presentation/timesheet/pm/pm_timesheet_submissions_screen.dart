@@ -45,12 +45,7 @@ class _PmTimesheetSubmissionsScreenState
     );
 
     return TmScaffold(
-      appBar: AppBar(
-        title: Text('Timesheet report', style: TimesheetModuleTypography.h2()),
-        backgroundColor: TimesheetModuleColors.surface,
-        foregroundColor: TimesheetModuleColors.text,
-        elevation: 0,
-      ),
+      glassTitle: 'Timesheet report',
       body: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [

@@ -20,7 +20,6 @@ class Fm1ForemanDashboard extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final profile = ref.watch(timesheetLoginProfileProvider);
     final bucketsAsync = ref.watch(timesheetProjectBucketsProvider);
-    final projectsAsync = ref.watch(timesheetProjectsProvider);
     final laborsAsync = ref.watch(timesheetForemanLaborsProvider);
     final pendingSyncAsync = ref.watch(timesheetPendingSyncCountProvider);
 
@@ -34,12 +33,7 @@ class Fm1ForemanDashboard extends ConsumerWidget {
         horizontal: TimesheetModuleLayout.screenPaddingH,
         vertical: 12,
       ),
-      appBar: AppBar(
-        title: Text('Timesheet', style: TimesheetModuleTypography.h2()),
-        backgroundColor: TimesheetModuleColors.surface,
-        foregroundColor: TimesheetModuleColors.text,
-        elevation: 0,
-      ),
+      glassTitle: 'Timesheet',
       bottomNavigationBar: TmBottomNavBar(
         dark: true,
         fabIcon: PhosphorIcons.chatCircleText(),
@@ -67,126 +61,118 @@ class Fm1ForemanDashboard extends ConsumerWidget {
           onRetry: () => ref.invalidate(timesheetProjectBucketsProvider),
         ),
         data: (buckets) {
-          return projectsAsync.when(
-            loading: () => const TimesheetLoadingState(
-          style: TimesheetLoadingStyle.list,
-          itemCount: 4,
-        ),
-            error: (_, __) => const TimesheetErrorState(
-              message: 'Could not load active projects',
-            ),
-            data: (projects) {
-              if (projects.isEmpty && buckets.completed.isEmpty) {
-                return const TimesheetEmptyState(
-                  message: 'No projects assigned',
-                );
-              }
+          // Derived directly from buckets — avoids a second skeleton flash
+          // from the redundant timesheetProjectsProvider watch.
+          final projects = buckets.inProgress;
+          if (projects.isEmpty && buckets.completed.isEmpty) {
+            return const TimesheetEmptyState(
+              message: 'No projects assigned',
+            );
+          }
 
-              return SingleChildScrollView(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    TmDashboardHeader(
-                      key: ValueKey(
-                        '${profile.fileId}|${profile.displayName}|${profile.imageUrl}',
-                      ),
-                      profile: profile,
-                      counterLabel: 'Labors',
-                      counterValue: laborCount,
-                      onCounterTap: () => _showLabors(context, ref),
-                    ),
-                    const SizedBox(height: TimesheetModuleLayout.sectionGap),
-                    pendingSyncAsync.when(
-                      data: (count) {
-                        if (count == 0) return const SizedBox.shrink();
-                        return Column(
-                          children: [
-                            TmTaskRow(
-                              title: '$count pending sync',
-                              subtitle: 'Captures waiting to upload',
-                              icon: PhosphorIcons.cloudArrowUp(),
-                              onTap: () => Navigator.of(context).pushNamed(
-                                TimesheetRouteNames.syncQueue,
-                              ),
-                            ),
-                            const SizedBox(
-                              height: TimesheetModuleLayout.sectionGap,
-                            ),
-                          ],
-                        );
-                      },
-                      loading: () => const SizedBox.shrink(),
-                      error: (_, __) => const SizedBox.shrink(),
-                    ),
-                    IntrinsicHeight(
-                      child: Row(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
+          return SingleChildScrollView(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                TmDashboardHeader(
+                  key: ValueKey(
+                    '${profile.fileId}|${profile.displayName}|${profile.imageUrl}',
+                  ),
+                  profile: profile,
+                  counterLabel: 'Labors',
+                  counterValue: laborCount,
+                  onCounterTap: () => _showLabors(context, ref),
+                ),
+                const SizedBox(height: TimesheetModuleLayout.sectionGap),
+                pendingSyncAsync.when(
+                  data: (count) {
+                    if (count == 0) return const SizedBox.shrink();
+                    return Column(
                       children: [
-                        Expanded(
-                          child: TmStatTile(
-                            value: '${buckets.completedTotal}',
-                            label: 'Projects (completed)',
-                            icon: PhosphorIcons.checkCircle(),
-                            badgeTone: TmStatBadgeTone.completed,
-                            onTap: () => _showCompletedProjects(
-                              context,
-                              buckets.completed,
-                              buckets.completedTotal,
-                            ),
+                        TmTaskRow(
+                          title: '$count pending sync',
+                          subtitle: 'Captures waiting to upload',
+                          icon: PhosphorIcons.cloudArrowUp(),
+                          onTap: () => Navigator.of(context).pushNamed(
+                            TimesheetRouteNames.syncQueue,
                           ),
                         ),
                         const SizedBox(
-                          width: TimesheetModuleLayout.cardSpacing,
-                        ),
-                        Expanded(
-                          child: TmStatTile(
-                            value: '${buckets.inProgress.length}',
-                            label: 'Projects (in progress)',
-                            icon: PhosphorIcons.briefcase(),
-                            badgeTone: TmStatBadgeTone.inProgress,
-                            onTap: () => Navigator.of(context).pushNamed(
-                              TimesheetRouteNames.projectPicker,
-                            ),
-                          ),
-                        ),
-                        const SizedBox(
-                          width: TimesheetModuleLayout.cardSpacing,
-                        ),
-                        Expanded(
-                          child: TmStatTile(
-                            value: '$laborCount',
-                            label: 'Teams',
-                            icon: PhosphorIcons.usersThree(),
-                            badgeTone: TmStatBadgeTone.neutral,
-                            onTap: () => _showLabors(context, ref),
-                          ),
+                          height: TimesheetModuleLayout.sectionGap,
                         ),
                       ],
-                    ),
-                    ),
-                    const SizedBox(height: TimesheetModuleLayout.sectionGap),
-                    if (projects.isEmpty)
-                      const TimesheetEmptyState(
-                        message: 'No in-progress projects',
-                      )
-                    else
-                      TmDashboardProjectsSection(
-                        projects: projects,
-                        onProjectTap: (project) =>
-                            Navigator.of(context).pushNamed(
-                          TimesheetRouteNames.projectDates,
-                          arguments: TimesheetProjectArgs(
-                            projectId: project.id,
-                            projectName: project.name,
-                            clientImageUrl: project.clientImageUrl,
-                            woRefNo: project.woRefNo,
+                    );
+                  },
+                  loading: () => const SizedBox.shrink(),
+                  error: (_, __) => const SizedBox.shrink(),
+                ),
+                IntrinsicHeight(
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Expanded(
+                        child: TmStatTile(
+                          value: '${buckets.completedTotal}',
+                          label: 'Projects (completed)',
+                          icon: PhosphorIcons.checkCircle(),
+                          badgeTone: TmStatBadgeTone.completed,
+                          onTap: () => _showCompletedProjects(
+                            context,
+                            buckets.completed,
+                            buckets.completedTotal,
                           ),
                         ),
                       ),
-                  ],
+                      const SizedBox(
+                        width: TimesheetModuleLayout.cardSpacing,
+                      ),
+                      Expanded(
+                        child: TmStatTile(
+                          value: '${buckets.inProgress.length}',
+                          label: 'Projects (in progress)',
+                          icon: PhosphorIcons.briefcase(),
+                          badgeTone: TmStatBadgeTone.inProgress,
+                          onTap: () => Navigator.of(context).pushNamed(
+                            TimesheetRouteNames.projectPicker,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(
+                        width: TimesheetModuleLayout.cardSpacing,
+                      ),
+                      Expanded(
+                        child: TmStatTile(
+                          value: '$laborCount',
+                          label: 'Teams',
+                          icon: PhosphorIcons.usersThree(),
+                          badgeTone: TmStatBadgeTone.neutral,
+                          onTap: () => _showLabors(context, ref),
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
-              );
-            },
+                const SizedBox(height: TimesheetModuleLayout.sectionGap),
+                if (projects.isEmpty)
+                  const TimesheetEmptyState(
+                    message: 'No in-progress projects',
+                  )
+                else
+                  TmDashboardProjectsSection(
+                    projects: projects,
+                    onProjectTap: (project) =>
+                        Navigator.of(context).pushNamed(
+                      TimesheetRouteNames.projectDates,
+                      arguments: TimesheetProjectArgs(
+                        projectId: project.id,
+                        projectName: project.name,
+                        clientImageUrl: project.clientImageUrl,
+                        woRefNo: project.woRefNo,
+                      ),
+                    ),
+                  ),
+              ],
+            ),
           );
         },
       ),

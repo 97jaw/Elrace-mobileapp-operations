@@ -19,8 +19,11 @@ class HomeWidgetRefreshService {
   HomeWidgetRefreshService._();
 
   static Future<void> refresh(ProviderContainer container) async {
-    await LoginSessionRefreshService.refreshRoles(container: container);
-    await HomeWidgetConfigClient.refresh();
+    // Roles and widget config are independent — refresh them in parallel.
+    await Future.wait([
+      LoginSessionRefreshService.refreshRoles(container: container),
+      HomeWidgetConfigClient.refresh(),
+    ]);
     final visible = visibleCategoryCodes();
     await HomeWidgetApiClient.refreshIfStale(
       force: true,

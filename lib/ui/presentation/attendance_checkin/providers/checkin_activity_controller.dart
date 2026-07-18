@@ -89,6 +89,7 @@ class CheckinActivityController extends ChangeNotifier {
   StreamSubscription<Position>? _positionSub;
   Timer? _routeDebounce;
   int _routeRequestId = 0;
+  DateTime _lastPositionNotify = DateTime.fromMillisecondsSinceEpoch(0);
 
   CheckinActivityState get state => _state;
 
@@ -147,29 +148,45 @@ class CheckinActivityController extends ChangeNotifier {
 
   Future<void> _startLocationUpdates() async {
     await _positionSub?.cancel();
+
+    // Center the map instantly on the cached fix while a fresh one resolves.
+    final lastKnown = await _locationRepo.getLastKnownLocation();
+    if (lastKnown != null && _state.userPosition == null) {
+      _applyUserPosition(lastKnown, forceNotify: true);
+    }
+
     try {
-      final initial = await _locationRepo.getCurrentLocation();
-      _applyUserPosition(initial);
+      final initial = await _locationRepo.getCurrentLocation(
+        timeLimit: const Duration(seconds: 10),
+      );
+      _applyUserPosition(initial, forceNotify: true);
     } catch (e) {
-      _state = _state.copyWith(error: e.toString());
-      notifyListeners();
+      // Only surface the error when we have no location at all; a stale
+      // last-known fix is still usable until the stream delivers a fresh one.
+      if (_state.userPosition == null) {
+        _state = _state.copyWith(error: e.toString());
+        notifyListeners();
+      }
     }
 
     _positionSub = Geolocator.getPositionStream(
       locationSettings: const LocationSettings(
         accuracy: LocationAccuracy.high,
-        distanceFilter: 2,
+        distanceFilter: 5,
       ),
     ).listen(
       _applyUserPosition,
       onError: (Object e) {
+        if (_state.userPosition != null) return;
         _state = _state.copyWith(error: e.toString());
         notifyListeners();
       },
     );
   }
 
-  void _applyUserPosition(Position position) {
+  void _applyUserPosition(Position position, {bool forceNotify = false}) {
+    final hadPosition = _state.userPosition != null;
+    final wasInside = _state.isInsideGeofence;
     _state = _state.copyWith(userPosition: position, clearError: true);
     if (!_state.userManuallySelectedProject) {
       _autoSelectProject(notify: false);
@@ -177,7 +194,18 @@ class CheckinActivityController extends ChangeNotifier {
       _updateGeofencePreview(notify: false);
     }
     _scheduleRouteRefresh(notify: false);
-    notifyListeners();
+
+    // State (used by geofence/validation) is always fresh; UI rebuilds are
+    // throttled so a 5m-interval GPS stream doesn't rebuild the whole screen.
+    final now = DateTime.now();
+    final geofenceChanged = _state.isInsideGeofence != wasInside;
+    if (forceNotify ||
+        !hadPosition ||
+        geofenceChanged ||
+        now.difference(_lastPositionNotify) >= const Duration(seconds: 1)) {
+      _lastPositionNotify = now;
+      notifyListeners();
+    }
   }
 
   void selectProject(CheckinAllowedProject project) {

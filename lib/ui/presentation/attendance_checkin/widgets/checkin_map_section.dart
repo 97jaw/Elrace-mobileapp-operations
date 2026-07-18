@@ -1,3 +1,4 @@
+import 'package:el_race/core/widgets/map/app_map_tiles.dart';
 import 'package:el_race/ui/presentation/attendance_checkin/models/checkin_context_model.dart';
 import 'package:el_race/ui/presentation/attendance_checkin/utils/checkin_distance_formatter.dart';
 import 'package:el_race/ui/presentation/home_screen/widgets/home_glass_theme.dart';
@@ -175,16 +176,7 @@ class _CheckinMapSectionState extends State<CheckinMapSection>
               },
             ),
             children: [
-              TileLayer(
-                urlTemplate:
-                    'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',
-                subdomains: const ['a', 'b', 'c', 'd'],
-                userAgentPackageName: 'com.elrace.app',
-                keepBuffer: 2,
-                panBuffer: 1,
-                maxNativeZoom: 19,
-                maxZoom: 19,
-              ),
+              AppMapTiles.streets(),
               const RichAttributionWidget(
                 alignment: AttributionAlignment.bottomLeft,
                 showFlutterMapAttribution: false,

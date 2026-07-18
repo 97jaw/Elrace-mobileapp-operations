@@ -22,16 +22,10 @@ class Fm2ProjectDetail extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final projectAsync = ref.watch(timesheetProjectProvider(projectId));
-    final tasksAsync = ref.watch(timesheetProjectTasksProvider(projectId));
 
     return TmScaffold(
       padding: EdgeInsets.zero,
-      appBar: AppBar(
-        title: Text('Project Detail', style: TimesheetModuleTypography.h2()),
-        backgroundColor: TimesheetModuleColors.surface,
-        foregroundColor: TimesheetModuleColors.text,
-        elevation: 0,
-      ),
+      glassTitle: 'Project Detail',
       bottomNavigationBar: _ProjectActionsBar(projectId: projectId),
       body: projectAsync.when(
         loading: () => const TimesheetLoadingState(
@@ -113,15 +107,26 @@ class Fm2ProjectDetail extends ConsumerWidget {
                         ],
                       ),
                     ),
-                    _TasksTab(projectId: project.id, tasksAsync: tasksAsync),
-                    const TmSiteReportsListScreen(
-                      embedInParent: true,
-                      title: 'Site Reports',
+                    // Lazy tabs: content (and its API calls) only builds when
+                    // the user first opens the tab, then stays alive so
+                    // switching back doesn't refetch.
+                    TmLazyTab(
+                      builder: (_) => _TasksTab(projectId: project.id),
                     ),
-                    _TeamsTab(projectId: project.id),
-                    TmProjectFaceEnrollTab(
-                      projectId: project.id,
-                      projectName: project.name,
+                    TmLazyTab(
+                      builder: (_) => const TmSiteReportsListScreen(
+                        embedInParent: true,
+                        title: 'Site Reports',
+                      ),
+                    ),
+                    TmLazyTab(
+                      builder: (_) => _TeamsTab(projectId: project.id),
+                    ),
+                    TmLazyTab(
+                      builder: (_) => TmProjectFaceEnrollTab(
+                        projectId: project.id,
+                        projectName: project.name,
+                      ),
                     ),
                   ],
                 ),
@@ -179,17 +184,16 @@ class _ProjectActionsBar extends ConsumerWidget {
   }
 }
 
-class _TasksTab extends StatelessWidget {
-  const _TasksTab({
-    required this.projectId,
-    required this.tasksAsync,
-  });
+class _TasksTab extends ConsumerWidget {
+  const _TasksTab({required this.projectId});
 
   final String projectId;
-  final AsyncValue<dynamic> tasksAsync;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    // Watched here (not in the parent) so the tasks API only fires when the
+    // Tasks tab is actually opened.
+    final tasksAsync = ref.watch(timesheetProjectTasksProvider(projectId));
     return tasksAsync.when(
       loading: () => const TimesheetLoadingState(
         style: TimesheetLoadingStyle.list,
