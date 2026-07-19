@@ -58,11 +58,13 @@ class TimesheetOdooTransport {
     String path, {
     required Map<String, dynamic> params,
     bool withAuth = true,
+    CancelToken? cancelToken,
   }) async {
     final response = await _dio.post<dynamic>(
       '$baseUrl$path',
       data: {'jsonrpc': '2.0', 'params': params},
       options: Options(headers: _headers(withAuth: withAuth)),
+      cancelToken: cancelToken,
     );
     return _normalizeBody(response.data);
   }
@@ -71,11 +73,13 @@ class TimesheetOdooTransport {
     String path, {
     Map<String, dynamic> params = const {},
     bool withAuth = true,
+    CancelToken? cancelToken,
   }) async {
     final response = await _dio.get<dynamic>(
       '$baseUrl$path',
       data: {'jsonrpc': '2.0', 'params': params},
       options: Options(headers: _headers(withAuth: withAuth)),
+      cancelToken: cancelToken,
     );
     return _normalizeBody(response.data);
   }

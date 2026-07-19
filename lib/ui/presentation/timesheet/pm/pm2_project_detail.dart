@@ -87,25 +87,30 @@ class Pm2ProjectDetail extends ConsumerWidget {
               Expanded(
                 child: TabBarView(
                   children: [
-                    Padding(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: TimesheetModuleLayout.screenPaddingH,
-                        vertical: TimesheetModuleLayout.cardSpacing,
+                    // Tab 0 (Overview) is now lazy too, so first paint
+                    // doesn't pay for its content if the user swipes away
+                    // immediately — matches the other tabs.
+                    TmLazyTab(
+                      builder: (_) => Padding(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: TimesheetModuleLayout.screenPaddingH,
+                          vertical: TimesheetModuleLayout.cardSpacing,
+                        ),
+                        child: siteMode
+                            ? SingleChildScrollView(
+                                child: ProjectRecordCard(project: project),
+                              )
+                            : LayoutBuilder(
+                                builder: (context, constraints) {
+                                  final height = constraints.maxHeight;
+                                  return ProjectRecordCard(
+                                    project: project,
+                                    viewportHeight:
+                                        height > 0 ? height : null,
+                                  );
+                                },
+                              ),
                       ),
-                      child: siteMode
-                          ? SingleChildScrollView(
-                              child: ProjectRecordCard(project: project),
-                            )
-                          : LayoutBuilder(
-                              builder: (context, constraints) {
-                                final height = constraints.maxHeight;
-                                return ProjectRecordCard(
-                                  project: project,
-                                  viewportHeight:
-                                      height > 0 ? height : null,
-                                );
-                              },
-                            ),
                     ),
                     // Lazy tabs: built on first open, kept alive afterwards.
                     TmLazyTab(

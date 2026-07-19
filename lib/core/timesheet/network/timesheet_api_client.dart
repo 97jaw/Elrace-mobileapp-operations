@@ -190,10 +190,17 @@ class TimesheetApiClient {
   }
 
   /// Labors for timesheet report — ``/timesheet/labor_list`` then ``/employee/list``.
+  ///
+  /// [cancelToken] lets a caller (e.g. a tab that's been dismissed) abort
+  /// both the primary and legacy-fallback attempt instead of letting either
+  /// complete pointlessly in the background. Per FIX_IMPLEMENTATION_PLAN.md
+  /// Phase 3.2 — this is the specific fetch behind TmProjectFaceEnrollTab's
+  /// roster load.
   Future<List<TimesheetOdooEmployee>> fetchLaborEmployeesForReport({
     String? projectId,
     bool includeDrivers = true,
     bool useHrScopeWhenNoProject = true,
+    CancelToken? cancelToken,
   }) async {
     if (!_useLiveOdoo) {
       throw TimesheetOdooException(
@@ -216,6 +223,7 @@ class TimesheetApiClient {
         TimesheetOdooApiCatalog.timesheetLaborList,
         params: params,
         debugLabel: 'timesheet/labor_list',
+        cancelToken: cancelToken,
       );
       if (fromTimesheet.isNotEmpty) return fromTimesheet;
     } catch (error, stack) {
@@ -230,6 +238,7 @@ class TimesheetApiClient {
         TimesheetOdooApiCatalog.employeeList,
         params: const {},
         debugLabel: 'employee/list',
+        cancelToken: cancelToken,
       );
       if (fromLegacy.isNotEmpty) return fromLegacy;
     } catch (error, stack) {
@@ -252,8 +261,10 @@ class TimesheetApiClient {
     String path, {
     required Map<String, dynamic> params,
     required String debugLabel,
+    CancelToken? cancelToken,
   }) async {
-    final body = await _transport.postJsonRpc(path, params: params);
+    final body =
+        await _transport.postJsonRpc(path, params: params, cancelToken: cancelToken);
     final result = _transport.parseResult(body, debugLabel: debugLabel);
     final data = _unwrapOdooSuccessMap(result);
     final rows = _transport.parseMapList(

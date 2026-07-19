@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:dio/dio.dart';
 import 'package:el_race/core/theme/timesheet_module_theme.dart';
 import 'package:el_race/core/timesheet/network/timesheet_odoo_employee.dart';
 import 'package:el_race/core/timesheet/providers/timesheet_data_providers.dart';
@@ -34,6 +35,12 @@ class _TmProjectFaceEnrollTabState extends ConsumerState<TmProjectFaceEnrollTab>
   bool _loadingRoster = true;
   String? _error;
 
+  // Phase 3.2: this tab now uses TmLazyTab(keepAlive: false) (camera/ML-
+  // adjacent, rarely revisited), so leaving it mid-fetch actually disposes
+  // this state — cancel the in-flight request instead of letting it
+  // complete pointlessly against an unmounted widget.
+  CancelToken? _rosterCancelToken;
+
   @override
   void initState() {
     super.initState();
@@ -42,6 +49,7 @@ class _TmProjectFaceEnrollTabState extends ConsumerState<TmProjectFaceEnrollTab>
 
   @override
   void dispose() {
+    _rosterCancelToken?.cancel('TmProjectFaceEnrollTab disposed');
     _fileIdController.dispose();
     super.dispose();
   }
@@ -52,11 +60,14 @@ class _TmProjectFaceEnrollTabState extends ConsumerState<TmProjectFaceEnrollTab>
       _error = null;
     });
     final client = ref.read(timesheetApiClientProvider);
+    final cancelToken = CancelToken();
+    _rosterCancelToken = cancelToken;
     try {
       var labors = await client.fetchLaborEmployeesForReport(
         projectId: widget.projectId,
         includeDrivers: true,
         useHrScopeWhenNoProject: false,
+        cancelToken: cancelToken,
       );
       if (labors.isEmpty) {
         labors = await client.fetchEmployeeRoster();
@@ -67,7 +78,7 @@ class _TmProjectFaceEnrollTabState extends ConsumerState<TmProjectFaceEnrollTab>
         _loadingRoster = false;
       });
     } catch (e) {
-      if (!mounted) return;
+      if (!mounted || (e is DioException && CancelToken.isCancel(e))) return;
       setState(() {
         _loadingRoster = false;
         _error = 'Could not load employee list';

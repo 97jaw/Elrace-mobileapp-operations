@@ -59,52 +59,57 @@ class Fm2ProjectDetail extends ConsumerWidget {
               Expanded(
                 child: TabBarView(
                   children: [
-                    SingleChildScrollView(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: TimesheetModuleLayout.screenPaddingH,
-                        vertical: TimesheetModuleLayout.cardSpacing,
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          ProjectRecordCard(project: project),
-                          const SizedBox(
-                            height: TimesheetModuleLayout.sectionGap,
-                          ),
-                          Column(
-                            crossAxisAlignment: CrossAxisAlignment.stretch,
-                            children: [
-                              TmSecondaryButton(
-                                label: 'Take Attendance',
-                                icon: PhosphorIcons.camera(),
-                                onPressed: () {
-                                  Navigator.of(context).pushNamed(
-                                    TimesheetRouteNames.projectDates,
+                    // Tab 0 (Overview) is now lazy too, so first paint
+                    // doesn't pay for its content if the user swipes away
+                    // immediately — matches the other four tabs.
+                    TmLazyTab(
+                      builder: (_) => SingleChildScrollView(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: TimesheetModuleLayout.screenPaddingH,
+                          vertical: TimesheetModuleLayout.cardSpacing,
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            ProjectRecordCard(project: project),
+                            const SizedBox(
+                              height: TimesheetModuleLayout.sectionGap,
+                            ),
+                            Column(
+                              crossAxisAlignment: CrossAxisAlignment.stretch,
+                              children: [
+                                TmSecondaryButton(
+                                  label: 'Take Attendance',
+                                  icon: PhosphorIcons.camera(),
+                                  onPressed: () {
+                                    Navigator.of(context).pushNamed(
+                                      TimesheetRouteNames.projectDates,
+                                      arguments: TimesheetProjectArgs(
+                                        projectId: project.id,
+                                        projectName: project.name,
+                                      ),
+                                    );
+                                  },
+                                ),
+                                const SizedBox(
+                                  height: TimesheetModuleLayout.cardSpacing,
+                                ),
+                                TmSecondaryButton(
+                                  label: 'Timesheet report',
+                                  icon: PhosphorIcons.fileText(),
+                                  onPressed: () =>
+                                      Navigator.of(context).pushNamed(
+                                    TimesheetRouteNames.foremanTimesheetRecords,
                                     arguments: TimesheetProjectArgs(
                                       projectId: project.id,
                                       projectName: project.name,
                                     ),
-                                  );
-                                },
-                              ),
-                              const SizedBox(
-                                height: TimesheetModuleLayout.cardSpacing,
-                              ),
-                              TmSecondaryButton(
-                                label: 'Timesheet report',
-                                icon: PhosphorIcons.fileText(),
-                                onPressed: () =>
-                                    Navigator.of(context).pushNamed(
-                                  TimesheetRouteNames.foremanTimesheetRecords,
-                                  arguments: TimesheetProjectArgs(
-                                    projectId: project.id,
-                                    projectName: project.name,
                                   ),
                                 ),
-                              ),
-                            ],
-                          ),
-                        ],
+                              ],
+                            ),
+                          ],
+                        ),
                       ),
                     ),
                     // Lazy tabs: content (and its API calls) only builds when
@@ -122,7 +127,12 @@ class Fm2ProjectDetail extends ConsumerWidget {
                     TmLazyTab(
                       builder: (_) => _TeamsTab(projectId: project.id),
                     ),
+                    // Camera/ML-adjacent and rarely revisited — doesn't need
+                    // to stay pinned like the data tabs above. keepAlive:
+                    // false lets its provider/CancelToken-backed fetch
+                    // actually cancel on tab-away instead of accumulating.
                     TmLazyTab(
+                      keepAlive: false,
                       builder: (_) => TmProjectFaceEnrollTab(
                         projectId: project.id,
                         projectName: project.name,
