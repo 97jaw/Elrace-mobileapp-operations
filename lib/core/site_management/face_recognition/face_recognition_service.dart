@@ -35,10 +35,14 @@ class FaceRecognitionService {
   bool _syncReady = false;
   bool _engineReady = false;
   bool _engineLoadFailed = false;
+  String? _engineError;
   FaceSyncResult? _lastSync;
 
   FaceSyncResult? get lastSync => _lastSync;
   bool get isReady => _syncReady;
+
+  /// Underlying reason the TFLite engine failed to load (release diagnostics).
+  String? get engineError => _engineError;
 
   FaceRecognitionAvailability get availability {
     if (_lastSync == null) {
@@ -69,6 +73,7 @@ class FaceRecognitionService {
     );
     _engineReady = false;
     _engineLoadFailed = false;
+    _engineError = null;
     if (_syncReady) {
       try {
         await _embedder.ensureLoaded();
@@ -78,6 +83,7 @@ class FaceRecognitionService {
         _syncReady = false;
         _engineReady = false;
         _engineLoadFailed = true;
+        _engineError = e.toString();
       }
     }
     return result;
@@ -98,6 +104,7 @@ class FaceRecognitionService {
     );
     _engineReady = false;
     _engineLoadFailed = false;
+    _engineError = null;
     if (_syncReady) {
       try {
         await _embedder.ensureLoaded();
@@ -107,6 +114,7 @@ class FaceRecognitionService {
         _syncReady = false;
         _engineReady = false;
         _engineLoadFailed = true;
+        _engineError = e.toString();
       }
     }
     return result;

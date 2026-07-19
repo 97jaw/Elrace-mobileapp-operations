@@ -1,3 +1,9 @@
 #include? "Pods/Target Support Files/Pods-Runner/Pods-Runner.profile.xcconfig"
 #include "Generated.xcconfig"
 EXCLUDED_ARCHS[sdk=iphonesimulator*]=arm64
+
+// See Release.xcconfig: keep TensorFlowLiteC symbols so tflite_flutter's
+// runtime dlsym lookups succeed in stripped Profile/Release builds.
+STRIP_STYLE=non-global
+STRIP_INSTALLED_PRODUCT=NO
+DEAD_CODE_STRIPPING=NO

@@ -197,6 +197,12 @@ class _FmTimesheetCaptureSubmitScreenState
     };
     final phaseB = service.isReady ? 'Phase B on' : 'Phase B off';
     var snackText = '$prefix ($phaseB)';
+    // Surface the real engine failure so release/TestFlight builds are
+    // diagnosable (otherwise only a generic "Face engine unavailable" shows).
+    if (service.availability == FaceRecognitionAvailability.engineFailed &&
+        service.engineError != null) {
+      snackText = '$snackText · engine: ${service.engineError}';
+    }
     if (kDebugMode && FacePilotLogStore.lastExportPath != null) {
       snackText =
           '$snackText · pilot log: ${FacePilotLogStore.lastExportPath}';

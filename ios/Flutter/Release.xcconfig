@@ -1,3 +1,13 @@
 #include? "Pods/Target Support Files/Pods-Runner/Pods-Runner.release.xcconfig"
 #include "Generated.xcconfig"
 EXCLUDED_ARCHS[sdk=iphonesimulator*]=arm64
+
+// tflite_flutter (face recognition) statically links TensorFlowLiteC into the
+// Runner binary and resolves its C symbols at runtime via
+// DynamicLibrary.process() (dlsym). The default release archive strips ALL
+// symbols, removing those TFLite entry points, so Interpreter.fromAsset() only
+// fails in Release/TestFlight ("Face engine unavailable") while working in
+// Debug. Keep the global symbols so dlsym can resolve them.
+STRIP_STYLE=non-global
+STRIP_INSTALLED_PRODUCT=NO
+DEAD_CODE_STRIPPING=NO
