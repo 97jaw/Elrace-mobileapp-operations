@@ -107,12 +107,27 @@ class _MainScreenState extends State<MainScreen> {
         extendBody: true,
         bottomNavigationBar: const SizedBox.shrink(),
         body: BlocBuilder<HomeBloc, HomeState>(
+          // ChangeIndexLoading() is emitted immediately before every
+          // ChangeIndexSuccess() (see HomeBloc.changeCurrentIndex /
+          // changeBottomNavVisiblity) with no visual meaning of its own —
+          // grepped all usages, nothing else listens for it. Skipping it
+          // halves the rebuilds per tab tap.
+          buildWhen: (prev, curr) =>
+              curr is ChangeIndexSuccess || curr is HomeInitial,
           builder: (context, state) {
             final index = HomeBloc.get(context).currentIndex;
             _tabBuildCount++;
             debugPrint(
-                '🔁 [main_screens] screens[$index] evaluated (build #$_tabBuildCount, state=$state)');
-            return screens[index];
+                '🔁 [main_screens] IndexedStack index=$index evaluated (build #$_tabBuildCount, state=$state)');
+            // IndexedStack keeps every tab's widget subtree mounted for the
+            // life of MainScreen instead of disposing/recreating it on every
+            // tab switch (previously: screens[index], which unmounts the
+            // outgoing screen and reruns initState + API calls on the
+            // incoming one every single tap).
+            return IndexedStack(
+              index: index,
+              children: screens,
+            );
           },
         ),
       ),
