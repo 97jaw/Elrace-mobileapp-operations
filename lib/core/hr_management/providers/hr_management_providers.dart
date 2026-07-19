@@ -1,4 +1,5 @@
 import 'package:dio/dio.dart';
+import 'package:flutter/foundation.dart' show debugPrint;
 import 'package:el_race/core/hr_management/hr_effective_view.dart';
 import 'package:el_race/core/hr_management/models/hr_request_detail.dart';
 import 'package:el_race/core/hr_management/models/hr_request_summary.dart';
@@ -21,7 +22,12 @@ final loginSessionRevisionProvider =
 void bumpLoginSessionRiverpod(ProviderContainer container) {
   try {
     container.read(loginSessionRevisionProvider.notifier).bump();
-  } catch (_) {}
+  } catch (e) {
+    // Per FIX_IMPLEMENTATION_PLAN.md Phase 6.2 — this file was touched by
+    // Phase 4.3(3), so its swallowed errors get a minimum debugPrint rather
+    // than staying silent.
+    debugPrint('⚠️ [hr_management_providers] bumpLoginSessionRiverpod: swallowed $e');
+  }
 }
 
 /// Dio for HR module — Bearer token from login (same as Postman / rest of app).
