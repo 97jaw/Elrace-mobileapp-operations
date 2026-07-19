@@ -233,10 +233,23 @@ class _HomeScreenState extends State<HomeScreenPage>
     }
   }
 
+  // Phase 8.3: the dialog below is non-dismissible (barrierDismissible:
+  // false) — possibly intentional for check-in accuracy reasons, so kept
+  // blocking rather than downgraded to a snackbar. But firing it on every
+  // single resume whenever location services are off was its own source
+  // of a "stuck screen" report independent of the splash issue. Only
+  // surface it once per session; a resume with location still disabled
+  // won't re-show it. Does not affect the dialog's own internal "still
+  // disabled after tapping OK" retry loop below, which is the same user
+  // interaction continuing, not a new resume-triggered occurrence.
+  bool _locationDialogShownThisSession = false;
+
   Future<void> _checkLocationService() async {
     // Check if location service is enabled
     bool isServiceEnabled = await _location.serviceEnabled();
     if (!isServiceEnabled) {
+      if (_locationDialogShownThisSession) return;
+      _locationDialogShownThisSession = true;
       // If not enabled, show popup
       _showLocationServiceDialog();
     }
