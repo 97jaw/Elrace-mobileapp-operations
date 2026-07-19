@@ -218,6 +218,16 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     _starredSub?.cancel();
     PresenceService.instance.setTyping(widget.chatId, false);
 
+    // Leaving mid-recording (e.g. back navigation while holding the mic
+    // button) previously left VoiceRecorderService's AudioRecorder active
+    // with no widget left to stop it — the mic stayed "in use" indefinitely
+    // (visible as iOS's persistent orange recording indicator) since
+    // nothing ever called stop()/cancel() on the underlying AVAudioSession.
+    if (VoiceRecorderService.instance.isRecording) {
+      // ignore: unawaited_futures
+      VoiceRecorderService.instance.cancelRecording();
+    }
+
     // Clear active chat when leaving
     ChatNotificationService.instance.setActiveChatId(null);
     super.dispose();
@@ -227,6 +237,18 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
       _markAsRead();
+      return;
+    }
+    // Backgrounding mid-recording (switching apps, a call coming in,
+    // locking the phone) left the recorder running with nothing to stop
+    // it — same underlying bug as the dispose() case above, just triggered
+    // by the app losing foreground instead of the screen closing.
+    if ((state == AppLifecycleState.inactive ||
+            state == AppLifecycleState.paused ||
+            state == AppLifecycleState.hidden) &&
+        VoiceRecorderService.instance.isRecording) {
+      debugPrint('🎙️ ChatScreen: cancelling in-progress recording on background');
+      _cancelRecording();
     }
   }
 
