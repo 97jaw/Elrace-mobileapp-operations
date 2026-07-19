@@ -120,6 +120,12 @@ Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
 /// error (e.g. a runaway async chain) repeats rapidly.
 final Map<String, DateTime> _lastGuardLogAt = {};
 
+/// SharedPref key used to persist the first app-frame of a swallowed
+/// StackOverflowError so a "hang" that was previously invisible in the field
+/// leaves a breadcrumb readable on the next app start. Phase 0 instrumentation
+/// only — the guard still swallows the error (see [_logGuardedError]).
+const String _kStackOverflowBreadcrumbKey = 'debug_stack_overflow_breadcrumb';
+
 /// Installs process-wide guards so a single unhandled error — including a
 /// runaway async error chain that manifests as a `StackOverflowError` — cannot
 /// hard-crash the app in production. Errors are logged once (deduped) with any
@@ -165,10 +171,43 @@ void _logGuardedError(String source, Object error, StackTrace? stack) {
         );
     debugPrint('🛑 [$source] StackOverflowError swallowed. First app frame: '
         '$appFrame');
+    _persistStackOverflowBreadcrumb(source, appFrame);
     return;
   }
 
   debugPrint('🛑 [$source] Unhandled error swallowed: $error');
+}
+
+/// Persists the first app-frame of a swallowed StackOverflowError so it can
+/// be surfaced on the next app start (see [_checkStackOverflowBreadcrumb]).
+/// Best-effort: SharedPref may not be instantiated yet if the error happens
+/// before Phase-1 init completes, so failures here are swallowed same as the
+/// rest of this file's early-startup guards.
+void _persistStackOverflowBreadcrumb(String source, String? appFrame) {
+  try {
+    SharedPref().setPreferencesString(
+      _kStackOverflowBreadcrumbKey,
+      '${DateTime.now().toIso8601String()} [$source] $appFrame',
+    );
+  } catch (e) {
+    debugPrint('🛑 Failed to persist StackOverflowError breadcrumb: $e');
+  }
+}
+
+/// Logs and clears any StackOverflowError breadcrumb left by a previous
+/// session. Called once SharedPref is guaranteed initialized.
+void _checkStackOverflowBreadcrumb() {
+  try {
+    final breadcrumb =
+        SharedPref().getPreferenceString(_kStackOverflowBreadcrumbKey);
+    if (breadcrumb.isNotEmpty) {
+      debugPrint(
+          '🛑 [breadcrumb] Previous session recorded a StackOverflowError: $breadcrumb');
+      SharedPref().removePreference(_kStackOverflowBreadcrumbKey);
+    }
+  } catch (e) {
+    debugPrint('🛑 Failed to read StackOverflowError breadcrumb: $e');
+  }
 }
 
 void main() async {
@@ -210,6 +249,9 @@ void main() async {
   } catch (e) {
     print('❌ Phase-1 init error: $e');
   }
+  // SharedPref is now instantiated (best-effort) — surface any
+  // StackOverflowError breadcrumb left by a previous session.
+  _checkStackOverflowBreadcrumb();
 
   // Localization is required by MyApp, but must never leave a native white
   // screen indefinitely if loading its assets fails.

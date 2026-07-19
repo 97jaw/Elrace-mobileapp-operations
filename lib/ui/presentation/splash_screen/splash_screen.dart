@@ -30,14 +30,31 @@ class _SplashScreenState extends State<SplashScreen> {
   bool _isVideoReady = false;
   final Completer<void> _videoCompletedCompleter = Completer<void>();
 
+  // Phase 0 instrumentation: measures elapsed time of each splash gate so we
+  // have real numbers instead of guesses before attempting the structural
+  // fix in Phase 2. No behavior change — logging only.
+  final Stopwatch _splashStopwatch = Stopwatch()..start();
+
+  void _logGateTiming(String label) {
+    debugPrint(
+        '⏱️ [splash] $label at ${_splashStopwatch.elapsedMilliseconds}ms');
+  }
+
   @override
   void initState() {
     super.initState();
     debugPrint('🚀 SplashScreen.initState(): first screen mounted');
+    _logGateTiming('initState');
+
+    // Instrumentation only: log when appInitCompleter resolves, independent
+    // of the Future.wait gate in _waitForInitAndNavigate (Completers support
+    // multiple listeners, so this does not change existing behavior).
+    appInitCompleter.future.then((_) => _logGateTiming('appInitCompleter-resolved'));
 
     // Initialize video player (uses hardware decoder, not main thread)
     _videoController = VideoPlayerController.asset('assets/mp4/splash.mp4')
       ..initialize().then((_) {
+        _logGateTiming('video-ready');
         if (mounted) {
           setState(() => _isVideoReady = true);
           _videoController.addListener(_onVideoProgress);
@@ -61,6 +78,7 @@ class _SplashScreenState extends State<SplashScreen> {
 
   /// Perform security check before allowing app usage
   Future<void> _performSecurityCheck() async {
+    _logGateTiming('security-check-start');
     try {
       print('🔒 Starting security check...');
       final result = await DeviceSecurityService.instance
@@ -81,6 +99,7 @@ class _SplashScreenState extends State<SplashScreen> {
           print('✅ Device security check passed!');
         }
       }
+      _logGateTiming('security-check-complete (isSecure=${result.isSecure})');
     } catch (e) {
       print('⚠️ Error during security check: $e');
       // On error, allow app to continue (fail-open for better UX)
@@ -90,6 +109,7 @@ class _SplashScreenState extends State<SplashScreen> {
           _isDeviceSecure = true;
         });
       }
+      _logGateTiming('security-check-complete (error, fail-open)');
     }
   }
 
@@ -108,6 +128,7 @@ class _SplashScreenState extends State<SplashScreen> {
   /// 3) security check, then navigate.
   Future<void> _waitForInitAndNavigate() async {
     debugPrint('🚀 SplashScreen: waiting for bounded startup checks');
+    _logGateTiming('waitForInitAndNavigate-start');
     // Wait for BOTH heavy init and intro video completion.
     await Future.wait<void>([
       appInitCompleter.future.timeout(
@@ -123,6 +144,7 @@ class _SplashScreenState extends State<SplashScreen> {
         },
       ),
     ]);
+    _logGateTiming('waitForInitAndNavigate-gate-resolved');
 
     if (!mounted) return;
 
@@ -160,6 +182,7 @@ class _SplashScreenState extends State<SplashScreen> {
   void _completeVideoIfNeeded() {
     if (!_videoCompletedCompleter.isCompleted) {
       _videoCompletedCompleter.complete();
+      _logGateTiming('video-complete');
     }
   }
 
@@ -183,6 +206,7 @@ class _SplashScreenState extends State<SplashScreen> {
 
   Future<void> _checkForUpdateThenNavigate() async {
     if (!mounted) return;
+    _logGateTiming('update-check-start');
 
     try {
       // Keep in sync with version in pubspec.yaml
@@ -191,6 +215,7 @@ class _SplashScreenState extends State<SplashScreen> {
       final updateResult = await UpdateService.instance
           .checkForUpdate(currentVersion)
           .timeout(const Duration(seconds: 10));
+      _logGateTiming('update-check-complete');
 
       if (!mounted) return;
 
@@ -204,6 +229,7 @@ class _SplashScreenState extends State<SplashScreen> {
       if (blocked) return;
     } catch (e) {
       print('⚠️ Update check error (ignored): $e');
+      _logGateTiming('update-check-complete (error, ignored)');
     }
 
     if (!mounted) return;
@@ -212,6 +238,10 @@ class _SplashScreenState extends State<SplashScreen> {
 
   void _doNavigate() {
     if (!mounted) return;
+    // Proxy for "first frame of HomeScreen/SignInScreen": this is the last
+    // point splash_screen.dart controls before handing off navigation, since
+    // instrumenting the destination screens is out of scope for this file.
+    _logGateTiming('navigate-handoff');
 
     try {
       // Check authentication first

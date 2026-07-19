@@ -35,6 +35,11 @@ class _MainScreenState extends State<MainScreen> {
     QrSurveyContentWrapper(), // QR Survey screen (no icon in bottom nav)
   ];
 
+  // Phase 0 instrumentation: proves/disproves the full-rebuild-per-tab-switch
+  // theory with a real count before Phase 1 changes this to an IndexedStack.
+  // No behavior change — logging only.
+  int _tabBuildCount = 0;
+
   Future<bool> _onWillPop() async {
     // Show confirmation dialog
     final shouldExit = await showDialog<bool>(
@@ -102,8 +107,13 @@ class _MainScreenState extends State<MainScreen> {
         extendBody: true,
         bottomNavigationBar: const SizedBox.shrink(),
         body: BlocBuilder<HomeBloc, HomeState>(
-          builder: (context, state) =>
-              screens[HomeBloc.get(context).currentIndex],
+          builder: (context, state) {
+            final index = HomeBloc.get(context).currentIndex;
+            _tabBuildCount++;
+            debugPrint(
+                '🔁 [main_screens] screens[$index] evaluated (build #$_tabBuildCount, state=$state)');
+            return screens[index];
+          },
         ),
       ),
     );
