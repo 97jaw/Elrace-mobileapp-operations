@@ -190,6 +190,11 @@ class _HomeScreenState extends State<HomeScreenPage>
     super.dispose();
   }
 
+  // Phase 8.2: guards against rapid app-switching stacking concurrent
+  // resume work (location check + GPS fetch + attendance sync + role
+  // refresh), independent of the Phase 8.1 splash-restart skip above.
+  bool _resumeRefreshInFlight = false;
+
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
@@ -203,17 +208,28 @@ class _HomeScreenState extends State<HomeScreenPage>
         debugPrint('⏱️ [home-resume] skipped — splash restart in flight');
         return;
       }
-      _checkLocationService(); // إعادة التحقق عند العودة
+      // ignore: unawaited_futures
+      _handleResume();
+    }
+  }
+
+  Future<void> _handleResume() async {
+    if (_resumeRefreshInFlight) return;
+    _resumeRefreshInFlight = true;
+    try {
+      await _checkLocationService(); // إعادة التحقق عند العودة
       _locationBloc.add(GetCurrentLocationET()); // إعادة جلب اللوكيشن
 
       // مزامنة حالة الحضور من السيرفر عند العودة من الخلفية
       // لضمان تحديث الأوقات والعداد بدون الحاجة لتسجيل خروج/دخول
-      AttendanceStatusSyncService.refreshFromServer(reason: 'app_resumed');
+      await AttendanceStatusSyncService.refreshFromServer(reason: 'app_resumed')
+          .timeout(const Duration(seconds: 10), onTimeout: () => null);
       if (mounted) {
         final container = ProviderScope.containerOf(context);
-        // ignore: unawaited_futures
-        LoginSessionRefreshService.refreshRoles(container: container);
+        await LoginSessionRefreshService.refreshRoles(container: container);
       }
+    } finally {
+      _resumeRefreshInFlight = false;
     }
   }
 
