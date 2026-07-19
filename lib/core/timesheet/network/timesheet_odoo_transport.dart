@@ -4,14 +4,30 @@ import 'package:dio/dio.dart';
 import 'package:el_race/core/timesheet/network/timesheet_odoo_api_catalog.dart';
 import 'package:el_race/core/timesheet/network/timesheet_odoo_employee.dart';
 import 'package:el_race/core/utils/shared_pref.dart';
+import 'package:el_race/services/api_client.dart' show AuthErrorInterceptor, RetryInterceptor;
 import 'package:flutter/foundation.dart';
 
 /// Low-level JSON-RPC calls to existing Odoo timesheet controllers.
+///
+/// This backs Phase 3's project/timesheet tab providers (the ones that will
+/// get CancelToken-based cancellation), so per FIX_IMPLEMENTATION_PLAN.md
+/// Phase 4.3(3) it gets the shared 401/retry interceptors first. Left
+/// alone: the manual _headers()/withAuth Authorization-header construction
+/// below — no caller in this codebase actually passes withAuth: false, so
+/// it's dead-in-practice, and AuthInterceptor would just no-op here anyway
+/// since the header is already present by the time a request goes out.
+/// Not worth the churn of touching call sites for a header that's already
+/// being set correctly.
 class TimesheetOdooTransport {
   TimesheetOdooTransport({
     required Dio dio,
     this.baseUrl = 'https://erp.elrace.com/api',
-  }) : _dio = dio;
+  }) : _dio = dio {
+    _dio.interceptors.addAll([
+      AuthErrorInterceptor(),
+      RetryInterceptor(_dio),
+    ]);
+  }
 
   final Dio _dio;
   final String baseUrl;

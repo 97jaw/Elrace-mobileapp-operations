@@ -3,7 +3,7 @@ import 'package:el_race/core/hr_management/hr_effective_view.dart';
 import 'package:el_race/core/hr_management/models/hr_request_detail.dart';
 import 'package:el_race/core/hr_management/models/hr_request_summary.dart';
 import 'package:el_race/core/hr_management/network/hr_api_client.dart';
-import 'package:el_race/core/utils/shared_pref.dart';
+import 'package:el_race/services/api_client.dart' show AuthInterceptor, AuthErrorInterceptor, RetryInterceptor;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 /// Bumped after login persistence or logout so Riverpod re-reads [SharedPref] login
@@ -25,6 +25,17 @@ void bumpLoginSessionRiverpod(ProviderContainer container) {
 }
 
 /// Dio for HR module — Bearer token from login (same as Postman / rest of app).
+///
+/// Kept as its own Dio (baseUrl without the /api suffix — HrApiClient's own
+/// path constants already include a leading '/api/...') rather than pointed
+/// at lib/services/api_client.dart's ApiClient, whose baseUrl already ends
+/// in '/api/' and would double that prefix. What's shared instead: the same
+/// AuthInterceptor/AuthErrorInterceptor/RetryInterceptor classes from
+/// api_client.dart, replacing the bespoke auth-header InterceptorsWrapper
+/// that used to live here — one source of truth for token attachment, 401
+/// handling, and retry across both. Per FIX_IMPLEMENTATION_PLAN.md Phase
+/// 4.3(3) — this is one of the providers backing Phase 3's project/
+/// timesheet tabs.
 final hrDioProvider = Provider<Dio>((ref) {
   final dio = Dio(
     BaseOptions(
@@ -38,17 +49,11 @@ final hrDioProvider = Provider<Dio>((ref) {
     ),
   );
 
-  dio.interceptors.add(
-    InterceptorsWrapper(
-      onRequest: (options, handler) {
-        final token = SharedPref.getLoginDataOrNull()?.result?.token;
-        if (token != null && token.isNotEmpty) {
-          options.headers['Authorization'] = 'Bearer $token';
-        }
-        handler.next(options);
-      },
-    ),
-  );
+  dio.interceptors.addAll([
+    AuthInterceptor(),
+    AuthErrorInterceptor(),
+    RetryInterceptor(dio),
+  ]);
 
   return dio;
 });

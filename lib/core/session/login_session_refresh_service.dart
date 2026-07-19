@@ -1,8 +1,9 @@
 import 'dart:convert';
 
-import 'package:dio/dio.dart';
 import 'package:el_race/core/hr_management/providers/hr_management_providers.dart';
 import 'package:el_race/core/utils/shared_pref.dart';
+import 'package:el_race/services/api_client.dart';
+import 'package:el_race/utils/di.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -17,21 +18,21 @@ class LoginSessionRefreshService {
     if (token == null || token.isEmpty) return false;
 
     try {
-      final dio = Dio(
-        BaseOptions(
-          baseUrl: 'https://erp.elrace.com',
-          connectTimeout: const Duration(seconds: 20),
-          receiveTimeout: const Duration(seconds: 20),
-          headers: {
-            'Content-Type': 'application/json',
-            'Accept': 'application/json',
-            'Authorization': 'Bearer $token',
-          },
-        ),
-      );
-
-      final res = await dio.post<dynamic>(
-        '/api/session/refresh',
+      // Migrated off a one-off Dio() with a hardcoded 'https://erp.elrace.com'
+      // base URL and manual Authorization header onto the shared ApiClient
+      // (base URL from UaepassConfig.baseApiUrl, same backend as
+      // UrlUtil.baseUrl). AuthInterceptor attaches the bearer token from the
+      // same SharedPref source read above; the 401 handler and retry
+      // interceptor now also cover this call for free. Per
+      // FIX_IMPLEMENTATION_PLAN.md Phase 4.3(1) — this was the highest-value
+      // migration target, directly tied to the "logout stuck /
+      // permission-denied" baseline bug.
+      final res = await sl<ApiClient>().post(
+        'session/refresh',
+        headers: const {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+        },
         data: jsonEncode({
           'jsonrpc': '2.0',
           'method': 'call',
