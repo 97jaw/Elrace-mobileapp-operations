@@ -763,6 +763,10 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
 
   void _restartFromSplashAfterTimeout(Duration inactiveFor) {
     _isRestartingFromTimeout = true;
+    // Phase 8.1: tell other resume observers (HomeScreen) a splash restart
+    // is in flight so they skip their own resume work instead of racing
+    // the new SplashScreen's video/security-check gates.
+    isRestartingFromSplashTimeout.value = true;
     debugPrint(
       '⏱️ Inactivity timeout reached (${inactiveFor.inMinutes} min). Restarting from SplashScreen...',
     );
@@ -770,6 +774,7 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
     final navigator = navKey.currentState;
     if (navigator == null) {
       _isRestartingFromTimeout = false;
+      isRestartingFromSplashTimeout.value = false;
       return;
     }
 
@@ -785,6 +790,7 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
     // Allow future timeout checks after navigation settles.
     Future<void>.delayed(const Duration(milliseconds: 400), () {
       _isRestartingFromTimeout = false;
+      isRestartingFromSplashTimeout.value = false;
     });
   }
 

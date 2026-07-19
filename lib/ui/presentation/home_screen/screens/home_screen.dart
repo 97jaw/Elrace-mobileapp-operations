@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:el_race/core/app_globals.dart';
 import 'package:el_race/core/biometric/unified_biometric_helper.dart';
 import 'package:el_race/core/services/attendance_status_sync_service.dart';
 import 'package:el_race/core/session/login_session_refresh_service.dart';
@@ -192,6 +193,16 @@ class _HomeScreenState extends State<HomeScreenPage>
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
+      // Phase 8.1: main.dart's own resume handler is about to tear down the
+      // route stack and mount a fresh SplashScreen (10-minute inactivity
+      // restart) — there's no point kicking off a location dialog, GPS
+      // fetch, attendance sync, or role refresh on a screen that's being
+      // replaced. Splash's own navigation back into Home re-primes this
+      // data anyway.
+      if (isRestartingFromSplashTimeout.value) {
+        debugPrint('⏱️ [home-resume] skipped — splash restart in flight');
+        return;
+      }
       _checkLocationService(); // إعادة التحقق عند العودة
       _locationBloc.add(GetCurrentLocationET()); // إعادة جلب اللوكيشن
 
