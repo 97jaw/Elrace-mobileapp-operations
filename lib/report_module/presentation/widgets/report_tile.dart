@@ -7,7 +7,7 @@ import 'package:el_race/report_module/data/models/report_detail_model.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
-class ReportTile extends StatelessWidget {
+class ReportTile extends StatefulWidget {
   final ReportModel report;
   final String folderName;
   final ValueChanged<String> onMenuSelected;
@@ -18,7 +18,27 @@ class ReportTile extends StatelessWidget {
       required this.folderName});
 
   @override
+  State<ReportTile> createState() => _ReportTileState();
+}
+
+class _ReportTileState extends State<ReportTile> {
+  // Hoisted out of build() (was constructed inline in a FutureBuilder,
+  // re-firing getReportDetail on every rebuild of this tile — e.g. any
+  // scroll-driven rebuild of the surrounding list). Per
+  // FIX_IMPLEMENTATION_PLAN.md Phase 5.2.
+  late final Future<ReportDetailModel?> _reportDetailFuture;
+
+  @override
+  void initState() {
+    super.initState();
+    _reportDetailFuture = reportProvider.getReportDetail(widget.report);
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final report = widget.report;
+    final folderName = widget.folderName;
+    final onMenuSelected = widget.onMenuSelected;
     return GestureDetector(
       onTap: () {
         Navigator.push(
@@ -77,7 +97,7 @@ class ReportTile extends StatelessWidget {
                 Row(
                   children: [
                     FutureBuilder<ReportDetailModel?>(
-                        future: reportProvider.getReportDetail(report),
+                        future: _reportDetailFuture,
                         builder: (context, snapshot) {
                           return Container(
                             decoration: BoxDecoration(
