@@ -124,13 +124,55 @@ class _MainScreenState extends State<MainScreen> {
             // tab switch (previously: screens[index], which unmounts the
             // outgoing screen and reruns initState + API calls on the
             // incoming one every single tap).
-            return IndexedStack(
+            //
+            // Regression found in testing: a raw IndexedStack builds every
+            // child up front, including tabs the user has never opened.
+            // CallScreen (index 0) was never built at all under the old
+            // screens[index] code unless the user tapped the Call tab — its
+            // NestedScrollView + SliverFillRemaining(hasScrollBody: false)
+            // empty-state has a pre-existing Flutter layout bug ("RenderViewport
+            // does not support returning intrinsic dimensions") that was
+            // dormant until something actually built that widget. Eagerly
+            // building it on every login surfaced that bug immediately.
+            // _LazyIndexedStack restores "don't build until first shown"
+            // while keeping "don't rebuild once built" — the fallback this
+            // plan's own Phase 1 notes anticipated needing.
+            return _LazyIndexedStack(
               index: index,
               children: screens,
             );
           },
         ),
       ),
+    );
+  }
+}
+
+/// Builds each child the first time its index is selected, then keeps it
+/// mounted (via IndexedStack) so later switches don't rebuild it. Unlike a
+/// raw IndexedStack, tabs that have never been visited are not built at all.
+class _LazyIndexedStack extends StatefulWidget {
+  const _LazyIndexedStack({required this.index, required this.children});
+
+  final int index;
+  final List<Widget> children;
+
+  @override
+  State<_LazyIndexedStack> createState() => _LazyIndexedStackState();
+}
+
+class _LazyIndexedStackState extends State<_LazyIndexedStack> {
+  final Set<int> _built = {};
+
+  @override
+  Widget build(BuildContext context) {
+    _built.add(widget.index);
+    return IndexedStack(
+      index: widget.index,
+      children: [
+        for (var i = 0; i < widget.children.length; i++)
+          _built.contains(i) ? widget.children[i] : const SizedBox.shrink(),
+      ],
     );
   }
 }
