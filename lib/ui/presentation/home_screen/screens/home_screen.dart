@@ -3,7 +3,6 @@ import 'dart:async';
 import 'package:el_race/core/app_globals.dart';
 import 'package:el_race/core/biometric/unified_biometric_helper.dart';
 import 'package:el_race/core/services/attendance_status_sync_service.dart';
-import 'package:el_race/core/session/login_session_refresh_service.dart';
 import 'package:el_race/ui/presentation/home_screen/bloc/home_bloc.dart';
 import 'package:el_race/ui/presentation/home_screen/bloc/location_bloc/location_bloc.dart';
 import 'package:el_race/ui/presentation/home_screen/screens/main_home_content_widget.dart';
@@ -13,7 +12,6 @@ import 'package:el_race/ui/presentation/home_screen/widgets/timer_controller.dar
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter_translate/flutter_translate.dart';
 import 'package:get/get.dart';
@@ -191,8 +189,8 @@ class _HomeScreenState extends State<HomeScreenPage>
   }
 
   // Phase 8.2: guards against rapid app-switching stacking concurrent
-  // resume work (location check + GPS fetch + attendance sync + role
-  // refresh), independent of the Phase 8.1 splash-restart skip above.
+  // resume work (location check + GPS fetch + attendance sync),
+  // independent of the Phase 8.1 splash-restart skip above.
   bool _resumeRefreshInFlight = false;
 
   @override
@@ -232,12 +230,12 @@ class _HomeScreenState extends State<HomeScreenPage>
       await AttendanceStatusSyncService.refreshFromServer(reason: 'app_resumed')
           .timeout(const Duration(seconds: 10), onTimeout: () => null);
       debugPrint('⏱️ [home-resume] attendance sync complete');
-      if (mounted) {
-        final container = ProviderScope.containerOf(context);
-        debugPrint('⏱️ [home-resume] refreshRoles start');
-        await LoginSessionRefreshService.refreshRoles(container: container);
-        debugPrint('⏱️ [home-resume] refreshRoles complete');
-      }
+      // Removed: LoginSessionRefreshService.refreshRoles() / POST
+      // /api/session/refresh on every resume. Device logs (2026-07-19) showed
+      // this endpoint taking 15-20+ seconds per call (one attempt hit
+      // ApiClient's 20s receiveTimeout outright) — not needed on every single
+      // app resume, and not worth the latency/complexity of debouncing
+      // separately from the rest of this handler.
     } finally {
       _resumeRefreshInFlight = false;
     }
