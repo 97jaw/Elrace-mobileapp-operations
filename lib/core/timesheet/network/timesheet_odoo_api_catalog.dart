@@ -23,6 +23,11 @@ abstract final class TimesheetOdooApiCatalog {
   /// Project staff_list + supervisors for chat pickers.
   static const String projectStaff = '/timesheet/project_staff';
 
+  /// Per-foreman submission summary for a project (Site Management monitor).
+  /// Returns `[{employee_id, name, file_id, image, total_hours, last_submit_date}]`.
+  static const String projectForemenSummary =
+      '/timesheet/project_foremen_summary';
+
   /// Pandora timesheet PDF (``timesheet.wizard`` → ``print_timesheet``).
   static const String printReport = '/timesheet/print_report';
 
@@ -66,6 +71,7 @@ abstract final class TimesheetSubmitParams {
   static const String date = 'date';
   static const String dateTime = 'date_time';
   static const String dateTimeEnd = 'date_time_end';
+  static const String coords = 'coords';
 }
 
 /// FM screen / state → submit param source.

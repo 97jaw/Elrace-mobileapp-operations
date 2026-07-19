@@ -71,10 +71,14 @@ class TimesheetErrorState extends StatelessWidget {
     super.key,
     required this.message,
     this.onRetry,
+    this.warm = false,
   });
 
   final String message;
   final VoidCallback? onRetry;
+
+  /// Warm theme (foreman Timesheet screens): gradient Retry button.
+  final bool warm;
 
   @override
   Widget build(BuildContext context) {
@@ -93,10 +97,16 @@ class TimesheetErrorState extends StatelessWidget {
             const SizedBox(height: TimesheetModuleLayout.cardSpacing),
             SizedBox(
               width: 180,
-              child: TmSecondaryButton(
-                label: 'Retry',
-                onPressed: onRetry,
-              ),
+              child: warm
+                  ? TmPrimaryButton(
+                      label: 'Retry',
+                      warm: true,
+                      onPressed: onRetry,
+                    )
+                  : TmSecondaryButton(
+                      label: 'Retry',
+                      onPressed: onRetry,
+                    ),
             ),
           ],
         ],

@@ -23,6 +23,7 @@ class ContextualGlassChromeHeader extends StatelessWidget {
     this.scrimTopOpacity,
     this.transparentGlassBar = false,
     this.logoOpacity,
+    this.titleColor,
   });
 
   final String? title;
@@ -33,6 +34,9 @@ class ContextualGlassChromeHeader extends StatelessWidget {
   final double? tabsHeight;
   final Widget? titleTrailing;
   final bool onLightSurface;
+
+  /// Overrides the default title/icon color (navy on light, white on dark).
+  final Color? titleColor;
 
   /// Override scrim tint; defaults to white on dark surfaces, black on light.
   final Color? scrimColor;
@@ -86,8 +90,9 @@ class ContextualGlassChromeHeader extends StatelessWidget {
     final tabStripH = tabsHeight;
     final hasTitle = title != null && title!.trim().isNotEmpty;
     final showTitleRow = hasTitle || showBack || titleTrailing != null;
-    final titleColor = onLightSurface ? const Color(0xFF1E2365) : Colors.white;
-    final iconColor = titleColor;
+    final resolvedTitleColor = titleColor ??
+        (onLightSurface ? const Color(0xFF1E2365) : Colors.white);
+    final iconColor = resolvedTitleColor;
 
     final chrome = Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -132,7 +137,7 @@ class ContextualGlassChromeHeader extends StatelessWidget {
                         style: GoogleFonts.poppins(
                           fontSize: 16.tsp,
                           fontWeight: FontWeight.w700,
-                          color: titleColor,
+                          color: resolvedTitleColor,
                           height: 1.1,
                         ),
                         maxLines: 1,

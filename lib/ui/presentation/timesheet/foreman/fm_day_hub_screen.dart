@@ -64,6 +64,7 @@ class _FmDayHubScreenState extends ConsumerState<FmDayHubScreen> {
           const SizedBox(height: TimesheetModuleLayout.sectionGap),
           TmPrimaryButton(
             label: 'Add timesheet / attendance',
+            warm: true,
             icon: PhosphorIcons.plusCircle(),
             onPressed: () async {
               final submitted = await Navigator.of(context).push<bool>(
@@ -111,6 +112,7 @@ class _FmDayHubScreenState extends ConsumerState<FmDayHubScreen> {
                   itemBuilder: (context, index) => TmTimesheetEntryRow(
                     row: rows[index],
                     index: index + 1,
+                    homeLight: true,
                   ),
                 );
               },

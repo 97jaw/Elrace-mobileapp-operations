@@ -204,6 +204,7 @@ class _TmProjectFaceEnrollTabState extends ConsumerState<TmProjectFaceEnrollTab>
           const SizedBox(height: TimesheetModuleLayout.sectionGap),
           TmPrimaryButton(
             label: 'Start enrollment',
+            warm: true,
             icon: PhosphorIcons.camera(),
             onPressed: _loadingRoster ? null : _startEnrollment,
           ),

@@ -128,6 +128,7 @@ class TmFaceOutOfTeamWarning extends StatelessWidget {
                     const SizedBox(height: 20),
                     TmPrimaryButton(
                       label: 'OK — capture someone else',
+                      warm: true,
                       icon: PhosphorIcons.arrowLeft(),
                       onPressed: onDismiss,
                     ),

@@ -187,6 +187,7 @@ class _At2CaptureCameraScreenState extends ConsumerState<At2CaptureCameraScreen>
               Expanded(
                 child: TmPrimaryButton(
                   label: 'Shutter',
+                  warm: true,
                   icon: PhosphorIcons.camera(),
                   onPressed: _cameraKey.currentState?.canCapture == true
                       ? () => _cameraKey.currentState?.triggerCapture()

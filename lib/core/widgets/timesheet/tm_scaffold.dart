@@ -34,41 +34,53 @@ class TmScaffold extends StatelessWidget {
   Widget build(BuildContext context) {
     if (glassTitle != null) {
       return Scaffold(
-        backgroundColor: TimesheetModuleColors.bgGradientEnd,
-        body: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            TmModuleGlassHeader(
-              title: glassTitle!,
-              trailing: glassTrailing,
-              showBack: glassShowBack,
-              onBack: onGlassBack,
-            ),
-            Expanded(
-              child: SafeArea(
-                top: false,
-                bottom: bottomNavigationBar == null,
-                child: Padding(
-                  padding: padding,
-                  child: body,
+        backgroundColor: TimesheetModuleColors.warmGradientEnd,
+        body: DecoratedBox(
+          decoration: const BoxDecoration(
+            gradient: TimesheetModuleColors.warmGradient,
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              TmModuleGlassHeader(
+                title: glassTitle!,
+                trailing: glassTrailing,
+                showBack: glassShowBack,
+                onBack: onGlassBack,
+                titleColor: TimesheetModuleColors.ink,
+                scrimColor: TimesheetModuleColors.warmGradientStart,
+              ),
+              Expanded(
+                child: SafeArea(
+                  top: false,
+                  bottom: bottomNavigationBar == null,
+                  child: Padding(
+                    padding: padding,
+                    child: body,
+                  ),
                 ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
         bottomNavigationBar: bottomNavigationBar,
       );
     }
 
     return Scaffold(
-      backgroundColor: TimesheetModuleColors.bgGradientEnd,
+      backgroundColor: TimesheetModuleColors.warmGradientEnd,
       appBar: appBar,
-      body: SafeArea(
-        top: appBar == null,
-        bottom: bottomNavigationBar == null,
-        child: Padding(
-          padding: padding,
-          child: body,
+      body: DecoratedBox(
+        decoration: const BoxDecoration(
+          gradient: TimesheetModuleColors.warmGradient,
+        ),
+        child: SafeArea(
+          top: appBar == null,
+          bottom: bottomNavigationBar == null,
+          child: Padding(
+            padding: padding,
+            child: body,
+          ),
         ),
       ),
       bottomNavigationBar: bottomNavigationBar,

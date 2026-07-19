@@ -592,9 +592,8 @@ class _ListViewWidgetsState extends State<ListViewWidgets> {
             ),
             onClick: isReorderMode
                 ? null
-                : () => showProjectsComingSoonSnackBar(
-                      context,
-                      featureLabel: 'Site Management',
+                : () => Navigator.of(context).pushNamed(
+                      TimesheetRouteNames.siteManagementHome,
                     ),
             childWidget: const SizedBox.shrink(),
           ),

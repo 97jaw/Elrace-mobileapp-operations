@@ -11,12 +11,20 @@ class TmModuleGlassHeader extends StatelessWidget {
     this.trailing = const [],
     this.showBack = true,
     this.onBack,
+    this.titleColor,
+    this.scrimColor,
   });
 
   final String title;
   final List<Widget> trailing;
   final bool showBack;
   final VoidCallback? onBack;
+
+  /// Overrides the default navy title color (used by warm Timesheet screens).
+  final Color? titleColor;
+
+  /// Overrides the scrim tint (warm screens pass a warm tint).
+  final Color? scrimColor;
 
   @override
   Widget build(BuildContext context) {
@@ -26,7 +34,8 @@ class TmModuleGlassHeader extends StatelessWidget {
       onBack: onBack,
       trailing: trailing,
       onLightSurface: true,
-      scrimColor: TimesheetModuleColors.bgGradientEnd,
+      titleColor: titleColor,
+      scrimColor: scrimColor ?? TimesheetModuleColors.bgGradientEnd,
       scrimTopOpacity: 0.28,
       transparentGlassBar: false,
       logoOpacity: 1,

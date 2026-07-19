@@ -144,6 +144,7 @@ class Fm3TaskDetail extends ConsumerWidget {
               const SizedBox(height: TimesheetModuleLayout.sectionGap),
               TmPrimaryButton(
                 label: 'Take attendance',
+                warm: true,
                 icon: PhosphorIcons.play(),
                 onPressed: () => Navigator.of(context).pushNamed(
                   TimesheetRouteNames.projectDates,

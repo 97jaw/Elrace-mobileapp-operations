@@ -14,6 +14,7 @@ import 'package:el_race/ui/presentation/home_screen/widgets/mid_section_scroll_l
 import 'package:el_race/ui/presentation/home_screen/widgets/my_actions_section.dart';
 import 'package:el_race/ui/presentation/home_screen/providers/home_widget_api_client.dart';
 import 'package:el_race/ui/presentation/home_screen/providers/home_widget_refresh_service.dart';
+import 'package:el_race/core/session/login_session_refresh_service.dart';
 import 'package:el_race/utils/Util.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -45,6 +46,7 @@ class _MainHomeContentWidgetState extends State<MainHomeContentWidget> {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
+      final container = ProviderScope.containerOf(context);
       context.read<SliderProvider>().fetchAnnouncementsForBanner();
       // Warm visible widgets once at entry so card providers mostly read cache.
       HomeWidgetApiClient.refreshIfStale(
@@ -53,6 +55,16 @@ class _MainHomeContentWidgetState extends State<MainHomeContentWidget> {
       // Not forced: cached city is fine on open; pull-to-refresh forces.
       HomeCityHelper.fetchCity().then((_) {
         if (mounted) setState(() {});
+      });
+      // Self-heal widget visibility on entry: pull the latest server-resolved
+      // `default_widgets` (role template / custom override) via session refresh
+      // and rebuild once merged. Widget visibility is still decided server-side
+      // at login/session time — this only prevents an auto-logged-in session
+      // from showing a stale snapshot after an admin changes the role template.
+      LoginSessionRefreshService.refreshRoles(
+        container: container,
+      ).then((merged) {
+        if (mounted && merged) setState(() {});
       });
       _measureHeaderAndInit();
     });
@@ -83,7 +95,16 @@ class _MainHomeContentWidgetState extends State<MainHomeContentWidget> {
       futures.add(Future(() => Util.fetchHomeScreenData(context)));
       futures.add(context.read<SliderProvider>().refresh());
     }
-    await Future.wait(futures);
+    // Never let the pull-to-refresh spinner hang forever: cap each task and
+    // swallow its errors so a single slow/failed request can't block the
+    // RefreshIndicator from settling.
+    await Future.wait(
+      futures.map(
+        (f) => f
+            .timeout(const Duration(seconds: 15))
+            .catchError((Object _) {}),
+      ),
+    );
     if (mounted) {
       setState(() {});
       WidgetsBinding.instance.addPostFrameCallback((_) {

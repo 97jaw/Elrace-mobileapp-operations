@@ -54,6 +54,7 @@ class FmAddRequestHubScreen extends StatelessWidget {
           const SizedBox(height: TimesheetModuleLayout.sectionGap),
           TmPrimaryButton(
             label: 'Take attendance',
+            warm: true,
             icon: PhosphorIcons.camera(),
             onPressed: () => Navigator.of(context).pushNamed(
               TimesheetRouteNames.captureMode,

@@ -288,6 +288,7 @@ class _DayBody extends ConsumerWidget {
           ),
           child: TmPrimaryButton(
             label: 'Add timesheet / attendance',
+            warm: true,
             icon: PhosphorIcons.plusCircle(),
             onPressed: () async {
               final submitted = await Navigator.of(context).push<bool>(
@@ -371,6 +372,7 @@ class _DayBody extends ConsumerWidget {
                     return TmTimesheetEntryRow(
                       row: rows[index],
                       index: index + 1,
+                      homeLight: true,
                     );
                   },
                 );

@@ -59,6 +59,8 @@ class TimesheetCaptureFlowService {
         employeeName: name,
         capturedAt: draft.createdAt,
         isCheckOut: draft.event == 'checkOut',
+        lat: draft.lat,
+        lon: draft.lon,
       ),
     );
   }

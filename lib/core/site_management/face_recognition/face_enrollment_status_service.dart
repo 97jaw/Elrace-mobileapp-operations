@@ -63,4 +63,31 @@ class FaceEnrollmentStatusService {
   /// Re-read cache after enrollment upload + [FaceDbRepository.forceRefresh].
   Future<FaceEnrollmentCheckResult> recheckAfterEnrollment(int employeeId) =>
       checkEmployee(employeeId, refreshFaceDb: true);
+
+  /// One face-DB sync, then local template counts for many employees.
+  Future<Map<int, FaceEnrollmentCheckResult>> checkEmployees(
+    Iterable<int> employeeIds, {
+    bool refreshFaceDb = false,
+  }) async {
+    final ids = employeeIds.where((id) => id > 0).toSet().toList();
+    if (ids.isEmpty) return const {};
+
+    if (refreshFaceDb) {
+      await _faceDb.forceRefresh();
+    } else {
+      await _faceDb.syncIfNeeded();
+    }
+
+    final db = await FaceDbDatabase.instance.database;
+    final out = <int, FaceEnrollmentCheckResult>{};
+    for (final id in ids) {
+      final count = await _dao.countTemplatesForEmployee(db, id);
+      out[id] = FaceEnrollmentCheckResult(
+        employeeId: id,
+        templateCount: count,
+        isEnrolled: count >= minimumTemplates,
+      );
+    }
+    return out;
+  }
 }

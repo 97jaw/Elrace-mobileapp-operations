@@ -45,10 +45,12 @@ class TmFaceDetectionSpeechService {
   }) async {
     final trimmed = name.trim();
     if (trimmed.isEmpty) return;
+    // Announce only the first name for a shorter, friendlier prompt.
+    final firstName = trimmed.split(RegExp(r'\s+')).first;
     final idKey = employeeId?.toString() ?? trimmed;
     await _speakOnce(
       key: 'detected:$idKey',
-      text: '$trimmed detected',
+      text: '$firstName detected',
     );
   }
 

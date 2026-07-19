@@ -1,5 +1,5 @@
+import 'package:el_race/core/timesheet/routing/timesheet_route_names.dart';
 import 'package:el_race/core/utils/responsive_breakpoints.dart';
-import 'package:el_race/ui/presentation/my_projects/presentation/utils/projects_coming_soon.dart';
 import 'package:el_race/ui/presentation/home_screen/providers/home_projects_widgets_provider.dart';
 import 'package:el_race/ui/presentation/home_screen/widgets/category_widget_gradient_border.dart';
 import 'package:el_race/ui/presentation/home_screen/widgets/home_my_projects_navigation.dart';
@@ -142,9 +142,8 @@ class ProjectsCategorySiteManagementCard extends ConsumerWidget {
 
     return _ProjectsHalfCardShell(
       height: null,
-      onTap: () => showProjectsComingSoonSnackBar(
-        context,
-        featureLabel: 'Site Management',
+      onTap: () => Navigator.of(context).pushNamed(
+        TimesheetRouteNames.siteManagementHome,
       ),
       gradient: const LinearGradient(
         begin: Alignment.topLeft,

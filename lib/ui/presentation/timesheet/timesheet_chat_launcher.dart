@@ -1,7 +1,6 @@
 import 'package:el_race/core/theme/timesheet_module_theme.dart';
 import 'package:el_race/core/timesheet/models/timesheet_models.dart';
 import 'package:el_race/core/timesheet/providers/timesheet_data_providers.dart';
-import 'package:el_race/core/widgets/timesheet/timesheet_widgets.dart';
 import 'package:el_race/ui/presentation/timesheet/project_chat_picker_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -69,8 +68,8 @@ class _ProjectPickSheet extends StatelessWidget {
       heightFactor: 0.55,
       child: DecoratedBox(
         decoration: const BoxDecoration(
-          color: TimesheetModuleColors.surface,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+          gradient: TimesheetModuleColors.warmGradient,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -81,16 +80,18 @@ class _ProjectPickSheet extends StatelessWidget {
                 width: 44,
                 height: 4,
                 decoration: BoxDecoration(
-                  color: TimesheetModuleColors.divider,
+                  color: TimesheetModuleColors.ink.withValues(alpha: 0.22),
                   borderRadius: BorderRadius.circular(999),
                 ),
               ),
             ),
             Padding(
-              padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+              padding: const EdgeInsets.fromLTRB(20, 16, 16, 8),
               child: Text(
                 'Choose project chat',
-                style: TimesheetModuleTypography.h2(),
+                style: TimesheetModuleTypography.h2().copyWith(
+                  color: TimesheetModuleColors.ink,
+                ),
               ),
             ),
             Expanded(
@@ -102,22 +103,40 @@ class _ProjectPickSheet extends StatelessWidget {
                   return Padding(
                     padding: const EdgeInsets.only(bottom: 8),
                     child: Material(
-                      color: TimesheetModuleColors.bgGradientEnd,
-                      borderRadius: BorderRadius.circular(12),
+                      color: TimesheetModuleColors.glassSurface,
+                      borderRadius: BorderRadius.circular(14),
                       child: ListTile(
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(14),
+                          side: const BorderSide(
+                            color: TimesheetModuleColors.glassBorder,
+                          ),
+                        ),
                         leading: Icon(
                           PhosphorIcons.chatCircleText(),
-                          color: TimesheetModuleColors.primary,
+                          color: TimesheetModuleColors.accent,
                         ),
                         title: Text(
                           p.name,
                           maxLines: 2,
                           overflow: TextOverflow.ellipsis,
+                          style: TimesheetModuleTypography.body().copyWith(
+                            color: TimesheetModuleColors.ink,
+                          ),
                         ),
                         subtitle: p.woRefNo.trim().isNotEmpty
-                            ? Text(p.woRefNo)
+                            ? Text(
+                                p.woRefNo,
+                                style:
+                                    TimesheetModuleTypography.caption().copyWith(
+                                  color: TimesheetModuleColors.warmMuted,
+                                ),
+                              )
                             : null,
-                        trailing: Icon(PhosphorIcons.caretRight()),
+                        trailing: Icon(
+                          PhosphorIcons.caretRight(),
+                          color: TimesheetModuleColors.warmMuted,
+                        ),
                         onTap: () => Navigator.of(context).pop(p),
                       ),
                     ),

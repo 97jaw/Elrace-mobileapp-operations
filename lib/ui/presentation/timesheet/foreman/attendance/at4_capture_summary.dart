@@ -79,6 +79,7 @@ class _At4CaptureSummaryScreenState
           ),
           TmPrimaryButton(
             label: _isSubmitting ? 'Submitting...' : 'Confirm & submit timesheet',
+            warm: true,
             icon: PhosphorIcons.checkCircle(),
             onPressed: _isSubmitting || !_rows.any((r) => r.canSubmit)
                 ? null

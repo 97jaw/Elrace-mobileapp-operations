@@ -52,6 +52,7 @@ class _FmSyncQueueScreenState extends ConsumerState<FmSyncQueueScreen> {
             children: [
               TmPrimaryButton(
                 label: _isDraining ? 'Syncing...' : 'Retry all',
+                warm: true,
                 icon: PhosphorIcons.arrowsClockwise(),
                 onPressed: _isDraining ? null : () => _drainAll(context),
               ),

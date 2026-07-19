@@ -6,10 +6,15 @@ class TmBottomNavItem {
   const TmBottomNavItem({
     required this.label,
     required this.icon,
+    this.color,
   });
 
   final String label;
   final IconData icon;
+
+  /// Optional fixed color for this item's icon + label, overriding the
+  /// active/inactive theming (e.g. always-orange Report entry).
+  final Color? color;
 }
 
 class TmBottomNavBar extends StatelessWidget {
@@ -20,6 +25,7 @@ class TmBottomNavBar extends StatelessWidget {
     required this.onItemTap,
     required this.onFabTap,
     this.dark = true,
+    this.homeLight = false,
     this.fabIcon,
   }) : assert(
           items.length == 2 || items.length == 4,
@@ -31,12 +37,23 @@ class TmBottomNavBar extends StatelessWidget {
   final ValueChanged<int> onItemTap;
   final VoidCallback onFabTap;
   final bool dark;
+
+  /// Warm parchment bar with orange active tabs (foreman home theme).
+  final bool homeLight;
   final IconData? fabIcon;
 
   bool get _compact => items.length == 2;
 
+  static const Color _homeBar = Color(0xFFF3ECDD);
+  static const Color _homeDivider = Color(0xFFE0D6C4);
+  static const Color _homeActive = Color(0xFFF97316);
+  static const Color _homeInactive = Color(0xFF9A8F7E);
+
   @override
   Widget build(BuildContext context) {
+    if (homeLight) {
+      return _buildHomeLight();
+    }
     return SizedBox(
       height: TimesheetModuleLayout.bottomNavHeight + 18,
       child: Stack(
@@ -98,6 +115,47 @@ class TmBottomNavBar extends StatelessWidget {
     );
   }
 
+  Widget _buildHomeLight() {
+    return SizedBox(
+      height: TimesheetModuleLayout.bottomNavHeight + 18,
+      child: Stack(
+        alignment: Alignment.bottomCenter,
+        children: [
+          Container(
+            height: TimesheetModuleLayout.bottomNavHeight,
+            padding: const EdgeInsets.symmetric(horizontal: 12),
+            decoration: const BoxDecoration(
+              color: _homeBar,
+              border: Border(
+                top: BorderSide(color: _homeDivider, width: 1),
+              ),
+            ),
+            child: _compact ? _compactRow() : _expandedRow(),
+          ),
+          Positioned(
+            top: 0,
+            child: GestureDetector(
+              onTap: onFabTap,
+              child: Container(
+                width: TimesheetModuleLayout.bottomNavFabSize,
+                height: TimesheetModuleLayout.bottomNavFabSize,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: Colors.white,
+                  border: Border.all(color: _homeActive, width: 2),
+                ),
+                child: Icon(
+                  fabIcon ?? PhosphorIcons.fileText(),
+                  color: _homeActive,
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _compactRow() {
     return Row(
       children: [
@@ -134,13 +192,22 @@ class _NavItem extends StatelessWidget {
   Widget build(BuildContext context) {
     final item = bar.items[index];
     final active = bar.currentIndex == index;
-    final color = bar.dark
-        ? (active
-            ? TimesheetModuleColors.surface
-            : TimesheetModuleColors.surface.withValues(alpha: 0.62))
-        : (active
-            ? TimesheetModuleColors.primary
-            : TimesheetModuleColors.mutedText);
+    final Color color;
+    if (item.color != null) {
+      color = item.color!;
+    } else if (bar.homeLight) {
+      color = active
+          ? TmBottomNavBar._homeActive
+          : TmBottomNavBar._homeInactive;
+    } else if (bar.dark) {
+      color = active
+          ? TimesheetModuleColors.surface
+          : TimesheetModuleColors.surface.withValues(alpha: 0.62);
+    } else {
+      color = active
+          ? TimesheetModuleColors.primary
+          : TimesheetModuleColors.mutedText;
+    }
 
     return InkWell(
       onTap: () => bar.onItemTap(index),
@@ -151,7 +218,10 @@ class _NavItem extends StatelessWidget {
           const SizedBox(height: 4),
           Text(
             item.label,
-            style: TimesheetModuleTypography.caption().copyWith(color: color),
+            style: TimesheetModuleTypography.caption().copyWith(
+              color: color,
+              fontWeight: active ? FontWeight.w700 : FontWeight.w500,
+            ),
           ),
         ],
       ),

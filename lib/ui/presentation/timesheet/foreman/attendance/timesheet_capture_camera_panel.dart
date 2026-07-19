@@ -1194,6 +1194,7 @@ class TimesheetCaptureCameraPanelState extends State<TimesheetCaptureCameraPanel
       await controller.setFlashMode(FlashMode.off);
       await controller.setFocusMode(FocusMode.auto);
       await controller.setExposureMode(ExposureMode.auto);
+      await _resetCameraZoom(controller);
       if (!mounted) {
         await controller.dispose();
         return;
@@ -1207,6 +1208,10 @@ class TimesheetCaptureCameraPanelState extends State<TimesheetCaptureCameraPanel
         _isInitializingCamera = false;
       });
       await _startLiveDetection();
+      // An immediate zoom reset right after initialize() is frequently ignored
+      // by the platform while the preview is warming up, which leaves a stuck
+      // digital zoom after switching cameras. Re-apply once the preview settles.
+      unawaited(_settleCameraZoom());
     } catch (error) {
       if (!mounted) return;
       setState(() {
@@ -1788,6 +1793,31 @@ class TimesheetCaptureCameraPanelState extends State<TimesheetCaptureCameraPanel
     if (mounted) {
       setState(() {});
       _emitChrome();
+    }
+  }
+
+  Future<void> _resetCameraZoom(CameraController controller) async {
+    try {
+      final minZoom = await controller.getMinZoomLevel();
+      await controller.setZoomLevel(minZoom);
+    } catch (error) {
+      debugPrint('FaceCapture: zoom reset failed: $error');
+    }
+  }
+
+  /// Re-applies the minimum zoom a couple of times after the preview settles so
+  /// a switched camera can't stay stuck on a leftover digital zoom.
+  Future<void> _settleCameraZoom() async {
+    for (final delay in const [
+      Duration(milliseconds: 300),
+      Duration(milliseconds: 700),
+    ]) {
+      await Future<void>.delayed(delay);
+      final controller = _cameraController;
+      if (!mounted || controller == null || !controller.value.isInitialized) {
+        return;
+      }
+      await _resetCameraZoom(controller);
     }
   }
 

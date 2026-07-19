@@ -166,11 +166,12 @@ class TimesheetCaptureSummaryRow {
 /// Face enrollment entry from Add timesheet camera (or standalone).
 class TimesheetFaceEnrollArgs {
   const TimesheetFaceEnrollArgs({
-    required this.projectId,
+    this.projectId = '',
     this.returnToCapture,
     this.prefillFileId,
   });
 
+  /// Optional — when empty, enrollment uses HR labor scope roster.
   final String projectId;
   final TimesheetProjectDayArgs? returnToCapture;
   final String? prefillFileId;

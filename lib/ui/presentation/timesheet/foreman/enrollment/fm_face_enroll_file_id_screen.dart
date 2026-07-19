@@ -51,10 +51,11 @@ class _FmFaceEnrollFileIdScreenState
   Future<void> _loadRoster() async {
     final client = ref.read(timesheetApiClientProvider);
     try {
+      final projectId = widget.args.projectId.trim();
       var labors = await client.fetchLaborEmployeesForReport(
-        projectId: widget.args.projectId,
+        projectId: projectId.isEmpty ? null : projectId,
         includeDrivers: true,
-        useHrScopeWhenNoProject: false,
+        useHrScopeWhenNoProject: projectId.isEmpty,
       );
       if (labors.isEmpty) {
         labors = await client.fetchEmployeeRoster();
@@ -144,6 +145,7 @@ class _FmFaceEnrollFileIdScreenState
             const Spacer(),
             TmPrimaryButton(
               label: 'Next',
+              warm: true,
               icon: PhosphorIcons.arrowRight(),
               onPressed: _loadingRoster ? null : _onNext,
             ),

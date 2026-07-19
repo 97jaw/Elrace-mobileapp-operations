@@ -1,4 +1,5 @@
 import 'package:dio/dio.dart';
+import 'package:el_race/core/timesheet/models/timesheet_foreman_summary.dart';
 import 'package:el_race/core/timesheet/models/timesheet_model_parsers.dart'
     show tmIntOrNullFromJson;
 import 'package:el_race/core/timesheet/models/timesheet_team_member.dart';
@@ -288,6 +289,35 @@ class TimesheetApiClient {
     }
   }
 
+  /// Per-foreman submission summary for a project (Site Management monitor).
+  ///
+  /// Backed by the new `/timesheet/project_foremen_summary` endpoint. Returns an
+  /// empty list (never throws) when the endpoint is unavailable so the UI can
+  /// render a graceful empty state.
+  Future<List<TimesheetForemanSummary>> fetchProjectForemenSummary(
+    String projectId,
+  ) async {
+    if (!_useLiveOdoo || projectId.trim().isEmpty) return const [];
+    try {
+      final body = await _transport.postJsonRpc(
+        TimesheetOdooApiCatalog.projectForemenSummary,
+        params: {'project_id': int.tryParse(projectId) ?? projectId},
+      );
+      final result =
+          _transport.parseResult(body, debugLabel: 'project_foremen_summary');
+      final data = _unwrapOdooSuccessMap(result);
+      final rows = _transport.parseMapList(data ?? result, key: 'foremen');
+      return rows
+          .map(TimesheetForemanSummary.fromJson)
+          .toList(growable: false);
+    } catch (error, stack) {
+      debugPrint(
+        'TimesheetApiClient.fetchProjectForemenSummary failed: $error\n$stack',
+      );
+      return const [];
+    }
+  }
+
   /// Render employee timesheet PDF for a date range (Odoo print wizard).
   Future<TimesheetPrintReportResult?> printTimesheetReport({
     required List<int> employeeIds,
@@ -341,9 +371,12 @@ class TimesheetApiClient {
         );
       }
       await _ensureEmployeesLoaded();
+      final now = DateTime.now();
       final rows = await _fetchTaskTimesheetRows(
         taskId: taskId,
-        date: DateTime.now(),
+        fromDate: now,
+        toDate: now,
+        filterToSingleDay: now,
       );
       final workers = TimesheetOdooMappers.workersForTask(
         task: task,
@@ -375,7 +408,12 @@ class TimesheetApiClient {
     final allRows = <Map<String, dynamic>>[];
     for (final task in projectTasks) {
       if (!TimesheetDefaults.isOdooIntegerId(task.id)) continue;
-      final rows = await _fetchTaskTimesheetRows(taskId: task.id, date: date);
+      final rows = await _fetchTaskTimesheetRows(
+        taskId: task.id,
+        fromDate: date,
+        toDate: date,
+        filterToSingleDay: date,
+      );
       allRows.addAll(rows);
     }
     if (allowedLaborEmployeeIds == null || allowedLaborEmployeeIds.isEmpty) {
@@ -401,7 +439,12 @@ class TimesheetApiClient {
           .toList());
     }
     try {
-      final rows = await _fetchTaskTimesheetRows(taskId: taskId, date: date);
+      final rows = await _fetchTaskTimesheetRows(
+        taskId: taskId,
+        fromDate: date,
+        toDate: date,
+        filterToSingleDay: date,
+      );
       var filteredRows = rows;
       if (allowedLaborEmployeeIds != null &&
           allowedLaborEmployeeIds.isNotEmpty) {
@@ -877,12 +920,73 @@ class TimesheetApiClient {
   }) async {
     if (!_useLiveOdoo) return const [];
     if (!TimesheetDefaults.isOdooIntegerId(taskId)) return const [];
-    return _fetchTaskTimesheetRows(taskId: taskId, date: date);
+    return _fetchTaskTimesheetRows(
+      taskId: taskId,
+      fromDate: date,
+      toDate: date,
+      filterToSingleDay: date,
+    );
+  }
+
+  /// Rows for a date range (home “Show all” / recent browse).
+  Future<List<Map<String, dynamic>>> fetchTaskTimesheetRowsForRange({
+    required String taskId,
+    required DateTime fromDate,
+    required DateTime toDate,
+  }) async {
+    if (!_useLiveOdoo) return const [];
+    if (!TimesheetDefaults.isOdooIntegerId(taskId)) return const [];
+    return _fetchTaskTimesheetRows(
+      taskId: taskId,
+      fromDate: fromDate,
+      toDate: toDate,
+    );
+  }
+
+  /// Rows for a date range across **all** integer-id tasks of a project.
+  /// More robust than resolving a single maintenance/foreman task (which can
+  /// yield a non-integer placeholder id and return nothing).
+  Future<List<Map<String, dynamic>>> fetchProjectTimesheetRowsForRange({
+    required String projectId,
+    required DateTime fromDate,
+    required DateTime toDate,
+    Set<int>? allowedLaborEmployeeIds,
+  }) async {
+    if (!_useLiveOdoo) return const [];
+    final tasksEnv = await getProjectTasks(projectId: projectId);
+    final tasks = tasksEnv.data ?? const <Task>[];
+    final allRows = <Map<String, dynamic>>[];
+    final seenTaskIds = <String>{};
+    for (final task in tasks) {
+      if (!TimesheetDefaults.isOdooIntegerId(task.id)) continue;
+      if (!seenTaskIds.add(task.id)) continue;
+      try {
+        final rows = await _fetchTaskTimesheetRows(
+          taskId: task.id,
+          fromDate: fromDate,
+          toDate: toDate,
+        );
+        allRows.addAll(rows);
+      } catch (_) {
+        // Skip a task that fails; keep collecting from the rest.
+      }
+    }
+    if (allowedLaborEmployeeIds == null || allowedLaborEmployeeIds.isEmpty) {
+      return allRows;
+    }
+    return allRows.where((row) {
+      final id = tmIntOrNullFromJson(
+        row['employee_id'] ?? row['emp_id'] ?? row['employee'],
+      );
+      return id != null && allowedLaborEmployeeIds.contains(id);
+    }).toList();
   }
 
   Future<List<Map<String, dynamic>>> _fetchTaskTimesheetRows({
     required String taskId,
-    required DateTime date,
+    required DateTime fromDate,
+    required DateTime toDate,
+    DateTime? filterToSingleDay,
   }) async {
     if (!TimesheetDefaults.isOdooIntegerId(taskId)) return const [];
     final taskIdParam = int.parse(taskId);
@@ -890,14 +994,20 @@ class TimesheetApiClient {
       TimesheetOdooApiCatalog.taskTimesheetsList,
       params: {
         'task_id': taskIdParam,
-        'from_date': _formatDate(date),
-        'to_date': _formatDate(date),
+        'from_date': _formatDate(fromDate),
+        'to_date': _formatDate(toDate),
       },
     );
     final result =
         _transport.parseResult(body, debugLabel: 'task/timesheets/list');
     final rows = _transport.parseMapList(result, key: 'timesheets');
-    return TimesheetOdooMappers.filterTimesheetRowsByWorkDate(rows, date);
+    if (filterToSingleDay != null) {
+      return TimesheetOdooMappers.filterTimesheetRowsByWorkDate(
+        rows,
+        filterToSingleDay,
+      );
+    }
+    return rows;
   }
 
   bool get _isCacheFresh {
