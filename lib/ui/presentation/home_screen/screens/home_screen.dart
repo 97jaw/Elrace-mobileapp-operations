@@ -198,6 +198,7 @@ class _HomeScreenState extends State<HomeScreenPage>
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
+      debugPrint('⏱️ [home-resume] didChangeAppLifecycleState(resumed)');
       // Phase 8.1: main.dart's own resume handler is about to tear down the
       // route stack and mount a fresh SplashScreen (10-minute inactivity
       // restart) — there's no point kicking off a location dialog, GPS
@@ -214,19 +215,28 @@ class _HomeScreenState extends State<HomeScreenPage>
   }
 
   Future<void> _handleResume() async {
-    if (_resumeRefreshInFlight) return;
+    if (_resumeRefreshInFlight) {
+      debugPrint('⏱️ [home-resume] skipped — previous resume still in flight');
+      return;
+    }
     _resumeRefreshInFlight = true;
     try {
+      debugPrint('⏱️ [home-resume] location check start');
       await _checkLocationService(); // إعادة التحقق عند العودة
+      debugPrint('⏱️ [home-resume] location check complete');
       _locationBloc.add(GetCurrentLocationET()); // إعادة جلب اللوكيشن
 
       // مزامنة حالة الحضور من السيرفر عند العودة من الخلفية
       // لضمان تحديث الأوقات والعداد بدون الحاجة لتسجيل خروج/دخول
+      debugPrint('⏱️ [home-resume] attendance sync start');
       await AttendanceStatusSyncService.refreshFromServer(reason: 'app_resumed')
           .timeout(const Duration(seconds: 10), onTimeout: () => null);
+      debugPrint('⏱️ [home-resume] attendance sync complete');
       if (mounted) {
         final container = ProviderScope.containerOf(context);
+        debugPrint('⏱️ [home-resume] refreshRoles start');
         await LoginSessionRefreshService.refreshRoles(container: container);
+        debugPrint('⏱️ [home-resume] refreshRoles complete');
       }
     } finally {
       _resumeRefreshInFlight = false;
@@ -248,8 +258,12 @@ class _HomeScreenState extends State<HomeScreenPage>
     // Check if location service is enabled
     bool isServiceEnabled = await _location.serviceEnabled();
     if (!isServiceEnabled) {
-      if (_locationDialogShownThisSession) return;
+      if (_locationDialogShownThisSession) {
+        debugPrint('⏱️ [home-resume] location dialog already shown this session — skipping');
+        return;
+      }
       _locationDialogShownThisSession = true;
+      debugPrint('⏱️ [home-resume] showing location-services dialog (non-dismissible)');
       // If not enabled, show popup
       _showLocationServiceDialog();
     }
