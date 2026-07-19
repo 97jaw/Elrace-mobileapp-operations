@@ -23,12 +23,23 @@ class SplashScreen extends StatefulWidget {
 }
 
 class _SplashScreenState extends State<SplashScreen> {
+  // Keep in sync with version in pubspec.yaml.
+  static const String _currentAppVersion = '1.0.10';
+
   bool _isSecurityCheckComplete = false;
   bool _isDeviceSecure = true;
   bool _didScheduleNavigation = false;
   late VideoPlayerController _videoController;
   bool _isVideoReady = false;
   final Completer<void> _videoCompletedCompleter = Completer<void>();
+  // Phase 2: replaces the _waitForSecurityCheck() polling loop so the
+  // security gate can be awaited alongside init/video instead of after them.
+  final Completer<void> _securityCheckCompleter = Completer<void>();
+
+  // Phase 2: kicked off in initState alongside video/security since it has
+  // no dependency on either — only awaited (with its existing 10s timeout)
+  // right before _doNavigate() in _checkForUpdateThenNavigate().
+  late final Future<UpdateCheckResult> _updateCheckFuture;
 
   // Phase 0 instrumentation: measures elapsed time of each splash gate so we
   // have real numbers instead of guesses before attempting the structural
@@ -50,6 +61,18 @@ class _SplashScreenState extends State<SplashScreen> {
     // of the Future.wait gate in _waitForInitAndNavigate (Completers support
     // multiple listeners, so this does not change existing behavior).
     appInitCompleter.future.then((_) => _logGateTiming('appInitCompleter-resolved'));
+
+    // Phase 2: start the update check now, in parallel with init/video/
+    // security, since it has no dependency on any of them. Previously this
+    // only started after security finished, adding its full latency to the
+    // serial chain. Attach a no-op error listener immediately so a failure
+    // here doesn't surface as an unhandled zone exception before it's
+    // actually awaited (and handled) in _checkForUpdateThenNavigate.
+    _updateCheckFuture = UpdateService.instance
+        .checkForUpdate(_currentAppVersion)
+        .timeout(const Duration(seconds: 10));
+    _logGateTiming('update-check-start');
+    _updateCheckFuture.catchError((_) => const UpdateCheckResult.noUpdate());
 
     // Initialize video player (uses hardware decoder, not main thread)
     _videoController = VideoPlayerController.asset('assets/mp4/splash.mp4')
@@ -110,6 +133,12 @@ class _SplashScreenState extends State<SplashScreen> {
         });
       }
       _logGateTiming('security-check-complete (error, fail-open)');
+    } finally {
+      // Signal _waitForInitAndNavigate's Future.wait — replaces the old
+      // _waitForSecurityCheck() polling loop (500ms x 10).
+      if (!_securityCheckCompleter.isCompleted) {
+        _securityCheckCompleter.complete();
+      }
     }
   }
 
@@ -124,12 +153,14 @@ class _SplashScreenState extends State<SplashScreen> {
     _waitForInitAndNavigate();
   }
 
-  /// Wait for both: 1) minimum 3-second splash, 2) heavy init complete,
-  /// 3) security check, then navigate.
+  /// Wait for init, video, and security in parallel (previously chained:
+  /// init+video together, then security only after, then the update check
+  /// only after that — a worst case of ~35-37s serialized). Each gate is
+  /// independently bounded, so the wait is now max(12s, 5s, 6s) instead of
+  /// their sum.
   Future<void> _waitForInitAndNavigate() async {
     debugPrint('🚀 SplashScreen: waiting for bounded startup checks');
     _logGateTiming('waitForInitAndNavigate-start');
-    // Wait for BOTH heavy init and intro video completion.
     await Future.wait<void>([
       appInitCompleter.future.timeout(
         const Duration(seconds: 12),
@@ -137,10 +168,19 @@ class _SplashScreenState extends State<SplashScreen> {
           print('⚠️ Heavy init timeout in splash – continuing anyway');
         },
       ),
+      // Soft-capped from 20s to 5s: the AnimatedSwitcher already handles the
+      // video/placeholder swap gracefully, so cutting the wait short (video
+      // keeps playing in the background) is visually safe.
       _videoCompletedCompleter.future.timeout(
-        const Duration(seconds: 20),
+        const Duration(seconds: 5),
         onTimeout: () {
           print('⚠️ Video completion timeout in splash – continuing anyway');
+        },
+      ),
+      _securityCheckCompleter.future.timeout(
+        const Duration(seconds: 6),
+        onTimeout: () {
+          print('⚠️ Security check timeout in splash – continuing anyway');
         },
       ),
     ]);
@@ -148,20 +188,13 @@ class _SplashScreenState extends State<SplashScreen> {
 
     if (!mounted) return;
 
-    // Check security
+    // Check security — unchanged policy: only blocks if the check actually
+    // completed and found the device insecure. A timed-out/incomplete check
+    // (_isSecurityCheckComplete still false) fails open, same as before.
     if (!_isDeviceSecure && _isSecurityCheckComplete) {
       print('🚫 Navigation blocked - device not secure');
       return;
     }
-
-    // Wait for security check if not complete yet
-    if (!_isSecurityCheckComplete) {
-      print('⏳ Waiting for security check...');
-      await _waitForSecurityCheck();
-    }
-
-    if (!mounted) return;
-    if (!_isDeviceSecure) return;
 
     _navigateToNextScreen();
   }
@@ -186,16 +219,6 @@ class _SplashScreenState extends State<SplashScreen> {
     }
   }
 
-  /// Wait for security check to complete (up to 5 seconds)
-  Future<void> _waitForSecurityCheck() async {
-    for (int i = 0; i < 10; i++) {
-      await Future.delayed(const Duration(milliseconds: 500));
-      if (_isSecurityCheckComplete) return;
-    }
-    // Timeout - allow to proceed
-    print('⚠️ Security check timeout – proceeding');
-  }
-
   /// Navigate to the appropriate screen after security check.
   /// Runs the update check first, then proceeds with routing.
   void _navigateToNextScreen() {
@@ -206,15 +229,11 @@ class _SplashScreenState extends State<SplashScreen> {
 
   Future<void> _checkForUpdateThenNavigate() async {
     if (!mounted) return;
-    _logGateTiming('update-check-start');
 
     try {
-      // Keep in sync with version in pubspec.yaml
-      const String currentVersion = '1.0.10';
-
-      final updateResult = await UpdateService.instance
-          .checkForUpdate(currentVersion)
-          .timeout(const Duration(seconds: 10));
+      // Started back in initState, in parallel with init/video/security —
+      // this just waits for whatever's left of its own 10s timeout.
+      final updateResult = await _updateCheckFuture;
       _logGateTiming('update-check-complete');
 
       if (!mounted) return;
