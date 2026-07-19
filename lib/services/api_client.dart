@@ -64,7 +64,7 @@ class _UaepassLoggingInterceptor extends Interceptor {
 /// already set their own Authorization header (e.g. a pre-login exchange)
 /// are left alone, and requests made before login simply get no header
 /// (no token in SharedPref yet).
-class _AuthInterceptor extends Interceptor {
+class AuthInterceptor extends Interceptor {
   @override
   void onRequest(RequestOptions options, RequestInterceptorHandler handler) {
     if (!options.headers.containsKey('Authorization')) {
@@ -116,7 +116,7 @@ class AuthSessionExpiredHandler {
   }
 }
 
-class _AuthErrorInterceptor extends Interceptor {
+class AuthErrorInterceptor extends Interceptor {
   @override
   void onError(DioException err, ErrorInterceptorHandler handler) {
     if (err.response?.statusCode == 401) {
@@ -131,8 +131,8 @@ class _AuthErrorInterceptor extends Interceptor {
 /// dependency (per FIX_IMPLEMENTATION_PLAN.md Phase 4.1). POST/PUT/PATCH/
 /// DELETE are never retried here — the backend has no documented idempotency
 /// key support, so retrying a write could double-submit it.
-class _RetryInterceptor extends Interceptor {
-  _RetryInterceptor(this._dio);
+class RetryInterceptor extends Interceptor {
+  RetryInterceptor(this._dio);
   final Dio _dio;
 
   static const _maxAttempts = 3;
@@ -185,9 +185,9 @@ class ApiClient {
           ),
         ) {
     _dio.interceptors.addAll([
-      _AuthInterceptor(),
-      _AuthErrorInterceptor(),
-      _RetryInterceptor(_dio),
+      AuthInterceptor(),
+      AuthErrorInterceptor(),
+      RetryInterceptor(_dio),
     ]);
     if (kDebugMode) {
       _dio.interceptors.add(_UaepassLoggingInterceptor());
