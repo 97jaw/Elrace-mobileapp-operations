@@ -6,6 +6,8 @@ import 'package:el_race/ui/presentation/splash_screen/splash_screen.dart';
 import 'package:el_race/utils/di.dart';
 import 'package:el_race/core/timesheet/providers/timesheet_entry_mode_provider.dart';
 import 'package:el_race/ui/presentation/timesheet/timesheet_entry_mode_scope.dart';
+import 'package:el_race/core/clients_vendors/clients_vendors_route_names.dart';
+import 'package:el_race/ui/presentation/clients_vendors/clients_screen.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:el_race/ui/presentation/home_screen/screens/home_screen.dart';
@@ -157,6 +159,8 @@ class OnGeneratedRoutes {
       case HrRouteNames.widgetSandbox:
         return CupertinoPageRoute(
             builder: (_) => const HrModuleWidgetsSandbox());
+      case ClientsVendorsRouteNames.clients:
+        return CupertinoPageRoute(builder: (_) => const ClientsScreen());
       case TimesheetRouteNames.home:
         return CupertinoPageRoute(
           builder: (_) => const TimesheetEntryModeScope(

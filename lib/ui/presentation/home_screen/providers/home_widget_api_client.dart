@@ -16,9 +16,10 @@ class HomeWidgetApiClient {
   static Future<void>? _inFlight;
 
   // Endpoints that the home UI actually consumes. Removed (never read by UI):
-  // clients / vendors / sub_contractors (cards show static values),
-  // task_management (UI uses TodoFirebaseProvider), tickets (UI uses
-  // TasksProvider), prayer_times (UI uses Aladhan via HomeBloc).
+  // vendors / sub_contractors (cards still show static values — clients is
+  // now real, those two are still placeholder backend data), task_management
+  // (UI uses TodoFirebaseProvider), tickets (UI uses TasksProvider),
+  // prayer_times (UI uses Aladhan via HomeBloc).
   static const _fetchOrder = <_WidgetFetch>[
     _WidgetFetch(HomeWidgetCode.attendance, 'attendance'),
     _WidgetFetch(HomeWidgetCode.hrms, 'hrms'),
@@ -26,6 +27,7 @@ class HomeWidgetApiClient {
     _WidgetFetch(HomeWidgetCode.myProjects, 'my_projects'),
     _WidgetFetch(HomeWidgetCode.siteManagement, 'site_management'),
     _WidgetFetch(HomeWidgetCode.myReports, 'my_reports'),
+    _WidgetFetch(HomeWidgetCode.clients, 'clients'),
     _WidgetFetch(HomeWidgetCode.lpo, 'lpo'),
     _WidgetFetch(HomeWidgetCode.notes, 'notes'),
     _WidgetFetch(HomeWidgetCode.pettyCash, 'petty_cash'),

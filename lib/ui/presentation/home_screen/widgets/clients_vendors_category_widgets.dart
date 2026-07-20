@@ -1,6 +1,10 @@
 import 'dart:math' as math;
 
+import 'package:el_race/core/clients_vendors/clients_vendors_route_names.dart';
+import 'package:el_race/core/home/home_widget_visibility.dart';
 import 'package:el_race/core/utils/responsive_breakpoints.dart';
+import 'package:el_race/ui/presentation/home_screen/providers/home_widget_api_client.dart';
+import 'package:el_race/ui/presentation/home_screen/providers/home_widget_session_cache.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -10,7 +14,44 @@ const _kCvAssetRoot = 'assets/images/clients_vendors';
 /// Shared height so Client / Vendor / Sub-Contractor cards align.
 const double _kCvCardHeight = 182;
 
-class ClientsVendorsCategoryClientsCard extends StatelessWidget {
+/// Parsed view of the `clients` widget's `{is_authorized, metrics: {...}}`
+/// payload (see ClientsVendorsWidgetService.get_clients_payload on the
+/// backend). "-" placeholders when data hasn't loaded yet or the user isn't
+/// authorized (metrics comes back empty in that case, by design).
+class _ClientsMetrics {
+  const _ClientsMetrics({
+    required this.activeCount,
+    required this.receivables,
+    required this.overdueInvoices,
+    required this.agreementsExpiring,
+  });
+
+  final String activeCount;
+  final String receivables;
+  final int overdueInvoices;
+  final int agreementsExpiring;
+
+  static const _empty = _ClientsMetrics(
+    activeCount: '-',
+    receivables: '-',
+    overdueInvoices: 0,
+    agreementsExpiring: 0,
+  );
+
+  factory _ClientsMetrics.fromRaw(Map<String, dynamic>? raw) {
+    final metrics = raw?['metrics'];
+    if (metrics is! Map) return _empty;
+    return _ClientsMetrics(
+      activeCount: (metrics['active_count'] ?? '-').toString(),
+      receivables: (metrics['receivables'] ?? '-').toString(),
+      overdueInvoices: (metrics['overdue_invoices'] as num?)?.toInt() ?? 0,
+      agreementsExpiring:
+          (metrics['agreements_expiring'] as num?)?.toInt() ?? 0,
+    );
+  }
+}
+
+class ClientsVendorsCategoryClientsCard extends StatefulWidget {
   const ClientsVendorsCategoryClientsCard({
     super.key,
     this.tabletCompact = false,
@@ -19,13 +60,37 @@ class ClientsVendorsCategoryClientsCard extends StatelessWidget {
   final bool tabletCompact;
 
   @override
+  State<ClientsVendorsCategoryClientsCard> createState() =>
+      _ClientsVendorsCategoryClientsCardState();
+}
+
+class _ClientsVendorsCategoryClientsCardState
+    extends State<ClientsVendorsCategoryClientsCard> {
+  @override
+  void initState() {
+    super.initState();
+    _loadIfNeeded();
+  }
+
+  Future<void> _loadIfNeeded() async {
+    if (HomeWidgetSessionCache.clientsRaw != null) return;
+    await HomeWidgetApiClient.refreshIfStale(
+      onlyCodes: const {HomeWidgetCode.clients},
+    );
+    if (mounted) setState(() {});
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final metrics = _ClientsMetrics.fromRaw(HomeWidgetSessionCache.clientsRaw);
+
     // Design panel: 130°, #138A00@49% | #0F0C08@92% | #FF0000@20% | #000000@49%
     // Colors match the design-preview card after those stops composite on white
     // (sage → pale pink). Using raw #0F0C08@92% mid-card caused the bright
     // sheen / black edge in the app screenshot.
     return _ClientsVendorsHeroCard(
-      onTap: () => _comingSoon(context, 'Clients'),
+      onTap: () =>
+          Navigator.of(context).pushNamed(ClientsVendorsRouteNames.clients),
       baseColor: Colors.white,
       washGradient: _cssAngleGradient(
         130,
@@ -54,10 +119,10 @@ class ClientsVendorsCategoryClientsCard extends StatelessWidget {
       artFadeLeft: false,
       label: 'CLIENTS',
       labelColor: const Color(0xFF0A5C12),
-      activeCount: '71',
+      activeCount: metrics.activeCount,
       activeCountColor: Colors.white,
       leftStatLabel: 'RECEIVABLES',
-      leftStatValue: 'AED 3.66M',
+      leftStatValue: metrics.receivables,
       rightStatLabel: null,
       rightStatValue: null,
       statLabelColor: const Color(0x99000000),
@@ -67,7 +132,7 @@ class ClientsVendorsCategoryClientsCard extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         children: [
           Text(
-            '▲ 12 overdue invoices',
+            '▲ ${metrics.overdueInvoices} overdue invoices',
             style: GoogleFonts.poppins(
               fontSize: 12.5.usp,
               fontWeight: FontWeight.w600,
@@ -77,7 +142,7 @@ class ClientsVendorsCategoryClientsCard extends StatelessWidget {
           ),
           SizedBox(height: 4.uh),
           Text(
-            '2 agreements expiring',
+            '${metrics.agreementsExpiring} agreements expiring',
             style: GoogleFonts.poppins(
               fontSize: 12.5.usp,
               fontWeight: FontWeight.w600,
