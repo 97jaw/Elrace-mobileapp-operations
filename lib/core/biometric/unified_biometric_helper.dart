@@ -39,8 +39,9 @@ class UnifiedBiometricHelper {
     required String title,
     required String subtitle,
     required String reason,
+    bool stickyAuth = true,
   }) async {
-    return _authenticate(context, reason: reason);
+    return _authenticate(context, reason: reason, stickyAuth: stickyAuth);
   }
 
   /// Returns `true` only when a real biometric is enrolled on the device.
@@ -52,6 +53,7 @@ class UnifiedBiometricHelper {
   static Future<bool> _authenticate(
     BuildContext context, {
     required String reason,
+    bool stickyAuth = true,
   }) async {
     final hasBio = await _deviceAuth.isBiometricAvailable();
 
@@ -60,6 +62,7 @@ class UnifiedBiometricHelper {
       return await _deviceAuth.authenticate(
         reason: reason,
         biometricOnly: true,
+        stickyAuth: stickyAuth,
       );
     }
 

@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:el_race/core/app_globals.dart';
+import 'package:el_race/core/biometric/device_auth_service.dart';
 import 'package:el_race/core/biometric/unified_biometric_helper.dart';
 import 'package:el_race/core/services/attendance_status_sync_service.dart';
 import 'package:el_race/ui/presentation/home_screen/bloc/home_bloc.dart';
@@ -58,8 +59,10 @@ class _HomeScreenState extends State<HomeScreenPage>
 
   // bool isMuted = false; // default value
   bool isCheckedIn = false;
+
   /// Blocks home UI until biometrics succeed (covers cancel → gate screen).
   bool _isBiometricLocked = false;
+
   /// After cancel/miss: show logo + "Sign in with biometric" screen.
   bool _showBiometricGateScreen = false;
   final _locationBloc = LocationBloc();
@@ -137,12 +140,7 @@ class _HomeScreenState extends State<HomeScreenPage>
       return;
     }
 
-    final authenticated = await UnifiedBiometricHelper.authenticate(
-      context: context,
-      title: 'تحقق من الهوية',
-      subtitle: 'يرجى التحقق من هويتك للمتابعة',
-      reason: 'تحقق من هويتك بعد تسجيل الدخول',
-    );
+    final authenticated = await _authenticateWithBiometricTimeout();
 
     if (!mounted) {
       HomeScreenPage._isAuthenticating = false;
@@ -159,6 +157,23 @@ class _HomeScreenState extends State<HomeScreenPage>
       setState(() => _showBiometricGateScreen = true);
     }
     HomeScreenPage._isAuthenticating = false;
+  }
+
+  Future<bool> _authenticateWithBiometricTimeout() {
+    return UnifiedBiometricHelper.authenticate(
+      context: context,
+      title: 'تحقق من الهوية',
+      subtitle: 'يرجى التحقق من هويتك للمتابعة',
+      reason: 'تحقق من هويتك بعد تسجيل الدخول',
+      stickyAuth: false,
+    ).timeout(
+      const Duration(seconds: 20),
+      onTimeout: () async {
+        debugPrint('Post-login biometric prompt timed out; showing retry gate');
+        await DeviceAuthService.instance.cancelAuthentication();
+        return false;
+      },
+    );
   }
 
   Future<void> _showBiometricRequiredDialog() async {
@@ -257,11 +272,13 @@ class _HomeScreenState extends State<HomeScreenPage>
     bool isServiceEnabled = await _location.serviceEnabled();
     if (!isServiceEnabled) {
       if (_locationDialogShownThisSession) {
-        debugPrint('⏱️ [home-resume] location dialog already shown this session — skipping');
+        debugPrint(
+            '⏱️ [home-resume] location dialog already shown this session — skipping');
         return;
       }
       _locationDialogShownThisSession = true;
-      debugPrint('⏱️ [home-resume] showing location-services dialog (non-dismissible)');
+      debugPrint(
+          '⏱️ [home-resume] showing location-services dialog (non-dismissible)');
       // If not enabled, show popup
       _showLocationServiceDialog();
     }
