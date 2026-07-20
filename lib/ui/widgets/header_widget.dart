@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:el_race/core/services/approval_count_service.dart';
 import 'package:el_race/core/services/approval_viewed_service.dart';
+import 'package:el_race/core/services/badge_refresh_service.dart';
 import 'package:el_race/core/services/notification_storage_service.dart';
 import 'package:el_race/core/utils/shared_pref.dart';
 import 'package:el_race/ui/presentation/home_screen/widgets/profile_widgets/profile_bottom_sheet.dart';
@@ -32,8 +33,7 @@ class HeaderWidget extends StatefulWidget implements PreferredSizeWidget {
   Size get preferredSize => Size.fromHeight(SizeConfig().getHeight(70));
 }
 
-class _HeaderWidgetState extends State<HeaderWidget>
-    with WidgetsBindingObserver {
+class _HeaderWidgetState extends State<HeaderWidget> {
   static String _cachedImageBase64 = '';
   static int _cachedNotificationCount = 0;
   static int _cachedApprovalCount = 0;
@@ -48,8 +48,6 @@ class _HeaderWidgetState extends State<HeaderWidget>
   @override
   void initState() {
     super.initState();
-
-    WidgetsBinding.instance.addObserver(this);
 
     _imageBase64 = _cachedImageBase64;
     _notificationCount = _cachedNotificationCount;
@@ -82,31 +80,25 @@ class _HeaderWidgetState extends State<HeaderWidget>
         _loadNotificationCountLocal();
       }
     };
+
+    // Resume badge refresh: ResumeCoordinator runs one shared server sync,
+    // then this callback re-reads the warm local/cached values (no duplicate
+    // API calls per header widget anymore).
+    BadgeRefreshService.addListener(this, () {
+      if (!mounted) return;
+      _loadNotificationCountLocal();
+      _loadApprovalCount();
+    });
   }
 
   @override
   void dispose() {
-    WidgetsBinding.instance.removeObserver(this);
+    BadgeRefreshService.removeListener(this);
     // Unregister callbacks
     ApprovalViewedService.setOnCountChangedCallback(null);
     ApprovalCountService.onCountChanged = null;
     NotificationStorageService.onCountChanged = null;
     super.dispose();
-  }
-
-  Future<void> _refreshCounters() async {
-    ApprovalCountService.invalidateCache();
-    await Future.wait([
-      _loadNotificationCount(),
-      _loadApprovalCount(),
-    ]);
-  }
-
-  @override
-  void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state == AppLifecycleState.resumed) {
-      _refreshCounters();
-    }
   }
 
   Future<void> _loadUserData() async {

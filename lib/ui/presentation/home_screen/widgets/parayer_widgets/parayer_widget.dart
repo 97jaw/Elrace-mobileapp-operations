@@ -1,5 +1,6 @@
 import 'package:el_race/core/utils/responsive_breakpoints.dart';
 import 'package:adhan/adhan.dart';
+import 'package:el_race/core/services/resume_coordinator.dart';
 import 'package:el_race/core/utils/shared_pref.dart';
 import 'package:el_race/ui/presentation/home_screen/bloc/home_bloc.dart';
 import 'package:el_race/ui/presentation/home_screen/widgets/parayer_widgets/label_widget.dart';
@@ -19,8 +20,7 @@ class ParayerWidget extends StatefulWidget {
   State<ParayerWidget> createState() => _ParayerWidgetState();
 }
 
-class _ParayerWidgetState extends State<ParayerWidget>
-    with WidgetsBindingObserver {
+class _ParayerWidgetState extends State<ParayerWidget> {
   // Keep track of last known values
   DateTime? _lastNextTime;
   Prayer? _lastNextPrayer;
@@ -46,23 +46,22 @@ class _ParayerWidgetState extends State<ParayerWidget>
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addObserver(this);
     // Dispatch events to BLoC
     context.read<HomeBloc>().add(const LoadPrayerMuteStateEvent());
     context.read<HomeBloc>().add(const InitPrayerTimesEvent());
+    // Recompute prayer times after resume (day change / long idle) as
+    // deferred tier-2 work instead of racing the resume frame.
+    ResumeCoordinator.instance.addTier2Listener(this, () {
+      if (mounted) {
+        context.read<HomeBloc>().add(const InitPrayerTimesEvent());
+      }
+    });
   }
 
   @override
   void dispose() {
-    WidgetsBinding.instance.removeObserver(this);
+    ResumeCoordinator.instance.removeTier2Listener(this);
     super.dispose();
-  }
-
-  @override
-  void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state == AppLifecycleState.resumed) {
-      context.read<HomeBloc>().add(const InitPrayerTimesEvent());
-    }
   }
 
   String _fmt(DateTime dt) {

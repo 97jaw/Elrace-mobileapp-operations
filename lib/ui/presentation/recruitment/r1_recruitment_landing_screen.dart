@@ -4,7 +4,6 @@ import 'package:el_race/core/hr_management/providers/hr_management_providers.dar
 import 'package:el_race/core/recruitment/models/requisition.dart';
 import 'package:el_race/core/recruitment/providers/requisition_providers.dart';
 import 'package:el_race/core/recruitment/recruitment_job_share.dart';
-import 'package:el_race/core/session/login_session_refresh_service.dart';
 import 'package:el_race/core/theme/hr_badge_kind.dart';
 import 'package:el_race/core/theme/hr_module_colors.dart';
 import 'package:el_race/core/theme/hr_module_layout.dart';
@@ -155,9 +154,7 @@ class _R1RecruitmentLandingScreenState
   }
 
   Future<void> _refreshRecruitment() async {
-    await LoginSessionRefreshService.refreshRoles(
-      container: ProviderScope.containerOf(context),
-    );
+    // Roles refresh on re-login only (product decision 2026-07-20).
     await ref.read(requisitionsListProvider.notifier).refresh();
   }
 

@@ -1,5 +1,4 @@
 import 'package:el_race/core/home/home_widget_visibility.dart';
-import 'package:el_race/core/session/login_session_refresh_service.dart';
 import 'package:el_race/ui/presentation/home_screen/providers/home_attendance_widget_provider.dart';
 import 'package:el_race/ui/presentation/home_screen/providers/home_hrms_widget_provider.dart';
 import 'package:el_race/ui/presentation/home_screen/providers/home_library_widgets_provider.dart';
@@ -23,9 +22,8 @@ class HomeWidgetRefreshService {
   HomeWidgetRefreshService._();
 
   static Future<void> refresh(ProviderContainer container) async {
-    // Roles refresh (needed for HR/recruitment view gating). Widget visibility
-    // is login-only and deliberately left untouched here.
-    await LoginSessionRefreshService.refreshRoles(container: container);
+    // Roles come from the login payload only and refresh on re-login —
+    // no session-refresh call here (product decision 2026-07-20).
     final visible = visibleCategoryCodes();
     await HomeWidgetApiClient.refreshIfStale(
       force: true,
