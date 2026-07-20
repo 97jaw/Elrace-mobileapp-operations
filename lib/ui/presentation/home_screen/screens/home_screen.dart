@@ -14,7 +14,6 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:get/get.dart';
 import 'package:el_race/core/services/app_config_service.dart';
-import 'package:el_race/ui/presentation/home_screen/screens/biometric_sign_in_gate_screen.dart';
 
 class HomeScreen extends StatelessWidget {
   const HomeScreen({super.key});
@@ -58,8 +57,6 @@ class _HomeScreenState extends State<HomeScreenPage> {
   /// Blocks home UI until biometrics succeed (covers cancel → gate screen).
   bool _isBiometricLocked = false;
 
-  /// After cancel/miss: show logo + "Sign in with biometric" screen.
-  bool _showBiometricGateScreen = false;
   final _locationBloc = LocationBloc();
 
   // _loadMuteStatus() {
@@ -89,30 +86,32 @@ class _HomeScreenState extends State<HomeScreenPage> {
     // One GPS prime per Home mount (post-login); resumes no longer re-fetch.
     _locationBloc.add(GetCurrentLocationET());
 
-    // After login: authenticate with biometrics only once per app session.
-    // Do not ask again when returning from Contacts or other tabs to Home.
+    // After login: show the dim lock overlay, then start biometrics
+    // automatically after Home has painted.
     if (!AppConfigService.instance.shouldSkipFaceId &&
         !HomeScreenPage._didAuthenticateThisSession &&
         !HomeScreenPage._isAuthenticating) {
       // Lock on the first frame — before the system prompt appears — so taps
       // cannot slip through in the delay / cancel / retry gaps.
       _isBiometricLocked = true;
-      _showBiometricGateScreen = true;
       HomeScreenPage._sessionUiLocked = true;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        unawaited(_authenticateAfterLogin());
+      });
     }
     // List of pages or widgets that you want to display for each navigation ite
   }
 
   /// Authenticate user right after login using device biometrics only.
   /// PIN, passcode, password, and pattern fallback are not allowed.
-  /// On cancel/miss, show [BiometricSignInGateScreen] instead of auto-reprompting.
+  /// On cancel/miss, keep the dim lock overlay visible.
   Future<void> _authenticateAfterLogin({bool fromButton = false}) async {
     if (HomeScreenPage._didAuthenticateThisSession) return;
     if (HomeScreenPage._isAuthenticating && !fromButton) return;
 
     HomeScreenPage._isAuthenticating = true;
     _setBiometricLocked(true);
-    if (mounted) setState(() => _showBiometricGateScreen = false);
 
     if (!fromButton) {
       await Future.delayed(const Duration(milliseconds: 350));
@@ -132,7 +131,6 @@ class _HomeScreenState extends State<HomeScreenPage> {
     if (!hasBiometrics) {
       await _showBiometricRequiredDialog();
       HomeScreenPage._isAuthenticating = false;
-      if (mounted) setState(() => _showBiometricGateScreen = true);
       return;
     }
 
@@ -146,11 +144,9 @@ class _HomeScreenState extends State<HomeScreenPage> {
     if (authenticated) {
       HomeScreenPage._didAuthenticateThisSession = true;
       _setBiometricLocked(false);
-      setState(() => _showBiometricGateScreen = false);
     } else {
-      // Cancel / miss → dedicated sign-in screen (session stays logged in).
+      // Cancel / miss keeps the lock overlay visible (session stays logged in).
       _setBiometricLocked(true);
-      setState(() => _showBiometricGateScreen = true);
     }
     HomeScreenPage._isAuthenticating = false;
   }
@@ -165,7 +161,8 @@ class _HomeScreenState extends State<HomeScreenPage> {
     ).timeout(
       const Duration(seconds: 20),
       onTimeout: () async {
-        debugPrint('Post-login biometric prompt timed out; showing retry gate');
+        debugPrint(
+            'Post-login biometric prompt timed out; keeping lock overlay');
         await DeviceAuthService.instance.cancelAuthentication();
         return false;
       },
@@ -260,14 +257,7 @@ class _HomeScreenState extends State<HomeScreenPage> {
               );
             },
           ),
-          if (gateLocked && _showBiometricGateScreen)
-            Positioned.fill(
-              child: BiometricSignInGateScreen(
-                onSignInWithBiometric: () =>
-                    _authenticateAfterLogin(fromButton: true),
-              ),
-            )
-          else if (gateLocked)
+          if (gateLocked)
             const Positioned.fill(
               child: _BiometricLockOverlay(),
             ),
