@@ -1,3 +1,4 @@
+import 'package:el_race/core/utils/responsive_breakpoints.dart';
 import 'package:el_race/core/hr_management/hr_effective_view.dart';
 import 'package:el_race/core/hr_management/providers/hr_management_providers.dart';
 import 'package:el_race/core/recruitment/providers/requisition_providers.dart';
@@ -62,20 +63,20 @@ class _D1RecruitmentDashboardPanelState
   Widget _vizTabChip(int index, String label, IconData icon, Color accent) {
     final selected = _vizPage == index;
     return Padding(
-      padding: EdgeInsets.only(right: 10.w),
+      padding: EdgeInsets.only(right: 10.tw),
       child: Material(
         color: Colors.transparent,
         child: InkWell(
           onTap: () => _goVizPage(index),
-          borderRadius: BorderRadius.circular(22.r),
+          borderRadius: BorderRadius.circular(22.tr),
           child: AnimatedContainer(
             duration: const Duration(milliseconds: 200),
-            padding: EdgeInsets.symmetric(horizontal: 14.w, vertical: 10.h),
+            padding: EdgeInsets.symmetric(horizontal: 14.tw, vertical: 10.th),
             decoration: BoxDecoration(
               color: selected
                   ? accent.withValues(alpha: 0.16)
                   : HrModuleColors.surface,
-              borderRadius: BorderRadius.circular(22.r),
+              borderRadius: BorderRadius.circular(22.tr),
               border: Border.all(
                 color: selected ? accent : HrModuleColors.border,
                 width: selected ? 2 : 1,
@@ -87,14 +88,14 @@ class _D1RecruitmentDashboardPanelState
               children: [
                 Icon(
                   icon,
-                  size: 20.sp,
+                  size: 20.tsp,
                   color: selected ? accent : HrModuleColors.mutedText,
                 ),
-                SizedBox(width: 8.w),
+                SizedBox(width: 8.tw),
                 Text(
                   label,
                   style: HrModuleTypography.caption().copyWith(
-                    fontSize: 13.sp,
+                    fontSize: 13.tsp,
                     fontWeight: FontWeight.w600,
                     color: selected ? accent : HrModuleColors.text,
                   ),
@@ -110,7 +111,7 @@ class _D1RecruitmentDashboardPanelState
   Widget _vizTabStrip() {
     return SingleChildScrollView(
       scrollDirection: Axis.horizontal,
-      padding: EdgeInsets.symmetric(horizontal: 2.w),
+      padding: EdgeInsets.symmetric(horizontal: 2.tw),
       child: Row(
         children: [
           _vizTabChip(
@@ -134,7 +135,7 @@ class _D1RecruitmentDashboardPanelState
     if (depts.isEmpty) {
       return Text(
         'No department breakdown for this period.',
-        style: HrModuleTypography.caption().copyWith(fontSize: 12.sp),
+        style: HrModuleTypography.caption().copyWith(fontSize: 12.tsp),
       );
     }
     return Column(
@@ -142,21 +143,21 @@ class _D1RecruitmentDashboardPanelState
       children: [
         Text(
           'Open requisitions by department',
-          style: HrModuleTypography.sectionHeading().copyWith(fontSize: 14.sp),
+          style: HrModuleTypography.sectionHeading().copyWith(fontSize: 14.tsp),
         ),
-        SizedBox(height: 10.h),
+        SizedBox(height: 10.th),
         ...depts.map(
           (d) {
             final share = (d['share'] as num?)?.toDouble() ?? 0;
             return Padding(
-              padding: EdgeInsets.only(bottom: 10.h),
+              padding: EdgeInsets.only(bottom: 10.th),
               child: Row(
                 children: [
                   SizedBox(
-                    width: 100.w,
+                    width: 100.tw,
                     child: Text(
                       d['label']?.toString() ?? '',
-                      style: TextStyle(fontSize: 12.sp),
+                      style: TextStyle(fontSize: 12.tsp),
                     ),
                   ),
                   Expanded(
@@ -217,16 +218,16 @@ class _D1RecruitmentDashboardPanelState
       children: [
         Text(
           'Dashboard',
-          style: HrModuleTypography.cardTitle().copyWith(fontSize: 16.sp),
+          style: HrModuleTypography.cardTitle().copyWith(fontSize: 16.tsp),
         ),
-        SizedBox(height: 8.h),
+        SizedBox(height: 8.th),
         SingleChildScrollView(
           scrollDirection: Axis.horizontal,
           child: Row(
             children: List.generate(
               _periodLabels.length,
               (i) => Padding(
-                padding: EdgeInsets.only(right: 8.w),
+                padding: EdgeInsets.only(right: 8.tw),
                 child: ChoiceChip(
                   label: Text(_periodLabels[i]),
                   selected: _period == i,
@@ -236,7 +237,7 @@ class _D1RecruitmentDashboardPanelState
             ),
           ),
         ),
-        SizedBox(height: 12.h),
+        SizedBox(height: 12.th),
         IntrinsicHeight(
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -247,14 +248,14 @@ class _D1RecruitmentDashboardPanelState
                   label: 'Open reqs',
                 ),
               ),
-              SizedBox(width: 8.w),
+              SizedBox(width: 8.tw),
               Expanded(
                 child: HrKpiCounterCard(
                   value: '$pipeline',
                   label: 'In pipeline',
                 ),
               ),
-              SizedBox(width: 8.w),
+              SizedBox(width: 8.tw),
               Expanded(
                 child: HrKpiCounterCard(
                   value: '$offers',
@@ -266,11 +267,11 @@ class _D1RecruitmentDashboardPanelState
           ),
         ),
         if (showManagerViz) ...[
-          SizedBox(height: 16.h),
+          SizedBox(height: 16.th),
           _vizTabStrip(),
-          SizedBox(height: 10.h),
+          SizedBox(height: 10.th),
           SizedBox(
-            height: 300.h,
+            height: 300.th,
             child: PageView(
               controller: _pageController,
               onPageChanged: (i) => setState(() => _vizPage = i),
@@ -291,30 +292,30 @@ class _D1RecruitmentDashboardPanelState
             ),
           ),
         ] else ...[
-          SizedBox(height: 20.h),
+          SizedBox(height: 20.th),
           RecruitmentFunnelChart(
             stages: stages,
             counts: funnelCounts,
           ),
         ],
-        SizedBox(height: 16.h),
+        SizedBox(height: 16.th),
         Text(
           'Avg time per stage (days)',
-          style: HrModuleTypography.sectionHeading().copyWith(fontSize: 14.sp),
+          style: HrModuleTypography.sectionHeading().copyWith(fontSize: 14.tsp),
         ),
-        Text('Applied → Screening: 2.1', style: TextStyle(fontSize: 12.sp)),
-        Text('Screening → Interview: 4.5', style: TextStyle(fontSize: 12.sp)),
-        Text('Interview → Offer: 6.0', style: TextStyle(fontSize: 12.sp)),
-        Text('Offer → Hired: 8.2', style: TextStyle(fontSize: 12.sp)),
-        SizedBox(height: 12.h),
+        Text('Applied → Screening: 2.1', style: TextStyle(fontSize: 12.tsp)),
+        Text('Screening → Interview: 4.5', style: TextStyle(fontSize: 12.tsp)),
+        Text('Interview → Offer: 6.0', style: TextStyle(fontSize: 12.tsp)),
+        Text('Offer → Hired: 8.2', style: TextStyle(fontSize: 12.tsp)),
+        SizedBox(height: 12.th),
         Text(
           'Top sources',
-          style: HrModuleTypography.sectionHeading().copyWith(fontSize: 14.sp),
+          style: HrModuleTypography.sectionHeading().copyWith(fontSize: 14.tsp),
         ),
-        Text('LinkedIn — 42%', style: TextStyle(fontSize: 12.sp)),
-        Text('Referrals — 28%', style: TextStyle(fontSize: 12.sp)),
-        Text('Careers site — 20%', style: TextStyle(fontSize: 12.sp)),
-        SizedBox(height: 20.h),
+        Text('LinkedIn — 42%', style: TextStyle(fontSize: 12.tsp)),
+        Text('Referrals — 28%', style: TextStyle(fontSize: 12.tsp)),
+        Text('Careers site — 20%', style: TextStyle(fontSize: 12.tsp)),
+        SizedBox(height: 20.th),
         FilledButton.icon(
           onPressed: () async {
             final empId =

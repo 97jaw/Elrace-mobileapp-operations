@@ -1,3 +1,4 @@
+import 'package:el_race/core/utils/responsive_breakpoints.dart';
 import 'package:el_race/ui/presentation/my_projects/presentation/models/project_document_hub_kind.dart';
 import 'package:el_race/ui/presentation/my_projects/presentation/theme/projects_dashboard_theme.dart';
 import 'package:el_race/ui/presentation/my_projects/presentation/widgets/project_documents_file_row.dart';
@@ -63,10 +64,10 @@ class ProjectDocumentsSectionTile extends StatelessWidget {
       color: Colors.transparent,
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(16.r),
+        borderRadius: BorderRadius.circular(16.tr),
         child: Container(
           decoration: projectDocumentsFileRowDecoration(),
-          padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 10.h),
+          padding: EdgeInsets.symmetric(horizontal: 12.tw, vertical: 10.th),
           child: Row(
             crossAxisAlignment:
                 _isSub ? CrossAxisAlignment.start : CrossAxisAlignment.center,
@@ -77,36 +78,36 @@ class ProjectDocumentsSectionTile extends StatelessWidget {
                 isFile: isFile,
                 size: iconSize,
               ),
-              SizedBox(width: 10.w),
+              SizedBox(width: 10.tw),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     ProjectDocumentsOneLineMarquee(
                       text: title,
-                      fontSize: _isSub ? 14.sp : 15.sp,
+                      fontSize: _isSub ? 14.tsp : 15.tsp,
                       fontWeight: _isSub ? FontWeight.w500 : FontWeight.w700,
                       italic: _isSub,
                       color: _titleColor,
                     ),
                     if (subtitle != null && subtitle!.trim().isNotEmpty) ...[
-                      SizedBox(height: 3.h),
+                      SizedBox(height: 3.th),
                       Text(
                         subtitle!,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: GoogleFonts.poppins(
-                          fontSize: 10.sp,
+                          fontSize: 10.tsp,
                           color: _metaColor.withValues(alpha: 0.88),
                         ),
                       ),
                     ],
                     if (showFileCount) ...[
-                      SizedBox(height: 6.h),
+                      SizedBox(height: 6.th),
                       Text(
                         filesLine,
                         style: GoogleFonts.poppins(
-                          fontSize: 14.sp,
+                          fontSize: 14.tsp,
                           fontWeight: FontWeight.w600,
                           fontStyle: FontStyle.normal,
                           color: _metaColor.withValues(alpha: 0.92),
@@ -115,7 +116,7 @@ class ProjectDocumentsSectionTile extends StatelessWidget {
                       ),
                     ],
                     if (showMeta && _isSub && (updated != null || by != null)) ...[
-                      SizedBox(height: 3.h),
+                      SizedBox(height: 3.th),
                       Text(
                         _subMetaLine(updated, by),
                         maxLines: 1,
@@ -124,7 +125,7 @@ class ProjectDocumentsSectionTile extends StatelessWidget {
                       ),
                     ] else if (showMeta && !_isSub) ...[
                       if (updated != null) ...[
-                        SizedBox(height: 3.h),
+                        SizedBox(height: 3.th),
                         Text(
                           'Updated $updated',
                           maxLines: 1,
@@ -133,7 +134,7 @@ class ProjectDocumentsSectionTile extends StatelessWidget {
                         ),
                       ],
                       if (by != null || bottomRightLabel != null) ...[
-                        SizedBox(height: 2.h),
+                        SizedBox(height: 2.th),
                         Row(
                           children: [
                             if (by != null)
@@ -143,7 +144,7 @@ class ProjectDocumentsSectionTile extends StatelessWidget {
                                   maxLines: 1,
                                   overflow: TextOverflow.ellipsis,
                                   style: GoogleFonts.poppins(
-                                    fontSize: 10.sp,
+                                    fontSize: 10.tsp,
                                     color: _metaColor.withValues(alpha: 0.82),
                                   ),
                                 ),
@@ -152,7 +153,7 @@ class ProjectDocumentsSectionTile extends StatelessWidget {
                               Text(
                                 bottomRightLabel!,
                                 style: GoogleFonts.poppins(
-                                  fontSize: 11.sp,
+                                  fontSize: 11.tsp,
                                   fontWeight: FontWeight.w600,
                                   color: _metaColor.withValues(alpha: 0.92),
                                 ),
@@ -161,13 +162,13 @@ class ProjectDocumentsSectionTile extends StatelessWidget {
                         ),
                       ],
                     ] else if (!showMeta && bottomRightLabel != null) ...[
-                      SizedBox(height: 4.h),
+                      SizedBox(height: 4.th),
                       Align(
                         alignment: Alignment.centerRight,
                         child: Text(
                           bottomRightLabel!,
                           style: GoogleFonts.poppins(
-                            fontSize: 11.sp,
+                            fontSize: 11.tsp,
                             fontWeight: FontWeight.w600,
                             color: _metaColor.withValues(alpha: 0.92),
                           ),
@@ -181,7 +182,7 @@ class ProjectDocumentsSectionTile extends StatelessWidget {
                 Icon(
                   Icons.chevron_right_rounded,
                   color: _metaColor.withValues(alpha: 0.55),
-                  size: 22.sp,
+                  size: 22.tsp,
                 ),
             ],
           ),

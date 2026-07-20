@@ -40,12 +40,7 @@ class _PmAttendanceReviewState extends ConsumerState<PmAttendanceReview> {
     );
 
     return TmScaffold(
-      appBar: AppBar(
-        title: Text('Attendance Review', style: TimesheetModuleTypography.h2()),
-        backgroundColor: TimesheetModuleColors.surface,
-        foregroundColor: TimesheetModuleColors.text,
-        elevation: 0,
-      ),
+      glassTitle: 'Attendance Review',
       body: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [

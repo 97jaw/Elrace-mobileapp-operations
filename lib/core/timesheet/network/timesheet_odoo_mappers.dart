@@ -38,6 +38,19 @@ abstract final class TimesheetOdooMappers {
     }).toList();
   }
 
+  /// Newest-first by Odoo work `date` (falls back to string compare).
+  static List<Map<String, dynamic>> sortTimesheetRowsByWorkDateDesc(
+    List<Map<String, dynamic>> rows,
+  ) {
+    final sorted = List<Map<String, dynamic>>.from(rows);
+    sorted.sort((a, b) {
+      final da = a['date']?.toString() ?? '';
+      final db = b['date']?.toString() ?? '';
+      return db.compareTo(da);
+    });
+    return sorted;
+  }
+
   static Project projectFromGetProjects(Map<String, dynamic> json) {
     final projectId = tmStringFromJson(
       json['project_id'] ?? json['id'] ?? json['agreement_id'],

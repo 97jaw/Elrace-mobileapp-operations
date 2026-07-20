@@ -1,3 +1,4 @@
+import 'package:el_race/core/utils/responsive_breakpoints.dart';
 import 'dart:convert';
 import 'dart:typed_data';
 
@@ -123,14 +124,14 @@ class _ProfileBottomSheetBodyState extends State<_ProfileBottomSheetBody> {
           style: TextStyle(
             color: ProfileSheetTheme.textPrimary,
             fontWeight: FontWeight.w700,
-            fontSize: 18.sp,
+            fontSize: 18.tsp,
           ),
         ),
         content: Text(
           'Linked Devices management is coming soon.',
           style: TextStyle(
             color: ProfileSheetTheme.textSecondary,
-            fontSize: 14.sp,
+            fontSize: 14.tsp,
             height: 1.45,
           ),
         ),
@@ -189,7 +190,7 @@ class _ProfileBottomSheetBodyState extends State<_ProfileBottomSheetBody> {
       expand: false,
       builder: (context, scrollController) {
         return ClipRRect(
-          borderRadius: BorderRadius.vertical(top: Radius.circular(28.r)),
+          borderRadius: BorderRadius.vertical(top: Radius.circular(28.tr)),
           child: Stack(
             fit: StackFit.expand,
             children: [
@@ -207,26 +208,26 @@ class _ProfileBottomSheetBodyState extends State<_ProfileBottomSheetBody> {
               ),
               Column(
                 children: [
-                  SizedBox(height: 10.h),
+                  SizedBox(height: 10.th),
                   Container(
-                    width: 42.w,
-                    height: 4.h,
+                    width: 42.tw,
+                    height: 4.th,
                     decoration: BoxDecoration(
                       color: ProfileSheetTheme.silver.withValues(alpha: 0.85),
                       borderRadius: BorderRadius.circular(99),
                     ),
                   ),
                   Padding(
-                    padding: EdgeInsets.fromLTRB(16.w, 10.h, 16.w, 0),
+                    padding: EdgeInsets.fromLTRB(16.tw, 10.th, 16.tw, 0),
                     child: Row(
                       children: [
-                        SizedBox(width: 40.w),
+                        SizedBox(width: 40.tw),
                         Expanded(
                           child: Text(
                             'My Profile',
                             textAlign: TextAlign.center,
                             style: TextStyle(
-                              fontSize: 20.sp,
+                              fontSize: 20.tsp,
                               fontWeight: FontWeight.w700,
                               color: ProfileSheetTheme.textPrimary,
                               letterSpacing: -0.2,
@@ -245,10 +246,10 @@ class _ProfileBottomSheetBodyState extends State<_ProfileBottomSheetBody> {
                       controller: scrollController,
                       clipBehavior: Clip.none,
                       padding: EdgeInsets.fromLTRB(
-                        20.w,
+                        20.tw,
                         0,
-                        20.w,
-                        bottomInset + 20.h,
+                        20.tw,
+                        bottomInset + 20.th,
                       ),
                       children: [
                         _ProfileIdentityCard(
@@ -270,7 +271,7 @@ class _ProfileBottomSheetBodyState extends State<_ProfileBottomSheetBody> {
                           onQrLink: _showQrLink,
                           onBusinessCard: _openBusinessCard,
                         ),
-                        SizedBox(height: 16.h),
+                        SizedBox(height: 16.th),
                         _SettingsCard(
                           onNotificationSettings: _openNotificationSettings,
                           onLinkedDevices: _openLinkedDevices,
@@ -323,8 +324,8 @@ class _ProfileIdentityCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final cardRadius = BorderRadius.circular(28.r);
-    final avatarTopInset = (_avatarSize / 2).h;
+    final cardRadius = BorderRadius.circular(28.tr);
+    final avatarTopInset = (_avatarSize / 2).th;
 
     return Stack(
       clipBehavior: Clip.none,
@@ -358,10 +359,10 @@ class _ProfileIdentityCard extends StatelessWidget {
                     Container(
                       width: double.infinity,
                       padding: EdgeInsets.fromLTRB(
-                        18.w,
-                        avatarTopInset + 8.h,
-                        18.w,
-                        18.h,
+                        18.tw,
+                        avatarTopInset + 8.th,
+                        18.tw,
+                        18.th,
                       ),
                       decoration: const BoxDecoration(
                         gradient: ProfileSheetTheme.profileHeaderGradient,
@@ -374,14 +375,14 @@ class _ProfileIdentityCard extends StatelessWidget {
                             maxLines: 2,
                             overflow: TextOverflow.ellipsis,
                             style: TextStyle(
-                              fontSize: 20.sp,
+                              fontSize: 20.tsp,
                               fontWeight: FontWeight.w700,
                               color: Colors.white,
                               height: 1.25,
                               letterSpacing: -0.2,
                             ),
                           ),
-                          SizedBox(height: 10.h),
+                          SizedBox(height: 10.th),
                           _BadgePairRow(
                             left: _InlineFadedBadge(
                               label: 'File ID',
@@ -397,7 +398,7 @@ class _ProfileIdentityCard extends StatelessWidget {
                     ),
                     Container(
                       width: double.infinity,
-                      padding: EdgeInsets.fromLTRB(16.w, 16.h, 16.w, 20.h),
+                      padding: EdgeInsets.fromLTRB(16.tw, 16.th, 16.tw, 20.th),
                       decoration: const BoxDecoration(
                         gradient: ProfileSheetTheme.profileCardGradient,
                       ),
@@ -407,7 +408,7 @@ class _ProfileIdentityCard extends StatelessWidget {
                             departmentSection: departmentSection,
                             onQrLink: onQrLink,
                           ),
-                          SizedBox(height: 14.h),
+                          SizedBox(height: 14.th),
                           Center(
                             child: _QrFrame(
                               isLoading: isLoadingQr,
@@ -416,12 +417,12 @@ class _ProfileIdentityCard extends StatelessWidget {
                             ),
                           ),
                           if (qrErrorMessage != null) ...[
-                            SizedBox(height: 10.h),
+                            SizedBox(height: 10.th),
                             Text(
                               qrErrorMessage!,
                               textAlign: TextAlign.center,
                               style: TextStyle(
-                                fontSize: 11.sp,
+                                fontSize: 11.tsp,
                                 color: ProfileSheetTheme.accentRed,
                               ),
                             ),
@@ -432,14 +433,14 @@ class _ProfileIdentityCard extends StatelessWidget {
                                 style: TextStyle(
                                   color: ProfileSheetTheme.navySoft,
                                   fontWeight: FontWeight.w600,
-                                  fontSize: 12.sp,
+                                  fontSize: 12.tsp,
                                 ),
                               ),
                             ),
                           ],
-                          SizedBox(height: 14.h),
+                          SizedBox(height: 14.th),
                           SizedBox(
-                            width: 230.w,
+                            width: 230.tw,
                             child: _BusinessCardButton(
                               onTap: onBusinessCard,
                             ),
@@ -476,14 +477,14 @@ class _ProfileAvatar extends StatelessWidget {
     const size = _ProfileIdentityCard._avatarSize;
 
     return SizedBox(
-      width: size.w,
-      height: size.w,
+      width: size.tw,
+      height: size.tw,
       child: Stack(
         clipBehavior: Clip.none,
         children: [
           Container(
-            width: size.w,
-            height: size.w,
+            width: size.tw,
+            height: size.tw,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
               color: Colors.white,
@@ -497,19 +498,19 @@ class _ProfileAvatar extends StatelessWidget {
               border: Border.all(color: Colors.white, width: 4),
             ),
             child: Padding(
-              padding: EdgeInsets.all(3.w),
+              padding: EdgeInsets.all(3.tw),
               child: CircleAvatar(
-                radius: (size / 2 - 7).r,
+                radius: (size / 2 - 7).tr,
                 backgroundImage: image,
               ),
             ),
           ),
           Positioned(
-            right: 6.w,
-            bottom: 6.w,
+            right: 6.tw,
+            bottom: 6.tw,
             child: Container(
-              width: 18.w,
-              height: 18.w,
+              width: 18.tw,
+              height: 18.tw,
               decoration: BoxDecoration(
                 color: isActive
                     ? ProfileSheetTheme.messengerOnline
@@ -544,7 +545,7 @@ class _BadgePairRow extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Expanded(child: left),
-        SizedBox(width: 10.w),
+        SizedBox(width: 10.tw),
         Expanded(child: right),
       ],
     );
@@ -561,10 +562,10 @@ class _InlineFadedBadge extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       width: double.infinity,
-      padding: EdgeInsets.symmetric(horizontal: 8.w, vertical: 9.h),
+      padding: EdgeInsets.symmetric(horizontal: 8.tw, vertical: 9.th),
       decoration: BoxDecoration(
         color: Colors.white.withValues(alpha: 0.18),
-        borderRadius: BorderRadius.circular(12.r),
+        borderRadius: BorderRadius.circular(12.tr),
         border: Border.all(
           color: Colors.white.withValues(alpha: 0.34),
         ),
@@ -578,19 +579,19 @@ class _InlineFadedBadge extends StatelessWidget {
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             style: TextStyle(
-              fontSize: 10.sp,
+              fontSize: 10.tsp,
               color: Colors.white.withValues(alpha: 0.82),
               fontWeight: FontWeight.w500,
             ),
           ),
-          SizedBox(height: 4.h),
+          SizedBox(height: 4.th),
           Text(
             value,
             textAlign: TextAlign.center,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             style: TextStyle(
-              fontSize: 13.sp,
+              fontSize: 13.tsp,
               color: Colors.white,
               fontWeight: FontWeight.w700,
             ),
@@ -614,10 +615,10 @@ class _FooterInfoSection extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       width: double.infinity,
-      padding: EdgeInsets.fromLTRB(12.w, 12.h, 12.w, 10.h),
+      padding: EdgeInsets.fromLTRB(12.tw, 12.th, 12.tw, 10.th),
       decoration: BoxDecoration(
         gradient: ProfileSheetTheme.maroonInfoSection,
-        borderRadius: BorderRadius.circular(16.r),
+        borderRadius: BorderRadius.circular(16.tr),
         border: Border.all(
           color: Colors.white.withValues(alpha: 0.36),
         ),
@@ -647,10 +648,10 @@ class _QrLinkBadge extends StatelessWidget {
       onTap: onTap,
       child: Container(
       width: double.infinity,
-      padding: EdgeInsets.symmetric(horizontal: 10.w, vertical: 11.h),
+      padding: EdgeInsets.symmetric(horizontal: 10.tw, vertical: 11.th),
       decoration: BoxDecoration(
         color: Colors.white.withValues(alpha: 0.82),
-        borderRadius: BorderRadius.circular(14.r),
+        borderRadius: BorderRadius.circular(14.tr),
         border: Border.all(
           color: ProfileSheetTheme.maroonPale.withValues(alpha: 0.6),
         ),
@@ -671,27 +672,27 @@ class _QrLinkBadge extends StatelessWidget {
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             style: TextStyle(
-              fontSize: 10.sp,
+              fontSize: 10.tsp,
               color: ProfileSheetTheme.textMuted,
               fontWeight: FontWeight.w600,
               letterSpacing: 0.2,
             ),
           ),
-          SizedBox(height: 5.h),
+          SizedBox(height: 5.th),
           Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               Icon(
                 Icons.qr_code_scanner_rounded,
-                size: 18.sp,
+                size: 18.tsp,
                 color: ProfileSheetTheme.maroon,
               ),
-              SizedBox(width: 4.w),
+              SizedBox(width: 4.tw),
               Text(
                 'Scan QR',
                 textAlign: TextAlign.center,
                 style: TextStyle(
-                  fontSize: 12.sp,
+                  fontSize: 12.tsp,
                   color: ProfileSheetTheme.textPrimary,
                   fontWeight: FontWeight.w700,
                   height: 1.2,
@@ -715,18 +716,18 @@ class _BusinessCardButton extends StatelessWidget {
   Widget build(BuildContext context) {
     return FilledButton.icon(
       onPressed: onTap,
-      icon: Icon(Icons.badge_outlined, size: 16.sp),
+      icon: Icon(Icons.badge_outlined, size: 16.tsp),
       label: const Text('Business Card'),
       style: FilledButton.styleFrom(
         backgroundColor: ProfileSheetTheme.navy,
         foregroundColor: Colors.white,
-        minimumSize: Size(double.infinity, 44.h),
+        minimumSize: Size(double.infinity, 44.th),
         textStyle: TextStyle(
-          fontSize: 13.sp,
+          fontSize: 13.tsp,
           fontWeight: FontWeight.w600,
         ),
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(14.r),
+          borderRadius: BorderRadius.circular(14.tr),
         ),
       ),
     );
@@ -743,10 +744,10 @@ class _InfoBadge extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       width: double.infinity,
-      padding: EdgeInsets.symmetric(horizontal: 10.w, vertical: 11.h),
+      padding: EdgeInsets.symmetric(horizontal: 10.tw, vertical: 11.th),
       decoration: BoxDecoration(
         color: Colors.white.withValues(alpha: 0.82),
-        borderRadius: BorderRadius.circular(14.r),
+        borderRadius: BorderRadius.circular(14.tr),
         border: Border.all(
           color: ProfileSheetTheme.maroonPale.withValues(alpha: 0.6),
         ),
@@ -767,20 +768,20 @@ class _InfoBadge extends StatelessWidget {
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             style: TextStyle(
-              fontSize: 10.sp,
+              fontSize: 10.tsp,
               color: ProfileSheetTheme.textMuted,
               fontWeight: FontWeight.w600,
               letterSpacing: 0.2,
             ),
           ),
-          SizedBox(height: 5.h),
+          SizedBox(height: 5.th),
           Text(
             value,
             textAlign: TextAlign.center,
             maxLines: 2,
             overflow: TextOverflow.ellipsis,
             style: TextStyle(
-              fontSize: 13.sp,
+              fontSize: 13.tsp,
               color: ProfileSheetTheme.textPrimary,
               fontWeight: FontWeight.w700,
               height: 1.2,
@@ -806,12 +807,12 @@ class _QrFrame extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      width: 230.w,
-      height: 230.w,
-      padding: EdgeInsets.all(16.w),
+      width: 230.tw,
+      height: 230.tw,
+      padding: EdgeInsets.all(16.tw),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(22.r),
+        borderRadius: BorderRadius.circular(22.tr),
         border: Border.all(
           color: isActive
               ? ProfileSheetTheme.activeGreen.withValues(alpha: 0.35)
@@ -833,7 +834,7 @@ class _QrFrame extends StatelessWidget {
           IgnorePointer(
             child: DecoratedBox(
               decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(8.r),
+                borderRadius: BorderRadius.circular(8.tr),
                 gradient: ProfileSheetTheme.qrOverlay,
               ),
             ),
@@ -841,7 +842,7 @@ class _QrFrame extends StatelessWidget {
           IgnorePointer(
             child: DecoratedBox(
               decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(8.r),
+                borderRadius: BorderRadius.circular(8.tr),
                 gradient: LinearGradient(
                   begin: Alignment.topCenter,
                   end: Alignment.bottomCenter,
@@ -871,7 +872,7 @@ class _QrFrame extends StatelessWidget {
 
     if (qrData != null) {
       return ClipRRect(
-        borderRadius: BorderRadius.circular(8.r),
+        borderRadius: BorderRadius.circular(8.tr),
         child: Image.memory(
           qrData!,
           fit: BoxFit.contain,
@@ -885,14 +886,14 @@ class _QrFrame extends StatelessWidget {
       children: [
         Icon(
           Icons.qr_code_2_rounded,
-          size: 52.sp,
+          size: 52.tsp,
           color: ProfileSheetTheme.textMuted.withValues(alpha: 0.6),
         ),
-        SizedBox(height: 8.h),
+        SizedBox(height: 8.th),
         Text(
           'No QR available',
           style: TextStyle(
-            fontSize: 12.sp,
+            fontSize: 12.tsp,
             color: ProfileSheetTheme.textSecondary,
           ),
         ),
@@ -915,7 +916,7 @@ class _SettingsCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ProfileSheetTheme.glassCard(
-      padding: EdgeInsets.symmetric(vertical: 6.h),
+      padding: EdgeInsets.symmetric(vertical: 6.th),
       child: Column(
         children: [
           _SettingsTile(
@@ -976,29 +977,29 @@ class _SettingsTile extends StatelessWidget {
       color: Colors.transparent,
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(18.r),
+        borderRadius: BorderRadius.circular(18.tr),
         child: Padding(
-          padding: EdgeInsets.symmetric(horizontal: 14.w, vertical: 12.h),
+          padding: EdgeInsets.symmetric(horizontal: 14.tw, vertical: 12.th),
           child: Row(
             children: [
               Container(
-                width: 44.w,
-                height: 44.w,
+                width: 44.tw,
+                height: 44.tw,
                 decoration: BoxDecoration(
                   color: iconBackground ??
                       ProfileSheetTheme.maroonPale.withValues(alpha: 0.45),
-                  borderRadius: BorderRadius.circular(14.r),
+                  borderRadius: BorderRadius.circular(14.tr),
                   border: Border.all(
                     color: Colors.white.withValues(alpha: 0.85),
                   ),
                 ),
                 child: Icon(
                   icon,
-                  size: 22.sp,
+                  size: 22.tsp,
                   color: iconColor ?? ProfileSheetTheme.maroon,
                 ),
               ),
-              SizedBox(width: 14.w),
+              SizedBox(width: 14.tw),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -1006,16 +1007,16 @@ class _SettingsTile extends StatelessWidget {
                     Text(
                       title,
                       style: TextStyle(
-                        fontSize: 15.sp,
+                        fontSize: 15.tsp,
                         fontWeight: FontWeight.w700,
                         color: titleColor ?? ProfileSheetTheme.textPrimary,
                       ),
                     ),
-                    SizedBox(height: 2.h),
+                    SizedBox(height: 2.th),
                     Text(
                       subtitle,
                       style: TextStyle(
-                        fontSize: 12.sp,
+                        fontSize: 12.tsp,
                         color: ProfileSheetTheme.textMuted,
                       ),
                     ),
@@ -1026,7 +1027,7 @@ class _SettingsTile extends StatelessWidget {
                 Icon(
                   Icons.chevron_right_rounded,
                   color: ProfileSheetTheme.textMuted,
-                  size: 22.sp,
+                  size: 22.tsp,
                 ),
             ],
           ),
@@ -1042,8 +1043,8 @@ class _SettingsDivider extends StatelessWidget {
     return Divider(
       height: 1,
       thickness: 1,
-      indent: 72.w,
-      endIndent: 14.w,
+      indent: 72.tw,
+      endIndent: 14.tw,
       color: ProfileSheetTheme.silver.withValues(alpha: 0.55),
     );
   }
@@ -1068,11 +1069,11 @@ class _CircleIconButton extends StatelessWidget {
             onTap: onTap,
             customBorder: const CircleBorder(),
             child: SizedBox(
-              width: 40.w,
-              height: 40.w,
+              width: 40.tw,
+              height: 40.tw,
               child: Icon(
                 icon,
-                size: 22.sp,
+                size: 22.tsp,
                 color: ProfileSheetTheme.textPrimary,
               ),
             ),

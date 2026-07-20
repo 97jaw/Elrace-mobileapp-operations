@@ -37,12 +37,7 @@ class _At4CaptureSummaryScreenState
     final flaggedCount = _rows.where((row) => row.outsideGeofence).length;
 
     return TmScaffold(
-      appBar: AppBar(
-        title: Text('Capture summary', style: TimesheetModuleTypography.h2()),
-        backgroundColor: TimesheetModuleColors.surface,
-        foregroundColor: TimesheetModuleColors.text,
-        elevation: 0,
-      ),
+      glassTitle: 'Capture summary',
       body: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -84,6 +79,7 @@ class _At4CaptureSummaryScreenState
           ),
           TmPrimaryButton(
             label: _isSubmitting ? 'Submitting...' : 'Confirm & submit timesheet',
+            warm: true,
             icon: PhosphorIcons.checkCircle(),
             onPressed: _isSubmitting || !_rows.any((r) => r.canSubmit)
                 ? null

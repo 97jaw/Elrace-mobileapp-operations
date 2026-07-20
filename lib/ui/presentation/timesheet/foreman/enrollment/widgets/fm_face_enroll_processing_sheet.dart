@@ -52,16 +52,16 @@ class FmFaceEnrollProcessingSheet extends StatelessWidget {
                     ),
                   )
                 else if (!failed && step == FmFaceEnrollProcessStep.done)
-                  Icon(
+                  const Icon(
                     Icons.notifications_active_outlined,
                     size: 72,
-                    color: TimesheetModuleColors.primary,
+                    color: Color(0xFF3DDC84),
                   )
                 else
-                  Icon(
+                  const Icon(
                     Icons.error_outline_rounded,
                     size: 72,
-                    color: const Color(0xFFE53935),
+                    color: Color(0xFFE53935),
                   ),
                 const SizedBox(height: 20),
                 Text(

@@ -174,22 +174,21 @@ class _FmTimesheetPrintReportScreenState
   Widget build(BuildContext context) {
     final dateFmt = DateFormat('dd MMM yyyy');
 
-    return Scaffold(
-      backgroundColor: TimesheetModuleColors.bgGradientEnd,
-      appBar: AppBar(
-        backgroundColor: TimesheetModuleColors.surface,
-        foregroundColor: TimesheetModuleColors.text,
-        title: Text(
-          'Timesheet report',
-          style: TimesheetModuleTypography.h2(),
-        ),
-      ),
-      body: _loadingRoster
+    return TmScaffold(
+      glassTitle: 'Timesheet report',
+      padding: EdgeInsets.zero,
+      body: _buildReportBody(dateFmt),
+    );
+  }
+
+  Widget _buildReportBody(DateFormat dateFmt) {
+    return _loadingRoster
           ? const TimesheetLoadingState(style: TimesheetLoadingStyle.list)
           : _roster.isEmpty
               ? TimesheetErrorState(
                   message: _rosterError ??
                       'No labors loaded from employee list API',
+                  warm: true,
                   onRetry: _retryLoadRoster,
                 )
               : ListView(
@@ -200,7 +199,9 @@ class _FmTimesheetPrintReportScreenState
                 if (widget.projectName != null) ...[
                   Text(
                     widget.projectName!,
-                    style: TimesheetModuleTypography.caption(),
+                    style: TimesheetModuleTypography.caption().copyWith(
+                      color: TimesheetModuleColors.warmMuted,
+                    ),
                   ),
                   const SizedBox(height: TimesheetModuleLayout.cardSpacing),
                 ],
@@ -208,6 +209,7 @@ class _FmTimesheetPrintReportScreenState
                   'Employees',
                   style: TimesheetModuleTypography.caption().copyWith(
                     fontWeight: FontWeight.w700,
+                    color: TimesheetModuleColors.ink,
                   ),
                 ),
                 const SizedBox(height: 8),
@@ -216,6 +218,7 @@ class _FmTimesheetPrintReportScreenState
                       ? 'Select employees (max 30)'
                       : '${_selected.length} / 30 selected',
                   icon: PhosphorIcons.users(),
+                  warm: true,
                   onPressed: _pickEmployees,
                 ),
                 const SizedBox(height: TimesheetModuleLayout.sectionGap),
@@ -223,6 +226,7 @@ class _FmTimesheetPrintReportScreenState
                   'Date range',
                   style: TimesheetModuleTypography.caption().copyWith(
                     fontWeight: FontWeight.w700,
+                    color: TimesheetModuleColors.ink,
                   ),
                 ),
                 const SizedBox(height: 8),
@@ -240,12 +244,12 @@ class _FmTimesheetPrintReportScreenState
                 const SizedBox(height: TimesheetModuleLayout.sectionGap),
                 TmPrimaryButton(
                   label: _generating ? 'Generating…' : 'Generate PDF',
+                  warm: true,
                   icon: PhosphorIcons.filePdf(),
                   onPressed: _generating ? null : _generate,
                 ),
               ],
-            ),
-    );
+            );
   }
 }
 
@@ -263,14 +267,32 @@ class _DateTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Material(
-      color: TimesheetModuleColors.surface,
+      color: TimesheetModuleColors.glassSurface,
       borderRadius:
           BorderRadius.circular(TimesheetModuleLayout.cardRadiusMd),
       child: ListTile(
         onTap: onTap,
-        title: Text(label, style: TimesheetModuleTypography.caption()),
-        subtitle: Text(value, style: TimesheetModuleTypography.body()),
-        trailing: Icon(PhosphorIcons.calendar()),
+        shape: RoundedRectangleBorder(
+          borderRadius:
+              BorderRadius.circular(TimesheetModuleLayout.cardRadiusMd),
+          side: const BorderSide(color: TimesheetModuleColors.glassBorder),
+        ),
+        title: Text(
+          label,
+          style: TimesheetModuleTypography.caption().copyWith(
+            color: TimesheetModuleColors.warmMuted,
+          ),
+        ),
+        subtitle: Text(
+          value,
+          style: TimesheetModuleTypography.body().copyWith(
+            color: TimesheetModuleColors.ink,
+          ),
+        ),
+        trailing: Icon(
+          PhosphorIcons.calendar(),
+          color: TimesheetModuleColors.accent,
+        ),
       ),
     );
   }

@@ -1,3 +1,4 @@
+import 'package:el_race/core/utils/responsive_breakpoints.dart';
 import 'package:el_race/ui/presentation/my_projects/presentation/models/project_document_hub_kind.dart';
 import 'package:el_race/ui/presentation/my_projects/presentation/models/project_documents_breadcrumb.dart';
 import 'package:el_race/ui/presentation/my_projects/presentation/theme/projects_dashboard_theme.dart';
@@ -25,18 +26,18 @@ class ProjectDocumentsDrillHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: EdgeInsets.fromLTRB(4.w, 4.h, 8.w, 8.h),
+      padding: EdgeInsets.fromLTRB(4.tw, 4.th, 8.tw, 8.th),
       child: Row(
         children: [
           IconButton(
             onPressed: onBack ?? () => Navigator.of(context).maybePop(),
             icon: Icon(
               Icons.arrow_back_ios_new_rounded,
-              size: 18.sp,
+              size: 18.tsp,
               color: ProjectsDashboardTheme.white,
             ),
             padding: EdgeInsets.zero,
-            constraints: BoxConstraints(minWidth: 38.w, minHeight: 38.w),
+            constraints: BoxConstraints(minWidth: 38.tw, minHeight: 38.tw),
           ),
           Expanded(
             child: kind != null
@@ -44,7 +45,7 @@ class ProjectDocumentsDrillHeader extends StatelessWidget {
                     kind: kind!,
                     title: title,
                     iconSize: 28,
-                    fontSize: 15.sp,
+                    fontSize: 15.tsp,
                     fontWeight: FontWeight.w600,
                   )
                 : Text(
@@ -52,7 +53,7 @@ class ProjectDocumentsDrillHeader extends StatelessWidget {
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: GoogleFonts.poppins(
-                      fontSize: 15.sp,
+                      fontSize: 15.tsp,
                       fontWeight: FontWeight.w600,
                       color: ProjectsDashboardTheme.white,
                       height: 1.15,
@@ -68,13 +69,13 @@ class ProjectDocumentsDrillHeader extends StatelessWidget {
               tooltip: 'Path',
               icon: Icon(
                 Icons.route_rounded,
-                size: 22.sp,
+                size: 22.tsp,
                 color: ProjectsDashboardTheme.white.withValues(alpha: 0.92),
               ),
               style: IconButton.styleFrom(
                 backgroundColor: ProjectsDashboardTheme.navy.withValues(alpha: 0.35),
                 shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12.r),
+                  borderRadius: BorderRadius.circular(12.tr),
                   side: BorderSide(
                     color: ProjectsDashboardTheme.white.withValues(alpha: 0.2),
                   ),

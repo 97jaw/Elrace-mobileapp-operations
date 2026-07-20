@@ -1,3 +1,4 @@
+import 'package:el_race/core/utils/responsive_breakpoints.dart';
 import 'package:el_race/core/payslip/providers/payslip_providers.dart';
 import 'package:el_race/core/theme/hr_module_colors.dart';
 import 'package:el_race/core/theme/hr_metallic_decorations.dart';
@@ -33,7 +34,7 @@ class ManagerPayslipHubScreen extends ConsumerWidget {
         title: Text(
           'Payslips (team)',
           style: HrModuleTypography.pageTitle().copyWith(
-                fontSize: 18.sp,
+                fontSize: 18.tsp,
                 fontWeight: FontWeight.w800,
               ),
         ),
@@ -42,18 +43,18 @@ class ManagerPayslipHubScreen extends ConsumerWidget {
         kind: HrServiceScreenKind.payslip,
         child: ListView(
           padding: EdgeInsets.fromLTRB(
-            HrModuleLayout.screenPaddingH.w,
-            16.h,
-            HrModuleLayout.screenPaddingH.w,
-            32.h,
+            HrModuleLayout.screenPaddingH.tw,
+            16.th,
+            HrModuleLayout.screenPaddingH.tw,
+            32.th,
           ),
           children: [
           if (kDebugMode)
             Padding(
-              padding: EdgeInsets.only(bottom: 12.h),
+              padding: EdgeInsets.only(bottom: 12.th),
               child: Text(
                 'Dev: use HR hub role toggle. Pending list is mock data.',
-                style: HrModuleTypography.caption().copyWith(fontSize: 11.sp),
+                style: HrModuleTypography.caption().copyWith(fontSize: 11.tsp),
               ),
             ),
           countAsync.when(
@@ -70,17 +71,17 @@ class ManagerPayslipHubScreen extends ConsumerWidget {
             loading: () => const Center(child: CircularProgressIndicator()),
             error: (e, _) => Text('Error: $e'),
           ),
-          SizedBox(height: 24.h),
+          SizedBox(height: 24.th),
           Text(
             'Latest pending',
-            style: HrModuleTypography.sectionHeading().copyWith(fontSize: 15.sp),
+            style: HrModuleTypography.sectionHeading().copyWith(fontSize: 15.tsp),
           ),
-          SizedBox(height: 6.h),
+          SizedBox(height: 6.th),
           Text(
             'Last five in queue',
-            style: HrModuleTypography.caption().copyWith(fontSize: 12.sp),
+            style: HrModuleTypography.caption().copyWith(fontSize: 12.tsp),
           ),
-          SizedBox(height: 12.h),
+          SizedBox(height: 12.th),
           peekAsync.when(
             data: (list) {
               if (list.isEmpty) {
@@ -96,7 +97,7 @@ class ManagerPayslipHubScreen extends ConsumerWidget {
                       summary: s,
                       compact: true,
                     ),
-                    SizedBox(height: 10.h),
+                    SizedBox(height: 10.th),
                   ],
                 ],
               );
@@ -130,7 +131,7 @@ class _PendingCounterTile extends StatelessWidget {
         borderRadius: BorderRadius.circular(16),
         child: Container(
           width: double.infinity,
-          padding: EdgeInsets.all(18.w),
+          padding: EdgeInsets.all(18.tw),
           decoration: HrMetallicDecorations.kpiTile(
             statusTint: const Color(0xFF64B5F6),
             borderRadius: 16,
@@ -138,18 +139,18 @@ class _PendingCounterTile extends StatelessWidget {
           child: Row(
             children: [
               Container(
-                padding: EdgeInsets.all(12.w),
+                padding: EdgeInsets.all(12.tw),
                 decoration: BoxDecoration(
                   color: const Color(0xFFE8EEF5),
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: Icon(
                   Icons.pending_actions_rounded,
-                  size: 32.sp,
+                  size: 32.tsp,
                   color: HrModuleColors.primary,
                 ),
               ),
-              SizedBox(width: 14.w),
+              SizedBox(width: 14.tw),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -157,12 +158,12 @@ class _PendingCounterTile extends StatelessWidget {
                     Text(
                       'Pending payslips',
                       style: HrModuleTypography.sectionHeading()
-                          .copyWith(fontSize: 16.sp, fontWeight: FontWeight.w700),
+                          .copyWith(fontSize: 16.tsp, fontWeight: FontWeight.w700),
                     ),
-                    SizedBox(height: 4.h),
+                    SizedBox(height: 4.th),
                     Text(
                       'Tap to open full list with pagination',
-                      style: HrModuleTypography.caption().copyWith(fontSize: 12.sp),
+                      style: HrModuleTypography.caption().copyWith(fontSize: 12.tsp),
                     ),
                   ],
                 ),
@@ -170,12 +171,12 @@ class _PendingCounterTile extends StatelessWidget {
               Text(
                 '$count',
                 style: HrModuleTypography.sectionHeading().copyWith(
-                      fontSize: 32.sp,
+                      fontSize: 32.tsp,
                       fontWeight: FontWeight.w800,
                       color: HrModuleColors.primary,
                     ),
               ),
-              SizedBox(width: 4.w),
+              SizedBox(width: 4.tw),
               const Icon(
                 Icons.chevron_right,
                 color: HrModuleColors.mutedText,

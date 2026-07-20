@@ -578,7 +578,16 @@ class ChatRepository {
         }
         return c;
       }).toList();
-    });
+    }).handleError(
+      (Object _) {
+        // On logout the Firebase user is signed out while this listener is
+        // still attached, so Firestore rejects it with `permission-denied`.
+        // Swallow it here (at the source) so it never surfaces as an
+        // unhandled zone error — which previously spammed logs and starved
+        // the event loop during logout.
+      },
+      test: (error) => error.toString().contains('permission-denied'),
+    );
   }
 
   /// Get a specific chat
@@ -648,7 +657,13 @@ class ChatRepository {
         }
         return true;
       }).toList();
-    });
+    }).handleError(
+      (Object _) {
+        // Swallow the `permission-denied` Firestore emits after sign-out while
+        // this listener is still attached (see subscribeToUserChats).
+      },
+      test: (error) => error.toString().contains('permission-denied'),
+    );
   }
 
   /// Load more messages (for pagination)

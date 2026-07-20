@@ -1,3 +1,4 @@
+import 'package:el_race/core/utils/responsive_breakpoints.dart';
 import 'package:el_race/core/purchase/purchase_dev_role_provider.dart';
 import 'package:el_race/ui/presentation/purchase_management/theme/purchase_theme.dart';
 import 'package:el_race/ui/presentation/purchase_management/providers/purchase_providers.dart';
@@ -25,9 +26,9 @@ class PurchaseDevRoleToggleBar extends ConsumerWidget {
     }
 
     return Container(
-      margin: EdgeInsets.fromLTRB(12.w, 4.h, 12.w, 0),
-      padding: EdgeInsets.symmetric(horizontal: 10.w, vertical: 8.h),
-      decoration: PurchaseTheme.glassPanel(radius: 10.r).copyWith(
+      margin: EdgeInsets.fromLTRB(12.tw, 4.th, 12.tw, 0),
+      padding: EdgeInsets.symmetric(horizontal: 10.tw, vertical: 8.th),
+      decoration: PurchaseTheme.glassPanel(radius: 10.tr).copyWith(
         border: Border.all(color: Colors.amber.withValues(alpha: 0.4)),
       ),
       child: Row(
@@ -36,7 +37,7 @@ class PurchaseDevRoleToggleBar extends ConsumerWidget {
             child: Text(
               'Dev: ${override?.label ?? 'Login'} · ${access.scopeLabel.isNotEmpty ? access.scopeLabel : access.scope}',
               style: GoogleFonts.poppins(
-                fontSize: 10.sp,
+                fontSize: 10.tsp,
                 fontWeight: FontWeight.w600,
                 color: PurchaseTheme.textSecondary,
               ),
@@ -47,19 +48,19 @@ class PurchaseDevRoleToggleBar extends ConsumerWidget {
             selected: override == PurchaseDevTestRole.officer,
             onTap: () => select(PurchaseDevTestRole.officer),
           ),
-          SizedBox(width: 4.w),
+          SizedBox(width: 4.tw),
           _chip(
             label: 'Manager',
             selected: override == PurchaseDevTestRole.manager,
             onTap: () => select(PurchaseDevTestRole.manager),
           ),
-          SizedBox(width: 4.w),
+          SizedBox(width: 4.tw),
           _chip(
             label: 'Mgmt',
             selected: override == PurchaseDevTestRole.management,
             onTap: () => select(PurchaseDevTestRole.management),
           ),
-          SizedBox(width: 4.w),
+          SizedBox(width: 4.tw),
           _chip(
             label: 'Reset',
             selected: override == null,
@@ -78,17 +79,17 @@ class PurchaseDevRoleToggleBar extends ConsumerWidget {
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        padding: EdgeInsets.symmetric(horizontal: 8.w, vertical: 4.h),
+        padding: EdgeInsets.symmetric(horizontal: 8.tw, vertical: 4.th),
         decoration: BoxDecoration(
           color: selected
               ? PurchaseTheme.accentBlue
               : Colors.white.withValues(alpha: 0.5),
-          borderRadius: BorderRadius.circular(8.r),
+          borderRadius: BorderRadius.circular(8.tr),
         ),
         child: Text(
           label,
           style: GoogleFonts.poppins(
-            fontSize: 9.sp,
+            fontSize: 9.tsp,
             fontWeight: FontWeight.w600,
             color: selected ? Colors.white : PurchaseTheme.textSecondary,
           ),

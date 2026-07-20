@@ -59,12 +59,7 @@ class _At1CaptureModeScreenState extends ConsumerState<At1CaptureModeScreen> {
     final resolution = ref.watch(tmRoleResolutionProvider);
     if (!resolution.canSubmitTimesheet) {
       return TmScaffold(
-        appBar: AppBar(
-          title: Text('Take Attendance', style: TimesheetModuleTypography.h2()),
-          backgroundColor: TimesheetModuleColors.surface,
-          foregroundColor: TimesheetModuleColors.text,
-          elevation: 0,
-        ),
+        glassTitle: 'Take Attendance',
         body: const TimesheetEmptyState(
           message:
               'Project managers can review timesheet reports only. '
@@ -79,12 +74,7 @@ class _At1CaptureModeScreenState extends ConsumerState<At1CaptureModeScreen> {
     final taskLabel = capture.taskName ?? capture.taskId;
 
     return TmScaffold(
-      appBar: AppBar(
-        title: Text('Take Attendance', style: TimesheetModuleTypography.h2()),
-        backgroundColor: TimesheetModuleColors.surface,
-        foregroundColor: TimesheetModuleColors.text,
-        elevation: 0,
-      ),
+      glassTitle: 'Take Attendance',
       body: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [

@@ -1,3 +1,4 @@
+import 'package:el_race/core/utils/responsive_breakpoints.dart';
 import 'dart:io';
 
 import 'package:el_race/core/services/update_service.dart';
@@ -66,17 +67,17 @@ class UpdateDialog extends StatelessWidget {
     return PopScope(
       canPop: !isForce,
       child: Dialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20.r)),
-        insetPadding: EdgeInsets.symmetric(horizontal: 32.w),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20.tr)),
+        insetPadding: EdgeInsets.symmetric(horizontal: 32.tw),
         child: Padding(
-          padding: EdgeInsets.all(24.r),
+          padding: EdgeInsets.all(24.tr),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
               // ── icon ──
               Container(
-                width: 64.r,
-                height: 64.r,
+                width: 64.tr,
+                height: 64.tr,
                 decoration: BoxDecoration(
                   color: isForce
                       ? const Color(0xFFFFEEEE)
@@ -85,32 +86,32 @@ class UpdateDialog extends StatelessWidget {
                 ),
                 child: Icon(
                   isForce ? Icons.system_update_alt_rounded : Icons.update_rounded,
-                  size: 36.r,
+                  size: 36.tr,
                   color: isForce ? const Color(0xFFBA1719) : appFontColor,
                 ),
               ),
 
-              SizedBox(height: 16.h),
+              SizedBox(height: 16.th),
 
               // ── title ──
               Text(
                 title,
                 textAlign: TextAlign.center,
                 style: GoogleFonts.poppins(
-                  fontSize: 17.sp,
+                  fontSize: 17.tsp,
                   fontWeight: FontWeight.w700,
                   color: appFontColor,
                 ),
               ),
 
-              SizedBox(height: 10.h),
+              SizedBox(height: 10.th),
 
               // ── message ──
               Text(
                 message,
                 textAlign: TextAlign.center,
                 style: GoogleFonts.poppins(
-                  fontSize: 13.sp,
+                  fontSize: 13.tsp,
                   fontWeight: FontWeight.w400,
                   color: const Color(0xFF555555),
                   height: 1.5,
@@ -119,17 +120,17 @@ class UpdateDialog extends StatelessWidget {
 
               // ── version badge ──
               if (result.latestVersion != null) ...[
-                SizedBox(height: 12.h),
+                SizedBox(height: 12.th),
                 Container(
-                  padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 4.h),
+                  padding: EdgeInsets.symmetric(horizontal: 12.tw, vertical: 4.th),
                   decoration: BoxDecoration(
                     color: appFontColor.withOpacity(0.08),
-                    borderRadius: BorderRadius.circular(20.r),
+                    borderRadius: BorderRadius.circular(20.tr),
                   ),
                   child: Text(
                     'v${result.latestVersion}',
                     style: GoogleFonts.poppins(
-                      fontSize: 12.sp,
+                      fontSize: 12.tsp,
                       fontWeight: FontWeight.w600,
                       color: appFontColor,
                     ),
@@ -137,7 +138,7 @@ class UpdateDialog extends StatelessWidget {
                 ),
               ],
 
-              SizedBox(height: 24.h),
+              SizedBox(height: 24.th),
 
               // ── buttons ──
               Column(
@@ -149,16 +150,16 @@ class UpdateDialog extends StatelessWidget {
                     style: ElevatedButton.styleFrom(
                       backgroundColor: appFontColor,
                       foregroundColor: Colors.white,
-                      padding: EdgeInsets.symmetric(vertical: 13.h),
+                      padding: EdgeInsets.symmetric(vertical: 13.th),
                       shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12.r),
+                        borderRadius: BorderRadius.circular(12.tr),
                       ),
                       elevation: 0,
                     ),
                     child: Text(
                       updateBtnLabel,
                       style: GoogleFonts.poppins(
-                        fontSize: 14.sp,
+                        fontSize: 14.tsp,
                         fontWeight: FontWeight.w600,
                       ),
                     ),
@@ -166,17 +167,17 @@ class UpdateDialog extends StatelessWidget {
 
                   // Optional: "Later" button
                   if (!isForce) ...[
-                    SizedBox(height: 10.h),
+                    SizedBox(height: 10.th),
                     TextButton(
                       onPressed: () => Navigator.of(context).pop(false),
                       style: TextButton.styleFrom(
-                        padding: EdgeInsets.symmetric(vertical: 10.h),
+                        padding: EdgeInsets.symmetric(vertical: 10.th),
                         foregroundColor: const Color(0xFF888888),
                       ),
                       child: Text(
                         laterBtnLabel,
                         style: GoogleFonts.poppins(
-                          fontSize: 13.sp,
+                          fontSize: 13.tsp,
                           fontWeight: FontWeight.w500,
                         ),
                       ),

@@ -1,3 +1,4 @@
+import 'package:el_race/core/utils/responsive_breakpoints.dart';
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
@@ -957,9 +958,9 @@ class _MyDocumentsScreenState extends State<MyDocumentsScreen> {
 
   Widget _buildDocumentsSummaryCard() {
     return Padding(
-      padding: EdgeInsets.symmetric(horizontal: 16.w),
+      padding: EdgeInsets.symmetric(horizontal: 16.tw),
       child: Container(
-        decoration: ProductivityTheme.glassCard(radius: 14.r),
+        decoration: ProductivityTheme.glassCard(radius: 14.tr),
         child: Column(
           children: [
             Row(
@@ -979,7 +980,7 @@ class _MyDocumentsScreenState extends State<MyDocumentsScreen> {
                   ),
                 ),
                 Container(
-                    width: 1, height: 64.h, color: const Color(0xFFD1D1D1)),
+                    width: 1, height: 64.th, color: const Color(0xFFD1D1D1)),
                 Expanded(
                   child: _buildSummaryCell(
                     label: 'Expiring Soon',
@@ -1015,7 +1016,7 @@ class _MyDocumentsScreenState extends State<MyDocumentsScreen> {
                   ),
                 ),
                 Container(
-                    width: 1, height: 64.h, color: const Color(0xFFD1D1D1)),
+                    width: 1, height: 64.th, color: const Color(0xFFD1D1D1)),
                 Expanded(
                   child: _buildSummaryCell(
                     label: 'Expired',
@@ -1051,7 +1052,7 @@ class _MyDocumentsScreenState extends State<MyDocumentsScreen> {
       child: InkWell(
         onTap: onTap,
         child: Padding(
-          padding: EdgeInsets.fromLTRB(10.w, 8.h, 10.w, 7.h),
+          padding: EdgeInsets.fromLTRB(10.tw, 8.th, 10.tw, 7.th),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -1059,20 +1060,20 @@ class _MyDocumentsScreenState extends State<MyDocumentsScreen> {
                 children: [
                   if (dotColor != null) ...[
                     Container(
-                      width: 7.w,
-                      height: 7.w,
+                      width: 7.tw,
+                      height: 7.tw,
                       decoration: BoxDecoration(
                         color: dotColor,
                         shape: BoxShape.circle,
                       ),
                     ),
-                    SizedBox(width: 4.w),
+                    SizedBox(width: 4.tw),
                   ],
                   Expanded(
                     child: Text(
                       label,
                       style: GoogleFonts.poppins(
-                        fontSize: 11.sp,
+                        fontSize: 11.tsp,
                         fontWeight: FontWeight.w500,
                         color: const Color(0xFF262626),
                       ),
@@ -1080,11 +1081,11 @@ class _MyDocumentsScreenState extends State<MyDocumentsScreen> {
                   ),
                 ],
               ),
-              SizedBox(height: 4.h),
+              SizedBox(height: 4.th),
               Text(
                 value,
                 style: GoogleFonts.poppins(
-                  fontSize: 20.sp,
+                  fontSize: 20.tsp,
                   height: 1,
                   fontWeight: FontWeight.w700,
                   color: const Color(0xFF111111),
@@ -1145,14 +1146,14 @@ class _MyDocumentsScreenState extends State<MyDocumentsScreen> {
     }
 
     return ListView(
-      padding: EdgeInsets.only(left: 12.w, right: 12.w, top: 14.h, bottom: 8.h),
+      padding: EdgeInsets.only(left: 12.tw, right: 12.tw, top: 14.th, bottom: 8.th),
       children: [
         Container(
-          height: 96.h,
-          padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 10.h),
+          height: 96.th,
+          padding: EdgeInsets.symmetric(horizontal: 16.tw, vertical: 10.th),
           decoration: BoxDecoration(
             color: meta['background'] as Color,
-            borderRadius: BorderRadius.circular(16.r),
+            borderRadius: BorderRadius.circular(16.tr),
             boxShadow: [
               BoxShadow(
                 color: Colors.black.withOpacity(0.12),
@@ -1168,14 +1169,14 @@ class _MyDocumentsScreenState extends State<MyDocumentsScreen> {
                 children: [
                   Icon(
                     meta['icon'] as IconData,
-                    size: 32.sp,
+                    size: 32.tsp,
                     color: meta['iconColor'] as Color,
                   ),
-                  SizedBox(width: 10.w),
+                  SizedBox(width: 10.tw),
                   Text(
                     meta['label'] as String,
                     style: GoogleFonts.poppins(
-                      fontSize: 15.sp,
+                      fontSize: 15.tsp,
                       fontWeight: FontWeight.w700,
                       color: meta['labelColor'] as Color,
                     ),
@@ -1185,7 +1186,7 @@ class _MyDocumentsScreenState extends State<MyDocumentsScreen> {
               Text(
                 (meta['value'] ?? '-').toString(),
                 style: GoogleFonts.poppins(
-                  fontSize: 44.sp,
+                  fontSize: 44.tsp,
                   fontWeight: FontWeight.w700,
                   color: meta['valueColor'] as Color,
                   height: 1,
@@ -1194,7 +1195,7 @@ class _MyDocumentsScreenState extends State<MyDocumentsScreen> {
             ],
           ),
         ),
-        SizedBox(height: 16.h),
+        SizedBox(height: 16.th),
         GridView.builder(
           shrinkWrap: true,
           physics: const NeverScrollableScrollPhysics(),
@@ -1202,9 +1203,9 @@ class _MyDocumentsScreenState extends State<MyDocumentsScreen> {
           itemCount: _filteredDocs().length,
           gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
             crossAxisCount: 2,
-            crossAxisSpacing: 12.w,
-            mainAxisSpacing: 12.h,
-            mainAxisExtent: 188.h,
+            crossAxisSpacing: 12.tw,
+            mainAxisSpacing: 12.th,
+            mainAxisExtent: 188.th,
           ),
           itemBuilder: (context, index) {
             final item = _filteredDocs()[index];
@@ -1236,7 +1237,7 @@ class _MyDocumentsScreenState extends State<MyDocumentsScreen> {
               },
               child: Container(
                 decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(24.r),
+                  borderRadius: BorderRadius.circular(24.tr),
                   border: Border.all(
                     color: isRedBorderCard
                         ? const Color(0xFFBA1719)
@@ -1246,42 +1247,42 @@ class _MyDocumentsScreenState extends State<MyDocumentsScreen> {
                   color: Colors.white,
                 ),
                 child: Padding(
-                  padding: EdgeInsets.all(10.w),
+                  padding: EdgeInsets.all(10.tw),
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.start,
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       SizedBox(
-                        height: 90.h,
+                        height: 90.th,
                         child: Image.asset(
                           iconPath,
                           fit: BoxFit.contain,
                           width: double.infinity,
                           errorBuilder: (_, __, ___) => Icon(
                             Icons.insert_drive_file_outlined,
-                            size: 44.sp,
+                            size: 44.tsp,
                             color: const Color(0xff949494),
                           ),
                         ),
                       ),
-                      SizedBox(height: 8.h),
+                      SizedBox(height: 8.th),
                       Text(
                         displayName,
                         textAlign: TextAlign.center,
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
                         style: GoogleFonts.poppins(
-                          fontSize: 13.sp,
+                          fontSize: 13.tsp,
                           fontWeight: FontWeight.w700,
                           color: Colors.black,
                         ),
                       ),
-                      SizedBox(height: 4.h),
+                      SizedBox(height: 4.th),
                       Text(
                         date,
                         textAlign: TextAlign.center,
                         style: GoogleFonts.poppins(
-                          fontSize: 10.sp,
+                          fontSize: 10.tsp,
                           fontWeight: FontWeight.w600,
                           color: isRedBorderCard
                               ? const Color(0xFFBA1719)
@@ -1289,45 +1290,45 @@ class _MyDocumentsScreenState extends State<MyDocumentsScreen> {
                         ),
                       ),
                       if (isRedBorderCard) ...[
-                        SizedBox(height: 8.h),
+                        SizedBox(height: 8.th),
                         GestureDetector(
                           onTap: () {
                             unawaited(_showChangeDocumentDialog(
                                 item, DocumentDialogType.my));
                           },
                           child: Container(
-                            constraints: BoxConstraints(minHeight: 24.h),
+                            constraints: BoxConstraints(minHeight: 24.th),
                             padding: EdgeInsets.symmetric(
-                                horizontal: 10.w, vertical: 4.h),
+                                horizontal: 10.tw, vertical: 4.th),
                             decoration: BoxDecoration(
                               gradient: const LinearGradient(
                                 begin: Alignment.topCenter,
                                 end: Alignment.bottomCenter,
                                 colors: [Color(0xFF1B1F26), Color(0xFF717171)],
                               ),
-                              borderRadius: BorderRadius.circular(12.r),
+                              borderRadius: BorderRadius.circular(12.tr),
                             ),
                             child: Row(
                               mainAxisSize: MainAxisSize.min,
                               children: [
                                 SizedBox(
-                                  width: 12.w,
-                                  height: 12.w,
+                                  width: 12.tw,
+                                  height: 12.tw,
                                   child: Image.asset(
                                     'assets/newapp/newicon/change_document_icon.png',
                                     fit: BoxFit.contain,
                                     errorBuilder: (_, __, ___) => Icon(
                                       Icons.swap_horiz_rounded,
                                       color: Colors.white,
-                                      size: 12.sp,
+                                      size: 12.tsp,
                                     ),
                                   ),
                                 ),
-                                SizedBox(width: 4.w),
+                                SizedBox(width: 4.tw),
                                 Text(
-                                  'Change',
+                                  'Update',
                                   style: GoogleFonts.poppins(
-                                    fontSize: 10.sp,
+                                    fontSize: 10.tsp,
                                     fontWeight: FontWeight.w600,
                                     color: Colors.white,
                                     height: 1,
@@ -1375,10 +1376,64 @@ class _MyDocumentsScreenState extends State<MyDocumentsScreen> {
     Map<String, dynamic> item,
     DocumentDialogType type,
   ) async {
-    await _showDocumentDialogByType(
-      type,
-      fixedDocumentType: _documentNameForChange(item),
+    if (!mounted) return;
+    final action = await showModalBottomSheet<String>(
+      context: context,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (ctx) {
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 20),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  width: 40,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: Colors.black26,
+                    borderRadius: BorderRadius.circular(999),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                Text(
+                  _documentNameForChange(item),
+                  style: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                ListTile(
+                  leading: const Icon(Icons.visibility_outlined),
+                  title: const Text('Preview'),
+                  onTap: () => Navigator.pop(ctx, 'preview'),
+                ),
+                ListTile(
+                  leading: const Icon(Icons.upload_file_outlined),
+                  title: const Text('Update'),
+                  onTap: () => Navigator.pop(ctx, 'update'),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
     );
+    if (!mounted || action == null) return;
+    if (action == 'preview') {
+      await _openDocumentAttachment(item);
+      return;
+    }
+    if (action == 'update') {
+      await _showDocumentDialogByType(
+        type,
+        fixedDocumentType: _documentNameForChange(item),
+      );
+    }
   }
 
   String _requestedIdNumber(Map<String, dynamic> item) {
@@ -1432,14 +1487,14 @@ class _MyDocumentsScreenState extends State<MyDocumentsScreen> {
     final docs = _filteredDocs();
 
     return ListView(
-      padding: EdgeInsets.only(left: 12.w, right: 12.w, top: 14.h, bottom: 8.h),
+      padding: EdgeInsets.only(left: 12.tw, right: 12.tw, top: 14.th, bottom: 8.th),
       children: [
         Container(
-          height: 96.h,
-          padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 10.h),
+          height: 96.th,
+          padding: EdgeInsets.symmetric(horizontal: 16.tw, vertical: 10.th),
           decoration: BoxDecoration(
             color: meta['background'] as Color,
-            borderRadius: BorderRadius.circular(16.r),
+            borderRadius: BorderRadius.circular(16.tr),
             boxShadow: [
               BoxShadow(
                 color: Colors.black.withOpacity(0.12),
@@ -1455,14 +1510,14 @@ class _MyDocumentsScreenState extends State<MyDocumentsScreen> {
                 children: [
                   Icon(
                     meta['icon'] as IconData,
-                    size: 30.sp,
+                    size: 30.tsp,
                     color: meta['iconColor'] as Color,
                   ),
-                  SizedBox(width: 10.w),
+                  SizedBox(width: 10.tw),
                   Text(
                     meta['label'] as String,
                     style: GoogleFonts.poppins(
-                      fontSize: 15.sp,
+                      fontSize: 15.tsp,
                       fontWeight: FontWeight.w700,
                       color: meta['labelColor'] as Color,
                     ),
@@ -1472,7 +1527,7 @@ class _MyDocumentsScreenState extends State<MyDocumentsScreen> {
               Text(
                 (meta['value'] ?? '-').toString(),
                 style: GoogleFonts.poppins(
-                  fontSize: 44.sp,
+                  fontSize: 44.tsp,
                   fontWeight: FontWeight.w700,
                   color: meta['valueColor'] as Color,
                   height: 1,
@@ -1481,28 +1536,28 @@ class _MyDocumentsScreenState extends State<MyDocumentsScreen> {
             ],
           ),
         ),
-        SizedBox(height: 12.h),
+        SizedBox(height: 12.th),
         GestureDetector(
           onTap: () {
             unawaited(_showDocumentDialogByType(DocumentDialogType.my));
           },
           child: Container(
-            height: 58.h,
+            height: 58.th,
             decoration: BoxDecoration(
               color: const Color(0xFFE8E8E8),
-              borderRadius: BorderRadius.circular(14.r),
+              borderRadius: BorderRadius.circular(14.tr),
               border: Border.all(color: const Color(0xFFADADAD), width: 1),
             ),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 Icon(Icons.badge_outlined,
-                    size: 22.sp, color: const Color(0xFF757575)),
-                SizedBox(width: 8.w),
+                    size: 22.tsp, color: const Color(0xFF757575)),
+                SizedBox(width: 8.tw),
                 Text(
                   'Add New Documents',
                   style: GoogleFonts.poppins(
-                    fontSize: 14.sp,
+                    fontSize: 14.tsp,
                     fontWeight: FontWeight.w600,
                     color: const Color(0xFF7A7A7A),
                   ),
@@ -1511,10 +1566,10 @@ class _MyDocumentsScreenState extends State<MyDocumentsScreen> {
             ),
           ),
         ),
-        SizedBox(height: 12.h),
+        SizedBox(height: 12.th),
         if (docs.isEmpty)
           Padding(
-            padding: EdgeInsets.only(top: 8.h),
+            padding: EdgeInsets.only(top: 8.th),
             child: _buildEmptyState(
               icon: Icons.folder_off_rounded,
               title: 'No Requested Documents',
@@ -1537,7 +1592,7 @@ class _MyDocumentsScreenState extends State<MyDocumentsScreen> {
             final fileName = _requestedFileName(item);
 
             return Padding(
-              padding: EdgeInsets.only(bottom: 10.h),
+              padding: EdgeInsets.only(bottom: 10.th),
               child: GestureDetector(
                 onTap: () {
                   if (kDebugMode) {
@@ -1550,10 +1605,10 @@ class _MyDocumentsScreenState extends State<MyDocumentsScreen> {
                 },
                 child: Container(
                   padding:
-                      EdgeInsets.symmetric(horizontal: 10.w, vertical: 10.h),
+                      EdgeInsets.symmetric(horizontal: 10.tw, vertical: 10.th),
                   decoration: BoxDecoration(
                     color: const Color(0xFFDADADA),
-                    borderRadius: BorderRadius.circular(14.r),
+                    borderRadius: BorderRadius.circular(14.tr),
                   ),
                   child: Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -1567,35 +1622,35 @@ class _MyDocumentsScreenState extends State<MyDocumentsScreen> {
                               maxLines: 2,
                               overflow: TextOverflow.ellipsis,
                               style: GoogleFonts.poppins(
-                                fontSize: 12.sp,
+                                fontSize: 12.tsp,
                                 fontWeight: FontWeight.w700,
                                 color: Colors.black,
                               ),
                             ),
-                            SizedBox(height: 4.h),
+                            SizedBox(height: 4.th),
                             Text(
                               'ID number | $idNo',
                               style: GoogleFonts.poppins(
-                                fontSize: 11.sp,
+                                fontSize: 11.tsp,
                                 fontWeight: FontWeight.w500,
                                 color: Colors.black,
                               ),
                             ),
-                            SizedBox(height: 3.h),
+                            SizedBox(height: 3.th),
                             Text(
                               'Expiry date | $expiryDate',
                               style: GoogleFonts.poppins(
-                                fontSize: 11.sp,
+                                fontSize: 11.tsp,
                                 fontWeight: FontWeight.w600,
                                 color: const Color(0xFFBA1719),
                               ),
                             ),
                             if (source.isNotEmpty) ...[
-                              SizedBox(height: 3.h),
+                              SizedBox(height: 3.th),
                               RichText(
                                 text: TextSpan(
                                   style: GoogleFonts.poppins(
-                                    fontSize: 11.sp,
+                                    fontSize: 11.tsp,
                                     fontWeight: FontWeight.w500,
                                     color: Colors.black,
                                   ),
@@ -1604,7 +1659,7 @@ class _MyDocumentsScreenState extends State<MyDocumentsScreen> {
                                     TextSpan(
                                       text: source,
                                       style: GoogleFonts.poppins(
-                                        fontSize: 11.sp,
+                                        fontSize: 11.tsp,
                                         fontWeight: FontWeight.w600,
                                         color: const Color(0xFFF0B321),
                                       ),
@@ -1616,36 +1671,36 @@ class _MyDocumentsScreenState extends State<MyDocumentsScreen> {
                           ],
                         ),
                       ),
-                      SizedBox(width: 10.w),
+                      SizedBox(width: 10.tw),
                       Container(
-                        width: 128.w,
+                        width: 128.tw,
                         padding: EdgeInsets.symmetric(
-                            horizontal: 8.w, vertical: 8.h),
+                            horizontal: 8.tw, vertical: 8.th),
                         decoration: BoxDecoration(
                           color: const Color(0xFFEDEDED),
-                          borderRadius: BorderRadius.circular(10.r),
+                          borderRadius: BorderRadius.circular(10.tr),
                         ),
                         child: Column(
                           children: [
                             Image.asset(
                               iconPath,
-                              width: 34.w,
-                              height: 34.w,
+                              width: 34.tw,
+                              height: 34.tw,
                               fit: BoxFit.contain,
                               errorBuilder: (_, __, ___) => Icon(
                                 Icons.insert_drive_file_outlined,
-                                size: 30.sp,
+                                size: 30.tsp,
                                 color: const Color(0xFF1AAE78),
                               ),
                             ),
-                            SizedBox(height: 4.h),
+                            SizedBox(height: 4.th),
                             Text(
                               fileName,
                               maxLines: 2,
                               overflow: TextOverflow.ellipsis,
                               textAlign: TextAlign.center,
                               style: GoogleFonts.poppins(
-                                fontSize: 10.5.sp,
+                                fontSize: 10.5.tsp,
                                 fontWeight: FontWeight.w500,
                                 color: const Color(0xFF2E2E2E),
                               ),
@@ -1681,7 +1736,7 @@ class _MyDocumentsScreenState extends State<MyDocumentsScreen> {
           fit: BoxFit.none,
         ),
         color: Colors.transparent,
-        borderRadius: BorderRadius.circular(29.w),
+        borderRadius: BorderRadius.circular(29.tw),
         boxShadow: [
           BoxShadow(
             color: Colors.grey.withAlpha((0.2 * 255).toInt()),
@@ -1712,30 +1767,30 @@ class _MyDocumentsScreenState extends State<MyDocumentsScreen> {
     required String subtitle,
   }) {
     return Padding(
-      padding: EdgeInsets.symmetric(horizontal: 18.w, vertical: 10.h),
+      padding: EdgeInsets.symmetric(horizontal: 18.tw, vertical: 10.th),
       child: Column(
         children: [
           Icon(
             icon,
-            size: 42.sp,
+            size: 42.tsp,
             color: const Color(0xFF3B4352),
           ),
-          SizedBox(height: 6.h),
+          SizedBox(height: 6.th),
           Text(
             title,
             textAlign: TextAlign.center,
             style: GoogleFonts.poppins(
-              fontSize: 15.sp,
+              fontSize: 15.tsp,
               fontWeight: FontWeight.w700,
               color: const Color(0xFF3B4352),
             ),
           ),
-          SizedBox(height: 6.h),
+          SizedBox(height: 6.th),
           Text(
             subtitle,
             textAlign: TextAlign.center,
             style: GoogleFonts.poppins(
-              fontSize: 12.sp,
+              fontSize: 12.tsp,
               fontWeight: FontWeight.w500,
               color: const Color(0xFF7B8290),
               height: 1.35,
@@ -1931,7 +1986,7 @@ class _MyDocumentsScreenState extends State<MyDocumentsScreen> {
                 }
               },
             ),
-            SizedBox(height: 10.h),
+            SizedBox(height: 10.th),
             // ── Tab Content ──
             Expanded(
               child: currentIndex == 0
@@ -2029,26 +2084,26 @@ class _MyDocumentsScreenState extends State<MyDocumentsScreen> {
           child: Column(
             children: [
               _buildDocumentsSummaryCard(),
-              SizedBox(height: 10.h),
+              SizedBox(height: 10.th),
               Padding(
-                padding: EdgeInsets.symmetric(horizontal: 16.w),
+                padding: EdgeInsets.symmetric(horizontal: 16.tw),
                 child: GestureDetector(
                   onTap: () {
                     unawaited(_showDocumentDialogByType(DocumentDialogType.my));
                   },
                   child: Container(
-                    height: 58.h,
-                    decoration: ProductivityTheme.glassCard(radius: 14.r),
+                    height: 58.th,
+                    decoration: ProductivityTheme.glassCard(radius: 14.tr),
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
                         Icon(Icons.badge_outlined,
-                            size: 22.sp, color: ProductivityTheme.accentBlue),
-                        SizedBox(width: 8.w),
+                            size: 22.tsp, color: ProductivityTheme.accentBlue),
+                        SizedBox(width: 8.tw),
                         Text(
                           'Add New Documents',
                           style: GoogleFonts.poppins(
-                            fontSize: 14.sp,
+                            fontSize: 14.tsp,
                             fontWeight: FontWeight.w600,
                             color: ProductivityTheme.textPrimary,
                           ),
@@ -2058,7 +2113,7 @@ class _MyDocumentsScreenState extends State<MyDocumentsScreen> {
                   ),
                 ),
               ),
-              SizedBox(height: 10.h),
+              SizedBox(height: 10.th),
               if (_loading)
                 const Padding(
                   padding: EdgeInsets.all(40),
@@ -2120,8 +2175,8 @@ class _MyDocumentsScreenState extends State<MyDocumentsScreen> {
                               ),
                               child: Padding(
                                 padding: EdgeInsets.symmetric(
-                                  vertical: 10.h,
-                                  horizontal: 10.w,
+                                  vertical: 10.th,
+                                  horizontal: 10.tw,
                                 ),
                                 child: Column(
                                   mainAxisAlignment: MainAxisAlignment.start,
@@ -2129,7 +2184,7 @@ class _MyDocumentsScreenState extends State<MyDocumentsScreen> {
                                   mainAxisSize: MainAxisSize.min,
                                   children: [
                                     SizedBox(
-                                      height: 90.h,
+                                      height: 90.th,
                                       width: double.infinity,
                                       child: Column(
                                         mainAxisAlignment:
@@ -2147,7 +2202,7 @@ class _MyDocumentsScreenState extends State<MyDocumentsScreen> {
                                         ],
                                       ),
                                     ),
-                                    SizedBox(height: 10.h),
+                                    SizedBox(height: 10.th),
                                     Builder(builder: (context) {
                                       final rawName = (item['name'] ?? '')
                                           .toString()
@@ -2184,27 +2239,27 @@ class _MyDocumentsScreenState extends State<MyDocumentsScreen> {
                                             maxLines: null,
                                             overflow: TextOverflow.visible,
                                             style: GoogleFonts.poppins(
-                                              fontSize: 14.sp,
+                                              fontSize: 14.tsp,
                                               fontWeight: FontWeight.w700,
                                               letterSpacing: .10,
                                               color: Colors.black,
                                             ),
                                           ),
-                                          SizedBox(height: 4.h),
+                                          SizedBox(height: 4.th),
                                           Text(
                                             date,
                                             textAlign: TextAlign.center,
                                             maxLines: null,
                                             overflow: TextOverflow.visible,
                                             style: GoogleFonts.poppins(
-                                              fontSize: 10.sp,
+                                              fontSize: 10.tsp,
                                               fontWeight: FontWeight.w600,
                                               letterSpacing: .10,
                                               color: dateColor,
                                             ),
                                           ),
                                           if (isExpired) ...[
-                                            SizedBox(height: 4.h),
+                                            SizedBox(height: 4.th),
                                             GestureDetector(
                                               onTap: () {
                                                 unawaited(
@@ -2214,11 +2269,11 @@ class _MyDocumentsScreenState extends State<MyDocumentsScreen> {
                                               },
                                               child: Container(
                                                 constraints: BoxConstraints(
-                                                  minHeight: 24.h,
+                                                  minHeight: 24.th,
                                                 ),
                                                 padding: EdgeInsets.symmetric(
-                                                  horizontal: 10.w,
-                                                  vertical: 4.h,
+                                                  horizontal: 10.tw,
+                                                  vertical: 4.th,
                                                 ),
                                                 decoration: BoxDecoration(
                                                   gradient:
@@ -2232,15 +2287,15 @@ class _MyDocumentsScreenState extends State<MyDocumentsScreen> {
                                                   ),
                                                   borderRadius:
                                                       BorderRadius.circular(
-                                                          12.r),
+                                                          12.tr),
                                                 ),
                                                 child: Row(
                                                   mainAxisSize:
                                                       MainAxisSize.min,
                                                   children: [
                                                     SizedBox(
-                                                      width: 12.w,
-                                                      height: 12.w,
+                                                      width: 12.tw,
+                                                      height: 12.tw,
                                                       child: Image.asset(
                                                         'assets/newapp/newicon/change_document_icon.png',
                                                         fit: BoxFit.contain,
@@ -2250,16 +2305,16 @@ class _MyDocumentsScreenState extends State<MyDocumentsScreen> {
                                                           Icons
                                                               .swap_horiz_rounded,
                                                           color: Colors.white,
-                                                          size: 12.sp,
+                                                          size: 12.tsp,
                                                         ),
                                                       ),
                                                     ),
-                                                    SizedBox(width: 4.w),
+                                                    SizedBox(width: 4.tw),
                                                     Text(
-                                                      'Change',
+                                                      'Update',
                                                       style:
                                                           GoogleFonts.poppins(
-                                                        fontSize: 10.sp,
+                                                        fontSize: 10.tsp,
                                                         fontWeight:
                                                             FontWeight.w600,
                                                         color: Colors.white,
@@ -2284,13 +2339,13 @@ class _MyDocumentsScreenState extends State<MyDocumentsScreen> {
                     },
                     gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
                       crossAxisCount: 2,
-                      crossAxisSpacing: 12.w,
-                      mainAxisSpacing: 12.h,
-                      mainAxisExtent: 188.h,
+                      crossAxisSpacing: 12.tw,
+                      mainAxisSpacing: 12.th,
+                      mainAxisExtent: 188.th,
                     ),
                   ),
                 ),
-              SizedBox(height: 20.h),
+              SizedBox(height: 20.th),
             ],
           ),
         ),
@@ -2796,7 +2851,7 @@ class _DocumentDialogState extends State<DocumentDialog> {
   String get _fixedDocumentType => (widget.fixedDocumentType ?? '').trim();
 
   String get _dialogTitle {
-    if (_hasFixedDocumentType) return 'Change Documents';
+    if (_hasFixedDocumentType) return 'Update Documents';
 
     switch (widget.type) {
       case DocumentDialogType.family:
@@ -3788,9 +3843,9 @@ class _DocumentDialogState extends State<DocumentDialog> {
       child: ConstrainedBox(
         constraints: const BoxConstraints(maxWidth: 320),
         child: Container(
-          padding: EdgeInsets.symmetric(horizontal: 18.w, vertical: 18.h),
+          padding: EdgeInsets.symmetric(horizontal: 18.tw, vertical: 18.th),
           decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(22.r),
+            borderRadius: BorderRadius.circular(22.tr),
             gradient: LinearGradient(
               begin: Alignment.topCenter,
               end: Alignment.bottomCenter,
@@ -3811,7 +3866,7 @@ class _DocumentDialogState extends State<DocumentDialog> {
             mainAxisSize: MainAxisSize.min,
             children: [
               SizedBox(
-                height: 30.h,
+                height: 30.th,
                 child: Stack(
                   clipBehavior: Clip.none,
                   alignment: Alignment.center,
@@ -3822,20 +3877,20 @@ class _DocumentDialogState extends State<DocumentDialog> {
                         style: GoogleFonts.poppins(
                           color: Colors.white,
                           fontWeight: FontWeight.w700,
-                          fontSize: 16.sp,
+                          fontSize: 16.tsp,
                           letterSpacing: 0.6,
                         ),
                       ),
                     ),
                     Positioned(
-                      right: -6.w,
-                      top: -4.h,
+                      right: -6.tw,
+                      top: -4.th,
                       child: InkWell(
                         onTap: () => Navigator.of(context).pop(false),
-                        borderRadius: BorderRadius.circular(18.r),
+                        borderRadius: BorderRadius.circular(18.tr),
                         child: Container(
-                          width: 30.w,
-                          height: 30.w,
+                          width: 30.tw,
+                          height: 30.tw,
                           decoration: const BoxDecoration(
                             color: Colors.white,
                             shape: BoxShape.circle,
@@ -3843,7 +3898,7 @@ class _DocumentDialogState extends State<DocumentDialog> {
                           child: Icon(
                             Icons.close_rounded,
                             color: const Color(0xFF1B1F26),
-                            size: 22.sp,
+                            size: 22.tsp,
                           ),
                         ),
                       ),
@@ -3851,7 +3906,7 @@ class _DocumentDialogState extends State<DocumentDialog> {
                   ],
                 ),
               ),
-              SizedBox(height: _hasFixedDocumentType ? 6.h : (_showIdAndExpiry ? 14.h : 28.h)),
+              SizedBox(height: _hasFixedDocumentType ? 6.th : (_showIdAndExpiry ? 14.th : 28.th)),
 
               // Document type dropdown (hidden when a fixed type is pre-selected).
               if (!_hasFixedDocumentType)
@@ -3867,7 +3922,7 @@ class _DocumentDialogState extends State<DocumentDialog> {
                                   : 'document type',
                               style: GoogleFonts.poppins(
                                 color: Colors.grey,
-                                fontSize: 12.sp,
+                                fontSize: 12.tsp,
                                 fontWeight: FontWeight.w400,
                                 letterSpacing: 1.0,
                               ),
@@ -3883,7 +3938,7 @@ class _DocumentDialogState extends State<DocumentDialog> {
                                       overflow: TextOverflow.visible,
                                       style: GoogleFonts.poppins(
                                         color: Colors.black87,
-                                        fontSize: 12.sp,
+                                        fontSize: 12.tsp,
                                         fontWeight: FontWeight.w400,
                                       ),
                                     ),
@@ -3896,8 +3951,8 @@ class _DocumentDialogState extends State<DocumentDialog> {
                               : (v) => setState(() => _selectedType = v),
                           // Keep the pill container as the button background.
                           buttonStyleData: ButtonStyleData(
-                            height: 30.h,
-                            padding: EdgeInsets.symmetric(horizontal: 4.w),
+                            height: 30.th,
+                            padding: EdgeInsets.symmetric(horizontal: 4.tw),
                             decoration:
                                 const BoxDecoration(color: Colors.transparent),
                           ),
@@ -3907,9 +3962,9 @@ class _DocumentDialogState extends State<DocumentDialog> {
                             iconEnabledColor: Colors.grey,
                           ),
                           dropdownStyleData: DropdownStyleData(
-                            maxHeight: 260.h,
+                            maxHeight: 260.th,
                             decoration: BoxDecoration(
-                              borderRadius: BorderRadius.circular(16.r),
+                              borderRadius: BorderRadius.circular(16.tr),
                               color: Colors.white,
                             ),
                             offset: const Offset(0, -4),
@@ -3920,22 +3975,22 @@ class _DocumentDialogState extends State<DocumentDialog> {
                             ),
                           ),
                           menuItemStyleData: MenuItemStyleData(
-                            height: 44.h,
-                            padding: EdgeInsets.symmetric(horizontal: 12.w),
+                            height: 44.th,
+                            padding: EdgeInsets.symmetric(horizontal: 12.tw),
                           ),
                         ),
                       ),
                     ),
-              SizedBox(height: _hasFixedDocumentType ? 0 : (_showIdAndExpiry ? 14.h : 40.h)),
+              SizedBox(height: _hasFixedDocumentType ? 0 : (_showIdAndExpiry ? 14.th : 40.th)),
 
               if (_showIdAndExpiry) ...[
-                SizedBox(height: 10.h),
+                SizedBox(height: 10.th),
                 _buildPillField(
                   child: TextField(
                     controller: _idController,
                     textAlign: TextAlign.center,
                     style: GoogleFonts.poppins(
-                      fontSize: 12.sp,
+                      fontSize: 12.tsp,
                       color: Colors.black87,
                     ),
                     onTapOutside: (_) => FocusScope.of(context).unfocus(),
@@ -3943,7 +3998,7 @@ class _DocumentDialogState extends State<DocumentDialog> {
                       hintText: 'ID Number',
                       hintStyle: GoogleFonts.poppins(
                         color: Colors.grey,
-                        fontSize: 12.sp,
+                        fontSize: 12.tsp,
                         fontWeight: FontWeight.w400,
                         letterSpacing: 1.0,
                       ),
@@ -3954,7 +4009,7 @@ class _DocumentDialogState extends State<DocumentDialog> {
                     ),
                   ),
                 ),
-                SizedBox(height: 10.h),
+                SizedBox(height: 10.th),
                 GestureDetector(
                   onTap: _pickDate,
                   child: _buildPillField(
@@ -3965,7 +4020,7 @@ class _DocumentDialogState extends State<DocumentDialog> {
                             child: Text(
                               expiryText,
                               style: GoogleFonts.poppins(
-                                fontSize: 12.sp,
+                                fontSize: 12.tsp,
                                 color: _expiryDate == null
                                     ? Colors.grey
                                     : Colors.black87,
@@ -3987,7 +4042,7 @@ class _DocumentDialogState extends State<DocumentDialog> {
                 ),
               ],
 
-              SizedBox(height: 14.h),
+              SizedBox(height: 14.th),
 
               InkWell(
                 onTap: _pickFile,
@@ -4012,23 +4067,23 @@ class _DocumentDialogState extends State<DocumentDialog> {
                           style: GoogleFonts.poppins(
                             color: Colors.white,
                             fontWeight: FontWeight.w700,
-                            fontSize: 14.sp,
+                            fontSize: 14.tsp,
                             letterSpacing: 1.2,
                           ),
                         ),
                       ],
                     ),
-                    SizedBox(height: 6.h),
+                    SizedBox(height: 6.th),
                     Container(
                       height: 1.2,
-                      width: 120.w,
+                      width: 120.tw,
                       color: Colors.white.withOpacity(0.9),
                     ),
                   ],
                 ),
               ),
 
-              SizedBox(height: 12.h),
+              SizedBox(height: 12.th),
 
               CustomSliderButton(
                 key: _sliderKey,
@@ -4061,11 +4116,11 @@ class _DocumentDialogState extends State<DocumentDialog> {
 
   Widget _buildPillField({required Widget child}) {
     return Container(
-      height: 30.h,
-      padding: EdgeInsets.symmetric(horizontal: 14.w),
+      height: 30.th,
+      padding: EdgeInsets.symmetric(horizontal: 14.tw),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(22.r),
+        borderRadius: BorderRadius.circular(22.tr),
       ),
       child: Center(child: child),
     );

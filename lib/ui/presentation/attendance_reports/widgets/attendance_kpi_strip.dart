@@ -1,3 +1,4 @@
+import 'package:el_race/core/utils/responsive_breakpoints.dart';
 import 'package:el_race/core/theme/hr_module_colors.dart';
 import 'package:el_race/ui/presentation/attendance_reports/attendance_report_helpers.dart';
 import 'package:flutter/material.dart';
@@ -47,11 +48,11 @@ class AttendanceKpiStrip extends StatelessWidget {
 
     return LayoutBuilder(
       builder: (context, constraints) {
-        final gap = useAttendanceTheme ? 8.w : 10.w;
+        final gap = useAttendanceTheme ? 8.tw : 10.tw;
         final width = constraints.maxWidth;
         final cellWidth = (width - 2 * gap) / 3;
         final aspect = useAttendanceTheme ? 1.18 : 1.15;
-        final rowHeight = (cellWidth / aspect).clamp(72.h, 96.h);
+        final rowHeight = (cellWidth / aspect).clamp(72.th, 96.th);
 
         return SizedBox(
           height: rowHeight,
@@ -102,7 +103,7 @@ class _KpiTile extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(14.r),
+        borderRadius: BorderRadius.circular(14.tr),
         border: Border.all(
           color: Colors.white.withValues(alpha: useAttendanceTheme ? 0.9 : 0),
         ),
@@ -117,11 +118,11 @@ class _KpiTile extends StatelessWidget {
             : null,
       ),
       child: ClipRRect(
-        borderRadius: BorderRadius.circular(13.r),
+        borderRadius: BorderRadius.circular(13.tr),
         child: Container(
           padding: EdgeInsets.symmetric(
-            horizontal: useAttendanceTheme ? 10.w : 10.w,
-            vertical: useAttendanceTheme ? 10.h : 10.h,
+            horizontal: useAttendanceTheme ? 10.tw : 10.tw,
+            vertical: useAttendanceTheme ? 10.th : 10.th,
           ),
           decoration: BoxDecoration(
             gradient: useAttendanceTheme
@@ -144,7 +145,7 @@ class _KpiTile extends StatelessWidget {
               if (useAttendanceTheme)
                 Container(
                   height: 3,
-                  margin: EdgeInsets.only(bottom: 6.h),
+                  margin: EdgeInsets.only(bottom: 6.th),
                   decoration: BoxDecoration(
                     color: accent,
                     borderRadius: BorderRadius.circular(99),
@@ -153,7 +154,7 @@ class _KpiTile extends StatelessWidget {
               Text(
                 title,
                 style: theme.labelSmall?.copyWith(
-                      fontSize: 10.sp,
+                      fontSize: 10.tsp,
                       color: useAttendanceTheme
                           ? primary.withValues(alpha: 0.65)
                           : HrModuleColors.mutedText,
@@ -162,11 +163,11 @@ class _KpiTile extends StatelessWidget {
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
               ),
-              SizedBox(height: 5.h),
+              SizedBox(height: 5.th),
               Text(
                 value,
                 style: theme.titleMedium?.copyWith(
-                      fontSize: 16.sp,
+                      fontSize: 16.tsp,
                       fontWeight: FontWeight.w800,
                       color:
                           useAttendanceTheme ? accent : HrModuleColors.text,

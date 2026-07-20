@@ -1,3 +1,4 @@
+import 'package:el_race/core/utils/responsive_breakpoints.dart';
 import 'package:el_race/ui/presentation/my_projects/domain/entities/attachment_entity.dart';
 import 'package:el_race/ui/presentation/my_projects/presentation/utils/project_file_opening.dart';
 import 'package:flutter/material.dart';
@@ -41,8 +42,8 @@ class AttachmentWidget extends StatelessWidget {
           children: [
             Image.asset(
               fileIcon,
-              height: 60.w,
-              width: 60.w,
+              height: 60.tw,
+              width: 60.tw,
             ),
             const SizedBox(height: 12),
             Text(

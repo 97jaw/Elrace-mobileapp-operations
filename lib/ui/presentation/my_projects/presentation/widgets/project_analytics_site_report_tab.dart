@@ -1,3 +1,4 @@
+import 'package:el_race/core/utils/responsive_breakpoints.dart';
 import 'package:el_race/report_module/data/models/folder_model.dart';
 import 'package:el_race/report_module/data/models/report_model.dart';
 import 'package:el_race/report_module/data/provider/reports_provider.dart';
@@ -178,7 +179,7 @@ class _ProjectAnalyticsSiteReportTabState
     if (_error != null) {
       return Center(
         child: Padding(
-          padding: EdgeInsets.all(20.w),
+          padding: EdgeInsets.all(20.tw),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
@@ -187,11 +188,11 @@ class _ProjectAnalyticsSiteReportTabState
                 textAlign: TextAlign.center,
                 style: GoogleFonts.poppins(
                   color: ProjectsDashboardTheme.white,
-                  fontSize: 12.sp,
+                  fontSize: 12.tsp,
                   fontWeight: FontWeight.w600,
                 ),
               ),
-              SizedBox(height: 12.h),
+              SizedBox(height: 12.th),
               TextButton(
                 onPressed: _load,
                 style: TextButton.styleFrom(
@@ -208,12 +209,12 @@ class _ProjectAnalyticsSiteReportTabState
     final items = _filtered;
 
     return Padding(
-      padding: EdgeInsets.fromLTRB(14.w, 0, 14.w, 8.h),
+      padding: EdgeInsets.fromLTRB(14.tw, 0, 14.tw, 8.th),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Container(
-            padding: EdgeInsets.fromLTRB(12.w, 12.h, 12.w, 12.h),
+            padding: EdgeInsets.fromLTRB(12.tw, 12.th, 12.tw, 12.th),
             decoration: ProjectsDashboardTheme.frostedPanel(radius: 14),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -224,7 +225,7 @@ class _ProjectAnalyticsSiteReportTabState
                       child: Text(
                         'Site reports',
                         style: GoogleFonts.poppins(
-                          fontSize: 14.sp,
+                          fontSize: 14.tsp,
                           fontWeight: FontWeight.w700,
                           color: ProjectsDashboardTheme.white,
                         ),
@@ -232,8 +233,8 @@ class _ProjectAnalyticsSiteReportTabState
                     ),
                     Container(
                       padding: EdgeInsets.symmetric(
-                        horizontal: 10.w,
-                        vertical: 4.h,
+                        horizontal: 10.tw,
+                        vertical: 4.th,
                       ),
                       decoration: BoxDecoration(
                         gradient: ProjectsDashboardTheme.maroonAccentGradient,
@@ -242,7 +243,7 @@ class _ProjectAnalyticsSiteReportTabState
                       child: Text(
                         '${_items.length}',
                         style: GoogleFonts.poppins(
-                          fontSize: 11.sp,
+                          fontSize: 11.tsp,
                           fontWeight: FontWeight.w800,
                           color: ProjectsDashboardTheme.white,
                         ),
@@ -250,57 +251,57 @@ class _ProjectAnalyticsSiteReportTabState
                     ),
                   ],
                 ),
-                SizedBox(height: 4.h),
+                SizedBox(height: 4.th),
                 Text(
                   widget.projectName,
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                   style: GoogleFonts.poppins(
-                    fontSize: 11.sp,
+                    fontSize: 11.tsp,
                     fontWeight: FontWeight.w500,
                     color: ProjectsDashboardTheme.greyPanel,
                   ),
                 ),
-                SizedBox(height: 10.h),
+                SizedBox(height: 10.th),
                 TextField(
                   onChanged: (v) => setState(() => _search = v),
                   style: GoogleFonts.poppins(
-                    fontSize: 12.sp,
+                    fontSize: 12.tsp,
                     color: ProjectsDashboardTheme.white,
                   ),
                   cursorColor: ProjectsDashboardTheme.white,
                   decoration: InputDecoration(
                     hintText: 'Search by name, ID, or folder',
                     hintStyle: GoogleFonts.poppins(
-                      fontSize: 12.sp,
+                      fontSize: 12.tsp,
                       color: ProjectsDashboardTheme.greyPanel
                           .withValues(alpha: 0.75),
                     ),
                     prefixIcon: Icon(
                       PhosphorIcons.magnifyingGlass(),
                       color: ProjectsDashboardTheme.greyPanel,
-                      size: 18.sp,
+                      size: 18.tsp,
                     ),
                     filled: true,
                     fillColor: Colors.white.withValues(alpha: 0.08),
                     contentPadding: EdgeInsets.symmetric(
-                      horizontal: 12.w,
-                      vertical: 10.h,
+                      horizontal: 12.tw,
+                      vertical: 10.th,
                     ),
                     border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12.r),
+                      borderRadius: BorderRadius.circular(12.tr),
                       borderSide: BorderSide(
                         color: ProjectsDashboardTheme.glassHighlight,
                       ),
                     ),
                     enabledBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12.r),
+                      borderRadius: BorderRadius.circular(12.tr),
                       borderSide: BorderSide(
                         color: ProjectsDashboardTheme.glassHighlight,
                       ),
                     ),
                     focusedBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12.r),
+                      borderRadius: BorderRadius.circular(12.tr),
                       borderSide: const BorderSide(
                         color: ProjectsDashboardTheme.maroonSoft,
                       ),
@@ -310,7 +311,7 @@ class _ProjectAnalyticsSiteReportTabState
               ],
             ),
           ),
-          SizedBox(height: 10.h),
+          SizedBox(height: 10.th),
           Expanded(
             child: RefreshIndicator(
               color: ProjectsDashboardTheme.maroon,
@@ -319,21 +320,21 @@ class _ProjectAnalyticsSiteReportTabState
                   ? ListView(
                       physics: const AlwaysScrollableScrollPhysics(),
                       children: [
-                        SizedBox(height: 48.h),
+                        SizedBox(height: 48.th),
                         Icon(
                           PhosphorIcons.filePdf(),
-                          size: 40.sp,
+                          size: 40.tsp,
                           color: ProjectsDashboardTheme.greyPanel
                               .withValues(alpha: 0.7),
                         ),
-                        SizedBox(height: 12.h),
+                        SizedBox(height: 12.th),
                         Text(
                           _items.isEmpty
                               ? 'No site reports for this project yet.'
                               : 'No reports match your search.',
                           textAlign: TextAlign.center,
                           style: GoogleFonts.poppins(
-                            fontSize: 12.sp,
+                            fontSize: 12.tsp,
                             fontWeight: FontWeight.w600,
                             color: ProjectsDashboardTheme.greyPanel,
                           ),
@@ -343,7 +344,7 @@ class _ProjectAnalyticsSiteReportTabState
                   : ListView.separated(
                       physics: const AlwaysScrollableScrollPhysics(),
                       itemCount: items.length,
-                      separatorBuilder: (_, __) => SizedBox(height: 8.h),
+                      separatorBuilder: (_, __) => SizedBox(height: 8.th),
                       itemBuilder: (context, index) {
                         final item = items[index];
                         final busy = _busyReportId == item.report.id;
@@ -397,9 +398,9 @@ class _ProjectsSiteReportCard extends StatelessWidget {
       color: Colors.transparent,
       child: InkWell(
         onTap: busy ? null : onOpen,
-        borderRadius: BorderRadius.circular(14.r),
+        borderRadius: BorderRadius.circular(14.tr),
         child: Ink(
-          padding: EdgeInsets.all(12.w),
+          padding: EdgeInsets.all(12.tw),
           decoration: ProjectsDashboardTheme.frostedPanel(radius: 14),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -408,17 +409,17 @@ class _ProjectsSiteReportCard extends StatelessWidget {
                 children: [
                   Container(
                     padding: EdgeInsets.symmetric(
-                      horizontal: 8.w,
-                      vertical: 3.h,
+                      horizontal: 8.tw,
+                      vertical: 3.th,
                     ),
                     decoration: BoxDecoration(
                       gradient: ProjectsDashboardTheme.maroonAccentGradient,
-                      borderRadius: BorderRadius.circular(6.r),
+                      borderRadius: BorderRadius.circular(6.tr),
                     ),
                     child: Text(
                       'ID ${report.id}',
                       style: GoogleFonts.poppins(
-                        fontSize: 10.sp,
+                        fontSize: 10.tsp,
                         fontWeight: FontWeight.w700,
                         color: ProjectsDashboardTheme.white,
                       ),
@@ -429,33 +430,33 @@ class _ProjectsSiteReportCard extends StatelessWidget {
                     visualDensity: VisualDensity.compact,
                     padding: EdgeInsets.zero,
                     constraints: BoxConstraints(
-                      minWidth: 32.w,
-                      minHeight: 32.w,
+                      minWidth: 32.tw,
+                      minHeight: 32.tw,
                     ),
                     onPressed: busy ? null : onMore,
                     icon: Icon(
                       PhosphorIcons.dotsThreeVertical(),
                       color: ProjectsDashboardTheme.greyPanel,
-                      size: 18.sp,
+                      size: 18.tsp,
                     ),
                   ),
                   if (!report.hasGeneratedPdf)
                     Icon(
                       PhosphorIcons.warningCircle(),
                       color: const Color(0xFFE6A700),
-                      size: 18.sp,
+                      size: 18.tsp,
                     )
                   else
                     Icon(
                       PhosphorIcons.checkCircle(),
                       color: const Color(0xFF3DDC84),
-                      size: 18.sp,
+                      size: 18.tsp,
                     ),
                   if (busy) ...[
-                    SizedBox(width: 8.w),
+                    SizedBox(width: 8.tw),
                     SizedBox(
-                      width: 16.w,
-                      height: 16.w,
+                      width: 16.tw,
+                      height: 16.tw,
                       child: const CircularProgressIndicator(
                         strokeWidth: 2,
                         color: ProjectsDashboardTheme.white,
@@ -464,39 +465,39 @@ class _ProjectsSiteReportCard extends StatelessWidget {
                   ],
                 ],
               ),
-              SizedBox(height: 8.h),
+              SizedBox(height: 8.th),
               Text(
                 report.name.isEmpty ? 'Untitled report' : report.name,
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
                 style: GoogleFonts.poppins(
-                  fontSize: 13.sp,
+                  fontSize: 13.tsp,
                   fontWeight: FontWeight.w700,
                   color: ProjectsDashboardTheme.white,
                 ),
               ),
-              SizedBox(height: 4.h),
+              SizedBox(height: 4.th),
               Text(
                 item.folder.name,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: GoogleFonts.poppins(
-                  fontSize: 11.sp,
+                  fontSize: 11.tsp,
                   fontWeight: FontWeight.w500,
                   color: ProjectsDashboardTheme.greyPanel,
                 ),
               ),
-              SizedBox(height: 2.h),
+              SizedBox(height: 2.th),
               Text(
                 updated,
                 style: GoogleFonts.poppins(
-                  fontSize: 10.sp,
+                  fontSize: 10.tsp,
                   fontWeight: FontWeight.w500,
                   color: ProjectsDashboardTheme.greyPanel
                       .withValues(alpha: 0.85),
                 ),
               ),
-              SizedBox(height: 10.h),
+              SizedBox(height: 10.th),
               Row(
                 children: [
                   Expanded(
@@ -506,7 +507,7 @@ class _ProjectsSiteReportCard extends StatelessWidget {
                       onTap: busy ? null : onGallery,
                     ),
                   ),
-                  SizedBox(width: 8.w),
+                  SizedBox(width: 8.tw),
                   Expanded(
                     child: _ActionChip(
                       label: 'PDF',
@@ -544,9 +545,9 @@ class _ActionChip extends StatelessWidget {
       color: Colors.transparent,
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(10.r),
+        borderRadius: BorderRadius.circular(10.tr),
         child: Ink(
-          padding: EdgeInsets.symmetric(vertical: 8.h),
+          padding: EdgeInsets.symmetric(vertical: 8.th),
           decoration: BoxDecoration(
             gradient: emphasized
                 ? ProjectsDashboardTheme.maroonAccentGradient
@@ -554,7 +555,7 @@ class _ActionChip extends StatelessWidget {
             color: emphasized
                 ? null
                 : Colors.white.withValues(alpha: 0.10),
-            borderRadius: BorderRadius.circular(10.r),
+            borderRadius: BorderRadius.circular(10.tr),
             border: Border.all(
               color: ProjectsDashboardTheme.glassHighlight,
             ),
@@ -562,12 +563,12 @@ class _ActionChip extends StatelessWidget {
           child: Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(icon, size: 16.sp, color: ProjectsDashboardTheme.white),
-              SizedBox(width: 6.w),
+              Icon(icon, size: 16.tsp, color: ProjectsDashboardTheme.white),
+              SizedBox(width: 6.tw),
               Text(
                 label,
                 style: GoogleFonts.poppins(
-                  fontSize: 11.sp,
+                  fontSize: 11.tsp,
                   fontWeight: FontWeight.w700,
                   color: ProjectsDashboardTheme.white,
                 ),

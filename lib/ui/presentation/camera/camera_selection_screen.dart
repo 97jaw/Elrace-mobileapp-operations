@@ -1,3 +1,4 @@
+import 'package:el_race/core/utils/responsive_breakpoints.dart';
 import 'dart:async';
 import 'dart:io';
 import 'dart:ui' as ui;
@@ -853,7 +854,7 @@ class _CameraSelectionScreenState extends State<CameraSelectionScreen>
             /// ================================
             Center(
               child: ClipRRect(
-                borderRadius: BorderRadius.circular(12.r),
+                borderRadius: BorderRadius.circular(12.tr),
                 child: RepaintBoundary(
                   key: _captureKey,
                   child: AspectRatio(
@@ -865,36 +866,36 @@ class _CameraSelectionScreenState extends State<CameraSelectionScreen>
                         CameraPreview(_controller!),
                         // Logo (top-left)
                         Positioned(
-                          top: 5.h,
-                          left: 10.w,
+                          top: 5.th,
+                          left: 10.tw,
                           child: Image.asset(
                             'assets/logo/rcc2.png',
-                            height: 27.h,
+                            height: 27.th,
                             filterQuality: FilterQuality.high,
                           ),
                         ),
                         // Date/time/location (bottom-right)
                         Positioned(
-                          bottom: 12.h,
-                          right: 12.w,
+                          bottom: 12.th,
+                          right: 12.tw,
                           child: Column(
                             mainAxisSize: MainAxisSize.min,
                             crossAxisAlignment: CrossAxisAlignment.end,
                             children: [
                               Text(
                                 _currentTime,
-                                style: _overlayTextStyle(16.sp),
+                                style: _overlayTextStyle(16.tsp),
                               ),
-                              SizedBox(height: 2.h),
+                              SizedBox(height: 2.th),
                               Text(
                                 _currentDate,
-                                style: _overlayTextStyle(16.sp),
+                                style: _overlayTextStyle(16.tsp),
                               ),
                               if (_currentLocation.isNotEmpty) ...[
-                                SizedBox(height: 4.h),
+                                SizedBox(height: 4.th),
                                 Text(
                                   _currentLocation,
-                                  style: _overlayTextStyle(14.sp),
+                                  style: _overlayTextStyle(14.tsp),
                                   textAlign: TextAlign.right,
                                 ),
                               ],
@@ -917,13 +918,13 @@ class _CameraSelectionScreenState extends State<CameraSelectionScreen>
               right: 0,
               child: SafeArea(
                 child: Container(
-                  height: 100.h,
+                  height: 100.th,
                   decoration: const BoxDecoration(
                     color: Colors.transparent,
                   ),
                   child: Padding(
                     padding:
-                        EdgeInsets.symmetric(horizontal: 16.w, vertical: 12.h),
+                        EdgeInsets.symmetric(horizontal: 16.tw, vertical: 12.th),
                     child: Row(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
@@ -951,15 +952,15 @@ class _CameraSelectionScreenState extends State<CameraSelectionScreen>
                 child: AspectRatio(
                   aspectRatio: 3 / 4,
                   child: Padding(
-                    padding: EdgeInsets.only(top: 30.h, right: 20.w),
+                    padding: EdgeInsets.only(top: 30.th, right: 20.tw),
                     child: Align(
                       alignment: Alignment.topRight,
                       child: Container(
                         padding: EdgeInsets.symmetric(
-                            horizontal: 12.w, vertical: 6.h),
+                            horizontal: 12.tw, vertical: 6.th),
                         decoration: BoxDecoration(
                           color: Colors.black.withOpacity(0.6),
-                          borderRadius: BorderRadius.circular(20.r),
+                          borderRadius: BorderRadius.circular(20.tr),
                           border: Border.all(
                             color: Colors.white.withOpacity(0.3),
                             width: 1,
@@ -971,13 +972,13 @@ class _CameraSelectionScreenState extends State<CameraSelectionScreen>
                             Icon(
                               Icons.photo_camera,
                               color: Colors.white,
-                              size: 16.sp,
+                              size: 16.tsp,
                             ),
-                            SizedBox(width: 6.w),
+                            SizedBox(width: 6.tw),
                             Text(
                               '$_totalCapturedCount',
                               style: GoogleFonts.poppins(
-                                fontSize: 16.sp,
+                                fontSize: 16.tsp,
                                 color: Colors.white,
                                 fontWeight: FontWeight.w700,
                               ),
@@ -1005,7 +1006,7 @@ class _CameraSelectionScreenState extends State<CameraSelectionScreen>
                   width: double.infinity,
                   height: H * 0.15,
                   padding:
-                      EdgeInsets.symmetric(horizontal: 30.w, vertical: 2.h),
+                      EdgeInsets.symmetric(horizontal: 30.tw, vertical: 2.th),
                   decoration: const BoxDecoration(
                     color: Colors.black12,
                   ),
@@ -1018,12 +1019,12 @@ class _CameraSelectionScreenState extends State<CameraSelectionScreen>
                           _pendingImagesCount > 0 ||
                           _savePendingCount > 0)
                         Container(
-                          margin: EdgeInsets.only(bottom: 4.h),
+                          margin: EdgeInsets.only(bottom: 4.th),
                           padding: EdgeInsets.symmetric(
-                              horizontal: 10.w, vertical: 4.h),
+                              horizontal: 10.tw, vertical: 4.th),
                           decoration: BoxDecoration(
                             color: Colors.black.withOpacity(0.5),
-                            borderRadius: BorderRadius.circular(20.r),
+                            borderRadius: BorderRadius.circular(20.tr),
                           ),
                           child: Row(
                             mainAxisSize: MainAxisSize.min,
@@ -1031,10 +1032,10 @@ class _CameraSelectionScreenState extends State<CameraSelectionScreen>
                               if (_imageQueueService.isProcessing ||
                                   _savePendingCount > 0)
                                 Padding(
-                                  padding: EdgeInsets.only(right: 6.w),
+                                  padding: EdgeInsets.only(right: 6.tw),
                                   child: SizedBox(
-                                    width: 10.w,
-                                    height: 10.w,
+                                    width: 10.tw,
+                                    height: 10.tw,
                                     child: const CircularProgressIndicator(
                                       strokeWidth: 1.5,
                                       color: Colors.white,
@@ -1048,7 +1049,7 @@ class _CameraSelectionScreenState extends State<CameraSelectionScreen>
                                         ? _processingStatusText
                                         : 'Saving $_pendingImagesCount photo${_pendingImagesCount > 1 ? 's' : ''}...',
                                 style: GoogleFonts.poppins(
-                                  fontSize: 10.sp,
+                                  fontSize: 10.tsp,
                                   color: Colors.white,
                                   fontWeight: FontWeight.w600,
                                 ),
@@ -1061,19 +1062,19 @@ class _CameraSelectionScreenState extends State<CameraSelectionScreen>
                       GestureDetector(
                         onTap: _takePicture,
                         child: Container(
-                          width: 50.w,
-                          height: 50.w,
+                          width: 50.tw,
+                          height: 50.tw,
                           decoration: BoxDecoration(
                             shape: BoxShape.circle,
                             color: Colors.white,
                             border: Border.all(
                               color: Colors.white.withOpacity(0.3),
-                              width: 55.w,
+                              width: 55.tw,
                             ),
                           ),
                         ),
                       ),
-                      SizedBox(height: 6.h),
+                      SizedBox(height: 6.th),
 
                       /// ——— SCAN / PHOTO / QR BUTTONS ———
                       Row(
@@ -1110,12 +1111,12 @@ class _CameraSelectionScreenState extends State<CameraSelectionScreen>
               // ── App-style top bar ──────────────────────────────
               Container(
                 color: appBlue,
-                padding: EdgeInsets.symmetric(horizontal: 4.w, vertical: 6.h),
+                padding: EdgeInsets.symmetric(horizontal: 4.tw, vertical: 6.th),
                 child: Row(
                   children: [
                     IconButton(
                       icon: Icon(Icons.arrow_back_ios_new_rounded,
-                          color: Colors.white, size: 20.sp),
+                          color: Colors.white, size: 20.tsp),
                       onPressed: () => setState(() => _showScanOverlay = false),
                     ),
                     Expanded(
@@ -1125,15 +1126,15 @@ class _CameraSelectionScreenState extends State<CameraSelectionScreen>
                             'Document Scan',
                             style: GoogleFonts.poppins(
                               color: Colors.white,
-                              fontSize: 17.sp,
+                              fontSize: 17.tsp,
                               fontWeight: FontWeight.w600,
                             ),
                           ),
                           if (_isProcessingFilter) ...[
-                            SizedBox(width: 10.w),
+                            SizedBox(width: 10.tw),
                             SizedBox(
-                              width: 14.w,
-                              height: 14.w,
+                              width: 14.tw,
+                              height: 14.tw,
                               child: const CircularProgressIndicator(
                                 strokeWidth: 1.5,
                                 color: Colors.white70,
@@ -1149,7 +1150,7 @@ class _CameraSelectionScreenState extends State<CameraSelectionScreen>
                       onTap: _saveScanResult,
                       isPrimary: false,
                     ),
-                    SizedBox(width: 8.w),
+                    SizedBox(width: 8.tw),
                     _actionButton(
                       icon: Icons.share_rounded,
                       label: 'PDF',
@@ -1157,7 +1158,7 @@ class _CameraSelectionScreenState extends State<CameraSelectionScreen>
                       isLoading: _isExportingPdf,
                       isPrimary: true,
                     ),
-                    SizedBox(width: 4.w),
+                    SizedBox(width: 4.tw),
                   ],
                 ),
               ),
@@ -1167,7 +1168,7 @@ class _CameraSelectionScreenState extends State<CameraSelectionScreen>
                 child: Container(
                   color: const Color(0xffECECF2),
                   padding:
-                      EdgeInsets.symmetric(horizontal: 16.w, vertical: 16.h),
+                      EdgeInsets.symmetric(horizontal: 16.tw, vertical: 16.th),
                   child: previewPath == null
                       ? _buildLoadingSkeleton()
                       : AnimatedSwitcher(
@@ -1178,7 +1179,7 @@ class _CameraSelectionScreenState extends State<CameraSelectionScreen>
                             children: [
                               Container(
                                 decoration: BoxDecoration(
-                                  borderRadius: BorderRadius.circular(12.r),
+                                  borderRadius: BorderRadius.circular(12.tr),
                                   color: Colors.white,
                                   boxShadow: [
                                     BoxShadow(
@@ -1189,7 +1190,7 @@ class _CameraSelectionScreenState extends State<CameraSelectionScreen>
                                   ],
                                 ),
                                 child: ClipRRect(
-                                  borderRadius: BorderRadius.circular(12.r),
+                                  borderRadius: BorderRadius.circular(12.tr),
                                   child: Image.file(
                                     File(previewPath),
                                     fit: BoxFit.contain,
@@ -1199,7 +1200,7 @@ class _CameraSelectionScreenState extends State<CameraSelectionScreen>
                               ),
                               if (_isProcessingFilter)
                                 ClipRRect(
-                                  borderRadius: BorderRadius.circular(12.r),
+                                  borderRadius: BorderRadius.circular(12.tr),
                                   child: BackdropFilter(
                                     filter: ui.ImageFilter.blur(
                                         sigmaX: 3, sigmaY: 3),
@@ -1219,28 +1220,28 @@ class _CameraSelectionScreenState extends State<CameraSelectionScreen>
               // ── Filter bar ────────────────────────────────────
               Container(
                 color: Colors.white,
-                padding: EdgeInsets.fromLTRB(16.w, 12.h, 16.w, 20.h),
+                padding: EdgeInsets.fromLTRB(16.tw, 12.th, 16.tw, 20.th),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Row(
                       children: [
                         Icon(Icons.auto_fix_high_rounded,
-                            color: appBlue, size: 15.sp),
-                        SizedBox(width: 6.w),
+                            color: appBlue, size: 15.tsp),
+                        SizedBox(width: 6.tw),
                         Text(
                           'Enhancement',
                           style: GoogleFonts.poppins(
                             color: appBlue,
-                            fontSize: 13.sp,
+                            fontSize: 13.tsp,
                             fontWeight: FontWeight.w600,
                           ),
                         ),
                       ],
                     ),
-                    SizedBox(height: 10.h),
+                    SizedBox(height: 10.th),
                     SizedBox(
-                      height: 72.h,
+                      height: 72.th,
                       child: ListView.builder(
                         scrollDirection: Axis.horizontal,
                         physics: const BouncingScrollPhysics(),
@@ -1263,7 +1264,7 @@ class _CameraSelectionScreenState extends State<CameraSelectionScreen>
     const appBlue = Color(0xff2B2C74);
     return Container(
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(12.r),
+        borderRadius: BorderRadius.circular(12.tr),
         color: Colors.white,
         boxShadow: [
           BoxShadow(
@@ -1278,19 +1279,19 @@ class _CameraSelectionScreenState extends State<CameraSelectionScreen>
           mainAxisSize: MainAxisSize.min,
           children: [
             SizedBox(
-              width: 36.w,
-              height: 36.w,
+              width: 36.tw,
+              height: 36.tw,
               child: const CircularProgressIndicator(
                 strokeWidth: 2.5,
                 color: appBlue,
               ),
             ),
-            SizedBox(height: 14.h),
+            SizedBox(height: 14.th),
             Text(
               'Processing scan...',
               style: GoogleFonts.poppins(
                 color: const Color(0xff2B2C74),
-                fontSize: 14.sp,
+                fontSize: 14.tsp,
                 fontWeight: FontWeight.w500,
               ),
             ),
@@ -1303,10 +1304,10 @@ class _CameraSelectionScreenState extends State<CameraSelectionScreen>
   Widget _buildProcessingIndicator() {
     const appBlue = Color(0xff2B2C74);
     return Container(
-      padding: EdgeInsets.symmetric(horizontal: 24.w, vertical: 16.h),
+      padding: EdgeInsets.symmetric(horizontal: 24.tw, vertical: 16.th),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(12.r),
+        borderRadius: BorderRadius.circular(12.tr),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withOpacity(0.12),
@@ -1319,19 +1320,19 @@ class _CameraSelectionScreenState extends State<CameraSelectionScreen>
         mainAxisSize: MainAxisSize.min,
         children: [
           SizedBox(
-            width: 28.w,
-            height: 28.w,
+            width: 28.tw,
+            height: 28.tw,
             child: const CircularProgressIndicator(
               strokeWidth: 2.5,
               color: appBlue,
             ),
           ),
-          SizedBox(height: 10.h),
+          SizedBox(height: 10.th),
           Text(
             'Applying filter...',
             style: GoogleFonts.poppins(
               color: appBlue,
-              fontSize: 12.sp,
+              fontSize: 12.tsp,
               fontWeight: FontWeight.w500,
             ),
           ),
@@ -1351,13 +1352,13 @@ class _CameraSelectionScreenState extends State<CameraSelectionScreen>
     return Material(
       color: Colors.transparent,
       child: InkWell(
-        borderRadius: BorderRadius.circular(8.r),
+        borderRadius: BorderRadius.circular(8.tr),
         onTap: onTap,
         child: Container(
-          padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 8.h),
+          padding: EdgeInsets.symmetric(horizontal: 12.tw, vertical: 8.th),
           decoration: BoxDecoration(
             color: isPrimary ? Colors.white : Colors.white.withOpacity(0.15),
-            borderRadius: BorderRadius.circular(8.r),
+            borderRadius: BorderRadius.circular(8.tr),
             border: Border.all(
               color: Colors.white.withOpacity(isPrimary ? 1.0 : 0.4),
               width: 1,
@@ -1368,8 +1369,8 @@ class _CameraSelectionScreenState extends State<CameraSelectionScreen>
             children: [
               if (isLoading)
                 SizedBox(
-                  width: 14.w,
-                  height: 14.w,
+                  width: 14.tw,
+                  height: 14.tw,
                   child: const CircularProgressIndicator(
                     strokeWidth: 2,
                     color: Color(0xff2B2C74),
@@ -1379,14 +1380,14 @@ class _CameraSelectionScreenState extends State<CameraSelectionScreen>
                 Icon(
                   icon,
                   color: isPrimary ? const Color(0xff2B2C74) : Colors.white,
-                  size: 16.sp,
+                  size: 16.tsp,
                 ),
-              SizedBox(width: 5.w),
+              SizedBox(width: 5.tw),
               Text(
                 label,
                 style: GoogleFonts.poppins(
                   color: isPrimary ? const Color(0xff2B2C74) : Colors.white,
-                  fontSize: 13.sp,
+                  fontSize: 13.tsp,
                   fontWeight: FontWeight.w600,
                 ),
               ),
@@ -1407,11 +1408,11 @@ class _CameraSelectionScreenState extends State<CameraSelectionScreen>
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 200),
         curve: Curves.easeOutCubic,
-        margin: EdgeInsets.only(right: 10.w),
-        width: 68.w,
+        margin: EdgeInsets.only(right: 10.tw),
+        width: 68.tw,
         decoration: BoxDecoration(
           color: selected ? appBlue : Colors.white,
-          borderRadius: BorderRadius.circular(12.r),
+          borderRadius: BorderRadius.circular(12.tr),
           border: Border.all(
             color: selected ? appBlue : const Color(0xffDDDDE8),
             width: 1.5,
@@ -1438,14 +1439,14 @@ class _CameraSelectionScreenState extends State<CameraSelectionScreen>
             Icon(
               filterMeta.icon,
               color: selected ? Colors.white : appBlue,
-              size: 20.sp,
+              size: 20.tsp,
             ),
-            SizedBox(height: 5.h),
+            SizedBox(height: 5.th),
             Text(
               filterMeta.label,
               style: GoogleFonts.poppins(
                 color: selected ? Colors.white : const Color(0xff5A5A7A),
-                fontSize: 11.sp,
+                fontSize: 11.tsp,
                 fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
               ),
               textAlign: TextAlign.center,
@@ -1475,14 +1476,14 @@ class _CameraSelectionScreenState extends State<CameraSelectionScreen>
     return GestureDetector(
       onTap: onTap,
       child: ClipRRect(
-        borderRadius: BorderRadius.circular(25.r),
+        borderRadius: BorderRadius.circular(25.tr),
         child: BackdropFilter(
           filter: ui.ImageFilter.blur(sigmaX: 10, sigmaY: 10),
           child: Container(
-            padding: EdgeInsets.symmetric(horizontal: 24.w, vertical: 8.h),
+            padding: EdgeInsets.symmetric(horizontal: 24.tw, vertical: 8.th),
             decoration: BoxDecoration(
               color: Colors.black.withOpacity(0.30),
-              borderRadius: BorderRadius.circular(25.r),
+              borderRadius: BorderRadius.circular(25.tr),
               border: Border.all(
                 color: Colors.white.withOpacity(0.04),
                 width: 1.0,
@@ -1491,7 +1492,7 @@ class _CameraSelectionScreenState extends State<CameraSelectionScreen>
             child: Text(
               text,
               style: GoogleFonts.poppins(
-                fontSize: 15.sp,
+                fontSize: 15.tsp,
                 letterSpacing: 1.2,
                 color: Colors.white,
               ),

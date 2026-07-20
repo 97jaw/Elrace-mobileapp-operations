@@ -1,8 +1,10 @@
+import 'package:el_race/core/utils/responsive_breakpoints.dart';
 import 'package:el_race/core/hr_management/providers/hr_management_providers.dart';
 import 'package:el_race/core/recruitment/models/recruitment_entities.dart';
 import 'package:el_race/core/recruitment/models/requisition.dart';
 import 'package:el_race/core/recruitment/providers/requisition_providers.dart';
 import 'package:el_race/core/recruitment/recruitment_salary_visibility.dart';
+import 'package:el_race/core/session/login_session_refresh_service.dart';
 import 'package:el_race/core/theme/hr_badge_kind.dart';
 import 'package:el_race/core/theme/hr_module_colors.dart';
 import 'package:el_race/core/theme/hr_module_layout.dart';
@@ -10,6 +12,7 @@ import 'package:el_race/core/theme/hr_module_typography.dart';
 import 'package:el_race/core/utils/pdf_watermark.dart';
 import 'package:el_race/core/utils/shared_pref.dart';
 import 'package:el_race/core/widgets/hr_management/hr_detail_row.dart';
+import 'package:el_race/core/widgets/hr_management/hr_module_glass_header.dart';
 import 'package:el_race/core/widgets/hr_management/hr_status_badge.dart';
 import 'package:el_race/core/widgets/recruitment/recruitment_candidate_tile.dart';
 import 'package:el_race/core/widgets/recruitment/recruitment_gradient_scaffold.dart';
@@ -92,26 +95,48 @@ class _R2RequisitionDetailScreenState extends ConsumerState<R2RequisitionDetailS
     return all.where((c) => c.stage == _stageChip).toList();
   }
 
+  Future<void> _refreshDetail() async {
+    await LoginSessionRefreshService.refreshRoles(
+      container: ProviderScope.containerOf(context),
+    );
+    ref.invalidate(requisitionDetailProvider(widget.requisitionId));
+  }
+
   @override
   Widget build(BuildContext context) {
     final async = ref.watch(requisitionDetailProvider(widget.requisitionId));
 
     return async.when(
       loading: () => RecruitmentGradientScaffold(
-        appBar: AppBar(
-          backgroundColor: Colors.transparent,
-          elevation: 0,
-          title: const Text('Requisition'),
+        body: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            const HrModuleGlassHeader(
+              title: 'Requisition',
+              accentTint: HrModuleHeaderTints.recruitment,
+            ),
+            const Expanded(child: Center(child: CircularProgressIndicator())),
+          ],
         ),
-        body: const Center(child: CircularProgressIndicator()),
       ),
       error: (e, _) => RecruitmentGradientScaffold(
-        appBar: AppBar(
-          backgroundColor: Colors.transparent,
-          elevation: 0,
-          title: const Text('Requisition'),
+        body: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            const HrModuleGlassHeader(
+              title: 'Requisition',
+              accentTint: HrModuleHeaderTints.recruitment,
+            ),
+            Expanded(
+              child: Center(
+                child: Padding(
+                  padding: EdgeInsets.all(24.tw),
+                  child: Text('$e', textAlign: TextAlign.center),
+                ),
+              ),
+            ),
+          ],
         ),
-        body: Center(child: Text('$e')),
       ),
       data: (d) {
         final r = d.requisition;
@@ -119,84 +144,63 @@ class _R2RequisitionDetailScreenState extends ConsumerState<R2RequisitionDetailS
         final candidates = _filterCandidates(d.candidates);
 
         return RecruitmentGradientScaffold(
-          appBar: AppBar(
-            backgroundColor: Colors.transparent,
-            elevation: 0,
-            scrolledUnderElevation: 0,
-            foregroundColor: HrModuleColors.text,
-            title: Text(
-              'Requisition',
-              style: HrModuleTypography.sectionHeading().copyWith(fontSize: 18.sp),
-            ),
-            actions: [
-              IconButton(
-                icon: const Icon(Icons.picture_as_pdf_outlined),
-                tooltip: 'Export PDF',
-                onPressed: () => _exportPdf(d),
-              ),
-              PopupMenuButton<String>(
-                onSelected: (v) {
-                  Fluttertoast.showToast(msg: '$v — available when workflow API is live');
-                },
-                itemBuilder: (context) => [
-                  const PopupMenuItem(value: 'edit', child: Text('Edit')),
-                  const PopupMenuItem(value: 'hold', child: Text('Hold')),
-                  const PopupMenuItem(value: 'cancel', child: Text('Cancel')),
-                ],
-              ),
-            ],
-          ),
           body: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              Expanded(
-                child: SingleChildScrollView(
-                  padding: EdgeInsets.fromLTRB(
-                    HrModuleLayout.screenPaddingH.w,
-                    12.h,
-                    HrModuleLayout.screenPaddingH.w,
-                    8.h,
+              HrModuleGlassHeader(
+                title: 'Requisition',
+                accentTint: HrModuleHeaderTints.recruitment,
+                trailing: [
+                  IconButton(
+                    icon: const Icon(Icons.picture_as_pdf_outlined,
+                        color: Colors.white),
+                    tooltip: 'Export PDF',
+                    onPressed: () => _exportPdf(d),
                   ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      _headerCard(d, r, daysOpen),
-                      SizedBox(height: 16.h),
-                      RecruitmentPipelineSummary(
-                        counts: d.pipeline,
-                        selectedStage: _stageChip,
-                        onStageTap: (s) {
-                          setState(() {
-                            _stageChip = _stageChip == s ? null : s;
-                          });
-                        },
-                      ),
-                      SizedBox(height: 16.h),
-                      _positionDetailsBlock(d, r),
+                  PopupMenuButton<String>(
+                    icon: const Icon(Icons.more_vert, color: Colors.white),
+                    onSelected: (v) {
+                      Fluttertoast.showToast(
+                        msg: '$v — available when workflow API is live',
+                      );
+                    },
+                    itemBuilder: (context) => const [
+                      PopupMenuItem(value: 'edit', child: Text('Edit')),
+                      PopupMenuItem(value: 'hold', child: Text('Hold')),
+                      PopupMenuItem(value: 'cancel', child: Text('Cancel')),
                     ],
                   ),
-                ),
-              ),
-              Material(
-                color: HrModuleColors.surface,
-                child: TabBar(
+                ],
+                bottom: TabBar(
                   controller: _tabController,
-                  labelColor: HrModuleColors.primary,
-                  unselectedLabelColor: HrModuleColors.mutedText,
+                  labelColor: Colors.white,
+                  unselectedLabelColor: Colors.white70,
+                  indicatorColor: Colors.white,
+                  indicatorWeight: 3,
                   tabs: const [
                     Tab(text: 'Candidates'),
                     Tab(text: 'Offers'),
                     Tab(text: 'Activity'),
                   ],
                 ),
+                tabsHeight: 46,
               ),
               Expanded(
-                flex: 2,
                 child: TabBarView(
                   controller: _tabController,
                   children: [
-                    _candidatesTab(d, candidates),
-                    _offersTab(d),
-                    _activityTab(d),
+                    RefreshIndicator(
+                      onRefresh: _refreshDetail,
+                      child: _candidatesTab(d, candidates, r, daysOpen),
+                    ),
+                    RefreshIndicator(
+                      onRefresh: _refreshDetail,
+                      child: _offersTab(d, r, daysOpen),
+                    ),
+                    RefreshIndicator(
+                      onRefresh: _refreshDetail,
+                      child: _activityTab(d, r, daysOpen),
+                    ),
                   ],
                 ),
               ),
@@ -210,10 +214,10 @@ class _R2RequisitionDetailScreenState extends ConsumerState<R2RequisitionDetailS
   Widget _headerCard(RequisitionDetailModel d, Requisition r, int daysOpen) {
     return Container(
       width: double.infinity,
-      padding: EdgeInsets.all(14.r),
+      padding: EdgeInsets.all(14.tr),
       decoration: BoxDecoration(
         color: HrModuleColors.surface,
-        borderRadius: BorderRadius.circular(HrModuleLayout.cardRadius.r),
+        borderRadius: BorderRadius.circular(HrModuleLayout.cardRadius.tr),
         border: Border.all(color: HrModuleColors.border),
         boxShadow: HrModuleColors.cardShadow,
       ),
@@ -223,20 +227,20 @@ class _R2RequisitionDetailScreenState extends ConsumerState<R2RequisitionDetailS
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Icon(Icons.work_outline, color: HrModuleColors.primary, size: 28.sp),
-              SizedBox(width: 10.w),
+              Icon(Icons.work_outline, color: HrModuleColors.primary, size: 28.tsp),
+              SizedBox(width: 10.tw),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
                       r.jobTitle,
-                      style: HrModuleTypography.cardTitle().copyWith(fontSize: 17.sp),
+                      style: HrModuleTypography.cardTitle().copyWith(fontSize: 17.tsp),
                     ),
-                    SizedBox(height: 4.h),
+                    SizedBox(height: 4.th),
                     Text(
                       '${r.department} · ${r.location}',
-                      style: HrModuleTypography.body().copyWith(fontSize: 13.sp),
+                      style: HrModuleTypography.body().copyWith(fontSize: 13.tsp),
                     ),
                   ],
                 ),
@@ -248,15 +252,15 @@ class _R2RequisitionDetailScreenState extends ConsumerState<R2RequisitionDetailS
               ),
             ],
           ),
-          SizedBox(height: 8.h),
+          SizedBox(height: 8.th),
           Text(
             'Ref: ${r.referenceNumber}',
-            style: HrModuleTypography.caption().copyWith(fontSize: 12.sp),
+            style: HrModuleTypography.caption().copyWith(fontSize: 12.tsp),
           ),
-          SizedBox(height: 4.h),
+          SizedBox(height: 4.th),
           Text(
             'Raised by: ${r.raisedBy} · $daysOpen days ago',
-            style: HrModuleTypography.caption().copyWith(fontSize: 12.sp),
+            style: HrModuleTypography.caption().copyWith(fontSize: 12.tsp),
           ),
         ],
       ),
@@ -275,9 +279,9 @@ class _R2RequisitionDetailScreenState extends ConsumerState<R2RequisitionDetailS
       children: [
         Text(
           'Position details',
-          style: HrModuleTypography.sectionHeading().copyWith(fontSize: 14.sp),
+          style: HrModuleTypography.sectionHeading().copyWith(fontSize: 14.tsp),
         ),
-        SizedBox(height: 8.h),
+        SizedBox(height: 8.th),
         HrDetailRow(label: 'Department', value: r.department),
         HrDetailRow(label: 'Job title', value: r.jobTitle),
         HrDetailRow(label: 'Location', value: r.location),
@@ -301,7 +305,7 @@ class _R2RequisitionDetailScreenState extends ConsumerState<R2RequisitionDetailS
             title: Text(
               'Description',
               style: HrModuleTypography.body().copyWith(
-                    fontSize: 14.sp,
+                    fontSize: 14.tsp,
                     fontWeight: FontWeight.w600,
                   ),
             ),
@@ -309,10 +313,10 @@ class _R2RequisitionDetailScreenState extends ConsumerState<R2RequisitionDetailS
               Align(
                 alignment: Alignment.centerLeft,
                 child: Padding(
-                  padding: EdgeInsets.only(bottom: 12.h),
+                  padding: EdgeInsets.only(bottom: 12.th),
                   child: Text(
                     d.jobDescription,
-                    style: HrModuleTypography.body().copyWith(fontSize: 13.sp),
+                    style: HrModuleTypography.body().copyWith(fontSize: 13.tsp),
                   ),
                 ),
               ),
@@ -326,15 +330,37 @@ class _R2RequisitionDetailScreenState extends ConsumerState<R2RequisitionDetailS
   Widget _candidatesTab(
     RequisitionDetailModel d,
     List<RecruitmentCandidate> candidates,
+    Requisition r,
+    int daysOpen,
   ) {
     return ListView(
-      padding: EdgeInsets.all(HrModuleLayout.screenPaddingH.w),
+      physics: const AlwaysScrollableScrollPhysics(),
+      padding: EdgeInsets.fromLTRB(
+        HrModuleLayout.screenPaddingH.tw,
+        12.th,
+        HrModuleLayout.screenPaddingH.tw,
+        24.th,
+      ),
       children: [
+        _headerCard(d, r, daysOpen),
+        SizedBox(height: 16.th),
+        RecruitmentPipelineSummary(
+          counts: d.pipeline,
+          selectedStage: _stageChip,
+          onStageTap: (s) {
+            setState(() {
+              _stageChip = _stageChip == s ? null : s;
+            });
+          },
+        ),
+        SizedBox(height: 16.th),
+        _positionDetailsBlock(d, r),
+        SizedBox(height: 20.th),
         Text(
           'Candidates',
-          style: HrModuleTypography.sectionHeading().copyWith(fontSize: 14.sp),
+          style: HrModuleTypography.sectionHeading().copyWith(fontSize: 14.tsp),
         ),
-        SizedBox(height: 8.h),
+        SizedBox(height: 8.th),
         SingleChildScrollView(
           scrollDirection: Axis.horizontal,
           child: Row(
@@ -344,7 +370,7 @@ class _R2RequisitionDetailScreenState extends ConsumerState<R2RequisitionDetailS
                 selected: _stageChip == null,
                 onSelected: (_) => setState(() => _stageChip = null),
               ),
-              SizedBox(width: 8.w),
+              SizedBox(width: 8.tw),
               ...[
                 'APPLIED',
                 'SCREENING',
@@ -355,7 +381,7 @@ class _R2RequisitionDetailScreenState extends ConsumerState<R2RequisitionDetailS
                 'WITHDRAWN',
               ].map(
                 (s) => Padding(
-                  padding: EdgeInsets.only(right: 8.w),
+                  padding: EdgeInsets.only(right: 8.tw),
                   child: FilterChip(
                     label: Text(s),
                     selected: _stageChip == s,
@@ -366,10 +392,10 @@ class _R2RequisitionDetailScreenState extends ConsumerState<R2RequisitionDetailS
             ],
           ),
         ),
-        SizedBox(height: 12.h),
+        SizedBox(height: 12.th),
         ...candidates.map(
           (c) => Padding(
-            padding: EdgeInsets.only(bottom: 10.h),
+            padding: EdgeInsets.only(bottom: 10.th),
             child: RecruitmentCandidateTile(
               candidate: c,
               onTap: () {
@@ -384,7 +410,7 @@ class _R2RequisitionDetailScreenState extends ConsumerState<R2RequisitionDetailS
         ),
         if (candidates.isEmpty)
           Padding(
-            padding: EdgeInsets.symmetric(vertical: 24.h),
+            padding: EdgeInsets.symmetric(vertical: 24.th),
             child: Center(
               child: Text(
                 'No candidates for this filter.',
@@ -396,13 +422,21 @@ class _R2RequisitionDetailScreenState extends ConsumerState<R2RequisitionDetailS
     );
   }
 
-  Widget _offersTab(RequisitionDetailModel d) {
+  Widget _offersTab(RequisitionDetailModel d, Requisition r, int daysOpen) {
     return ListView(
-      padding: EdgeInsets.all(HrModuleLayout.screenPaddingH.w),
+      physics: const AlwaysScrollableScrollPhysics(),
+      padding: EdgeInsets.fromLTRB(
+        HrModuleLayout.screenPaddingH.tw,
+        12.th,
+        HrModuleLayout.screenPaddingH.tw,
+        24.th,
+      ),
       children: [
+        _headerCard(d, r, daysOpen),
+        SizedBox(height: 20.th),
         if (d.offers.isEmpty)
           Padding(
-            padding: EdgeInsets.only(top: 40.h),
+            padding: EdgeInsets.only(top: 40.th),
             child: Center(
               child: Text('No offers yet.', style: HrModuleTypography.body()),
             ),
@@ -428,19 +462,28 @@ class _R2RequisitionDetailScreenState extends ConsumerState<R2RequisitionDetailS
     );
   }
 
-  Widget _activityTab(RequisitionDetailModel d) {
+  Widget _activityTab(RequisitionDetailModel d, Requisition r, int daysOpen) {
     final sorted = [...d.activities]..sort((a, b) => b.at.compareTo(a.at));
-    return ListView.builder(
-      padding: EdgeInsets.all(HrModuleLayout.screenPaddingH.w),
-      itemCount: sorted.length,
-      itemBuilder: (context, i) {
-        final e = sorted[i];
-        return ListTile(
-          leading: const Icon(Icons.history),
-          title: Text(e.message, style: TextStyle(fontSize: 13.sp)),
-          subtitle: Text(DateFormat('dd MMM yyyy, HH:mm').format(e.at)),
-        );
-      },
+    return ListView(
+      physics: const AlwaysScrollableScrollPhysics(),
+      padding: EdgeInsets.fromLTRB(
+        HrModuleLayout.screenPaddingH.tw,
+        12.th,
+        HrModuleLayout.screenPaddingH.tw,
+        24.th,
+      ),
+      children: [
+        _headerCard(d, r, daysOpen),
+        SizedBox(height: 20.th),
+        ...sorted.map(
+          (e) => ListTile(
+            contentPadding: EdgeInsets.zero,
+            leading: const Icon(Icons.history),
+            title: Text(e.message, style: TextStyle(fontSize: 13.tsp)),
+            subtitle: Text(DateFormat('dd MMM yyyy, HH:mm').format(e.at)),
+          ),
+        ),
+      ],
     );
   }
 }

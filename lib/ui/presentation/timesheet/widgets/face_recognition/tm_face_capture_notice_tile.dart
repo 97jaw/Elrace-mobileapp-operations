@@ -88,25 +88,25 @@ class _TmFaceCaptureNoticeTileState extends State<TmFaceCaptureNoticeTile>
           opacity: _slide,
           child: DecoratedBox(
             decoration: BoxDecoration(
-              color: Colors.black.withValues(alpha: 0.42),
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: _accent, width: 2),
+              color: Colors.black.withValues(alpha: 0.5),
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(color: _accent, width: 2.5),
             ),
             child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+              padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 18),
               child: Row(
                 children: [
                   ClipRRect(
-                    borderRadius: BorderRadius.circular(10),
+                    borderRadius: BorderRadius.circular(14),
                     child: SizedBox(
-                      width: 52,
-                      height: 52,
+                      width: 84,
+                      height: 84,
                       child: hasHrPhoto
                           ? TmFastNetworkImage(
                               url: imageUrl,
-                              width: 52,
-                              height: 52,
-                              memCacheWidth: 104,
+                              width: 84,
+                              height: 84,
+                              memCacheWidth: 168,
                             )
                           : ColoredBox(
                               color: _accent.withValues(alpha: 0.15),
@@ -118,14 +118,14 @@ class _TmFaceCaptureNoticeTileState extends State<TmFaceCaptureNoticeTile>
                                   style: TextStyle(
                                     color: _accent,
                                     fontWeight: FontWeight.w800,
-                                    fontSize: 22,
+                                    fontSize: 34,
                                   ),
                                 ),
                               ),
                             ),
                     ),
                   ),
-                  const SizedBox(width: 12),
+                  const SizedBox(width: 16),
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -134,7 +134,7 @@ class _TmFaceCaptureNoticeTileState extends State<TmFaceCaptureNoticeTile>
                         if (isAttended)
                           Text(
                             'ALREADY ATTENDED',
-                            style: TimesheetModuleTypography.caption().copyWith(
+                            style: TimesheetModuleTypography.body().copyWith(
                               color: _blue,
                               fontWeight: FontWeight.w800,
                               letterSpacing: 0.6,
@@ -143,17 +143,18 @@ class _TmFaceCaptureNoticeTileState extends State<TmFaceCaptureNoticeTile>
                         if (isAttended) const SizedBox(height: 4),
                         Text(
                           widget.employee.name,
-                          maxLines: 1,
+                          maxLines: 2,
                           overflow: TextOverflow.ellipsis,
-                          style: TimesheetModuleTypography.cardTitle().copyWith(
+                          style: TimesheetModuleTypography.h2().copyWith(
                             color: TimesheetModuleColors.surface,
-                            fontWeight: FontWeight.w700,
+                            fontWeight: FontWeight.w800,
+                            fontSize: 22,
                           ),
                         ),
-                        const SizedBox(height: 2),
+                        const SizedBox(height: 4),
                         Text(
                           'File ID: ${widget.employee.displayFileId}',
-                          style: TimesheetModuleTypography.caption().copyWith(
+                          style: TimesheetModuleTypography.body().copyWith(
                             color: TimesheetModuleColors.surface
                                 .withValues(alpha: 0.9),
                           ),
@@ -164,19 +165,19 @@ class _TmFaceCaptureNoticeTileState extends State<TmFaceCaptureNoticeTile>
                             widget.employee.jobPosition!,
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
-                            style: TimesheetModuleTypography.caption().copyWith(
+                            style: TimesheetModuleTypography.body().copyWith(
                               color: TimesheetModuleColors.surface
-                                  .withValues(alpha: 0.75),
+                                  .withValues(alpha: 0.78),
                             ),
                           ),
                         ],
                         if (!isAttended && pct != null) ...[
-                          const SizedBox(height: 4),
+                          const SizedBox(height: 6),
                           Text(
                             'Confidence $pct%',
-                            style: TimesheetModuleTypography.caption().copyWith(
+                            style: TimesheetModuleTypography.body().copyWith(
                               color: _green,
-                              fontWeight: FontWeight.w700,
+                              fontWeight: FontWeight.w800,
                             ),
                           ),
                         ],

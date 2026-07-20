@@ -9,9 +9,9 @@ import '../theme/media_theme.dart';
 import '../utils/media_content_share_utils.dart';
 import 'media_content_hero.dart';
 import 'media_content_list_tile.dart';
-import 'media_content_thumbnail.dart';
 import 'media_filter_tabs.dart';
 import 'media_gallery_sheet.dart';
+import 'media_photo_viewer.dart';
 import 'media_staggered_content_grid.dart';
 
 /// Photos / 360° landing with swipeable hero card + pinned tabs + list/grid.
@@ -26,6 +26,8 @@ class MediaContentLandingScreen extends StatefulWidget {
     required this.photoCount,
     required this.view360Count,
     required this.onTabSelected,
+    this.showProjectVideos = false,
+    this.projectVideoCount = 0,
     this.imageHeaders,
     this.onOpenPhoto,
     this.onOpen360,
@@ -39,6 +41,8 @@ class MediaContentLandingScreen extends StatefulWidget {
   final int photoCount;
   final int view360Count;
   final ValueChanged<int> onTabSelected;
+  final bool showProjectVideos;
+  final int projectVideoCount;
   final Map<String, String>? imageHeaders;
   final void Function(ContentModel content)? onOpenPhoto;
   final void Function(ContentModel content)? onOpen360;
@@ -130,51 +134,28 @@ class _MediaContentLandingScreenState extends State<MediaContentLandingScreen> {
       if (await canLaunchUrl(url)) {
         await launchUrl(url, mode: LaunchMode.externalApplication);
       }
+    } else if (widget.onOpenPhoto != null) {
+      widget.onOpenPhoto!(item);
     } else {
-      widget.onOpenPhoto?.call(item);
       _showPhotoPreview(item);
     }
   }
 
   void _showPhotoPreview(ContentModel item) {
     final index = widget.items.indexWhere((e) => e.id == item.id);
-    showDialog<void>(
-      context: context,
-      barrierColor: Colors.black87,
-      builder: (dialogContext) {
-        final controller = PageController(initialPage: index < 0 ? 0 : index);
-        return Dialog(
-          backgroundColor: Colors.transparent,
-          insetPadding: EdgeInsets.all(12.w),
-          child: Stack(
-            children: [
-              PageView.builder(
-                controller: controller,
-                itemCount: widget.items.length,
-                itemBuilder: (_, i) {
-                  return InteractiveViewer(
-                    minScale: 0.8,
-                    maxScale: 4,
-                    child: MediaContentThumbnail(
-                      content: widget.items[i],
-                      imageHeaders: widget.imageHeaders,
-                      borderRadius: BorderRadius.circular(12.r),
-                    ),
-                  );
-                },
-              ),
-              Positioned(
-                top: 8.h,
-                right: 8.w,
-                child: IconButton(
-                  onPressed: () => Navigator.pop(dialogContext),
-                  icon: const Icon(Icons.close, color: Colors.white),
-                ),
-              ),
-            ],
-          ),
-        );
-      },
+    MediaPhotoViewer.open(
+      context,
+      items: widget.items
+          .map(
+            (e) => MediaPhotoViewerItem(
+              imageUrl: e.displayImageUrl,
+              title: e.displayName,
+              subtitle: e.projectName,
+            ),
+          )
+          .toList(),
+      initialIndex: index < 0 ? 0 : index,
+      imageHeaders: widget.imageHeaders,
     );
   }
 
@@ -293,6 +274,8 @@ class _MediaContentLandingScreenState extends State<MediaContentLandingScreen> {
       photoCount: widget.photoCount,
       view360Count: widget.view360Count,
       onTabSelected: widget.onTabSelected,
+      showProjectVideos: widget.showProjectVideos,
+      projectVideoCount: widget.projectVideoCount,
       isGridView: _isGridView,
       onToggleView: () => setState(() => _isGridView = !_isGridView),
     );

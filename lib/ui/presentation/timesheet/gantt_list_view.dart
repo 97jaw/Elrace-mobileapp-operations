@@ -19,12 +19,7 @@ class GanttListView extends ConsumerWidget {
     final tasksAsync = ref.watch(timesheetProjectTasksProvider(projectId));
 
     return TmScaffold(
-      appBar: AppBar(
-        title: Text('Gantt View', style: TimesheetModuleTypography.h2()),
-        backgroundColor: TimesheetModuleColors.surface,
-        foregroundColor: TimesheetModuleColors.text,
-        elevation: 0,
-      ),
+      glassTitle: 'Gantt View',
       body: tasksAsync.when(
         loading: () => const TimesheetLoadingState(
           style: TimesheetLoadingStyle.list,

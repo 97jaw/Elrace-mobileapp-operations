@@ -1,3 +1,4 @@
+import 'package:el_race/core/utils/responsive_breakpoints.dart';
 import 'package:el_race/core/services/approval_count_service.dart';
 import 'package:el_race/core/services/approval_viewed_service.dart';
 import 'package:el_race/ui/presentation/Email%20Approval/Approval_confirmation.dart';
@@ -38,9 +39,9 @@ class HrAndPettycashCard extends StatelessWidget {
     required String date,
   }) {
     return Container(
-      height: 158.w,
-      width: 350.w,
-      margin: EdgeInsets.symmetric(horizontal: 10.w, vertical: 5.w),
+      height: 158.tw,
+      width: 350.tw,
+      margin: EdgeInsets.symmetric(horizontal: 10.tw, vertical: 5.tw),
       decoration: BoxDecoration(
         gradient: const LinearGradient(
           colors: [
@@ -50,24 +51,24 @@ class HrAndPettycashCard extends StatelessWidget {
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
-        borderRadius: BorderRadius.circular(16.r),
+        borderRadius: BorderRadius.circular(16.tr),
         border: Border.all(color: const Color(0xFF8F969F), width: 0.8),
       ),
       child: Padding(
-        padding: EdgeInsets.symmetric(horizontal: 10.w, vertical: 9.w),
+        padding: EdgeInsets.symmetric(horizontal: 10.tw, vertical: 9.tw),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             SizedBox(
-              height: 34.w,
+              height: 34.tw,
               child: Stack(
                 alignment: Alignment.center,
                 children: [
                   Align(
                     alignment: Alignment.centerLeft,
                     child: Container(
-                      width: 34.w,
-                      height: 34.w,
+                      width: 34.tw,
+                      height: 34.tw,
                       decoration: BoxDecoration(
                         shape: BoxShape.circle,
                         border: Border.all(
@@ -79,7 +80,7 @@ class HrAndPettycashCard extends StatelessWidget {
                         child: ApprovalListAvatar(
                           item: item as Map<dynamic, dynamic>,
                           kind: ApprovalAvatarKind.employee,
-                          size: 34.w,
+                          size: 34.tw,
                           initials: employeeName,
                           lazyLoadCategory: ApprovalListCategory.hr,
                         ),
@@ -92,7 +93,7 @@ class HrAndPettycashCard extends StatelessWidget {
                       child: Text(
                         date,
                         style: GoogleFonts.poppins(
-                          fontSize: 9.5.sp,
+                          fontSize: 9.5.tsp,
                           fontWeight: FontWeight.w500,
                           color: const Color(0xFF8C939C),
                         ),
@@ -100,13 +101,13 @@ class HrAndPettycashCard extends StatelessWidget {
                     ),
                   Center(
                     child: Padding(
-                      padding: EdgeInsets.symmetric(horizontal: 38.w),
+                      padding: EdgeInsets.symmetric(horizontal: 38.tw),
                       child: FittedBox(
                         fit: BoxFit.scaleDown,
                         child: Text(
                           reqNo.toUpperCase(),
                           style: GoogleFonts.poppins(
-                            fontSize: 13.2.sp,
+                            fontSize: 13.2.tsp,
                             fontWeight: FontWeight.w800,
                             color: const Color(0xFF0B2D5E),
                             letterSpacing: 0.25,
@@ -130,7 +131,7 @@ class HrAndPettycashCard extends StatelessWidget {
                   Text(
                     requestType,
                     style: GoogleFonts.poppins(
-                      fontSize: 12.4.sp,
+                      fontSize: 12.4.tsp,
                       fontWeight: FontWeight.w800,
                       color: const Color(0xFF0E0E10),
                     ),
@@ -138,11 +139,11 @@ class HrAndPettycashCard extends StatelessWidget {
                     overflow: TextOverflow.ellipsis,
                   ),
                   if (leaveSubtype.trim().isNotEmpty) ...[
-                    SizedBox(height: 4.w),
+                    SizedBox(height: 4.tw),
                     Text(
                       leaveSubtype,
                       style: GoogleFonts.poppins(
-                        fontSize: 11.sp,
+                        fontSize: 11.tsp,
                         fontWeight: FontWeight.w600,
                         color: const Color(0xFF0B387A),
                       ),
@@ -150,11 +151,11 @@ class HrAndPettycashCard extends StatelessWidget {
                       overflow: TextOverflow.ellipsis,
                     ),
                   ],
-                  SizedBox(height: 6.w),
+                  SizedBox(height: 6.tw),
                   Text(
                     employeeName,
                     style: GoogleFonts.poppins(
-                      fontSize: 12.sp,
+                      fontSize: 12.tsp,
                       fontWeight: FontWeight.w700,
                       color: const Color(0xFF4A5564),
                       letterSpacing: 0.1,
@@ -162,11 +163,11 @@ class HrAndPettycashCard extends StatelessWidget {
                     maxLines: null,
                     overflow: TextOverflow.visible,
                   ),
-                  SizedBox(height: 1.8.w),
+                  SizedBox(height: 1.8.tw),
                   Text(
                     empCode,
                     style: GoogleFonts.poppins(
-                      fontSize: 12.sp,
+                      fontSize: 12.tsp,
                       fontWeight: FontWeight.w700,
                       color: const Color(0xFF6B717B),
                     ),
@@ -196,9 +197,9 @@ class HrAndPettycashCard extends StatelessWidget {
         : PettyCashApprovalDisplay.formattedDate(item);
 
     return Container(
-      height: 150.w,
-      width: 350.w,
-      margin: EdgeInsets.symmetric(horizontal: 10.w, vertical: 5.w),
+      height: 150.tw,
+      width: 350.tw,
+      margin: EdgeInsets.symmetric(horizontal: 10.tw, vertical: 5.tw),
       decoration: BoxDecoration(
         gradient: const LinearGradient(
           colors: [
@@ -208,24 +209,24 @@ class HrAndPettycashCard extends StatelessWidget {
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
-        borderRadius: BorderRadius.circular(16.r),
+        borderRadius: BorderRadius.circular(16.tr),
         border: Border.all(color: const Color(0xFF8F969F), width: 0.8),
       ),
       child: Padding(
-        padding: EdgeInsets.symmetric(horizontal: 10.w, vertical: 10.w),
+        padding: EdgeInsets.symmetric(horizontal: 10.tw, vertical: 10.tw),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             SizedBox(
-              height: 34.w,
+              height: 34.tw,
               child: Stack(
                 alignment: Alignment.center,
                 children: [
                   Align(
                     alignment: Alignment.centerLeft,
                     child: Container(
-                      width: 38.w,
-                      height: 38.w,
+                      width: 38.tw,
+                      height: 38.tw,
                       decoration: BoxDecoration(
                         shape: BoxShape.circle,
                         border: Border.all(color: Colors.white, width: 1),
@@ -234,7 +235,7 @@ class HrAndPettycashCard extends StatelessWidget {
                         child: ApprovalListAvatar(
                           item: item,
                           kind: ApprovalAvatarKind.pettyCashHolder,
-                          size: 38.w,
+                          size: 38.tw,
                           initials: displayHolderName,
                           lazyLoadCategory: ApprovalListCategory.pettyCash,
                         ),
@@ -243,13 +244,13 @@ class HrAndPettycashCard extends StatelessWidget {
                   ),
                   Center(
                     child: Padding(
-                      padding: EdgeInsets.symmetric(horizontal: 38.w),
+                      padding: EdgeInsets.symmetric(horizontal: 38.tw),
                       child: FittedBox(
                         fit: BoxFit.scaleDown,
                         child: Text(
                           refNo.toUpperCase(),
                           style: GoogleFonts.poppins(
-                            fontSize: 16.sp,
+                            fontSize: 16.tsp,
                             fontWeight: FontWeight.w800,
                             color: const Color(0xFF0B2D5E),
                             letterSpacing: 0.25,
@@ -265,11 +266,11 @@ class HrAndPettycashCard extends StatelessWidget {
                 ],
               ),
             ),
-            SizedBox(height: 10.w),
+            SizedBox(height: 10.tw),
             Text(
               displayHolderName.toUpperCase(),
               style: GoogleFonts.poppins(
-                fontSize: 16.sp,
+                fontSize: 16.tsp,
                 fontWeight: FontWeight.w800,
                 color: const Color(0xFF0F1114),
                 height: 1.1,
@@ -285,7 +286,7 @@ class HrAndPettycashCard extends StatelessWidget {
                   child: Text(
                     displayDate,
                     style: GoogleFonts.poppins(
-                      fontSize: 12.sp,
+                      fontSize: 12.tsp,
                       fontWeight: FontWeight.w500,
                       color: const Color(0xFF4A4F57),
                       letterSpacing: 0.1,
@@ -297,7 +298,7 @@ class HrAndPettycashCard extends StatelessWidget {
                 Text(
                   amountText,
                   style: GoogleFonts.poppins(
-                    fontSize: 26.sp,
+                    fontSize: 26.tsp,
                     fontWeight: FontWeight.w900,
                     color: const Color(0xFF0B387A),
                     letterSpacing: 0.2,
@@ -337,12 +338,12 @@ class HrAndPettycashCard extends StatelessWidget {
     }
 
     final totalBottomPadding =
-        kBottomNavigationBarHeight + context.systemBottomInset + 100.h;
+        kBottomNavigationBarHeight + context.systemBottomInset + 100.th;
 
     return ListView.separated(
       physics: const BouncingScrollPhysics(),
       padding: const EdgeInsets.symmetric(horizontal: 5) +
-          EdgeInsets.only(bottom: totalBottomPadding, top: 8.h),
+          EdgeInsets.only(bottom: totalBottomPadding, top: 8.th),
       itemCount: displayItems.length,
       separatorBuilder: (context, index) => const SizedBox(height: 1),
       itemBuilder: (context, index) {

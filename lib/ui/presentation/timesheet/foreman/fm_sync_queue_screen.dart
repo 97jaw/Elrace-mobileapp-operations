@@ -24,12 +24,7 @@ class _FmSyncQueueScreenState extends ConsumerState<FmSyncQueueScreen> {
   @override
   Widget build(BuildContext context) {
     return TmScaffold(
-      appBar: AppBar(
-        title: Text('Pending sync', style: TimesheetModuleTypography.h2()),
-        backgroundColor: TimesheetModuleColors.surface,
-        foregroundColor: TimesheetModuleColors.text,
-        elevation: 0,
-      ),
+      glassTitle: 'Pending sync',
       body: FutureBuilder(
         future: Future.wait([
           _captureQueue.pending(),
@@ -57,6 +52,7 @@ class _FmSyncQueueScreenState extends ConsumerState<FmSyncQueueScreen> {
             children: [
               TmPrimaryButton(
                 label: _isDraining ? 'Syncing...' : 'Retry all',
+                warm: true,
                 icon: PhosphorIcons.arrowsClockwise(),
                 onPressed: _isDraining ? null : () => _drainAll(context),
               ),

@@ -1,3 +1,4 @@
+import 'package:el_race/core/utils/responsive_breakpoints.dart';
 import 'package:el_race/data/models/global_search_item.dart';
 import 'package:el_race/providers/global_search_provider.dart';
 import 'package:el_race/ui/chat/widgets/chat_unified_header_backdrop.dart';
@@ -133,14 +134,14 @@ class _GlobalSearchCategoryScreenState extends State<GlobalSearchCategoryScreen>
   Widget _buildBody() {
     if (_loading) {
       return ListView.builder(
-        padding: EdgeInsets.fromLTRB(0, 8.h, 0, 24.h),
+        padding: EdgeInsets.fromLTRB(0, 8.th, 0, 24.th),
         itemCount: 6,
         itemBuilder: (_, __) => Padding(
-          padding: EdgeInsets.symmetric(horizontal: 14.w, vertical: 5.h),
+          padding: EdgeInsets.symmetric(horizontal: 14.tw, vertical: 5.th),
           child: Container(
-            height: 120.h,
+            height: 120.th,
             decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(16.r),
+              borderRadius: BorderRadius.circular(16.tr),
               color: GlobalSearchTheme.white.withValues(alpha: 0.2),
             ),
           ),
@@ -151,7 +152,7 @@ class _GlobalSearchCategoryScreenState extends State<GlobalSearchCategoryScreen>
     if (_error != null) {
       return Center(
         child: Padding(
-          padding: EdgeInsets.all(24.w),
+          padding: EdgeInsets.all(24.tw),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
@@ -160,10 +161,10 @@ class _GlobalSearchCategoryScreenState extends State<GlobalSearchCategoryScreen>
                 textAlign: TextAlign.center,
                 style: GoogleFonts.poppins(
                   color: GlobalSearchTheme.onGlassMuted,
-                  fontSize: 14.sp,
+                  fontSize: 14.tsp,
                 ),
               ),
-              SizedBox(height: 16.h),
+              SizedBox(height: 16.th),
               TextButton(
                 onPressed: _load,
                 child: Text(translate('search.retry')),
@@ -180,14 +181,14 @@ class _GlobalSearchCategoryScreenState extends State<GlobalSearchCategoryScreen>
           translate('search.no_results'),
           style: GoogleFonts.poppins(
             color: GlobalSearchTheme.onGlassMuted,
-            fontSize: 14.sp,
+            fontSize: 14.tsp,
           ),
         ),
       );
     }
 
     return ListView.builder(
-      padding: EdgeInsets.fromLTRB(0, 8.h, 0, 24.h),
+      padding: EdgeInsets.fromLTRB(0, 8.th, 0, 24.th),
       itemCount: _items.length,
       itemBuilder: (context, index) {
         return _itemBuilder.buildCard(_items[index], widget.keyword);
@@ -208,9 +209,9 @@ class _CategoryGlassHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return SizedBox(
-      height: 100.h + MediaQuery.paddingOf(context).top,
+      height: 100.th + MediaQuery.paddingOf(context).top,
       child: ClipRRect(
-        borderRadius: BorderRadius.vertical(bottom: Radius.circular(20.r)),
+        borderRadius: BorderRadius.vertical(bottom: Radius.circular(20.tr)),
         child: Stack(
           fit: StackFit.expand,
           children: [
@@ -218,7 +219,7 @@ class _CategoryGlassHeader extends StatelessWidget {
             SafeArea(
               bottom: false,
               child: Padding(
-                padding: EdgeInsets.fromLTRB(14.w, 4.h, 14.w, 12.h),
+                padding: EdgeInsets.fromLTRB(14.tw, 4.th, 14.tw, 12.th),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
@@ -229,19 +230,19 @@ class _CategoryGlassHeader extends StatelessWidget {
                           icon: Icon(
                             Icons.arrow_back_ios_new_rounded,
                             color: Colors.white,
-                            size: 18.sp,
+                            size: 18.tsp,
                           ),
                           padding: EdgeInsets.zero,
                           constraints: BoxConstraints(
-                            minWidth: 32.w,
-                            minHeight: 32.w,
+                            minWidth: 32.tw,
+                            minHeight: 32.tw,
                           ),
                         ),
                         Expanded(
                           child: Text(
                             title,
                             style: GoogleFonts.poppins(
-                              fontSize: 17.sp,
+                              fontSize: 17.tsp,
                               fontWeight: FontWeight.w700,
                               color: Colors.white,
                             ),
@@ -252,13 +253,13 @@ class _CategoryGlassHeader extends StatelessWidget {
                       ],
                     ),
                     if (keyword.isNotEmpty) ...[
-                      SizedBox(height: 6.h),
+                      SizedBox(height: 6.th),
                       Text(
                         keyword,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: GoogleFonts.poppins(
-                          fontSize: 12.sp,
+                          fontSize: 12.tsp,
                           color: Colors.white.withValues(alpha: 0.75),
                         ),
                       ),

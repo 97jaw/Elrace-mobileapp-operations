@@ -1,3 +1,4 @@
+import 'package:el_race/core/utils/responsive_breakpoints.dart';
 import 'package:el_race/ui/presentation/my_projects/presentation/utils/projects_dashboard_aggregator.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
@@ -48,13 +49,13 @@ class ProjectsKpiBoxesGrid extends StatelessWidget {
     ];
 
     return Padding(
-      padding: EdgeInsets.symmetric(horizontal: 16.w),
+      padding: EdgeInsets.symmetric(horizontal: 16.tw),
       child: GridView.count(
         crossAxisCount: 2,
         shrinkWrap: true,
         physics: const NeverScrollableScrollPhysics(),
-        mainAxisSpacing: 10.h,
-        crossAxisSpacing: 10.w,
+        mainAxisSpacing: 10.th,
+        crossAxisSpacing: 10.tw,
         childAspectRatio: 1.25,
         children: [
           for (final item in items) _KpiBox(item: item),
@@ -98,10 +99,10 @@ class _KpiBox extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 10.h),
+      padding: EdgeInsets.symmetric(horizontal: 12.tw, vertical: 10.th),
       decoration: BoxDecoration(
         color: item.fill,
-        borderRadius: BorderRadius.circular(14.r),
+        borderRadius: BorderRadius.circular(14.tr),
         border: Border.all(color: const Color(0xFFE5E7EB)),
       ),
       child: Column(
@@ -111,18 +112,18 @@ class _KpiBox extends StatelessWidget {
           Text(
             item.label,
             style: GoogleFonts.poppins(
-              fontSize: 11.sp,
+              fontSize: 11.tsp,
               fontWeight: FontWeight.w500,
               color: const Color(0xFF6B7280),
             ),
             maxLines: 2,
             overflow: TextOverflow.ellipsis,
           ),
-          SizedBox(height: 6.h),
+          SizedBox(height: 6.th),
           Text(
             item.value,
             style: GoogleFonts.koulen(
-              fontSize: 20.sp,
+              fontSize: 20.tsp,
               fontWeight: FontWeight.w500,
               color: const Color(0xFF1E2365),
             ),

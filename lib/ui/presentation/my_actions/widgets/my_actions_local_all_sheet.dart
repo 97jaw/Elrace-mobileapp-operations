@@ -1,3 +1,4 @@
+import 'package:el_race/core/utils/responsive_breakpoints.dart';
 import 'package:el_race/ui/presentation/my_actions/data/my_actions_models.dart';
 import 'package:el_race/ui/presentation/my_actions/theme/my_actions_module_theme.dart';
 import 'package:el_race/ui/presentation/my_actions/widgets/my_action_list_tile.dart';
@@ -100,34 +101,34 @@ class _MyActionsLocalAllSheetState extends State<MyActionsLocalAllSheet> {
     return Container(
       decoration: BoxDecoration(
         color: MyActionsModuleTheme.white,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(28.r)),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(28.tr)),
       ),
       child: Column(
         children: [
-          SizedBox(height: 10.h),
+          SizedBox(height: 10.th),
           Container(
-            width: 40.w,
-            height: 4.h,
+            width: 40.tw,
+            height: 4.th,
             decoration: BoxDecoration(
               color: MyActionsModuleTheme.textMuted.withValues(alpha: 0.35),
               borderRadius: BorderRadius.circular(999),
             ),
           ),
           Padding(
-            padding: EdgeInsets.fromLTRB(20.w, 16.h, 12.w, 8.h),
+            padding: EdgeInsets.fromLTRB(20.tw, 16.th, 12.tw, 8.th),
             child: Row(
               children: [
                 Text('All ${theme.title}', style: theme.sectionTitle),
                 const Spacer(),
                 IconButton(
                   onPressed: () => Navigator.pop(context),
-                  icon: Icon(Icons.close_rounded, size: 22.sp),
+                  icon: Icon(Icons.close_rounded, size: 22.tsp),
                 ),
               ],
             ),
           ),
           Padding(
-            padding: EdgeInsets.symmetric(horizontal: 20.w),
+            padding: EdgeInsets.symmetric(horizontal: 20.tw),
             child: TextField(
               controller: _searchController,
               decoration: InputDecoration(
@@ -136,21 +137,21 @@ class _MyActionsLocalAllSheetState extends State<MyActionsLocalAllSheet> {
                 filled: true,
                 fillColor: theme.wash,
                 border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(16.r),
+                  borderRadius: BorderRadius.circular(16.tr),
                   borderSide: BorderSide.none,
                 ),
               ),
             ),
           ),
-          SizedBox(height: 12.h),
+          SizedBox(height: 12.th),
           SingleChildScrollView(
             scrollDirection: Axis.horizontal,
-            padding: EdgeInsets.symmetric(horizontal: 20.w),
+            padding: EdgeInsets.symmetric(horizontal: 20.tw),
             child: Row(
               children: MyActionFilter.values.map((f) {
                 final selected = f == _filter;
                 return Padding(
-                  padding: EdgeInsets.only(right: 8.w),
+                  padding: EdgeInsets.only(right: 8.tw),
                   child: ChoiceChip(
                     label: Text(f.name),
                     selected: selected,
@@ -162,7 +163,7 @@ class _MyActionsLocalAllSheetState extends State<MyActionsLocalAllSheet> {
               }).toList(),
             ),
           ),
-          SizedBox(height: 8.h),
+          SizedBox(height: 8.th),
           Expanded(
             child: visible.isEmpty
                 ? Center(
@@ -175,13 +176,13 @@ class _MyActionsLocalAllSheetState extends State<MyActionsLocalAllSheet> {
                   )
                 : ListView.separated(
                     padding: EdgeInsets.fromLTRB(
-                      20.w,
-                      4.h,
-                      20.w,
-                      20.h + bottomInset,
+                      20.tw,
+                      4.th,
+                      20.tw,
+                      20.th + bottomInset,
                     ),
                     itemCount: visible.length,
-                    separatorBuilder: (_, __) => SizedBox(height: 10.h),
+                    separatorBuilder: (_, __) => SizedBox(height: 10.th),
                     itemBuilder: (context, index) {
                       final item = visible[index];
                       return MyActionListTile(

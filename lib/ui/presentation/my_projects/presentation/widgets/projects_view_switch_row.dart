@@ -1,3 +1,4 @@
+import 'package:el_race/core/utils/responsive_breakpoints.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -30,7 +31,7 @@ class ProjectsViewSwitchRow extends StatelessWidget {
     const inactiveBorder = Color(0xFF9CA3AF);
 
     return Padding(
-      padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 4.h),
+      padding: EdgeInsets.symmetric(horizontal: 16.tw, vertical: 4.th),
       child: Row(
         children: [
           _ModeButton(
@@ -84,13 +85,13 @@ class _ModeButton extends StatelessWidget {
   Widget build(BuildContext context) {
     return InkWell(
       onTap: onTap,
-      borderRadius: BorderRadius.circular(24.r),
+      borderRadius: BorderRadius.circular(24.tr),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
           Container(
-            width: 40.w,
-            height: 40.w,
+            width: 40.tw,
+            height: 40.tw,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
               color: isActive ? activeColor : Colors.transparent,
@@ -110,15 +111,15 @@ class _ModeButton extends StatelessWidget {
             ),
             child: Icon(
               icon,
-              size: 20.sp,
+              size: 20.tsp,
               color: isActive ? Colors.white : activeColor,
             ),
           ),
-          SizedBox(height: 4.h),
+          SizedBox(height: 4.th),
           Text(
             label,
             style: GoogleFonts.poppins(
-              fontSize: 10.sp,
+              fontSize: 10.tsp,
               fontWeight: FontWeight.w600,
               color: isActive ? activeColor : const Color(0xFF6B7280),
             ),
@@ -148,8 +149,8 @@ class _CenterLogo extends StatelessWidget {
       avatarChild = ClipOval(
         child: Image.network(
           photoUrl,
-          width: 56.w,
-          height: 56.w,
+          width: 56.tw,
+          height: 56.tw,
           fit: BoxFit.cover,
           errorBuilder: (_, __, ___) => _InitialsAvatar(initials: initials),
         ),
@@ -159,7 +160,7 @@ class _CenterLogo extends StatelessWidget {
     }
 
     return Container(
-      padding: EdgeInsets.all(3.w),
+      padding: EdgeInsets.all(3.tw),
       decoration: BoxDecoration(
         shape: BoxShape.circle,
         border: Border.all(color: ringColor.withOpacity(0.35), width: 2),
@@ -193,12 +194,12 @@ class _InitialsAvatar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return CircleAvatar(
-      radius: 28.r,
+      radius: 28.tr,
       backgroundColor: const Color(0xFF1E2365),
       child: Text(
         initials,
         style: GoogleFonts.poppins(
-          fontSize: 18.sp,
+          fontSize: 18.tsp,
           fontWeight: FontWeight.w700,
           color: Colors.white,
         ),

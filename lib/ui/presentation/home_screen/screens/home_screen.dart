@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:el_race/core/app_globals.dart';
 import 'package:el_race/core/biometric/unified_biometric_helper.dart';
 import 'package:el_race/core/services/attendance_status_sync_service.dart';
 import 'package:el_race/ui/presentation/home_screen/bloc/home_bloc.dart';
@@ -16,6 +17,7 @@ import 'package:flutter_translate/flutter_translate.dart';
 import 'package:get/get.dart';
 import 'package:location/location.dart';
 import 'package:el_race/core/services/app_config_service.dart';
+import 'package:el_race/ui/presentation/home_screen/screens/biometric_sign_in_gate_screen.dart';
 
 class HomeScreen extends StatelessWidget {
   const HomeScreen({super.key});
@@ -56,8 +58,10 @@ class _HomeScreenState extends State<HomeScreenPage>
 
   // bool isMuted = false; // default value
   bool isCheckedIn = false;
-  /// Blocks home UI until biometrics succeed (covers cancel → re-prompt gaps).
+  /// Blocks home UI until biometrics succeed (covers cancel → gate screen).
   bool _isBiometricLocked = false;
+  /// After cancel/miss: show logo + "Sign in with biometric" screen.
+  bool _showBiometricGateScreen = false;
   final _locationBloc = LocationBloc();
   final Location _location = Location();
 
@@ -102,62 +106,57 @@ class _HomeScreenState extends State<HomeScreenPage>
 
   /// Authenticate user right after login using device biometrics only.
   /// PIN, passcode, password, and pattern fallback are not allowed.
-  Future<void> _authenticateAfterLogin() async {
-    if (HomeScreenPage._didAuthenticateThisSession || HomeScreenPage._isAuthenticating) {
-      return;
-    }
+  /// On cancel/miss, show [BiometricSignInGateScreen] instead of auto-reprompting.
+  Future<void> _authenticateAfterLogin({bool fromButton = false}) async {
+    if (HomeScreenPage._didAuthenticateThisSession) return;
+    if (HomeScreenPage._isAuthenticating && !fromButton) return;
 
     HomeScreenPage._isAuthenticating = true;
     _setBiometricLocked(true);
+    if (mounted) setState(() => _showBiometricGateScreen = false);
 
-    // Brief settle so the first frame paints the lock before OS prompt.
-    await Future.delayed(const Duration(milliseconds: 350));
+    if (!fromButton) {
+      await Future.delayed(const Duration(milliseconds: 350));
+    }
     if (!mounted) {
       HomeScreenPage._isAuthenticating = false;
       HomeScreenPage._sessionUiLocked = false;
       return;
     }
 
-    // Now actually authenticate (Face ID / fingerprint only)
-    bool authenticated = false;
-    while (!authenticated && mounted) {
-      // Keep absorbing input for the whole gate — including between cancel and
-      // the next system prompt.
-      _setBiometricLocked(true);
+    final hasBiometrics = await UnifiedBiometricHelper.isBiometricAvailable();
+    if (!mounted) {
+      HomeScreenPage._isAuthenticating = false;
+      return;
+    }
 
-      final hasBiometrics = await UnifiedBiometricHelper.isBiometricAvailable();
-      if (!mounted) break;
+    if (!hasBiometrics) {
+      await _showBiometricRequiredDialog();
+      HomeScreenPage._isAuthenticating = false;
+      if (mounted) setState(() => _showBiometricGateScreen = true);
+      return;
+    }
 
-      if (!hasBiometrics && mounted) {
-        await _showBiometricRequiredDialog();
-        continue;
-      }
+    final authenticated = await UnifiedBiometricHelper.authenticate(
+      context: context,
+      title: 'تحقق من الهوية',
+      subtitle: 'يرجى التحقق من هويتك للمتابعة',
+      reason: 'تحقق من هويتك بعد تسجيل الدخول',
+    );
 
-      authenticated = await UnifiedBiometricHelper.authenticate(
-        context: context,
-        title: 'تحقق من الهوية',
-        subtitle: 'يرجى التحقق من هويتك للمتابعة',
-        reason: 'تحقق من هويتك بعد تسجيل الدخول',
-      );
-
-      if (!authenticated && mounted) {
-        // Stay locked; short debounce only before re-prompt — never unlock UI.
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('يجب التحقق من هويتك للمتابعة'),
-            duration: Duration(milliseconds: 1200),
-          ),
-        );
-        await Future.delayed(const Duration(milliseconds: 900));
-      }
+    if (!mounted) {
+      HomeScreenPage._isAuthenticating = false;
+      return;
     }
 
     if (authenticated) {
       HomeScreenPage._didAuthenticateThisSession = true;
       _setBiometricLocked(false);
+      setState(() => _showBiometricGateScreen = false);
     } else {
-      // Keep locked if we left without success (e.g. disposed while prompting).
+      // Cancel / miss → dedicated sign-in screen (session stays logged in).
       _setBiometricLocked(true);
+      setState(() => _showBiometricGateScreen = true);
     }
     HomeScreenPage._isAuthenticating = false;
   }
@@ -189,22 +188,80 @@ class _HomeScreenState extends State<HomeScreenPage>
     super.dispose();
   }
 
+  // Phase 8.2: guards against rapid app-switching stacking concurrent
+  // resume work (location check + GPS fetch + attendance sync),
+  // independent of the Phase 8.1 splash-restart skip above.
+  bool _resumeRefreshInFlight = false;
+
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
-      _checkLocationService(); // إعادة التحقق عند العودة
+      debugPrint('⏱️ [home-resume] didChangeAppLifecycleState(resumed)');
+      // Phase 8.1: main.dart's own resume handler is about to tear down the
+      // route stack and mount a fresh SplashScreen (10-minute inactivity
+      // restart) — there's no point kicking off a location dialog, GPS
+      // fetch, attendance sync, or role refresh on a screen that's being
+      // replaced. Splash's own navigation back into Home re-primes this
+      // data anyway.
+      if (isRestartingFromSplashTimeout.value) {
+        debugPrint('⏱️ [home-resume] skipped — splash restart in flight');
+        return;
+      }
+      // ignore: unawaited_futures
+      _handleResume();
+    }
+  }
+
+  Future<void> _handleResume() async {
+    if (_resumeRefreshInFlight) {
+      debugPrint('⏱️ [home-resume] skipped — previous resume still in flight');
+      return;
+    }
+    _resumeRefreshInFlight = true;
+    try {
+      debugPrint('⏱️ [home-resume] location check start');
+      await _checkLocationService(); // إعادة التحقق عند العودة
+      debugPrint('⏱️ [home-resume] location check complete');
       _locationBloc.add(GetCurrentLocationET()); // إعادة جلب اللوكيشن
 
       // مزامنة حالة الحضور من السيرفر عند العودة من الخلفية
       // لضمان تحديث الأوقات والعداد بدون الحاجة لتسجيل خروج/دخول
-      AttendanceStatusSyncService.refreshFromServer(reason: 'app_resumed');
+      debugPrint('⏱️ [home-resume] attendance sync start');
+      await AttendanceStatusSyncService.refreshFromServer(reason: 'app_resumed')
+          .timeout(const Duration(seconds: 10), onTimeout: () => null);
+      debugPrint('⏱️ [home-resume] attendance sync complete');
+      // Removed: LoginSessionRefreshService.refreshRoles() / POST
+      // /api/session/refresh on every resume. Device logs (2026-07-19) showed
+      // this endpoint taking 15-20+ seconds per call (one attempt hit
+      // ApiClient's 20s receiveTimeout outright) — not needed on every single
+      // app resume, and not worth the latency/complexity of debouncing
+      // separately from the rest of this handler.
+    } finally {
+      _resumeRefreshInFlight = false;
     }
   }
+
+  // Phase 8.3: the dialog below is non-dismissible (barrierDismissible:
+  // false) — possibly intentional for check-in accuracy reasons, so kept
+  // blocking rather than downgraded to a snackbar. But firing it on every
+  // single resume whenever location services are off was its own source
+  // of a "stuck screen" report independent of the splash issue. Only
+  // surface it once per session; a resume with location still disabled
+  // won't re-show it. Does not affect the dialog's own internal "still
+  // disabled after tapping OK" retry loop below, which is the same user
+  // interaction continuing, not a new resume-triggered occurrence.
+  bool _locationDialogShownThisSession = false;
 
   Future<void> _checkLocationService() async {
     // Check if location service is enabled
     bool isServiceEnabled = await _location.serviceEnabled();
     if (!isServiceEnabled) {
+      if (_locationDialogShownThisSession) {
+        debugPrint('⏱️ [home-resume] location dialog already shown this session — skipping');
+        return;
+      }
+      _locationDialogShownThisSession = true;
+      debugPrint('⏱️ [home-resume] showing location-services dialog (non-dismissible)');
       // If not enabled, show popup
       _showLocationServiceDialog();
     }
@@ -298,7 +355,14 @@ class _HomeScreenState extends State<HomeScreenPage>
               );
             },
           ),
-          if (gateLocked)
+          if (gateLocked && _showBiometricGateScreen)
+            Positioned.fill(
+              child: BiometricSignInGateScreen(
+                onSignInWithBiometric: () =>
+                    _authenticateAfterLogin(fromButton: true),
+              ),
+            )
+          else if (gateLocked)
             const Positioned.fill(
               child: _BiometricLockOverlay(),
             ),

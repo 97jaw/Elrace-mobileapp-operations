@@ -1,3 +1,4 @@
+import 'package:el_race/core/utils/responsive_breakpoints.dart';
 import 'package:el_race/ui/presentation/my_projects/presentation/theme/projects_dashboard_theme.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
@@ -21,7 +22,7 @@ class ProjectsSubScreenHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: EdgeInsets.fromLTRB(4.w, 8.h, 12.w, 10.h),
+      padding: EdgeInsets.fromLTRB(4.tw, 8.th, 12.tw, 10.th),
       child: Row(
         children: [
           IconButton(
@@ -29,7 +30,7 @@ class ProjectsSubScreenHeader extends StatelessWidget {
             icon: Icon(
               Icons.arrow_back_ios_new_rounded,
               color: ProjectsDashboardTheme.white,
-              size: 20.sp,
+              size: 20.tsp,
             ),
           ),
           Expanded(
@@ -38,7 +39,7 @@ class ProjectsSubScreenHeader extends StatelessWidget {
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
               style: GoogleFonts.poppins(
-                fontSize: 20.sp,
+                fontSize: 20.tsp,
                 fontWeight: FontWeight.w700,
                 color: ProjectsDashboardTheme.white,
                 height: 1.2,
@@ -52,7 +53,7 @@ class ProjectsSubScreenHeader extends StatelessWidget {
               icon: Icon(
                 Icons.home_rounded,
                 color: ProjectsDashboardTheme.white,
-                size: 26.sp,
+                size: 26.tsp,
               ),
             ),
         ],

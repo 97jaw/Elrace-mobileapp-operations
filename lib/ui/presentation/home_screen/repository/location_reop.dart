@@ -1,7 +1,9 @@
+import 'dart:async';
+
 import 'package:geolocator/geolocator.dart';
 
 class LocationRepo {
-  Future<Position> getCurrentLocation() async {
+  Future<Position> getCurrentLocation({Duration? timeLimit}) async {
     bool serviceEnabled;
     LocationPermission permission;
 
@@ -23,6 +25,37 @@ class LocationRepo {
           'Location permissions are permanently denied, we cannot request permissions.');
     }
 
-    return await Geolocator.getCurrentPosition();
+    if (timeLimit == null) {
+      return await Geolocator.getCurrentPosition();
+    }
+
+    // Bounded fix: fall back to last known position instead of hanging
+    // indefinitely when GPS is slow (e.g. indoors).
+    try {
+      return await Geolocator.getCurrentPosition(
+        locationSettings: LocationSettings(
+          accuracy: LocationAccuracy.high,
+          timeLimit: timeLimit,
+        ),
+      );
+    } on TimeoutException {
+      final lastKnown = await Geolocator.getLastKnownPosition();
+      if (lastKnown != null) return lastKnown;
+      rethrow;
+    }
+  }
+
+  /// Cheapest possible fix, if any. Never triggers permission prompts.
+  Future<Position?> getLastKnownLocation() async {
+    try {
+      final permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.denied ||
+          permission == LocationPermission.deniedForever) {
+        return null;
+      }
+      return await Geolocator.getLastKnownPosition();
+    } catch (_) {
+      return null;
+    }
   }
 }

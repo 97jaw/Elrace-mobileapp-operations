@@ -7,7 +7,7 @@ import 'package:el_race/core/widgets/timesheet/timesheet_widgets.dart';
 import 'package:el_race/ui/presentation/timesheet/project_record_card.dart';
 import 'package:el_race/ui/presentation/timesheet/timesheet_async_state.dart';
 import 'package:el_race/ui/presentation/timesheet/timesheet_route_args.dart';
-import 'package:el_race/ui/presentation/timesheet/widgets/tm_project_site_reports_tab.dart';
+import 'package:el_race/ui/presentation/timesheet/site_reports/tm_site_reports_list_screen.dart';
 import 'package:el_race/ui/presentation/timesheet/widgets/tm_team_members_sheet.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -29,12 +29,7 @@ class Pm2ProjectDetail extends ConsumerWidget {
 
     return TmScaffold(
       padding: EdgeInsets.zero,
-      appBar: AppBar(
-        title: Text('Project Detail', style: TimesheetModuleTypography.h2()),
-        backgroundColor: TimesheetModuleColors.surface,
-        foregroundColor: TimesheetModuleColors.text,
-        elevation: 0,
-      ),
+      glassTitle: 'Project Detail',
       bottomNavigationBar: _ProjectActionsBar(
         projectId: projectId,
         items: siteMode
@@ -92,31 +87,41 @@ class Pm2ProjectDetail extends ConsumerWidget {
               Expanded(
                 child: TabBarView(
                   children: [
-                    Padding(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: TimesheetModuleLayout.screenPaddingH,
-                        vertical: TimesheetModuleLayout.cardSpacing,
+                    // Tab 0 (Overview) is now lazy too, so first paint
+                    // doesn't pay for its content if the user swipes away
+                    // immediately — matches the other tabs.
+                    TmLazyTab(
+                      builder: (_) => Padding(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: TimesheetModuleLayout.screenPaddingH,
+                          vertical: TimesheetModuleLayout.cardSpacing,
+                        ),
+                        child: siteMode
+                            ? SingleChildScrollView(
+                                child: ProjectRecordCard(project: project),
+                              )
+                            : LayoutBuilder(
+                                builder: (context, constraints) {
+                                  final height = constraints.maxHeight;
+                                  return ProjectRecordCard(
+                                    project: project,
+                                    viewportHeight:
+                                        height > 0 ? height : null,
+                                  );
+                                },
+                              ),
                       ),
-                      child: siteMode
-                          ? SingleChildScrollView(
-                              child: ProjectRecordCard(project: project),
-                            )
-                          : LayoutBuilder(
-                              builder: (context, constraints) {
-                                final height = constraints.maxHeight;
-                                return ProjectRecordCard(
-                                  project: project,
-                                  viewportHeight:
-                                      height > 0 ? height : null,
-                                );
-                              },
-                            ),
                     ),
-                    TmProjectSiteReportsTab(
-                      projectId: project.id,
-                      projectName: project.name,
+                    // Lazy tabs: built on first open, kept alive afterwards.
+                    TmLazyTab(
+                      builder: (_) => const TmSiteReportsListScreen(
+                        embedInParent: true,
+                        title: 'Site Reports',
+                      ),
                     ),
-                    _PmTeamsTab(projectId: project.id),
+                    TmLazyTab(
+                      builder: (_) => _PmTeamsTab(projectId: project.id),
+                    ),
                   ],
                 ),
               ),

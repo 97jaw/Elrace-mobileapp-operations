@@ -1,3 +1,4 @@
+import 'package:el_race/core/utils/responsive_breakpoints.dart';
 import 'package:el_race/core/theme/hr_module_typography.dart';
 import 'package:el_race/core/utils/shared_pref.dart';
 import 'package:el_race/ui/presentation/attendance_reports/utils/attendance_format_utils.dart';
@@ -104,8 +105,8 @@ class _AttendanceDashboardScreenState
                 trailing: [
                   if (widget.sessionRefreshing)
                     SizedBox(
-                      width: 18.w,
-                      height: 18.w,
+                      width: 18.tw,
+                      height: 18.tw,
                       child: CircularProgressIndicator(
                         strokeWidth: 2,
                         color: Colors.white.withValues(alpha: 0.8),
@@ -145,7 +146,7 @@ class _AttendanceDashboardScreenState
       },
       child: ListView(
         physics: const AlwaysScrollableScrollPhysics(),
-        padding: EdgeInsets.only(bottom: 24.h),
+        padding: EdgeInsets.only(bottom: 24.th),
         children: [
           // Hero stats card
           _GlassyHeroHeader(
@@ -168,7 +169,7 @@ class _AttendanceDashboardScreenState
             },
           ),
 
-          SizedBox(height: 16.h),
+          SizedBox(height: 16.th),
 
           // Quick Access card
           _QuickAccessCard(
@@ -178,7 +179,7 @@ class _AttendanceDashboardScreenState
             profileImageUrl: _profileImageUrl(),
           ),
 
-          SizedBox(height: 16.h),
+          SizedBox(height: 16.th),
         ],
       ),
     );
@@ -221,14 +222,14 @@ class _GlassyHeroHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      margin: EdgeInsets.fromLTRB(12.w, 8.h, 12.w, 0),
+      margin: EdgeInsets.fromLTRB(12.tw, 8.th, 12.tw, 0),
       decoration: BoxDecoration(
         gradient: const LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
           colors: [Color(0xFFE4EEFF), Color(0xFFF0F5FF), Color(0xFFFFFFFF)],
         ),
-        borderRadius: BorderRadius.circular(22.r),
+        borderRadius: BorderRadius.circular(22.tr),
         border: Border.all(
           color: Colors.white.withValues(alpha: 0.92),
           width: 1.5,
@@ -242,7 +243,7 @@ class _GlassyHeroHeader extends StatelessWidget {
         ],
       ),
       child: Padding(
-        padding: EdgeInsets.fromLTRB(16.w, 16.h, 16.w, 16.h),
+        padding: EdgeInsets.fromLTRB(16.tw, 16.th, 16.tw, 16.th),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
@@ -250,23 +251,23 @@ class _GlassyHeroHeader extends StatelessWidget {
             Text(
               'Attendance Dashboard',
               style: TextStyle(
-                fontSize: 17.sp,
+                fontSize: 17.tsp,
                 fontWeight: FontWeight.w800,
                 color: AttendanceDashboardTheme.filterActive,
                 letterSpacing: -0.2,
               ),
             ),
-            SizedBox(height: 2.h),
+            SizedBox(height: 2.th),
             Text(
               'Hello, $name',
               style: TextStyle(
-                fontSize: 12.sp,
+                fontSize: 12.tsp,
                 color: AttendanceDashboardTheme.textSecondary,
                 fontWeight: FontWeight.w500,
               ),
             ),
 
-            SizedBox(height: 14.h),
+            SizedBox(height: 14.th),
 
             // Filter chips
             DashboardDateFilterBar(
@@ -275,23 +276,23 @@ class _GlassyHeroHeader extends StatelessWidget {
               onSelect: onFilterSelect,
             ),
 
-            SizedBox(height: 6.h),
+            SizedBox(height: 6.th),
 
             // Date label
             if (dashState != null)
               Padding(
-                padding: EdgeInsets.only(bottom: 4.h),
+                padding: EdgeInsets.only(bottom: 4.th),
                 child: Text(
                   _dateLabel(dashState!),
                   style: TextStyle(
-                    fontSize: 10.sp,
+                    fontSize: 10.tsp,
                     color: AttendanceDashboardTheme.textMuted,
                     fontWeight: FontWeight.w500,
                   ),
                 ),
               ),
 
-            SizedBox(height: 10.h),
+            SizedBox(height: 10.th),
 
             if (hasError)
               _ErrorBanner(message: errorMessage, onRetry: onRetry),
@@ -308,7 +309,7 @@ class _GlassyHeroHeader extends StatelessWidget {
                     onTap: () => onStatCardTap('all'),
                   ),
                 ),
-                SizedBox(width: 8.w),
+                SizedBox(width: 8.tw),
                 Expanded(
                   child: _GlassStatCard(
                     label: 'ON TIME',
@@ -318,7 +319,7 @@ class _GlassyHeroHeader extends StatelessWidget {
                     onTap: () => onStatCardTap('ontime'),
                   ),
                 ),
-                SizedBox(width: 8.w),
+                SizedBox(width: 8.tw),
                 Expanded(
                   child: _GlassStatCard(
                     label: 'LATE',
@@ -330,7 +331,7 @@ class _GlassyHeroHeader extends StatelessWidget {
                 ),
               ],
             ),
-            SizedBox(height: 8.h),
+            SizedBox(height: 8.th),
             Row(
               children: [
                 Expanded(
@@ -342,7 +343,7 @@ class _GlassyHeroHeader extends StatelessWidget {
                     onTap: () => onStatCardTap('absent'),
                   ),
                 ),
-                SizedBox(width: 8.w),
+                SizedBox(width: 8.tw),
                 Expanded(
                   child: _GlassStatCard(
                     label: 'JM / TP',
@@ -352,7 +353,7 @@ class _GlassyHeroHeader extends StatelessWidget {
                     onTap: () => onStatCardTap('jm_tp'),
                   ),
                 ),
-                SizedBox(width: 8.w),
+                SizedBox(width: 8.tw),
                 Expanded(
                   child: _GlassStatCard(
                     label: 'LEAVES',
@@ -404,14 +405,14 @@ class _QuickAccessCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      margin: EdgeInsets.symmetric(horizontal: 12.w),
+      margin: EdgeInsets.symmetric(horizontal: 12.tw),
       decoration: BoxDecoration(
         gradient: const LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
           colors: [Color(0xFFE4EEFF), Color(0xFFF0F5FF), Color(0xFFFFFFFF)],
         ),
-        borderRadius: BorderRadius.circular(22.r),
+        borderRadius: BorderRadius.circular(22.tr),
         border: Border.all(
           color: Colors.white.withValues(alpha: 0.92),
           width: 1.5,
@@ -425,17 +426,17 @@ class _QuickAccessCard extends StatelessWidget {
         ],
       ),
       child: ClipRRect(
-        borderRadius: BorderRadius.circular(21.r),
+        borderRadius: BorderRadius.circular(21.tr),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             // Section header
             Padding(
-              padding: EdgeInsets.fromLTRB(16.w, 14.h, 16.w, 0),
+              padding: EdgeInsets.fromLTRB(16.tw, 14.th, 16.tw, 0),
               child: Text(
                 'Quick Access',
                 style: TextStyle(
-                  fontSize: 14.sp,
+                  fontSize: 14.tsp,
                   fontWeight: FontWeight.w800,
                   color: AttendanceDashboardTheme.filterActive,
                   letterSpacing: -0.1,
@@ -443,7 +444,7 @@ class _QuickAccessCard extends StatelessWidget {
               ),
             ),
 
-            SizedBox(height: 10.h),
+            SizedBox(height: 10.th),
 
             // My Attendance
             _QuickTile(
@@ -481,7 +482,7 @@ class _QuickAccessCard extends StatelessWidget {
 
             // Divider
             Padding(
-              padding: EdgeInsets.symmetric(horizontal: 16.w),
+              padding: EdgeInsets.symmetric(horizontal: 16.tw),
               child: Divider(
                 height: 1,
                 color:
@@ -507,7 +508,7 @@ class _QuickAccessCard extends StatelessWidget {
               },
             ),
 
-            SizedBox(height: 4.h),
+            SizedBox(height: 4.th),
           ],
         ),
       ),
@@ -559,13 +560,13 @@ class _QuickTile extends StatelessWidget {
             ),
 
             Padding(
-              padding: EdgeInsets.fromLTRB(16.w, 12.h, 22.w, 12.h),
+              padding: EdgeInsets.fromLTRB(16.tw, 12.th, 22.tw, 12.th),
               child: Row(
                 children: [
                   // 3D-style icon container
                   Container(
-                    width: 46.w,
-                    height: 46.w,
+                    width: 46.tw,
+                    height: 46.tw,
                     decoration: BoxDecoration(
                       gradient: LinearGradient(
                         begin: Alignment.topLeft,
@@ -575,7 +576,7 @@ class _QuickTile extends StatelessWidget {
                           iconColor,
                         ],
                       ),
-                      borderRadius: BorderRadius.circular(13.r),
+                      borderRadius: BorderRadius.circular(13.tr),
                       boxShadow: [
                         BoxShadow(
                           color: iconColor.withValues(alpha: 0.38),
@@ -589,10 +590,10 @@ class _QuickTile extends StatelessWidget {
                         ),
                       ],
                     ),
-                    child: Icon(icon, color: Colors.white, size: 22.sp),
+                    child: Icon(icon, color: Colors.white, size: 22.tsp),
                   ),
 
-                  SizedBox(width: 14.w),
+                  SizedBox(width: 14.tw),
 
                   Expanded(
                     child: Column(
@@ -602,15 +603,15 @@ class _QuickTile extends StatelessWidget {
                           title,
                           style: HrModuleTypography.body().copyWith(
                             fontWeight: FontWeight.w700,
-                            fontSize: 14.sp,
+                            fontSize: 14.tsp,
                             color: AttendanceDashboardTheme.textPrimary,
                           ),
                         ),
-                        SizedBox(height: 3.h),
+                        SizedBox(height: 3.th),
                         Text(
                           subtitle,
                           style: HrModuleTypography.caption().copyWith(
-                            fontSize: 11.sp,
+                            fontSize: 11.tsp,
                             color: AttendanceDashboardTheme.textMuted,
                           ),
                         ),
@@ -621,7 +622,7 @@ class _QuickTile extends StatelessWidget {
                   Icon(
                     Icons.chevron_right_rounded,
                     color: iconColor.withValues(alpha: 0.5),
-                    size: 20.sp,
+                    size: 20.tsp,
                   ),
                 ],
               ),
@@ -658,7 +659,7 @@ class _GlassStatCard extends StatelessWidget {
       onTap: onTap,
       child: Container(
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(14.r),
+        borderRadius: BorderRadius.circular(14.tr),
         border: Border.all(color: Colors.white.withValues(alpha: 0.85)),
         boxShadow: [
           BoxShadow(
@@ -669,15 +670,15 @@ class _GlassStatCard extends StatelessWidget {
         ],
       ),
       child: ClipRRect(
-        borderRadius: BorderRadius.circular(13.r),
+        borderRadius: BorderRadius.circular(13.tr),
         child: isLoading
             ? Container(
-                height: 90.h,
+                height: 90.th,
                 color: Colors.white.withValues(alpha: 0.70),
                 child: Center(
                   child: SizedBox(
-                    width: 18.w,
-                    height: 18.w,
+                    width: 18.tw,
+                    height: 18.tw,
                     child: CircularProgressIndicator(
                       strokeWidth: 2,
                       color: accent.withValues(alpha: 0.4),
@@ -697,27 +698,27 @@ class _GlassStatCard extends StatelessWidget {
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    Container(height: 10.h, color: accent),
+                    Container(height: 10.th, color: accent),
                     Padding(
                       padding: EdgeInsets.symmetric(
-                          horizontal: 6.w, vertical: 14.h),
+                          horizontal: 6.tw, vertical: 14.th),
                       child: Column(
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           Text(
                             formatK(value),
                             style: TextStyle(
-                              fontSize: 22.sp,
+                              fontSize: 22.tsp,
                               fontWeight: FontWeight.w900,
                               color: accent,
                               height: 1.0,
                             ),
                           ),
-                          SizedBox(height: 4.h),
+                          SizedBox(height: 4.th),
                           Text(
                             label,
                             style: TextStyle(
-                              fontSize: 9.sp,
+                              fontSize: 9.tsp,
                               fontWeight: FontWeight.w700,
                               color: AttendanceDashboardTheme.textSecondary,
                               letterSpacing: 0.4,
@@ -750,11 +751,11 @@ class _ErrorBanner extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      margin: EdgeInsets.only(bottom: 12.h),
-      padding: EdgeInsets.symmetric(horizontal: 14.w, vertical: 10.h),
+      margin: EdgeInsets.only(bottom: 12.th),
+      padding: EdgeInsets.symmetric(horizontal: 14.tw, vertical: 10.th),
       decoration: BoxDecoration(
         color: AttendanceDashboardTheme.accentAbsent.withValues(alpha: 0.08),
-        borderRadius: BorderRadius.circular(10.r),
+        borderRadius: BorderRadius.circular(10.tr),
         border: Border.all(
           color: AttendanceDashboardTheme.accentAbsent.withValues(alpha: 0.3),
         ),
@@ -762,8 +763,8 @@ class _ErrorBanner extends StatelessWidget {
       child: Row(
         children: [
           Icon(Icons.error_outline,
-              color: AttendanceDashboardTheme.accentAbsent, size: 18.sp),
-          SizedBox(width: 8.w),
+              color: AttendanceDashboardTheme.accentAbsent, size: 18.tsp),
+          SizedBox(width: 8.tw),
           Expanded(
             child: Text(
               message,
@@ -778,7 +779,7 @@ class _ErrorBanner extends StatelessWidget {
             child: Text(
               'Retry',
               style: TextStyle(
-                fontSize: 12.sp,
+                fontSize: 12.tsp,
                 fontWeight: FontWeight.w700,
                 color: AttendanceDashboardTheme.accentAbsent,
               ),

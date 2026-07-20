@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:el_race/auth/uaepass_auth_cubit.dart';
 import 'package:el_race/chat/chat.dart';
 import 'package:el_race/core/app_globals.dart';
@@ -67,66 +69,60 @@ class ProfileLogoutHelper {
     final nav = navKey.currentState;
     if (nav == null) return;
 
-    showDialog<void>(
-      context: root,
-      barrierDismissible: false,
-      useRootNavigator: true,
-      builder: (ctx) => const PopScope(
-        canPop: false,
-        child: Center(
-          child: CircularProgressIndicator(color: Color(0xffBA1719)),
-        ),
-      ),
+    // 1) Reset in-memory session state before navigating away.
+    try {
+      sl<HomeBloc>().add(const ChangeCurrentIndex(index: 1));
+    } catch (_) {
+      try {
+        root.read<HomeBloc>().add(const ChangeCurrentIndex(index: 1));
+      } catch (_) {}
+    }
+    try {
+      final c = ProviderScope.containerOf(root, listen: false);
+      resetTimesheetSession(c);
+      c.invalidate(attendanceSessionProvider);
+    } catch (_) {}
+    HomeScreenPage.resetAuthSession();
+
+    // 2) Navigate to sign-in IMMEDIATELY. This disposes the home widget tree
+    //    (and its Firestore listeners) BEFORE Firebase signs out, which avoids
+    //    the post-signout `permission-denied` churn that previously froze
+    //    logout on a loading spinner. Logout is now instant — no blocking
+    //    dialog.
+    nav.pushAndRemoveUntil(
+      MaterialPageRoute(builder: (_) => const SignInScreen()),
+      (route) => false,
     );
 
+    // 3) Persist the logged-out state.
     try {
-      try {
-        await ChatModuleHelper.instance.cleanup().timeout(
+      await SharedPref().clearPreferences();
+    } catch (_) {}
+    try {
+      await HiveService.setUserLoggedIn(false);
+    } catch (_) {}
+
+    // 4) Heavy teardown runs in the background so it can never block the UI.
+    unawaited(_backgroundLogoutCleanup());
+  }
+
+  /// Best-effort teardown that must never block navigation to the sign-in
+  /// screen. Runs after the user is already on the sign-in screen.
+  static Future<void> _backgroundLogoutCleanup() async {
+    try {
+      await ChatModuleHelper.instance.cleanup().timeout(
+            const Duration(seconds: 5),
+          );
+    } catch (_) {}
+    try {
+      if (sl.isRegistered<UaepassAuthCubit>()) {
+        await sl<UaepassAuthCubit>().logout().timeout(
               const Duration(seconds: 5),
             );
-      } catch (_) {}
-
-      try {
-        if (sl.isRegistered<UaepassAuthCubit>()) {
-          await sl<UaepassAuthCubit>().logout().timeout(
-                const Duration(seconds: 5),
-              );
-        }
-      } catch (_) {}
-
-      try {
-        await CheckInReminderNotificationService().cancelAllReminders();
-      } catch (_) {}
-
-      await SharedPref().clearPreferences();
-      await HiveService.setUserLoggedIn(false);
-    } catch (_) {
-    } finally {
-      try {
-        sl<HomeBloc>().add(const ChangeCurrentIndex(index: 1));
-      } catch (_) {
-        try {
-          root.read<HomeBloc>().add(const ChangeCurrentIndex(index: 1));
-        } catch (_) {}
       }
-
-      try {
-        final c = ProviderScope.containerOf(root, listen: false);
-        resetTimesheetSession(c);
-        c.invalidate(attendanceSessionProvider);
-      } catch (_) {}
-
-      HomeScreenPage.resetAuthSession();
-
-      // Dismiss loading overlay before replacing the navigation stack.
-      if (nav.canPop()) {
-        nav.pop();
-      }
-
-      nav.pushAndRemoveUntil(
-        MaterialPageRoute(builder: (_) => const SignInScreen()),
-        (route) => false,
-      );
-    }
+    } catch (_) {}
+    try {
+      await CheckInReminderNotificationService().cancelAllReminders();
+    } catch (_) {}
   }
 }

@@ -33,6 +33,13 @@ class RecruitmentApiClient {
     });
   }
 
+  Object _idParam(String id) {
+    final trimmed = id.trim();
+    if (trimmed.startsWith('job:')) return trimmed;
+    final parsed = int.tryParse(trimmed);
+    return parsed ?? trimmed;
+  }
+
   Future<HrApiEnvelope<Map<String, dynamic>>> fetchRequisitionDetail(
     String id,
   ) async {
@@ -62,7 +69,7 @@ class RecruitmentApiClient {
         },
       );
     }
-    return _postMap('/api/recruitment/requisitions/detail', {'id': int.parse(id)});
+    return _postMap('/api/recruitment/requisitions/detail', {'id': _idParam(id)});
   }
 
   Future<HrApiEnvelope<Map<String, dynamic>>> fetchKpis() async {
@@ -102,7 +109,7 @@ class RecruitmentApiClient {
       );
     }
     return _postList('/api/recruitment/candidates', {
-      if (requisitionId != null) 'requisition_id': int.parse(requisitionId),
+      if (requisitionId != null) 'requisition_id': _idParam(requisitionId),
       if (keyword != null && keyword.isNotEmpty) 'keyword': keyword,
       'limit': limit,
     });

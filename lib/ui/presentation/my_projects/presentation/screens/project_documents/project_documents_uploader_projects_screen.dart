@@ -1,3 +1,4 @@
+import 'package:el_race/core/utils/responsive_breakpoints.dart';
 import 'package:el_race/ui/presentation/my_projects/data/datasources/project_documents_remote_datasource.dart';
 import 'package:el_race/ui/presentation/my_projects/data/models/project_documents_models.dart';
 import 'package:el_race/ui/presentation/my_projects/data/repositories/project_documents_repository.dart';
@@ -122,12 +123,12 @@ class _ProjectDocumentsUploaderProjectsScreenState
     if (_error != null && _projects.isEmpty) {
       return Center(
         child: Padding(
-          padding: EdgeInsets.symmetric(horizontal: 24.w),
+          padding: EdgeInsets.symmetric(horizontal: 24.tw),
           child: Text(
             _error!,
             textAlign: TextAlign.center,
             style: GoogleFonts.poppins(
-              fontSize: 13.sp,
+              fontSize: 13.tsp,
               color: ProjectsDashboardTheme.white,
             ),
           ),
@@ -139,7 +140,7 @@ class _ProjectDocumentsUploaderProjectsScreenState
         child: Text(
           'No projects for this staff member',
           style: GoogleFonts.poppins(
-            fontSize: 13.sp,
+            fontSize: 13.tsp,
             color: ProjectsDashboardTheme.greyPanel,
           ),
         ),
@@ -163,9 +164,9 @@ class _ProjectDocumentsUploaderProjectsScreenState
           physics: const AlwaysScrollableScrollPhysics(
             parent: BouncingScrollPhysics(),
           ),
-          padding: EdgeInsets.fromLTRB(16.w, 0, 16.w, 16.h),
+          padding: EdgeInsets.fromLTRB(16.tw, 0, 16.tw, 16.th),
           itemCount: _projects.length + (_loading ? 1 : 0),
-          separatorBuilder: (_, __) => SizedBox(height: 10.h),
+          separatorBuilder: (_, __) => SizedBox(height: 10.th),
           itemBuilder: (context, index) {
             if (index >= _projects.length) {
               return const Center(

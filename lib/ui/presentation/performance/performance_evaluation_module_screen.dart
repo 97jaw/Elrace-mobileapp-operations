@@ -91,8 +91,51 @@ class _EmployeeCompetenciesOnlyScaffold extends ConsumerWidget {
                     ),
                   ),
                 )
-              else
+              else ...[
+                if (detail.finalScorePercent > 0) ...[
+                  Text(
+                    'Total Score',
+                    style: HrModuleTypography.caption().copyWith(
+                          fontSize: 12.sp,
+                          fontWeight: FontWeight.w600,
+                        ),
+                  ),
+                  SizedBox(height: 6.h),
+                  Container(
+                    width: double.infinity,
+                    padding: EdgeInsets.symmetric(
+                      horizontal: 14.w,
+                      vertical: 14.h,
+                    ),
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(12),
+                      color: HrModuleColors.surface,
+                      border: Border.all(color: HrModuleColors.border),
+                    ),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            'Overall evaluation score',
+                            style: HrModuleTypography.body()
+                                .copyWith(fontSize: 13.sp),
+                          ),
+                        ),
+                        Text(
+                          '${detail.finalScorePercent}%',
+                          style: HrModuleTypography.sectionHeading().copyWith(
+                                fontSize: 22.sp,
+                                fontWeight: FontWeight.w800,
+                                color: HrModuleColors.primary,
+                              ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  SizedBox(height: 20.h),
+                ],
                 PersonalCompetenciesSection(rows: detail.competencies),
+              ],
             ],
           );
         },

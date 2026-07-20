@@ -1,3 +1,4 @@
+import 'package:el_race/core/utils/responsive_breakpoints.dart';
 import 'package:el_race/core/ui/adaptive_glass.dart';
 import 'package:el_race/ui/presentation/home_screen/widgets/home_glass_theme.dart';
 import 'package:flutter/material.dart';
@@ -110,7 +111,7 @@ abstract final class ProfileSheetTheme {
     EdgeInsetsGeometry? padding,
     BorderRadius? borderRadius,
   }) {
-    final radius = borderRadius ?? BorderRadius.circular(22.r);
+    final radius = borderRadius ?? BorderRadius.circular(22.tr);
     return ClipRRect(
       borderRadius: radius,
       child: AdaptiveGlassLayer(
@@ -124,7 +125,7 @@ abstract final class ProfileSheetTheme {
         child: HomeGlassTheme.frostInsetHighlight(
           radius: radius,
           child: Container(
-            padding: padding ?? EdgeInsets.all(18.w),
+            padding: padding ?? EdgeInsets.all(18.tw),
             decoration: BoxDecoration(
               borderRadius: radius,
               gradient: settingsSectionGradient,

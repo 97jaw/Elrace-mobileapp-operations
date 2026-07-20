@@ -1,3 +1,4 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 
 import '../../chat/chat.dart';
@@ -7,7 +8,7 @@ import '../widgets/header_widget.dart';
 /// Profile screen for group / support chats.
 /// Same visual design as ChatUserProfileScreen but shows
 /// group info + member list + shared media.
-class ChatGroupProfileScreen extends StatelessWidget {
+class ChatGroupProfileScreen extends StatefulWidget {
   final String chatId;
   final String title;
   final ChatType chatType;
@@ -22,101 +23,122 @@ class ChatGroupProfileScreen extends StatelessWidget {
   });
 
   @override
+  State<ChatGroupProfileScreen> createState() => _ChatGroupProfileScreenState();
+}
+
+class _ChatGroupProfileScreenState extends State<ChatGroupProfileScreen> {
+  // Hoisted out of build() (was constructed inline in a FutureBuilder,
+  // re-firing getChatMembers/getUsersByIds on every rebuild). Combined into
+  // one future since the second call depends on the first's result. Per
+  // FIX_IMPLEMENTATION_PLAN.md Phase 5.2.
+  late final Future<({List<ChatMember> members, List<ChatUser> users})>
+      _membersAndUsersFuture;
+
+  @override
+  void initState() {
+    super.initState();
+    _membersAndUsersFuture = _loadMembersAndUsers();
+  }
+
+  Future<({List<ChatMember> members, List<ChatUser> users})>
+      _loadMembersAndUsers() async {
+    final members = await ChatRepository.instance.getChatMembers(widget.chatId);
+    final users = members.isNotEmpty
+        ? await UserRepository.instance
+            .getUsersByIds(members.map((m) => m.uid).toList())
+        : <ChatUser>[];
+    return (members: members, users: users);
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final title = widget.title;
+    final chatType = widget.chatType;
+    final supportGroupTitle = widget.supportGroupTitle;
     return Scaffold(
       backgroundColor: AppColors.primaryColor,
       appBar: const HeaderWidget(),
       body: SafeArea(
         top: false,
-        child: FutureBuilder<List<ChatMember>>(
-          future: ChatRepository.instance.getChatMembers(chatId),
-          builder: (context, membersSnap) {
-            final members = membersSnap.data ?? [];
+        child:
+            FutureBuilder<({List<ChatMember> members, List<ChatUser> users})>(
+          future: _membersAndUsersFuture,
+          builder: (context, snap) {
+            final members = snap.data?.members ?? const <ChatMember>[];
+            final users = snap.data?.users ?? const <ChatUser>[];
+            final userMap = {for (final u in users) u.uid: u};
 
-            return FutureBuilder<List<ChatUser>>(
-              future: members.isNotEmpty
-                  ? UserRepository.instance
-                      .getUsersByIds(members.map((m) => m.uid).toList())
-                  : Future.value([]),
-              builder: (context, usersSnap) {
-                final users = usersSnap.data ?? [];
-                final userMap = {for (final u in users) u.uid: u};
+            return StreamBuilder<List<Message>>(
+              stream: ChatRepository.instance.subscribeToMessages(
+                widget.chatId,
+                pageSize: 200,
+              ),
+              builder: (context, messageSnapshot) {
+                final mediaItems =
+                    _extractMedia(messageSnapshot.data ?? const []);
 
-                return StreamBuilder<List<Message>>(
-                  stream: ChatRepository.instance.subscribeToMessages(
-                    chatId,
-                    pageSize: 200,
-                  ),
-                  builder: (context, messageSnapshot) {
-                    final mediaItems =
-                        _extractMedia(messageSnapshot.data ?? const []);
-
-                    return SingleChildScrollView(
-                      padding: const EdgeInsets.fromLTRB(14, 8, 14, 22),
-                      child: Container(
-                        clipBehavior: Clip.antiAlias,
-                        decoration: BoxDecoration(
-                          color: const Color(0xFFF4F4F4),
-                          borderRadius: BorderRadius.circular(24),
+                return SingleChildScrollView(
+                  padding: const EdgeInsets.fromLTRB(14, 8, 14, 22),
+                  child: Container(
+                    clipBehavior: Clip.antiAlias,
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFF4F4F4),
+                      borderRadius: BorderRadius.circular(24),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        _GroupIdentityCard(
+                          title: title,
+                          subtitle: chatType == ChatType.support
+                              ? 'Support Group'
+                              : 'Group Chat',
+                          memberCount: members.length,
+                          chatType: chatType,
                         ),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.stretch,
-                          children: [
-                            _GroupIdentityCard(
-                              title: title,
-                              subtitle: chatType == ChatType.support
-                                  ? 'Support Group'
-                                  : 'Group Chat',
-                              memberCount: members.length,
-                              chatType: chatType,
-                            ),
-                            // Group info section
-                            Padding(
-                              padding:
-                                  const EdgeInsets.fromLTRB(18, 16, 18, 6),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  _InfoRow(
-                                    label: 'Group Name',
-                                    value: title,
-                                  ),
-                                  _InfoRow(
-                                    label: 'Type',
-                                    value: _chatTypeLabel(chatType),
-                                  ),
-                                  _InfoRow(
-                                    label: 'Members',
-                                    value: '${members.length} members',
-                                  ),
-                                  if (supportGroupTitle != null)
-                                    _InfoRow(
-                                      label: 'Department',
-                                      value: supportGroupTitle!,
-                                    ),
-                                ],
+                        // Group info section
+                        Padding(
+                          padding: const EdgeInsets.fromLTRB(18, 16, 18, 6),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              _InfoRow(
+                                label: 'Group Name',
+                                value: title,
                               ),
-                            ),
-                            // Members list
-                            _MembersSection(
-                              members: members,
-                              userMap: userMap,
-                            ),
-                            // Media section
-                            _MediaSection(
-                              items: mediaItems,
-                              onTapItem: (item) =>
-                                  _openMediaPreview(context, item),
-                              onViewAll: mediaItems.isEmpty
-                                  ? null
-                                  : () => _showAllMediaBottomSheet(
-                                      context, mediaItems),
-                            ),
-                          ],
+                              _InfoRow(
+                                label: 'Type',
+                                value: _chatTypeLabel(chatType),
+                              ),
+                              _InfoRow(
+                                label: 'Members',
+                                value: '${members.length} members',
+                              ),
+                              if (supportGroupTitle != null)
+                                _InfoRow(
+                                  label: 'Department',
+                                  value: supportGroupTitle!,
+                                ),
+                            ],
+                          ),
                         ),
-                      ),
-                    );
-                  },
+                        // Members list
+                        _MembersSection(
+                          members: members,
+                          userMap: userMap,
+                        ),
+                        // Media section
+                        _MediaSection(
+                          items: mediaItems,
+                          onTapItem: (item) => _openMediaPreview(context, item),
+                          onViewAll: mediaItems.isEmpty
+                              ? null
+                              : () =>
+                                  _showAllMediaBottomSheet(context, mediaItems),
+                        ),
+                      ],
+                    ),
+                  ),
                 );
               },
             );
@@ -166,8 +188,7 @@ class ChatGroupProfileScreen extends StatelessWidget {
       context: context,
       builder: (_) => Dialog(
         backgroundColor: Colors.transparent,
-        insetPadding:
-            const EdgeInsets.symmetric(horizontal: 14, vertical: 32),
+        insetPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 32),
         child: Stack(
           children: [
             ClipRRect(
@@ -176,10 +197,10 @@ class ChatGroupProfileScreen extends StatelessWidget {
                 aspectRatio: 0.78,
                 child: Container(
                   color: Colors.black,
-                  child: Image.network(
-                    item.displayUrl,
+                  child: CachedNetworkImage(
+                    imageUrl: item.displayUrl,
                     fit: BoxFit.contain,
-                    errorBuilder: (_, __, ___) => const Center(
+                    errorWidget: (_, __, ___) => const Center(
                       child: Icon(Icons.broken_image_outlined,
                           color: Colors.white70, size: 38),
                     ),
@@ -273,8 +294,7 @@ class _GroupIdentityCard extends StatelessWidget {
             padding: const EdgeInsets.all(1.3),
             decoration: BoxDecoration(
               shape: BoxShape.circle,
-              border:
-                  Border.all(color: const Color(0xFFE9B23A), width: 1.2),
+              border: Border.all(color: const Color(0xFFE9B23A), width: 1.2),
             ),
             child: const CircleAvatar(
               radius: 24,
@@ -413,19 +433,18 @@ class _MembersSection extends StatelessWidget {
                               backgroundColor: const Color(0xFFECECEC),
                               backgroundImage:
                                   avatarUrl != null && avatarUrl.isNotEmpty
-                                      ? NetworkImage(avatarUrl)
+                                      ? CachedNetworkImageProvider(avatarUrl)
                                       : null,
-                              child:
-                                  avatarUrl == null || avatarUrl.isEmpty
-                                      ? Text(
-                                          _initials(name),
-                                          style: const TextStyle(
-                                            fontSize: 12,
-                                            color: Color(0xFF2D2D2D),
-                                            fontWeight: FontWeight.w700,
-                                          ),
-                                        )
-                                      : null,
+                              child: avatarUrl == null || avatarUrl.isEmpty
+                                  ? Text(
+                                      _initials(name),
+                                      style: const TextStyle(
+                                        fontSize: 12,
+                                        color: Color(0xFF2D2D2D),
+                                        fontWeight: FontWeight.w700,
+                                      ),
+                                    )
+                                  : null,
                             ),
                           ),
                           if (isOnline)
@@ -614,10 +633,10 @@ class _MediaThumb extends StatelessWidget {
           child: Stack(
             fit: StackFit.expand,
             children: [
-              Image.network(
-                item.displayUrl,
+              CachedNetworkImage(
+                imageUrl: item.displayUrl,
                 fit: BoxFit.cover,
-                errorBuilder: (_, __, ___) => Container(
+                errorWidget: (_, __, ___) => Container(
                   color: Colors.white.withValues(alpha: 0.08),
                   child: const Icon(Icons.broken_image_outlined,
                       color: Colors.white70),

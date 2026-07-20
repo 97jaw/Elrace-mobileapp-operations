@@ -7,20 +7,26 @@ class TmPrimaryButton extends StatelessWidget {
     required this.label,
     required this.onPressed,
     this.icon,
+    this.warm = false,
   });
 
   final String label;
   final VoidCallback? onPressed;
   final IconData? icon;
 
+  /// Warm theme: orange -> charcoal gradient (foreman Timesheet screens).
+  final bool warm;
+
   @override
   Widget build(BuildContext context) {
     final content = _TmButtonContent(label: label, icon: icon);
+    final enabledGradient = warm
+        ? TimesheetModuleColors.warmButtonGradient
+        : TimesheetModuleColors.primaryGradient;
 
     return DecoratedBox(
       decoration: BoxDecoration(
-        gradient:
-            onPressed == null ? null : TimesheetModuleColors.primaryGradient,
+        gradient: onPressed == null ? null : enabledGradient,
         color: onPressed == null ? TimesheetModuleColors.divider : null,
         borderRadius: BorderRadius.circular(TimesheetModuleLayout.cardRadiusMd),
         boxShadow: onPressed == null ? null : TimesheetModuleShadows.fabShadow,
@@ -50,22 +56,30 @@ class TmSecondaryButton extends StatelessWidget {
     required this.label,
     required this.onPressed,
     this.icon,
+    this.warm = false,
   });
 
   final String label;
   final VoidCallback? onPressed;
   final IconData? icon;
 
+  /// Warm theme: orange outline/text (foreman Timesheet screens).
+  final bool warm;
+
   @override
   Widget build(BuildContext context) {
+    final color =
+        warm ? TimesheetModuleColors.accent : TimesheetModuleColors.primary;
     return SizedBox(
       height: TimesheetModuleLayout.buttonHeight,
       width: double.infinity,
       child: OutlinedButton(
         onPressed: onPressed,
         style: OutlinedButton.styleFrom(
-          foregroundColor: TimesheetModuleColors.primary,
-          side: const BorderSide(color: TimesheetModuleColors.primary),
+          foregroundColor: color,
+          backgroundColor:
+              warm ? TimesheetModuleColors.glassSurface : null,
+          side: BorderSide(color: color),
           shape: RoundedRectangleBorder(
             borderRadius:
                 BorderRadius.circular(TimesheetModuleLayout.cardRadiusMd),
@@ -74,7 +88,7 @@ class TmSecondaryButton extends StatelessWidget {
         child: _TmButtonContent(
           label: label,
           icon: icon,
-          color: TimesheetModuleColors.primary,
+          color: color,
         ),
       ),
     );

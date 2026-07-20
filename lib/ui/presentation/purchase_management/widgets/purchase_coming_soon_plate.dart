@@ -1,3 +1,4 @@
+import 'package:el_race/core/utils/responsive_breakpoints.dart';
 import 'package:el_race/ui/presentation/purchase_management/theme/purchase_theme.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
@@ -21,40 +22,40 @@ class PurchaseComingSoonPlate extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ListView(
-      padding: EdgeInsets.fromLTRB(16.w, 24.h, 16.w, bottomPadding),
+      padding: EdgeInsets.fromLTRB(16.tw, 24.th, 16.tw, bottomPadding),
       children: [
         Container(
           width: double.infinity,
-          padding: EdgeInsets.symmetric(horizontal: 20.w, vertical: 28.h),
-          decoration: PurchaseTheme.glassCard(radius: 24.r),
+          padding: EdgeInsets.symmetric(horizontal: 20.tw, vertical: 28.th),
+          decoration: PurchaseTheme.glassCard(radius: 24.tr),
           child: Column(
             children: [
               illustration,
-              SizedBox(height: 24.h),
+              SizedBox(height: 24.th),
               Text(
                 title,
                 style: GoogleFonts.poppins(
-                  fontSize: 20.sp,
+                  fontSize: 20.tsp,
                   fontWeight: FontWeight.w700,
                   color: PurchaseTheme.textPrimary,
                 ),
               ),
-              SizedBox(height: 8.h),
+              SizedBox(height: 8.th),
               Text(
                 message,
                 textAlign: TextAlign.center,
                 style: GoogleFonts.poppins(
-                  fontSize: 12.sp,
+                  fontSize: 12.tsp,
                   height: 1.5,
                   color: PurchaseTheme.textSecondary,
                 ),
               ),
-              SizedBox(height: 16.h),
+              SizedBox(height: 16.th),
               Container(
-                padding: EdgeInsets.symmetric(horizontal: 14.w, vertical: 6.h),
+                padding: EdgeInsets.symmetric(horizontal: 14.tw, vertical: 6.th),
                 decoration: BoxDecoration(
                   color: PurchaseTheme.accentBlue.withValues(alpha: 0.12),
-                  borderRadius: BorderRadius.circular(20.r),
+                  borderRadius: BorderRadius.circular(20.tr),
                   border: Border.all(
                     color: PurchaseTheme.accentBlue.withValues(alpha: 0.25),
                   ),
@@ -62,7 +63,7 @@ class PurchaseComingSoonPlate extends StatelessWidget {
                 child: Text(
                   'Coming soon',
                   style: GoogleFonts.poppins(
-                    fontSize: 11.sp,
+                    fontSize: 11.tsp,
                     fontWeight: FontWeight.w700,
                     color: PurchaseTheme.accentDeep,
                   ),
@@ -83,8 +84,8 @@ class PurchaseAnalyticsVectorIllustration extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return SizedBox(
-      width: 200.w,
-      height: 140.h,
+      width: 200.tw,
+      height: 140.th,
       child: CustomPaint(
         painter: _AnalyticsVectorPainter(),
       ),

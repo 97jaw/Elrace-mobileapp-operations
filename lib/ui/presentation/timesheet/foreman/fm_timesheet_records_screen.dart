@@ -208,42 +208,47 @@ class _FmTimesheetRecordsScreenState
   Widget build(BuildContext context) {
     final dateFmt = DateFormat('dd MMM yyyy');
 
-    return Scaffold(
-      backgroundColor: TimesheetModuleColors.bgGradientEnd,
-      appBar: AppBar(
-        backgroundColor: TimesheetModuleColors.surface,
-        foregroundColor: TimesheetModuleColors.text,
-        title: Text(
-          widget.projectName ?? 'Timesheet report',
-          style: TimesheetModuleTypography.h2(),
+    return TmScaffold(
+      glassTitle: widget.projectName ?? 'Timesheet report',
+      padding: EdgeInsets.zero,
+      glassTrailing: [
+        IconButton(
+          tooltip: 'Employees',
+          onPressed: _loadingRoster || _generating ? null : _pickEmployees,
+          icon: Icon(
+            PhosphorIcons.users(),
+            color: TimesheetModuleColors.ink,
+          ),
         ),
-        actions: [
-          IconButton(
-            tooltip: 'Employees',
-            onPressed: _loadingRoster || _generating ? null : _pickEmployees,
-            icon: Icon(PhosphorIcons.users()),
+        IconButton(
+          tooltip: 'Print / refresh PDF',
+          onPressed: _loadingRoster || _generating ? null : _generatePdf,
+          icon: Icon(
+            PhosphorIcons.printer(),
+            color: TimesheetModuleColors.accent,
           ),
-          IconButton(
-            tooltip: 'Print / refresh PDF',
-            onPressed: _loadingRoster || _generating ? null : _generatePdf,
-            icon: Icon(PhosphorIcons.printer()),
-          ),
-        ],
-      ),
-      body: _loadingRoster
+        ),
+      ],
+      body: _buildRecordsBody(dateFmt),
+    );
+  }
+
+  Widget _buildRecordsBody(DateFormat dateFmt) {
+    return _loadingRoster
           ? const TimesheetLoadingState(style: TimesheetLoadingStyle.list)
           : _roster.isEmpty
               ? TimesheetErrorState(
                   message: _error ??
                       'No labors returned from /timesheet/labor_list or '
                       '/employee/list. Deploy backend endpoint and retry.',
+                  warm: true,
                   onRetry: _retryLoadRoster,
                 )
               : Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 Container(
-                  color: TimesheetModuleColors.surface,
+                  color: TimesheetModuleColors.glassSurface,
                   padding: const EdgeInsets.fromLTRB(
                     TimesheetModuleLayout.screenPaddingH,
                     TimesheetModuleLayout.cardSpacing,
@@ -255,13 +260,17 @@ class _FmTimesheetRecordsScreenState
                     children: [
                       Text(
                         '${dateFmt.format(_from)} – ${dateFmt.format(_to)}',
-                        style: TimesheetModuleTypography.cardTitle(),
+                        style: TimesheetModuleTypography.cardTitle().copyWith(
+                          color: TimesheetModuleColors.ink,
+                        ),
                       ),
                       Text(
                         _selected.isEmpty
                             ? 'No employees selected (max 30)'
                             : '${_selected.length} of 30 selected',
-                        style: TimesheetModuleTypography.caption(),
+                        style: TimesheetModuleTypography.caption().copyWith(
+                          color: TimesheetModuleColors.warmMuted,
+                        ),
                       ),
                       const SizedBox(height: TimesheetModuleLayout.cardSpacing),
                       Row(
@@ -270,6 +279,7 @@ class _FmTimesheetRecordsScreenState
                             child: TmSecondaryButton(
                               label: 'Date range',
                               icon: PhosphorIcons.calendar(),
+                              warm: true,
                               onPressed: _generating ? null : _pickRange,
                             ),
                           ),
@@ -278,6 +288,7 @@ class _FmTimesheetRecordsScreenState
                             child: TmSecondaryButton(
                               label: 'Download',
                               icon: PhosphorIcons.downloadSimple(),
+                              warm: true,
                               onPressed: _pdfBytes == null || _generating
                                   ? null
                                   : _downloadPdf,
@@ -309,8 +320,7 @@ class _FmTimesheetRecordsScreenState
                   child: _buildPdfBody(),
                 ),
               ],
-            ),
-    );
+            );
   }
 
   Widget _buildPdfBody() {
@@ -320,6 +330,7 @@ class _FmTimesheetRecordsScreenState
     if (_error != null && _pdfBytes == null) {
       return TimesheetErrorState(
         message: _error!,
+        warm: true,
         onRetry: _selected.isEmpty ? _pickEmployees : _generatePdf,
       );
     }
@@ -328,6 +339,7 @@ class _FmTimesheetRecordsScreenState
       return TimesheetErrorState(
         message:
             'Select up to 30 employees (toolbar icon), then tap Print',
+        warm: true,
         onRetry: _pickEmployees,
       );
     }
@@ -340,23 +352,28 @@ class _FmTimesheetRecordsScreenState
             Icon(
               PhosphorIcons.filePdf(),
               size: 56,
-              color: TimesheetModuleColors.primary,
+              color: TimesheetModuleColors.accent,
             ),
             const SizedBox(height: TimesheetModuleLayout.sectionGap),
             Text(
               'Timesheet PDF ready',
-              style: TimesheetModuleTypography.h2(),
+              style: TimesheetModuleTypography.h2().copyWith(
+                color: TimesheetModuleColors.ink,
+              ),
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 8),
             Text(
               '${_selected.length} employee(s) · same layout as Odoo print',
-              style: TimesheetModuleTypography.caption(),
+              style: TimesheetModuleTypography.caption().copyWith(
+                color: TimesheetModuleColors.warmMuted,
+              ),
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: TimesheetModuleLayout.sectionGap),
             TmPrimaryButton(
               label: 'View PDF',
+              warm: true,
               icon: PhosphorIcons.eye(),
               onPressed: _generating ? null : _openPdfViewer,
             ),
@@ -364,6 +381,7 @@ class _FmTimesheetRecordsScreenState
             TmSecondaryButton(
               label: 'Download',
               icon: PhosphorIcons.downloadSimple(),
+              warm: true,
               onPressed: _generating ? null : _downloadPdf,
             ),
           ],

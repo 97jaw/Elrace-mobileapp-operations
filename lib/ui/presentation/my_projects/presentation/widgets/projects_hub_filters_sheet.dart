@@ -1,3 +1,4 @@
+import 'package:el_race/core/utils/responsive_breakpoints.dart';
 import 'package:el_race/ui/presentation/my_projects/presentation/models/projects_group_hub_filters.dart';
 import 'package:el_race/ui/presentation/my_projects/presentation/theme/projects_dashboard_theme.dart';
 import 'package:flutter/material.dart';
@@ -22,7 +23,7 @@ class ProjectsHubFiltersSheet extends StatefulWidget {
       barrierColor: Colors.black.withValues(alpha: 0.52),
       builder: (ctx) => Dialog(
         backgroundColor: Colors.transparent,
-        insetPadding: EdgeInsets.symmetric(horizontal: 22.w),
+        insetPadding: EdgeInsets.symmetric(horizontal: 22.tw),
         child: ProjectsHubFiltersSheet(initial: initial),
       ),
     );
@@ -90,33 +91,33 @@ class _ProjectsHubFiltersSheetState extends State<ProjectsHubFiltersSheet> {
       labelText: label,
       hintStyle: GoogleFonts.poppins(
         color: _hintColor,
-        fontSize: 13.sp,
+        fontSize: 13.tsp,
       ),
       labelStyle: GoogleFonts.poppins(
         color: _bodyColor,
-        fontSize: 12.sp,
+        fontSize: 12.tsp,
         fontWeight: FontWeight.w500,
       ),
       prefixIcon: prefixIcon != null
-          ? Icon(prefixIcon, color: ProjectsDashboardTheme.maroon, size: 20.sp)
+          ? Icon(prefixIcon, color: ProjectsDashboardTheme.maroon, size: 20.tsp)
           : null,
       filled: true,
       fillColor: ProjectsDashboardTheme.white.withValues(alpha: 0.92),
-      contentPadding: EdgeInsets.symmetric(horizontal: 14.w, vertical: 12.h),
+      contentPadding: EdgeInsets.symmetric(horizontal: 14.tw, vertical: 12.th),
       border: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(14.r),
+        borderRadius: BorderRadius.circular(14.tr),
         borderSide: BorderSide(
           color: ProjectsDashboardTheme.greyPanel.withValues(alpha: 0.9),
         ),
       ),
       enabledBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(14.r),
+        borderRadius: BorderRadius.circular(14.tr),
         borderSide: BorderSide(
           color: ProjectsDashboardTheme.greyPanel,
         ),
       ),
       focusedBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(14.r),
+        borderRadius: BorderRadius.circular(14.tr),
         borderSide: BorderSide(
           color: ProjectsDashboardTheme.maroon.withValues(alpha: 0.75),
           width: 1.4,
@@ -127,11 +128,11 @@ class _ProjectsHubFiltersSheetState extends State<ProjectsHubFiltersSheet> {
 
   TextStyle get _inputStyle => GoogleFonts.poppins(
         color: _titleColor,
-        fontSize: 13.sp,
+        fontSize: 13.tsp,
       );
 
   TextStyle get _sectionLabel => GoogleFonts.poppins(
-        fontSize: 12.sp,
+        fontSize: 12.tsp,
         fontWeight: FontWeight.w600,
         color: _bodyColor,
       );
@@ -158,7 +159,7 @@ class _ProjectsHubFiltersSheetState extends State<ProjectsHubFiltersSheet> {
       child: Container(
         constraints: BoxConstraints(maxHeight: MediaQuery.sizeOf(context).height * 0.82),
         decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(22.r),
+          borderRadius: BorderRadius.circular(22.tr),
           gradient: const LinearGradient(
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
@@ -177,9 +178,9 @@ class _ProjectsHubFiltersSheetState extends State<ProjectsHubFiltersSheet> {
           ],
         ),
         child: ClipRRect(
-          borderRadius: BorderRadius.circular(22.r),
+          borderRadius: BorderRadius.circular(22.tr),
           child: SingleChildScrollView(
-            padding: EdgeInsets.fromLTRB(20.w, 18.h, 20.w, 16.h),
+            padding: EdgeInsets.fromLTRB(20.tw, 18.th, 20.tw, 16.th),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -190,7 +191,7 @@ class _ProjectsHubFiltersSheetState extends State<ProjectsHubFiltersSheet> {
                       child: Text(
                         translate('projects_dashboard.smart_filters'),
                         style: GoogleFonts.poppins(
-                          fontSize: 17.sp,
+                          fontSize: 17.tsp,
                           fontWeight: FontWeight.w700,
                           color: _titleColor,
                         ),
@@ -201,26 +202,26 @@ class _ProjectsHubFiltersSheetState extends State<ProjectsHubFiltersSheet> {
                       icon: Icon(
                         Icons.close_rounded,
                         color: _bodyColor,
-                        size: 22.sp,
+                        size: 22.tsp,
                       ),
                       padding: EdgeInsets.zero,
                       constraints: BoxConstraints(
-                        minWidth: 32.w,
-                        minHeight: 32.w,
+                        minWidth: 32.tw,
+                        minHeight: 32.tw,
                       ),
                     ),
                   ],
                 ),
-                SizedBox(height: 4.h),
+                SizedBox(height: 4.th),
                 Text(
                   translate('projects_dashboard.filters_affect_projects_hint'),
                   style: GoogleFonts.poppins(
-                    fontSize: 11.sp,
+                    fontSize: 11.tsp,
                     color: _hintColor,
                     height: 1.35,
                   ),
                 ),
-                SizedBox(height: 14.h),
+                SizedBox(height: 14.th),
                 TextField(
                   controller: _searchController,
                   style: _inputStyle,
@@ -229,9 +230,9 @@ class _ProjectsHubFiltersSheetState extends State<ProjectsHubFiltersSheet> {
                     prefixIcon: Icons.search_rounded,
                   ),
                 ),
-                SizedBox(height: 14.h),
+                SizedBox(height: 14.th),
                 Text(translate('projects_dashboard.filter_year_month'), style: _sectionLabel),
-                SizedBox(height: 8.h),
+                SizedBox(height: 8.th),
                 Row(
                   children: [
                     Expanded(
@@ -250,7 +251,7 @@ class _ProjectsHubFiltersSheetState extends State<ProjectsHubFiltersSheet> {
                         onChanged: (v) => setState(() => _year = v),
                       ),
                     ),
-                    SizedBox(width: 10.w),
+                    SizedBox(width: 10.tw),
                     Expanded(
                       child: _DropdownField<int?>(
                         label: translate('projects_dashboard.filter_month'),
@@ -272,12 +273,12 @@ class _ProjectsHubFiltersSheetState extends State<ProjectsHubFiltersSheet> {
                     ),
                   ],
                 ),
-                SizedBox(height: 14.h),
+                SizedBox(height: 14.th),
                 Text(translate('projects_dashboard.filter_status_compute'), style: _sectionLabel),
-                SizedBox(height: 8.h),
+                SizedBox(height: 8.th),
                 Wrap(
-                  spacing: 8.w,
-                  runSpacing: 8.h,
+                  spacing: 8.tw,
+                  runSpacing: 8.th,
                   children: _statusOptions.map((opt) {
                     final selected = (_statusCompute ?? '') == opt.$1;
                     return FilterChip(
@@ -290,7 +291,7 @@ class _ProjectsHubFiltersSheetState extends State<ProjectsHubFiltersSheet> {
                       selectedColor: ProjectsDashboardTheme.maroon,
                       checkmarkColor: ProjectsDashboardTheme.white,
                       labelStyle: GoogleFonts.poppins(
-                        fontSize: 11.sp,
+                        fontSize: 11.tsp,
                         fontWeight: FontWeight.w500,
                         color: selected
                             ? ProjectsDashboardTheme.white
@@ -304,7 +305,7 @@ class _ProjectsHubFiltersSheetState extends State<ProjectsHubFiltersSheet> {
                     );
                   }).toList(),
                 ),
-                SizedBox(height: 14.h),
+                SizedBox(height: 14.th),
                 TextField(
                   controller: _woRefController,
                   style: _inputStyle,
@@ -312,9 +313,9 @@ class _ProjectsHubFiltersSheetState extends State<ProjectsHubFiltersSheet> {
                     label: translate('projects_dashboard.filter_wo_ref'),
                   ),
                 ),
-                SizedBox(height: 14.h),
+                SizedBox(height: 14.th),
                 Text(translate('projects_dashboard.filter_wo_type'), style: _sectionLabel),
-                SizedBox(height: 8.h),
+                SizedBox(height: 8.th),
                 Row(
                   children: [
                     Expanded(
@@ -329,7 +330,7 @@ class _ProjectsHubFiltersSheetState extends State<ProjectsHubFiltersSheet> {
                         selectedColor: ProjectsDashboardTheme.maroon,
                         backgroundColor: ProjectsDashboardTheme.white,
                         labelStyle: GoogleFonts.poppins(
-                          fontSize: 11.sp,
+                          fontSize: 11.tsp,
                           color: _woType == ProjectsWoTypeFilter.active
                               ? ProjectsDashboardTheme.white
                               : _titleColor,
@@ -337,7 +338,7 @@ class _ProjectsHubFiltersSheetState extends State<ProjectsHubFiltersSheet> {
                         side: BorderSide(color: ProjectsDashboardTheme.greyPanel),
                       ),
                     ),
-                    SizedBox(width: 8.w),
+                    SizedBox(width: 8.tw),
                     Expanded(
                       child: FilterChip(
                         label: Text(translate('projects_dashboard.wo_type_pending')),
@@ -350,7 +351,7 @@ class _ProjectsHubFiltersSheetState extends State<ProjectsHubFiltersSheet> {
                         selectedColor: ProjectsDashboardTheme.maroon,
                         backgroundColor: ProjectsDashboardTheme.white,
                         labelStyle: GoogleFonts.poppins(
-                          fontSize: 11.sp,
+                          fontSize: 11.tsp,
                           color: _woType == ProjectsWoTypeFilter.pending
                               ? ProjectsDashboardTheme.white
                               : _titleColor,
@@ -360,7 +361,7 @@ class _ProjectsHubFiltersSheetState extends State<ProjectsHubFiltersSheet> {
                     ),
                   ],
                 ),
-                SizedBox(height: 20.h),
+                SizedBox(height: 20.th),
                 Row(
                   children: [
                     TextButton.icon(
@@ -368,7 +369,7 @@ class _ProjectsHubFiltersSheetState extends State<ProjectsHubFiltersSheet> {
                           Navigator.pop(context, const ProjectsGroupHubFilters()),
                       icon: Icon(
                         Icons.clear_all_rounded,
-                        size: 18.sp,
+                        size: 18.tsp,
                         color: ProjectsDashboardTheme.maroon,
                       ),
                       label: Text(
@@ -386,11 +387,11 @@ class _ProjectsHubFiltersSheetState extends State<ProjectsHubFiltersSheet> {
                         backgroundColor: ProjectsDashboardTheme.maroon,
                         foregroundColor: ProjectsDashboardTheme.white,
                         padding: EdgeInsets.symmetric(
-                          horizontal: 22.w,
-                          vertical: 12.h,
+                          horizontal: 22.tw,
+                          vertical: 12.th,
                         ),
                         shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(14.r),
+                          borderRadius: BorderRadius.circular(14.tr),
                         ),
                       ),
                       child: Text(
@@ -429,16 +430,16 @@ class _DropdownField<T> extends StatelessWidget {
         labelText: label,
         labelStyle: GoogleFonts.poppins(
           color: ProjectsDashboardTheme.greyDark,
-          fontSize: 11.sp,
+          fontSize: 11.tsp,
           fontWeight: FontWeight.w500,
         ),
         filled: true,
         fillColor: ProjectsDashboardTheme.white.withValues(alpha: 0.92),
         border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(14.r),
+          borderRadius: BorderRadius.circular(14.tr),
           borderSide: BorderSide(color: ProjectsDashboardTheme.greyPanel),
         ),
-        contentPadding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 4.h),
+        contentPadding: EdgeInsets.symmetric(horizontal: 12.tw, vertical: 4.th),
       ),
       child: DropdownButtonHideUnderline(
         child: DropdownButton<T>(
@@ -447,7 +448,7 @@ class _DropdownField<T> extends StatelessWidget {
           dropdownColor: ProjectsDashboardTheme.white,
           style: GoogleFonts.poppins(
             color: ProjectsDashboardTheme.navy,
-            fontSize: 13.sp,
+            fontSize: 13.tsp,
           ),
           items: items,
           onChanged: onChanged,

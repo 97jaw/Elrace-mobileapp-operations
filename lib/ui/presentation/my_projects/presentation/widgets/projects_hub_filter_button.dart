@@ -1,3 +1,4 @@
+import 'package:el_race/core/utils/responsive_breakpoints.dart';
 import 'package:el_race/ui/presentation/my_projects/presentation/theme/projects_dashboard_theme.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
@@ -19,11 +20,11 @@ class ProjectsHubFilterButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final box = size ?? 42.w;
+    final box = size ?? 42.tw;
 
     return SizedBox(
-      width: box + (active && onClear != null ? 6.w : 0),
-      height: box + (active && onClear != null ? 6.h : 0),
+      width: box + (active && onClear != null ? 6.tw : 0),
+      height: box + (active && onClear != null ? 6.th : 0),
       child: Stack(
         clipBehavior: Clip.none,
         alignment: Alignment.center,
@@ -32,12 +33,12 @@ class ProjectsHubFilterButton extends StatelessWidget {
             color: Colors.transparent,
             child: InkWell(
               onTap: onTap,
-              borderRadius: BorderRadius.circular(14.r),
+              borderRadius: BorderRadius.circular(14.tr),
               child: Container(
                 width: box,
                 height: box,
                 decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(14.r),
+                  borderRadius: BorderRadius.circular(14.tr),
                   gradient: active
                       ? ProjectsDashboardTheme.maroonAccentGradient
                       : LinearGradient(
@@ -74,16 +75,16 @@ class ProjectsHubFilterButton extends StatelessWidget {
           ),
           if (active && onClear != null)
             Positioned(
-              top: -2.h,
-              right: -2.w,
+              top: -2.th,
+              right: -2.tw,
               child: Material(
                 color: Colors.transparent,
                 child: InkWell(
                   onTap: onClear,
                   customBorder: const CircleBorder(),
                   child: Container(
-                    width: 20.w,
-                    height: 20.w,
+                    width: 20.tw,
+                    height: 20.tw,
                     decoration: BoxDecoration(
                       color: ProjectsDashboardTheme.white,
                       shape: BoxShape.circle,
@@ -100,7 +101,7 @@ class ProjectsHubFilterButton extends StatelessWidget {
                     ),
                     child: Icon(
                       Icons.close_rounded,
-                      size: 14.sp,
+                      size: 14.tsp,
                       color: ProjectsDashboardTheme.maroon,
                     ),
                   ),

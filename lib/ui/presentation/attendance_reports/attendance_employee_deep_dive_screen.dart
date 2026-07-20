@@ -1,3 +1,4 @@
+import 'package:el_race/core/utils/responsive_breakpoints.dart';
 import 'package:el_race/ui/presentation/Attendace_list/model/attendance_model.dart';
 import 'package:el_race/ui/presentation/attendance_reports/attendance_report_helpers.dart';
 import 'package:el_race/ui/presentation/attendance_reports/attendance_reports_period.dart';
@@ -97,12 +98,12 @@ class AttendanceEmployeeDeepDiveScreen extends ConsumerWidget {
                   ),
                   error: (e, _) => Center(
                     child: Padding(
-                      padding: EdgeInsets.all(24.w),
+                      padding: EdgeInsets.all(24.tw),
                       child: Text(
                         '$e',
                         textAlign: TextAlign.center,
                         style: TextStyle(
-                          fontSize: 13.sp,
+                          fontSize: 13.tsp,
                           color: AttendanceDashboardTheme.textSecondary,
                         ),
                       ),
@@ -153,16 +154,16 @@ class _AttendanceMonthBody extends StatelessWidget {
       child: ListView(
         primary: false,
         physics: const AlwaysScrollableScrollPhysics(),
-        padding: EdgeInsets.fromLTRB(0, 0, 0, 16.h),
+        padding: EdgeInsets.fromLTRB(0, 0, 0, 16.th),
         children: [
           AttendanceMonthSwitcherCard(
             period: period,
-            margin: EdgeInsets.fromLTRB(14.w, 6.h, 14.w, 10.h),
+            margin: EdgeInsets.fromLTRB(14.tw, 6.th, 14.tw, 10.th),
             onPreviousMonth: onPreviousMonth,
             onNextMonth: onNextMonth,
           ),
           Padding(
-            padding: EdgeInsets.symmetric(horizontal: 14.w),
+            padding: EdgeInsets.symmetric(horizontal: 14.tw),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
@@ -172,10 +173,10 @@ class _AttendanceMonthBody extends StatelessWidget {
                     imageUrl: imageUrl,
                     fileId: fileId,
                   ),
-                  SizedBox(height: 10.h),
+                  SizedBox(height: 10.th),
                 ],
                 AttendanceKpiStrip(kpi: kpis, useAttendanceTheme: true),
-                SizedBox(height: 10.h),
+                SizedBox(height: 10.th),
                 AttendanceMonthCalendar(
                   year: period.year,
                   month: period.month,
@@ -209,7 +210,7 @@ class _EmployeeProfileCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       width: double.infinity,
-      padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 10.h),
+      padding: EdgeInsets.symmetric(horizontal: 12.tw, vertical: 10.th),
       decoration: BoxDecoration(
         gradient: LinearGradient(
           begin: Alignment.topLeft,
@@ -220,7 +221,7 @@ class _EmployeeProfileCard extends StatelessWidget {
             _kSkyMid.withValues(alpha: 0.35),
           ],
         ),
-        borderRadius: BorderRadius.circular(18.r),
+        borderRadius: BorderRadius.circular(18.tr),
         border: Border.all(color: Colors.white.withValues(alpha: 0.92)),
         boxShadow: [
           BoxShadow(
@@ -242,7 +243,7 @@ class _EmployeeProfileCard extends StatelessWidget {
               ),
             ),
             child: AttendanceNetworkAvatar(
-              radius: 24.r,
+              radius: 24.tr,
               imageUrl: imageUrl,
               fallback: Text(
                 employeeName.isNotEmpty
@@ -250,13 +251,13 @@ class _EmployeeProfileCard extends StatelessWidget {
                     : '?',
                 style: TextStyle(
                   fontWeight: FontWeight.w800,
-                  fontSize: 16.sp,
+                  fontSize: 16.tsp,
                   color: kAttendancePrimary,
                 ),
               ),
             ),
           ),
-          SizedBox(width: 12.w),
+          SizedBox(width: 12.tw),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -265,17 +266,17 @@ class _EmployeeProfileCard extends StatelessWidget {
                   employeeName,
                   style: TextStyle(
                     fontWeight: FontWeight.w800,
-                    fontSize: 16.sp,
+                    fontSize: 16.tsp,
                     color: AttendanceDashboardTheme.textPrimary,
                   ),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                 ),
-                SizedBox(height: 4.h),
+                SizedBox(height: 4.th),
                 Text(
                   fileId,
                   style: TextStyle(
-                    fontSize: 12.sp,
+                    fontSize: 12.tsp,
                     color: AttendanceDashboardTheme.textMuted,
                     fontWeight: FontWeight.w600,
                   ),

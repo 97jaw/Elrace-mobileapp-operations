@@ -1,10 +1,10 @@
+import 'package:el_race/core/utils/responsive_breakpoints.dart';
 import 'package:el_race/core/hr_management/hr_effective_view.dart';
 import 'package:el_race/core/hr_management/models/hr_request_summary.dart';
 import 'package:el_race/core/hr_management/providers/hr_management_providers.dart';
 import 'package:el_race/core/theme/hr_module_colors.dart';
 import 'package:el_race/core/theme/hr_module_layout.dart';
 import 'package:el_race/core/theme/hr_module_typography.dart';
-import 'package:el_race/core/widgets/hr_management/hr_filter_chip_row.dart';
 import 'package:el_race/core/widgets/hr_management/hr_kpi_counter_card.dart';
 import 'package:el_race/core/widgets/hr_management/hr_request_card.dart';
 import 'package:el_race/core/widgets/hr_management/hr_search_bar.dart';
@@ -37,17 +37,9 @@ class HrPersonalRequestListContent extends ConsumerStatefulWidget {
 
 class _HrPersonalRequestListContentState
     extends ConsumerState<HrPersonalRequestListContent> {
-  String _filterId = 'all';
+  String? _filterId; // null = show all
   String _searchQuery = '';
   _HrSort _sort = _HrSort.newest;
-
-  static const _chips = [
-    HrFilterOption(id: 'all', label: 'All'),
-    HrFilterOption(id: 'PENDING', label: 'Pending'),
-    HrFilterOption(id: 'APPROVED', label: 'Approved'),
-    HrFilterOption(id: 'REJECTED', label: 'Rejected'),
-    HrFilterOption(id: 'DRAFT', label: 'Draft'),
-  ];
 
   int _statusRank(String s) {
     switch (s.toUpperCase()) {
@@ -66,9 +58,10 @@ class _HrPersonalRequestListContentState
 
   List<HrRequestSummary> _applyFilterSearchSort(List<HrRequestSummary> raw) {
     var list = List<HrRequestSummary>.from(raw);
-    if (_filterId != 'all') {
+    final active = _filterId;
+    if (active != null && active != 'all') {
       list = list
-          .where((e) => e.uiStatus.toUpperCase() == _filterId.toUpperCase())
+          .where((e) => e.uiStatus.toUpperCase() == active.toUpperCase())
           .toList();
     }
     final q = _searchQuery.trim().toLowerCase();
@@ -115,7 +108,10 @@ class _HrPersonalRequestListContentState
   }
 
   void _onKpiTap(String status) {
-    setState(() => _filterId = status);
+    setState(() {
+      // Tap again to clear filter (show all).
+      _filterId = _filterId == status ? null : status;
+    });
   }
 
   @override
@@ -125,14 +121,14 @@ class _HrPersonalRequestListContentState
 
     return asyncList.when(
       loading: () => Padding(
-        padding: EdgeInsets.all(HrModuleLayout.screenPaddingH.w),
+        padding: EdgeInsets.all(HrModuleLayout.screenPaddingH.tw),
         child: Skeletonizer(
           enabled: true,
           child: SingleChildScrollView(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                SizedBox(height: 8.h),
+                SizedBox(height: 8.th),
                 IntrinsicHeight(
                   child: Row(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -140,7 +136,7 @@ class _HrPersonalRequestListContentState
                       4,
                       (i) => Expanded(
                         child: Padding(
-                          padding: EdgeInsets.only(right: i < 3 ? 8.w : 0),
+                          padding: EdgeInsets.only(right: i < 3 ? 8.tw : 0),
                           child: HrKpiCounterCard(
                             value: '…',
                             label: [
@@ -155,20 +151,20 @@ class _HrPersonalRequestListContentState
                     ),
                   ),
                 ),
-                SizedBox(height: 16.h),
+                SizedBox(height: 16.th),
                 Container(
-                  height: 48.h,
+                  height: 48.th,
                   decoration: BoxDecoration(
                     color: HrModuleColors.surface,
                     borderRadius:
-                        BorderRadius.circular(HrModuleLayout.cardRadius.r),
+                        BorderRadius.circular(HrModuleLayout.cardRadius.tr),
                   ),
                 ),
-                SizedBox(height: 16.h),
+                SizedBox(height: 16.th),
                 ...List.generate(
                   2,
                   (_) => Padding(
-                    padding: EdgeInsets.only(bottom: 12.h),
+                    padding: EdgeInsets.only(bottom: 12.th),
                     child: HrRequestCard(
                       requestTypeTitle: 'Loading request type',
                       referenceNumber: 'HR/…/2026/0000',
@@ -185,21 +181,21 @@ class _HrPersonalRequestListContentState
       ),
       error: (err, _) => Center(
         child: Padding(
-          padding: EdgeInsets.all(24.w),
+          padding: EdgeInsets.all(24.tw),
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               Text(
                 'Something went wrong',
-                style: HrModuleTypography.sectionHeading().copyWith(fontSize: 16.sp),
+                style: HrModuleTypography.sectionHeading().copyWith(fontSize: 16.tsp),
               ),
-              SizedBox(height: 8.h),
+              SizedBox(height: 8.th),
               Text(
                 err.toString(),
                 textAlign: TextAlign.center,
-                style: HrModuleTypography.caption().copyWith(fontSize: 12.sp),
+                style: HrModuleTypography.caption().copyWith(fontSize: 12.tsp),
               ),
-              SizedBox(height: 16.h),
+              SizedBox(height: 16.th),
               FilledButton(
                 onPressed: () => ref.read(hrRequestListProvider.notifier).refresh(),
                 child: const Text('Retry'),
@@ -218,18 +214,18 @@ class _HrPersonalRequestListContentState
           child: ListView(
             physics: const AlwaysScrollableScrollPhysics(),
             padding: EdgeInsets.fromLTRB(
-              HrModuleLayout.screenPaddingH.w,
-              8.h,
-              HrModuleLayout.screenPaddingH.w,
-              widget.bottomInset.h + 4,
+              HrModuleLayout.screenPaddingH.tw,
+              8.th,
+              HrModuleLayout.screenPaddingH.tw,
+              widget.bottomInset.th + 4,
             ),
             children: [
               if (kDebugMode)
                 Padding(
-                  padding: EdgeInsets.only(bottom: 8.h),
+                  padding: EdgeInsets.only(bottom: 8.th),
                   child: Text(
                     'Dev role: ${effective.label} (mock data same for all)',
-                    style: HrModuleTypography.caption().copyWith(fontSize: 11.sp),
+                    style: HrModuleTypography.caption().copyWith(fontSize: 11.tsp),
                   ),
                 ),
               IntrinsicHeight(
@@ -242,56 +238,54 @@ class _HrPersonalRequestListContentState
                         label: 'Pending',
                         onTap: () => _onKpiTap('PENDING'),
                         valueColor: const Color(0xFFE89B4C),
+                        selected: _filterId == 'PENDING',
                       ),
                     ),
-                    SizedBox(width: 8.w),
+                    SizedBox(width: 8.tw),
                     Expanded(
                       child: HrKpiCounterCard(
                         value: '${counts['APPROVED']}',
                         label: 'Approved',
                         onTap: () => _onKpiTap('APPROVED'),
                         valueColor: const Color(0xFF3D9B6E),
+                        selected: _filterId == 'APPROVED',
                       ),
                     ),
-                    SizedBox(width: 8.w),
+                    SizedBox(width: 8.tw),
                     Expanded(
                       child: HrKpiCounterCard(
                         value: '${counts['REJECTED']}',
                         label: 'Rejected',
                         onTap: () => _onKpiTap('REJECTED'),
                         valueColor: const Color(0xFFC45C6A),
+                        selected: _filterId == 'REJECTED',
                       ),
                     ),
-                    SizedBox(width: 8.w),
+                    SizedBox(width: 8.tw),
                     Expanded(
                       child: HrKpiCounterCard(
                         value: '${counts['DRAFT']}',
                         label: 'Draft',
                         onTap: () => _onKpiTap('DRAFT'),
                         valueColor: const Color(0xFF6B7280),
+                        selected: _filterId == 'DRAFT',
                       ),
                     ),
                   ],
                 ),
               ),
-              SizedBox(height: HrModuleLayout.cardSpacingV.h),
+              SizedBox(height: HrModuleLayout.cardSpacingV.th),
               HrSearchBar(
                 hintText: widget.searchHint,
                 onDebouncedChanged: (q) => setState(() => _searchQuery = q),
               ),
-              SizedBox(height: 12.h),
-              HrFilterChipRow(
-                options: _chips,
-                selectedId: _filterId,
-                onChanged: (id) => setState(() => _filterId = id),
-              ),
-              SizedBox(height: 16.h),
+              SizedBox(height: 16.th),
               Row(
                 children: [
                   Text(
                     'Recent requests',
                     style: HrModuleTypography.sectionHeading().copyWith(
-                          fontSize: 16.sp,
+                          fontSize: 16.tsp,
                           fontWeight: FontWeight.w800,
                           letterSpacing: -0.3,
                           color: HrModuleColors.text,
@@ -301,7 +295,7 @@ class _HrPersonalRequestListContentState
                   DropdownButtonHideUnderline(
                     child: DropdownButton<_HrSort>(
                       value: _sort,
-                      style: HrModuleTypography.caption().copyWith(fontSize: 12.sp),
+                      style: HrModuleTypography.caption().copyWith(fontSize: 12.tsp),
                       items: const [
                         DropdownMenuItem(value: _HrSort.newest, child: Text('Newest')),
                         DropdownMenuItem(value: _HrSort.oldest, child: Text('Oldest')),
@@ -318,22 +312,22 @@ class _HrPersonalRequestListContentState
                   ),
                 ],
               ),
-              SizedBox(height: 8.h),
+              SizedBox(height: 8.th),
               if (emptyFilter)
                 Padding(
-                  padding: EdgeInsets.symmetric(vertical: 40.h),
+                  padding: EdgeInsets.symmetric(vertical: 40.th),
                   child: Column(
                     children: [
                       Icon(Icons.inbox_outlined,
-                          size: 56.sp, color: HrModuleColors.mutedText),
-                      SizedBox(height: 12.h),
+                          size: 56.tsp, color: HrModuleColors.mutedText),
+                      SizedBox(height: 12.th),
                       Text(
                         all.isEmpty
                             ? 'No requests yet'
                             : 'No requests match this filter',
-                        style: HrModuleTypography.body().copyWith(fontSize: 15.sp),
+                        style: HrModuleTypography.body().copyWith(fontSize: 15.tsp),
                       ),
-                      SizedBox(height: 16.h),
+                      SizedBox(height: 16.th),
                       FilledButton(
                         onPressed: () {
                           Navigator.push<void>(
@@ -361,7 +355,7 @@ class _HrPersonalRequestListContentState
                       e.relativeSubmittedLabel,
                   ].join(' · ');
                   return Padding(
-                    padding: EdgeInsets.only(bottom: HrModuleLayout.cardSpacingV.h),
+                    padding: EdgeInsets.only(bottom: HrModuleLayout.cardSpacingV.th),
                     child: HrRequestCard(
                       requestTypeTitle: e.type,
                       referenceNumber: e.referenceNumber,

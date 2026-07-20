@@ -1,3 +1,4 @@
+import 'package:el_race/core/utils/responsive_breakpoints.dart';
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
@@ -831,14 +832,14 @@ class _FamilyDocumentsTabState extends State<FamilyDocumentsTab> {
         selectedDocType == 'expired' || selectedDocType == 'expiry_soon';
 
     return ListView(
-      padding: EdgeInsets.only(left: 12.w, right: 12.w, top: 14.h, bottom: 8.h),
+      padding: EdgeInsets.only(left: 12.tw, right: 12.tw, top: 14.th, bottom: 8.th),
       children: [
         Container(
-          height: 96.h,
-          padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 10.h),
+          height: 96.th,
+          padding: EdgeInsets.symmetric(horizontal: 16.tw, vertical: 10.th),
           decoration: BoxDecoration(
             color: meta['background'] as Color,
-            borderRadius: BorderRadius.circular(16.r),
+            borderRadius: BorderRadius.circular(16.tr),
             boxShadow: [
               BoxShadow(
                 color: Colors.black.withOpacity(0.12),
@@ -857,17 +858,17 @@ class _FamilyDocumentsTabState extends State<FamilyDocumentsTab> {
                   children: [
                     Icon(
                       meta['icon'] as IconData,
-                      size: 32.sp,
+                      size: 32.tsp,
                       color: meta['iconColor'] as Color,
                     ),
-                    SizedBox(width: 10.w),
+                    SizedBox(width: 10.tw),
                     Flexible(
                       child: Text(
                         meta['label'] as String,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: GoogleFonts.poppins(
-                          fontSize: 30.sp / 2,
+                          fontSize: 30.tsp / 2,
                           fontWeight: FontWeight.w700,
                           color: meta['labelColor'] as Color,
                         ),
@@ -879,7 +880,7 @@ class _FamilyDocumentsTabState extends State<FamilyDocumentsTab> {
               Text(
                 (meta['value'] ?? '-').toString(),
                 style: GoogleFonts.poppins(
-                  fontSize: 88.sp / 2,
+                  fontSize: 88.tsp / 2,
                   fontWeight: FontWeight.w700,
                   color: meta['valueColor'] as Color,
                   height: 1,
@@ -888,7 +889,7 @@ class _FamilyDocumentsTabState extends State<FamilyDocumentsTab> {
             ],
           ),
         ),
-        SizedBox(height: 16.h),
+        SizedBox(height: 16.th),
         if (liveDocs.isEmpty)
           _buildEmptyState(
             icon: Icons.folder_off_rounded,
@@ -902,9 +903,9 @@ class _FamilyDocumentsTabState extends State<FamilyDocumentsTab> {
             itemCount: liveDocs.length,
             gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
               crossAxisCount: 2,
-              crossAxisSpacing: 12.w,
-              mainAxisSpacing: 12.h,
-              mainAxisExtent: 270.h,
+              crossAxisSpacing: 12.tw,
+              mainAxisSpacing: 12.th,
+              mainAxisExtent: 270.th,
             ),
             itemBuilder: (context, index) {
               final doc = liveDocs[index];
@@ -924,7 +925,7 @@ class _FamilyDocumentsTabState extends State<FamilyDocumentsTab> {
                 },
                 child: Container(
                   decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(24.r),
+                    borderRadius: BorderRadius.circular(24.tr),
                     border: Border.all(
                       color: useRedBorder
                           ? const Color(0xFFBA1719)
@@ -934,49 +935,49 @@ class _FamilyDocumentsTabState extends State<FamilyDocumentsTab> {
                     color: Colors.white,
                   ),
                   child: Padding(
-                    padding: EdgeInsets.all(10.w),
+                    padding: EdgeInsets.all(10.tw),
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
                         SizedBox(
-                          height: 90.h,
+                          height: 90.th,
                           child: Image.asset(
                             iconPath,
                             fit: BoxFit.contain,
                             width: double.infinity,
                             errorBuilder: (_, __, ___) => Icon(
                               Icons.insert_drive_file_outlined,
-                              size: 44.sp,
+                              size: 44.tsp,
                               color: const Color(0xff949494),
                             ),
                           ),
                         ),
-                        SizedBox(height: 8.h),
+                        SizedBox(height: 8.th),
                         Text(
                           title,
                           textAlign: TextAlign.center,
                           style: GoogleFonts.poppins(
-                            fontSize: 14.sp,
+                            fontSize: 14.tsp,
                             fontWeight: FontWeight.w500,
                             color: const Color(0xFF727272),
                             letterSpacing: 1.0,
                           ),
                         ),
-                        SizedBox(height: 4.h),
+                        SizedBox(height: 4.th),
                         Text(
                           name,
                           textAlign: TextAlign.center,
                           maxLines: null,
                           overflow: TextOverflow.visible,
                           style: GoogleFonts.poppins(
-                            fontSize: 13.sp,
+                            fontSize: 13.tsp,
                             fontWeight: FontWeight.w500,
                             color: Colors.black,
                             fontStyle: FontStyle.italic,
                           ),
                         ),
                         if (useRedBorder) ...[
-                          SizedBox(height: 8.h),
+                          SizedBox(height: 8.th),
                           GestureDetector(
                             onTap: () {
                               final callback = widget.onChangeDocument;
@@ -985,10 +986,10 @@ class _FamilyDocumentsTabState extends State<FamilyDocumentsTab> {
                               }
                             },
                             child: Container(
-                              constraints: BoxConstraints(minHeight: 24.h),
+                              constraints: BoxConstraints(minHeight: 24.th),
                               padding: EdgeInsets.symmetric(
-                                horizontal: 10.w,
-                                vertical: 4.h,
+                                horizontal: 10.tw,
+                                vertical: 4.th,
                               ),
                               decoration: BoxDecoration(
                                 gradient: const LinearGradient(
@@ -999,29 +1000,29 @@ class _FamilyDocumentsTabState extends State<FamilyDocumentsTab> {
                                     Color(0xFF717171),
                                   ],
                                 ),
-                                borderRadius: BorderRadius.circular(12.r),
+                                borderRadius: BorderRadius.circular(12.tr),
                               ),
                               child: Row(
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
                                   SizedBox(
-                                    width: 12.w,
-                                    height: 12.w,
+                                    width: 12.tw,
+                                    height: 12.tw,
                                     child: Image.asset(
                                       'assets/newapp/newicon/change_document_icon.png',
                                       fit: BoxFit.contain,
                                       errorBuilder: (_, __, ___) => Icon(
                                         Icons.swap_horiz_rounded,
                                         color: Colors.white,
-                                        size: 12.sp,
+                                        size: 12.tsp,
                                       ),
                                     ),
                                   ),
-                                  SizedBox(width: 4.w),
+                                  SizedBox(width: 4.tw),
                                   Text(
-                                    'Change',
+                                    'Update',
                                     style: GoogleFonts.poppins(
-                                      fontSize: 10.sp,
+                                      fontSize: 10.tsp,
                                       fontWeight: FontWeight.w600,
                                       color: Colors.white,
                                       height: 1,
@@ -1166,11 +1167,11 @@ class _FamilyDocumentsTabState extends State<FamilyDocumentsTab> {
 
   Widget _buildRequestedSummaryCard() {
     return Container(
-      height: 96.h,
-      padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 10.h),
+      height: 96.th,
+      padding: EdgeInsets.symmetric(horizontal: 16.tw, vertical: 10.th),
       decoration: BoxDecoration(
         color: const Color(0xFFF6CC1B),
-        borderRadius: BorderRadius.circular(16.r),
+        borderRadius: BorderRadius.circular(16.tr),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withOpacity(0.12),
@@ -1186,20 +1187,20 @@ class _FamilyDocumentsTabState extends State<FamilyDocumentsTab> {
             children: [
               Image.asset(
                 'assets/newapp/newicon/document_requested.png',
-                width: 30.w,
-                height: 30.w,
+                width: 30.tw,
+                height: 30.tw,
                 fit: BoxFit.contain,
                 errorBuilder: (_, __, ___) => Icon(
                   Icons.assignment_outlined,
-                  size: 30.sp,
+                  size: 30.tsp,
                   color: Colors.black,
                 ),
               ),
-              SizedBox(width: 10.w),
+              SizedBox(width: 10.tw),
               Text(
                 'Requested',
                 style: GoogleFonts.poppins(
-                  fontSize: 15.sp,
+                  fontSize: 15.tsp,
                   fontWeight: FontWeight.w700,
                   color: Colors.black,
                 ),
@@ -1209,7 +1210,7 @@ class _FamilyDocumentsTabState extends State<FamilyDocumentsTab> {
           Text(
             widget.statRequested,
             style: GoogleFonts.poppins(
-              fontSize: 44.sp,
+              fontSize: 44.tsp,
               fontWeight: FontWeight.w700,
               color: Colors.black,
               height: 1,
@@ -1226,11 +1227,11 @@ class _FamilyDocumentsTabState extends State<FamilyDocumentsTab> {
         unawaited(_openInlineRequestForm());
       },
       child: Container(
-        height: 64.h,
-        padding: EdgeInsets.symmetric(horizontal: 16.w),
+        height: 64.th,
+        padding: EdgeInsets.symmetric(horizontal: 16.tw),
         decoration: BoxDecoration(
           color: Colors.white,
-          borderRadius: BorderRadius.circular(14.r),
+          borderRadius: BorderRadius.circular(14.tr),
           border: Border.all(color: const Color(0xFFBEBEBE), width: 1.2),
         ),
         child: Row(
@@ -1238,14 +1239,14 @@ class _FamilyDocumentsTabState extends State<FamilyDocumentsTab> {
           children: [
             Icon(
               Icons.assignment_add,
-              size: 24.sp,
+              size: 24.tsp,
               color: const Color(0xFF8C8C8C),
             ),
-            SizedBox(width: 8.w),
+            SizedBox(width: 8.tw),
             Text(
               'Add New Request',
               style: GoogleFonts.poppins(
-                fontSize: 15.sp,
+                fontSize: 15.tsp,
                 fontWeight: FontWeight.w600,
                 color: const Color(0xFF777777),
               ),
@@ -1275,10 +1276,10 @@ class _FamilyDocumentsTabState extends State<FamilyDocumentsTab> {
         }
       },
       child: Container(
-        padding: EdgeInsets.symmetric(horizontal: 14.w, vertical: 14.h),
+        padding: EdgeInsets.symmetric(horizontal: 14.tw, vertical: 14.th),
         decoration: BoxDecoration(
           color: const Color(0xFFD1D1D1),
-          borderRadius: BorderRadius.circular(14.r),
+          borderRadius: BorderRadius.circular(14.tr),
         ),
         child: Column(
           children: [
@@ -1286,7 +1287,7 @@ class _FamilyDocumentsTabState extends State<FamilyDocumentsTab> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 CircleAvatar(
-                  radius: 21.r,
+                  radius: 21.tr,
                   backgroundColor: const Color(0xFFE7E7E7),
                   backgroundImage: photo != null ? NetworkImage(photo) : null,
                   child: photo == null
@@ -1295,14 +1296,14 @@ class _FamilyDocumentsTabState extends State<FamilyDocumentsTab> {
                               ? 'F'
                               : personName[0].toUpperCase(),
                           style: GoogleFonts.poppins(
-                            fontSize: 13.sp,
+                            fontSize: 13.tsp,
                             fontWeight: FontWeight.w700,
                             color: const Color(0xFF5F5F5F),
                           ),
                         )
                       : null,
                 ),
-                SizedBox(width: 10.w),
+                SizedBox(width: 10.tw),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -1312,16 +1313,16 @@ class _FamilyDocumentsTabState extends State<FamilyDocumentsTab> {
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: GoogleFonts.poppins(
-                          fontSize: 14.sp,
+                          fontSize: 14.tsp,
                           fontWeight: FontWeight.w700,
                           color: const Color(0xFF1A1A1A),
                         ),
                       ),
-                      SizedBox(height: 2.h),
+                      SizedBox(height: 2.th),
                       Text(
                         relation,
                         style: GoogleFonts.poppins(
-                          fontSize: 13.sp,
+                          fontSize: 13.tsp,
                           fontWeight: FontWeight.w700,
                           color: relationColor,
                         ),
@@ -1329,11 +1330,11 @@ class _FamilyDocumentsTabState extends State<FamilyDocumentsTab> {
                     ],
                   ),
                 ),
-                SizedBox(width: 8.w),
+                SizedBox(width: 8.tw),
                 _requestedExpiryColumn(passportExpiry, eidExpiry),
               ],
             ),
-            SizedBox(height: 10.h),
+            SizedBox(height: 10.th),
             Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -1342,11 +1343,11 @@ class _FamilyDocumentsTabState extends State<FamilyDocumentsTab> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       _requestedInfoRow('Passport No', passportNo),
-                      SizedBox(height: 6.h),
+                      SizedBox(height: 6.th),
                       _requestedInfoRow('EID No', eidNo),
-                      SizedBox(height: 6.h),
+                      SizedBox(height: 6.th),
                       _requestedInfoRow('Nationality', nationality),
-                      SizedBox(height: 6.h),
+                      SizedBox(height: 6.th),
                       _requestedInfoRow('Birth date', birthDate),
                     ],
                   ),
@@ -1363,11 +1364,11 @@ class _FamilyDocumentsTabState extends State<FamilyDocumentsTab> {
     return Row(
       children: [
         SizedBox(
-          width: 94.w,
+          width: 94.tw,
           child: Text(
             label,
             style: GoogleFonts.poppins(
-              fontSize: 12.sp,
+              fontSize: 12.tsp,
               fontWeight: FontWeight.w600,
               color: Colors.black,
             ),
@@ -1376,12 +1377,12 @@ class _FamilyDocumentsTabState extends State<FamilyDocumentsTab> {
         Text(
           '|',
           style: GoogleFonts.poppins(
-            fontSize: 12.sp,
+            fontSize: 12.tsp,
             fontWeight: FontWeight.w600,
             color: Colors.black,
           ),
         ),
-        SizedBox(width: 6.w),
+        SizedBox(width: 6.tw),
         Expanded(
           child: Text(
             value,
@@ -1389,7 +1390,7 @@ class _FamilyDocumentsTabState extends State<FamilyDocumentsTab> {
             softWrap: false,
             overflow: TextOverflow.fade,
             style: GoogleFonts.poppins(
-              fontSize: 12.sp,
+              fontSize: 12.tsp,
               fontWeight: FontWeight.w500,
               color: Colors.black,
             ),
@@ -1409,7 +1410,7 @@ class _FamilyDocumentsTabState extends State<FamilyDocumentsTab> {
       children: [
         if (hasPassport)
           _requestedExpiryText(passportExpiry, rightAligned: true),
-        if (hasPassport && hasEid) SizedBox(height: 2.h),
+        if (hasPassport && hasEid) SizedBox(height: 2.th),
         if (hasEid) _requestedExpiryText(eidExpiry, rightAligned: true),
       ],
     );
@@ -1423,7 +1424,7 @@ class _FamilyDocumentsTabState extends State<FamilyDocumentsTab> {
       overflow: TextOverflow.fade,
       textAlign: rightAligned ? TextAlign.right : TextAlign.start,
       style: GoogleFonts.poppins(
-        fontSize: 12.sp,
+        fontSize: 12.tsp,
         fontWeight: FontWeight.w600,
         color: const Color(0xFFCC3A3A),
       ),
@@ -1432,12 +1433,12 @@ class _FamilyDocumentsTabState extends State<FamilyDocumentsTab> {
 
   Widget _buildRequestedMode(List<Map<String, dynamic>> docs) {
     return ListView(
-      padding: EdgeInsets.only(left: 12.w, right: 12.w, top: 14.h, bottom: 8.h),
+      padding: EdgeInsets.only(left: 12.tw, right: 12.tw, top: 14.th, bottom: 8.th),
       children: [
         _buildRequestedSummaryCard(),
-        SizedBox(height: 12.h),
+        SizedBox(height: 12.th),
         _buildAddNewRequestCard(),
-        SizedBox(height: 12.h),
+        SizedBox(height: 12.th),
         if (docs.isEmpty)
           _buildEmptyState(
             icon: Icons.folder_off_rounded,
@@ -1446,7 +1447,7 @@ class _FamilyDocumentsTabState extends State<FamilyDocumentsTab> {
           )
         else
           ...docs.map((doc) => Padding(
-                padding: EdgeInsets.only(bottom: 10.h),
+                padding: EdgeInsets.only(bottom: 10.th),
                 child: _buildRequestedCard(doc),
               )),
       ],
@@ -1484,11 +1485,11 @@ class _FamilyDocumentsTabState extends State<FamilyDocumentsTab> {
         .toList(growable: false);
 
     return ListView(
-      padding: EdgeInsets.fromLTRB(12.w, 8.h, 12.w, 12.h),
+      padding: EdgeInsets.fromLTRB(12.tw, 8.th, 12.tw, 12.th),
       children: [
         Container(
           color: Colors.white,
-          padding: EdgeInsets.symmetric(horizontal: 10.w, vertical: 12.h),
+          padding: EdgeInsets.symmetric(horizontal: 10.tw, vertical: 12.th),
           child: Column(
             children: [
               Center(
@@ -1499,8 +1500,8 @@ class _FamilyDocumentsTabState extends State<FamilyDocumentsTab> {
                       onTap: () =>
                           _pickInlineDocFile('photo_file', imageOnly: true),
                       child: Container(
-                        width: 105.w,
-                        height: 105.w,
+                        width: 105.tw,
+                        height: 105.tw,
                         decoration: BoxDecoration(
                           shape: BoxShape.circle,
                           color: const Color(0xFFE2E2E2),
@@ -1512,7 +1513,7 @@ class _FamilyDocumentsTabState extends State<FamilyDocumentsTab> {
                         ),
                         child: Icon(
                           Icons.add_a_photo_outlined,
-                          size: 28.sp,
+                          size: 28.tsp,
                           color: const Color(0xFF837D70),
                         ),
                       ),
@@ -1521,42 +1522,42 @@ class _FamilyDocumentsTabState extends State<FamilyDocumentsTab> {
                       right: 0,
                       bottom: 0,
                       child: Container(
-                        width: 22.w,
-                        height: 22.w,
+                        width: 22.tw,
+                        height: 22.tw,
                         decoration: const BoxDecoration(
                           color: Color(0xFFF6CC1B),
                           shape: BoxShape.circle,
                         ),
                         child:
-                            Icon(Icons.edit, size: 11.sp, color: Colors.white),
+                            Icon(Icons.edit, size: 11.tsp, color: Colors.white),
                       ),
                     ),
                   ],
                 ),
               ),
-              SizedBox(height: 18.h),
+              SizedBox(height: 18.th),
               Row(
                 children: [
                   Icon(Icons.person_outline_rounded,
-                      size: 15.sp, color: const Color(0xFF6A6A6A)),
-                  SizedBox(width: 6.w),
+                      size: 15.tsp, color: const Color(0xFF6A6A6A)),
+                  SizedBox(width: 6.tw),
                   Text(
                     'Basic Information',
                     style: GoogleFonts.poppins(
                       color: const Color(0xFF6A6A6A),
-                      fontSize: 13.sp,
+                      fontSize: 13.tsp,
                       fontWeight: FontWeight.w600,
                     ),
                   ),
                 ],
               ),
-              SizedBox(height: 12.h),
+              SizedBox(height: 12.th),
               _inlineLabel('Full Name'),
               _inlineTextField(
                 controller: _inlineNameController,
                 hint: 'Enter name',
               ),
-              SizedBox(height: 10.h),
+              SizedBox(height: 10.th),
               _inlineLabel('Relationship'),
               _inlineDropdown<String>(
                 value: _inlineRelationship,
@@ -1567,7 +1568,7 @@ class _FamilyDocumentsTabState extends State<FamilyDocumentsTab> {
                 ],
                 onChanged: (v) => unawaited(_onInlineRelationshipChanged(v)),
               ),
-              SizedBox(height: 10.h),
+              SizedBox(height: 10.th),
               _inlineLabel('Nationality'),
               _inlineDropdown<int>(
                 value: _inlineNationalityId,
@@ -1582,7 +1583,7 @@ class _FamilyDocumentsTabState extends State<FamilyDocumentsTab> {
                     .toList(growable: false),
                 onChanged: (v) => setState(() => _inlineNationalityId = v),
               ),
-              SizedBox(height: 10.h),
+              SizedBox(height: 10.th),
               _inlineLabel('Date of Birth'),
               _inlineTextField(
                 controller: _inlineDobController,
@@ -1603,7 +1604,7 @@ class _FamilyDocumentsTabState extends State<FamilyDocumentsTab> {
                   );
                 },
               ),
-              SizedBox(height: 10.h),
+              SizedBox(height: 10.th),
               _inlineLabel('Document Type To Update'),
               _inlineDropdown<String>(
                 value: _inlineCaseKey,
@@ -1622,52 +1623,52 @@ class _FamilyDocumentsTabState extends State<FamilyDocumentsTab> {
                 },
               ),
               if ((_inlineInitError ?? '').isNotEmpty) ...[
-                SizedBox(height: 8.h),
+                SizedBox(height: 8.th),
                 Text(
                   _inlineInitError!,
                   style: GoogleFonts.poppins(
                     color: const Color(0xFFBA1719),
-                    fontSize: 11.sp,
+                    fontSize: 11.tsp,
                   ),
                 ),
               ],
-              SizedBox(height: 10.h),
+              SizedBox(height: 10.th),
               ...docsToShow.map(
                 (req) => Padding(
-                  padding: EdgeInsets.only(bottom: 8.h),
+                  padding: EdgeInsets.only(bottom: 8.th),
                   child: _buildInlineDocAccordionItem(req),
                 ),
               ),
-              SizedBox(height: 6.h),
+              SizedBox(height: 6.th),
               SizedBox(
                 width: double.infinity,
-                height: 46.h,
+                height: 46.th,
                 child: ElevatedButton(
                   style: ElevatedButton.styleFrom(
                     backgroundColor: const Color(0xFFF6CC1B),
                     foregroundColor: Colors.black,
                     elevation: 0,
                     shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12.r),
+                      borderRadius: BorderRadius.circular(12.tr),
                     ),
                   ),
                   onPressed: _inlineSubmitting ? null : _submitInlineRequest,
                   child: _inlineSubmitting
                       ? SizedBox(
-                          width: 20.w,
-                          height: 20.w,
+                          width: 20.tw,
+                          height: 20.tw,
                           child:
                               const CircularProgressIndicator(strokeWidth: 2),
                         )
                       : Row(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            Icon(Icons.person_add_alt_1, size: 18.sp),
-                            SizedBox(width: 6.w),
+                            Icon(Icons.person_add_alt_1, size: 18.tsp),
+                            SizedBox(width: 6.tw),
                             Text(
                               'Add Family Member',
                               style: GoogleFonts.poppins(
-                                fontSize: 14.sp,
+                                fontSize: 14.tsp,
                                 fontWeight: FontWeight.w700,
                               ),
                             ),
@@ -1686,12 +1687,12 @@ class _FamilyDocumentsTabState extends State<FamilyDocumentsTab> {
     return Align(
       alignment: Alignment.centerLeft,
       child: Padding(
-        padding: EdgeInsets.only(bottom: 4.h, left: 3.w),
+        padding: EdgeInsets.only(bottom: 4.th, left: 3.tw),
         child: Text(
           text,
           style: GoogleFonts.poppins(
             color: const Color(0xFF2B2B2B),
-            fontSize: 12.sp,
+            fontSize: 12.tsp,
             fontWeight: FontWeight.w600,
           ),
         ),
@@ -1710,18 +1711,18 @@ class _FamilyDocumentsTabState extends State<FamilyDocumentsTab> {
       readOnly: readOnly,
       onTap: onTap,
       style:
-          GoogleFonts.poppins(fontSize: 12.sp, color: const Color(0xFF303030)),
+          GoogleFonts.poppins(fontSize: 12.tsp, color: const Color(0xFF303030)),
       decoration: InputDecoration(
         hintText: hint,
         hintStyle: GoogleFonts.poppins(
-          fontSize: 11.sp,
+          fontSize: 11.tsp,
           color: const Color(0xFF9A9A9A),
         ),
-        contentPadding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 12.h),
+        contentPadding: EdgeInsets.symmetric(horizontal: 12.tw, vertical: 12.th),
         filled: true,
         fillColor: const Color(0xFFD6D6D8),
         border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12.r),
+          borderRadius: BorderRadius.circular(12.tr),
           borderSide: BorderSide.none,
         ),
       ),
@@ -1735,10 +1736,10 @@ class _FamilyDocumentsTabState extends State<FamilyDocumentsTab> {
     required ValueChanged<T?> onChanged,
   }) {
     return Container(
-      padding: EdgeInsets.symmetric(horizontal: 12.w),
+      padding: EdgeInsets.symmetric(horizontal: 12.tw),
       decoration: BoxDecoration(
         color: const Color(0xFFD6D6D8),
-        borderRadius: BorderRadius.circular(12.r),
+        borderRadius: BorderRadius.circular(12.tr),
       ),
       child: DropdownButtonHideUnderline(
         child: DropdownButton<T>(
@@ -1747,13 +1748,13 @@ class _FamilyDocumentsTabState extends State<FamilyDocumentsTab> {
           hint: Text(
             hint,
             style: GoogleFonts.poppins(
-              fontSize: 11.sp,
+              fontSize: 11.tsp,
               color: const Color(0xFF9A9A9A),
             ),
           ),
           icon: const Icon(Icons.keyboard_arrow_down_rounded),
           style: GoogleFonts.poppins(
-            fontSize: 12.sp,
+            fontSize: 12.tsp,
             color: const Color(0xFF2F2F2F),
           ),
           items: items,
@@ -1772,34 +1773,34 @@ class _FamilyDocumentsTabState extends State<FamilyDocumentsTab> {
     return Container(
       decoration: BoxDecoration(
         color: const Color(0xFFD6D6D8),
-        borderRadius: BorderRadius.circular(12.r),
+        borderRadius: BorderRadius.circular(12.tr),
       ),
       child: Column(
         children: [
           InkWell(
-            borderRadius: BorderRadius.circular(12.r),
+            borderRadius: BorderRadius.circular(12.tr),
             onTap: () {
               setState(() {
                 _expandedDocField = expanded ? null : req.field;
               });
             },
             child: Padding(
-              padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 12.h),
+              padding: EdgeInsets.symmetric(horizontal: 12.tw, vertical: 12.th),
               child: Row(
                 children: [
                   Expanded(
                     child: Text(
                       label,
                       style: GoogleFonts.poppins(
-                        fontSize: 13.sp,
+                        fontSize: 13.tsp,
                         fontWeight: FontWeight.w600,
                         color: const Color(0xFF222222),
                       ),
                     ),
                   ),
                   Container(
-                    width: 18.w,
-                    height: 18.w,
+                    width: 18.tw,
+                    height: 18.tw,
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
                       border: Border.all(
@@ -1809,8 +1810,8 @@ class _FamilyDocumentsTabState extends State<FamilyDocumentsTab> {
                         ? const SizedBox.shrink()
                         : Center(
                             child: Container(
-                              width: 10.w,
-                              height: 10.w,
+                              width: 10.tw,
+                              height: 10.tw,
                               decoration: const BoxDecoration(
                                 color: Color(0xFF1E73FF),
                                 shape: BoxShape.circle,
@@ -1818,7 +1819,7 @@ class _FamilyDocumentsTabState extends State<FamilyDocumentsTab> {
                             ),
                           ),
                   ),
-                  SizedBox(width: 8.w),
+                  SizedBox(width: 8.tw),
                   Icon(
                     expanded
                         ? Icons.keyboard_arrow_up_rounded
@@ -1831,7 +1832,7 @@ class _FamilyDocumentsTabState extends State<FamilyDocumentsTab> {
           ),
           if (expanded)
             Padding(
-              padding: EdgeInsets.fromLTRB(12.w, 0, 12.w, 12.h),
+              padding: EdgeInsets.fromLTRB(12.tw, 0, 12.tw, 12.th),
               child: Column(
                 children: [
                   _inlineLabel('Expiry Date'),
@@ -1854,20 +1855,20 @@ class _FamilyDocumentsTabState extends State<FamilyDocumentsTab> {
                       );
                     },
                   ),
-                  SizedBox(height: 10.h),
+                  SizedBox(height: 10.th),
                   InkWell(
                     onTap: () => _pickInlineDocFile(
                       req.field,
                       imageOnly: req.type.toLowerCase() == 'image',
                     ),
-                    borderRadius: BorderRadius.circular(10.r),
+                    borderRadius: BorderRadius.circular(10.tr),
                     child: Container(
-                      width: 160.w,
+                      width: 160.tw,
                       padding: EdgeInsets.symmetric(
-                          horizontal: 10.w, vertical: 10.h),
+                          horizontal: 10.tw, vertical: 10.th),
                       decoration: BoxDecoration(
                         color: const Color(0xFFD6D6D8),
-                        borderRadius: BorderRadius.circular(10.r),
+                        borderRadius: BorderRadius.circular(10.tr),
                         border: Border.all(
                           color: const Color(0xFFE8DED7),
                           style: BorderStyle.solid,
@@ -1877,14 +1878,14 @@ class _FamilyDocumentsTabState extends State<FamilyDocumentsTab> {
                         children: [
                           const Icon(Icons.cloud_upload_outlined,
                               color: Color(0xFF6A6A6A)),
-                          SizedBox(height: 2.h),
+                          SizedBox(height: 2.th),
                           Text(
                             picked == null ? 'Attach Files' : picked.filename,
                             textAlign: TextAlign.center,
                             maxLines: 2,
                             overflow: TextOverflow.ellipsis,
                             style: GoogleFonts.poppins(
-                              fontSize: 11.sp,
+                              fontSize: 11.tsp,
                               color: const Color(0xFF383838),
                             ),
                           ),
@@ -1906,7 +1907,7 @@ class _FamilyDocumentsTabState extends State<FamilyDocumentsTab> {
       children: [
         Padding(
           padding:
-              EdgeInsets.only(left: 8.w, right: 20.w, top: 8.h, bottom: 8.h),
+              EdgeInsets.only(left: 8.tw, right: 20.tw, top: 8.th, bottom: 8.th),
           child: Row(
             children: [
               IconButton(
@@ -1923,7 +1924,7 @@ class _FamilyDocumentsTabState extends State<FamilyDocumentsTab> {
                   ),
                   child: Padding(
                     padding: EdgeInsets.symmetric(
-                        horizontal: 13.5.w, vertical: 8.5.h),
+                        horizontal: 13.5.tw, vertical: 8.5.th),
                     child: Text(
                       '${_selectedFolder ?? 'Documents'}  |  ${docs.length + 1}',
                       maxLines: null,
@@ -1944,12 +1945,12 @@ class _FamilyDocumentsTabState extends State<FamilyDocumentsTab> {
         ),
         Expanded(
           child: GridView.builder(
-            padding: EdgeInsets.symmetric(horizontal: 16.w),
+            padding: EdgeInsets.symmetric(horizontal: 16.tw),
             itemCount: docs.length + 1,
             gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
               crossAxisCount: 2,
-              crossAxisSpacing: 12.w,
-              mainAxisSpacing: 12.h,
+              crossAxisSpacing: 12.tw,
+              mainAxisSpacing: 12.th,
               childAspectRatio: 0.75,
             ),
             itemBuilder: (context, index) {
@@ -1958,7 +1959,7 @@ class _FamilyDocumentsTabState extends State<FamilyDocumentsTab> {
                   onTap: () => widget.onAddDocument?.call(),
                   child: Container(
                     decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(20.r),
+                      borderRadius: BorderRadius.circular(20.tr),
                       border: Border.all(color: const Color(0xffD9D9D9)),
                     ),
                     child: Column(
@@ -1966,14 +1967,14 @@ class _FamilyDocumentsTabState extends State<FamilyDocumentsTab> {
                       children: [
                         Icon(
                           Icons.note_add_outlined,
-                          size: 48.sp,
+                          size: 48.tsp,
                           color: const Color(0xff949494),
                         ),
-                        SizedBox(height: 8.h),
+                        SizedBox(height: 8.th),
                         Text(
                           'Add New',
                           style: GoogleFonts.poppins(
-                            fontSize: 12.sp,
+                            fontSize: 12.tsp,
                             fontWeight: FontWeight.w400,
                             fontStyle: FontStyle.italic,
                             color: const Color(0xff949494),
@@ -2019,7 +2020,7 @@ class _FamilyDocumentsTabState extends State<FamilyDocumentsTab> {
                   children: [
                     Container(
                       decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(20.r),
+                        borderRadius: BorderRadius.circular(20.tr),
                         border: Border.all(
                           color: isExpired
                               ? const Color(0xFFBA1719)
@@ -2028,7 +2029,7 @@ class _FamilyDocumentsTabState extends State<FamilyDocumentsTab> {
                         ),
                       ),
                       child: Padding(
-                        padding: EdgeInsets.all(10.w),
+                        padding: EdgeInsets.all(10.tw),
                         child: Column(
                           mainAxisAlignment: MainAxisAlignment.center,
                           crossAxisAlignment: CrossAxisAlignment.center,
@@ -2039,32 +2040,32 @@ class _FamilyDocumentsTabState extends State<FamilyDocumentsTab> {
                                 children: [
                                   if (isExpired)
                                     Padding(
-                                      padding: EdgeInsets.only(top: 2.h),
+                                      padding: EdgeInsets.only(top: 2.th),
                                       child: SizedBox(
-                                        width: 22.w,
-                                        height: 22.w,
+                                        width: 22.tw,
+                                        height: 22.tw,
                                         child: Image.asset(
                                           'assets/newapp/newicon/pencil_7754138 1.png',
                                           fit: BoxFit.contain,
                                           errorBuilder: (_, __, ___) => Icon(
                                             Icons.edit,
-                                            size: 18.sp,
+                                            size: 18.tsp,
                                             color: const Color(0xFFBA1719),
                                           ),
                                         ),
                                       ),
                                     ),
-                                  if (isExpired) SizedBox(height: 4.h),
+                                  if (isExpired) SizedBox(height: 4.th),
                                   Expanded(
                                     child: ClipRRect(
-                                      borderRadius: BorderRadius.circular(12.r),
+                                      borderRadius: BorderRadius.circular(12.tr),
                                       child: Image.asset(
                                         iconPath,
                                         fit: BoxFit.contain,
                                         width: double.infinity,
                                         errorBuilder: (_, __, ___) => Icon(
                                           Icons.insert_drive_file_outlined,
-                                          size: 44.sp,
+                                          size: 44.tsp,
                                           color: const Color(0xff949494),
                                         ),
                                       ),
@@ -2073,26 +2074,26 @@ class _FamilyDocumentsTabState extends State<FamilyDocumentsTab> {
                                 ],
                               ),
                             ),
-                            SizedBox(height: 6.h),
+                            SizedBox(height: 6.th),
                             Text(
                               docName,
                               textAlign: TextAlign.center,
                               maxLines: null,
                               overflow: TextOverflow.visible,
                               style: GoogleFonts.poppins(
-                                fontSize: 12.sp,
+                                fontSize: 12.tsp,
                                 fontWeight: FontWeight.w700,
                                 color: Colors.black,
                               ),
                             ),
                             if (dateText.isNotEmpty) ...[
-                              SizedBox(height: 2.h),
+                              SizedBox(height: 2.th),
                               Text(
                                 dateText,
                                 textAlign: TextAlign.center,
                                 maxLines: null,
                                 style: GoogleFonts.poppins(
-                                  fontSize: 10.sp,
+                                  fontSize: 10.tsp,
                                   fontWeight: FontWeight.w400,
                                   color: isExpired
                                       ? const Color(0xFFBA1719)
@@ -2120,30 +2121,30 @@ class _FamilyDocumentsTabState extends State<FamilyDocumentsTab> {
     required String subtitle,
   }) {
     return Padding(
-      padding: EdgeInsets.symmetric(horizontal: 18.w, vertical: 10.h),
+      padding: EdgeInsets.symmetric(horizontal: 18.tw, vertical: 10.th),
       child: Column(
         children: [
           Icon(
             icon,
-            size: 42.sp,
+            size: 42.tsp,
             color: const Color(0xFF3B4352),
           ),
-          SizedBox(height: 6.h),
+          SizedBox(height: 6.th),
           Text(
             title,
             textAlign: TextAlign.center,
             style: GoogleFonts.poppins(
-              fontSize: 15.sp,
+              fontSize: 15.tsp,
               fontWeight: FontWeight.w700,
               color: const Color(0xFF3B4352),
             ),
           ),
-          SizedBox(height: 6.h),
+          SizedBox(height: 6.th),
           Text(
             subtitle,
             textAlign: TextAlign.center,
             style: GoogleFonts.poppins(
-              fontSize: 12.sp,
+              fontSize: 12.tsp,
               fontWeight: FontWeight.w500,
               color: const Color(0xFF7B8290),
               height: 1.35,
@@ -2159,10 +2160,10 @@ class _FamilyDocumentsTabState extends State<FamilyDocumentsTab> {
     final folders = _effectiveFolders(liveDocs);
 
     return ListView(
-      padding: EdgeInsets.only(left: 6.w, right: 6.w, top: 16.h, bottom: 4.h),
+      padding: EdgeInsets.only(left: 6.tw, right: 6.tw, top: 16.th, bottom: 4.th),
       children: [
         _buildSummaryCards(),
-        SizedBox(height: 12.h),
+        SizedBox(height: 12.th),
         if (folders.isEmpty)
           _buildEmptyState(
             icon: Icons.folder_off_rounded,
@@ -2172,7 +2173,7 @@ class _FamilyDocumentsTabState extends State<FamilyDocumentsTab> {
           )
         else ...[
           SizedBox(
-            height: 220.h,
+            height: 220.th,
             child: PageView.builder(
               controller: _folderPageController,
               padEnds: false,
@@ -2180,7 +2181,7 @@ class _FamilyDocumentsTabState extends State<FamilyDocumentsTab> {
               itemBuilder: (context, index) {
                 final folder = folders[index];
                 return Padding(
-                  padding: EdgeInsets.symmetric(horizontal: 6.w),
+                  padding: EdgeInsets.symmetric(horizontal: 6.tw),
                   child: GestureDetector(
                     onTap: () => _openFolder(folder['name'].toString()),
                     child: _buildFolderCard(folder),
@@ -2189,18 +2190,18 @@ class _FamilyDocumentsTabState extends State<FamilyDocumentsTab> {
               },
             ),
           ),
-          SizedBox(height: 14.h),
+          SizedBox(height: 14.th),
         ],
         Text(
           'RECENT ACTIVITY',
           style: GoogleFonts.poppins(
-            fontSize: 13.sp,
+            fontSize: 13.tsp,
             fontWeight: FontWeight.w700,
             letterSpacing: 2,
             color: const Color(0xFF7C7C7C),
           ),
         ),
-        SizedBox(height: 10.h),
+        SizedBox(height: 10.th),
         ..._buildRecentActivityTiles(),
       ],
     );
@@ -2264,12 +2265,12 @@ class _FamilyDocumentsTabState extends State<FamilyDocumentsTab> {
             ? null
             : () => widget.onDocTypeSelected?.call(docType),
         child: Container(
-          height: 138.h,
-          width: 156.w,
-          padding: EdgeInsets.symmetric(horizontal: 14.w, vertical: 10.h),
+          height: 138.th,
+          width: 156.tw,
+          padding: EdgeInsets.symmetric(horizontal: 14.tw, vertical: 10.th),
           decoration: BoxDecoration(
             color: color,
-            borderRadius: BorderRadius.circular(20.r),
+            borderRadius: BorderRadius.circular(20.tr),
             boxShadow: [
               BoxShadow(
                 color: Colors.black.withOpacity(0.08),
@@ -2285,7 +2286,7 @@ class _FamilyDocumentsTabState extends State<FamilyDocumentsTab> {
                 child: Text(
                   label,
                   style: GoogleFonts.poppins(
-                    fontSize: 28.sp / 2,
+                    fontSize: 28.tsp / 2,
                     fontWeight: FontWeight.w700,
                     color: labelColor,
                     height: 1,
@@ -2297,7 +2298,7 @@ class _FamilyDocumentsTabState extends State<FamilyDocumentsTab> {
                 child: Text(
                   value,
                   style: GoogleFonts.poppins(
-                    fontSize: 62.sp / 2,
+                    fontSize: 62.tsp / 2,
                     fontWeight: FontWeight.w700,
                     color: valueColor,
                     height: 1,
@@ -2309,17 +2310,17 @@ class _FamilyDocumentsTabState extends State<FamilyDocumentsTab> {
                 child: useClockIcon
                     ? Icon(
                         Icons.access_time_rounded,
-                        size: 30.sp,
+                        size: 30.tsp,
                         color: Colors.white,
                       )
                     : Image.asset(
                         iconPath,
-                        width: 30.w,
-                        height: 30.w,
+                        width: 30.tw,
+                        height: 30.tw,
                         fit: BoxFit.contain,
                         errorBuilder: (_, __, ___) => Icon(
                           Icons.insert_drive_file_outlined,
-                          size: 30.sp,
+                          size: 30.tsp,
                           color: labelColor,
                         ),
                       ),
@@ -2334,7 +2335,7 @@ class _FamilyDocumentsTabState extends State<FamilyDocumentsTab> {
       mainAxisSize: MainAxisSize.min,
       children: [
         SizedBox(
-          height: 138.h,
+          height: 138.th,
           child: PageView.builder(
             controller: _statsPageController,
             padEnds: false,
@@ -2343,7 +2344,7 @@ class _FamilyDocumentsTabState extends State<FamilyDocumentsTab> {
               final item = cards[index];
               return Padding(
                 padding:
-                    EdgeInsets.only(left: index == 0 ? 0 : 6.w, right: 6.w),
+                    EdgeInsets.only(left: index == 0 ? 0 : 6.tw, right: 6.tw),
                 child: card(
                   label: item['label'] as String,
                   value: item['value'] as String,
@@ -2398,36 +2399,36 @@ class _FamilyDocumentsTabState extends State<FamilyDocumentsTab> {
               : const Color(0xFF13A65D);
 
       return Container(
-        margin: EdgeInsets.only(bottom: 10.h),
-        padding: EdgeInsets.symmetric(horizontal: 10.w, vertical: 12.h),
+        margin: EdgeInsets.only(bottom: 10.th),
+        padding: EdgeInsets.symmetric(horizontal: 10.tw, vertical: 12.th),
         decoration: BoxDecoration(
           color: const Color(0xFFFAFAFA),
-          borderRadius: BorderRadius.circular(8.r),
+          borderRadius: BorderRadius.circular(8.tr),
         ),
         child: Row(
           children: [
             Container(
-              width: 15.w,
-              height: 15.w,
+              width: 15.tw,
+              height: 15.tw,
               decoration:
                   BoxDecoration(color: dotColor, shape: BoxShape.circle),
             ),
-            SizedBox(width: 12.w),
+            SizedBox(width: 12.tw),
             Expanded(
               child: Text(
                 title,
                 style: GoogleFonts.poppins(
-                  fontSize: 12.sp,
+                  fontSize: 12.tsp,
                   fontWeight: FontWeight.w500,
                   color: const Color(0xFF222222),
                 ),
               ),
             ),
-            SizedBox(width: 10.w),
+            SizedBox(width: 10.tw),
             Text(
               time,
               style: GoogleFonts.poppins(
-                fontSize: 11.sp,
+                fontSize: 11.tsp,
                 color: const Color(0xFF595959),
               ),
             ),
@@ -2439,13 +2440,13 @@ class _FamilyDocumentsTabState extends State<FamilyDocumentsTab> {
 
   Widget _buildFolderCard(Map<String, dynamic> folder) {
     return SizedBox(
-      height: 260.h,
+      height: 260.th,
       child: Stack(
         children: [
           // Folder image background
           Positioned.fill(
             child: ClipRRect(
-              borderRadius: BorderRadius.circular(16.r),
+              borderRadius: BorderRadius.circular(16.tr),
               child: Image.asset(
                 'assets/newapp/filedoc.png',
                 fit: BoxFit.cover,
@@ -2454,12 +2455,12 @@ class _FamilyDocumentsTabState extends State<FamilyDocumentsTab> {
           ),
           // Folder name label at top-right
           Positioned(
-            top: 8.h,
-            right: 35.w,
+            top: 8.th,
+            right: 35.tw,
             child: Text(
               folder['name'],
               style: GoogleFonts.poppins(
-                fontSize: 13.sp,
+                fontSize: 13.tsp,
                 fontWeight: FontWeight.w700,
                 color: Colors.black87,
               ),
@@ -2483,7 +2484,7 @@ class _FamilyDocumentsTabState extends State<FamilyDocumentsTab> {
         // Back button + Files count
         Padding(
           padding:
-              EdgeInsets.only(left: 8.w, right: 20.w, top: 8.h, bottom: 8.h),
+              EdgeInsets.only(left: 8.tw, right: 20.tw, top: 8.th, bottom: 8.th),
           child: Row(
             children: [
               IconButton(
@@ -2500,7 +2501,7 @@ class _FamilyDocumentsTabState extends State<FamilyDocumentsTab> {
                   ),
                   child: Padding(
                     padding: EdgeInsets.symmetric(
-                        horizontal: 13.5.w, vertical: 8.5.h),
+                        horizontal: 13.5.tw, vertical: 8.5.th),
                     child: Text(
                       '${_selectedFolder ?? 'Documents'}  |  ${docs.length + 1}',
                       maxLines: null,
@@ -2522,12 +2523,12 @@ class _FamilyDocumentsTabState extends State<FamilyDocumentsTab> {
         // Documents grid
         Expanded(
           child: GridView.builder(
-            padding: EdgeInsets.symmetric(horizontal: 16.w),
+            padding: EdgeInsets.symmetric(horizontal: 16.tw),
             itemCount: docs.length + 1, // +1 for add card
             gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
               crossAxisCount: 2,
-              crossAxisSpacing: 12.w,
-              mainAxisSpacing: 12.h,
+              crossAxisSpacing: 12.tw,
+              mainAxisSpacing: 12.th,
               childAspectRatio: 0.75,
             ),
             itemBuilder: (context, index) {
@@ -2539,7 +2540,7 @@ class _FamilyDocumentsTabState extends State<FamilyDocumentsTab> {
                   },
                   child: Container(
                     decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(20.r),
+                      borderRadius: BorderRadius.circular(20.tr),
                       border: Border.all(color: const Color(0xffD9D9D9)),
                     ),
                     child: Column(
@@ -2547,14 +2548,14 @@ class _FamilyDocumentsTabState extends State<FamilyDocumentsTab> {
                       children: [
                         Icon(
                           Icons.note_add_outlined,
-                          size: 48.sp,
+                          size: 48.tsp,
                           color: const Color(0xff949494),
                         ),
-                        SizedBox(height: 8.h),
+                        SizedBox(height: 8.th),
                         Text(
                           'Add New',
                           style: GoogleFonts.poppins(
-                            fontSize: 12.sp,
+                            fontSize: 12.tsp,
                             fontWeight: FontWeight.w400,
                             fontStyle: FontStyle.italic,
                             color: const Color(0xff949494),
@@ -2571,7 +2572,7 @@ class _FamilyDocumentsTabState extends State<FamilyDocumentsTab> {
 
               return Container(
                 decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(20.r),
+                  borderRadius: BorderRadius.circular(20.tr),
                   border: Border.all(
                     color: isEditable
                         ? const Color(0xFFBA1719)
@@ -2582,7 +2583,7 @@ class _FamilyDocumentsTabState extends State<FamilyDocumentsTab> {
                 child: Stack(
                   children: [
                     Padding(
-                      padding: EdgeInsets.all(10.w),
+                      padding: EdgeInsets.all(10.tw),
                       child: Column(
                         mainAxisAlignment: MainAxisAlignment.center,
                         crossAxisAlignment: CrossAxisAlignment.center,
@@ -2590,7 +2591,7 @@ class _FamilyDocumentsTabState extends State<FamilyDocumentsTab> {
                           // Thumbnail
                           Expanded(
                             child: ClipRRect(
-                              borderRadius: BorderRadius.circular(12.r),
+                              borderRadius: BorderRadius.circular(12.tr),
                               child: Image.asset(
                                 doc['thumbnail'],
                                 fit: BoxFit.contain,
@@ -2598,7 +2599,7 @@ class _FamilyDocumentsTabState extends State<FamilyDocumentsTab> {
                               ),
                             ),
                           ),
-                          SizedBox(height: 6.h),
+                          SizedBox(height: 6.th),
                           // Document name
                           Text(
                             doc['name'] ?? '',
@@ -2606,21 +2607,21 @@ class _FamilyDocumentsTabState extends State<FamilyDocumentsTab> {
                             maxLines: null,
                             overflow: TextOverflow.visible,
                             style: GoogleFonts.poppins(
-                              fontSize: 12.sp,
+                              fontSize: 12.tsp,
                               fontWeight: FontWeight.w700,
                               color: Colors.black,
                             ),
                           ),
                           // Person name
                           if ((doc['person_name'] ?? '').isNotEmpty) ...[
-                            SizedBox(height: 2.h),
+                            SizedBox(height: 2.th),
                             Text(
                               doc['person_name'],
                               textAlign: TextAlign.center,
                               maxLines: null,
                               overflow: TextOverflow.visible,
                               style: GoogleFonts.poppins(
-                                fontSize: 10.sp,
+                                fontSize: 10.tsp,
                                 fontWeight: FontWeight.w400,
                                 color: const Color(0xff949494),
                               ),
@@ -2628,13 +2629,13 @@ class _FamilyDocumentsTabState extends State<FamilyDocumentsTab> {
                           ],
                           // Date
                           if (_formatDate(doc['expiry_date']).isNotEmpty) ...[
-                            SizedBox(height: 2.h),
+                            SizedBox(height: 2.th),
                             Text(
                               _formatDate(doc['expiry_date']),
                               textAlign: TextAlign.center,
                               maxLines: null,
                               style: GoogleFonts.poppins(
-                                fontSize: 10.sp,
+                                fontSize: 10.tsp,
                                 fontWeight: FontWeight.w400,
                                 color: isEditable
                                     ? const Color(0xFFBA1719)
@@ -2648,10 +2649,10 @@ class _FamilyDocumentsTabState extends State<FamilyDocumentsTab> {
                     // Edit icon for editable docs
                     if (isEditable)
                       Positioned(
-                        top: 8.h,
-                        right: 8.w,
+                        top: 8.th,
+                        right: 8.tw,
                         child: Container(
-                          padding: EdgeInsets.all(4.w),
+                          padding: EdgeInsets.all(4.tw),
                           decoration: BoxDecoration(
                             color: Colors.white,
                             shape: BoxShape.circle,
@@ -2664,7 +2665,7 @@ class _FamilyDocumentsTabState extends State<FamilyDocumentsTab> {
                           ),
                           child: Icon(
                             Icons.edit,
-                            size: 14.sp,
+                            size: 14.tsp,
                             color: appFontColor,
                           ),
                         ),

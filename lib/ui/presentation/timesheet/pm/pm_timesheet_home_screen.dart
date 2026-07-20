@@ -24,7 +24,6 @@ class PmTimesheetHomeScreen extends ConsumerWidget {
     final profile = ref.watch(timesheetLoginProfileProvider);
     final widgetData = ref.watch(homeTimesheetWidgetProvider);
     final bucketsAsync = ref.watch(timesheetProjectBucketsProvider);
-    final projectsAsync = ref.watch(timesheetProjectsProvider);
     final foremenAsync = ref.watch(timesheetPmForemenProvider);
 
     final foremanCount = foremenAsync.maybeWhen(
@@ -37,12 +36,7 @@ class PmTimesheetHomeScreen extends ConsumerWidget {
         horizontal: TimesheetModuleLayout.screenPaddingH,
         vertical: 12,
       ),
-      appBar: AppBar(
-        title: Text('Timesheet', style: TimesheetModuleTypography.h2()),
-        backgroundColor: TimesheetModuleColors.surface,
-        foregroundColor: TimesheetModuleColors.text,
-        elevation: 0,
-      ),
+      glassTitle: 'Timesheet',
       body: bucketsAsync.when(
         loading: () => const TimesheetLoadingState(
           style: TimesheetLoadingStyle.list,
@@ -53,16 +47,9 @@ class PmTimesheetHomeScreen extends ConsumerWidget {
           onRetry: () => ref.invalidate(timesheetProjectBucketsProvider),
         ),
         data: (buckets) {
-          return projectsAsync.when(
-            loading: () => const TimesheetLoadingState(
-              style: TimesheetLoadingStyle.list,
-              itemCount: 4,
-            ),
-            error: (_, __) => const TimesheetErrorState(
-              message: 'Could not load active projects',
-            ),
-            data: (projects) {
-              return SingleChildScrollView(
+          // Derived directly from buckets — avoids a second skeleton flash.
+          final projects = buckets.inProgress;
+          return SingleChildScrollView(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
@@ -144,8 +131,6 @@ class PmTimesheetHomeScreen extends ConsumerWidget {
                   ],
                 ),
               );
-            },
-          );
         },
       ),
     );

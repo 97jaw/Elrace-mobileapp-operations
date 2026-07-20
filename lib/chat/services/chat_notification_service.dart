@@ -25,6 +25,11 @@ class ChatNotificationService {
   // Active chat ID - don't show notifications for this chat
   String? _activeChatId;
 
+  // Top-level subscription to the user's chat list. Must be cancelled on
+  // logout so it is not left attached when Firebase signs out (which would
+  // trigger an unhandled `permission-denied` from Firestore).
+  StreamSubscription? _userChatsSubscription;
+
   // Stream subscriptions for each chat
   final Map<String, StreamSubscription> _chatSubscriptions = {};
 
@@ -73,12 +78,19 @@ class ChatNotificationService {
     final uid = FirebaseAuth.instance.currentUser?.uid;
     if (uid == null) return;
 
-    // Subscribe to user's chat list
-    ChatRepository.instance.subscribeToUserChats(uid).listen((userChats) {
-      for (final userChat in userChats) {
-        _subscribeToChat(userChat);
-      }
-    });
+    // Subscribe to user's chat list (cancel any previous one first).
+    await _userChatsSubscription?.cancel();
+    _userChatsSubscription =
+        ChatRepository.instance.subscribeToUserChats(uid).listen(
+      (userChats) {
+        for (final userChat in userChats) {
+          _subscribeToChat(userChat);
+        }
+      },
+      onError: (Object e) {
+        print('⚠️ ChatNotificationService: chat list stream error: $e');
+      },
+    );
 
     print('✅ ChatNotificationService: Started listening');
   }
@@ -93,12 +105,18 @@ class ChatNotificationService {
 
     final subscription = ChatRepository.instance
         .subscribeToMessages(userChat.chatId, pageSize: 1)
-        .listen((messages) {
-      if (messages.isEmpty) return;
+        .listen(
+      (messages) {
+        if (messages.isEmpty) return;
 
-      final latestMessage = messages.first;
-      _handleNewMessage(latestMessage, userChat);
-    });
+        final latestMessage = messages.first;
+        _handleNewMessage(latestMessage, userChat);
+      },
+      onError: (Object e) {
+        print('⚠️ ChatNotificationService: message stream error '
+            '(${userChat.chatId}): $e');
+      },
+    );
 
     _chatSubscriptions[userChat.chatId] = subscription;
   }
@@ -245,6 +263,8 @@ class ChatNotificationService {
 
   /// Clean up resources
   Future<void> dispose() async {
+    await _userChatsSubscription?.cancel();
+    _userChatsSubscription = null;
     for (final subscription in _chatSubscriptions.values) {
       await subscription.cancel();
     }

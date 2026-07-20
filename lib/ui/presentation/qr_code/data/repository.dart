@@ -85,9 +85,7 @@ class QrCodeRepository {
         headers,
         null,
         'qr_code',
-        false,
         true,
-        false,
       );
 
       if (response?.statusCode == 200) {

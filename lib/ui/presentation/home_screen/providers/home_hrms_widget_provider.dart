@@ -55,25 +55,31 @@ class HomeHrmsWidgetData {
 
   static HomeHrmsWidgetData? fromApiMap(Map<String, dynamic> map) {
     final scope = map['scope']?.toString() ?? 'employee';
-    final isManager = scope == 'manager';
+    final isManager = scope == 'manager' || scope == 'management';
     final direct = _readInt(map['direct_reports_count']);
+    final allStaff = _readInt(map['all_staff_count']);
     final pending = _readInt(map['pending_requests_count']);
-    final headline = _readInt(map['headline_count']) > 0
-        ? _readInt(map['headline_count'])
-        : (isManager ? direct : pending);
+    final headlineRaw = _readInt(map['headline_count']);
+    final headline = headlineRaw > 0
+        ? headlineRaw
+        : (scope == 'management'
+            ? (allStaff > 0 ? allStaff : direct)
+            : (isManager ? direct : pending));
 
     return HomeHrmsWidgetData(
       isManagerScope: isManager,
       headlineCount: headline,
       headlineLabel: 'EMPLOYEES',
       trendLabel: map['trend_label']?.toString() ??
-          (isManager
-              ? '$direct under your team'
-              : (pending == 1
-                  ? '1 pending request'
-                  : pending > 0
-                      ? '$pending pending requests'
-                      : 'No pending requests')),
+          (scope == 'management'
+              ? '$headline staff company-wide'
+              : (isManager
+                  ? '$direct under your team'
+                  : (pending == 1
+                      ? '1 pending request'
+                      : pending > 0
+                          ? '$pending pending requests'
+                          : 'No pending requests'))),
       departmentName: _stringOrNull(map['department_name']),
       sectionName: _stringOrNull(map['section_name']),
       pendingRequests: pending,

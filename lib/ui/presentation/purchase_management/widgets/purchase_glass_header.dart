@@ -1,3 +1,4 @@
+import 'package:el_race/core/utils/responsive_breakpoints.dart';
 import 'package:el_race/ui/presentation/purchase_management/theme/purchase_theme.dart';
 import 'package:el_race/ui/widgets/contextual_glass_chrome_header.dart';
 import 'package:flutter/material.dart';
@@ -95,7 +96,7 @@ class PurchaseManagementGlassShell extends StatelessWidget {
             tabsHeight: tabsHeight,
             trailing: trailing,
           ),
-          Expanded(child: body),
+          Expanded(child: TabletContentFrame(child: body)),
         ],
       ),
     );

@@ -8,10 +8,14 @@ class TmTimesheetEntryRow extends StatelessWidget {
     super.key,
     required this.row,
     this.index,
+    this.homeLight = false,
   });
 
   final Map<String, dynamic> row;
   final int? index;
+
+  /// Warm parchment glass card for the foreman home theme.
+  final bool homeLight;
 
   static String _formatEnd(String? dateTimeEnd) {
     if (dateTimeEnd == null || dateTimeEnd.isEmpty) return '—';
@@ -35,20 +39,44 @@ class TmTimesheetEntryRow extends StatelessWidget {
         ? '${breakH.toStringAsFixed(1)} hr break'
         : '$breakH break';
 
+    const glassCard = Color(0xFFF7F2E8);
+    const glassBorder = Color(0xFFE4DCCB);
+    const homeOrange = Color(0xFFF97316);
+    const homeInk = Color(0xFF2A2A2A);
+    const homeMuted = Color(0xFF7A7062);
+
+    final cardBg =
+        homeLight ? glassCard : TimesheetModuleColors.surface;
+    final cardBorder =
+        homeLight ? glassBorder : TimesheetModuleColors.divider;
+    final accent =
+        homeLight ? homeOrange : TimesheetModuleColors.primary;
+    final titleColor =
+        homeLight ? homeInk : TimesheetModuleColors.navy;
+    final bodyColor =
+        homeLight ? homeInk : TimesheetModuleColors.text;
+    final metaColor =
+        homeLight ? homeMuted : TimesheetModuleColors.navy;
+    final indexBg =
+        homeLight ? Colors.white : TimesheetModuleColors.navyTint;
+    final indexFg =
+        homeLight ? homeOrange : TimesheetModuleColors.navy;
+
     return Container(
       margin: const EdgeInsets.only(bottom: 10),
       decoration: BoxDecoration(
-        color: TimesheetModuleColors.surface,
-        borderRadius:
-            BorderRadius.circular(TimesheetModuleLayout.cardRadiusMd),
-        border: Border.all(color: TimesheetModuleColors.divider),
-        boxShadow: [
-          BoxShadow(
-            color: TimesheetModuleColors.navy.withValues(alpha: 0.06),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
-          ),
-        ],
+        color: cardBg,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: cardBorder),
+        boxShadow: homeLight
+            ? null
+            : [
+                BoxShadow(
+                  color: TimesheetModuleColors.navy.withValues(alpha: 0.06),
+                  blurRadius: 8,
+                  offset: const Offset(0, 2),
+                ),
+              ],
       ),
       child: IntrinsicHeight(
         child: Row(
@@ -57,9 +85,9 @@ class TmTimesheetEntryRow extends StatelessWidget {
             Container(
               width: 4,
               decoration: BoxDecoration(
-                color: TimesheetModuleColors.primary,
+                color: accent,
                 borderRadius: const BorderRadius.horizontal(
-                  left: Radius.circular(TimesheetModuleLayout.cardRadiusMd),
+                  left: Radius.circular(12),
                 ),
               ),
             ),
@@ -75,14 +103,14 @@ class TmTimesheetEntryRow extends StatelessWidget {
                         height: 26,
                         alignment: Alignment.center,
                         decoration: BoxDecoration(
-                          color: TimesheetModuleColors.navyTint,
+                          color: indexBg,
                           shape: BoxShape.circle,
                         ),
                         child: Text(
                           '$index',
                           style: TimesheetModuleTypography.caption().copyWith(
                             fontWeight: FontWeight.w800,
-                            color: TimesheetModuleColors.navy,
+                            color: indexFg,
                           ),
                         ),
                       ),
@@ -96,7 +124,7 @@ class TmTimesheetEntryRow extends StatelessWidget {
                               Icon(
                                 PhosphorIcons.clock(),
                                 size: 14,
-                                color: TimesheetModuleColors.navy,
+                                color: metaColor,
                               ),
                               const SizedBox(width: 6),
                               Expanded(
@@ -105,7 +133,7 @@ class TmTimesheetEntryRow extends StatelessWidget {
                                   style: TimesheetModuleTypography.caption()
                                       .copyWith(
                                     fontWeight: FontWeight.w800,
-                                    color: TimesheetModuleColors.navy,
+                                    color: titleColor,
                                   ),
                                 ),
                               ),
@@ -116,6 +144,7 @@ class TmTimesheetEntryRow extends StatelessWidget {
                             employee,
                             style: TimesheetModuleTypography.body().copyWith(
                               fontWeight: FontWeight.w600,
+                              color: bodyColor,
                             ),
                             maxLines: 2,
                             overflow: TextOverflow.ellipsis,
@@ -127,12 +156,14 @@ class TmTimesheetEntryRow extends StatelessWidget {
                                 label: duration,
                                 icon: PhosphorIcons.timer(),
                                 tone: _ChipTone.primary,
+                                homeLight: homeLight,
                               ),
                               const SizedBox(width: 8),
                               _MetricChip(
                                 label: breakLabel,
                                 icon: PhosphorIcons.coffee(),
                                 tone: _ChipTone.neutral,
+                                homeLight: homeLight,
                               ),
                             ],
                           ),
@@ -157,20 +188,31 @@ class _MetricChip extends StatelessWidget {
     required this.label,
     required this.icon,
     required this.tone,
+    this.homeLight = false,
   });
 
   final String label;
   final IconData icon;
   final _ChipTone tone;
+  final bool homeLight;
 
   @override
   Widget build(BuildContext context) {
-    final bg = tone == _ChipTone.primary
-        ? TimesheetModuleColors.primaryTint
-        : TimesheetModuleColors.navyTint;
-    final fg = tone == _ChipTone.primary
-        ? TimesheetModuleColors.primary
-        : TimesheetModuleColors.navy;
+    final Color bg;
+    final Color fg;
+    if (homeLight) {
+      bg = Colors.white;
+      fg = tone == _ChipTone.primary
+          ? const Color(0xFFF97316)
+          : const Color(0xFF7A7062);
+    } else {
+      bg = tone == _ChipTone.primary
+          ? TimesheetModuleColors.primaryTint
+          : TimesheetModuleColors.navyTint;
+      fg = tone == _ChipTone.primary
+          ? TimesheetModuleColors.primary
+          : TimesheetModuleColors.navy;
+    }
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),

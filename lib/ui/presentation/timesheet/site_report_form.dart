@@ -36,12 +36,7 @@ class _SiteReportFormState extends State<SiteReportForm> {
   @override
   Widget build(BuildContext context) {
     return TmScaffold(
-      appBar: AppBar(
-        title: Text('Daily Site Report', style: TimesheetModuleTypography.h2()),
-        backgroundColor: TimesheetModuleColors.surface,
-        foregroundColor: TimesheetModuleColors.text,
-        elevation: 0,
-      ),
+      glassTitle: 'Daily Site Report',
       body: SingleChildScrollView(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,

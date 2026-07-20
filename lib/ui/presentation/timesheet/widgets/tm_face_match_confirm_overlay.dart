@@ -181,6 +181,7 @@ class _TmFaceMatchConfirmOverlayState extends State<TmFaceMatchConfirmOverlay>
                       const SizedBox(height: 16),
                       TmPrimaryButton(
                         label: 'Next — capture another',
+                        warm: true,
                         icon: PhosphorIcons.arrowRight(),
                         onPressed: widget.onNext,
                       ),

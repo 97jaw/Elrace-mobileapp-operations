@@ -1,3 +1,4 @@
+import 'package:el_race/core/utils/responsive_breakpoints.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -90,14 +91,14 @@ abstract final class PettyCashTheme {
 
   static BoxDecoration glassCard({double radius = 22}) => BoxDecoration(
         color: glassFill,
-        borderRadius: BorderRadius.circular(radius.r),
+        borderRadius: BorderRadius.circular(radius.tr),
         border: Border.all(color: glassBorder, width: 1),
         boxShadow: softShadow,
       );
 
   static BoxDecoration glassPanel({double radius = 24}) => BoxDecoration(
         gradient: dialogGradient,
-        borderRadius: BorderRadius.circular(radius.r),
+        borderRadius: BorderRadius.circular(radius.tr),
         border: Border.all(color: glassBorder, width: 1.1),
         boxShadow: cardShadow,
       );
@@ -135,19 +136,19 @@ abstract final class PettyCashTheme {
   );
 
   static TextStyle titleLg = GoogleFonts.poppins(
-    fontSize: 18.sp,
+    fontSize: 18.tsp,
     fontWeight: FontWeight.w700,
     color: white,
   );
 
   static TextStyle labelSm = GoogleFonts.poppins(
-    fontSize: 11.sp,
+    fontSize: 11.tsp,
     fontWeight: FontWeight.w500,
     color: white.withValues(alpha: 0.5),
   );
 
   static TextStyle amountMd = GoogleFonts.poppins(
-    fontSize: 15.sp,
+    fontSize: 15.tsp,
     fontWeight: FontWeight.w700,
     color: white,
   );

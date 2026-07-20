@@ -1,3 +1,4 @@
+import 'package:el_race/core/utils/responsive_breakpoints.dart';
 import 'dart:convert';
 
 import 'package:el_race/core/services/notification_storage_service.dart';
@@ -99,13 +100,13 @@ class _ProjectsGreetingHeaderState extends State<ProjectsGreetingHeader>
     const fallback = 'assets/png/profile_1.png';
     if (_imageData.isEmpty) {
       return CircleAvatar(
-        radius: 24.r,
+        radius: 24.tr,
         backgroundImage: const AssetImage(fallback),
       );
     }
     if (_imageData.startsWith('http')) {
       return CircleAvatar(
-        radius: 24.r,
+        radius: 24.tr,
         backgroundImage: NetworkImage(_imageData),
         onBackgroundImageError: (_, __) {},
       );
@@ -113,13 +114,13 @@ class _ProjectsGreetingHeaderState extends State<ProjectsGreetingHeader>
     try {
       if (_imageData.length % 4 == 0) {
         return CircleAvatar(
-          radius: 24.r,
+          radius: 24.tr,
           backgroundImage: MemoryImage(base64Decode(_imageData)),
         );
       }
     } catch (_) {}
     return CircleAvatar(
-      radius: 24.r,
+      radius: 24.tr,
       backgroundImage: const AssetImage(fallback),
     );
   }
@@ -130,7 +131,7 @@ class _ProjectsGreetingHeaderState extends State<ProjectsGreetingHeader>
     final firstName = _userName.split(' ').first;
 
     return Padding(
-      padding: EdgeInsets.fromLTRB(20.w, 8.h, 16.w, 12.h),
+      padding: EdgeInsets.fromLTRB(20.tw, 8.th, 16.tw, 12.th),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
@@ -141,7 +142,7 @@ class _ProjectsGreetingHeaderState extends State<ProjectsGreetingHeader>
                 RichText(
                   text: TextSpan(
                     style: GoogleFonts.poppins(
-                      fontSize: 20.sp,
+                      fontSize: 20.tsp,
                       color: ProjectsDashboardTheme.white,
                       fontWeight: FontWeight.w500,
                     ),
@@ -154,11 +155,11 @@ class _ProjectsGreetingHeaderState extends State<ProjectsGreetingHeader>
                     ],
                   ),
                 ),
-                SizedBox(height: 2.h),
+                SizedBox(height: 2.th),
                 Text(
                   dateLabel,
                   style: GoogleFonts.poppins(
-                    fontSize: 13.sp,
+                    fontSize: 13.tsp,
                     color: ProjectsDashboardTheme.greyPanel.withValues(
                       alpha: 0.85,
                     ),
@@ -173,8 +174,8 @@ class _ProjectsGreetingHeaderState extends State<ProjectsGreetingHeader>
               clipBehavior: Clip.none,
               children: [
                 Container(
-                  width: 44.w,
-                  height: 44.w,
+                  width: 44.tw,
+                  height: 44.tw,
                   decoration: BoxDecoration(
                     color: ProjectsDashboardTheme.greyDark.withValues(
                       alpha: 0.65,
@@ -188,7 +189,7 @@ class _ProjectsGreetingHeaderState extends State<ProjectsGreetingHeader>
                   ),
                   child: Icon(
                     Icons.notifications_none_rounded,
-                    size: 26.sp,
+                    size: 26.tsp,
                     color: ProjectsDashboardTheme.white,
                   ),
                 ),
@@ -201,7 +202,7 @@ class _ProjectsGreetingHeaderState extends State<ProjectsGreetingHeader>
               ],
             ),
           ),
-          SizedBox(width: 10.w),
+          SizedBox(width: 10.tw),
           _profileAvatar(),
         ],
       ),
@@ -221,12 +222,12 @@ class _NotificationCountBadge extends StatelessWidget {
 
     return Container(
       padding: EdgeInsets.symmetric(
-        horizontal: wide ? 6.w : 0,
-        vertical: 3.h,
+        horizontal: wide ? 6.tw : 0,
+        vertical: 3.th,
       ),
       constraints: BoxConstraints(
-        minWidth: 20.w,
-        minHeight: 20.w,
+        minWidth: 20.tw,
+        minHeight: 20.tw,
       ),
       decoration: BoxDecoration(
         gradient: ProjectsDashboardTheme.maroonAccentGradient,
@@ -253,7 +254,7 @@ class _NotificationCountBadge extends StatelessWidget {
         label,
         style: GoogleFonts.poppins(
           color: ProjectsDashboardTheme.white,
-          fontSize: 10.sp,
+          fontSize: 10.tsp,
           fontWeight: FontWeight.w800,
           height: 1,
           letterSpacing: -0.2,

@@ -1,3 +1,4 @@
+import 'package:el_race/core/utils/responsive_breakpoints.dart';
 import 'package:el_race/ui/presentation/my_projects/presentation/theme/projects_dashboard_theme.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
@@ -33,15 +34,15 @@ class ProjectsDocumentsGlassBottomBar extends StatelessWidget {
       color: Colors.transparent,
       child: Padding(
         padding: EdgeInsets.fromLTRB(
-          16.w,
+          16.tw,
           0,
-          16.w,
-          bottomInset + (bottomInset > 0 ? 8.h : 12.h),
+          16.tw,
+          bottomInset + (bottomInset > 0 ? 8.th : 12.th),
         ),
         child: Container(
-          height: 58.h,
+          height: 58.th,
           decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(30.r),
+            borderRadius: BorderRadius.circular(30.tr),
             color: Colors.black.withValues(alpha: 0.58),
             border: Border.all(
               color: ProjectsDashboardTheme.white.withValues(alpha: 0.14),
@@ -102,13 +103,13 @@ class _BarItem extends StatelessWidget {
       color: Colors.transparent,
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(14.r),
+        borderRadius: BorderRadius.circular(14.tr),
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 200),
-          width: 42.w,
-          height: 42.w,
+          width: 42.tw,
+          height: 42.tw,
           decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(14.r),
+            borderRadius: BorderRadius.circular(14.tr),
             gradient: isAi
                 ? LinearGradient(
                     begin: Alignment.topLeft,
@@ -136,13 +137,13 @@ class _BarItem extends StatelessWidget {
                   shaderCallback: (bounds) => _aiGradient.createShader(bounds),
                   child: Icon(
                     icon,
-                    size: 21.sp,
+                    size: 21.tsp,
                     color: Colors.white,
                   ),
                 )
               : Icon(
                   icon,
-                  size: 21.sp,
+                  size: 21.tsp,
                   color: active
                       ? ProjectsDashboardTheme.greyPanel
                       : ProjectsDashboardTheme.greyLight.withValues(alpha: 0.65),

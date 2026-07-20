@@ -1,3 +1,4 @@
+import 'package:el_race/core/utils/responsive_breakpoints.dart';
 import 'dart:io';
 import 'dart:ui';
 
@@ -270,13 +271,13 @@ class _CameraScreenState extends State<CameraScreen> {
                 left: 0,
                 right: 0,
                 child: Container(
-                  height: 175.h,
+                  height: 175.th,
                   decoration: BoxDecoration(
                     color: Colors.black.withOpacity(0.35),
                   ),
                   child: Padding(
                     padding:
-                        EdgeInsets.symmetric(horizontal: 16.w, vertical: 20.h),
+                        EdgeInsets.symmetric(horizontal: 16.tw, vertical: 20.th),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
@@ -290,7 +291,7 @@ class _CameraScreenState extends State<CameraScreen> {
                         ),
                         Image.asset(
                           'assets/logo/rcc2.png',
-                          height: 42.h,
+                          height: 42.th,
                         ),
                         const Spacer(),
                       ],
@@ -315,8 +316,8 @@ class _CameraScreenState extends State<CameraScreen> {
                       width: double.infinity,
                       height: screenHeight * 0.28,
                       padding: EdgeInsets.symmetric(
-                        horizontal: 30.w,
-                        vertical: 20.h,
+                        horizontal: 30.tw,
+                        vertical: 20.th,
                       ),
                       decoration: BoxDecoration(
                         color: Colors.black.withOpacity(0.5),
@@ -332,28 +333,28 @@ class _CameraScreenState extends State<CameraScreen> {
                                 Text(
                                   _currentTime,
                                   style: GoogleFonts.poppins(
-                                    fontSize: 15.sp,
+                                    fontSize: 15.tsp,
                                     color: Colors.white,
                                     fontWeight: FontWeight.w600,
                                     letterSpacing: 0.5,
                                   ),
                                 ),
-                                SizedBox(height: 2.h),
+                                SizedBox(height: 2.th),
                                 Text(
                                   _currentDate,
                                   style: GoogleFonts.poppins(
-                                    fontSize: 15.sp,
+                                    fontSize: 15.tsp,
                                     color: Colors.white,
                                     fontWeight: FontWeight.w600,
                                     letterSpacing: 0.5,
                                   ),
                                 ),
                                 if (_currentLocation.isNotEmpty) ...[
-                                  SizedBox(height: 2.h),
+                                  SizedBox(height: 2.th),
                                   Text(
                                     _currentLocation,
                                     style: GoogleFonts.poppins(
-                                      fontSize: 15.sp,
+                                      fontSize: 15.tsp,
                                       color: Colors.white,
                                       fontWeight: FontWeight.w600,
                                       letterSpacing: 0.5,
@@ -366,19 +367,19 @@ class _CameraScreenState extends State<CameraScreen> {
                           GestureDetector(
                             onTap: _takePicture,
                             child: Container(
-                              width: 55.w,
-                              height: 55.w,
+                              width: 55.tw,
+                              height: 55.tw,
                               decoration: BoxDecoration(
                                 shape: BoxShape.circle,
                                 color: Colors.white,
                                 border: Border.all(
                                   color: Colors.white.withOpacity(0.3),
-                                  width: 60.w,
+                                  width: 60.tw,
                                 ),
                               ),
                             ),
                           ),
-                          SizedBox(height: 20.h),
+                          SizedBox(height: 20.th),
                           Row(
                             mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                             children: [
@@ -401,14 +402,14 @@ class _CameraScreenState extends State<CameraScreen> {
 
   Widget _glassButton(String text) {
     return ClipRRect(
-      borderRadius: BorderRadius.circular(30.r),
+      borderRadius: BorderRadius.circular(30.tr),
       child: BackdropFilter(
         filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
         child: Container(
-          padding: EdgeInsets.symmetric(horizontal: 36.w, vertical: 12.h),
+          padding: EdgeInsets.symmetric(horizontal: 36.tw, vertical: 12.th),
           decoration: BoxDecoration(
             color: Colors.black.withOpacity(0.30),
-            borderRadius: BorderRadius.circular(30.r),
+            borderRadius: BorderRadius.circular(30.tr),
             border: Border.all(
               color: Colors.white.withOpacity(0.20),
               width: 1.2,
@@ -417,7 +418,7 @@ class _CameraScreenState extends State<CameraScreen> {
           child: Text(
             text,
             style: GoogleFonts.poppins(
-              fontSize: 17.sp,
+              fontSize: 17.tsp,
               letterSpacing: 1.4,
               color: Colors.white,
             ),

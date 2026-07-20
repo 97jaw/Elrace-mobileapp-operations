@@ -1,3 +1,4 @@
+import 'package:el_race/core/utils/responsive_breakpoints.dart';
 import 'dart:async';
 
 import 'package:el_race/ui/presentation/my_projects/data/models/project_manager_filter_item.dart';
@@ -186,7 +187,7 @@ class _ProjectsGroupHubScreenState extends State<ProjectsGroupHubScreen> {
               ),
             ),
             Padding(
-              padding: EdgeInsets.fromLTRB(16.w, 4.h, 16.w, 8.h),
+              padding: EdgeInsets.fromLTRB(16.tw, 4.th, 16.tw, 8.th),
               child: _GroupByBadgeRow(
                 selected: _mode,
                 onSelected: _selectMode,
@@ -196,45 +197,45 @@ class _ProjectsGroupHubScreenState extends State<ProjectsGroupHubScreen> {
               ),
             ),
             Padding(
-              padding: EdgeInsets.fromLTRB(16.w, 0, 16.w, 10.h),
+              padding: EdgeInsets.fromLTRB(16.tw, 0, 16.tw, 10.th),
               child: TextField(
                 controller: _searchController,
                 style: GoogleFonts.poppins(
-                  fontSize: 13.sp,
+                  fontSize: 13.tsp,
                   color: ProjectsDashboardTheme.white,
                 ),
                 decoration: InputDecoration(
                   hintText: translate('projects_dashboard.search_name_hint'),
                   hintStyle: GoogleFonts.poppins(
-                    fontSize: 13.sp,
+                    fontSize: 13.tsp,
                     color:
                         ProjectsDashboardTheme.greyPanel.withValues(alpha: 0.85),
                   ),
                   prefixIcon: Icon(
                     Icons.search_rounded,
                     color: ProjectsDashboardTheme.white.withValues(alpha: 0.9),
-                    size: 22.sp,
+                    size: 22.tsp,
                   ),
                   filled: true,
                   fillColor: ProjectsDashboardTheme.white.withValues(alpha: 0.12),
                   contentPadding: EdgeInsets.symmetric(
-                    horizontal: 14.w,
-                    vertical: 10.h,
+                    horizontal: 14.tw,
+                    vertical: 10.th,
                   ),
                   border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(14.r),
+                    borderRadius: BorderRadius.circular(14.tr),
                     borderSide: BorderSide(
                       color: ProjectsDashboardTheme.white.withValues(alpha: 0.28),
                     ),
                   ),
                   enabledBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(14.r),
+                    borderRadius: BorderRadius.circular(14.tr),
                     borderSide: BorderSide(
                       color: ProjectsDashboardTheme.white.withValues(alpha: 0.28),
                     ),
                   ),
                   focusedBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(14.r),
+                    borderRadius: BorderRadius.circular(14.tr),
                     borderSide: BorderSide(
                       color: ProjectsDashboardTheme.maroonLight.withValues(
                         alpha: 0.75,
@@ -247,11 +248,11 @@ class _ProjectsGroupHubScreenState extends State<ProjectsGroupHubScreen> {
             ),
             if (_filters.hasActiveFilters)
               Padding(
-                padding: EdgeInsets.fromLTRB(16.w, 0, 16.w, 6.h),
+                padding: EdgeInsets.fromLTRB(16.tw, 0, 16.tw, 6.th),
                 child: Text(
                   translate('projects_dashboard.filters_affect_projects_hint'),
                   style: GoogleFonts.poppins(
-                    fontSize: 11.sp,
+                    fontSize: 11.tsp,
                     color: ProjectsDashboardTheme.greyPanel,
                   ),
                 ),
@@ -259,15 +260,15 @@ class _ProjectsGroupHubScreenState extends State<ProjectsGroupHubScreen> {
             Expanded(
               child: _isLoading
                   ? ListView.separated(
-                      padding: EdgeInsets.symmetric(horizontal: 16.w),
+                      padding: EdgeInsets.symmetric(horizontal: 16.tw),
                       itemCount: 8,
-                      separatorBuilder: (_, __) => SizedBox(height: 10.h),
+                      separatorBuilder: (_, __) => SizedBox(height: 10.th),
                       itemBuilder: (_, __) => const ProjectsProjectRowShimmer(),
                     )
                   : _error != null
                       ? Center(
                           child: Padding(
-                            padding: EdgeInsets.symmetric(horizontal: 24.w),
+                            padding: EdgeInsets.symmetric(horizontal: 24.tw),
                             child: Column(
                               mainAxisAlignment: MainAxisAlignment.center,
                               children: [
@@ -276,10 +277,10 @@ class _ProjectsGroupHubScreenState extends State<ProjectsGroupHubScreen> {
                                   textAlign: TextAlign.center,
                                   style: GoogleFonts.poppins(
                                     color: ProjectsDashboardTheme.white,
-                                    fontSize: 13.sp,
+                                    fontSize: 13.tsp,
                                   ),
                                 ),
-                                SizedBox(height: 16.h),
+                                SizedBox(height: 16.th),
                                 TextButton.icon(
                                   onPressed: () => _load(forceRefresh: true),
                                   icon: const Icon(
@@ -304,20 +305,20 @@ class _ProjectsGroupHubScreenState extends State<ProjectsGroupHubScreen> {
                                 translate('projects_dashboard.no_group_items'),
                                 style: GoogleFonts.poppins(
                                   color: ProjectsDashboardTheme.greyPanel,
-                                  fontSize: 13.sp,
+                                  fontSize: 13.tsp,
                                 ),
                               ),
                             )
                           : ListView.separated(
                               padding: EdgeInsets.fromLTRB(
-                                16.w,
+                                16.tw,
                                 0,
-                                16.w,
-                                24.h,
+                                16.tw,
+                                24.th,
                               ),
                               itemCount: _items.length,
                               separatorBuilder: (_, __) =>
-                                  SizedBox(height: 10.h),
+                                  SizedBox(height: 10.th),
                               itemBuilder: (context, index) {
                                 final item = _items[index];
                                 return _GroupListTile(
@@ -366,14 +367,14 @@ class _GroupByBadgeRow extends StatelessWidget {
                   selected: selected == ProjectsGroupByMode.projectManager,
                   onTap: () => onSelected(ProjectsGroupByMode.projectManager),
                 ),
-                SizedBox(width: 8.w),
+                SizedBox(width: 8.tw),
                 _GroupBadge(
                   label: translate('projects_dashboard.group_by_client'),
                   icon: Icons.business_rounded,
                   selected: selected == ProjectsGroupByMode.client,
                   onTap: () => onSelected(ProjectsGroupByMode.client),
                 ),
-                SizedBox(width: 8.w),
+                SizedBox(width: 8.tw),
                 _GroupBadge(
                   label: translate('projects_dashboard.group_by_city'),
                   icon: Icons.location_city_rounded,
@@ -384,7 +385,7 @@ class _GroupByBadgeRow extends StatelessWidget {
             ),
           ),
         ),
-        SizedBox(width: 8.w),
+        SizedBox(width: 8.tw),
         ProjectsHubFilterButton(
           active: filtersActive,
           onTap: onFilterTap,
@@ -414,7 +415,7 @@ class _GroupBadge extends StatelessWidget {
       color: Colors.transparent,
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(20.r),
+        borderRadius: BorderRadius.circular(20.tr),
         child: Ink(
           decoration: BoxDecoration(
             gradient: selected
@@ -425,23 +426,23 @@ class _GroupBadge extends StatelessWidget {
                       ProjectsDashboardTheme.navy.withValues(alpha: 0.35),
                     ],
                   ),
-            borderRadius: BorderRadius.circular(20.r),
+            borderRadius: BorderRadius.circular(20.tr),
             border: Border.all(
               color: selected
                   ? ProjectsDashboardTheme.white.withValues(alpha: 0.55)
                   : ProjectsDashboardTheme.white.withValues(alpha: 0.22),
             ),
           ),
-          padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 8.h),
+          padding: EdgeInsets.symmetric(horizontal: 12.tw, vertical: 8.th),
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(icon, size: 16.sp, color: ProjectsDashboardTheme.white),
-              SizedBox(width: 6.w),
+              Icon(icon, size: 16.tsp, color: ProjectsDashboardTheme.white),
+              SizedBox(width: 6.tw),
               Text(
                 label,
                 style: GoogleFonts.poppins(
-                  fontSize: 11.sp,
+                  fontSize: 11.tsp,
                   fontWeight: FontWeight.w600,
                   color: ProjectsDashboardTheme.white,
                 ),
@@ -482,14 +483,14 @@ class _GroupListTile extends StatelessWidget {
       color: Colors.transparent,
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(16.r),
+        borderRadius: BorderRadius.circular(16.tr),
         child: Container(
-          padding: EdgeInsets.all(12.w),
+          padding: EdgeInsets.all(12.tw),
           decoration: ProjectsDashboardTheme.frostedPanel(radius: 16),
           child: Row(
             children: [
               _PickerAvatar(name: item.name, photoUrl: item.photoUrl),
-              SizedBox(width: 12.w),
+              SizedBox(width: 12.tw),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -497,16 +498,16 @@ class _GroupListTile extends StatelessWidget {
                     Text(
                       item.name,
                       style: GoogleFonts.poppins(
-                        fontSize: 15.sp,
+                        fontSize: 15.tsp,
                         fontWeight: FontWeight.w700,
                         color: ProjectsDashboardTheme.white,
                       ),
                     ),
-                    SizedBox(height: 2.h),
+                    SizedBox(height: 2.th),
                     Text(
                       '$subtitle · ${_lastUpdateText(item.lastUpdate)}',
                       style: GoogleFonts.poppins(
-                        fontSize: 11.sp,
+                        fontSize: 11.tsp,
                         color: ProjectsDashboardTheme.greyPanel,
                       ),
                     ),
@@ -514,10 +515,10 @@ class _GroupListTile extends StatelessWidget {
                 ),
               ),
               Container(
-                padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 8.h),
+                padding: EdgeInsets.symmetric(horizontal: 12.tw, vertical: 8.th),
                 decoration: BoxDecoration(
                   gradient: ProjectsDashboardTheme.maroonAccentGradient,
-                  borderRadius: BorderRadius.circular(12.r),
+                  borderRadius: BorderRadius.circular(12.tr),
                   border: Border.all(
                     color: ProjectsDashboardTheme.white.withValues(alpha: 0.35),
                   ),
@@ -525,7 +526,7 @@ class _GroupListTile extends StatelessWidget {
                 child: Text(
                   '${item.projectCount}',
                   style: GoogleFonts.koulen(
-                    fontSize: 16.sp,
+                    fontSize: 16.tsp,
                     color: ProjectsDashboardTheme.white,
                   ),
                 ),
@@ -550,8 +551,8 @@ class _PickerAvatar extends StatelessWidget {
       return ClipOval(
         child: ProjectsCachedImage(
           url: photoUrl!,
-          width: 52.w,
-          height: 52.w,
+          width: 52.tw,
+          height: 52.tw,
           fit: BoxFit.cover,
         ),
       );
@@ -560,7 +561,7 @@ class _PickerAvatar extends StatelessWidget {
     final initial =
         name.trim().isNotEmpty ? name.trim()[0].toUpperCase() : '?';
     return CircleAvatar(
-      radius: 26.r,
+      radius: 26.tr,
       backgroundColor: ProjectsDashboardTheme.navy.withValues(alpha: 0.85),
       child: Text(
         initial,

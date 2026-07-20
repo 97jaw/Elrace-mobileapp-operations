@@ -1,5 +1,6 @@
 import 'package:flutter_cache_manager/flutter_cache_manager.dart';
 import 'package:el_race/core/services/attendance_status_sync_service.dart';
+import 'package:el_race/core/utils/responsive_breakpoints.dart';
 import 'package:el_race/ui/presentation/home_screen/provider/slider_provider.dart';
 import 'package:el_race/ui/presentation/home_screen/widgets/home_city_helper.dart';
 import 'package:el_race/ui/presentation/home_screen/widgets/home_floating_comms_bar.dart';
@@ -7,10 +8,13 @@ import 'package:el_race/ui/presentation/home_screen/widgets/home_glass_app_bar.d
 import 'package:el_race/ui/presentation/home_screen/widgets/home_glass_theme.dart';
 import 'package:el_race/ui/presentation/home_screen/widgets/home_greeting_section.dart';
 import 'package:el_race/ui/presentation/home_screen/widgets/home_news_card.dart';
+import 'package:el_race/ui/presentation/home_screen/widgets/home_tablet_layout.dart';
 import 'package:el_race/ui/presentation/home_screen/widgets/home_widgets_panel.dart';
 import 'package:el_race/ui/presentation/home_screen/widgets/mid_section_scroll_lock.dart';
 import 'package:el_race/ui/presentation/home_screen/widgets/my_actions_section.dart';
+import 'package:el_race/ui/presentation/home_screen/providers/home_widget_api_client.dart';
 import 'package:el_race/ui/presentation/home_screen/providers/home_widget_refresh_service.dart';
+import 'package:el_race/core/session/login_session_refresh_service.dart';
 import 'package:el_race/utils/Util.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -42,9 +46,25 @@ class _MainHomeContentWidgetState extends State<MainHomeContentWidget> {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
+      final container = ProviderScope.containerOf(context);
       context.read<SliderProvider>().fetchAnnouncementsForBanner();
-      HomeCityHelper.fetchCity(force: true).then((_) {
+      // Warm visible widgets once at entry so card providers mostly read cache.
+      HomeWidgetApiClient.refreshIfStale(
+        onlyCodes: HomeWidgetRefreshService.visibleCategoryCodes(),
+      );
+      // Not forced: cached city is fine on open; pull-to-refresh forces.
+      HomeCityHelper.fetchCity().then((_) {
         if (mounted) setState(() {});
+      });
+      // Self-heal widget visibility on entry: pull the latest server-resolved
+      // `default_widgets` (role template / custom override) via session refresh
+      // and rebuild once merged. Widget visibility is still decided server-side
+      // at login/session time — this only prevents an auto-logged-in session
+      // from showing a stale snapshot after an admin changes the role template.
+      LoginSessionRefreshService.refreshRoles(
+        container: container,
+      ).then((merged) {
+        if (mounted && merged) setState(() {});
       });
       _measureHeaderAndInit();
     });
@@ -75,7 +95,16 @@ class _MainHomeContentWidgetState extends State<MainHomeContentWidget> {
       futures.add(Future(() => Util.fetchHomeScreenData(context)));
       futures.add(context.read<SliderProvider>().refresh());
     }
-    await Future.wait(futures);
+    // Never let the pull-to-refresh spinner hang forever: cap each task and
+    // swallow its errors so a single slow/failed request can't block the
+    // RefreshIndicator from settling.
+    await Future.wait(
+      futures.map(
+        (f) => f
+            .timeout(const Duration(seconds: 15))
+            .catchError((Object _) {}),
+      ),
+    );
     if (mounted) {
       setState(() {});
       WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -96,6 +125,10 @@ class _MainHomeContentWidgetState extends State<MainHomeContentWidget> {
 
   @override
   Widget build(BuildContext context) {
+    if (ResponsiveBreakpoints.useTabletLayout(context)) {
+      return HomeTabletLayout(onRefresh: _onRefresh);
+    }
+
     final screenHeight = MediaQuery.sizeOf(context).height;
 
     return MidSectionScrollLock(
@@ -137,7 +170,7 @@ class _MainHomeContentWidgetState extends State<MainHomeContentWidget> {
                           valueListenable: _expandProgress,
                           builder: (context, t, _) {
                             final homeOpacity = (1 - t).clamp(0.0, 1.0);
-                            final homeSlideUp = -28.h * t;
+                            final homeSlideUp = -28.th * t;
                             final externalBarOpacity =
                                 (1 - (t / 0.78)).clamp(0.0, 1.0);
                             final hideExternalAppBar = t >= 0.78;
@@ -217,7 +250,7 @@ class _SilverHeaderZone extends StatelessWidget {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                SizedBox(height: MediaQuery.paddingOf(context).top + 6.h),
+                SizedBox(height: MediaQuery.paddingOf(context).top + 6.th),
                 HomeGlassAppBar(expandProgress: expandProgress),
               ],
             ),
@@ -237,7 +270,7 @@ class _SilverHeaderZone extends StatelessWidget {
                   dense: true,
                   showTitle: false,
                 ),
-                SizedBox(height: 7.h),
+                SizedBox(height: 7.th),
               ],
             ),
           ),

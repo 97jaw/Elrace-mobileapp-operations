@@ -1,3 +1,4 @@
+import 'package:el_race/core/utils/responsive_breakpoints.dart';
 import 'dart:convert';
 import 'dart:math' as math;
 
@@ -263,7 +264,7 @@ class _PettyCashScreenState extends State<PettyCashScreen> {
         physics: const AlwaysScrollableScrollPhysics(
           parent: BouncingScrollPhysics(),
         ),
-        padding: EdgeInsets.fromLTRB(0, 4.h, 0, 24.h),
+        padding: EdgeInsets.fromLTRB(0, 4.th, 0, 24.th),
         children: [
           PettyCashBalanceCardStack(
             balance: _home.balanceAmount,
@@ -279,9 +280,9 @@ class _PettyCashScreenState extends State<PettyCashScreen> {
             ),
           ),
           Padding(
-            padding: EdgeInsets.fromLTRB(16.w, 10.h, 16.w, 0),
+            padding: EdgeInsets.fromLTRB(16.tw, 10.th, 16.tw, 0),
             child: Container(
-              padding: EdgeInsets.symmetric(vertical: 10.h, horizontal: 6.w),
+              padding: EdgeInsets.symmetric(vertical: 10.th, horizontal: 6.tw),
               decoration: PettyCashTheme.surfaceCard(radius: 22),
               child: Row(
                 children: [
@@ -330,9 +331,9 @@ class _PettyCashScreenState extends State<PettyCashScreen> {
             ),
           ),
           Padding(
-            padding: EdgeInsets.fromLTRB(16.w, 10.h, 16.w, 0),
+            padding: EdgeInsets.fromLTRB(16.tw, 10.th, 16.tw, 0),
             child: Container(
-              padding: EdgeInsets.fromLTRB(14.w, 12.h, 14.w, 6.h),
+              padding: EdgeInsets.fromLTRB(14.tw, 12.th, 14.tw, 6.th),
               decoration: PettyCashTheme.surfaceCard(radius: 22),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -357,7 +358,7 @@ class _PettyCashScreenState extends State<PettyCashScreen> {
                         child: Text(
                           'View all',
                           style: GoogleFonts.poppins(
-                            fontSize: 12.sp,
+                            fontSize: 12.tsp,
                             fontWeight: FontWeight.w600,
                             color: PettyCashTheme.mintDark,
                           ),
@@ -365,17 +366,17 @@ class _PettyCashScreenState extends State<PettyCashScreen> {
                       ),
                     ],
                   ),
-                  SizedBox(height: 2.h),
+                  SizedBox(height: 2.th),
                   Row(
                     children: [
                       _metricChip('Limit', _home.totalLimit),
-                      SizedBox(width: 8.w),
+                      SizedBox(width: 8.tw),
                       _metricChip('Draft', _home.draftAmount),
-                      SizedBox(width: 8.w),
+                      SizedBox(width: 8.tw),
                       _metricChip('Paid', _home.paidAmount),
                     ],
                   ),
-                  SizedBox(height: 8.h),
+                  SizedBox(height: 8.th),
                   PettyCashExpenseTile(
                     title: 'Add expense',
                     subtitle: 'Transportation or miscellaneous',
@@ -390,12 +391,12 @@ class _PettyCashScreenState extends State<PettyCashScreen> {
                   ),
                   if (_home.recentSheets.isEmpty)
                     Padding(
-                      padding: EdgeInsets.symmetric(vertical: 24.h),
+                      padding: EdgeInsets.symmetric(vertical: 24.th),
                       child: Center(
                         child: Text(
                           'No recent expense sheets',
                           style: GoogleFonts.poppins(
-                            fontSize: 13.sp,
+                            fontSize: 13.tsp,
                             color: PettyCashTheme.textMuted,
                           ),
                         ),
@@ -415,10 +416,10 @@ class _PettyCashScreenState extends State<PettyCashScreen> {
   Widget _metricChip(String label, num value) {
     return Expanded(
       child: Container(
-        padding: EdgeInsets.symmetric(horizontal: 10.w, vertical: 8.h),
+        padding: EdgeInsets.symmetric(horizontal: 10.tw, vertical: 8.th),
         decoration: BoxDecoration(
           color: PettyCashTheme.glassFill,
-          borderRadius: BorderRadius.circular(12.r),
+          borderRadius: BorderRadius.circular(12.tr),
           border: Border.all(color: PettyCashTheme.glassBorder),
         ),
         child: Column(
@@ -428,7 +429,7 @@ class _PettyCashScreenState extends State<PettyCashScreen> {
             Text(
               PettyCashHolderUtils.formatAmount(value),
               style: GoogleFonts.poppins(
-                fontSize: 13.sp,
+                fontSize: 13.tsp,
                 fontWeight: FontWeight.w700,
                 color: PettyCashTheme.textSecondary,
               ),
@@ -442,13 +443,13 @@ class _PettyCashScreenState extends State<PettyCashScreen> {
   Widget _buildNotHolder() {
     return Center(
       child: Padding(
-        padding: EdgeInsets.symmetric(horizontal: 32.w),
+        padding: EdgeInsets.symmetric(horizontal: 32.tw),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Container(
-              width: 72.w,
-              height: 72.w,
+              width: 72.tw,
+              height: 72.tw,
               decoration: BoxDecoration(
                 color: PettyCashTheme.glassFill,
                 shape: BoxShape.circle,
@@ -457,25 +458,25 @@ class _PettyCashScreenState extends State<PettyCashScreen> {
               ),
               child: Icon(
                 Icons.account_balance_wallet_outlined,
-                size: 36.sp,
+                size: 36.tsp,
                 color: PettyCashTheme.textMuted,
               ),
             ),
-            SizedBox(height: 16.h),
+            SizedBox(height: 16.th),
             Text(
               'Not a Petty Cash Holder',
               style: GoogleFonts.poppins(
-                fontSize: 16.sp,
+                fontSize: 16.tsp,
                 fontWeight: FontWeight.w700,
                 color: PettyCashTheme.white,
               ),
               textAlign: TextAlign.center,
             ),
-            SizedBox(height: 8.h),
+            SizedBox(height: 8.th),
             Text(
               'Your account is not assigned as a petty cash holder. Please contact your administrator.',
               style: GoogleFonts.poppins(
-                fontSize: 13.sp,
+                fontSize: 13.tsp,
                 color: PettyCashTheme.textSecondary,
               ),
               textAlign: TextAlign.center,
@@ -489,29 +490,29 @@ class _PettyCashScreenState extends State<PettyCashScreen> {
   Widget _buildError() {
     return Center(
       child: Padding(
-        padding: EdgeInsets.symmetric(horizontal: 24.w),
+        padding: EdgeInsets.symmetric(horizontal: 24.tw),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Text(
               'Failed to load petty cash',
               style: GoogleFonts.poppins(
-                fontSize: 16.sp,
+                fontSize: 16.tsp,
                 fontWeight: FontWeight.w700,
                 color: PettyCashTheme.white,
               ),
               textAlign: TextAlign.center,
             ),
-            SizedBox(height: 10.h),
+            SizedBox(height: 10.th),
             Text(
               _error,
               style: GoogleFonts.poppins(
-                fontSize: 12.sp,
+                fontSize: 12.tsp,
                 color: PettyCashTheme.textSecondary,
               ),
               textAlign: TextAlign.center,
             ),
-            SizedBox(height: 18.h),
+            SizedBox(height: 18.th),
             FilledButton(
               onPressed: _fetchPettyCashHome,
               style: FilledButton.styleFrom(
@@ -533,8 +534,8 @@ class _PettyCashScreenState extends State<PettyCashScreen> {
       amount: '-${_formatSheetAmount(sheet.amount)}',
       amountColor: PettyCashTheme.expenseRed,
       trailing: Container(
-        width: 8.w,
-        height: 8.w,
+        width: 8.tw,
+        height: 8.tw,
         decoration: BoxDecoration(
           color: _statusDotColor(sheet.state),
           shape: BoxShape.circle,

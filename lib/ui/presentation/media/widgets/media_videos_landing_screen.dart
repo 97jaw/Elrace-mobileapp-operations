@@ -24,6 +24,8 @@ class MediaVideosLandingScreen extends StatefulWidget {
     required this.photoCount,
     required this.view360Count,
     required this.onTabSelected,
+    this.showProjectVideos = false,
+    this.projectVideoCount = 0,
   });
 
   final List<MediaModel> mediaList;
@@ -34,6 +36,8 @@ class MediaVideosLandingScreen extends StatefulWidget {
   final int photoCount;
   final int view360Count;
   final ValueChanged<int> onTabSelected;
+  final bool showProjectVideos;
+  final int projectVideoCount;
 
   @override
   State<MediaVideosLandingScreen> createState() =>
@@ -153,31 +157,8 @@ class _MediaVideosLandingScreenState extends State<MediaVideosLandingScreen> {
     final remaining =
         MediaHeroSelector.remainingVideos(widget.mediaList, hero);
     final screenHeight = MediaQuery.sizeOf(context).height;
-
-    if (hero == null) {
-      return AnnotatedRegion<SystemUiOverlayStyle>(
-        value: MediaTheme.lightStatusBar,
-        child: Scaffold(
-          backgroundColor: MediaTheme.black,
-          body: MediaTheme.glassSheetBackground(
-            child: SafeArea(
-              child: Column(
-                children: [
-                  Align(
-                    alignment: Alignment.centerLeft,
-                    child: Padding(
-                      padding: EdgeInsets.only(left: 16.w, top: 8.h),
-                      child: MediaTheme.backButton(onTap: widget.onBack),
-                    ),
-                  ),
-                  Expanded(child: _buildNoVideosEmpty()),
-                ],
-              ),
-            ),
-          ),
-        ),
-      );
-    }
+    final isProjectsTab =
+        widget.showProjectVideos && widget.activeTabIndex == 0;
 
     final filterTabs = MediaFilterTabs(
       activeIndex: widget.activeTabIndex,
@@ -185,6 +166,8 @@ class _MediaVideosLandingScreenState extends State<MediaVideosLandingScreen> {
       photoCount: widget.photoCount,
       view360Count: widget.view360Count,
       onTabSelected: widget.onTabSelected,
+      showProjectVideos: widget.showProjectVideos,
+      projectVideoCount: widget.projectVideoCount,
       isGridView: _isGridView,
       onToggleView: () => setState(() => _isGridView = !_isGridView),
     );
@@ -209,18 +192,20 @@ class _MediaVideosLandingScreenState extends State<MediaVideosLandingScreen> {
                     left: 0,
                     right: 0,
                     height: heroHeight.clamp(0.0, screenHeight),
-                    child: RepaintBoundary(
-                      child: MediaHeroTrailer(
-                        key: ValueKey(hero.id),
-                        media: hero,
-                        onTap: _isExpanded
-                            ? _collapseSheet
-                            : () => widget.onVideoTap(hero),
-                        onPlay: () => widget.onVideoTap(hero),
-                        onBack: widget.onBack,
-                        onMore: () => _showHeroMenu(hero),
-                      ),
-                    ),
+                    child: hero == null
+                        ? _buildEmptyHeroBackdrop()
+                        : RepaintBoundary(
+                            child: MediaHeroTrailer(
+                              key: ValueKey(hero.id),
+                              media: hero,
+                              onTap: _isExpanded
+                                  ? _collapseSheet
+                                  : () => widget.onVideoTap(hero),
+                              onPlay: () => widget.onVideoTap(hero),
+                              onBack: widget.onBack,
+                              onMore: () => _showHeroMenu(hero),
+                            ),
+                          ),
                   ),
                   DraggableScrollableSheet(
                     controller: _sheetController,
@@ -242,6 +227,12 @@ class _MediaVideosLandingScreenState extends State<MediaVideosLandingScreen> {
                           onHandleTap: _toggleSheet,
                           filterTabs: filterTabs,
                           singleVideoHero: remaining.isEmpty,
+                          emptyTitle: isProjectsTab
+                              ? 'No project videos yet'
+                              : 'No videos yet',
+                          emptySubtitle: isProjectsTab
+                              ? 'Favorite project videos from Odoo will appear here'
+                              : 'Your video collection will appear here',
                         ),
                       );
                     },
@@ -255,36 +246,17 @@ class _MediaVideosLandingScreenState extends State<MediaVideosLandingScreen> {
     );
   }
 
-  Widget _buildNoVideosEmpty() {
-    return Padding(
-      padding: EdgeInsets.all(32.w),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(
-            Icons.videocam_off_outlined,
-            size: 64.sp,
-            color: MediaTheme.textMuted,
+  Widget _buildEmptyHeroBackdrop() {
+    return ColoredBox(
+      color: MediaTheme.black,
+      child: SafeArea(
+        child: Align(
+          alignment: Alignment.topLeft,
+          child: Padding(
+            padding: EdgeInsets.only(left: 16.w, top: 8.h),
+            child: MediaTheme.backButton(onTap: widget.onBack),
           ),
-          SizedBox(height: 16.h),
-          Text(
-            'No videos yet',
-            style: GoogleFonts.poppins(
-              fontSize: 18.sp,
-              fontWeight: FontWeight.w600,
-              color: MediaTheme.textSecondary,
-            ),
-          ),
-          SizedBox(height: 8.h),
-          Text(
-            'Your video collection will appear here',
-            textAlign: TextAlign.center,
-            style: GoogleFonts.poppins(
-              fontSize: 14.sp,
-              color: MediaTheme.textMuted,
-            ),
-          ),
-        ],
+        ),
       ),
     );
   }

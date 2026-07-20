@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -660,7 +661,7 @@ class _ChatListScreenState extends State<ChatListScreen> {
 }
 
 /// Chat list tile widget
-class _ChatListTile extends StatelessWidget {
+class _ChatListTile extends StatefulWidget {
   final UserChat userChat;
   final String currentUid;
   final VoidCallback onTap;
@@ -670,6 +671,40 @@ class _ChatListTile extends StatelessWidget {
     required this.currentUid,
     required this.onTap,
   });
+
+  @override
+  State<_ChatListTile> createState() => _ChatListTileState();
+}
+
+class _ChatListTileState extends State<_ChatListTile> {
+  // Cached once per tile instead of re-issued inline inside build() (which
+  // re-ran on every StreamBuilder tick — chat/typing/unread-count/presence
+  // — for every visible row). Shared between the avatar and the title,
+  // which each used to fire their own separate getUser() call for the same
+  // peer. Per FIX_IMPLEMENTATION_PLAN.md Phase 5.1.
+  Future<ChatUser?>? _peerUserFuture;
+
+  UserChat get userChat => widget.userChat;
+
+  @override
+  void initState() {
+    super.initState();
+    _initPeerUserFuture();
+  }
+
+  @override
+  void didUpdateWidget(covariant _ChatListTile oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.userChat.peerUid != widget.userChat.peerUid) {
+      _initPeerUserFuture();
+    }
+  }
+
+  void _initPeerUserFuture() {
+    _peerUserFuture = (userChat.type == ChatType.dm && userChat.peerUid != null)
+        ? UserRepository.instance.getUser(userChat.peerUid!)
+        : null;
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -691,7 +726,7 @@ class _ChatListTile extends StatelessWidget {
             final isTyping = typingInfo?.isTyping ?? false;
 
             return InkWell(
-              onTap: onTap,
+              onTap: widget.onTap,
               onLongPress: () => _showChatActions(context),
               child: Padding(
                 padding:
@@ -710,8 +745,7 @@ class _ChatListTile extends StatelessWidget {
                           if (userChat.type == ChatType.dm &&
                               userChat.peerUid != null)
                             FutureBuilder<ChatUser?>(
-                              future: UserRepository.instance
-                                  .getUser(userChat.peerUid!),
+                              future: _peerUserFuture,
                               builder: (context, snap) {
                                 final rawName = snap.data?.name ??
                                     userChat.title ??
@@ -853,7 +887,7 @@ class _ChatListTile extends StatelessWidget {
         builder: (context, snapshot) {
           final isOnline = snapshot.data?.online ?? false;
           return FutureBuilder<ChatUser?>(
-            future: UserRepository.instance.getUser(userChat.peerUid!),
+            future: _peerUserFuture,
             builder: (context, userSnapshot) {
               final peerUser = userSnapshot.data;
               final avatarUrl = peerUser?.avatarUrl;
@@ -863,7 +897,7 @@ class _ChatListTile extends StatelessWidget {
                   radius: 24,
                   backgroundColor: const Color(0xFFECECEC),
                   backgroundImage: avatarUrl != null && avatarUrl.isNotEmpty
-                      ? NetworkImage(avatarUrl)
+                      ? CachedNetworkImageProvider(avatarUrl)
                       : null,
                   child: avatarUrl == null || avatarUrl.isEmpty
                       ? Text(
@@ -1098,8 +1132,9 @@ class _InlineUserTile extends StatelessWidget {
           CircleAvatar(
             radius: 24,
             backgroundColor: AppColors.primaryBlackLight,
-            backgroundImage:
-                user.avatarUrl != null ? NetworkImage(user.avatarUrl!) : null,
+            backgroundImage: user.avatarUrl != null
+                ? CachedNetworkImageProvider(user.avatarUrl!)
+                : null,
             child: user.avatarUrl == null
                 ? Text(
                     _getInitials(user.name),

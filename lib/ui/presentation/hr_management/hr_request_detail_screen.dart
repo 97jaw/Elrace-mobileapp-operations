@@ -1,3 +1,4 @@
+import 'package:el_race/core/utils/responsive_breakpoints.dart';
 import 'package:el_race/core/hr_management/models/hr_request_detail.dart';
 import 'package:el_race/core/hr_management/providers/hr_management_providers.dart';
 import 'package:el_race/core/theme/hr_module_colors.dart';
@@ -73,7 +74,7 @@ class HrRequestDetailScreen extends ConsumerWidget {
         elevation: 0,
         title: Text(
           'Request detail',
-          style: HrModuleTypography.sectionHeading().copyWith(fontSize: 18.sp),
+          style: HrModuleTypography.sectionHeading().copyWith(fontSize: 18.tsp),
         ),
         actions: [
           async.maybeWhen(
@@ -90,15 +91,15 @@ class HrRequestDetailScreen extends ConsumerWidget {
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (e, _) => Center(
           child: Padding(
-            padding: EdgeInsets.all(24.w),
+            padding: EdgeInsets.all(24.tw),
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 Text(
                   'Could not load detail',
-                  style: HrModuleTypography.sectionHeading().copyWith(fontSize: 16.sp),
+                  style: HrModuleTypography.sectionHeading().copyWith(fontSize: 16.tsp),
                 ),
-                SizedBox(height: 8.h),
+                SizedBox(height: 8.th),
                 Text(
                   e.toString(),
                   textAlign: TextAlign.center,
@@ -115,10 +116,10 @@ class HrRequestDetailScreen extends ConsumerWidget {
               Expanded(
                 child: ListView(
                   padding: EdgeInsets.fromLTRB(
-                    HrModuleLayout.screenPaddingH.w,
-                    12.h,
-                    HrModuleLayout.screenPaddingH.w,
-                    16.h,
+                    HrModuleLayout.screenPaddingH.tw,
+                    12.th,
+                    HrModuleLayout.screenPaddingH.tw,
+                    16.th,
                   ),
                   children: [
                     if (managerContext && sub != null) ...[
@@ -129,14 +130,14 @@ class HrRequestDetailScreen extends ConsumerWidget {
                         email: sub.email,
                         phone: sub.phone,
                       ),
-                      SizedBox(height: 12.h),
+                      SizedBox(height: 12.th),
                     ],
                     Container(
-                      padding: EdgeInsets.all(16.r),
+                      padding: EdgeInsets.all(16.tr),
                       decoration: BoxDecoration(
                         color: HrModuleColors.surface,
                         borderRadius:
-                            BorderRadius.circular(HrModuleLayout.cardRadius.r),
+                            BorderRadius.circular(HrModuleLayout.cardRadius.tr),
                         border: Border.all(color: HrModuleColors.border),
                         boxShadow: HrModuleColors.cardShadow,
                       ),
@@ -146,9 +147,9 @@ class HrRequestDetailScreen extends ConsumerWidget {
                           Icon(
                             Icons.description_outlined,
                             color: HrModuleColors.primary,
-                            size: 28.sp,
+                            size: 28.tsp,
                           ),
-                          SizedBox(width: 12.w),
+                          SizedBox(width: 12.tw),
                           Expanded(
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
@@ -156,19 +157,19 @@ class HrRequestDetailScreen extends ConsumerWidget {
                                 Text(
                                   d.summary.type,
                                   style: HrModuleTypography.cardTitle()
-                                      .copyWith(fontSize: 17.sp),
+                                      .copyWith(fontSize: 17.tsp),
                                 ),
-                                SizedBox(height: 4.h),
+                                SizedBox(height: 4.th),
                                 Text(
                                   d.summary.referenceNumber,
                                   style: HrModuleTypography.caption()
-                                      .copyWith(fontSize: 13.sp),
+                                      .copyWith(fontSize: 13.tsp),
                                 ),
-                                SizedBox(height: 6.h),
+                                SizedBox(height: 6.th),
                                 Text(
                                   d.submittedAtDisplay,
                                   style: HrModuleTypography.body()
-                                      .copyWith(fontSize: 13.sp),
+                                      .copyWith(fontSize: 13.tsp),
                                 ),
                               ],
                             ),
@@ -178,37 +179,37 @@ class HrRequestDetailScreen extends ConsumerWidget {
                       ),
                     ),
                     if (d.availableLeaveBalance != null) ...[
-                      SizedBox(height: 12.h),
+                      SizedBox(height: 12.th),
                       HrDetailRow(
                         label: 'Available balance',
                         value: d.availableLeaveBalance!,
                       ),
                     ],
-                    SizedBox(height: 20.h),
+                    SizedBox(height: 20.th),
                     Text(
                       'REQUEST DETAILS',
                       style: HrModuleTypography.sectionHeading()
-                          .copyWith(fontSize: 14.sp),
+                          .copyWith(fontSize: 14.tsp),
                     ),
-                    SizedBox(height: 8.h),
+                    SizedBox(height: 8.th),
                     ...d.detailRows.map(
                       (r) => HrDetailRow(label: r.$1, value: r.$2),
                     ),
                     if (d.attachments.isNotEmpty) ...[
-                      SizedBox(height: 20.h),
+                      SizedBox(height: 20.th),
                       Text(
                         'ATTACHMENTS',
                         style: HrModuleTypography.sectionHeading()
-                            .copyWith(fontSize: 14.sp),
+                            .copyWith(fontSize: 14.tsp),
                       ),
-                      SizedBox(height: 8.h),
+                      SizedBox(height: 8.th),
                       ...d.attachments.map((a) {
                         return ListTile(
                           contentPadding: EdgeInsets.zero,
                           leading: Icon(Icons.attach_file, color: HrModuleColors.secondary),
                           title: Text(
                             a.name,
-                            style: HrModuleTypography.body().copyWith(fontSize: 14.sp),
+                            style: HrModuleTypography.body().copyWith(fontSize: 14.tsp),
                           ),
                           trailing: TextButton(
                             onPressed: () {
@@ -227,37 +228,37 @@ class HrRequestDetailScreen extends ConsumerWidget {
                         );
                       }),
                     ],
-                    SizedBox(height: 20.h),
+                    SizedBox(height: 20.th),
                     Text(
                       'STATUS TIMELINE',
                       style: HrModuleTypography.sectionHeading()
-                          .copyWith(fontSize: 14.sp),
+                          .copyWith(fontSize: 14.tsp),
                     ),
-                    SizedBox(height: 12.h),
+                    SizedBox(height: 12.th),
                     HrStatusTimeline(steps: d.timeline),
-                    SizedBox(height: 20.h),
+                    SizedBox(height: 20.th),
                     Text(
                       'COMMENTS',
                       style: HrModuleTypography.sectionHeading()
-                          .copyWith(fontSize: 14.sp),
+                          .copyWith(fontSize: 14.tsp),
                     ),
-                    SizedBox(height: 8.h),
+                    SizedBox(height: 8.th),
                     if (d.comments.isEmpty)
                       Text(
                         '(No comments yet)',
-                        style: HrModuleTypography.caption().copyWith(fontSize: 13.sp),
+                        style: HrModuleTypography.caption().copyWith(fontSize: 13.tsp),
                       )
                     else
                       ...d.comments.map((c) {
                         return Padding(
-                          padding: EdgeInsets.only(bottom: 12.h),
+                          padding: EdgeInsets.only(bottom: 12.th),
                           child: Container(
                             width: double.infinity,
-                            padding: EdgeInsets.all(12.r),
+                            padding: EdgeInsets.all(12.tr),
                             decoration: BoxDecoration(
                               color: HrModuleColors.surface,
                               borderRadius: BorderRadius.circular(
-                                HrModuleLayout.cardRadius.r,
+                                HrModuleLayout.cardRadius.tr,
                               ),
                               border: Border.all(color: HrModuleColors.border),
                             ),
@@ -267,35 +268,35 @@ class HrRequestDetailScreen extends ConsumerWidget {
                                 Text(
                                   c.author,
                                   style: HrModuleTypography.body().copyWith(
-                                    fontSize: 13.sp,
+                                    fontSize: 13.tsp,
                                     fontWeight: FontWeight.w600,
                                   ),
                                 ),
                                 if (c.timestamp != null) ...[
-                                  SizedBox(height: 2.h),
+                                  SizedBox(height: 2.th),
                                   Text(
                                     c.timestamp!,
                                     style: HrModuleTypography.caption(),
                                   ),
                                 ],
-                                SizedBox(height: 6.h),
+                                SizedBox(height: 6.th),
                                 Text(
                                   c.text,
-                                  style: HrModuleTypography.body().copyWith(fontSize: 13.sp),
+                                  style: HrModuleTypography.body().copyWith(fontSize: 13.tsp),
                                 ),
                               ],
                             ),
                           ),
                         );
                       }),
-                    SizedBox(height: managerContext ? 24.h : 100.h),
+                    SizedBox(height: managerContext ? 24.th : 100.th),
                   ],
                 ),
               ),
               if (managerContext)
                 Container(
                   width: double.infinity,
-                  padding: EdgeInsets.fromLTRB(16.w, 12.h, 16.w, 24.h),
+                  padding: EdgeInsets.fromLTRB(16.tw, 12.th, 16.tw, 24.th),
                   decoration: BoxDecoration(
                     color: HrModuleColors.surface,
                     border: Border(top: BorderSide(color: HrModuleColors.border)),
@@ -303,7 +304,7 @@ class HrRequestDetailScreen extends ConsumerWidget {
                   child: Text(
                     'Approval actions will be connected when backend workflows are ready.',
                     textAlign: TextAlign.center,
-                    style: HrModuleTypography.caption().copyWith(fontSize: 12.sp),
+                    style: HrModuleTypography.caption().copyWith(fontSize: 12.tsp),
                   ),
                 )
               else
@@ -377,7 +378,7 @@ class _EmployeeActionsBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: EdgeInsets.fromLTRB(16.w, 10.h, 16.w, 24.h),
+      padding: EdgeInsets.fromLTRB(16.tw, 10.th, 16.tw, 24.th),
       decoration: BoxDecoration(
         color: HrModuleColors.surface,
         border: Border(top: BorderSide(color: HrModuleColors.border)),
@@ -400,7 +401,7 @@ class _EmployeeActionsBar extends StatelessWidget {
                   child: const Text('Cancel'),
                 ),
               ),
-            if (showCancel) SizedBox(width: 10.w),
+            if (showCancel) SizedBox(width: 10.tw),
             Expanded(
               child: FilledButton(
                 onPressed: onDuplicate,
@@ -411,7 +412,7 @@ class _EmployeeActionsBar extends StatelessWidget {
               ),
             ),
             if (showEdit) ...[
-              SizedBox(width: 10.w),
+              SizedBox(width: 10.tw),
               Expanded(
                 child: FilledButton(
                   onPressed: onEdit,

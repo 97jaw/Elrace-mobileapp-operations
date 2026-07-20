@@ -34,12 +34,7 @@ class _SitePhotosGalleryState extends State<SitePhotosGallery> {
         : _photos.where((item) => item.$1.toLowerCase() == _filter).toList();
 
     return TmScaffold(
-      appBar: AppBar(
-        title: Text('Site Photos', style: TimesheetModuleTypography.h2()),
-        backgroundColor: TimesheetModuleColors.surface,
-        foregroundColor: TimesheetModuleColors.text,
-        elevation: 0,
-      ),
+      glassTitle: 'Site Photos',
       body: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [

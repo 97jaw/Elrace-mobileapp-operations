@@ -51,12 +51,7 @@ class _FmDayHubScreenState extends ConsumerState<FmDayHubScreen> {
     final formattedDate = DateFormat('EEE, dd MMM yyyy').format(args.date);
 
     return TmScaffold(
-      appBar: AppBar(
-        title: Text(formattedDate, style: TimesheetModuleTypography.h2()),
-        backgroundColor: TimesheetModuleColors.surface,
-        foregroundColor: TimesheetModuleColors.text,
-        elevation: 0,
-      ),
+      glassTitle: formattedDate,
       body: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -69,6 +64,7 @@ class _FmDayHubScreenState extends ConsumerState<FmDayHubScreen> {
           const SizedBox(height: TimesheetModuleLayout.sectionGap),
           TmPrimaryButton(
             label: 'Add timesheet / attendance',
+            warm: true,
             icon: PhosphorIcons.plusCircle(),
             onPressed: () async {
               final submitted = await Navigator.of(context).push<bool>(
@@ -116,6 +112,7 @@ class _FmDayHubScreenState extends ConsumerState<FmDayHubScreen> {
                   itemBuilder: (context, index) => TmTimesheetEntryRow(
                     row: rows[index],
                     index: index + 1,
+                    homeLight: true,
                   ),
                 );
               },

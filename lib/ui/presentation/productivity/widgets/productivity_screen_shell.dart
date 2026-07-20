@@ -1,3 +1,4 @@
+import 'package:el_race/core/utils/responsive_breakpoints.dart';
 import 'package:el_race/ui/presentation/productivity/widgets/productivity_background.dart';
 import 'package:el_race/ui/presentation/productivity/widgets/productivity_glass_header.dart';
 import 'package:flutter/material.dart';
@@ -39,7 +40,7 @@ class ProductivityScreenShell extends StatelessWidget {
               onBack: onBack,
               titleTrailing: titleTrailing,
             ),
-            Expanded(child: body),
+            Expanded(child: TabletContentFrame(child: body)),
           ],
         ),
       ),

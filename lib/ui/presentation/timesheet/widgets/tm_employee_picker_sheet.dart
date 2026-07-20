@@ -115,12 +115,12 @@ class _BodyState extends State<_Body> {
                 memCacheWidth: 88,
               )
             : ColoredBox(
-                color: TimesheetModuleColors.navyTint,
+                color: TimesheetModuleColors.accentTint,
                 child: Center(
                   child: Text(
                     e.name.isNotEmpty ? e.name[0].toUpperCase() : '?',
                     style: const TextStyle(
-                      color: TimesheetModuleColors.navy,
+                      color: TimesheetModuleColors.accent,
                       fontWeight: FontWeight.w800,
                       fontSize: 18,
                     ),
@@ -141,14 +141,7 @@ class _BodyState extends State<_Body> {
       heightFactor: 0.88,
       child: DecoratedBox(
         decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [
-              TimesheetModuleColors.navy,
-              TimesheetModuleColors.primaryGradientEnd,
-            ],
-          ),
+          gradient: TimesheetModuleColors.warmGradient,
           borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
         ),
         child: Column(
@@ -160,7 +153,7 @@ class _BodyState extends State<_Body> {
                 width: 44,
                 height: 4,
                 decoration: BoxDecoration(
-                  color: TimesheetModuleColors.surface.withValues(alpha: 0.5),
+                  color: TimesheetModuleColors.ink.withValues(alpha: 0.22),
                   borderRadius: BorderRadius.circular(999),
                 ),
               ),
@@ -173,7 +166,7 @@ class _BodyState extends State<_Body> {
                     child: Text(
                       widget.title,
                       style: TimesheetModuleTypography.h2().copyWith(
-                        color: TimesheetModuleColors.surface,
+                        color: TimesheetModuleColors.ink,
                       ),
                     ),
                   ),
@@ -181,7 +174,7 @@ class _BodyState extends State<_Body> {
                     onPressed: () => Navigator.of(context).pop(),
                     icon: Icon(
                       PhosphorIcons.x(),
-                      color: TimesheetModuleColors.surface,
+                      color: TimesheetModuleColors.ink,
                     ),
                   ),
                 ],
@@ -194,9 +187,12 @@ class _BodyState extends State<_Body> {
                 style: TimesheetModuleTypography.body(),
                 decoration: InputDecoration(
                   hintText: 'Search by file ID or name',
-                  prefixIcon: Icon(PhosphorIcons.magnifyingGlass()),
+                  prefixIcon: Icon(
+                    PhosphorIcons.magnifyingGlass(),
+                    color: TimesheetModuleColors.warmMuted,
+                  ),
                   filled: true,
-                  fillColor: TimesheetModuleColors.surface,
+                  fillColor: TimesheetModuleColors.glassSurface,
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),
                     borderSide: BorderSide.none,
@@ -211,7 +207,7 @@ class _BodyState extends State<_Body> {
                 child: Text(
                   '${_selected.length} / $max selected · ${list.length} shown',
                   style: TimesheetModuleTypography.caption().copyWith(
-                    color: TimesheetModuleColors.surface.withValues(alpha: 0.85),
+                    color: TimesheetModuleColors.warmMuted,
                   ),
                 ),
               ),
@@ -223,7 +219,7 @@ class _BodyState extends State<_Body> {
                       child: Text(
                         'No employees match your search',
                         style: TimesheetModuleTypography.body().copyWith(
-                          color: TimesheetModuleColors.surface,
+                          color: TimesheetModuleColors.warmMuted,
                         ),
                       ),
                     )
@@ -242,22 +238,18 @@ class _BodyState extends State<_Body> {
                         ];
                         final titleStyle = TimesheetModuleTypography.body()
                             .copyWith(
-                          color: selected
-                              ? TimesheetModuleColors.text
-                              : TimesheetModuleColors.surface,
+                          color: TimesheetModuleColors.ink,
                           fontWeight:
-                              selected ? FontWeight.w600 : FontWeight.w500,
+                              selected ? FontWeight.w700 : FontWeight.w500,
                         );
                         final subtitleStyle =
                             TimesheetModuleTypography.caption().copyWith(
-                          color: selected
-                              ? TimesheetModuleColors.mutedText
-                              : TimesheetModuleColors.surface
-                                  .withValues(alpha: 0.82),
+                          color: TimesheetModuleColors.warmMuted,
                         );
                         return Material(
-                            color: TimesheetModuleColors.surface
-                                .withValues(alpha: selected ? 1 : 0.12),
+                            color: selected
+                                ? TimesheetModuleColors.accentTint
+                                : TimesheetModuleColors.glassSurface,
                             borderRadius: BorderRadius.circular(12),
                             child: ListTile(
                               onTap: () => _toggle(e),
@@ -279,9 +271,8 @@ class _BodyState extends State<_Body> {
                                     ? PhosphorIcons.checkCircle()
                                     : PhosphorIcons.circle(),
                                 color: selected
-                                    ? TimesheetModuleColors.primary
-                                    : TimesheetModuleColors.surface
-                                        .withValues(alpha: 0.55),
+                                    ? TimesheetModuleColors.accent
+                                    : TimesheetModuleColors.warmMuted,
                               ),
                             ),
                         );
@@ -296,6 +287,7 @@ class _BodyState extends State<_Body> {
                         ? 'Done (${_selected.length}/$max)'
                         : 'Select (${_selected.length})')
                     : 'Select',
+                warm: true,
                 icon: PhosphorIcons.check(),
                 onPressed: _selected.isEmpty ? null : _confirm,
               ),

@@ -1,3 +1,4 @@
+import 'package:el_race/core/utils/responsive_breakpoints.dart';
 import 'package:el_race/ui/presentation/my_projects/data/models/user_project_model.dart';
 import 'package:el_race/ui/presentation/my_projects/presentation/screens/my_project.dart';
 import 'package:el_race/ui/presentation/my_projects/presentation/widgets/projects_glass_chrome.dart';
@@ -26,11 +27,11 @@ class AgreementsListScreen extends StatelessWidget {
           ? Center(
               child: Text(
                 translate('projects_dashboard.no_agreements'),
-                style: GoogleFonts.poppins(fontSize: 14.sp),
+                style: GoogleFonts.poppins(fontSize: 14.tsp),
               ),
             )
           : ListView.builder(
-              padding: EdgeInsets.only(top: 8.h, bottom: 100.h),
+              padding: EdgeInsets.only(top: 8.th, bottom: 100.th),
               itemCount: agreements.length,
               itemBuilder: (context, index) {
                 final project = agreements[index];

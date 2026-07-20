@@ -17,15 +17,7 @@ class TimesheetModuleEntryScreen extends ConsumerWidget {
         resolution.hrWideScope ? 'HR-wide PM' : resolution.role.label;
 
     return TmScaffold(
-      appBar: AppBar(
-        title: Text(
-          'Project Site Timesheet',
-          style: TimesheetModuleTypography.h2(),
-        ),
-        backgroundColor: TimesheetModuleColors.surface,
-        foregroundColor: TimesheetModuleColors.text,
-        elevation: 0,
-      ),
+      glassTitle: 'Project Site Timesheet',
       body: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [

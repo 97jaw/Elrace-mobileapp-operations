@@ -1,3 +1,4 @@
+import 'package:el_race/core/utils/responsive_breakpoints.dart';
 import 'package:el_race/ui/presentation/my_projects/presentation/theme/projects_dashboard_theme.dart';
 import 'package:el_race/ui/presentation/my_projects/presentation/utils/projects_dashboard_aggregator.dart';
 import 'package:el_race/ui/presentation/my_projects/presentation/widgets/projects_cached_image.dart';
@@ -28,8 +29,8 @@ class ProjectsAgreementHeroHeader extends StatelessWidget {
         ProjectsDashboardAggregator.normalizePhotoUrl(photoUrl);
 
     return Container(
-      margin: EdgeInsets.fromLTRB(16.w, 4.h, 16.w, 8.h),
-      constraints: BoxConstraints(minHeight: 88.h),
+      margin: EdgeInsets.fromLTRB(16.tw, 4.th, 16.tw, 8.th),
+      constraints: BoxConstraints(minHeight: 88.th),
       clipBehavior: Clip.antiAlias,
       decoration: ProjectsDashboardTheme.frostedPanel(radius: 20),
       child: Stack(
@@ -37,14 +38,14 @@ class ProjectsAgreementHeroHeader extends StatelessWidget {
         children: [
           if (normalized.isNotEmpty)
             Positioned(
-              right: -12.w,
-              bottom: -20.h,
+              right: -12.tw,
+              bottom: -20.th,
               child: Opacity(
                 opacity: 0.2,
                 child: ProjectsCachedImage(
                   url: normalized,
-                  width: 120.w,
-                  height: 120.w,
+                  width: 120.tw,
+                  height: 120.tw,
                   fit: BoxFit.contain,
                 ),
               ),
@@ -65,7 +66,7 @@ class ProjectsAgreementHeroHeader extends StatelessWidget {
             ),
           ),
           Padding(
-            padding: EdgeInsets.fromLTRB(14.w, 8.h, 14.w, 10.h),
+            padding: EdgeInsets.fromLTRB(14.tw, 8.th, 14.tw, 10.th),
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.center,
               children: [
@@ -75,14 +76,14 @@ class ProjectsAgreementHeroHeader extends StatelessWidget {
                   ClipOval(
                     child: ProjectsCachedImage(
                       url: normalized,
-                      width: 36.w,
-                      height: 36.w,
+                      width: 36.tw,
+                      height: 36.tw,
                       fit: BoxFit.cover,
                     ),
                   )
                 else
                   _InitialsBadge(title: title),
-                SizedBox(width: 10.w),
+                SizedBox(width: 10.tw),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -91,7 +92,7 @@ class ProjectsAgreementHeroHeader extends StatelessWidget {
                       Text(
                         title.toUpperCase(),
                         style: GoogleFonts.poppins(
-                          fontSize: 14.sp,
+                          fontSize: 14.tsp,
                           fontWeight: FontWeight.w700,
                           color: ProjectsDashboardTheme.white,
                           height: 1.15,
@@ -100,11 +101,11 @@ class ProjectsAgreementHeroHeader extends StatelessWidget {
                         overflow: TextOverflow.ellipsis,
                       ),
                       if (subtitle != null && subtitle!.trim().isNotEmpty) ...[
-                        SizedBox(height: 3.h),
+                        SizedBox(height: 3.th),
                         Text(
                           subtitle!,
                           style: GoogleFonts.poppins(
-                            fontSize: 10.sp,
+                            fontSize: 10.tsp,
                             color: ProjectsDashboardTheme.greyPanel
                                 .withValues(alpha: 0.95),
                           ),
@@ -137,8 +138,8 @@ class _HeroBackButton extends StatelessWidget {
         onTap: onBack ?? () => Navigator.maybePop(context),
         customBorder: const CircleBorder(),
         child: Container(
-          width: 36.w,
-          height: 36.w,
+          width: 36.tw,
+          height: 36.tw,
           decoration: BoxDecoration(
             shape: BoxShape.circle,
             gradient: ProjectsDashboardTheme.maroonAccentGradient,
@@ -157,7 +158,7 @@ class _HeroBackButton extends StatelessWidget {
           child: Icon(
             Icons.arrow_back_ios_new_rounded,
             color: ProjectsDashboardTheme.white,
-            size: 16.sp,
+            size: 16.tsp,
           ),
         ),
       ),
@@ -175,14 +176,14 @@ class _InitialsBadge extends StatelessWidget {
     final initial =
         title.trim().isNotEmpty ? title.trim()[0].toUpperCase() : '?';
     return CircleAvatar(
-      radius: 18.r,
+      radius: 18.tr,
       backgroundColor: ProjectsDashboardTheme.maroon.withValues(alpha: 0.85),
       child: Text(
         initial,
         style: GoogleFonts.poppins(
           fontWeight: FontWeight.w700,
           color: ProjectsDashboardTheme.white,
-          fontSize: 14.sp,
+          fontSize: 14.tsp,
         ),
       ),
     );

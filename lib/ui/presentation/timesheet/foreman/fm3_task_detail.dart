@@ -43,12 +43,7 @@ class Fm3TaskDetail extends ConsumerWidget {
     }
 
     return TmScaffold(
-      appBar: AppBar(
-        title: Text('Task detail', style: TimesheetModuleTypography.h2()),
-        backgroundColor: TimesheetModuleColors.surface,
-        foregroundColor: TimesheetModuleColors.text,
-        elevation: 0,
-      ),
+      glassTitle: 'Task detail',
       body: taskAsync.when(
         loading: () => const TimesheetLoadingState(
           style: TimesheetLoadingStyle.list,
@@ -81,10 +76,11 @@ class Fm3TaskDetail extends ConsumerWidget {
               ),
               const SizedBox(height: TimesheetModuleLayout.sectionGap),
               attendanceAsync.when(
-                loading: () => const TimesheetLoadingState(
-          style: TimesheetLoadingStyle.list,
-          itemCount: 4,
-        ),
+                // Compact placeholder: workers section below already shows a
+                // skeleton, no need to stack a second full-height one.
+                loading: () => const TmSectionHeader(
+                  title: 'Assigned workers',
+                ),
                 error: (_, __) => const SizedBox.shrink(),
                 data: (snapshot) => Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -105,9 +101,9 @@ class Fm3TaskDetail extends ConsumerWidget {
               const SizedBox(height: TimesheetModuleLayout.cardSpacing),
               workersAsync.when(
                 loading: () => const TimesheetLoadingState(
-          style: TimesheetLoadingStyle.list,
-          itemCount: 4,
-        ),
+                  style: TimesheetLoadingStyle.list,
+                  itemCount: 2,
+                ),
                 error: (_, __) => const TimesheetErrorState(
                   message: 'Could not load assigned workers',
                 ),
@@ -148,6 +144,7 @@ class Fm3TaskDetail extends ConsumerWidget {
               const SizedBox(height: TimesheetModuleLayout.sectionGap),
               TmPrimaryButton(
                 label: 'Take attendance',
+                warm: true,
                 icon: PhosphorIcons.play(),
                 onPressed: () => Navigator.of(context).pushNamed(
                   TimesheetRouteNames.projectDates,

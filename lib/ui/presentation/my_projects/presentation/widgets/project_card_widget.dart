@@ -1,3 +1,4 @@
+import 'package:el_race/core/utils/responsive_breakpoints.dart';
 import 'package:el_race/resources/app_colors.dart';
 import 'package:el_race/ui/presentation/my_projects/domain/entities/project_entity.dart';
 import 'package:el_race/ui/presentation/my_projects/presentation/bloc/project_list_event.dart';
@@ -35,10 +36,10 @@ class ProjectCardWidget extends StatelessWidget {
           //   alignment: Alignment.centerLeft,
           //   children: [
           //     // Container(
-          //     //   width: 20.w,
-          //     //   height: 28.w,
+          //     //   width: 20.tw,
+          //     //   height: 28.tw,
           //     //   margin: EdgeInsets.only(
-          //     //     left: 20.w,
+          //     //     left: 20.tw,
           //     //   ),
           //     //   decoration: BoxDecoration(
           //     //     color: red,
@@ -52,21 +53,21 @@ class ProjectCardWidget extends StatelessWidget {
           //     //   ),
           //     // ),
           //     // Container(
-          //     //   height: 37.w,
-          //     //   width: 210.w,
+          //     //   height: 37.tw,
+          //     //   width: 210.tw,
           //     //   alignment: Alignment.centerLeft,
-          //     //   margin: EdgeInsets.only(left: 30.w),
+          //     //   margin: EdgeInsets.only(left: 30.tw),
           //     //   padding: const EdgeInsets.symmetric(horizontal: 10),
           //     //   decoration: const BoxDecoration(
           //     //       image: DecorationImage(
           //     //           image:
           //     //               AssetImage('assets/newapp/back_ground_card.png'))),
           //     //   child: SizedBox(
-          //     //     width: 190.w,
+          //     //     width: 190.tw,
           //     //     child: Text(
           //     //       item.name,
           //     //       style: GoogleFonts.poppins(
-          //     //         fontSize: 12.sp,
+          //     //         fontSize: 12.tsp,
           //     //         fontWeight: FontWeight.w500,
           //     //         color: Colors.white,
           //     //         letterSpacing: 1.2,
@@ -79,8 +80,8 @@ class ProjectCardWidget extends StatelessWidget {
           // ),
           Container(
             margin: const EdgeInsets.fromLTRB(10, 0, 10, 0),
-            width: 357.65.w,
-            height: 210.h,
+            width: 357.65.tw,
+            height: 210.th,
             decoration: const BoxDecoration(
               image: DecorationImage(
                 image: AssetImage("assets/png/background.png"),
@@ -101,12 +102,12 @@ class ProjectCardWidget extends StatelessWidget {
                           children: [
                             Image.asset(
                               "assets/newapp/my_projects.png",
-                              height: 24.h,
-                              width: 24.w,
+                              height: 24.th,
+                              width: 24.tw,
                             ),
                             const SizedBox(width: 8),
                             SizedBox(
-                              width: 225.w,
+                              width: 225.tw,
                               child: Text(
                                 item.name,
                                 style: GoogleFonts.poppins(
@@ -132,18 +133,18 @@ class ProjectCardWidget extends StatelessWidget {
                       Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          SizedBox(height: 60.h),
+                          SizedBox(height: 60.th),
                           Row(
                             mainAxisAlignment: MainAxisAlignment.start,
                             mainAxisSize: MainAxisSize.min,
                             children: [
                               Image.asset(
                                 "assets/png/icons/tag.png",
-                                height: 10.h,
-                                width: 10.w,
+                                height: 10.th,
+                                width: 10.tw,
                                 color: Colors.black,
                               ),
-                              SizedBox(width: 10.w),
+                              SizedBox(width: 10.tw),
                               SizedBox(
                                 width: 100,
                                 child: Text(
@@ -164,13 +165,13 @@ class ProjectCardWidget extends StatelessWidget {
                             children: [
                               Image.asset(
                                 "assets/png/icons/hand.png",
-                                height: 11.14.h,
-                                width: 18.03.w,
+                                height: 11.14.th,
+                                width: 18.03.tw,
                                 color: black,
                               ),
-                              SizedBox(width: 2.w),
+                              SizedBox(width: 2.tw),
                               SizedBox(
-                                width: 170.w,
+                                width: 170.tw,
                                 child: Text(
                                   item.agreementId,
                                   maxLines: null,
@@ -191,10 +192,10 @@ class ProjectCardWidget extends StatelessWidget {
                         mainAxisAlignment: MainAxisAlignment.end,
                         children: [
                           Container(
-                            width: 35.w,
-                            height: 35.h,
+                            width: 35.tw,
+                            height: 35.th,
                             // padding: const EdgeInsets.all(6),
-                            margin: EdgeInsets.only(bottom: 4.h),
+                            margin: EdgeInsets.only(bottom: 4.th),
                             decoration: BoxDecoration(
                               color: Colors.transparent,
                               shape: BoxShape.circle,
@@ -204,7 +205,7 @@ class ProjectCardWidget extends StatelessWidget {
                               child: Text(
                                 '+12',
                                 style: GoogleFonts.poppins(
-                                  fontSize: 16.76.sp,
+                                  fontSize: 16.76.tsp,
                                   fontWeight: FontWeight.w400,
                                   color: AppColors.green,
                                 ),
@@ -212,10 +213,10 @@ class ProjectCardWidget extends StatelessWidget {
                             ),
                           ),
                           Container(
-                            width: 54.w,
-                            height: 90.h,
+                            width: 54.tw,
+                            height: 90.th,
                             margin: EdgeInsets.only(
-                              right: 10.w,
+                              right: 10.tw,
                             ),
                             decoration: const BoxDecoration(
                               color: Colors.white,
@@ -233,13 +234,13 @@ class ProjectCardWidget extends StatelessWidget {
                               mainAxisAlignment: MainAxisAlignment.center,
                               children: [
                                 Container(
-                                  width: 36.w,
-                                  height: 40.h,
+                                  width: 36.tw,
+                                  height: 40.th,
                                   alignment: Alignment.center,
                                   padding: EdgeInsets.symmetric(
-                                        horizontal: 8.h,
+                                        horizontal: 8.th,
                                       ) +
-                                      EdgeInsets.only(top: 4.h),
+                                      EdgeInsets.only(top: 4.th),
                                   decoration: const BoxDecoration(
                                     image: DecorationImage(
                                       image: AssetImage(
@@ -293,7 +294,7 @@ class ProjectCardWidget extends StatelessWidget {
                     ],
                   ),
                   // Transform.translate(
-                  //   offset: Offset(0, -15.w),
+                  //   offset: Offset(0, -15.tw),
                   //   child: Row(
                   //     children: [
                   //       // SizedBox(
@@ -311,8 +312,8 @@ class ProjectCardWidget extends StatelessWidget {
                   //       //   ),
                   //       // ),
                   //       // Container(
-                  //       //   width: 50.w,
-                  //       //   height: 50.w,
+                  //       //   width: 50.tw,
+                  //       //   height: 50.tw,
                   //       //   decoration: BoxDecoration(
                   //       //     shape: BoxShape.circle,
                   //       //     border: Border.all(color: Colors.white, width: 2),
@@ -330,7 +331,7 @@ class ProjectCardWidget extends StatelessWidget {
                   //     ],
                   //   ),
                   // ),
-                  SizedBox(height: 14.h),
+                  SizedBox(height: 14.th),
                 ],
               ),
             ),

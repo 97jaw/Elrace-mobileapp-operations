@@ -1,3 +1,4 @@
+import 'package:el_race/core/utils/responsive_breakpoints.dart';
 import 'dart:convert';
 
 import 'package:el_race/core/utils/shared_pref.dart';
@@ -792,7 +793,7 @@ class _ApprovalsScreenState extends State<ApprovalsScreen> {
 
   Widget _categoryListShell(Widget child) {
     return ClipRRect(
-      borderRadius: BorderRadius.vertical(top: Radius.circular(26.r)),
+      borderRadius: BorderRadius.vertical(top: Radius.circular(26.tr)),
       child: ColoredBox(
         color: Colors.white,
         child: child,
@@ -876,16 +877,16 @@ class _HrManagementTestCasesScreen extends StatelessWidget {
         ),
       ),
       body: ListView.separated(
-        padding: EdgeInsets.fromLTRB(14.w, 14.w, 14.w, 24.w),
+        padding: EdgeInsets.fromLTRB(14.tw, 14.tw, 14.tw, 24.tw),
         itemCount: _cases.length,
-        separatorBuilder: (_, __) => SizedBox(height: 10.w),
+        separatorBuilder: (_, __) => SizedBox(height: 10.tw),
         itemBuilder: (context, index) {
           final testCase = _cases[index];
           return Material(
             color: Colors.white,
-            borderRadius: BorderRadius.circular(14.r),
+            borderRadius: BorderRadius.circular(14.tr),
             child: InkWell(
-              borderRadius: BorderRadius.circular(14.r),
+              borderRadius: BorderRadius.circular(14.tr),
               onTap: () {
                 Navigator.push(
                   context,
@@ -898,31 +899,31 @@ class _HrManagementTestCasesScreen extends StatelessWidget {
                 );
               },
               child: Container(
-                padding: EdgeInsets.symmetric(horizontal: 14.w, vertical: 14.w),
+                padding: EdgeInsets.symmetric(horizontal: 14.tw, vertical: 14.tw),
                 decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(14.r),
+                  borderRadius: BorderRadius.circular(14.tr),
                   border: Border.all(color: const Color(0xFFE2E5EC)),
                 ),
                 child: Row(
                   children: [
                     Container(
-                      width: 34.w,
-                      height: 34.w,
+                      width: 34.tw,
+                      height: 34.tw,
                       alignment: Alignment.center,
                       decoration: BoxDecoration(
                         color: const Color(0xFFEEF2FA),
-                        borderRadius: BorderRadius.circular(10.r),
+                        borderRadius: BorderRadius.circular(10.tr),
                       ),
                       child: Text(
                         '${index + 1}',
                         style: GoogleFonts.poppins(
-                          fontSize: 12.sp,
+                          fontSize: 12.tsp,
                           fontWeight: FontWeight.w700,
                           color: const Color(0xFF20345B),
                         ),
                       ),
                     ),
-                    SizedBox(width: 10.w),
+                    SizedBox(width: 10.tw),
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -930,16 +931,16 @@ class _HrManagementTestCasesScreen extends StatelessWidget {
                           Text(
                             testCase.title,
                             style: GoogleFonts.poppins(
-                              fontSize: 14.sp,
+                              fontSize: 14.tsp,
                               fontWeight: FontWeight.w700,
                               color: const Color(0xFF151B2C),
                             ),
                           ),
-                          SizedBox(height: 2.w),
+                          SizedBox(height: 2.tw),
                           Text(
                             'request_id: ${testCase.id}',
                             style: GoogleFonts.poppins(
-                              fontSize: 12.sp,
+                              fontSize: 12.tsp,
                               fontWeight: FontWeight.w500,
                               color: const Color(0xFF6A7388),
                             ),
@@ -949,7 +950,7 @@ class _HrManagementTestCasesScreen extends StatelessWidget {
                     ),
                     Icon(
                       Icons.chevron_right_rounded,
-                      size: 22.sp,
+                      size: 22.tsp,
                       color: const Color(0xFF7B869F),
                     ),
                   ],

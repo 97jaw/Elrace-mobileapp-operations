@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:el_race/core/theme/timesheet_module_theme.dart';
+import 'package:el_race/core/timesheet/models/timesheet_models.dart';
 import 'package:el_race/core/timesheet/models/timesheet_submit_request.dart';
 import 'package:el_race/core/timesheet/network/timesheet_functions_client.dart';
 import 'package:el_race/core/timesheet/network/timesheet_odoo_employee.dart';
@@ -8,6 +9,7 @@ import 'package:el_race/core/timesheet/providers/timesheet_data_providers.dart';
 import 'package:el_race/core/timesheet/providers/timesheet_hr_scope_provider.dart';
 import 'package:el_race/core/timesheet/providers/timesheet_role_provider.dart';
 import 'package:el_race/core/timesheet/services/capture_queue_service.dart';
+import 'package:el_race/core/timesheet/services/timesheet_capture_session_store.dart';
 import 'package:el_race/core/site_management/face_recognition/data/repositories/face_db_repository.dart';
 import 'package:el_race/core/site_management/face_recognition/face_match_session.dart';
 import 'package:el_race/core/site_management/face_recognition/face_pilot_log_store.dart';
@@ -36,9 +38,15 @@ class FmTimesheetCaptureSubmitScreen extends ConsumerStatefulWidget {
   const FmTimesheetCaptureSubmitScreen({
     super.key,
     required this.args,
+    this.returnCaptures = false,
   });
 
   final TimesheetProjectDayArgs args;
+
+  /// When true, the screen does not submit itself. After the first successful
+  /// face capture it pops, returning the captured entries so the caller (the
+  /// Your Team sheet) can accumulate them and drive the confirm/submit flow.
+  final bool returnCaptures;
 
   @override
   ConsumerState<FmTimesheetCaptureSubmitScreen> createState() =>
@@ -70,6 +78,8 @@ class _FmTimesheetCaptureSubmitScreenState
   FaceRecognitionAvailability _availability =
       FaceRecognitionAvailability.notInitialized;
   Timer? _overlayClearTimer;
+  Timer? _returnTimer;
+  bool _returning = false;
 
   Set<int> get _capturedEmployeeIds =>
       _captures.map((e) => e.employeeId).toSet();
@@ -99,14 +109,60 @@ class _FmTimesheetCaptureSubmitScreenState
   @override
   void dispose() {
     _overlayClearTimer?.cancel();
+    _returnTimer?.cancel();
     super.dispose();
   }
 
   Future<void> _bootCapture() async {
+    // In return-captures mode the caller owns the accumulated session, so we
+    // don't restore/merge the shared persisted session here.
+    if (!widget.returnCaptures) {
+      final restored =
+          await TimesheetCaptureSessionStore.loadMatching(widget.args);
+      if (restored != null && mounted && restored.captures.isNotEmpty) {
+        setState(() => _captures.addAll(restored.captures));
+      }
+    }
     final result = await ref.read(faceDbSyncProvider.future);
     if (!mounted) return;
     _applySyncResult(result);
     await _loadEmployees();
+  }
+
+  Future<void> _persistSession() async {
+    await TimesheetCaptureSessionStore.save(
+      args: widget.args,
+      captures: List.unmodifiable(_captures),
+    );
+  }
+
+  Future<bool> _confirmLeaveIfNeeded() async {
+    if (_captures.isEmpty) return true;
+    final leave = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Unsaved attendance'),
+        content: Text(
+          'You have ${_captures.length} captured face(s) that are not submitted yet. '
+          'Leave without submitting? You will need to capture again.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Stay'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text('Leave'),
+          ),
+        ],
+      ),
+    );
+    if (leave == true) {
+      await TimesheetCaptureSessionStore.clear();
+      return true;
+    }
+    return false;
   }
 
   Future<void> _refreshFaceDb() async {
@@ -141,6 +197,12 @@ class _FmTimesheetCaptureSubmitScreenState
     };
     final phaseB = service.isReady ? 'Phase B on' : 'Phase B off';
     var snackText = '$prefix ($phaseB)';
+    // Surface the real engine failure so release/TestFlight builds are
+    // diagnosable (otherwise only a generic "Face engine unavailable" shows).
+    if (service.availability == FaceRecognitionAvailability.engineFailed &&
+        service.engineError != null) {
+      snackText = '$snackText · engine: ${service.engineError}';
+    }
     if (kDebugMode && FacePilotLogStore.lastExportPath != null) {
       snackText =
           '$snackText · pilot log: ${FacePilotLogStore.lastExportPath}';
@@ -285,11 +347,17 @@ class _FmTimesheetCaptureSubmitScreenState
         ),
       );
     });
+    if (!widget.returnCaptures) {
+      unawaited(_persistSession());
+    }
     _showCaptureNotice(
       resolved,
       TmFaceCaptureNoticeKind.captured,
       matchScore: matchScore,
     );
+    if (widget.returnCaptures) {
+      _scheduleReturnWithCaptures();
+    }
     if (closeSecondCandidate) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -304,8 +372,23 @@ class _FmTimesheetCaptureSubmitScreenState
     }
   }
 
+  /// Suppress the "already attended" prompt for a short, realistic window right
+  /// after a labor is captured so it does not fire the instant the same face is
+  /// still in frame following the first submit.
+  static const Duration _alreadyAttendedCooldown = Duration(seconds: 4);
+
   void _onAlreadyAttended(TimesheetOdooEmployee employee) {
     final resolved = _laborEmployeeOrNull(employee) ?? employee;
+    final recent = _captures
+        .where((c) => c.employee.employeeId == resolved.employeeId)
+        .toList();
+    if (recent.isNotEmpty) {
+      final lastCapturedAt = recent.last.capturedAt;
+      if (DateTime.now().difference(lastCapturedAt) < _alreadyAttendedCooldown) {
+        // Too soon after capture — skip the nag so it feels realistic.
+        return;
+      }
+    }
     _showCaptureNotice(resolved, TmFaceCaptureNoticeKind.alreadyAttended);
     debugPrint('FaceCaptureSession: already attended emp=${resolved.employeeId}');
   }
@@ -402,6 +485,22 @@ class _FmTimesheetCaptureSubmitScreenState
     _onRosterMatched(picked, draft, 0);
   }
 
+  /// After a successful capture (and its name announcement) return to the
+  /// caller with the captured entries so the Your Team sheet can accumulate.
+  void _scheduleReturnWithCaptures() {
+    if (_returning) return;
+    _returning = true;
+    _returnTimer?.cancel();
+    // Hold ~3s so the enlarged detected card stays visible and the spoken
+    // name announcement finishes before returning to the Your Team sheet.
+    _returnTimer = Timer(const Duration(milliseconds: 3000), () {
+      if (!mounted) return;
+      Navigator.of(context).pop<List<TimesheetCaptureSessionEntry>>(
+        List<TimesheetCaptureSessionEntry>.from(_captures),
+      );
+    });
+  }
+
   void _onChromeChanged(TimesheetCaptureChromeSnapshot chrome) {
     if (!mounted) return;
     setState(() => _chrome = chrome);
@@ -417,6 +516,20 @@ class _FmTimesheetCaptureSubmitScreenState
       return;
     }
 
+    final buckets = await ref.read(timesheetProjectBucketsProvider.future);
+    if (!mounted) return;
+    final projects = buckets.inProgress;
+    var submitProjectId = widget.args.projectId;
+    var submitTaskId = widget.args.taskId;
+    Project? selectedProject;
+    for (final p in projects) {
+      if (p.id == widget.args.projectId) {
+        selectedProject = p;
+        break;
+      }
+    }
+    selectedProject ??= projects.isNotEmpty ? projects.first : null;
+
     final confirmed = await TmTimesheetCaptureConfirmSheet.show(
       context,
       captures: List.unmodifiable(_captures),
@@ -426,28 +539,68 @@ class _FmTimesheetCaptureSubmitScreenState
       onStartChanged: (v) => _startDateTime = v,
       onEndChanged: (v) => _endDateTime = v,
       onBreakChanged: (v) => _breakHours = v,
+      projects: projects,
+      initialProject: selectedProject,
+      onProjectChanged: (project) => selectedProject = project,
+      onRemoveCapture: (entry) {
+        setState(() => _captures.remove(entry));
+        if (!widget.returnCaptures) {
+          unawaited(_persistSession());
+        }
+      },
     );
     if (!confirmed || !mounted) return;
+    if (_captures.isEmpty) return;
+
+    if (selectedProject != null) {
+      submitProjectId = selectedProject!.id;
+      try {
+        final task = await ref.read(
+          timesheetMaintenanceTaskProvider(selectedProject!.id).future,
+        );
+        submitTaskId = task.id;
+      } catch (_) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Could not resolve task for selected project'),
+          ),
+        );
+        return;
+      }
+    }
 
     setState(() => _isSubmitting = true);
     try {
       final client = ref.read(timesheetApiClientProvider);
       final ids = _captures.map((e) => e.employeeId).toList(growable: false);
       final names = _captures.map((e) => e.employee.name).join(', ');
+      final coords = _captures
+          .map(
+            (e) => TimesheetSubmitCoord(
+              employeeId: e.employeeId,
+              lat: e.draft.lat,
+              lon: e.draft.lon,
+            ),
+          )
+          .toList(growable: false);
       final result = await client.submitTimesheet(
         TimesheetSubmitRequest(
-          projectId: widget.args.projectId,
-          taskId: widget.args.taskId,
+          projectId: submitProjectId,
+          taskId: submitTaskId,
           employeeIds: ids,
           employeeName: names,
           date: widget.args.date,
           dateTime: _startDateTime,
           dateTimeEnd: _endDateTime,
           breakTimeHours: _breakHours,
+          coords: coords,
         ),
       );
       if (!mounted) return;
       if (result.success) {
+        await TimesheetCaptureSessionStore.clear();
+        if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text(result.message ?? 'Timesheet submitted')),
         );
@@ -483,7 +636,15 @@ class _FmTimesheetCaptureSubmitScreenState
     final captureCount = _captures.length;
     final notice = _noticeToast;
 
-    return Scaffold(
+    return PopScope(
+      canPop: widget.returnCaptures || _captures.isEmpty,
+      onPopInvokedWithResult: (didPop, _) async {
+        if (didPop) return;
+        final leave = await _confirmLeaveIfNeeded();
+        if (!mounted) return;
+        if (leave) Navigator.of(this.context).pop();
+      },
+      child: Scaffold(
       backgroundColor: TimesheetModuleColors.navy,
       body: Stack(
         fit: StackFit.expand,
@@ -507,7 +668,26 @@ class _FmTimesheetCaptureSubmitScreenState
             onCaptureMatched: _onCaptureMatched,
             onChromeChanged: _onChromeChanged,
           ),
-          const Positioned(top: 0, left: 0, right: 0, child: _NavyTitleBar()),
+          Positioned(
+            top: 0,
+            left: 0,
+            right: 0,
+            child: _NavyTitleBar(
+              onBack: () async {
+                if (widget.returnCaptures) {
+                  _returnTimer?.cancel();
+                  Navigator.of(this.context)
+                      .pop<List<TimesheetCaptureSessionEntry>>(
+                    List<TimesheetCaptureSessionEntry>.from(_captures),
+                  );
+                  return;
+                }
+                final leave = await _confirmLeaveIfNeeded();
+                if (!mounted) return;
+                if (leave) Navigator.of(this.context).pop();
+              },
+            ),
+          ),
           Positioned(
             top: headerTop,
             left: 10,
@@ -572,7 +752,16 @@ class _FmTimesheetCaptureSubmitScreenState
                   captureCount: captureCount,
                   isSubmitting: _isSubmitting,
                   bottomInset: bottomInset,
-                  onSubmit: _submit,
+                  submitLabel: widget.returnCaptures ? 'Done' : null,
+                  onSubmit: widget.returnCaptures
+                      ? () {
+                          _returnTimer?.cancel();
+                          Navigator.of(context)
+                              .pop<List<TimesheetCaptureSessionEntry>>(
+                            List<TimesheetCaptureSessionEntry>.from(_captures),
+                          );
+                        }
+                      : _submit,
                 ),
               ],
             ),
@@ -600,6 +789,7 @@ class _FmTimesheetCaptureSubmitScreenState
             ),
         ],
       ),
+    ),
     );
   }
 }
@@ -618,7 +808,9 @@ class TimesheetCaptureNoticeToast {
 
 /// Only the title row gets navy gradient; everything else floats on camera.
 class _NavyTitleBar extends StatelessWidget {
-  const _NavyTitleBar();
+  const _NavyTitleBar({required this.onBack});
+
+  final VoidCallback onBack;
 
   @override
   Widget build(BuildContext context) {
@@ -643,7 +835,7 @@ class _NavyTitleBar extends StatelessWidget {
           child: Row(
             children: [
               IconButton(
-                onPressed: () => Navigator.of(context).maybePop(),
+                onPressed: onBack,
                 icon: Icon(PhosphorIcons.caretLeft(), color: faded),
                 tooltip: 'Back',
               ),
@@ -822,18 +1014,19 @@ class _CaptureSubmitBar extends StatelessWidget {
     required this.isSubmitting,
     required this.bottomInset,
     required this.onSubmit,
+    this.submitLabel,
   });
 
   final int captureCount;
   final bool isSubmitting;
   final double bottomInset;
   final VoidCallback onSubmit;
+  final String? submitLabel;
 
   @override
   Widget build(BuildContext context) {
-    final label = captureCount == 0
-        ? 'Submit timesheet'
-        : 'Submit timesheet ($captureCount)';
+    final baseLabel = submitLabel ?? 'Submit timesheet';
+    final label = captureCount == 0 ? baseLabel : '$baseLabel ($captureCount)';
 
     return DecoratedBox(
       decoration: BoxDecoration(
@@ -851,6 +1044,7 @@ class _CaptureSubmitBar extends StatelessWidget {
         padding: EdgeInsets.fromLTRB(14, 10, 14, 10 + bottomInset),
         child: TmPrimaryButton(
           label: isSubmitting ? 'Submitting…' : label,
+          warm: true,
           icon: PhosphorIcons.paperPlaneTilt(),
           onPressed: isSubmitting ? null : onSubmit,
         ),

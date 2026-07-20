@@ -23,12 +23,7 @@ class _FmProjectsListState extends ConsumerState<FmProjectsList> {
     final projectsAsync = ref.watch(timesheetProjectsProvider);
 
     return TmScaffold(
-      appBar: AppBar(
-        title: Text('Projects', style: TimesheetModuleTypography.h2()),
-        backgroundColor: TimesheetModuleColors.surface,
-        foregroundColor: TimesheetModuleColors.text,
-        elevation: 0,
-      ),
+      glassTitle: 'Projects',
       body: projectsAsync.when(
         loading: () => const TimesheetLoadingState(
           style: TimesheetLoadingStyle.list,

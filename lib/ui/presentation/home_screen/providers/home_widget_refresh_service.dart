@@ -1,4 +1,5 @@
 import 'package:el_race/core/home/home_widget_visibility.dart';
+import 'package:el_race/core/session/login_session_refresh_service.dart';
 import 'package:el_race/ui/presentation/home_screen/providers/home_attendance_widget_provider.dart';
 import 'package:el_race/ui/presentation/home_screen/providers/home_hrms_widget_provider.dart';
 import 'package:el_race/ui/presentation/home_screen/providers/home_library_widgets_provider.dart';
@@ -10,15 +11,21 @@ import 'package:el_race/ui/presentation/home_screen/providers/home_task_manageme
 import 'package:el_race/ui/presentation/home_screen/providers/home_tickets_widget_provider.dart';
 import 'package:el_race/ui/presentation/home_screen/providers/home_timesheet_widget_provider.dart';
 import 'package:el_race/ui/presentation/home_screen/providers/home_widget_api_client.dart';
-import 'package:el_race/ui/presentation/home_screen/providers/home_widget_config_client.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-/// Pull-to-refresh: visibility config + widget card data in parallel.
+/// Pull-to-refresh: refresh roles + widget card data.
+///
+/// Widget *visibility* is intentionally NOT refreshed here — it is resolved
+/// once at login (from the login `default_widgets` payload) and only changes on
+/// the next login. This keeps a single source of truth and avoids widgets
+/// appearing/disappearing mid-session.
 class HomeWidgetRefreshService {
   HomeWidgetRefreshService._();
 
   static Future<void> refresh(ProviderContainer container) async {
-    await HomeWidgetConfigClient.refresh();
+    // Roles refresh (needed for HR/recruitment view gating). Widget visibility
+    // is login-only and deliberately left untouched here.
+    await LoginSessionRefreshService.refreshRoles(container: container);
     final visible = visibleCategoryCodes();
     await HomeWidgetApiClient.refreshIfStale(
       force: true,

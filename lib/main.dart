@@ -6,6 +6,7 @@ import 'package:flutter/foundation.dart' show kDebugMode;
 import 'package:el_race/core/ui/device_ui_capability.dart';
 import 'package:el_race/core/services/notification_storage_service.dart';
 import 'package:el_race/core/timesheet/services/capture_queue_service.dart';
+import 'package:el_race/core/utils/app_orientations.dart';
 import 'package:el_race/core/utils/shared_pref.dart';
 import 'package:el_race/chat/chat.dart';
 import 'package:el_race/data/services/hive_service.dart';
@@ -115,9 +116,105 @@ Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
   }
 }
 
+/// Last time we logged a given error signature, to avoid flooding logs when an
+/// error (e.g. a runaway async chain) repeats rapidly.
+final Map<String, DateTime> _lastGuardLogAt = {};
+
+/// SharedPref key used to persist the first app-frame of a swallowed
+/// StackOverflowError so a "hang" that was previously invisible in the field
+/// leaves a breadcrumb readable on the next app start. Phase 0 instrumentation
+/// only — the guard still swallows the error (see [_logGuardedError]).
+const String _kStackOverflowBreadcrumbKey = 'debug_stack_overflow_breadcrumb';
+
+/// Installs process-wide guards so a single unhandled error — including a
+/// runaway async error chain that manifests as a `StackOverflowError` — cannot
+/// hard-crash the app in production. Errors are logged once (deduped) with any
+/// real originating frame preserved for diagnosis.
+void _installGlobalErrorGuard() {
+  final previousFlutterOnError = FlutterError.onError;
+  FlutterError.onError = (FlutterErrorDetails details) {
+    _logGuardedError('FlutterError', details.exception, details.stack);
+    previousFlutterOnError?.call(details);
+  };
+
+  // Catches unhandled async errors in the root zone (no runZonedGuarded needed).
+  // Returning true marks the error handled so the engine does not treat it as
+  // fatal.
+  WidgetsBinding.instance.platformDispatcher.onError = (
+    Object error,
+    StackTrace stack,
+  ) {
+    _logGuardedError('PlatformDispatcher', error, stack);
+    return true;
+  };
+}
+
+void _logGuardedError(String source, Object error, StackTrace? stack) {
+  final signature = '$source:${error.runtimeType}';
+  final now = DateTime.now();
+  final last = _lastGuardLogAt[signature];
+  // Throttle identical errors to at most one log every 3 seconds.
+  if (last != null && now.difference(last) < const Duration(seconds: 3)) {
+    return;
+  }
+  _lastGuardLogAt[signature] = now;
+
+  if (error is StackOverflowError) {
+    // The async plumbing frames are useless; surface the first app-code frame
+    // (if any) so the runaway source can be identified.
+    final appFrame = stack
+        ?.toString()
+        .split('\n')
+        .firstWhere(
+          (line) => line.contains('package:el_race/'),
+          orElse: () => '(no app frame in stack — likely infinite async chain)',
+        );
+    debugPrint('🛑 [$source] StackOverflowError swallowed. First app frame: '
+        '$appFrame');
+    _persistStackOverflowBreadcrumb(source, appFrame);
+    return;
+  }
+
+  debugPrint('🛑 [$source] Unhandled error swallowed: $error');
+}
+
+/// Persists the first app-frame of a swallowed StackOverflowError so it can
+/// be surfaced on the next app start (see [_checkStackOverflowBreadcrumb]).
+/// Best-effort: SharedPref may not be instantiated yet if the error happens
+/// before Phase-1 init completes, so failures here are swallowed same as the
+/// rest of this file's early-startup guards.
+void _persistStackOverflowBreadcrumb(String source, String? appFrame) {
+  try {
+    SharedPref().setPreferencesString(
+      _kStackOverflowBreadcrumbKey,
+      '${DateTime.now().toIso8601String()} [$source] $appFrame',
+    );
+  } catch (e) {
+    debugPrint('🛑 Failed to persist StackOverflowError breadcrumb: $e');
+  }
+}
+
+/// Logs and clears any StackOverflowError breadcrumb left by a previous
+/// session. Called once SharedPref is guaranteed initialized.
+void _checkStackOverflowBreadcrumb() {
+  try {
+    final breadcrumb =
+        SharedPref().getPreferenceString(_kStackOverflowBreadcrumbKey);
+    if (breadcrumb.isNotEmpty) {
+      debugPrint(
+          '🛑 [breadcrumb] Previous session recorded a StackOverflowError: $breadcrumb');
+      SharedPref().removePreference(_kStackOverflowBreadcrumbKey);
+    }
+  } catch (e) {
+    debugPrint('🛑 Failed to read StackOverflowError breadcrumb: $e');
+  }
+}
+
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   debugPrint('🚀 main(): Flutter binding initialized');
+
+  _installGlobalErrorGuard();
 
   // await _enableGlobalScreenProtection();
 
@@ -152,6 +249,9 @@ void main() async {
   } catch (e) {
     print('❌ Phase-1 init error: $e');
   }
+  // SharedPref is now instantiated (best-effort) — surface any
+  // StackOverflowError breadcrumb left by a previous session.
+  _checkStackOverflowBreadcrumb();
 
   // Localization is required by MyApp, but must never leave a native white
   // screen indefinitely if loading its assets fails.
@@ -399,13 +499,13 @@ Future<void> _initPrayerAndCheckoutServices() async {
     print('❌ Service init error: $e');
   }
 
-  // Check-in reminders & attendance sync (only if logged in)
+  // Attendance sync only (check-in/out local reminders disabled).
   if (SharedPref.isUserAuthenticated()) {
     try {
       await Future.wait<void>([
-        CheckInReminderNotificationService().initialize().timeout(
+        CheckInReminderNotificationService().cancelAllReminders().timeout(
               const Duration(seconds: 5),
-              onTimeout: () => print('⚠️ Check-in reminder timeout'),
+              onTimeout: () {},
             ),
         _syncAttendanceStatusIfLoggedIn(),
       ]);
@@ -415,10 +515,8 @@ Future<void> _initPrayerAndCheckoutServices() async {
         await AutoCheckoutService.scheduleAutoCheckout();
         debugPrint('✅ Auto checkout scheduled');
       }
-      await CheckInReminderNotificationService().updateReminders();
-      debugPrint('✅ Reminders refreshed');
     } catch (e) {
-      print('❌ Reminder/attendance error: $e');
+      print('❌ Attendance sync error: $e');
     }
   }
 }
@@ -452,6 +550,8 @@ Future<void> _logFcmToken() async {
 Timer? _androidSystemBarsTimer;
 
 Future<void> _configureAppSystemUi() async {
+  await _lockPortraitOrientation();
+
   if (Platform.isAndroid) {
     await _enableAndroidImmersiveMode();
     return;
@@ -470,6 +570,35 @@ Future<void> _configureAppSystemUi() async {
 }
 
 const _systemUiChannel = MethodChannel('ae.elrace.mobile/system_ui');
+
+/// Phones stay portrait-only. Tablets may rotate so Home multi-pane can use
+/// landscape width (otherwise both orientations report ~phone/portrait width).
+Future<void> _configureAppOrientations() async {
+  final views = WidgetsBinding.instance.platformDispatcher.views;
+  var isTablet = false;
+  if (views.isNotEmpty) {
+    final view = views.first;
+    final logical = view.physicalSize / view.devicePixelRatio;
+    // shortestSide >= 600 ≈ Material tablet breakpoint
+    isTablet = logical.shortestSide >= 600;
+  }
+
+  if (isTablet) {
+    await SystemChrome.setPreferredOrientations(const [
+      DeviceOrientation.portraitUp,
+      DeviceOrientation.landscapeLeft,
+      DeviceOrientation.landscapeRight,
+    ]);
+  } else {
+    await SystemChrome.setPreferredOrientations(const [
+      DeviceOrientation.portraitUp,
+    ]);
+  }
+}
+
+/// @Deprecated — use [_configureAppOrientations]. Kept name for call sites.
+Future<void> _lockPortraitOrientation() => _configureAppOrientations();
+
 
 Future<void> _enableAndroidImmersiveMode() async {
   if (!Platform.isAndroid) return;
@@ -599,6 +728,8 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
       _enableAndroidImmersiveMode();
+      // ignore: unawaited_futures
+      _lockPortraitOrientation();
 
       // Foreground owns azan again — cancel OS schedules; timer plays once.
       // ignore: unawaited_futures
@@ -632,6 +763,10 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
 
   void _restartFromSplashAfterTimeout(Duration inactiveFor) {
     _isRestartingFromTimeout = true;
+    // Phase 8.1: tell other resume observers (HomeScreen) a splash restart
+    // is in flight so they skip their own resume work instead of racing
+    // the new SplashScreen's video/security-check gates.
+    isRestartingFromSplashTimeout.value = true;
     debugPrint(
       '⏱️ Inactivity timeout reached (${inactiveFor.inMinutes} min). Restarting from SplashScreen...',
     );
@@ -639,6 +774,7 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
     final navigator = navKey.currentState;
     if (navigator == null) {
       _isRestartingFromTimeout = false;
+      isRestartingFromSplashTimeout.value = false;
       return;
     }
 
@@ -654,6 +790,7 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
     // Allow future timeout checks after navigation settles.
     Future<void>.delayed(const Duration(milliseconds: 400), () {
       _isRestartingFromTimeout = false;
+      isRestartingFromSplashTimeout.value = false;
     });
   }
 
@@ -698,8 +835,11 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
             ],
             child: ScreenUtilInit(
               designSize: const Size(411.4, 843.4),
+              minTextAdapt: true,
+              splitScreenMode: true,
               child: MaterialApp(
                 debugShowCheckedModeBanner: false,
+                navigatorObservers: [AppOrientations.routeObserver],
                 builder: (context, child) {
                   ScreenSizeUtil.context = context;
                   return NotificationListener<ScrollUpdateNotification>(

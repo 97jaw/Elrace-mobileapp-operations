@@ -13,6 +13,8 @@ class MediaFilterTabs extends StatelessWidget {
     required this.photoCount,
     required this.view360Count,
     required this.onTabSelected,
+    this.showProjectVideos = false,
+    this.projectVideoCount = 0,
     this.isGridView = false,
     this.onToggleView,
   });
@@ -22,102 +24,82 @@ class MediaFilterTabs extends StatelessWidget {
   final int photoCount;
   final int view360Count;
   final ValueChanged<int> onTabSelected;
+  final bool showProjectVideos;
+  final int projectVideoCount;
   final bool isGridView;
   final VoidCallback? onToggleView;
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      mainAxisSize: MainAxisSize.min,
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.end,
       children: [
-        Row(
-          children: [
-            Expanded(
-              child: Row(
-                children: [
+        Expanded(
+          child: DecoratedBox(
+            decoration: BoxDecoration(
+              border: Border(
+                bottom: BorderSide(
+                  color: MediaTheme.white.withValues(alpha: 0.15),
+                  width: 1,
+                ),
+              ),
+            ),
+            child: Row(
+              children: [
+                if (showProjectVideos)
                   _TabItem(
                     index: 0,
                     activeIndex: activeIndex,
-                    icon: Icons.videocam_outlined,
-                    label: 'Videos',
-                    count: videoCount,
+                    icon: Icons.star_outline_rounded,
+                    label: 'Projects',
+                    count: projectVideoCount,
                     onTap: () => onTabSelected(0),
                   ),
-                  _TabItem(
-                    index: 1,
-                    activeIndex: activeIndex,
-                    icon: Icons.photo_library_outlined,
-                    label: 'Photos',
-                    count: photoCount,
-                    onTap: () => onTabSelected(1),
-                  ),
-                  _TabItem(
-                    index: 2,
-                    activeIndex: activeIndex,
-                    icon: Icons.threesixty_outlined,
-                    label: '360°',
-                    count: view360Count,
-                    onTap: () => onTabSelected(2),
-                  ),
-                ],
-              ),
-            ),
-            if (onToggleView != null)
-              SizedBox(
-                width: 40.w,
-                height: 40.w,
-                child: IconButton(
-                  padding: EdgeInsets.zero,
-                  onPressed: onToggleView,
-                  tooltip: isGridView ? 'List view' : 'Grid view',
-                  icon: Icon(
-                    isGridView
-                        ? Icons.view_list_rounded
-                        : Icons.grid_view_rounded,
-                    color: MediaTheme.white,
-                    size: 20.sp,
-                  ),
+                _TabItem(
+                  index: showProjectVideos ? 1 : 0,
+                  activeIndex: activeIndex,
+                  icon: Icons.videocam_outlined,
+                  label: 'Videos',
+                  count: videoCount,
+                  onTap: () => onTabSelected(showProjectVideos ? 1 : 0),
                 ),
-              ),
-          ],
-        ),
-        SizedBox(
-          height: 3.h,
-          child: LayoutBuilder(
-            builder: (context, constraints) {
-              final tabsWidth = onToggleView != null
-                  ? constraints.maxWidth
-                  : constraints.maxWidth;
-              final tabWidth = tabsWidth / 3;
-              return Stack(
-                clipBehavior: Clip.none,
-                children: [
-                  Align(
-                    alignment: Alignment.bottomCenter,
-                    child: Container(
-                      height: 1,
-                      color: MediaTheme.white.withValues(alpha: 0.15),
-                    ),
-                  ),
-                  AnimatedPositioned(
-                    duration: const Duration(milliseconds: 220),
-                    curve: Curves.easeOutCubic,
-                    left: tabWidth * activeIndex + tabWidth * 0.18,
-                    width: tabWidth * 0.64,
-                    bottom: 0,
-                    child: Container(
-                      height: 2,
-                      decoration: BoxDecoration(
-                        color: MediaTheme.white,
-                        borderRadius: BorderRadius.circular(999),
-                      ),
-                    ),
-                  ),
-                ],
-              );
-            },
+                _TabItem(
+                  index: showProjectVideos ? 2 : 1,
+                  activeIndex: activeIndex,
+                  icon: Icons.photo_library_outlined,
+                  label: 'Photos',
+                  count: photoCount,
+                  onTap: () => onTabSelected(showProjectVideos ? 2 : 1),
+                ),
+                _TabItem(
+                  index: showProjectVideos ? 3 : 2,
+                  activeIndex: activeIndex,
+                  icon: Icons.threesixty_outlined,
+                  label: '360°',
+                  count: view360Count,
+                  onTap: () => onTabSelected(showProjectVideos ? 3 : 2),
+                ),
+              ],
+            ),
           ),
         ),
+        if (onToggleView != null)
+          SizedBox(
+            width: 40.w,
+            height: 40.w,
+            child: IconButton(
+              padding: EdgeInsets.zero,
+              onPressed: onToggleView,
+              tooltip: isGridView ? 'List view' : 'Grid view',
+              icon: Icon(
+                isGridView
+                    ? Icons.view_list_rounded
+                    : Icons.grid_view_rounded,
+                color: MediaTheme.white,
+                size: 20.sp,
+              ),
+            ),
+          ),
       ],
     );
   }
@@ -148,43 +130,59 @@ class _TabItem extends StatelessWidget {
     return Expanded(
       child: InkWell(
         onTap: onTap,
-        child: Padding(
-          padding: EdgeInsets.symmetric(vertical: 4.h),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Padding(
+              padding: EdgeInsets.symmetric(vertical: 4.h),
+              child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Icon(icon, size: 14.sp, color: color),
-                  SizedBox(width: 3.w),
-                  Flexible(
-                    child: Text(
-                      label,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: GoogleFonts.poppins(
-                        fontSize: 10.sp,
-                        fontWeight: FontWeight.w600,
-                        color: color,
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(icon, size: 14.sp, color: color),
+                      SizedBox(width: 3.w),
+                      Flexible(
+                        child: Text(
+                          label,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: GoogleFonts.poppins(
+                            fontSize: 10.sp,
+                            fontWeight: FontWeight.w600,
+                            color: color,
+                          ),
+                        ),
                       ),
+                    ],
+                  ),
+                  Text(
+                    '$count',
+                    style: GoogleFonts.poppins(
+                      fontSize: 9.sp,
+                      fontWeight: FontWeight.w500,
+                      color: isActive
+                          ? MediaTheme.textSecondary
+                          : MediaTheme.textMuted,
                     ),
                   ),
                 ],
               ),
-              Text(
-                '$count',
-                style: GoogleFonts.poppins(
-                  fontSize: 9.sp,
-                  fontWeight: FontWeight.w500,
-                  color: isActive
-                      ? MediaTheme.textSecondary
-                      : MediaTheme.textMuted,
-                ),
+            ),
+            // Selection indicator sits on the shared hairline, per-tab width.
+            AnimatedContainer(
+              duration: const Duration(milliseconds: 220),
+              curve: Curves.easeOutCubic,
+              height: 2,
+              margin: EdgeInsets.symmetric(horizontal: 10.w),
+              decoration: BoxDecoration(
+                color: isActive ? MediaTheme.white : Colors.transparent,
+                borderRadius: BorderRadius.circular(999),
               ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );

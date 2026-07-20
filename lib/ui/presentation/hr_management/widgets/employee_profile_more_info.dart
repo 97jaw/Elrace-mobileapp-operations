@@ -1,3 +1,4 @@
+import 'package:el_race/core/utils/responsive_breakpoints.dart';
 import 'package:el_race/ui/presentation/hr_management/data/employee_profile_models.dart';
 import 'package:el_race/ui/presentation/hr_management/data/employees_profile_repository.dart';
 import 'package:flutter/material.dart';
@@ -29,7 +30,7 @@ Future<void> showEmployeeProfileMoreInfo({
     isScrollControlled: true,
     backgroundColor: Colors.white,
     shape: RoundedRectangleBorder(
-      borderRadius: BorderRadius.vertical(top: Radius.circular(20.r)),
+      borderRadius: BorderRadius.vertical(top: Radius.circular(20.tr)),
     ),
     builder: (ctx) => _MoreInfoMenuSheet(
       hostContext: hostContext,
@@ -106,7 +107,7 @@ class _MoreInfoMenuSheet extends StatelessWidget {
       isScrollControlled: true,
       backgroundColor: Colors.white,
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20.r)),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20.tr)),
       ),
       builder: (ctx) => _MoreInfoDetailSheet(
         hostContext: hostContext,
@@ -127,33 +128,33 @@ class _MoreInfoMenuSheet extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             Padding(
-              padding: EdgeInsets.fromLTRB(16.w, 12.h, 16.w, 8.h),
+              padding: EdgeInsets.fromLTRB(16.tw, 12.th, 16.tw, 8.th),
               child: Column(
                 children: [
                   Container(
-                    width: 40.w,
-                    height: 4.h,
+                    width: 40.tw,
+                    height: 4.th,
                     decoration: BoxDecoration(
                       color: Colors.black12,
                       borderRadius: BorderRadius.circular(999),
                     ),
                   ),
-                  SizedBox(height: 12.h),
+                  SizedBox(height: 12.th),
                   Text(
                     'Request more info',
                     style: GoogleFonts.poppins(
-                      fontSize: 16.sp,
+                      fontSize: 16.tsp,
                       fontWeight: FontWeight.w700,
                       color: _MoreInfoPalette.navy,
                     ),
                   ),
-                  SizedBox(height: 2.h),
+                  SizedBox(height: 2.th),
                   Text(
                     employeeName,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: GoogleFonts.poppins(
-                      fontSize: 12.sp,
+                      fontSize: 12.tsp,
                       color: _MoreInfoPalette.muted,
                     ),
                   ),
@@ -163,7 +164,7 @@ class _MoreInfoMenuSheet extends StatelessWidget {
             const Divider(height: 1, color: _MoreInfoPalette.border),
             Expanded(
               child: ListView.separated(
-                padding: EdgeInsets.fromLTRB(8.w, 4.h, 8.w, 12.h),
+                padding: EdgeInsets.fromLTRB(8.tw, 4.th, 8.tw, 12.th),
                 itemCount: _items.length,
                 separatorBuilder: (_, __) => const Divider(
                   height: 1,
@@ -183,12 +184,12 @@ class _MoreInfoMenuSheet extends StatelessWidget {
                       color: item.locked
                           ? _MoreInfoPalette.muted.withValues(alpha: 0.7)
                           : _MoreInfoPalette.navy,
-                      size: 20.sp,
+                      size: 20.tsp,
                     ),
                     title: Text(
                       item.label,
                       style: GoogleFonts.poppins(
-                        fontSize: 14.sp,
+                        fontSize: 14.tsp,
                         fontWeight: FontWeight.w600,
                         color: item.locked
                             ? _MoreInfoPalette.muted
@@ -199,7 +200,7 @@ class _MoreInfoMenuSheet extends StatelessWidget {
                         ? Text(
                             'Soon',
                             style: GoogleFonts.poppins(
-                              fontSize: 11.sp,
+                              fontSize: 11.tsp,
                               color: _MoreInfoPalette.muted,
                             ),
                           )
@@ -311,7 +312,7 @@ class _MoreInfoDetailSheetState extends State<_MoreInfoDetailSheet> {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             Padding(
-              padding: EdgeInsets.fromLTRB(8.w, 8.h, 12.w, 8.h),
+              padding: EdgeInsets.fromLTRB(8.tw, 8.th, 12.tw, 8.th),
               child: Row(
                 children: [
                   IconButton(
@@ -338,7 +339,7 @@ class _MoreInfoDetailSheetState extends State<_MoreInfoDetailSheet> {
                         Text(
                           _title,
                           style: GoogleFonts.poppins(
-                            fontSize: 16.sp,
+                            fontSize: 16.tsp,
                             fontWeight: FontWeight.w700,
                             color: _MoreInfoPalette.navy,
                           ),
@@ -348,7 +349,7 @@ class _MoreInfoDetailSheetState extends State<_MoreInfoDetailSheet> {
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           style: GoogleFonts.poppins(
-                            fontSize: 11.5.sp,
+                            fontSize: 11.5.tsp,
                             color: _MoreInfoPalette.muted,
                           ),
                         ),
@@ -393,18 +394,18 @@ class _SheetSpinner extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         children: [
           SizedBox(
-            width: 28.w,
-            height: 28.w,
+            width: 28.tw,
+            height: 28.tw,
             child: const CircularProgressIndicator(
               strokeWidth: 2.4,
               color: _MoreInfoPalette.navy,
             ),
           ),
-          SizedBox(height: 12.h),
+          SizedBox(height: 12.th),
           Text(
             'Loading…',
             style: GoogleFonts.poppins(
-              fontSize: 12.5.sp,
+              fontSize: 12.5.tsp,
               color: _MoreInfoPalette.muted,
             ),
           ),
@@ -424,7 +425,7 @@ class _SheetError extends StatelessWidget {
   Widget build(BuildContext context) {
     return Center(
       child: Padding(
-        padding: EdgeInsets.all(20.w),
+        padding: EdgeInsets.all(20.tw),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -432,7 +433,7 @@ class _SheetError extends StatelessWidget {
               message,
               textAlign: TextAlign.center,
               style: GoogleFonts.poppins(
-                fontSize: 13.sp,
+                fontSize: 13.tsp,
                 color: _MoreInfoPalette.muted,
               ),
             ),
@@ -488,7 +489,7 @@ class _SectionCard extends StatelessWidget {
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(12.r),
+        borderRadius: BorderRadius.circular(12.tr),
         border: Border.all(color: _MoreInfoPalette.border),
       ),
       clipBehavior: Clip.antiAlias,
@@ -497,14 +498,14 @@ class _SectionCard extends StatelessWidget {
         children: [
           Container(
             width: double.infinity,
-            padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 10.h),
+            padding: EdgeInsets.symmetric(horizontal: 12.tw, vertical: 10.th),
             color: darkHeader
                 ? _MoreInfoPalette.headerBg
                 : _MoreInfoPalette.softHeader,
             child: Text(
               title.toUpperCase(),
               style: GoogleFonts.poppins(
-                fontSize: 12.sp,
+                fontSize: 12.tsp,
                 fontWeight: FontWeight.w700,
                 letterSpacing: 0.4,
                 color: darkHeader ? Colors.white : _MoreInfoPalette.navy,
@@ -538,10 +539,10 @@ class _ContractBody extends StatelessWidget {
           ];
 
     return ListView(
-      padding: EdgeInsets.fromLTRB(12.w, 10.h, 12.w, 16.h),
+      padding: EdgeInsets.fromLTRB(12.tw, 10.th, 12.tw, 16.th),
       children: [
         _MiniEmployeeCard(employee: emp),
-        SizedBox(height: 10.h),
+        SizedBox(height: 10.th),
         _SectionCard(
           title: 'Salary Details',
           child: salaryRows.isEmpty
@@ -564,7 +565,7 @@ class _ContractBody extends StatelessWidget {
                   ],
                 ),
         ),
-        SizedBox(height: 10.h),
+        SizedBox(height: 10.th),
         _SectionCard(
           title: 'Increment History',
           darkHeader: true,
@@ -581,7 +582,7 @@ class _ContractBody extends StatelessWidget {
                   ],
                 ),
         ),
-        SizedBox(height: 10.h),
+        SizedBox(height: 10.th),
         _SectionCard(
           title: 'Bonuses',
           darkHeader: true,
@@ -619,10 +620,10 @@ class _MiniEmployeeCard extends StatelessWidget {
     ].join(' · ');
 
     return Container(
-      padding: EdgeInsets.all(12.w),
+      padding: EdgeInsets.all(12.tw),
       decoration: BoxDecoration(
         color: _MoreInfoPalette.panel,
-        borderRadius: BorderRadius.circular(12.r),
+        borderRadius: BorderRadius.circular(12.tr),
         border: Border.all(color: _MoreInfoPalette.border),
       ),
       child: Column(
@@ -631,17 +632,17 @@ class _MiniEmployeeCard extends StatelessWidget {
           Text(
             employee.name,
             style: GoogleFonts.poppins(
-              fontSize: 14.sp,
+              fontSize: 14.tsp,
               fontWeight: FontWeight.w700,
               color: _MoreInfoPalette.navy,
             ),
           ),
           if (meta.isNotEmpty) ...[
-            SizedBox(height: 4.h),
+            SizedBox(height: 4.th),
             Text(
               meta,
               style: GoogleFonts.poppins(
-                fontSize: 11.5.sp,
+                fontSize: 11.5.tsp,
                 color: _MoreInfoPalette.muted,
               ),
             ),
@@ -669,7 +670,7 @@ class _SalaryRow extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       color: emphasize ? const Color(0xFFEEF3FF) : Colors.white,
-      padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 11.h),
+      padding: EdgeInsets.symmetric(horizontal: 12.tw, vertical: 11.th),
       child: Row(
         children: [
           Expanded(
@@ -677,36 +678,36 @@ class _SalaryRow extends StatelessWidget {
             child: Text(
               label,
               style: GoogleFonts.poppins(
-                fontSize: 12.5.sp,
+                fontSize: 12.5.tsp,
                 fontWeight: FontWeight.w700,
                 color: _MoreInfoPalette.ink,
               ),
             ),
           ),
-          Container(width: 1, height: 18.h, color: _MoreInfoPalette.border),
+          Container(width: 1, height: 18.th, color: _MoreInfoPalette.border),
           Expanded(
             flex: 4,
             child: Padding(
-              padding: EdgeInsets.symmetric(horizontal: 10.w),
+              padding: EdgeInsets.symmetric(horizontal: 10.tw),
               child: Text(
                 _fmtMoney(amount),
                 style: GoogleFonts.poppins(
-                  fontSize: 12.5.sp,
+                  fontSize: 12.5.tsp,
                   fontWeight: FontWeight.w700,
                   color: _MoreInfoPalette.ink,
                 ),
               ),
             ),
           ),
-          Container(width: 1, height: 18.h, color: _MoreInfoPalette.border),
+          Container(width: 1, height: 18.th, color: _MoreInfoPalette.border),
           Expanded(
             flex: 3,
             child: Padding(
-              padding: EdgeInsets.only(left: 10.w),
+              padding: EdgeInsets.only(left: 10.tw),
               child: Text(
                 unit,
                 style: GoogleFonts.poppins(
-                  fontSize: 12.sp,
+                  fontSize: 12.tsp,
                   fontWeight: FontWeight.w400,
                   color: _MoreInfoPalette.ink,
                 ),
@@ -728,7 +729,7 @@ class _HistoryHeader extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       color: _MoreInfoPalette.headerBg,
-      padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 8.h),
+      padding: EdgeInsets.symmetric(horizontal: 12.tw, vertical: 8.th),
       child: Row(
         children: [
           for (var i = 0; i < columns.length; i++)
@@ -739,7 +740,7 @@ class _HistoryHeader extends StatelessWidget {
                     ? TextAlign.right
                     : TextAlign.left,
                 style: GoogleFonts.poppins(
-                  fontSize: 11.sp,
+                  fontSize: 11.tsp,
                   fontWeight: FontWeight.w700,
                   color: Colors.white,
                   letterSpacing: 0.3,
@@ -771,7 +772,7 @@ class _HistoryDataRow extends StatelessWidget {
           bottom: BorderSide(color: _MoreInfoPalette.border),
         ),
       ),
-      padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 10.h),
+      padding: EdgeInsets.symmetric(horizontal: 12.tw, vertical: 10.th),
       child: Row(
         children: [
           Expanded(
@@ -779,7 +780,7 @@ class _HistoryDataRow extends StatelessWidget {
               left,
               textAlign: leftAlignRight ? TextAlign.right : TextAlign.left,
               style: GoogleFonts.poppins(
-                fontSize: 12.sp,
+                fontSize: 12.tsp,
                 fontWeight: FontWeight.w600,
                 color: _MoreInfoPalette.ink,
               ),
@@ -790,7 +791,7 @@ class _HistoryDataRow extends StatelessWidget {
               right,
               textAlign: TextAlign.right,
               style: GoogleFonts.poppins(
-                fontSize: 12.sp,
+                fontSize: 12.tsp,
                 fontWeight: FontWeight.w600,
                 color: _MoreInfoPalette.ink,
               ),
@@ -810,11 +811,11 @@ class _EmptyNote extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 16.h),
+      padding: EdgeInsets.symmetric(horizontal: 12.tw, vertical: 16.th),
       child: Text(
         text,
         style: GoogleFonts.poppins(
-          fontSize: 12.sp,
+          fontSize: 12.tsp,
           color: _MoreInfoPalette.muted,
         ),
       ),
@@ -832,13 +833,13 @@ class _DocumentsBody extends StatelessWidget {
     return Column(
       children: [
         Padding(
-          padding: EdgeInsets.fromLTRB(12.w, 10.h, 12.w, 8.h),
+          padding: EdgeInsets.fromLTRB(12.tw, 10.th, 12.tw, 8.th),
           child: Row(
             children: [
               _SummaryChip(label: 'All', value: '${detail.total}'),
-              SizedBox(width: 8.w),
+              SizedBox(width: 8.tw),
               _SummaryChip(label: 'Family', value: '${detail.family}'),
-              SizedBox(width: 8.w),
+              SizedBox(width: 8.tw),
               _SummaryChip(label: 'Employee', value: '${detail.nonFamily}'),
             ],
           ),
@@ -849,22 +850,22 @@ class _DocumentsBody extends StatelessWidget {
                   child: Text(
                     'No documents found.',
                     style: GoogleFonts.poppins(
-                      fontSize: 13.sp,
+                      fontSize: 13.tsp,
                       color: _MoreInfoPalette.muted,
                     ),
                   ),
                 )
               : ListView.separated(
-                  padding: EdgeInsets.fromLTRB(12.w, 0, 12.w, 16.h),
+                  padding: EdgeInsets.fromLTRB(12.tw, 0, 12.tw, 16.th),
                   itemCount: detail.documents.length,
-                  separatorBuilder: (_, __) => SizedBox(height: 8.h),
+                  separatorBuilder: (_, __) => SizedBox(height: 8.th),
                   itemBuilder: (context, index) {
                     final doc = detail.documents[index];
                     return Container(
-                      padding: EdgeInsets.all(12.w),
+                      padding: EdgeInsets.all(12.tw),
                       decoration: BoxDecoration(
                         color: Colors.white,
-                        borderRadius: BorderRadius.circular(12.r),
+                        borderRadius: BorderRadius.circular(12.tr),
                         border: Border.all(color: _MoreInfoPalette.border),
                       ),
                       child: Column(
@@ -878,7 +879,7 @@ class _DocumentsBody extends StatelessWidget {
                                       ? (doc.documentType ?? 'Document')
                                       : doc.name,
                                   style: GoogleFonts.poppins(
-                                    fontSize: 13.sp,
+                                    fontSize: 13.tsp,
                                     fontWeight: FontWeight.w700,
                                     color: _MoreInfoPalette.ink,
                                   ),
@@ -887,7 +888,7 @@ class _DocumentsBody extends StatelessWidget {
                               _DocStatusChip(status: doc.status),
                             ],
                           ),
-                          SizedBox(height: 4.h),
+                          SizedBox(height: 4.th),
                           Text(
                             [
                               if ((doc.documentType ?? '').isNotEmpty)
@@ -897,7 +898,7 @@ class _DocumentsBody extends StatelessWidget {
                                 'Exp ${_fmtDateDmy(doc.expiryDate)}',
                             ].join(' · '),
                             style: GoogleFonts.poppins(
-                              fontSize: 11.5.sp,
+                              fontSize: 11.5.tsp,
                               color: _MoreInfoPalette.muted,
                             ),
                           ),
@@ -922,10 +923,10 @@ class _SummaryChip extends StatelessWidget {
   Widget build(BuildContext context) {
     return Expanded(
       child: Container(
-        padding: EdgeInsets.symmetric(vertical: 8.h),
+        padding: EdgeInsets.symmetric(vertical: 8.th),
         decoration: BoxDecoration(
           color: _MoreInfoPalette.softHeader,
-          borderRadius: BorderRadius.circular(10.r),
+          borderRadius: BorderRadius.circular(10.tr),
           border: Border.all(color: _MoreInfoPalette.border),
         ),
         child: Column(
@@ -933,7 +934,7 @@ class _SummaryChip extends StatelessWidget {
             Text(
               value,
               style: GoogleFonts.poppins(
-                fontSize: 14.sp,
+                fontSize: 14.tsp,
                 fontWeight: FontWeight.w700,
                 color: _MoreInfoPalette.navy,
               ),
@@ -941,7 +942,7 @@ class _SummaryChip extends StatelessWidget {
             Text(
               label,
               style: GoogleFonts.poppins(
-                fontSize: 10.5.sp,
+                fontSize: 10.5.tsp,
                 color: _MoreInfoPalette.muted,
               ),
             ),
@@ -977,15 +978,15 @@ class _DocStatusChip extends StatelessWidget {
         label = 'Valid';
     }
     return Container(
-      padding: EdgeInsets.symmetric(horizontal: 8.w, vertical: 3.h),
+      padding: EdgeInsets.symmetric(horizontal: 8.tw, vertical: 3.th),
       decoration: BoxDecoration(
         color: bg,
-        borderRadius: BorderRadius.circular(8.r),
+        borderRadius: BorderRadius.circular(8.tr),
       ),
       child: Text(
         label,
         style: GoogleFonts.poppins(
-          fontSize: 10.sp,
+          fontSize: 10.tsp,
           fontWeight: FontWeight.w700,
           color: fg,
         ),
@@ -1002,10 +1003,10 @@ class _FleetBody extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ListView(
-      padding: EdgeInsets.fromLTRB(12.w, 10.h, 12.w, 16.h),
+      padding: EdgeInsets.fromLTRB(12.tw, 10.th, 12.tw, 16.th),
       children: [
         _MiniEmployeeCard(employee: detail.employee),
-        SizedBox(height: 10.h),
+        SizedBox(height: 10.th),
         _SectionCard(
           title: 'Fleet Vehicles',
           darkHeader: true,

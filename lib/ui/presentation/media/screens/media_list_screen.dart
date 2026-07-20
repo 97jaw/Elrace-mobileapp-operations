@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:el_race/core/utils/shared_pref.dart';
+import 'package:el_race/ui/presentation/my_projects/presentation/utils/projects_dashboard_access.dart';
 import 'package:el_race/ui/widgets/header_widget.dart';
 import 'package:el_race/utils/color_utils.dart';
 import 'package:el_race/utils/di.dart';
@@ -22,9 +23,9 @@ import '../theme/media_theme.dart';
 import '../widgets/media_item_widget.dart';
 import '../widgets/content_item_widget.dart';
 import '../repository/i_media_repository.dart';
-import '../utils/media_hero_selector.dart';
 import '../utils/media_video_preloader.dart';
 import '../widgets/media_content_landing_screen.dart';
+import '../widgets/media_photo_viewer.dart';
 import '../widgets/media_videos_landing_screen.dart';
 import 'yoyo_video_player_screen.dart';
 import '../../lpo/screens/lpo_pdf_viewer_screen.dart';
@@ -40,6 +41,7 @@ class MediaListScreen extends StatefulWidget {
 }
 
 enum _MediaFilterTab {
+  projectVideos,
   videos,
   photos,
   view360,
@@ -49,14 +51,33 @@ class _MediaListScreenState extends State<MediaListScreen> {
   final TextEditingController _searchController = TextEditingController();
   Timer? _debounce;
   final bool _showSearch = false;
+  late final bool _showProjectVideos =
+      ProjectsDashboardAccess.canSeeProjectVideos();
   _MediaFilterTab _activeTab = _MediaFilterTab.videos;
+  final GlobalKey _projectVideosTabKey = GlobalKey();
   final GlobalKey _videosTabKey = GlobalKey();
   final GlobalKey _photosTabKey = GlobalKey();
   final GlobalKey _view360TabKey = GlobalKey();
   int _photoCount = 0;
   int _view360Count = 0;
   int _videoCount = 0;
+  int _projectVideoCount = 0;
   ContentsResponse? _cachedContents;
+
+  List<_MediaFilterTab> get _visibleTabs => [
+        if (_showProjectVideos) _MediaFilterTab.projectVideos,
+        _MediaFilterTab.videos,
+        _MediaFilterTab.photos,
+        _MediaFilterTab.view360,
+      ];
+
+  int _tabToIndex(_MediaFilterTab tab) => _visibleTabs.indexOf(tab);
+
+  _MediaFilterTab _indexToTab(int index) {
+    final tabs = _visibleTabs;
+    if (index < 0 || index >= tabs.length) return _MediaFilterTab.videos;
+    return tabs[index];
+  }
 
   Map<String, String>? get _imageHeaders {
     final token = SharedPref.getLoginData().result?.token;
@@ -122,7 +143,7 @@ class _MediaListScreenState extends State<MediaListScreen> {
     setState(() => _activeTab = tab);
 
     // Fetch appropriate data based on tab
-    if (tab == _MediaFilterTab.videos) {
+    if (tab == _MediaFilterTab.videos || tab == _MediaFilterTab.projectVideos) {
       context.read<MediaBloc>().add(const FetchMediaList());
     } else {
       context.read<MediaBloc>().add(const FetchContents());
@@ -131,6 +152,9 @@ class _MediaListScreenState extends State<MediaListScreen> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final BuildContext? ctx;
       switch (tab) {
+        case _MediaFilterTab.projectVideos:
+          ctx = _projectVideosTabKey.currentContext;
+          break;
         case _MediaFilterTab.videos:
           ctx = _videosTabKey.currentContext;
           break;
@@ -174,10 +198,18 @@ class _MediaListScreenState extends State<MediaListScreen> {
     super.dispose();
   }
 
-  List<MediaModel> _filteredVideos(MediaLoaded state) {
+  List<MediaModel> _filteredVideos(
+    MediaLoaded state, {
+    required bool favoritesOnly,
+  }) {
     final q = _searchController.text.trim().toLowerCase();
     return state.mediaList.where((m) {
       if (!m.isVideo) return false;
+      if (favoritesOnly) {
+        if (!m.isFavorite) return false;
+      } else if (m.isFavorite) {
+        return false;
+      }
       if (q.isEmpty) return true;
 
       final name = m.name.toLowerCase();
@@ -286,6 +318,7 @@ class _MediaListScreenState extends State<MediaListScreen> {
 
   Widget _buildRedesignBody(BuildContext context, MediaState state) {
     switch (_activeTab) {
+      case _MediaFilterTab.projectVideos:
       case _MediaFilterTab.videos:
         return _buildVideosRedesignBody(context, state);
       case _MediaFilterTab.photos:
@@ -325,12 +358,14 @@ class _MediaListScreenState extends State<MediaListScreen> {
       is360Mode: is360,
       imageHeaders: _imageHeaders,
       onBack: () => Navigator.of(context).pop(),
-      activeTabIndex: _activeTab.index,
+      activeTabIndex: _tabToIndex(_activeTab),
       videoCount: _videoCount,
       photoCount: _photoCount,
       view360Count: _view360Count,
+      showProjectVideos: _showProjectVideos,
+      projectVideoCount: _projectVideoCount,
       onTabSelected: (index) {
-        _setActiveTab(_MediaFilterTab.values[index]);
+        _setActiveTab(_indexToTab(index));
       },
       onOpenPhoto: (content) => _openPhotoOrPdf(context, content),
       onOpen360: (_) {},
@@ -349,7 +384,8 @@ class _MediaListScreenState extends State<MediaListScreen> {
     }
 
     if (state is MediaLoaded) {
-      final videos = _filteredVideos(state);
+      final favoritesOnly = _activeTab == _MediaFilterTab.projectVideos;
+      final videos = _filteredVideos(state, favoritesOnly: favoritesOnly);
       return MediaVideosLandingScreen(
         mediaList: videos,
         onVideoTap: (media) => _openVideoPlayer(
@@ -358,12 +394,14 @@ class _MediaListScreenState extends State<MediaListScreen> {
           playlist: videos,
         ),
         onBack: () => Navigator.of(context).pop(),
-        activeTabIndex: _activeTab.index,
+        activeTabIndex: _tabToIndex(_activeTab),
         videoCount: _videoCount,
         photoCount: _photoCount,
         view360Count: _view360Count,
+        showProjectVideos: _showProjectVideos,
+        projectVideoCount: _projectVideoCount,
         onTabSelected: (index) {
-          _setActiveTab(_MediaFilterTab.values[index]);
+          _setActiveTab(_indexToTab(index));
         },
       );
     }
@@ -452,7 +490,10 @@ class _MediaListScreenState extends State<MediaListScreen> {
         }
         if (state is MediaLoaded) {
           final videos = state.mediaList.where((m) => m.isVideo).toList();
-          setState(() => _videoCount = videos.length);
+          setState(() {
+            _videoCount = videos.where((m) => !m.isFavorite).length;
+            _projectVideoCount = videos.where((m) => m.isFavorite).length;
+          });
           MediaVideoPreloader.preloadLandingVideos(videos);
         }
         if (state is ContentsLoaded) {
@@ -500,8 +541,15 @@ class _MediaListScreenState extends State<MediaListScreen> {
                     child: Column(
                       children: [
                         if (state is MediaLoaded &&
-                            _activeTab == _MediaFilterTab.videos)
-                          _buildLegacyVideosList(_filteredVideos(state))
+                            (_activeTab == _MediaFilterTab.videos ||
+                                _activeTab == _MediaFilterTab.projectVideos))
+                          _buildLegacyVideosList(
+                            _filteredVideos(
+                              state,
+                              favoritesOnly:
+                                  _activeTab == _MediaFilterTab.projectVideos,
+                            ),
+                          )
                         else if (state is ContentsLoaded)
                           _buildContentsList(state.contents)
                         else if (state is MediaError)
@@ -613,6 +661,13 @@ class _MediaListScreenState extends State<MediaListScreen> {
       physics: const BouncingScrollPhysics(),
       child: Row(
         children: [
+          if (_showProjectVideos) ...[
+            buildTab(
+                tab: _MediaFilterTab.projectVideos,
+                tabKey: _projectVideosTabKey,
+                child: label('PROJECTS')),
+            SizedBox(width: 10.w),
+          ],
           buildTab(
               tab: _MediaFilterTab.videos,
               tabKey: _videosTabKey,
@@ -1066,7 +1121,16 @@ class _MediaListScreenState extends State<MediaListScreen> {
     }
 
     if (!context.mounted) return;
-    _showPhotoPreview(context, [content], initialIndex: 0);
+    final gallery = _cachedContents != null
+        ? _filteredPhotos(_cachedContents!)
+        : <ContentModel>[content];
+    final photos = gallery.isEmpty ? [content] : gallery;
+    final index = photos.indexWhere((p) => p.id == content.id);
+    _showPhotoPreview(
+      context,
+      photos,
+      initialIndex: index >= 0 ? index : 0,
+    );
   }
 
   Future<void> _sharePhotoItem(ContentModel content) async {
@@ -1082,8 +1146,8 @@ class _MediaListScreenState extends State<MediaListScreen> {
         await launchUrl(url, mode: LaunchMode.externalApplication);
       }
     } else {
-      // Show photo in full screen or dialog
-      _showPhotoPreview(context, [content], initialIndex: 0);
+      // Show photo in full screen
+      await _openPhotoOrPdf(context, content);
     }
   }
 
@@ -1094,145 +1158,19 @@ class _MediaListScreenState extends State<MediaListScreen> {
   }) {
     if (photos.isEmpty) return;
 
-    final safeInitialIndex = initialIndex.clamp(0, photos.length - 1).toInt();
-    final pageController = PageController(initialPage: safeInitialIndex);
-
-    showDialog(
-      context: context,
-      builder: (dialogContext) {
-        int currentIndex = safeInitialIndex;
-        return StatefulBuilder(
-          builder: (context, setDialogState) => Dialog(
-            backgroundColor: Colors.transparent,
-            insetPadding:
-                EdgeInsets.symmetric(horizontal: 10.w, vertical: 18.h),
-            child: Stack(
-              children: [
-                Center(
-                  child: ClipRRect(
-                    borderRadius: BorderRadius.circular(12.r),
-                    child: AspectRatio(
-                      aspectRatio: 1,
-                      child: PageView.builder(
-                        controller: pageController,
-                        itemCount: photos.length,
-                        onPageChanged: (index) {
-                          setDialogState(() => currentIndex = index);
-                        },
-                        itemBuilder: (context, index) {
-                          final content = photos[index];
-                          return Image.network(
-                            _safeImageUrl(content.displayImageUrl),
-                            headers: _imageHeaders,
-                            fit: BoxFit.contain,
-                            loadingBuilder: (context, child, loadingProgress) {
-                              if (loadingProgress == null) return child;
-                              return Container(
-                                color: Colors.black54,
-                                child: const Center(
-                                  child: CircularProgressIndicator(
-                                      color: Colors.white),
-                                ),
-                              );
-                            },
-                            errorBuilder: (context, error, stackTrace) {
-                              _logPhotoLoadError(
-                                source: 'preview',
-                                rawUrl: content.displayImageUrl,
-                                error: error,
-                              );
-                              return Container(
-                                color: Colors.black54,
-                                child: const Center(
-                                  child: Icon(Icons.error,
-                                      color: Colors.white, size: 48),
-                                ),
-                              );
-                            },
-                          );
-                        },
-                      ),
-                    ),
-                  ),
-                ),
-                Positioned(
-                  top: 0,
-                  right: 0,
-                  child: IconButton(
-                    onPressed: () => Navigator.of(dialogContext).pop(),
-                    icon: Container(
-                      padding: const EdgeInsets.all(4),
-                      decoration: const BoxDecoration(
-                        color: Colors.black54,
-                        shape: BoxShape.circle,
-                      ),
-                      child: const Icon(Icons.close, color: Colors.white),
-                    ),
-                  ),
-                ),
-                if (photos.length > 1)
-                  Positioned(
-                    top: 12,
-                    left: 12,
-                    child: Container(
-                      padding:
-                          EdgeInsets.symmetric(horizontal: 10.w, vertical: 4.h),
-                      decoration: BoxDecoration(
-                        color: Colors.black54,
-                        borderRadius: BorderRadius.circular(12.r),
-                      ),
-                      child: Text(
-                        '${currentIndex + 1}/${photos.length}',
-                        style: GoogleFonts.poppins(
-                          fontSize: 12.sp,
-                          color: Colors.white,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ),
-                  ),
-                Positioned(
-                  bottom: 16,
-                  left: 16,
-                  right: 16,
-                  child: Container(
-                    padding: EdgeInsets.all(12.w),
-                    decoration: BoxDecoration(
-                      color: Colors.black54,
-                      borderRadius: BorderRadius.circular(8.r),
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text(
-                          photos[currentIndex].displayName,
-                          style: GoogleFonts.poppins(
-                            fontSize: 16.sp,
-                            color: Colors.white,
-                            letterSpacing: 1.0,
-                          ),
-                        ),
-                        if (photos[currentIndex].projectName.isNotEmpty) ...[
-                          SizedBox(height: 4.h),
-                          Text(
-                            photos[currentIndex].projectName,
-                            style: GoogleFonts.poppins(
-                              fontSize: 12.sp,
-                              color: Colors.white70,
-                              letterSpacing: 0.8,
-                            ),
-                          ),
-                        ],
-                      ],
-                    ),
-                  ),
-                ),
-              ],
+    MediaPhotoViewer.open(
+      context,
+      items: photos
+          .map(
+            (p) => MediaPhotoViewerItem(
+              imageUrl: p.displayImageUrl,
+              title: p.displayName,
+              subtitle: p.projectName,
             ),
-          ),
-        );
-      },
+          )
+          .toList(),
+      initialIndex: initialIndex,
+      imageHeaders: _imageHeaders,
     );
   }
 
@@ -1309,7 +1247,8 @@ class _MediaListScreenState extends State<MediaListScreen> {
             ElevatedButton(
               onPressed: () {
                 // Retry based on current tab
-                if (_activeTab == _MediaFilterTab.videos) {
+                if (_activeTab == _MediaFilterTab.videos ||
+                    _activeTab == _MediaFilterTab.projectVideos) {
                   context.read<MediaBloc>().add(const FetchMediaList());
                 } else {
                   context.read<MediaBloc>().add(const FetchContents());

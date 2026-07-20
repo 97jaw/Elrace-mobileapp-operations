@@ -6,6 +6,7 @@ import 'package:el_race/core/site_management/face_recognition/data/models/face_e
 import 'package:el_race/core/site_management/face_recognition/face_recognition_provider.dart';
 import 'package:el_race/core/theme/timesheet_module_theme.dart';
 import 'package:el_race/core/timesheet/network/timesheet_odoo_employee.dart';
+import 'package:el_race/core/timesheet/providers/timesheet_enrollment_status_provider.dart';
 import 'package:el_race/core/timesheet/providers/timesheet_hr_scope_provider.dart';
 import 'package:el_race/core/timesheet/services/face_capture_service.dart';
 import 'package:el_race/core/timesheet/services/timesheet_project_access_service.dart';
@@ -16,6 +17,10 @@ import 'package:el_race/ui/presentation/timesheet/timesheet_route_args.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:phosphor_flutter/phosphor_flutter.dart';
+
+/// Success/ready highlight for enrollment guides, mask, pose dots and the
+/// completion state — green so it reads as "good", not an error red.
+const Color _kEnrollReadyGreen = Color(0xFF3DDC84);
 
 /// Guided multi-pose enrollment — auto-capture when pose + quality pass.
 class FmFaceEnrollCaptureScreen extends ConsumerStatefulWidget {
@@ -36,6 +41,8 @@ class _FmFaceEnrollCaptureScreenState
   final _captureService = TimesheetFaceCaptureService();
   CameraController? _controller;
   CameraDescription? _camera;
+  List<CameraDescription> _cameras = const [];
+  bool _cameraSwitching = false;
   bool _initializing = true;
   String? _initError;
   bool _capturing = false;
@@ -54,6 +61,9 @@ class _FmFaceEnrollCaptureScreenState
   bool _autoCaptureInFlight = false;
   int _consecutiveReadyFrames = 0;
 
+  bool get _isFrontCamera =>
+      _camera?.lensDirection == CameraLensDirection.front;
+
   static const _streamInterval = Duration(milliseconds: 550);
   static const _holdReadyDuration = Duration(milliseconds: 750);
   static const _requiredReadyFrames = 3;
@@ -67,9 +77,9 @@ class _FmFaceEnrollCaptureScreenState
 
   Color get _frameColor {
     if (_paths.containsKey(_currentPose) && _capturing) {
-      return TimesheetModuleColors.primary;
+      return _kEnrollReadyGreen;
     }
-    if (_previewReady) return TimesheetModuleColors.primary;
+    if (_previewReady) return _kEnrollReadyGreen;
     if (_qualityStatus == TimesheetFaceQualityStatus.poseOutOfRange) {
       return const Color(0xFFFFB74D);
     }
@@ -102,27 +112,17 @@ class _FmFaceEnrollCaptureScreenState
     }
     try {
       final cameras = await _captureService.availableCameraDescriptions();
-      final front = cameras.firstWhere(
-        (c) => c.lensDirection == CameraLensDirection.front,
+      if (cameras.isEmpty) {
+        throw StateError('No camera found on this device');
+      }
+      final preferred = cameras.firstWhere(
+        (c) => c.lensDirection == CameraLensDirection.back,
         orElse: () => cameras.first,
       );
-      final controller = CameraController(
-        front,
-        Platform.isIOS ? ResolutionPreset.high : ResolutionPreset.medium,
-        enableAudio: false,
-        imageFormatGroup:
-            Platform.isAndroid ? ImageFormatGroup.yuv420 : null,
-      );
-      await controller.initialize();
-      await controller.setFlashMode(FlashMode.off);
-      await controller.setFocusMode(FocusMode.auto);
-      if (!mounted) {
-        await controller.dispose();
-        return;
-      }
+      _cameras = cameras;
+      await _openCamera(preferred);
+      if (!mounted) return;
       setState(() {
-        _controller = controller;
-        _camera = front;
         _initializing = false;
         _hint = _currentPose.instruction;
       });
@@ -133,6 +133,75 @@ class _FmFaceEnrollCaptureScreenState
         _initializing = false;
         _initError = 'Could not open camera: $e';
       });
+    }
+  }
+
+  Future<void> _resetCameraZoom(CameraController controller) async {
+    try {
+      final minZoom = await controller.getMinZoomLevel();
+      await controller.setZoomLevel(minZoom);
+    } catch (e) {
+      debugPrint('FmFaceEnroll: zoom reset failed: $e');
+    }
+  }
+
+  Future<void> _openCamera(CameraDescription camera) async {
+    final controller = CameraController(
+      camera,
+      Platform.isIOS ? ResolutionPreset.high : ResolutionPreset.medium,
+      enableAudio: false,
+      imageFormatGroup: Platform.isAndroid ? ImageFormatGroup.yuv420 : null,
+    );
+    await controller.initialize();
+    await controller.setFlashMode(FlashMode.off);
+    await controller.setFocusMode(FocusMode.auto);
+    await _resetCameraZoom(controller);
+    if (!mounted) {
+      await controller.dispose();
+      return;
+    }
+    final old = _controller;
+    setState(() {
+      _controller = controller;
+      _camera = camera;
+    });
+    await old?.dispose();
+  }
+
+  Future<void> _switchCamera() async {
+    if (_cameras.length < 2 ||
+        _cameraSwitching ||
+        _capturing ||
+        _processing) {
+      return;
+    }
+    _cameraSwitching = true;
+    try {
+      await _stopStream();
+      // Toggle strictly between front and back so devices with several back
+      // lenses (wide/ultrawide/tele) don't get stuck on a same-side lens.
+      final wantDirection = _isFrontCamera
+          ? CameraLensDirection.back
+          : CameraLensDirection.front;
+      final next = _cameras.firstWhere(
+        (c) => c.lensDirection == wantDirection,
+        orElse: () => _cameras.firstWhere(
+          (c) => c != _camera,
+          orElse: () => _cameras.first,
+        ),
+      );
+      await _openCamera(next);
+      if (!mounted) return;
+      setState(() {
+        _previewReady = false;
+        _consecutiveReadyFrames = 0;
+        _readySince = null;
+        _suppressAutoUntil =
+            DateTime.now().add(const Duration(milliseconds: 800));
+      });
+      await _startStream();
+    } finally {
+      _cameraSwitching = false;
     }
   }
 
@@ -169,7 +238,7 @@ class _FmFaceEnrollCaptureScreenState
         final preview = await _captureService.validateEnrollmentFrame(
           photo.path,
           _currentPose,
-          frontCamera: true,
+          frontCamera: _isFrontCamera,
           requireSharpness: false,
         );
         try {
@@ -231,7 +300,7 @@ class _FmFaceEnrollCaptureScreenState
       final preview = await _captureService.previewEnrollmentPose(
         inputImage,
         _currentPose,
-        frontCamera: true,
+        frontCamera: _isFrontCamera,
       );
       if (!mounted) return;
 
@@ -291,7 +360,7 @@ class _FmFaceEnrollCaptureScreenState
       final validation = await _captureService.validateEnrollmentFrame(
         file.path,
         _currentPose,
-        frontCamera: true,
+        frontCamera: _isFrontCamera,
         requireSharpness: !auto,
         trustStreamPose: auto,
       );
@@ -346,8 +415,6 @@ class _FmFaceEnrollCaptureScreenState
       _processStep = FmFaceEnrollProcessStep.validating;
       _processError = null;
     });
-    await Future<void>.delayed(const Duration(milliseconds: 400));
-    if (!mounted) return;
     setState(() => _processStep = FmFaceEnrollProcessStep.uploading);
 
     final result =
@@ -369,12 +436,12 @@ class _FmFaceEnrollCaptureScreenState
     }
 
     setState(() => _processStep = FmFaceEnrollProcessStep.submitted);
-    await Future<void>.delayed(const Duration(milliseconds: 1200));
-    if (!mounted) return;
-
     ref.invalidate(timesheetHrScopeProvider);
+    ref.invalidate(timesheetForemanEnrollmentMapProvider);
+    await Future<void>.delayed(const Duration(milliseconds: 450));
+    if (!mounted) return;
     setState(() => _processStep = FmFaceEnrollProcessStep.done);
-    await Future<void>.delayed(const Duration(milliseconds: 1400));
+    await Future<void>.delayed(const Duration(milliseconds: 350));
     if (!mounted) return;
 
     Navigator.of(context).pop(true);
@@ -440,6 +507,18 @@ class _FmFaceEnrollCaptureScreenState
                             : () => Navigator.maybePop(context),
                         icon: Icon(PhosphorIcons.x(), color: Colors.white),
                       ),
+                      IconButton(
+                        tooltip: 'Switch camera',
+                        onPressed: _processing ||
+                                _capturing ||
+                                _cameras.length < 2
+                            ? null
+                            : _switchCamera,
+                        icon: Icon(
+                          PhosphorIcons.cameraRotate(),
+                          color: Colors.white70,
+                        ),
+                      ),
                       Expanded(
                         child: Text(
                           _capturing
@@ -476,6 +555,7 @@ class _FmFaceEnrollCaptureScreenState
               bottom: 120,
               child: TmPrimaryButton(
                 label: 'Try again',
+                warm: true,
                 onPressed: _dismissProcessError,
               ),
             ),
@@ -525,9 +605,7 @@ class _QualityStatusRow extends StatelessWidget {
               Icon(
                 icon,
                 size: 18,
-                color: ready
-                    ? TimesheetModuleColors.primary
-                    : Colors.white70,
+                color: ready ? _kEnrollReadyGreen : Colors.white70,
               ),
               const SizedBox(width: 8),
               Flexible(
@@ -662,7 +740,7 @@ class _PoseDot extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final color = done
-        ? TimesheetModuleColors.primary
+        ? _kEnrollReadyGreen
         : active
             ? Colors.white
             : Colors.white38;
@@ -674,7 +752,7 @@ class _PoseDot extends StatelessWidget {
           decoration: BoxDecoration(
             shape: BoxShape.circle,
             color: done
-                ? TimesheetModuleColors.primary.withValues(alpha: 0.25)
+                ? _kEnrollReadyGreen.withValues(alpha: 0.25)
                 : Colors.black38,
             border: Border.all(color: color, width: 2),
           ),

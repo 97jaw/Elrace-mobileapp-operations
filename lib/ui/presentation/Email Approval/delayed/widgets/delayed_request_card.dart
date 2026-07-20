@@ -1,3 +1,4 @@
+import 'package:el_race/core/utils/responsive_breakpoints.dart';
 import 'package:el_race/core/constants/app_images.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
@@ -32,20 +33,20 @@ class DelayedRequestCard extends StatelessWidget {
     const double stripWidth = 34;
 
     return Container(
-      height: 165.w,
-      margin: EdgeInsets.symmetric(horizontal: 10.w, vertical: 4.w),
+      height: 165.tw,
+      margin: EdgeInsets.symmetric(horizontal: 10.tw, vertical: 4.tw),
       child: Material(
         color: Colors.transparent,
         child: InkWell(
           onTap: onTap,
-          borderRadius: BorderRadius.circular(18.r),
+          borderRadius: BorderRadius.circular(18.tr),
           child: Stack(
             children: [
               Positioned.fill(
                 child: Ink(
                   decoration: BoxDecoration(
                     color: const Color(0xFFD8DCE1),
-                    borderRadius: BorderRadius.circular(18.r),
+                    borderRadius: BorderRadius.circular(18.tr),
                     border:
                         Border.all(color: const Color(0xFF80858C), width: 1),
                   ),
@@ -54,10 +55,10 @@ class DelayedRequestCard extends StatelessWidget {
               Positioned.fill(
                 child: Padding(
                   padding: EdgeInsets.only(
-                    left: 8.w,
-                    right: 8.w + stripWidth,
-                    top: 9.w,
-                    bottom: 8.w,
+                    left: 8.tw,
+                    right: 8.tw + stripWidth,
+                    top: 9.tw,
+                    bottom: 8.tw,
                   ),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -67,14 +68,14 @@ class DelayedRequestCard extends StatelessWidget {
                         children: [
                           Expanded(
                             child: SizedBox(
-                              height: 36.w,
+                              height: 36.tw,
                               child: Stack(
                                 children: [
                                   Align(
                                     alignment: Alignment.centerLeft,
                                     child: Container(
-                                      width: 36.w,
-                                      height: 36.w,
+                                      width: 36.tw,
+                                      height: 36.tw,
                                       decoration: BoxDecoration(
                                         shape: BoxShape.circle,
                                         border: Border.all(
@@ -83,20 +84,20 @@ class DelayedRequestCard extends StatelessWidget {
                                         ),
                                       ),
                                       child: ClipOval(
-                                        child: _buildEmployeeImage(36.w),
+                                        child: _buildEmployeeImage(36.tw),
                                       ),
                                     ),
                                   ),
                                   Padding(
                                     padding:
-                                        EdgeInsets.symmetric(horizontal: 40.w),
+                                        EdgeInsets.symmetric(horizontal: 40.tw),
                                     child: Center(
                                       child: FittedBox(
                                         fit: BoxFit.scaleDown,
                                         child: Text(
                                           reqNo,
                                           style: GoogleFonts.poppins(
-                                            fontSize: 16.sp,
+                                            fontSize: 16.tsp,
                                             fontWeight: FontWeight.w900,
                                             color: const Color(0xFF0B2D5E),
                                             letterSpacing: 0.2,
@@ -114,13 +115,13 @@ class DelayedRequestCard extends StatelessWidget {
                           ),
                         ],
                       ),
-                      SizedBox(height: 6.w),
+                      SizedBox(height: 6.tw),
                       Padding(
-                        padding: EdgeInsets.only(left: 2.w),
+                        padding: EdgeInsets.only(left: 2.tw),
                         child: Text(
                           requestType,
                           style: GoogleFonts.poppins(
-                            fontSize: 13.sp,
+                            fontSize: 13.tsp,
                             fontWeight: FontWeight.w900,
                             color: const Color(0xFF121212),
                           ),
@@ -128,13 +129,13 @@ class DelayedRequestCard extends StatelessWidget {
                           overflow: TextOverflow.visible,
                         ),
                       ),
-                      SizedBox(height: 2.w),
+                      SizedBox(height: 2.tw),
                       Padding(
-                        padding: EdgeInsets.only(left: 2.w),
+                        padding: EdgeInsets.only(left: 2.tw),
                         child: Text(
                           employeeName,
                           style: GoogleFonts.poppins(
-                            fontSize: 11.sp,
+                            fontSize: 11.tsp,
                             fontWeight: FontWeight.w600,
                             color: const Color(0xFF6C7075),
                           ),
@@ -142,13 +143,13 @@ class DelayedRequestCard extends StatelessWidget {
                           overflow: TextOverflow.visible,
                         ),
                       ),
-                      SizedBox(height: 1.5.w),
+                      SizedBox(height: 1.5.tw),
                       Padding(
-                        padding: EdgeInsets.only(left: 2.w),
+                        padding: EdgeInsets.only(left: 2.tw),
                         child: Text(
                           empCode,
                           style: GoogleFonts.poppins(
-                            fontSize: 11.sp,
+                            fontSize: 11.tsp,
                             fontWeight: FontWeight.w700,
                             color: const Color(0xFF565B61),
                           ),
@@ -158,11 +159,11 @@ class DelayedRequestCard extends StatelessWidget {
                       ),
                       const Spacer(),
                       Padding(
-                        padding: EdgeInsets.only(left: 2.w),
+                        padding: EdgeInsets.only(left: 2.tw),
                         child: Text(
                           requestDate,
                           style: GoogleFonts.poppins(
-                            fontSize: 9.sp,
+                            fontSize: 9.tsp,
                             fontWeight: FontWeight.w600,
                             color: const Color(0xFF70757C),
                           ),
@@ -176,7 +177,7 @@ class DelayedRequestCard extends StatelessWidget {
               ),
               Positioned(
                 top: 0,
-                right: 20.w,
+                right: 20.tw,
                 bottom: 0,
                 child: SizedBox(
                   width: stripWidth,
@@ -195,11 +196,11 @@ class DelayedRequestCard extends StatelessWidget {
                               style: TextStyle(
                                 color: Colors.white,
                                 fontWeight: FontWeight.w900,
-                                fontSize: 20.sp,
+                                fontSize: 20.tsp,
                                 height: 1.0,
                               ),
                             ),
-                            SizedBox(height: 6.w),
+                            SizedBox(height: 6.tw),
                             RotatedBox(
                               quarterTurns: 3,
                               child: Text(
@@ -210,7 +211,7 @@ class DelayedRequestCard extends StatelessWidget {
                                 style: TextStyle(
                                   color: Colors.white,
                                   fontWeight: FontWeight.bold,
-                                  fontSize: 8.sp,
+                                  fontSize: 8.tsp,
                                   height: 1.0,
                                 ),
                               ),

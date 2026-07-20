@@ -1,3 +1,4 @@
+import 'package:el_race/core/utils/responsive_breakpoints.dart';
 import 'dart:typed_data';
 import 'dart:io';
 
@@ -15,7 +16,7 @@ import 'package:el_race/ui/presentation/my_projects/presentation/map/project_exp
 import 'package:el_race/ui/presentation/my_projects/presentation/map/project_expense_summary_panel.dart';
 import 'package:el_race/ui/presentation/my_projects/presentation/utils/projects_dashboard_access.dart';
 import 'package:el_race/ui/presentation/my_projects/presentation/theme/projects_dashboard_theme.dart';
-import 'package:el_race/ui/presentation/my_projects/presentation/widgets/project_analytics_site_report_tab.dart';
+import 'package:el_race/ui/presentation/my_projects/presentation/widgets/project_analytics_documents_tab.dart';
 import 'package:el_race/ui/presentation/my_projects/presentation/widgets/projects_glass_chrome.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -75,13 +76,13 @@ class _ProjectAnalyticsScreenState extends State<ProjectAnalyticsScreen>
         if (snapshot.hasError) {
           return Center(
             child: Padding(
-              padding: EdgeInsets.all(16.w),
+              padding: EdgeInsets.all(16.tw),
               child: Text(
                 '${snapshot.error}',
                 textAlign: TextAlign.center,
                 style: TextStyle(
                   color: ProjectsDashboardTheme.white,
-                  fontSize: 12.sp,
+                  fontSize: 12.tsp,
                   fontWeight: FontWeight.w600,
                 ),
               ),
@@ -95,7 +96,7 @@ class _ProjectAnalyticsScreenState extends State<ProjectAnalyticsScreen>
               'No analytics data available for this project.',
               style: TextStyle(
                 color: ProjectsDashboardTheme.greyPanel,
-                fontSize: 12.sp,
+                fontSize: 12.tsp,
                 fontWeight: FontWeight.w600,
               ),
             ),
@@ -132,15 +133,14 @@ class _ProjectAnalyticsScreenState extends State<ProjectAnalyticsScreen>
       },
     );
 
-    final siteReport = ProjectAnalyticsSiteReportTab(
-      projectId: '${widget.project.projectId}',
-      projectName: widget.project.name,
+    final documents = ProjectAnalyticsDocumentsTab(
+      projectId: widget.project.projectId,
     );
 
     if (_showFinancials) {
-      return [progress, financials, siteReport];
+      return [progress, financials, documents];
     }
-    return [progress, siteReport];
+    return [progress, documents];
   }
 
   List<Widget> get _tabs {
@@ -148,12 +148,12 @@ class _ProjectAnalyticsScreenState extends State<ProjectAnalyticsScreen>
       return const [
         Tab(text: 'Project progress'),
         Tab(text: 'Project Financials'),
-        Tab(text: 'Site Report'),
+        Tab(text: 'Documents'),
       ];
     }
     return const [
       Tab(text: 'Project progress'),
-      Tab(text: 'Site Report'),
+      Tab(text: 'Documents'),
     ];
   }
 
@@ -182,7 +182,7 @@ class _ProjectAnalyticsScreenState extends State<ProjectAnalyticsScreen>
               bottom: _AutoMarqueeTitle(
                 text: widget.project.name,
                 style: TextStyle(
-                  fontSize: 11.sp,
+                  fontSize: 11.tsp,
                   fontWeight: FontWeight.w600,
                   color: ProjectsDashboardTheme.greyPanel,
                 ),
@@ -190,9 +190,9 @@ class _ProjectAnalyticsScreenState extends State<ProjectAnalyticsScreen>
               tabsHeight: 18,
             ),
               Padding(
-                padding: EdgeInsets.symmetric(horizontal: 14.w),
+                padding: EdgeInsets.symmetric(horizontal: 14.tw),
                 child: Container(
-                  padding: EdgeInsets.all(4.w),
+                  padding: EdgeInsets.all(4.tw),
                   decoration: ProjectsDashboardTheme.frostedPanel(radius: 14),
                   child: TabBar(
                     controller: _tabController,
@@ -200,20 +200,20 @@ class _ProjectAnalyticsScreenState extends State<ProjectAnalyticsScreen>
                     dividerColor: Colors.transparent,
                     indicator: BoxDecoration(
                       gradient: ProjectsDashboardTheme.maroonAccentGradient,
-                      borderRadius: BorderRadius.circular(10.r),
+                      borderRadius: BorderRadius.circular(10.tr),
                     ),
                     labelColor: ProjectsDashboardTheme.white,
                     unselectedLabelColor:
                         ProjectsDashboardTheme.greyPanel.withValues(alpha: 0.95),
                     labelStyle:
-                        TextStyle(fontSize: 12.sp, fontWeight: FontWeight.w700),
+                        TextStyle(fontSize: 12.tsp, fontWeight: FontWeight.w700),
                     unselectedLabelStyle:
-                        TextStyle(fontSize: 12.sp, fontWeight: FontWeight.w500),
+                        TextStyle(fontSize: 12.tsp, fontWeight: FontWeight.w500),
                     tabs: _tabs,
                   ),
                 ),
               ),
-              SizedBox(height: 10.h),
+              SizedBox(height: 10.th),
               Expanded(
                 child: TabBarView(
                   controller: _tabController,
@@ -277,21 +277,21 @@ class _FinancialFatalErrorView extends StatelessWidget {
   Widget build(BuildContext context) {
     return Center(
       child: Padding(
-        padding: EdgeInsets.all(16.w),
+        padding: EdgeInsets.all(16.tw),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             const Icon(Icons.error_outline_rounded, color: Color(0xFFDC2626)),
-            SizedBox(height: 8.h),
+            SizedBox(height: 8.th),
             Text(
               'Unable to load financial data.',
               style: TextStyle(
-                fontSize: 12.sp,
+                fontSize: 12.tsp,
                 fontWeight: FontWeight.w600,
                 color: ProjectsDashboardTheme.white,
               ),
             ),
-            SizedBox(height: 8.h),
+            SizedBox(height: 8.th),
             ElevatedButton(
               onPressed: onRetry,
               child: const Text('Retry'),
@@ -323,12 +323,12 @@ class _ProjectFinancialsBodyState extends State<_ProjectFinancialsBody> {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: EdgeInsets.fromLTRB(14.w, 0, 14.w, 8.h),
+      padding: EdgeInsets.fromLTRB(14.tw, 0, 14.tw, 8.th),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           _financialSectionToggle(),
-          SizedBox(height: 12.h),
+          SizedBox(height: 12.th),
           Expanded(
             child: _financialSection == 0
                 ? ProjectExpenseSummaryPanel(
@@ -355,14 +355,14 @@ class _ProjectFinancialsBodyState extends State<_ProjectFinancialsBody> {
           color: Colors.transparent,
           child: InkWell(
             onTap: () => setState(() => _financialSection = index),
-            borderRadius: BorderRadius.circular(14.r),
+            borderRadius: BorderRadius.circular(14.tr),
             child: AnimatedContainer(
               duration: const Duration(milliseconds: 220),
               curve: Curves.easeOutCubic,
-              padding: EdgeInsets.symmetric(vertical: 12.h, horizontal: 8.w),
+              padding: EdgeInsets.symmetric(vertical: 12.th, horizontal: 8.tw),
               decoration: on
                   ? BoxDecoration(
-                      borderRadius: BorderRadius.circular(14.r),
+                      borderRadius: BorderRadius.circular(14.tr),
                       gradient: LinearGradient(
                         begin: Alignment.topLeft,
                         end: Alignment.bottomRight,
@@ -390,13 +390,13 @@ class _ProjectFinancialsBodyState extends State<_ProjectFinancialsBody> {
                 children: [
                   Icon(
                     icon,
-                    size: 18.sp,
+                    size: 18.tsp,
                     color: on
                         ? ProjectsDashboardTheme.white
                         : ProjectsDashboardTheme.greyPanel
                             .withValues(alpha: 0.85),
                   ),
-                  SizedBox(width: 8.w),
+                  SizedBox(width: 8.tw),
                   Flexible(
                     child: Text(
                       label,
@@ -404,7 +404,7 @@ class _ProjectFinancialsBodyState extends State<_ProjectFinancialsBody> {
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                       style: GoogleFonts.poppins(
-                        fontSize: 11.sp,
+                        fontSize: 11.tsp,
                         fontWeight: FontWeight.w800,
                         color: on
                             ? ProjectsDashboardTheme.white
@@ -428,7 +428,7 @@ class _ProjectFinancialsBodyState extends State<_ProjectFinancialsBody> {
           label: 'Analytics',
           index: 0,
         ),
-        SizedBox(width: 10.w),
+        SizedBox(width: 10.tw),
         seg(
           icon: Icons.pie_chart_outline_rounded,
           label: 'Cost distribution',
@@ -449,10 +449,10 @@ class _SectionContainer extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       width: double.infinity,
-      padding: EdgeInsets.all(12.w),
+      padding: EdgeInsets.all(12.tw),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(12.r),
+        borderRadius: BorderRadius.circular(12.tr),
         border: Border.all(color: const Color(0xFFE5E7EB)),
       ),
       child: Column(
@@ -461,12 +461,12 @@ class _SectionContainer extends StatelessWidget {
           Text(
             title,
             style: TextStyle(
-              fontSize: 12.sp,
+              fontSize: 12.tsp,
               color: const Color(0xFF111827),
               fontWeight: FontWeight.w800,
             ),
           ),
-          SizedBox(height: 8.h),
+          SizedBox(height: 8.th),
           child,
         ],
       ),
@@ -484,21 +484,21 @@ class _SectionErrorCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       width: double.infinity,
-      padding: EdgeInsets.all(12.w),
+      padding: EdgeInsets.all(12.tw),
       decoration: BoxDecoration(
         color: const Color(0xFFFEF2F2),
-        borderRadius: BorderRadius.circular(12.r),
+        borderRadius: BorderRadius.circular(12.tr),
         border: Border.all(color: const Color(0xFFFCA5A5)),
       ),
       child: Row(
         children: [
           const Icon(Icons.warning_amber_rounded, color: Color(0xFFB91C1C)),
-          SizedBox(width: 8.w),
+          SizedBox(width: 8.tw),
           Expanded(
             child: Text(
               text,
               style: TextStyle(
-                fontSize: 10.sp,
+                fontSize: 10.tsp,
                 color: const Color(0xFF7F1D1D),
                 fontWeight: FontWeight.w600,
               ),
@@ -553,19 +553,19 @@ class _ProgressAnalyticsBodyState extends State<_ProgressAnalyticsBody> {
         : widget.data.series.sublist(widget.data.series.length - window);
 
     return SingleChildScrollView(
-      padding: EdgeInsets.fromLTRB(14.w, 0, 14.w, 16.h),
+      padding: EdgeInsets.fromLTRB(14.tw, 0, 14.tw, 16.th),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Container(
-            padding: EdgeInsets.all(14.w),
+            padding: EdgeInsets.all(14.tw),
             decoration: BoxDecoration(
               gradient: const LinearGradient(
                 colors: [Color(0xFF111827), Color(0xFF1E293B)],
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
               ),
-              borderRadius: BorderRadius.circular(14.r),
+              borderRadius: BorderRadius.circular(14.tr),
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -573,10 +573,10 @@ class _ProgressAnalyticsBodyState extends State<_ProgressAnalyticsBody> {
                 Row(
                   children: [
                     Container(
-                      padding: EdgeInsets.symmetric(horizontal: 10.w, vertical: 5.h),
+                      padding: EdgeInsets.symmetric(horizontal: 10.tw, vertical: 5.th),
                       decoration: BoxDecoration(
                         color: statusColor.withValues(alpha: 0.2),
-                        borderRadius: BorderRadius.circular(16.r),
+                        borderRadius: BorderRadius.circular(16.tr),
                         border: Border.all(color: statusColor.withValues(alpha: 0.7)),
                       ),
                       child: Text(
@@ -584,7 +584,7 @@ class _ProgressAnalyticsBodyState extends State<_ProgressAnalyticsBody> {
                         style: TextStyle(
                           color: statusColor,
                           fontWeight: FontWeight.w700,
-                          fontSize: 10.sp,
+                          fontSize: 10.tsp,
                         ),
                       ),
                     ),
@@ -594,30 +594,30 @@ class _ProgressAnalyticsBodyState extends State<_ProgressAnalyticsBody> {
                       style: TextStyle(
                         color: Colors.white,
                         fontWeight: FontWeight.w800,
-                        fontSize: 14.sp,
+                        fontSize: 14.tsp,
                       ),
                     ),
                   ],
                 ),
-                SizedBox(height: 10.h),
+                SizedBox(height: 10.th),
                 Text(
                   varianceText,
                   style: TextStyle(
                     color: isBehind ? const Color(0xFFFCA5A5) : const Color(0xFF86EFAC),
-                    fontSize: 12.sp,
+                    fontSize: 12.tsp,
                     fontWeight: FontWeight.w600,
                   ),
                 ),
-                SizedBox(height: 4.h),
+                SizedBox(height: 4.th),
                 Text(
                   'Range: week ${widget.data.rangeStart} - ${widget.data.rangeEnd}',
-                  style: TextStyle(color: const Color(0xFFCBD5E1), fontSize: 10.sp),
+                  style: TextStyle(color: const Color(0xFFCBD5E1), fontSize: 10.tsp),
                 ),
-                SizedBox(height: 10.h),
+                SizedBox(height: 10.th),
                 Row(
                   children: [
                     CircleAvatar(
-                      radius: 14.r,
+                      radius: 14.tr,
                       backgroundColor: Colors.white24,
                       backgroundImage:
                           (widget.project.managerPhoto != null &&
@@ -626,16 +626,16 @@ class _ProgressAnalyticsBodyState extends State<_ProgressAnalyticsBody> {
                               : null,
                       child: (widget.project.managerPhoto == null ||
                               widget.project.managerPhoto!.isEmpty)
-                          ? Icon(Icons.person_rounded, color: Colors.white, size: 14.sp)
+                          ? Icon(Icons.person_rounded, color: Colors.white, size: 14.tsp)
                           : null,
                     ),
-                    SizedBox(width: 8.w),
+                    SizedBox(width: 8.tw),
                     Expanded(
                       child: Text(
                         widget.project.projectManagerName ?? 'Manager not assigned',
                         style: TextStyle(
                           color: Colors.white,
-                          fontSize: 11.sp,
+                          fontSize: 11.tsp,
                           fontWeight: FontWeight.w600,
                         ),
                       ),
@@ -645,15 +645,15 @@ class _ProgressAnalyticsBodyState extends State<_ProgressAnalyticsBody> {
               ],
             ),
           ),
-          SizedBox(height: 12.h),
+          SizedBox(height: 12.th),
           Row(
             children: [
               _miniKpiCard('Planned', '${kpi.planned.toStringAsFixed(1)}%',
                   const Color(0xFF2563EB)),
-              SizedBox(width: 8.w),
+              SizedBox(width: 8.tw),
               _miniKpiCard('Actual', '${kpi.actual.toStringAsFixed(1)}%',
                   const Color(0xFF16A34A)),
-              SizedBox(width: 8.w),
+              SizedBox(width: 8.tw),
               _miniKpiCard(
                 'Variance',
                 '${kpi.variance.toStringAsFixed(1)}%',
@@ -661,17 +661,17 @@ class _ProgressAnalyticsBodyState extends State<_ProgressAnalyticsBody> {
               ),
             ],
           ),
-          SizedBox(height: 10.h),
+          SizedBox(height: 10.th),
           Container(
             width: double.infinity,
-            padding: EdgeInsets.all(12.w),
+            padding: EdgeInsets.all(12.tw),
             decoration: BoxDecoration(
               gradient: const LinearGradient(
                 colors: [Color(0xFF0B3A87), Color(0xFF1D4ED8)],
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
               ),
-              borderRadius: BorderRadius.circular(12.r),
+              borderRadius: BorderRadius.circular(12.tr),
               border: Border.all(color: const Color(0xFF1E3A8A)),
             ),
             child: Column(
@@ -681,24 +681,24 @@ class _ProgressAnalyticsBodyState extends State<_ProgressAnalyticsBody> {
                   'Forecast',
                   style: TextStyle(
                     fontWeight: FontWeight.w700,
-                    fontSize: 12.sp,
+                    fontSize: 12.tsp,
                     color: Colors.white,
                   ),
                 ),
-                SizedBox(height: 6.h),
+                SizedBox(height: 6.th),
                 _forecastLine('EAC week', widget.data.forecast.eacWeek.toStringAsFixed(1)),
-                SizedBox(height: 6.h),
+                SizedBox(height: 6.th),
                 _forecastLine('Expected completion', widget.data.forecast.expectedCompletion),
               ],
             ),
           ),
-          SizedBox(height: 12.h),
+          SizedBox(height: 12.th),
           Row(
             children: [
               Text(
                 'Snapshot',
                 style: TextStyle(
-                  fontSize: 13.sp,
+                  fontSize: 13.tsp,
                   fontWeight: FontWeight.w700,
                   color: ProjectsDashboardTheme.white,
                 ),
@@ -707,18 +707,18 @@ class _ProgressAnalyticsBodyState extends State<_ProgressAnalyticsBody> {
               _weeksChip('Last 10', widget.snapshotWeeks == 10, () {
                 widget.onSnapshotWeeksChanged(10);
               }),
-              SizedBox(width: 8.w),
+              SizedBox(width: 8.tw),
               _weeksChip('All', widget.snapshotWeeks == null, () {
                 widget.onSnapshotWeeksChanged(null);
               }),
-              SizedBox(width: 6.w),
+              SizedBox(width: 6.tw),
               _actionCompactButton(
                 title: 'View Report',
                 icon: Icons.picture_as_pdf_rounded,
                 colors: const [Color(0xFF0F766E), Color(0xFF14B8A6)],
                 onTap: () => _openReport(context, visibleRows),
               ),
-              SizedBox(width: 6.w),
+              SizedBox(width: 6.tw),
               _actionCompactButton(
                 title: 'View and Send',
                 icon: _sentDone ? Icons.check_circle_rounded : Icons.send_rounded,
@@ -728,12 +728,12 @@ class _ProgressAnalyticsBodyState extends State<_ProgressAnalyticsBody> {
               ),
             ],
           ),
-          SizedBox(height: 8.h),
+          SizedBox(height: 8.th),
           Container(
-            height: 250.h,
+            height: 250.th,
             decoration: BoxDecoration(
               color: kAnalyticsFadedPanel,
-              borderRadius: BorderRadius.circular(12.r),
+              borderRadius: BorderRadius.circular(12.tr),
               border: Border.all(color: kAnalyticsFadedPanelBorder),
             ),
             child: Column(
@@ -756,7 +756,7 @@ class _ProgressAnalyticsBodyState extends State<_ProgressAnalyticsBody> {
               ],
             ),
           ),
-          SizedBox(height: 10.h),
+          SizedBox(height: 10.th),
         ],
       ),
     );
@@ -765,10 +765,10 @@ class _ProgressAnalyticsBodyState extends State<_ProgressAnalyticsBody> {
   Widget _miniKpiCard(String title, String value, Color color) {
     return Expanded(
       child: Container(
-        padding: EdgeInsets.symmetric(horizontal: 8.w, vertical: 10.h),
+        padding: EdgeInsets.symmetric(horizontal: 8.tw, vertical: 10.th),
         decoration: BoxDecoration(
           color: kAnalyticsFadedPanel,
-          borderRadius: BorderRadius.circular(10.r),
+          borderRadius: BorderRadius.circular(10.tr),
           border: Border.all(color: kAnalyticsFadedPanelBorder),
         ),
         child: Column(
@@ -777,16 +777,16 @@ class _ProgressAnalyticsBodyState extends State<_ProgressAnalyticsBody> {
             Text(
               title,
               style: TextStyle(
-                fontSize: 10.sp,
+                fontSize: 10.tsp,
                 color: const Color(0xFF6B7280).withValues(alpha: 0.9),
                 fontWeight: FontWeight.w600,
               ),
             ),
-            SizedBox(height: 3.h),
+            SizedBox(height: 3.th),
             Text(
               value,
               style: TextStyle(
-                fontSize: 12.sp,
+                fontSize: 12.tsp,
                 color: color,
                 fontWeight: FontWeight.w800,
               ),
@@ -800,16 +800,16 @@ class _ProgressAnalyticsBodyState extends State<_ProgressAnalyticsBody> {
   Widget _forecastLine(String title, String value) {
     return Container(
       width: double.infinity,
-      padding: EdgeInsets.symmetric(horizontal: 9.w, vertical: 7.h),
+      padding: EdgeInsets.symmetric(horizontal: 9.tw, vertical: 7.th),
       decoration: BoxDecoration(
         color: Colors.white.withValues(alpha: 0.16),
-        borderRadius: BorderRadius.circular(8.r),
+        borderRadius: BorderRadius.circular(8.tr),
         border: Border.all(color: Colors.white.withValues(alpha: 0.28)),
       ),
       child: Text(
         '$title: $value',
         style: TextStyle(
-          fontSize: 11.sp,
+          fontSize: 11.tsp,
           fontWeight: FontWeight.w600,
           color: Colors.white,
         ),
@@ -819,10 +819,10 @@ class _ProgressAnalyticsBodyState extends State<_ProgressAnalyticsBody> {
 
   Widget _snapshotHeader() {
     return Container(
-      padding: EdgeInsets.symmetric(horizontal: 10.w, vertical: 8.h),
+      padding: EdgeInsets.symmetric(horizontal: 10.tw, vertical: 8.th),
       decoration: BoxDecoration(
         color: const Color(0xFFF3F4F6).withValues(alpha: 0.72),
-        borderRadius: BorderRadius.vertical(top: Radius.circular(12.r)),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(12.tr)),
       ),
       child: Row(
         children: [
@@ -852,14 +852,14 @@ class _ProgressAnalyticsBodyState extends State<_ProgressAnalyticsBody> {
   Widget _weeksChip(String label, bool selected, VoidCallback onTap) {
     return InkWell(
       onTap: onTap,
-      borderRadius: BorderRadius.circular(18.r),
+      borderRadius: BorderRadius.circular(18.tr),
       child: Container(
-        padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 7.h),
+        padding: EdgeInsets.symmetric(horizontal: 12.tw, vertical: 7.th),
         decoration: BoxDecoration(
           color: selected
               ? const Color(0xFF1E2365)
               : kAnalyticsFadedPanel,
-          borderRadius: BorderRadius.circular(18.r),
+          borderRadius: BorderRadius.circular(18.tr),
           border: Border.all(
             color: selected
                 ? const Color(0xFF1E2365)
@@ -870,7 +870,7 @@ class _ProgressAnalyticsBodyState extends State<_ProgressAnalyticsBody> {
           label,
           style: TextStyle(
             color: selected ? Colors.white : const Color(0xFF374151),
-            fontSize: 10.sp,
+            fontSize: 10.tsp,
             fontWeight: FontWeight.w700,
           ),
         ),
@@ -886,7 +886,7 @@ class _ProgressAnalyticsBodyState extends State<_ProgressAnalyticsBody> {
     final gap = actual - planned;
     final gapColor = gap < 0 ? const Color(0xFFDC2626) : const Color(0xFF16A34A);
     return Container(
-      padding: EdgeInsets.symmetric(horizontal: 10.w, vertical: 9.h),
+      padding: EdgeInsets.symmetric(horizontal: 10.tw, vertical: 9.th),
       decoration: BoxDecoration(
         border: Border(
           top: BorderSide(
@@ -904,7 +904,7 @@ class _ProgressAnalyticsBodyState extends State<_ProgressAnalyticsBody> {
               '${gap.toStringAsFixed(1)}%',
               textAlign: TextAlign.center,
               style: TextStyle(
-                fontSize: 10.sp,
+                fontSize: 10.tsp,
                 color: gapColor,
                 fontWeight: FontWeight.w700,
               ),
@@ -921,7 +921,7 @@ class _ProgressAnalyticsBodyState extends State<_ProgressAnalyticsBody> {
         t,
         textAlign: TextAlign.center,
         style: TextStyle(
-          fontSize: 10.sp,
+          fontSize: 10.tsp,
           color: const Color(0xFF111827).withValues(alpha: 0.88),
           fontWeight: FontWeight.w600,
         ),
@@ -939,24 +939,24 @@ class _ProgressAnalyticsBodyState extends State<_ProgressAnalyticsBody> {
     return Container(
       decoration: BoxDecoration(
         gradient: LinearGradient(colors: colors),
-        borderRadius: BorderRadius.circular(18.r),
+        borderRadius: BorderRadius.circular(18.tr),
       ),
       child: Material(
         color: Colors.transparent,
         child: InkWell(
           onTap: onTap,
-          borderRadius: BorderRadius.circular(18.r),
+          borderRadius: BorderRadius.circular(18.tr),
           child: Padding(
-            padding: EdgeInsets.symmetric(horizontal: 9.w, vertical: 6.h),
+            padding: EdgeInsets.symmetric(horizontal: 9.tw, vertical: 6.th),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Icon(icon, color: Colors.white, size: 13.sp),
-                SizedBox(width: 4.w),
+                Icon(icon, color: Colors.white, size: 13.tsp),
+                SizedBox(width: 4.tw),
                 if (isLoading)
                   SizedBox(
-                    width: 9.w,
-                    height: 9.w,
+                    width: 9.tw,
+                    height: 9.tw,
                     child: const CircularProgressIndicator(
                       strokeWidth: 1.6,
                       color: Colors.white,
@@ -967,7 +967,7 @@ class _ProgressAnalyticsBodyState extends State<_ProgressAnalyticsBody> {
                     title,
                     style: TextStyle(
                       color: Colors.white,
-                      fontSize: 9.sp,
+                      fontSize: 9.tsp,
                       fontWeight: FontWeight.w700,
                     ),
                   ),
@@ -1171,8 +1171,8 @@ class _ProgressAnalyticsBodyState extends State<_ProgressAnalyticsBody> {
             return AlertDialog(
               title: const Text('Send report to users'),
               content: SizedBox(
-                width: 370.w,
-                height: 420.h,
+                width: 370.tw,
+                height: 420.th,
                 child: Column(
                   children: [
                     TextField(
@@ -1191,7 +1191,7 @@ class _ProgressAnalyticsBodyState extends State<_ProgressAnalyticsBody> {
                                 .toList();
                       },
                     ),
-                    SizedBox(height: 10.h),
+                    SizedBox(height: 10.th),
                     Expanded(
                       child: ValueListenableBuilder<List<ChatUser>>(
                         valueListenable: filtered,
@@ -1202,7 +1202,7 @@ class _ProgressAnalyticsBodyState extends State<_ProgressAnalyticsBody> {
                               final user = list[i];
                               final isChecked = selected.contains(user);
                               return Container(
-                                margin: EdgeInsets.only(bottom: 8.h),
+                                margin: EdgeInsets.only(bottom: 8.th),
                                 decoration: BoxDecoration(
                                   gradient: isChecked
                                       ? const LinearGradient(
@@ -1221,7 +1221,7 @@ class _ProgressAnalyticsBodyState extends State<_ProgressAnalyticsBody> {
                                           begin: Alignment.topLeft,
                                           end: Alignment.bottomRight,
                                         ),
-                                  borderRadius: BorderRadius.circular(14.r),
+                                  borderRadius: BorderRadius.circular(14.tr),
                                   border: Border.all(
                                     color: isChecked
                                         ? const Color(0xFF3B82F6)
@@ -1238,7 +1238,7 @@ class _ProgressAnalyticsBodyState extends State<_ProgressAnalyticsBody> {
                                 child: Material(
                                   color: Colors.transparent,
                                   child: InkWell(
-                                    borderRadius: BorderRadius.circular(14.r),
+                                    borderRadius: BorderRadius.circular(14.tr),
                                     onTap: () {
                                       setDialogState(() {
                                         if (isChecked) {
@@ -1250,13 +1250,13 @@ class _ProgressAnalyticsBodyState extends State<_ProgressAnalyticsBody> {
                                     },
                                     child: Padding(
                                       padding: EdgeInsets.symmetric(
-                                        horizontal: 10.w,
-                                        vertical: 8.h,
+                                        horizontal: 10.tw,
+                                        vertical: 8.th,
                                       ),
                                       child: Row(
                                         children: [
                                           Container(
-                                            padding: EdgeInsets.all(2.w),
+                                            padding: EdgeInsets.all(2.tw),
                                             decoration: BoxDecoration(
                                               shape: BoxShape.circle,
                                               border: Border.all(
@@ -1273,13 +1273,13 @@ class _ProgressAnalyticsBodyState extends State<_ProgressAnalyticsBody> {
                                               isChecked
                                                   ? Icons.check_rounded
                                                   : Icons.circle_outlined,
-                                              size: 14.sp,
+                                              size: 14.tsp,
                                               color: Colors.white,
                                             ),
                                           ),
-                                          SizedBox(width: 10.w),
+                                          SizedBox(width: 10.tw),
                                           CircleAvatar(
-                                            radius: 18.r,
+                                            radius: 18.tr,
                                             backgroundColor: const Color(0xFFE5E7EB),
                                             backgroundImage: (user.avatarUrl != null &&
                                                     user.avatarUrl!.isNotEmpty)
@@ -1289,12 +1289,12 @@ class _ProgressAnalyticsBodyState extends State<_ProgressAnalyticsBody> {
                                                     user.avatarUrl!.isEmpty)
                                                 ? Icon(
                                                     Icons.person_rounded,
-                                                    size: 16.sp,
+                                                    size: 16.tsp,
                                                     color: const Color(0xFF4B5563),
                                                   )
                                                 : null,
                                           ),
-                                          SizedBox(width: 10.w),
+                                          SizedBox(width: 10.tw),
                                           Expanded(
                                             child: Column(
                                               crossAxisAlignment:
@@ -1303,18 +1303,18 @@ class _ProgressAnalyticsBodyState extends State<_ProgressAnalyticsBody> {
                                                 _OneLineMarqueeText(
                                                   text: user.name,
                                                   style: TextStyle(
-                                                    fontSize: 12.sp,
+                                                    fontSize: 12.tsp,
                                                     fontWeight: FontWeight.w700,
                                                     color: const Color(0xFF111827),
                                                   ),
                                                 ),
-                                                SizedBox(height: 2.h),
+                                                SizedBox(height: 2.th),
                                                 Text(
                                                   user.roleName ?? 'User',
                                                   maxLines: 1,
                                                   overflow: TextOverflow.ellipsis,
                                                   style: TextStyle(
-                                                    fontSize: 10.sp,
+                                                    fontSize: 10.tsp,
                                                     fontWeight: FontWeight.w600,
                                                     color: const Color(0xFF6B7280),
                                                   ),
@@ -1590,7 +1590,7 @@ class _OneLineMarqueeTextState extends State<_OneLineMarqueeText> {
   Widget build(BuildContext context) {
     WidgetsBinding.instance.addPostFrameCallback((_) => _startIfNeeded());
     return SizedBox(
-      height: 16.h,
+      height: 16.th,
       child: SingleChildScrollView(
         controller: _controller,
         scrollDirection: Axis.horizontal,

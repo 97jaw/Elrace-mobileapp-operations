@@ -1,3 +1,4 @@
+import 'package:el_race/core/utils/responsive_breakpoints.dart';
 import 'package:el_race/core/purchase/purchase_dev_role_provider.dart';
 import 'package:el_race/ui/presentation/purchase_management/data/purchase_models.dart';
 import 'package:el_race/ui/presentation/purchase_management/data/purchase_status.dart';
@@ -55,7 +56,7 @@ class InvoiceReceivingDetailScreen extends ConsumerWidget {
                 child: Center(
                     child: Text(e.toString(),
                         style: GoogleFonts.poppins(
-                            color: Colors.red, fontSize: 13.sp)))),
+                            color: Colors.red, fontSize: 13.tsp)))),
           ],
         ),
         data: (detail) {
@@ -162,7 +163,7 @@ class _InvoiceDetailContentState extends ConsumerState<_InvoiceDetailContent> {
           child: Container(
             color: const Color(0xFFF5F6FA),
             child: ListView(
-              padding: EdgeInsets.all(14.w),
+              padding: EdgeInsets.all(14.tw),
               children: [
                 // Header card
                 _SectionCard(
@@ -179,14 +180,14 @@ class _InvoiceDetailContentState extends ConsumerState<_InvoiceDetailContent> {
                       _DetailRow(label: 'Notes', value: detail.narration),
                   ],
                 ),
-                SizedBox(height: 12.h),
+                SizedBox(height: 12.th),
                 // Amounts card
                 _AmountsCard(detail: detail),
-                SizedBox(height: 12.h),
+                SizedBox(height: 12.th),
                 // Lines
                 if (detail.lines.isNotEmpty)
                   _LinesSection(lines: detail.lines),
-                SizedBox(height: 12.h),
+                SizedBox(height: 12.th),
                 // Attachments
                 if (detail.attachments.isNotEmpty)
                   _AttachmentsSection(
@@ -196,16 +197,16 @@ class _InvoiceDetailContentState extends ConsumerState<_InvoiceDetailContent> {
                     context: context,
                   ),
                 if (showReceive) ...[
-                  SizedBox(height: 12.h),
+                  SizedBox(height: 12.th),
                   SizedBox(
                     width: double.infinity,
-                    height: 48.h,
+                    height: 48.th,
                     child: ElevatedButton(
                       onPressed: _receiving ? null : _receive,
                       style: ElevatedButton.styleFrom(
                         backgroundColor: Colors.transparent,
                         shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12.r),
+                          borderRadius: BorderRadius.circular(12.tr),
                         ),
                       ),
                       child: _receiving
@@ -227,7 +228,7 @@ class _InvoiceDetailContentState extends ConsumerState<_InvoiceDetailContent> {
                     ),
                   ),
                 ],
-                SizedBox(height: 24.h),
+                SizedBox(height: 24.th),
               ],
             ),
           ),
@@ -246,7 +247,7 @@ class _AmountsCard extends StatelessWidget {
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(12.r),
+        borderRadius: BorderRadius.circular(12.tr),
         boxShadow: [
           BoxShadow(
               color: Colors.black.withValues(alpha: 0.06),
@@ -254,7 +255,7 @@ class _AmountsCard extends StatelessWidget {
               offset: const Offset(0, 2))
         ],
       ),
-      padding: EdgeInsets.all(14.w),
+      padding: EdgeInsets.all(14.tw),
       child: Column(
         children: [
           _AmountRow(
@@ -265,7 +266,7 @@ class _AmountsCard extends StatelessWidget {
               label: 'Taxes',
               value: '${detail.currency} ${detail.amountTax.toStringAsFixed(2)}',
               isBold: false),
-          Divider(color: const Color(0xFFE0E4EE), height: 16.h),
+          Divider(color: const Color(0xFFE0E4EE), height: 16.th),
           _AmountRow(
               label: 'Total',
               value: detail.amountDisplay.isNotEmpty
@@ -288,18 +289,18 @@ class _AmountRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: EdgeInsets.only(bottom: 6.h),
+      padding: EdgeInsets.only(bottom: 6.th),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
           Text(label,
               style: GoogleFonts.poppins(
-                  fontSize: 12.sp,
+                  fontSize: 12.tsp,
                   color: const Color(0xFF8A9BB5),
                   fontWeight: FontWeight.w500)),
           Text(value,
               style: GoogleFonts.poppins(
-                  fontSize: isBold ? 15.sp : 12.sp,
+                  fontSize: isBold ? 15.tsp : 12.tsp,
                   color: PurchaseTheme.textPrimary,
                   fontWeight:
                       isBold ? FontWeight.w800 : FontWeight.w600)),
@@ -320,17 +321,17 @@ class _LinesSection extends StatelessWidget {
       children: [
         Text('PRODUCTS',
             style: GoogleFonts.poppins(
-                fontSize: 11.sp,
+                fontSize: 11.tsp,
                 fontWeight: FontWeight.w700,
                 color: PurchaseTheme.textPrimary,
                 letterSpacing: 0.4)),
-        SizedBox(height: 8.h),
+        SizedBox(height: 8.th),
         ...lines.map((line) => Container(
-              margin: EdgeInsets.only(bottom: 6.h),
-              padding: EdgeInsets.all(12.w),
+              margin: EdgeInsets.only(bottom: 6.th),
+              padding: EdgeInsets.all(12.tw),
               decoration: BoxDecoration(
                 color: Colors.white,
-                borderRadius: BorderRadius.circular(10.r),
+                borderRadius: BorderRadius.circular(10.tr),
                 border: Border.all(
                     color: const Color(0xFFE0E4EE), width: 0.8),
               ),
@@ -345,14 +346,14 @@ class _LinesSection extends StatelessWidget {
                               ? line.product
                               : line.description,
                           style: GoogleFonts.poppins(
-                              fontSize: 12.sp,
+                              fontSize: 12.tsp,
                               fontWeight: FontWeight.w600,
                               color: const Color(0xFF1E2A4A)),
                         ),
                         Text(
                           'Qty: ${line.qty} × ${line.priceUnit.toStringAsFixed(2)}',
                           style: GoogleFonts.poppins(
-                              fontSize: 10.5.sp,
+                              fontSize: 10.5.tsp,
                               color: const Color(0xFF8A9BB5)),
                         ),
                       ],
@@ -361,7 +362,7 @@ class _LinesSection extends StatelessWidget {
                   Text(
                     line.subtotal.toStringAsFixed(2),
                     style: GoogleFonts.poppins(
-                        fontSize: 12.sp,
+                        fontSize: 12.tsp,
                         fontWeight: FontWeight.w700,
                         color: const Color(0xFF3E7BFA)),
                   ),
@@ -392,30 +393,30 @@ class _AttachmentsSection extends StatelessWidget {
       children: [
         Text('SUPPORTING DOCUMENTS',
             style: GoogleFonts.poppins(
-                fontSize: 11.sp,
+                fontSize: 11.tsp,
                 fontWeight: FontWeight.w700,
                 color: PurchaseTheme.textPrimary,
                 letterSpacing: 0.4)),
-        SizedBox(height: 8.h),
+        SizedBox(height: 8.th),
         ...attachments.map((a) => Container(
-              margin: EdgeInsets.only(bottom: 6.h),
-              padding: EdgeInsets.all(12.w),
+              margin: EdgeInsets.only(bottom: 6.th),
+              padding: EdgeInsets.all(12.tw),
               decoration: BoxDecoration(
                 color: Colors.white,
-                borderRadius: BorderRadius.circular(10.r),
+                borderRadius: BorderRadius.circular(10.tr),
                 border: Border.all(
                     color: const Color(0xFFE0E4EE), width: 0.8),
               ),
               child: Row(
                 children: [
                   Icon(Icons.attach_file_rounded,
-                      size: 20.sp, color: const Color(0xFF3E7BFA)),
-                  SizedBox(width: 10.w),
+                      size: 20.tsp, color: const Color(0xFF3E7BFA)),
+                  SizedBox(width: 10.tw),
                   Expanded(
                     child: Text(
                       a.name,
                       style: GoogleFonts.poppins(
-                          fontSize: 12.sp,
+                          fontSize: 12.tsp,
                           fontWeight: FontWeight.w500,
                           color: const Color(0xFF1E2A4A)),
                     ),
@@ -439,14 +440,14 @@ class _AttachmentsSection extends StatelessWidget {
                     style: TextButton.styleFrom(
                       foregroundColor: PurchaseTheme.textPrimary,
                       padding: EdgeInsets.symmetric(
-                          horizontal: 10.w, vertical: 4.h),
+                          horizontal: 10.tw, vertical: 4.th),
                       textStyle: GoogleFonts.poppins(
-                          fontSize: 11.sp,
+                          fontSize: 11.tsp,
                           fontWeight: FontWeight.w600),
                       side: const BorderSide(
                           color: PurchaseTheme.textPrimary, width: 0.8),
                       shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(6.r)),
+                          borderRadius: BorderRadius.circular(6.tr)),
                     ),
                     child: const Text('Print / LPO'),
                   ),
@@ -472,7 +473,7 @@ class _SectionCard extends StatelessWidget {
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(12.r),
+        borderRadius: BorderRadius.circular(12.tr),
         boxShadow: [
           BoxShadow(
               color: Colors.black.withValues(alpha: 0.06),
@@ -480,17 +481,17 @@ class _SectionCard extends StatelessWidget {
               offset: const Offset(0, 2))
         ],
       ),
-      padding: EdgeInsets.all(14.w),
+      padding: EdgeInsets.all(14.tw),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(title,
               style: GoogleFonts.poppins(
-                  fontSize: 10.sp,
+                  fontSize: 10.tsp,
                   fontWeight: FontWeight.w700,
                   color: const Color(0xFF8A9BB5),
                   letterSpacing: 0.4)),
-          SizedBox(height: 10.h),
+          SizedBox(height: 10.th),
           ...children,
         ],
       ),
@@ -507,22 +508,22 @@ class _DetailRow extends StatelessWidget {
   Widget build(BuildContext context) {
     if (value.isEmpty) return const SizedBox.shrink();
     return Padding(
-      padding: EdgeInsets.only(bottom: 8.h),
+      padding: EdgeInsets.only(bottom: 8.th),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           SizedBox(
-            width: 120.w,
+            width: 120.tw,
             child: Text(label,
                 style: GoogleFonts.poppins(
-                    fontSize: 11.sp,
+                    fontSize: 11.tsp,
                     fontWeight: FontWeight.w600,
                     color: const Color(0xFF8A9BB5))),
           ),
           Expanded(
             child: Text(value,
                 style: GoogleFonts.poppins(
-                    fontSize: 11.5.sp,
+                    fontSize: 11.5.tsp,
                     fontWeight: FontWeight.w500,
                     color: const Color(0xFF1E2A4A))),
           ),

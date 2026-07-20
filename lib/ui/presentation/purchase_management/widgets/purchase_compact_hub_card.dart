@@ -1,3 +1,4 @@
+import 'package:el_race/core/utils/responsive_breakpoints.dart';
 import 'package:el_race/ui/presentation/purchase_management/utils/purchase_number_format.dart';
 import 'package:el_race/ui/presentation/purchase_management/theme/purchase_theme.dart';
 import 'package:el_race/ui/presentation/purchase_management/widgets/purchase_trend_badge.dart';
@@ -40,10 +41,10 @@ class PurchaseCompactHubCard extends StatelessWidget {
       color: Colors.transparent,
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(22.r),
+        borderRadius: BorderRadius.circular(22.tr),
         child: Ink(
-          decoration: PurchaseTheme.glassCard(radius: 22.r),
-          padding: EdgeInsets.fromLTRB(12.w, 10.h, 10.w, 8.h),
+          decoration: PurchaseTheme.glassCard(radius: 22.tr),
+          padding: EdgeInsets.fromLTRB(12.tw, 10.th, 10.tw, 8.th),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             mainAxisSize: MainAxisSize.min,
@@ -56,7 +57,7 @@ class PurchaseCompactHubCard extends StatelessWidget {
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: GoogleFonts.poppins(
-                        fontSize: 12.sp,
+                        fontSize: 12.tsp,
                         fontWeight: FontWeight.w600,
                         color: PurchaseTheme.textPrimary,
                       ),
@@ -65,44 +66,44 @@ class PurchaseCompactHubCard extends StatelessWidget {
                   _ArrowButton(onTap: onTap, size: 26),
                 ],
               ),
-              SizedBox(height: 6.h),
+              SizedBox(height: 6.th),
               Container(
-                width: 30.w,
-                height: 30.w,
+                width: 30.tw,
+                height: 30.tw,
                 decoration: BoxDecoration(
                   color: iconBackground,
                   shape: BoxShape.circle,
                 ),
-                child: Icon(icon, color: iconColor, size: 16.sp),
+                child: Icon(icon, color: iconColor, size: 16.tsp),
               ),
-              SizedBox(height: 10.h),
+              SizedBox(height: 10.th),
               Text(
                 primaryValue,
                 style: GoogleFonts.poppins(
-                  fontSize: 20.sp,
+                  fontSize: 20.tsp,
                   fontWeight: FontWeight.w800,
                   color: valueColor,
                   height: 1,
                 ),
               ),
               if (subtitle != null) ...[
-                SizedBox(height: 2.h),
+                SizedBox(height: 2.th),
                 Text(
                   subtitle!,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: GoogleFonts.poppins(
-                    fontSize: 8.5.sp,
+                    fontSize: 8.5.tsp,
                     fontWeight: FontWeight.w500,
                     color: PurchaseTheme.textMuted,
                   ),
                 ),
               ],
-              SizedBox(height: 4.h),
+              SizedBox(height: 4.th),
               Row(
                 children: [
                   if (badge != null) PurchaseStatusPill(label: badge!),
-                  if (badge != null && trendLabel != null) SizedBox(width: 4.w),
+                  if (badge != null && trendLabel != null) SizedBox(width: 4.tw),
                   if (trendLabel != null)
                     Expanded(
                       child: PurchaseTrendBadge(
@@ -144,16 +145,16 @@ class PurchaseCompactLpoStrip extends StatelessWidget {
       color: Colors.transparent,
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(18.r),
+        borderRadius: BorderRadius.circular(18.tr),
         child: Ink(
-          height: 72.h,
-          decoration: PurchaseTheme.glassCard(radius: 18.r),
-          padding: EdgeInsets.symmetric(horizontal: 14.w, vertical: 10.h),
+          height: 72.th,
+          decoration: PurchaseTheme.glassCard(radius: 18.tr),
+          padding: EdgeInsets.symmetric(horizontal: 14.tw, vertical: 10.th),
           child: Row(
             children: [
               Container(
-                width: 36.w,
-                height: 36.w,
+                width: 36.tw,
+                height: 36.tw,
                 decoration: BoxDecoration(
                   color: PurchaseTheme.accentDeep.withValues(alpha: 0.12),
                   shape: BoxShape.circle,
@@ -161,10 +162,10 @@ class PurchaseCompactLpoStrip extends StatelessWidget {
                 child: Icon(
                   Icons.receipt_long_outlined,
                   color: PurchaseTheme.accentDeep,
-                  size: 18.sp,
+                  size: 18.tsp,
                 ),
               ),
-              SizedBox(width: 12.w),
+              SizedBox(width: 12.tw),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -173,7 +174,7 @@ class PurchaseCompactLpoStrip extends StatelessWidget {
                     Text(
                       'LPOs',
                       style: GoogleFonts.poppins(
-                        fontSize: 13.sp,
+                        fontSize: 13.tsp,
                         fontWeight: FontWeight.w700,
                         color: PurchaseTheme.textPrimary,
                       ),
@@ -181,7 +182,7 @@ class PurchaseCompactLpoStrip extends StatelessWidget {
                     Text(
                       'Open + Closed = $total',
                       style: GoogleFonts.poppins(
-                        fontSize: 9.sp,
+                        fontSize: 9.tsp,
                         color: PurchaseTheme.textMuted,
                       ),
                     ),
@@ -193,13 +194,13 @@ class PurchaseCompactLpoStrip extends StatelessWidget {
                 value: openCount,
                 color: const Color(0xFFF59E0D),
               ),
-              SizedBox(width: 10.w),
+              SizedBox(width: 10.tw),
               _LpoMetric(
                 label: 'Closed',
                 value: closedCount,
                 color: const Color(0xFF16A34A),
               ),
-              SizedBox(width: 6.w),
+              SizedBox(width: 6.tw),
               _ArrowButton(onTap: onTap, size: 28),
             ],
           ),
@@ -229,7 +230,7 @@ class _LpoMetric extends StatelessWidget {
         Text(
           label,
           style: GoogleFonts.poppins(
-            fontSize: 8.sp,
+            fontSize: 8.tsp,
             fontWeight: FontWeight.w600,
             color: PurchaseTheme.textMuted,
           ),
@@ -237,7 +238,7 @@ class _LpoMetric extends StatelessWidget {
         Text(
           formatPurchaseCompact(value),
           style: GoogleFonts.poppins(
-            fontSize: 16.sp,
+            fontSize: 16.tsp,
             fontWeight: FontWeight.w800,
             color: color,
             height: 1.1,
@@ -259,8 +260,8 @@ class _ArrowButton extends StatelessWidget {
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        width: size.w,
-        height: size.w,
+        width: size.tw,
+        height: size.tw,
         decoration: const BoxDecoration(
           color: PurchaseTheme.textPrimary,
           shape: BoxShape.circle,
@@ -268,7 +269,7 @@ class _ArrowButton extends StatelessWidget {
         child: Icon(
           Icons.arrow_forward_rounded,
           color: Colors.white,
-          size: (size * 0.5).sp,
+          size: (size * 0.5).tsp,
         ),
       ),
     );

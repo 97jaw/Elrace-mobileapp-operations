@@ -1,3 +1,4 @@
+import 'package:el_race/core/utils/responsive_breakpoints.dart';
 import 'package:el_race/data/models/global_search_item.dart';
 import 'package:el_race/ui/widgets/global_search_result_card.dart';
 import 'package:el_race/ui/widgets/global_search_theme.dart';
@@ -56,7 +57,7 @@ class GlobalSearchItemBuilder {
   }
 
   TextStyle titleStyle() => GoogleFonts.poppins(
-        fontSize: 15.sp,
+        fontSize: 15.tsp,
         fontWeight: FontWeight.w700,
         color: GlobalSearchTheme.cardTitle,
       );
@@ -403,7 +404,7 @@ class GlobalSearchItemBuilder {
             color: amountColor ?? GlobalSearchTheme.greenBright,
           ),
         if (status != null && status.isNotEmpty) ...[
-          if (amount.isNotEmpty) SizedBox(height: 4.h),
+          if (amount.isNotEmpty) SizedBox(height: 4.th),
           GlobalSearchStatusPill(
             label: status,
             color: statusColor ?? GlobalSearchTheme.grey,

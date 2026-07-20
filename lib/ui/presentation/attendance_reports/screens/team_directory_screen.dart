@@ -1,3 +1,4 @@
+import 'package:el_race/core/utils/responsive_breakpoints.dart';
 import 'dart:async';
 
 import 'package:el_race/core/theme/hr_module_layout.dart';
@@ -166,26 +167,26 @@ class _TeamDirectoryScreenState extends ConsumerState<TeamDirectoryScreen> {
               // ── Search bar ────────────────────────────────────────────
               Padding(
                 padding: EdgeInsets.fromLTRB(
-                  HrModuleLayout.screenPaddingH.w,
-                  10.h,
-                  HrModuleLayout.screenPaddingH.w,
+                  HrModuleLayout.screenPaddingH.tw,
+                  10.th,
+                  HrModuleLayout.screenPaddingH.tw,
                   0,
                 ),
                 child: _SearchBar(controller: _search),
               ),
 
-              SizedBox(height: 8.h),
+              SizedBox(height: 8.th),
 
               // ── Alpha chips ───────────────────────────────────────────
               if (!isLoadingSession && keys.isNotEmpty)
                 SizedBox(
-                  height: 34.h,
+                  height: 34.th,
                   child: ListView.separated(
                     scrollDirection: Axis.horizontal,
                     padding: EdgeInsets.symmetric(
-                        horizontal: HrModuleLayout.screenPaddingH.w),
+                        horizontal: HrModuleLayout.screenPaddingH.tw),
                     itemCount: keys.length,
-                    separatorBuilder: (_, __) => SizedBox(width: 6.w),
+                    separatorBuilder: (_, __) => SizedBox(width: 6.tw),
                     itemBuilder: (_, i) => _AlphaChip(
                       letter: keys[i],
                       onTap: () => _scrollToLetter(keys[i]),
@@ -193,7 +194,7 @@ class _TeamDirectoryScreenState extends ConsumerState<TeamDirectoryScreen> {
                   ),
                 ),
 
-              SizedBox(height: 8.h),
+              SizedBox(height: 8.th),
 
               // ── Employee list / skeleton / empty ──────────────────────
               Expanded(
@@ -254,7 +255,7 @@ class _SearchBar extends StatelessWidget {
     return Container(
       decoration: BoxDecoration(
         color: Colors.white.withValues(alpha: 0.88),
-        borderRadius: BorderRadius.circular(14.r),
+        borderRadius: BorderRadius.circular(14.tr),
         border: Border.all(color: _kPrimary.withValues(alpha: 0.12)),
         boxShadow: [
           BoxShadow(
@@ -269,12 +270,12 @@ class _SearchBar extends StatelessWidget {
         decoration: InputDecoration(
           hintText: 'Search by name…',
           hintStyle: TextStyle(
-              color: AttendanceDashboardTheme.textMuted, fontSize: 13.sp),
+              color: AttendanceDashboardTheme.textMuted, fontSize: 13.tsp),
           prefixIcon: Icon(Icons.search_rounded,
-              color: _kPrimary.withValues(alpha: 0.55), size: 20.sp),
+              color: _kPrimary.withValues(alpha: 0.55), size: 20.tsp),
           border: InputBorder.none,
           contentPadding:
-              EdgeInsets.symmetric(horizontal: 16.w, vertical: 14.h),
+              EdgeInsets.symmetric(horizontal: 16.tw, vertical: 14.th),
         ),
       ),
     );
@@ -295,12 +296,12 @@ class _AlphaChip extends StatelessWidget {
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        width: 32.w,
-        height: 32.w,
+        width: 32.tw,
+        height: 32.tw,
         alignment: Alignment.center,
         decoration: BoxDecoration(
           color: Colors.white.withValues(alpha: 0.88),
-          borderRadius: BorderRadius.circular(8.r),
+          borderRadius: BorderRadius.circular(8.tr),
           border: Border.all(color: _kPrimary.withValues(alpha: 0.2)),
           boxShadow: [
             BoxShadow(
@@ -313,7 +314,7 @@ class _AlphaChip extends StatelessWidget {
         child: Text(
           letter,
           style: TextStyle(
-              fontWeight: FontWeight.w800, fontSize: 12.sp, color: _kPrimary),
+              fontWeight: FontWeight.w800, fontSize: 12.tsp, color: _kPrimary),
         ),
       ),
     );
@@ -345,17 +346,17 @@ class _EmployeeList extends StatelessWidget {
       controller: scroll,
       physics: const AlwaysScrollableScrollPhysics(),
       padding: EdgeInsets.fromLTRB(
-          HrModuleLayout.screenPaddingH.w, 0,
-          HrModuleLayout.screenPaddingH.w, 40.h),
+          HrModuleLayout.screenPaddingH.tw, 0,
+          HrModuleLayout.screenPaddingH.tw, 40.th),
       children: [
         for (final k in keys) ...[
           Padding(
             key: letterKeys[k],
-            padding: EdgeInsets.only(top: 16.h, bottom: 6.h),
+            padding: EdgeInsets.only(top: 16.th, bottom: 6.th),
             child: Text(
               k,
               style: TextStyle(
-                fontSize: 12.sp,
+                fontSize: 12.tsp,
                 fontWeight: FontWeight.w800,
                 color: _kPrimary.withValues(alpha: 0.55),
                 letterSpacing: 0.5,
@@ -363,7 +364,7 @@ class _EmployeeList extends StatelessWidget {
             ),
           ),
           ...groups[k]!.map((e) => Padding(
-                padding: EdgeInsets.only(bottom: 10.h),
+                padding: EdgeInsets.only(bottom: 10.th),
                 child: _EmployeeCard(employee: e, onTap: () => onOpen(e)),
               )),
         ],
@@ -402,10 +403,10 @@ class _EmployeeCard extends StatelessWidget {
     final pct = (rate * 100).toStringAsFixed(0);
 
     return Container(
-      padding: EdgeInsets.fromLTRB(14.w, 14.h, 10.w, 14.h),
+      padding: EdgeInsets.fromLTRB(14.tw, 14.th, 10.tw, 14.th),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(18.r),
+        borderRadius: BorderRadius.circular(18.tr),
         border: Border.all(color: _kPrimary.withValues(alpha: 0.08)),
         boxShadow: [
           BoxShadow(
@@ -436,7 +437,7 @@ class _EmployeeCard extends StatelessWidget {
                   ],
                 ),
                 child: AttendanceNetworkAvatar(
-                  radius: 26.r,
+                  radius: 26.tr,
                   imageUrl: employee.employeeImageUrl,
                   fallback: Text(
                     employee.employeeName.isNotEmpty
@@ -444,13 +445,13 @@ class _EmployeeCard extends StatelessWidget {
                         : '?',
                     style: TextStyle(
                         fontWeight: FontWeight.w800,
-                        fontSize: 15.sp,
+                        fontSize: 15.tsp,
                         color: _kPrimary),
                   ),
                 ),
               ),
 
-              SizedBox(width: 12.w),
+              SizedBox(width: 12.tw),
 
               // Name + subtitle
               Expanded(
@@ -461,19 +462,19 @@ class _EmployeeCard extends StatelessWidget {
                       employee.employeeName,
                       style: TextStyle(
                         fontWeight: FontWeight.w700,
-                        fontSize: 14.sp,
+                        fontSize: 14.tsp,
                         color: AttendanceDashboardTheme.textPrimary,
                       ),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
-                    SizedBox(height: 3.h),
+                    SizedBox(height: 3.th),
                     Text(
                       (employee.empId != null && employee.empId!.trim().isNotEmpty)
                           ? employee.empId!.trim()
                           : 'Employee',
                       style: TextStyle(
-                        fontSize: 11.sp,
+                        fontSize: 11.tsp,
                         color: AttendanceDashboardTheme.textMuted,
                         fontWeight: FontWeight.w500,
                       ),
@@ -486,8 +487,8 @@ class _EmployeeCard extends StatelessWidget {
               GestureDetector(
                 onTap: onTap,
                 child: Container(
-                  width: 36.w,
-                  height: 36.w,
+                  width: 36.tw,
+                  height: 36.tw,
                   decoration: BoxDecoration(
                     gradient: LinearGradient(
                       colors: [
@@ -495,7 +496,7 @@ class _EmployeeCard extends StatelessWidget {
                         _kSkyMid.withValues(alpha: 0.8),
                       ],
                     ),
-                    borderRadius: BorderRadius.circular(10.r),
+                    borderRadius: BorderRadius.circular(10.tr),
                     border:
                         Border.all(color: _kPrimary.withValues(alpha: 0.18)),
                     boxShadow: [
@@ -507,13 +508,13 @@ class _EmployeeCard extends StatelessWidget {
                     ],
                   ),
                   child: Icon(Icons.north_east_rounded,
-                      size: 16.sp, color: _kPrimary),
+                      size: 16.tsp, color: _kPrimary),
                 ),
               ),
             ],
           ),
 
-          SizedBox(height: 12.h),
+          SizedBox(height: 12.th),
 
           // ── Bottom row: attendance rate + progress bar ─────────────
           Row(
@@ -525,19 +526,19 @@ class _EmployeeCard extends StatelessWidget {
                     Text(
                       '$pct% Attendance Rate',
                       style: TextStyle(
-                        fontSize: 11.sp,
+                        fontSize: 11.tsp,
                         fontWeight: FontWeight.w700,
                         color: _rateColor,
                       ),
                     ),
-                    SizedBox(height: 6.h),
+                    SizedBox(height: 6.th),
                     // Progress bar
                     ClipRRect(
                       borderRadius: BorderRadius.circular(99),
                       child: Stack(
                         children: [
                           Container(
-                            height: 5.h,
+                            height: 5.th,
                             decoration: BoxDecoration(
                               color: _kSkyMid,
                               borderRadius: BorderRadius.circular(99),
@@ -546,7 +547,7 @@ class _EmployeeCard extends StatelessWidget {
                           FractionallySizedBox(
                             widthFactor: rate,
                             child: Container(
-                              height: 5.h,
+                              height: 5.th,
                               decoration: BoxDecoration(
                                 color: _rateColor,
                                 borderRadius: BorderRadius.circular(99),
@@ -560,12 +561,12 @@ class _EmployeeCard extends StatelessWidget {
                 ),
               ),
 
-              SizedBox(width: 12.w),
+              SizedBox(width: 12.tw),
 
               // P / A chips
               _MiniPill('P ${employee.totalPresentDays}',
                   const Color(0xFF16A34A)),
-              SizedBox(width: 5.w),
+              SizedBox(width: 5.tw),
               _MiniPill('A ${employee.totalAbsentDays}',
                   const Color(0xFFDC2626)),
             ],
@@ -584,15 +585,15 @@ class _MiniPill extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: EdgeInsets.symmetric(horizontal: 7.w, vertical: 3.h),
+      padding: EdgeInsets.symmetric(horizontal: 7.tw, vertical: 3.th),
       decoration: BoxDecoration(
         color: color.withValues(alpha: 0.10),
-        borderRadius: BorderRadius.circular(6.r),
+        borderRadius: BorderRadius.circular(6.tr),
         border: Border.all(color: color.withValues(alpha: 0.25)),
       ),
       child: Text(label,
           style: TextStyle(
-              fontSize: 10.sp, fontWeight: FontWeight.w700, color: color)),
+              fontSize: 10.tsp, fontWeight: FontWeight.w700, color: color)),
     );
   }
 }
@@ -634,45 +635,45 @@ class _SkeletonListState extends State<_SkeletonList>
       builder: (_, __) => ListView.separated(
         physics: const NeverScrollableScrollPhysics(),
         padding: EdgeInsets.fromLTRB(
-            HrModuleLayout.screenPaddingH.w, 0,
-            HrModuleLayout.screenPaddingH.w, 32.h),
+            HrModuleLayout.screenPaddingH.tw, 0,
+            HrModuleLayout.screenPaddingH.tw, 32.th),
         itemCount: 6,
-        separatorBuilder: (_, __) => SizedBox(height: 10.h),
+        separatorBuilder: (_, __) => SizedBox(height: 10.th),
         itemBuilder: (_, __) => Container(
-          height: 86.h,
-          padding: EdgeInsets.all(14.w),
+          height: 86.th,
+          padding: EdgeInsets.all(14.tw),
           decoration: BoxDecoration(
             color: Colors.white.withValues(alpha: _anim.value),
-            borderRadius: BorderRadius.circular(18.r),
+            borderRadius: BorderRadius.circular(18.tr),
             border: Border.all(color: _kPrimary.withValues(alpha: 0.07)),
           ),
           child: Row(
             children: [
               Container(
-                  width: 50.w,
-                  height: 50.w,
+                  width: 50.tw,
+                  height: 50.tw,
                   decoration: BoxDecoration(
                       shape: BoxShape.circle,
                       color: _kSkyMid.withValues(alpha: _anim.value))),
-              SizedBox(width: 12.w),
+              SizedBox(width: 12.tw),
               Expanded(
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Container(
-                        height: 12.h,
-                        width: 140.w,
+                        height: 12.th,
+                        width: 140.tw,
                         decoration: BoxDecoration(
                             color: _kSkyMid.withValues(alpha: _anim.value),
-                            borderRadius: BorderRadius.circular(6.r))),
-                    SizedBox(height: 8.h),
+                            borderRadius: BorderRadius.circular(6.tr))),
+                    SizedBox(height: 8.th),
                     Container(
-                        height: 8.h,
-                        width: 90.w,
+                        height: 8.th,
+                        width: 90.tw,
                         decoration: BoxDecoration(
                             color: _kSkyMid.withValues(alpha: _anim.value * 0.6),
-                            borderRadius: BorderRadius.circular(4.r))),
+                            borderRadius: BorderRadius.circular(4.tr))),
                   ],
                 ),
               ),
@@ -697,19 +698,19 @@ class _EmptyState extends StatelessWidget {
     return ListView(
       physics: const AlwaysScrollableScrollPhysics(),
       children: [
-        SizedBox(height: 60.h),
+        SizedBox(height: 60.th),
         Center(
           child: Column(
             children: [
               Icon(Icons.search_off_rounded,
-                  size: 48.sp, color: _kPrimary.withValues(alpha: 0.25)),
-              SizedBox(height: 12.h),
+                  size: 48.tsp, color: _kPrimary.withValues(alpha: 0.25)),
+              SizedBox(height: 12.th),
               Text(
                 query.isNotEmpty
                     ? 'No results for "$query"'
                     : 'No employees found',
                 style: TextStyle(
-                  fontSize: 14.sp,
+                  fontSize: 14.tsp,
                   color: AttendanceDashboardTheme.textMuted,
                   fontWeight: FontWeight.w600,
                 ),

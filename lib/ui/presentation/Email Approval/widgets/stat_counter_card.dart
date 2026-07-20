@@ -1,3 +1,4 @@
+import 'package:el_race/core/utils/responsive_breakpoints.dart';
 import 'package:el_race/ui/presentation/Email%20Approval/theme/approvals_overview_theme.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
@@ -75,17 +76,17 @@ class StatCounterCard extends StatelessWidget {
         : accentText;
 
     return ClipRRect(
-      borderRadius: BorderRadius.circular(22.r),
+      borderRadius: BorderRadius.circular(22.tr),
       child: Material(
         color: Colors.transparent,
         child: InkWell(
           onTap: hasError ? onRetry : onTap,
           child: Ink(
-            width: expand ? double.infinity : 170.w,
-            height: tileHeight.h,
+            width: expand ? double.infinity : 170.tw,
+            height: tileHeight.th,
             decoration: BoxDecoration(
               gradient: gradient,
-              borderRadius: BorderRadius.circular(22.r),
+              borderRadius: BorderRadius.circular(22.tr),
               border: Border.all(
                 color: Colors.white.withValues(alpha: 0.72),
                 width: 1.2,
@@ -108,14 +109,14 @@ class StatCounterCard extends StatelessWidget {
               children: [
                 if (illustrationAsset != null)
                   Positioned(
-                    right: 4.w,
-                    bottom: 8.h,
+                    right: 4.tw,
+                    bottom: 8.th,
                     child: _StatCardBackgroundIllustration(
                       assetPath: illustrationAsset,
                     ),
                   ),
                 Padding(
-                  padding: EdgeInsets.all(14.w),
+                  padding: EdgeInsets.all(14.tw),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
@@ -124,21 +125,21 @@ class StatCounterCard extends StatelessWidget {
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
                         style: GoogleFonts.poppins(
-                          fontSize: 13.sp,
+                          fontSize: 13.tsp,
                           fontWeight: FontWeight.w700,
                           color: ApprovalsOverviewTheme.textDark,
                           height: 1.2,
                         ),
                       ),
-                      SizedBox(height: 4.h),
+                      SizedBox(height: 4.th),
                       Container(
                         padding: EdgeInsets.symmetric(
-                          horizontal: 7.w,
-                          vertical: 2.h,
+                          horizontal: 7.tw,
+                          vertical: 2.th,
                         ),
                         decoration: BoxDecoration(
                           color: illustrationTint.withValues(alpha: 0.14),
-                          borderRadius: BorderRadius.circular(6.r),
+                          borderRadius: BorderRadius.circular(6.tr),
                           border: Border.all(
                             color: illustrationTint.withValues(alpha: 0.28),
                           ),
@@ -148,7 +149,7 @@ class StatCounterCard extends StatelessWidget {
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           style: GoogleFonts.poppins(
-                            fontSize: 10.sp,
+                            fontSize: 10.tsp,
                             fontWeight: FontWeight.w700,
                             letterSpacing: 0.6,
                             color: illustrationTint,
@@ -179,11 +180,11 @@ class StatCounterCard extends StatelessWidget {
   Widget _buildValueArea(Color accentText) {
     if (isLoading) {
       return Container(
-        width: 44.w,
-        height: 24.h,
+        width: 44.tw,
+        height: 24.th,
         decoration: BoxDecoration(
           color: ApprovalsOverviewTheme.textDark.withValues(alpha: 0.1),
-          borderRadius: BorderRadius.circular(8.r),
+          borderRadius: BorderRadius.circular(8.tr),
         ),
       );
     }
@@ -198,16 +199,16 @@ class StatCounterCard extends StatelessWidget {
             Text(
               '--',
               style: GoogleFonts.poppins(
-                fontSize: 30.sp,
+                fontSize: 30.tsp,
                 fontWeight: FontWeight.w700,
                 color: ApprovalsOverviewTheme.textSoft,
                 height: 1,
               ),
             ),
-            SizedBox(width: 4.w),
+            SizedBox(width: 4.tw),
             Icon(
               Icons.refresh_rounded,
-              size: 16.sp,
+              size: 16.tsp,
               color: ApprovalsOverviewTheme.textMuted,
             ),
           ],
@@ -218,7 +219,7 @@ class StatCounterCard extends StatelessWidget {
     return Text(
       '${value ?? 0}',
       style: GoogleFonts.poppins(
-        fontSize: 32.sp,
+        fontSize: 32.tsp,
         fontWeight: FontWeight.w800,
         color: ApprovalsOverviewTheme.textDark,
         height: 1,
@@ -240,8 +241,8 @@ class _StatCardBackgroundIllustration extends StatelessWidget {
         opacity: 0.12,
         child: Image.asset(
           assetPath,
-          width: 68.w,
-          height: 68.w,
+          width: 68.tw,
+          height: 68.tw,
           fit: BoxFit.contain,
           filterQuality: FilterQuality.high,
           isAntiAlias: true,
@@ -262,15 +263,15 @@ class _StatCounterArrowButton extends StatelessWidget {
       onTap: onTap,
       behavior: HitTestBehavior.opaque,
       child: Container(
-        width: 34.w,
-        height: 34.w,
+        width: 34.tw,
+        height: 34.tw,
         decoration: const BoxDecoration(
           color: StatCounterCard._buttonColor,
           shape: BoxShape.circle,
         ),
         child: Icon(
           Icons.north_east_rounded,
-          size: 15.sp,
+          size: 15.tsp,
           color: Colors.white,
         ),
       ),
@@ -292,7 +293,7 @@ class StatCounterGrid extends StatelessWidget {
   static const double kTileGap = 8;
 
   static double gridHeight({double? tileHeight, double? gap}) =>
-      (tileHeight ?? kTileHeight).h * 2 + (gap ?? kTileGap).h;
+      (tileHeight ?? kTileHeight).th * 2 + (gap ?? kTileGap).th;
 
   final List<StatCounterCardData> cards;
   final double horizontalPadding;
@@ -320,7 +321,7 @@ class StatCounterGrid extends StatelessWidget {
     assert(cards.length == 4, 'StatCounterGrid expects exactly 4 cards');
 
     return Padding(
-      padding: EdgeInsets.symmetric(horizontal: horizontalPadding.w),
+      padding: EdgeInsets.symmetric(horizontal: horizontalPadding.tw),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
@@ -328,16 +329,16 @@ class StatCounterGrid extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Expanded(child: _buildCard(cards[0])),
-              SizedBox(width: gap.w),
+              SizedBox(width: gap.tw),
               Expanded(child: _buildCard(cards[1])),
             ],
           ),
-          SizedBox(height: gap.h),
+          SizedBox(height: gap.th),
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Expanded(child: _buildCard(cards[2])),
-              SizedBox(width: gap.w),
+              SizedBox(width: gap.tw),
               Expanded(child: _buildCard(cards[3])),
             ],
           ),
@@ -361,8 +362,8 @@ class OverviewSegmentedTabs extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      height: 42.h,
-      padding: EdgeInsets.all(4.w),
+      height: 42.th,
+      padding: EdgeInsets.all(4.tw),
       decoration: BoxDecoration(
         color: Colors.white.withValues(alpha: 0.72),
         borderRadius: BorderRadius.circular(999),
@@ -423,7 +424,7 @@ class _TabChip extends StatelessWidget {
           child: Text(
             label,
             style: GoogleFonts.poppins(
-              fontSize: 13.sp,
+              fontSize: 13.tsp,
               fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
               color: selected
                   ? ApprovalsOverviewTheme.screenDeep

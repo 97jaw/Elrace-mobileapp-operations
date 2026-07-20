@@ -1,3 +1,4 @@
+import 'package:el_race/core/utils/responsive_breakpoints.dart';
 import 'package:el_race/ui/presentation/my_projects/presentation/theme/projects_dashboard_theme.dart';
 import 'package:el_race/ui/presentation/my_projects/presentation/utils/client_in_progress_grouper.dart';
 import 'package:el_race/ui/presentation/my_projects/presentation/widgets/client_projects_bottom_sheet.dart';
@@ -8,7 +9,7 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 /// Bar row height (count label + bar + logo) — must fit tallest column.
-double get _kChartContentHeight => 168.h;
+double get _kChartContentHeight => 168.th;
 
 class ClientInProgressBarChart extends StatelessWidget {
   const ClientInProgressBarChart({
@@ -35,8 +36,8 @@ class ClientInProgressBarChart extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      margin: EdgeInsets.fromLTRB(16.w, 8.h, 16.w, 0),
-      padding: EdgeInsets.fromLTRB(14.w, 12.h, 14.w, 10.h),
+      margin: EdgeInsets.fromLTRB(16.tw, 8.th, 16.tw, 0),
+      padding: EdgeInsets.fromLTRB(14.tw, 12.th, 14.tw, 10.th),
       decoration: ProjectsDashboardTheme.frostedPanel(),
       child: Column(
         mainAxisSize: MainAxisSize.min,
@@ -49,7 +50,7 @@ class ClientInProgressBarChart extends StatelessWidget {
                 child: Text(
                   title,
                   style: GoogleFonts.poppins(
-                    fontSize: 14.sp,
+                    fontSize: 14.tsp,
                     fontWeight: FontWeight.w700,
                     color: ProjectsDashboardTheme.white,
                   ),
@@ -64,7 +65,7 @@ class ClientInProgressBarChart extends StatelessWidget {
               ),
             ],
           ),
-          SizedBox(height: 10.h),
+          SizedBox(height: 10.th),
           SizedBox(
             height: _kChartContentHeight,
             width: double.infinity,
@@ -75,7 +76,7 @@ class ClientInProgressBarChart extends StatelessWidget {
                         child: Text(
                           '—',
                           style: GoogleFonts.poppins(
-                            fontSize: 13.sp,
+                            fontSize: 13.tsp,
                             color: ProjectsDashboardTheme.greyPanel,
                           ),
                         ),
@@ -135,9 +136,9 @@ class _YearPickerTrigger extends StatelessWidget {
       color: Colors.transparent,
       child: InkWell(
         onTap: () => _openPicker(context),
-        borderRadius: BorderRadius.circular(20.r),
+        borderRadius: BorderRadius.circular(20.tr),
         child: Container(
-          padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 6.h),
+          padding: EdgeInsets.symmetric(horizontal: 12.tw, vertical: 6.th),
           decoration: ProjectsDashboardTheme.dropdownChipDecoration(),
           child: Row(
             mainAxisSize: MainAxisSize.min,
@@ -145,15 +146,15 @@ class _YearPickerTrigger extends StatelessWidget {
               Text(
                 displayLabel,
                 style: GoogleFonts.poppins(
-                  fontSize: 12.sp,
+                  fontSize: 12.tsp,
                   fontWeight: FontWeight.w600,
                   color: ProjectsDashboardTheme.white,
                 ),
               ),
-              SizedBox(width: 2.w),
+              SizedBox(width: 2.tw),
               Icon(
                 Icons.keyboard_arrow_up_rounded,
-                size: 20.sp,
+                size: 20.tsp,
                 color: ProjectsDashboardTheme.white.withValues(alpha: 0.9),
               ),
             ],
@@ -186,11 +187,11 @@ class _ChartBody extends StatelessWidget {
       scrollDirection: Axis.horizontal,
       physics: const BouncingScrollPhysics(),
       itemCount: clients.length,
-      separatorBuilder: (_, __) => SizedBox(width: 12.w),
+      separatorBuilder: (_, __) => SizedBox(width: 12.tw),
       itemBuilder: (context, index) {
         final client = clients[index];
         final ratio = maxCount > 0 ? client.projectCount / maxCount : 0.0;
-        final barHeight = (_barAreaMax.h * ratio).clamp(14.h, _barAreaMax.h);
+        final barHeight = (_barAreaMax.th * ratio).clamp(14.th, _barAreaMax.th);
 
         return GestureDetector(
           onTap: () => showClientProjectsBottomSheet(
@@ -198,7 +199,7 @@ class _ChartBody extends StatelessWidget {
             client: client,
           ),
           child: SizedBox(
-            width: 52.w,
+            width: 52.tw,
             height: height,
             child: Column(
               mainAxisAlignment: MainAxisAlignment.end,
@@ -206,18 +207,18 @@ class _ChartBody extends StatelessWidget {
                 Text(
                   '${client.projectCount}',
                   style: GoogleFonts.koulen(
-                    fontSize: 11.sp,
+                    fontSize: 11.tsp,
                     height: 1.1,
                     color: ProjectsDashboardTheme.white,
                   ),
                   maxLines: 1,
                 ),
-                SizedBox(height: 4.h),
+                SizedBox(height: 4.th),
                 _MaroonBar(height: barHeight),
-                SizedBox(height: 5.h),
+                SizedBox(height: 5.th),
                 SizedBox(
-                  width: _logoSize.w,
-                  height: _logoSize.w,
+                  width: _logoSize.tw,
+                  height: _logoSize.tw,
                   child: _ClientLogoAvatar(
                     name: client.clientName,
                     photoUrl: client.logoUrl,
@@ -240,10 +241,10 @@ class _MaroonBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      width: 26.w,
+      width: 26.tw,
       height: height,
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(12.r)),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(12.tr)),
         gradient: LinearGradient(
           begin: Alignment.bottomCenter,
           end: Alignment.topCenter,
@@ -295,7 +296,7 @@ class _ClientLogoAvatar extends StatelessWidget {
     }
 
     return Container(
-      padding: EdgeInsets.all(2.w),
+      padding: EdgeInsets.all(2.tw),
       decoration: BoxDecoration(
         shape: BoxShape.circle,
         border: Border.all(
@@ -314,7 +315,7 @@ class _ClientLogoAvatar extends StatelessWidget {
         child: Text(
           letter,
           style: GoogleFonts.poppins(
-            fontSize: 14.sp,
+            fontSize: 14.tsp,
             fontWeight: FontWeight.w700,
             color: ProjectsDashboardTheme.white,
           ),

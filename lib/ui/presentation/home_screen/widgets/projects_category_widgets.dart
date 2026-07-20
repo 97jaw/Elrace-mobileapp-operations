@@ -1,4 +1,5 @@
-import 'package:el_race/ui/presentation/my_projects/presentation/utils/projects_coming_soon.dart';
+import 'package:el_race/core/timesheet/routing/timesheet_route_names.dart';
+import 'package:el_race/core/utils/responsive_breakpoints.dart';
 import 'package:el_race/ui/presentation/home_screen/providers/home_projects_widgets_provider.dart';
 import 'package:el_race/ui/presentation/home_screen/widgets/category_widget_gradient_border.dart';
 import 'package:el_race/ui/presentation/home_screen/widgets/home_my_projects_navigation.dart';
@@ -11,7 +12,12 @@ import 'package:google_fonts/google_fonts.dart';
 
 /// v7 Projects category widgets (My Projects, Site Management, My Reports).
 class ProjectsCategoryMyProjectsCard extends ConsumerWidget {
-  const ProjectsCategoryMyProjectsCard({super.key});
+  const ProjectsCategoryMyProjectsCard({
+    super.key,
+    this.tabletCompact = false,
+  });
+
+  final bool tabletCompact;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -40,7 +46,7 @@ class ProjectsCategoryMyProjectsCard extends ConsumerWidget {
         children: [
           Positioned(
             right: -36.w,
-            top: -44.h,
+            top: -44.uh,
             child: _ConcentricRingsPattern(size: 210.w),
           ),
         ],
@@ -52,28 +58,28 @@ class ProjectsCategoryMyProjectsCard extends ConsumerWidget {
           Text(
             'ACTIVE PROJECTS',
             style: GoogleFonts.poppins(
-              fontSize: 7.5.sp,
+              fontSize: 7.5.usp,
               fontWeight: FontWeight.w600,
               color: const Color(0xFF7A849C),
               letterSpacing: 0.6,
             ),
           ),
-          SizedBox(height: 3.h),
+          SizedBox(height: 3.uh),
           Text(
             data.titleLine,
             style: GoogleFonts.poppins(
-              fontSize: 14.5.sp,
+              fontSize: 14.5.usp,
               fontWeight: FontWeight.w700,
               color: const Color(0xFF1A2A4F),
               height: 1.15,
             ),
           ),
-          SizedBox(height: rowCount == 0 ? 8.h : 14.h),
+          SizedBox(height: rowCount == 0 ? 8.uh : 14.uh),
           if (rowCount == 0)
             Text(
               'No projects yet',
               style: GoogleFonts.poppins(
-                fontSize: 11.sp,
+                fontSize: 11.usp,
                 fontWeight: FontWeight.w600,
                 color: const Color(0xFF5A6A82),
               ),
@@ -82,7 +88,7 @@ class ProjectsCategoryMyProjectsCard extends ConsumerWidget {
             for (var i = 0; i < rowCount; i++) ...[
               if (i > 0)
                 Padding(
-                  padding: EdgeInsets.symmetric(vertical: 6.h),
+                  padding: EdgeInsets.symmetric(vertical: 6.uh),
                   child: Divider(
                     height: 1,
                     thickness: 1,
@@ -98,14 +104,14 @@ class ProjectsCategoryMyProjectsCard extends ConsumerWidget {
               ),
             ],
             if (data.moreProjectsCount > 0) ...[
-              SizedBox(height: 10.h),
+              SizedBox(height: 10.uh),
               GestureDetector(
                 onTap: () =>
                     HomeMyProjectsNavigation.openProjectsModule(context),
                 child: Text(
                   '+ ${data.moreProjectsCount} more projects',
                   style: GoogleFonts.poppins(
-                    fontSize: 10.5.sp,
+                    fontSize: 10.5.usp,
                     fontWeight: FontWeight.w700,
                     color: const Color(0xFF3E7BFA),
                   ),
@@ -120,7 +126,12 @@ class ProjectsCategoryMyProjectsCard extends ConsumerWidget {
 }
 
 class ProjectsCategorySiteManagementCard extends ConsumerWidget {
-  const ProjectsCategorySiteManagementCard({super.key});
+  const ProjectsCategorySiteManagementCard({
+    super.key,
+    this.tabletCompact = false,
+  });
+
+  final bool tabletCompact;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -130,9 +141,9 @@ class ProjectsCategorySiteManagementCard extends ConsumerWidget {
     final chips = data.locationChips;
 
     return _ProjectsHalfCardShell(
-      onTap: () => showProjectsComingSoonSnackBar(
-        context,
-        featureLabel: 'Site Management',
+      height: null,
+      onTap: () => Navigator.of(context).pushNamed(
+        TimesheetRouteNames.siteManagementHome,
       ),
       gradient: const LinearGradient(
         begin: Alignment.topLeft,
@@ -151,7 +162,7 @@ class ProjectsCategorySiteManagementCard extends ConsumerWidget {
       pattern: Align(
         alignment: Alignment.bottomRight,
         child: CustomPaint(
-          size: Size(88.w, 72.h),
+          size: Size(88.w, 72.uh),
           painter: _BlueprintGridPainter(),
         ),
       ),
@@ -161,49 +172,49 @@ class ProjectsCategorySiteManagementCard extends ConsumerWidget {
           Text(
             'SITES',
             style: GoogleFonts.poppins(
-              fontSize: 8.sp,
+              fontSize: 8.usp,
               fontWeight: FontWeight.w700,
               color: const Color(0xFFE07B1A),
               letterSpacing: 0.5,
             ),
           ),
-          SizedBox(height: 2.h),
+          SizedBox(height: 2.uh),
           Text(
             'Site Management',
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             style: GoogleFonts.poppins(
-              fontSize: 11.5.sp,
+              fontSize: 11.5.usp,
               fontWeight: FontWeight.w700,
               color: const Color(0xFF7A3E00),
             ),
           ),
-          SizedBox(height: 6.h),
+          SizedBox(height: 6.uh),
           Text(
             countLabel,
             style: GoogleFonts.poppins(
-              fontSize: 24.sp,
+              fontSize: 24.usp,
               fontWeight: FontWeight.w800,
               color: const Color(0xFF7A3E00),
               height: 1,
             ),
           ),
-          SizedBox(height: 3.h),
+          SizedBox(height: 3.uh),
           Text(
             data.trendLabel,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             style: GoogleFonts.poppins(
-              fontSize: 8.5.sp,
+              fontSize: 8.5.usp,
               fontWeight: FontWeight.w600,
               color: const Color(0xFFF59E3D),
               height: 1.2,
             ),
           ),
           if (chips.isNotEmpty) ...[
-            SizedBox(height: 6.h),
+            SizedBox(height: 6.uh),
             SizedBox(
-              height: 22.h,
+              height: 22.uh,
               child: ListView.separated(
                 scrollDirection: Axis.horizontal,
                 physics: const BouncingScrollPhysics(),
@@ -222,20 +233,26 @@ class ProjectsCategorySiteManagementCard extends ConsumerWidget {
 }
 
 class ProjectsCategoryMyReportsCard extends ConsumerWidget {
-  const ProjectsCategoryMyReportsCard({super.key});
+  const ProjectsCategoryMyReportsCard({
+    super.key,
+    this.tabletCompact = false,
+  });
+
+  final bool tabletCompact;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final data = ref.watch(homeMyReportsWidgetProvider);
     final trendColor = _reportsTrendColor(data.trendDirection);
     final valueStyle = GoogleFonts.poppins(
-      fontSize: data.value == '—' ? 24.sp : 28.sp,
+      fontSize: data.value == '—' ? 24.usp : 28.usp,
       fontWeight: FontWeight.w800,
       color: Colors.white,
       height: 1,
     );
 
     return _ProjectsHalfCardShell(
+      height: null,
       onTap: () => HomeMyReportsNavigation.open(
         context,
         metricType: data.metricType,
@@ -280,48 +297,48 @@ class ProjectsCategoryMyReportsCard extends ConsumerWidget {
           Text(
             'PERFORMANCE',
             style: GoogleFonts.poppins(
-              fontSize: 8.sp,
+              fontSize: 8.usp,
               fontWeight: FontWeight.w700,
               color: const Color(0xFFB8BEC8),
               letterSpacing: 0.5,
             ),
           ),
-          SizedBox(height: 2.h),
+          SizedBox(height: 2.uh),
           Text(
             'My Reports',
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             style: GoogleFonts.poppins(
-              fontSize: 11.5.sp,
+              fontSize: 11.5.usp,
               fontWeight: FontWeight.w700,
               color: Colors.white,
             ),
           ),
-          SizedBox(height: 8.h),
+          SizedBox(height: 8.uh),
           FittedBox(
             fit: BoxFit.scaleDown,
             alignment: Alignment.centerLeft,
             child: Text(data.value, style: valueStyle),
           ),
-          SizedBox(height: 4.h),
+          SizedBox(height: 4.uh),
           Text(
             data.trendLabel,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             style: GoogleFonts.poppins(
-              fontSize: 8.5.sp,
+              fontSize: 8.5.usp,
               fontWeight: FontWeight.w600,
               color: trendColor,
               height: 1.2,
             ),
           ),
-          SizedBox(height: 8.h),
+          SizedBox(height: 8.uh),
           Text(
             'Updated ${data.updatedAt} · Live',
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             style: GoogleFonts.poppins(
-              fontSize: 7.5.sp,
+              fontSize: 7.5.usp,
               fontWeight: FontWeight.w500,
               color: Colors.white.withValues(alpha: 0.45),
             ),
@@ -388,9 +405,9 @@ class _MyProjectsRow extends StatelessWidget {
       color: Colors.transparent,
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(8.r),
+        borderRadius: BorderRadius.circular(8.ur),
         child: Padding(
-          padding: EdgeInsets.symmetric(vertical: 1.h),
+          padding: EdgeInsets.symmetric(vertical: 1.uh),
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
@@ -403,7 +420,7 @@ class _MyProjectsRow extends StatelessWidget {
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: GoogleFonts.poppins(
-                    fontSize: 11.5.sp,
+                    fontSize: 11.5.usp,
                     fontWeight: FontWeight.w700,
                     color: const Color(0xFF1A2A4F),
                     height: 1.2,
@@ -422,7 +439,7 @@ class _MyProjectsRow extends StatelessWidget {
                   pctLabel,
                   textAlign: TextAlign.right,
                   style: GoogleFonts.poppins(
-                    fontSize: 11.sp,
+                    fontSize: 11.usp,
                     fontWeight: FontWeight.w700,
                     color: const Color(0xFF1A2A4F),
                   ),
@@ -490,7 +507,7 @@ class _ProjectProgressBar extends StatelessWidget {
     return ClipRRect(
       borderRadius: BorderRadius.circular(999),
       child: SizedBox(
-        height: 5.5.h,
+        height: 5.5.uh,
         child: Stack(
           fit: StackFit.expand,
           children: [
@@ -533,7 +550,7 @@ class _ProjectsSoftPill extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: EdgeInsets.symmetric(horizontal: 8.w, vertical: 3.h),
+      padding: EdgeInsets.symmetric(horizontal: 8.w, vertical: 3.uh),
       decoration: BoxDecoration(
         color: Colors.white.withValues(alpha: 0.42),
         borderRadius: BorderRadius.circular(999),
@@ -544,7 +561,7 @@ class _ProjectsSoftPill extends StatelessWidget {
         maxLines: 1,
         overflow: TextOverflow.ellipsis,
         style: GoogleFonts.poppins(
-          fontSize: 8.sp,
+          fontSize: 8.usp,
           fontWeight: FontWeight.w600,
           color: const Color(0xFF7A3E00),
         ),
@@ -565,7 +582,7 @@ class _ProjectsIconBadge extends StatelessWidget {
       width: 34.w,
       height: 34.w,
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(11.r),
+        borderRadius: BorderRadius.circular(11.ur),
         gradient: LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
@@ -579,7 +596,7 @@ class _ProjectsIconBadge extends StatelessWidget {
           ),
         ],
       ),
-      child: Icon(icon, size: 18.sp, color: Colors.white),
+      child: Icon(icon, size: 18.usp, color: Colors.white),
     );
   }
 }
@@ -591,6 +608,7 @@ class _ProjectsHalfCardShell extends StatelessWidget {
     required this.iconBadge,
     this.pattern,
     this.onTap,
+    this.height,
   });
 
   final Widget child;
@@ -598,24 +616,25 @@ class _ProjectsHalfCardShell extends StatelessWidget {
   final Widget iconBadge;
   final Widget? pattern;
   final VoidCallback? onTap;
+  final double? height;
 
   @override
   Widget build(BuildContext context) {
     final innerRadius =
-        (22.r - CategoryWidgetGradientBorder.width).clamp(0.0, double.infinity);
+        (22.ur - CategoryWidgetGradientBorder.width).clamp(0.0, double.infinity);
 
     return Material(
       color: Colors.transparent,
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(22.r),
+        borderRadius: BorderRadius.circular(22.ur),
         child: Container(
-          height: 140.h,
-          decoration: CategoryWidgetGradientBorder.outer(borderRadius: 22.r),
+          height: height ?? double.infinity,
+          decoration: CategoryWidgetGradientBorder.outer(borderRadius: 22.ur),
           padding: CategoryWidgetGradientBorder.padding,
           child: Container(
             decoration: CategoryWidgetGradientBorder.inner(
-              borderRadius: 22.r,
+              borderRadius: 22.ur,
               fillGradient: gradient,
             ),
             child: ClipRRect(
@@ -629,10 +648,26 @@ class _ProjectsHalfCardShell extends StatelessWidget {
                       child: IgnorePointer(child: pattern!),
                     ),
                   Padding(
-                    padding: EdgeInsets.fromLTRB(12.w, 10.h, 46.w, 12.h),
-                    child: SizedBox.expand(child: child),
+                    padding: EdgeInsets.fromLTRB(12.w, 10.uh, 46.w, 12.uh),
+                    child: LayoutBuilder(
+                      builder: (context, constraints) {
+                        return Align(
+                          alignment: Alignment.topLeft,
+                          child: FittedBox(
+                            fit: BoxFit.scaleDown,
+                            alignment: Alignment.topLeft,
+                            child: ConstrainedBox(
+                              constraints: BoxConstraints(
+                                maxWidth: constraints.maxWidth,
+                              ),
+                              child: child,
+                            ),
+                          ),
+                        );
+                      },
+                    ),
                   ),
-                  Positioned(top: 8.h, right: 8.w, child: iconBadge),
+                  Positioned(top: 8.uh, right: 8.w, child: iconBadge),
                 ],
               ),
             ),
@@ -661,20 +696,20 @@ class _ProjectsFullCardShell extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final innerRadius =
-        (22.r - CategoryWidgetGradientBorder.width).clamp(0.0, double.infinity);
+        (22.ur - CategoryWidgetGradientBorder.width).clamp(0.0, double.infinity);
 
     return Material(
       color: Colors.transparent,
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(22.r),
+        borderRadius: BorderRadius.circular(22.ur),
         child: Container(
-          constraints: BoxConstraints(minHeight: 108.h),
-          decoration: CategoryWidgetGradientBorder.outer(borderRadius: 22.r),
+          constraints: BoxConstraints(minHeight: 108.uh),
+          decoration: CategoryWidgetGradientBorder.outer(borderRadius: 22.ur),
           padding: CategoryWidgetGradientBorder.padding,
           child: Container(
             decoration: CategoryWidgetGradientBorder.inner(
-              borderRadius: 22.r,
+              borderRadius: 22.ur,
               fillGradient: gradient,
             ),
             child: ClipRRect(
@@ -687,10 +722,26 @@ class _ProjectsFullCardShell extends StatelessWidget {
                       child: IgnorePointer(child: pattern!),
                     ),
                   Padding(
-                    padding: EdgeInsets.fromLTRB(14.w, 12.h, 46.w, 12.h),
-                    child: child,
+                    padding: EdgeInsets.fromLTRB(14.w, 12.uh, 46.w, 12.uh),
+                    child: LayoutBuilder(
+                      builder: (context, constraints) {
+                        return Align(
+                          alignment: Alignment.topLeft,
+                          child: FittedBox(
+                            fit: BoxFit.scaleDown,
+                            alignment: Alignment.topLeft,
+                            child: ConstrainedBox(
+                              constraints: BoxConstraints(
+                                maxWidth: constraints.maxWidth,
+                              ),
+                              child: child,
+                            ),
+                          ),
+                        );
+                      },
+                    ),
                   ),
-                  Positioned(top: 8.h, right: 8.w, child: iconBadge),
+                  Positioned(top: 8.uh, right: 8.w, child: iconBadge),
                 ],
               ),
             ),

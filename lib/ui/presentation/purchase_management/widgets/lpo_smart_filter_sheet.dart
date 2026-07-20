@@ -1,3 +1,4 @@
+import 'package:el_race/core/utils/responsive_breakpoints.dart';
 import 'package:el_race/core/purchase/purchase_dev_role_provider.dart';
 import 'package:el_race/ui/presentation/purchase_management/data/purchase_models.dart';
 import 'package:el_race/ui/presentation/purchase_management/data/purchase_repository.dart';
@@ -208,27 +209,27 @@ class _LpoSmartFilterBodyState extends State<_LpoSmartFilterBody> {
     return InputDecoration(
       labelText: label,
       hintText: hint,
-      labelStyle: GoogleFonts.poppins(fontSize: 12.sp),
+      labelStyle: GoogleFonts.poppins(fontSize: 12.tsp),
       hintStyle: GoogleFonts.poppins(
-        fontSize: 12.sp,
+        fontSize: 12.tsp,
         color: PurchaseTheme.textMuted,
       ),
       filled: true,
       fillColor: Colors.white.withValues(alpha: 0.9),
       suffixIcon: suffixIcon,
       border: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(10.r),
+        borderRadius: BorderRadius.circular(10.tr),
         borderSide: BorderSide(
           color: PurchaseTheme.textMuted.withValues(alpha: 0.2),
         ),
       ),
       enabledBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(10.r),
+        borderRadius: BorderRadius.circular(10.tr),
         borderSide: BorderSide(
           color: PurchaseTheme.textMuted.withValues(alpha: 0.2),
         ),
       ),
-      contentPadding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 12.h),
+      contentPadding: EdgeInsets.symmetric(horizontal: 12.tw, vertical: 12.th),
     );
   }
 
@@ -243,29 +244,29 @@ class _LpoSmartFilterBodyState extends State<_LpoSmartFilterBody> {
             BoxConstraints(maxHeight: MediaQuery.sizeOf(context).height * 0.9),
         decoration: BoxDecoration(
           color: PurchaseTheme.hubBackground,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(22.r)),
+          borderRadius: BorderRadius.vertical(top: Radius.circular(22.tr)),
         ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            SizedBox(height: 10.h),
+            SizedBox(height: 10.th),
             Container(
-              width: 40.w,
-              height: 4.h,
+              width: 40.tw,
+              height: 4.th,
               decoration: BoxDecoration(
                 color: PurchaseTheme.textMuted.withValues(alpha: 0.35),
                 borderRadius: BorderRadius.circular(99),
               ),
             ),
             Padding(
-              padding: EdgeInsets.fromLTRB(18.w, 14.h, 12.w, 0),
+              padding: EdgeInsets.fromLTRB(18.tw, 14.th, 12.tw, 0),
               child: Row(
                 children: [
                   Expanded(
                     child: Text(
                       'Smart Filters',
                       style: GoogleFonts.poppins(
-                        fontSize: 17.sp,
+                        fontSize: 17.tsp,
                         fontWeight: FontWeight.w700,
                         color: PurchaseTheme.textPrimary,
                       ),
@@ -290,7 +291,7 @@ class _LpoSmartFilterBodyState extends State<_LpoSmartFilterBody> {
                     child: Text(
                       'Reset',
                       style: GoogleFonts.poppins(
-                        fontSize: 12.sp,
+                        fontSize: 12.tsp,
                         fontWeight: FontWeight.w600,
                         color: PurchaseTheme.accentDeep,
                       ),
@@ -301,14 +302,14 @@ class _LpoSmartFilterBodyState extends State<_LpoSmartFilterBody> {
             ),
             Flexible(
               child: SingleChildScrollView(
-                padding: EdgeInsets.fromLTRB(18.w, 8.h, 18.w, 12.h),
+                padding: EdgeInsets.fromLTRB(18.tw, 8.th, 18.tw, 12.th),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
                     _sectionTitle('Quick dates'),
                     Wrap(
-                      spacing: 8.w,
-                      runSpacing: 8.h,
+                      spacing: 8.tw,
+                      runSpacing: 8.th,
                       children: [
                         _quickChip('Today', _QuickDatePreset.today),
                         _quickChip('This Week', _QuickDatePreset.week),
@@ -319,7 +320,7 @@ class _LpoSmartFilterBodyState extends State<_LpoSmartFilterBody> {
                     if (_preset == _QuickDatePreset.custom ||
                         _from != null ||
                         _to != null) ...[
-                      SizedBox(height: 10.h),
+                      SizedBox(height: 10.th),
                       Row(
                         children: [
                           Expanded(
@@ -329,7 +330,7 @@ class _LpoSmartFilterBodyState extends State<_LpoSmartFilterBody> {
                               onTap: () => _pickDate(isFrom: true),
                             ),
                           ),
-                          SizedBox(width: 10.w),
+                          SizedBox(width: 10.tw),
                           Expanded(
                             child: _dateTile(
                               label: 'To',
@@ -340,7 +341,7 @@ class _LpoSmartFilterBodyState extends State<_LpoSmartFilterBody> {
                         ],
                       ),
                     ],
-                    SizedBox(height: 14.h),
+                    SizedBox(height: 14.th),
                     _sectionTitle('Selection filters'),
                     _selectionField(
                       label: 'Tags',
@@ -398,7 +399,7 @@ class _LpoSmartFilterBodyState extends State<_LpoSmartFilterBody> {
                         onApply: (ids) => _years = ids,
                       ),
                     ),
-                    SizedBox(height: 14.h),
+                    SizedBox(height: 14.th),
                     _sectionTitle('Text search'),
                     _field('Reference', _referenceCtrl, 'RCC-RFQ-40565'),
                     _field('Origin', _originCtrl, 'MR / origin reference'),
@@ -407,20 +408,20 @@ class _LpoSmartFilterBodyState extends State<_LpoSmartFilterBody> {
               ),
             ),
             Padding(
-              padding: EdgeInsets.fromLTRB(18.w, 0, 18.w, 20.h),
+              padding: EdgeInsets.fromLTRB(18.tw, 0, 18.tw, 20.th),
               child: FilledButton(
                 style: FilledButton.styleFrom(
                   backgroundColor: PurchaseTheme.accentBlue,
-                  minimumSize: Size(double.infinity, 46.h),
+                  minimumSize: Size(double.infinity, 46.th),
                   shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12.r),
+                    borderRadius: BorderRadius.circular(12.tr),
                   ),
                 ),
                 onPressed: () => Navigator.pop(context, _buildFilters()),
                 child: Text(
                   'Apply Filters',
                   style: GoogleFonts.poppins(
-                    fontSize: 14.sp,
+                    fontSize: 14.tsp,
                     fontWeight: FontWeight.w600,
                   ),
                 ),
@@ -434,11 +435,11 @@ class _LpoSmartFilterBodyState extends State<_LpoSmartFilterBody> {
 
   Widget _sectionTitle(String text) {
     return Padding(
-      padding: EdgeInsets.only(bottom: 8.h),
+      padding: EdgeInsets.only(bottom: 8.th),
       child: Text(
         text,
         style: GoogleFonts.poppins(
-          fontSize: 12.sp,
+          fontSize: 12.tsp,
           fontWeight: FontWeight.w600,
           color: PurchaseTheme.textSecondary,
         ),
@@ -455,10 +456,10 @@ class _LpoSmartFilterBodyState extends State<_LpoSmartFilterBody> {
     final hasValue = display.isNotEmpty;
 
     return Padding(
-      padding: EdgeInsets.only(bottom: 10.h),
+      padding: EdgeInsets.only(bottom: 10.th),
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(10.r),
+        borderRadius: BorderRadius.circular(10.tr),
         child: InputDecorator(
           decoration: _inputDecoration(
             label: label,
@@ -466,7 +467,7 @@ class _LpoSmartFilterBodyState extends State<_LpoSmartFilterBody> {
             suffixIcon: Icon(
               Icons.chevron_right_rounded,
               color: PurchaseTheme.textMuted,
-              size: 22.sp,
+              size: 22.tsp,
             ),
           ),
           child: Text(
@@ -474,7 +475,7 @@ class _LpoSmartFilterBodyState extends State<_LpoSmartFilterBody> {
             maxLines: 2,
             overflow: TextOverflow.ellipsis,
             style: GoogleFonts.poppins(
-              fontSize: 13.sp,
+              fontSize: 13.tsp,
               fontWeight: hasValue ? FontWeight.w500 : FontWeight.w400,
               color: hasValue
                   ? PurchaseTheme.textPrimary
@@ -491,7 +492,7 @@ class _LpoSmartFilterBodyState extends State<_LpoSmartFilterBody> {
     return GestureDetector(
       onTap: () => _applyPreset(preset),
       child: Container(
-        padding: EdgeInsets.symmetric(horizontal: 14.w, vertical: 8.h),
+        padding: EdgeInsets.symmetric(horizontal: 14.tw, vertical: 8.th),
         decoration: BoxDecoration(
           color: selected
               ? PurchaseTheme.accentBlue
@@ -506,7 +507,7 @@ class _LpoSmartFilterBodyState extends State<_LpoSmartFilterBody> {
         child: Text(
           label,
           style: GoogleFonts.poppins(
-            fontSize: 11.5.sp,
+            fontSize: 11.5.tsp,
             fontWeight: FontWeight.w600,
             color: selected ? Colors.white : PurchaseTheme.textSecondary,
           ),
@@ -523,10 +524,10 @@ class _LpoSmartFilterBodyState extends State<_LpoSmartFilterBody> {
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 10.h),
+        padding: EdgeInsets.symmetric(horizontal: 12.tw, vertical: 10.th),
         decoration: BoxDecoration(
           color: Colors.white.withValues(alpha: 0.9),
-          borderRadius: BorderRadius.circular(10.r),
+          borderRadius: BorderRadius.circular(10.tr),
           border: Border.all(color: PurchaseTheme.textMuted.withValues(alpha: 0.2)),
         ),
         child: Column(
@@ -535,15 +536,15 @@ class _LpoSmartFilterBodyState extends State<_LpoSmartFilterBody> {
             Text(
               label,
               style: GoogleFonts.poppins(
-                fontSize: 10.sp,
+                fontSize: 10.tsp,
                 color: PurchaseTheme.textMuted,
               ),
             ),
-            SizedBox(height: 2.h),
+            SizedBox(height: 2.th),
             Text(
               value,
               style: GoogleFonts.poppins(
-                fontSize: 12.sp,
+                fontSize: 12.tsp,
                 fontWeight: FontWeight.w600,
                 color: PurchaseTheme.textPrimary,
               ),
@@ -556,10 +557,10 @@ class _LpoSmartFilterBodyState extends State<_LpoSmartFilterBody> {
 
   Widget _field(String label, TextEditingController ctrl, String hint) {
     return Padding(
-      padding: EdgeInsets.only(bottom: 10.h),
+      padding: EdgeInsets.only(bottom: 10.th),
       child: TextField(
         controller: ctrl,
-        style: GoogleFonts.poppins(fontSize: 13.sp, color: PurchaseTheme.textPrimary),
+        style: GoogleFonts.poppins(fontSize: 13.tsp, color: PurchaseTheme.textPrimary),
         decoration: _inputDecoration(label: label, hint: hint),
       ),
     );

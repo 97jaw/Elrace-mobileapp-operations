@@ -1,3 +1,4 @@
+import 'package:el_race/core/utils/responsive_breakpoints.dart';
 import 'package:el_race/ui/presentation/attendance_reports/providers/attendance_dashboard_provider.dart';
 import 'package:el_race/ui/presentation/attendance_reports/theme/attendance_dashboard_theme.dart';
 import 'package:flutter/material.dart';
@@ -70,7 +71,7 @@ class DashboardDateFilterBar extends StatelessWidget {
         children: [
           for (final f in DashboardDateFilter.values)
             Padding(
-              padding: EdgeInsets.only(right: 8.w),
+              padding: EdgeInsets.only(right: 8.tw),
               child: f == DashboardDateFilter.custom
                   ? _CustomChip(
                       label: selected == DashboardDateFilter.custom &&
@@ -109,7 +110,7 @@ class _FilterChip extends StatelessWidget {
       onTap: onTap,
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 180),
-        padding: EdgeInsets.symmetric(horizontal: 14.w, vertical: 7.h),
+        padding: EdgeInsets.symmetric(horizontal: 14.tw, vertical: 7.th),
         decoration: BoxDecoration(
           color: selected
               ? AttendanceDashboardTheme.filterActive
@@ -133,7 +134,7 @@ class _FilterChip extends StatelessWidget {
         child: Text(
           label,
           style: TextStyle(
-            fontSize: 12.sp,
+            fontSize: 12.tsp,
             fontWeight: FontWeight.w700,
             color: selected
                 ? Colors.white
@@ -162,7 +163,7 @@ class _CustomChip extends StatelessWidget {
       onTap: onTap,
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 180),
-        padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 7.h),
+        padding: EdgeInsets.symmetric(horizontal: 12.tw, vertical: 7.th),
         decoration: BoxDecoration(
           color: selected
               ? AttendanceDashboardTheme.filterActive
@@ -189,17 +190,17 @@ class _CustomChip extends StatelessWidget {
             Text(
               label,
               style: TextStyle(
-                fontSize: 12.sp,
+                fontSize: 12.tsp,
                 fontWeight: FontWeight.w700,
                 color: selected
                     ? Colors.white
                     : AttendanceDashboardTheme.filterActive,
               ),
             ),
-            SizedBox(width: 3.w),
+            SizedBox(width: 3.tw),
             Icon(
               Icons.keyboard_arrow_down_rounded,
-              size: 15.sp,
+              size: 15.tsp,
               color: selected
                   ? Colors.white
                   : AttendanceDashboardTheme.filterActive,
@@ -240,10 +241,10 @@ class _CustomPickerSheetState extends State<_CustomPickerSheet> {
   @override
   Widget build(BuildContext context) {
     return Container(
-      margin: EdgeInsets.fromLTRB(12.w, 0, 12.w, 24.h),
+      margin: EdgeInsets.fromLTRB(12.tw, 0, 12.tw, 24.th),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(20.r),
+        borderRadius: BorderRadius.circular(20.tr),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withValues(alpha: 0.12),
@@ -266,24 +267,24 @@ class _CustomPickerSheetState extends State<_CustomPickerSheet> {
       children: [
         _sheetHandle(),
         Padding(
-          padding: EdgeInsets.symmetric(horizontal: 20.w),
+          padding: EdgeInsets.symmetric(horizontal: 20.tw),
           child: Align(
             alignment: Alignment.centerLeft,
             child: Text(
               'Select Month — ${widget.year}',
               style: TextStyle(
-                fontSize: 15.sp,
+                fontSize: 15.tsp,
                 fontWeight: FontWeight.w800,
                 color: AttendanceDashboardTheme.filterActive,
               ),
             ),
           ),
         ),
-        SizedBox(height: 12.h),
+        SizedBox(height: 12.th),
         GridView.builder(
           shrinkWrap: true,
           physics: const NeverScrollableScrollPhysics(),
-          padding: EdgeInsets.symmetric(horizontal: 16.w),
+          padding: EdgeInsets.symmetric(horizontal: 16.tw),
           gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
             crossAxisCount: 3,
             crossAxisSpacing: 10,
@@ -311,7 +312,7 @@ class _CustomPickerSheetState extends State<_CustomPickerSheet> {
                       : isFuture
                           ? const Color(0xFFF9FAFB)
                           : const Color(0xFFEFF4FF),
-                  borderRadius: BorderRadius.circular(10.r),
+                  borderRadius: BorderRadius.circular(10.tr),
                   border: isActive
                       ? null
                       : Border.all(
@@ -324,7 +325,7 @@ class _CustomPickerSheetState extends State<_CustomPickerSheet> {
                 child: Text(
                   widget.months[i].substring(0, 3),
                   style: TextStyle(
-                    fontSize: 13.sp,
+                    fontSize: 13.tsp,
                     fontWeight: FontWeight.w700,
                     color: isActive
                         ? Colors.white
@@ -337,7 +338,7 @@ class _CustomPickerSheetState extends State<_CustomPickerSheet> {
             );
           },
         ),
-        SizedBox(height: 20.h),
+        SizedBox(height: 20.th),
       ],
     );
   }
@@ -352,21 +353,21 @@ class _CustomPickerSheetState extends State<_CustomPickerSheet> {
       children: [
         _sheetHandle(),
         Padding(
-          padding: EdgeInsets.symmetric(horizontal: 12.w),
+          padding: EdgeInsets.symmetric(horizontal: 12.tw),
           child: Row(
             children: [
               IconButton(
                 onPressed: () => setState(() => _selectedMonthIndex = null),
                 icon: Icon(Icons.arrow_back_ios_new_rounded,
-                    size: 18.sp, color: AttendanceDashboardTheme.filterActive),
+                    size: 18.tsp, color: AttendanceDashboardTheme.filterActive),
                 padding: EdgeInsets.zero,
-                constraints: BoxConstraints(minWidth: 36.w, minHeight: 36.w),
+                constraints: BoxConstraints(minWidth: 36.tw, minHeight: 36.tw),
               ),
               Expanded(
                 child: Text(
                   '$monthName ${widget.year}',
                   style: TextStyle(
-                    fontSize: 15.sp,
+                    fontSize: 15.tsp,
                     fontWeight: FontWeight.w800,
                     color: AttendanceDashboardTheme.filterActive,
                   ),
@@ -376,7 +377,7 @@ class _CustomPickerSheetState extends State<_CustomPickerSheet> {
           ),
         ),
         Padding(
-          padding: EdgeInsets.symmetric(horizontal: 16.w),
+          padding: EdgeInsets.symmetric(horizontal: 16.tw),
           child: SizedBox(
             width: double.infinity,
             child: OutlinedButton(
@@ -390,42 +391,42 @@ class _CustomPickerSheetState extends State<_CustomPickerSheet> {
                   color:
                       AttendanceDashboardTheme.filterActive.withValues(alpha: 0.35),
                 ),
-                padding: EdgeInsets.symmetric(vertical: 12.h),
+                padding: EdgeInsets.symmetric(vertical: 12.th),
                 shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12.r),
+                  borderRadius: BorderRadius.circular(12.tr),
                 ),
               ),
               child: Text(
                 'Entire month',
-                style: TextStyle(fontSize: 13.sp, fontWeight: FontWeight.w700),
+                style: TextStyle(fontSize: 13.tsp, fontWeight: FontWeight.w700),
               ),
             ),
           ),
         ),
-        SizedBox(height: 10.h),
+        SizedBox(height: 10.th),
         Padding(
-          padding: EdgeInsets.symmetric(horizontal: 20.w),
+          padding: EdgeInsets.symmetric(horizontal: 20.tw),
           child: Align(
             alignment: Alignment.centerLeft,
             child: Text(
               'Or select a day',
               style: TextStyle(
-                fontSize: 12.sp,
+                fontSize: 12.tsp,
                 fontWeight: FontWeight.w600,
                 color: AttendanceDashboardTheme.textSecondary,
               ),
             ),
           ),
         ),
-        SizedBox(height: 8.h),
+        SizedBox(height: 8.th),
         GridView.builder(
           shrinkWrap: true,
           physics: const NeverScrollableScrollPhysics(),
-          padding: EdgeInsets.symmetric(horizontal: 16.w),
+          padding: EdgeInsets.symmetric(horizontal: 16.tw),
           gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
             crossAxisCount: 7,
-            crossAxisSpacing: 6.w,
-            mainAxisSpacing: 6.h,
+            crossAxisSpacing: 6.tw,
+            mainAxisSpacing: 6.th,
             childAspectRatio: 1.1,
           ),
           itemCount: daysInMonth,
@@ -451,7 +452,7 @@ class _CustomPickerSheetState extends State<_CustomPickerSheet> {
                           ? AttendanceDashboardTheme.filterActive
                               .withValues(alpha: 0.12)
                           : const Color(0xFFEFF4FF),
-                  borderRadius: BorderRadius.circular(8.r),
+                  borderRadius: BorderRadius.circular(8.tr),
                   border: Border.all(
                     color: isToday
                         ? AttendanceDashboardTheme.filterActive
@@ -465,7 +466,7 @@ class _CustomPickerSheetState extends State<_CustomPickerSheet> {
                 child: Text(
                   '$day',
                   style: TextStyle(
-                    fontSize: 12.sp,
+                    fontSize: 12.tsp,
                     fontWeight: FontWeight.w700,
                     color: isFuture
                         ? const Color(0xFFD1D5DB)
@@ -478,7 +479,7 @@ class _CustomPickerSheetState extends State<_CustomPickerSheet> {
             );
           },
         ),
-        SizedBox(height: 20.h),
+        SizedBox(height: 20.th),
       ],
     );
   }
@@ -486,16 +487,16 @@ class _CustomPickerSheetState extends State<_CustomPickerSheet> {
   Widget _sheetHandle() {
     return Column(
       children: [
-        SizedBox(height: 14.h),
+        SizedBox(height: 14.th),
         Container(
-          width: 36.w,
+          width: 36.tw,
           height: 4,
           decoration: BoxDecoration(
             color: const Color(0xFFE5E7EB),
-            borderRadius: BorderRadius.circular(2.r),
+            borderRadius: BorderRadius.circular(2.tr),
           ),
         ),
-        SizedBox(height: 14.h),
+        SizedBox(height: 14.th),
       ],
     );
   }

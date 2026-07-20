@@ -5,6 +5,7 @@ import 'package:el_race/chat/repositories/chat_repository.dart';
 import 'package:el_race/core/theme/timesheet_module_theme.dart';
 import 'package:el_race/core/timesheet/models/timesheet_team_member.dart';
 import 'package:el_race/core/timesheet/providers/timesheet_role_provider.dart';
+import 'package:el_race/core/widgets/timesheet/tm_module_glass_header.dart';
 import 'package:el_race/ui/chat/chat_screen.dart';
 import 'package:el_race/ui/presentation/timesheet/project_chat_contacts.dart';
 import 'package:el_race/ui/presentation/timesheet/timesheet_async_state.dart';
@@ -188,6 +189,7 @@ class _ProjectChatPickerScreenState extends ConsumerState<ProjectChatPickerScree
         label,
         style: TimesheetModuleTypography.caption().copyWith(
           fontWeight: FontWeight.w800,
+          color: TimesheetModuleColors.warmMuted,
         ),
       ),
     );
@@ -336,43 +338,52 @@ class _ProjectChatPickerScreenState extends ConsumerState<ProjectChatPickerScree
     final isPm = _isPm;
 
     return Scaffold(
-      backgroundColor: TimesheetModuleColors.bgGradientEnd,
-      appBar: AppBar(
-        backgroundColor: TimesheetModuleColors.surface,
-        foregroundColor: TimesheetModuleColors.text,
-        title: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+      backgroundColor: TimesheetModuleColors.warmGradientEnd,
+      body: DecoratedBox(
+        decoration: const BoxDecoration(
+          gradient: TimesheetModuleColors.warmGradient,
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Text(
-              'Available chat',
-              style: TimesheetModuleTypography.h2(),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
+            const TmModuleGlassHeader(title: 'Available chat'),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(
+                TimesheetModuleLayout.screenPaddingH,
+                0,
+                TimesheetModuleLayout.screenPaddingH,
+                8,
+              ),
+              child: Text(
+                _shareMode
+                    ? 'Send PDF or open chat'
+                    : (isPm
+                        ? 'Groups, PM, supervisors & staff'
+                        : 'Supervisors, PM & staff on this project'),
+                style: TimesheetModuleTypography.caption().copyWith(
+                  color:
+                      TimesheetModuleColors.warmMuted,
+                ),
+              ),
             ),
-            Text(
-              _shareMode
-                  ? 'Send PDF or open chat'
-                  : (isPm
-                      ? 'Groups, PM, supervisors & staff'
-                      : 'Supervisors, PM & staff on this project'),
-              style: TimesheetModuleTypography.caption(),
+            Expanded(
+              child: contactsAsync.when(
+                loading: () => const TimesheetLoadingState(
+                  style: TimesheetLoadingStyle.list,
+                  itemCount: 6,
+                ),
+                error: (_, __) => TimesheetErrorState(
+                  message: 'Could not load contacts',
+                  onRetry: () => ref.invalidate(
+                    projectChatContactsProvider(widget.projectId),
+                  ),
+                ),
+                data: (contacts) =>
+                    isPm ? _buildPmBody(contacts) : _buildFmBody(contacts),
+              ),
             ),
           ],
         ),
-      ),
-      body: contactsAsync.when(
-        loading: () => const TimesheetLoadingState(
-          style: TimesheetLoadingStyle.list,
-          itemCount: 6,
-        ),
-        error: (_, __) => TimesheetErrorState(
-          message: 'Could not load contacts',
-          onRetry: () => ref.invalidate(
-            projectChatContactsProvider(widget.projectId),
-          ),
-        ),
-        data: (contacts) =>
-            isPm ? _buildPmBody(contacts) : _buildFmBody(contacts),
       ),
     );
   }
@@ -400,26 +411,33 @@ class _GroupChatTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Material(
-      color: TimesheetModuleColors.surface,
+      color: TimesheetModuleColors.glassSurface,
       borderRadius:
           BorderRadius.circular(TimesheetModuleLayout.cardRadiusLg),
       child: InkWell(
         onTap: shareMode ? null : onOpen,
         borderRadius:
             BorderRadius.circular(TimesheetModuleLayout.cardRadiusLg),
-        child: Padding(
+        child: Container(
+          decoration: BoxDecoration(
+            borderRadius:
+                BorderRadius.circular(TimesheetModuleLayout.cardRadiusLg),
+            border: Border.all(
+              color: TimesheetModuleColors.glassBorder,
+            ),
+          ),
           padding: const EdgeInsets.all(TimesheetModuleLayout.cardPadding),
           child: Row(
             children: [
               Container(
                 padding: const EdgeInsets.all(10),
                 decoration: BoxDecoration(
-                  color: TimesheetModuleColors.primaryTint,
+                  color: TimesheetModuleColors.iconSurface,
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: Icon(
                   icon,
-                  color: TimesheetModuleColors.primary,
+                  color: TimesheetModuleColors.accent,
                   size: 28,
                 ),
               ),
@@ -428,8 +446,18 @@ class _GroupChatTile extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(title, style: TimesheetModuleTypography.cardTitle()),
-                    Text(subtitle, style: TimesheetModuleTypography.caption()),
+                    Text(
+                      title,
+                      style: TimesheetModuleTypography.cardTitle().copyWith(
+                        color: TimesheetModuleColors.ink,
+                      ),
+                    ),
+                    Text(
+                      subtitle,
+                      style: TimesheetModuleTypography.caption().copyWith(
+                        color: TimesheetModuleColors.warmMuted,
+                      ),
+                    ),
                   ],
                 ),
               ),
@@ -465,7 +493,7 @@ class _GroupChatTile extends StatelessWidget {
               ] else
                 Icon(
                   PhosphorIcons.caretRight(),
-                  color: TimesheetModuleColors.mutedText,
+                  color: TimesheetModuleColors.warmMuted,
                 ),
             ],
           ),
@@ -502,13 +530,20 @@ class _StaffTile extends StatelessWidget {
             : member.subtitle;
 
     return Material(
-      color: TimesheetModuleColors.surface,
+      color: TimesheetModuleColors.glassSurface,
       borderRadius:
           BorderRadius.circular(TimesheetModuleLayout.cardRadiusMd),
       child: ListTile(
         onTap: shareMode ? null : onOpenChat,
+        shape: RoundedRectangleBorder(
+          borderRadius:
+              BorderRadius.circular(TimesheetModuleLayout.cardRadiusMd),
+          side: const BorderSide(
+            color: TimesheetModuleColors.glassBorder,
+          ),
+        ),
         leading: CircleAvatar(
-          backgroundColor: TimesheetModuleColors.navyTint,
+          backgroundColor: TimesheetModuleColors.accentTint,
           child: imageUrl.isNotEmpty
               ? ClipOval(
                   child: TmFastNetworkImage(
@@ -520,12 +555,25 @@ class _StaffTile extends StatelessWidget {
                 )
               : Text(
                   member.name.isNotEmpty ? member.name[0] : '?',
-                  style: const TextStyle(fontWeight: FontWeight.w800),
+                  style: const TextStyle(
+                    fontWeight: FontWeight.w800,
+                    color: TimesheetModuleColors.accent,
+                  ),
                 ),
         ),
-        title: Text(member.name, style: TimesheetModuleTypography.body()),
+        title: Text(
+          member.name,
+          style: TimesheetModuleTypography.body().copyWith(
+            color: TimesheetModuleColors.ink,
+          ),
+        ),
         subtitle: roleLabel != null && roleLabel.isNotEmpty
-            ? Text(roleLabel, style: TimesheetModuleTypography.caption())
+            ? Text(
+                roleLabel,
+                style: TimesheetModuleTypography.caption().copyWith(
+                  color: TimesheetModuleColors.warmMuted,
+                ),
+              )
             : null,
         trailing: Row(
           mainAxisSize: MainAxisSize.min,

@@ -1,3 +1,4 @@
+import 'package:el_race/core/utils/responsive_breakpoints.dart';
 import 'dart:convert';
 
 import 'package:el_race/core/hr_management/network/hr_api_client.dart';
@@ -169,20 +170,20 @@ class _HrCarAllowanceRequestScreenState
         foregroundColor: HrModuleColors.text,
         title: Text(
           'Car Allowance',
-          style: HrModuleTypography.sectionHeading().copyWith(fontSize: 18.sp),
+          style: HrModuleTypography.sectionHeading().copyWith(fontSize: 18.tsp),
         ),
       ),
       body: Form(
         key: _formKey,
         child: ListView(
-          padding: EdgeInsets.all(HrModuleLayout.screenPaddingH.w),
+          padding: EdgeInsets.all(HrModuleLayout.screenPaddingH.tw),
           children: [
             Text(
               'Request a car allowance in lieu of a company vehicle',
-              style: HrModuleTypography.body().copyWith(fontSize: 14.sp),
+              style: HrModuleTypography.body().copyWith(fontSize: 14.tsp),
             ),
-            SizedBox(height: 16.h),
-            Text('Allowance Type *', style: HrModuleTypography.caption().copyWith(fontSize: 12.sp)),
+            SizedBox(height: 16.th),
+            Text('Allowance Type *', style: HrModuleTypography.caption().copyWith(fontSize: 12.tsp)),
             DropdownButtonFormField<String>(
               value: _allowanceType,
               items: _types
@@ -192,8 +193,8 @@ class _HrCarAllowanceRequestScreenState
               validator: (v) => v == null ? 'Required' : null,
               decoration: _decoration('Select type'),
             ),
-            SizedBox(height: HrModuleLayout.formFieldSpacingV.h),
-            Text('Requested Amount (AED) *', style: HrModuleTypography.caption().copyWith(fontSize: 12.sp)),
+            SizedBox(height: HrModuleLayout.formFieldSpacingV.th),
+            Text('Requested Amount (AED) *', style: HrModuleTypography.caption().copyWith(fontSize: 12.tsp)),
             TextFormField(
               controller: _amount,
               keyboardType: const TextInputType.numberWithOptions(decimal: true),
@@ -209,14 +210,14 @@ class _HrCarAllowanceRequestScreenState
                 return null;
               },
             ),
-            SizedBox(height: HrModuleLayout.formFieldSpacingV.h),
-            Text('Effective From *', style: HrModuleTypography.caption().copyWith(fontSize: 12.sp)),
+            SizedBox(height: HrModuleLayout.formFieldSpacingV.th),
+            Text('Effective From *', style: HrModuleTypography.caption().copyWith(fontSize: 12.tsp)),
             OutlinedButton(
               onPressed: _pickDate,
               child: Text(dateLabel),
             ),
-            SizedBox(height: HrModuleLayout.formFieldSpacingV.h),
-            Text('Justification *', style: HrModuleTypography.caption().copyWith(fontSize: 12.sp)),
+            SizedBox(height: HrModuleLayout.formFieldSpacingV.th),
+            Text('Justification *', style: HrModuleTypography.caption().copyWith(fontSize: 12.tsp)),
             TextFormField(
               controller: _justification,
               minLines: 4,
@@ -229,41 +230,41 @@ class _HrCarAllowanceRequestScreenState
                 return null;
               },
             ),
-            SizedBox(height: HrModuleLayout.formFieldSpacingV.h),
-            Text('Vehicle Registration (Mulkiya)', style: HrModuleTypography.caption().copyWith(fontSize: 12.sp)),
+            SizedBox(height: HrModuleLayout.formFieldSpacingV.th),
+            Text('Vehicle Registration (Mulkiya)', style: HrModuleTypography.caption().copyWith(fontSize: 12.tsp)),
             OutlinedButton.icon(
               onPressed: _pickMulkiya,
               icon: const Icon(Icons.description_outlined),
               label: Text(_mulkiyaName ?? 'Attach (optional)'),
             ),
-            SizedBox(height: 8.h),
-            Text('Driving License', style: HrModuleTypography.caption().copyWith(fontSize: 12.sp)),
+            SizedBox(height: 8.th),
+            Text('Driving License', style: HrModuleTypography.caption().copyWith(fontSize: 12.tsp)),
             OutlinedButton.icon(
               onPressed: _pickLicense,
               icon: const Icon(Icons.badge_outlined),
               label: Text(_licenseName ?? 'Attach (optional)'),
             ),
-            SizedBox(height: 24.h),
+            SizedBox(height: 24.th),
             Row(
               children: [
                 Expanded(
                   child: OutlinedButton(
                     onPressed: _saveDraft,
                     style: OutlinedButton.styleFrom(
-                      minimumSize: Size.fromHeight(HrModuleLayout.buttonHeight.h),
+                      minimumSize: Size.fromHeight(HrModuleLayout.buttonHeight.th),
                     ),
-                    child: Text('Save Draft', style: TextStyle(color: HrModuleColors.primary, fontSize: 14.sp)),
+                    child: Text('Save Draft', style: TextStyle(color: HrModuleColors.primary, fontSize: 14.tsp)),
                   ),
                 ),
-                SizedBox(width: 12.w),
+                SizedBox(width: 12.tw),
                 Expanded(
                   child: FilledButton(
                     onPressed: () => _submit(api),
                     style: FilledButton.styleFrom(
                       backgroundColor: HrModuleColors.primary,
-                      minimumSize: Size.fromHeight(HrModuleLayout.buttonHeight.h),
+                      minimumSize: Size.fromHeight(HrModuleLayout.buttonHeight.th),
                     ),
-                    child: Text('Submit Request', style: TextStyle(fontSize: 14.sp)),
+                    child: Text('Submit Request', style: TextStyle(fontSize: 14.tsp)),
                   ),
                 ),
               ],
@@ -280,7 +281,7 @@ class _HrCarAllowanceRequestScreenState
       filled: true,
       fillColor: HrModuleColors.surface,
       border: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(HrModuleLayout.cardRadius.r),
+        borderRadius: BorderRadius.circular(HrModuleLayout.cardRadius.tr),
       ),
     );
   }

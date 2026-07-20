@@ -76,6 +76,13 @@ abstract final class NotificationCategoryTheme {
       color: Color(0xFFEF6C00),
       title: 'Alerts',
     ),
+    // High-priority "red alert": the employee's home widgets changed and they
+    // must re-login to see the update. Kept a strong red for contrast.
+    'widget_update': NotificationCategoryVisual(
+      icon: Icons.dashboard_customize_rounded,
+      color: Color(0xFFD32F2F),
+      title: 'Widget Update',
+    ),
     'weather': NotificationCategoryVisual(
       icon: Icons.cloud_rounded,
       color: Color(0xFF0288D1),

@@ -1,3 +1,4 @@
+import 'package:el_race/core/utils/responsive_breakpoints.dart';
 import 'package:el_race/ui/chat/widgets/chat_sub_app_glass_bar.dart';
 import 'package:el_race/ui/chat/widgets/chat_unified_header_backdrop.dart';
 import 'package:el_race/ui/navigation/home_navigation.dart';
@@ -20,7 +21,7 @@ class CallListHeaderDelegate extends SliverPersistentHeaderDelegate {
   final ValueChanged<String> onSearchChanged;
   final VoidCallback onSearchClear;
 
-  static double get contentHeight => 96.h;
+  static double get contentHeight => 96.th;
 
   @override
   double get minExtent => _topBarExtent + contentHeight;
@@ -38,7 +39,7 @@ class CallListHeaderDelegate extends SliverPersistentHeaderDelegate {
       height: maxExtent,
       child: ClipRRect(
         borderRadius: BorderRadius.vertical(
-          bottom: Radius.circular(20.r),
+          bottom: Radius.circular(20.tr),
         ),
         child: Stack(
           fit: StackFit.expand,
@@ -51,7 +52,7 @@ class CallListHeaderDelegate extends SliverPersistentHeaderDelegate {
                 SizedBox(
                   height: contentHeight,
                   child: Padding(
-                    padding: EdgeInsets.fromLTRB(14.w, 4.h, 14.w, 10.h),
+                    padding: EdgeInsets.fromLTRB(14.tw, 4.th, 14.tw, 10.th),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
@@ -63,26 +64,26 @@ class CallListHeaderDelegate extends SliverPersistentHeaderDelegate {
                               icon: Icon(
                                 Icons.arrow_back_ios_new_rounded,
                                 color: Colors.white,
-                                size: 18.sp,
+                                size: 18.tsp,
                               ),
                               padding: EdgeInsets.zero,
                               constraints: BoxConstraints(
-                                minWidth: 32.w,
-                                minHeight: 32.w,
+                                minWidth: 32.tw,
+                                minHeight: 32.tw,
                               ),
                             ),
-                            SizedBox(width: 4.w),
+                            SizedBox(width: 4.tw),
                             Icon(
                               Icons.contacts_rounded,
                               color: Colors.white,
-                              size: 20.sp,
+                              size: 20.tsp,
                             ),
-                            SizedBox(width: 8.w),
+                            SizedBox(width: 8.tw),
                             Expanded(
                               child: Text(
                                 translate('home.contact'),
                                 style: GoogleFonts.poppins(
-                                  fontSize: 17.sp,
+                                  fontSize: 17.tsp,
                                   fontWeight: FontWeight.w700,
                                   color: Colors.white,
                                   height: 1,
@@ -93,36 +94,36 @@ class CallListHeaderDelegate extends SliverPersistentHeaderDelegate {
                             ),
                           ],
                         ),
-                        SizedBox(height: 10.h),
+                        SizedBox(height: 10.th),
                         Expanded(
                           child: TextField(
                             controller: searchController,
                             onChanged: onSearchChanged,
                             style: TextStyle(
-                              fontSize: 14.sp,
+                              fontSize: 14.tsp,
                               color: const Color(0xFF1A2248),
                             ),
                             decoration: InputDecoration(
                               hintText:
                                   translate('home.search_by_name_or_id'),
                               hintStyle: TextStyle(
-                                fontSize: 13.sp,
+                                fontSize: 13.tsp,
                                 color: const Color(0xFF8E98A8),
                               ),
                               filled: true,
                               fillColor: Colors.white,
                               contentPadding: EdgeInsets.symmetric(
-                                horizontal: 14.w,
-                                vertical: 10.h,
+                                horizontal: 14.tw,
+                                vertical: 10.th,
                               ),
                               border: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(24.r),
+                                borderRadius: BorderRadius.circular(24.tr),
                                 borderSide: BorderSide.none,
                               ),
                               prefixIcon: Icon(
                                 Icons.search_rounded,
                                 color: const Color(0xFF6E7A92),
-                                size: 22.sp,
+                                size: 22.tsp,
                               ),
                               suffixIcon: searchController.text.isNotEmpty
                                   ? IconButton(

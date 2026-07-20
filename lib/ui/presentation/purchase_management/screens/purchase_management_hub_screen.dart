@@ -1,3 +1,4 @@
+import 'package:el_race/core/utils/responsive_breakpoints.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:el_race/core/purchase/purchase_access.dart';
 import 'package:el_race/core/purchase/purchase_dev_role_provider.dart';
@@ -51,7 +52,7 @@ class PurchaseManagementHubScreen extends ConsumerWidget {
           body: Center(
             child: Text(
               e.toString(),
-              style: GoogleFonts.poppins(color: Colors.red, fontSize: 13.sp),
+              style: GoogleFonts.poppins(color: Colors.red, fontSize: 13.tsp),
             ),
           ),
         ),
@@ -85,13 +86,13 @@ class PurchaseManagementHubScreen extends ConsumerWidget {
                 const PurchaseDevRoleToggleBar(),
                 if (effectiveAccess.scopeLabel.isNotEmpty)
                   Padding(
-                    padding: EdgeInsets.fromLTRB(16.w, 4.h, 16.w, 0),
+                    padding: EdgeInsets.fromLTRB(16.tw, 4.th, 16.tw, 0),
                     child: Align(
                       alignment: Alignment.centerLeft,
                       child: Text(
                         effectiveAccess.scopeLabel,
                         style: GoogleFonts.poppins(
-                          fontSize: 11.sp,
+                          fontSize: 11.tsp,
                           fontWeight: FontWeight.w500,
                           color: PurchaseTheme.textMuted,
                         ),
@@ -144,7 +145,7 @@ class _HubBody extends ConsumerWidget {
         await ref.read(lpoLatestPreviewProvider.future);
       },
       child: ListView(
-        padding: EdgeInsets.fromLTRB(16.w, 8.h, 16.w, 24.h),
+        padding: EdgeInsets.fromLTRB(16.tw, 8.th, 16.tw, 24.th),
         children: [
           if (compactLayout) ...[
             Row(
@@ -175,7 +176,7 @@ class _HubBody extends ConsumerWidget {
                     ),
                   ),
                 ),
-                SizedBox(width: 10.w),
+                SizedBox(width: 10.tw),
                 Expanded(
                   child: PurchaseCompactHubCard(
                     title: 'Material Req.',
@@ -199,7 +200,7 @@ class _HubBody extends ConsumerWidget {
                 ),
               ],
             ),
-            SizedBox(height: 10.h),
+            SizedBox(height: 10.th),
             PurchaseCompactLpoStrip(
               totalCount: cards.lpos,
               openCount: cards.lposOpen,
@@ -232,7 +233,7 @@ class _HubBody extends ConsumerWidget {
                 ),
               ),
             ),
-            SizedBox(height: 12.h),
+            SizedBox(height: 12.th),
             PurchaseHeroCard(
               title: 'LPOs',
               subtitle: 'Confirmed purchase orders',
@@ -261,7 +262,7 @@ class _HubBody extends ConsumerWidget {
                 ),
               ),
             ),
-            SizedBox(height: 12.h),
+            SizedBox(height: 12.th),
             PurchaseHeroCard(
               title: 'Material Requests',
               subtitle: 'Pending approval',
@@ -282,7 +283,7 @@ class _HubBody extends ConsumerWidget {
               ),
             ),
           ],
-          SizedBox(height: compactLayout ? 12.h : 20.h),
+          SizedBox(height: compactLayout ? 12.th : 20.th),
           _LatestLposSection(testRole: testRole),
         ],
       ),
@@ -337,7 +338,7 @@ class _LatestLposSection extends ConsumerWidget {
         Text(
           'Latest LPOs',
           style: GoogleFonts.poppins(
-            fontSize: 15.sp,
+            fontSize: 15.tsp,
             fontWeight: FontWeight.w700,
             color: PurchaseTheme.textPrimary,
           ),
@@ -347,14 +348,14 @@ class _LatestLposSection extends ConsumerWidget {
           TextButton(
             onPressed: () => _openFullList(context),
             style: TextButton.styleFrom(
-              padding: EdgeInsets.symmetric(horizontal: 8.w, vertical: 4.h),
+              padding: EdgeInsets.symmetric(horizontal: 8.tw, vertical: 4.th),
               minimumSize: Size.zero,
               tapTargetSize: MaterialTapTargetSize.shrinkWrap,
             ),
             child: Text(
               'Show more',
               style: GoogleFonts.poppins(
-                fontSize: 13.sp,
+                fontSize: 13.tsp,
                 fontWeight: FontWeight.w600,
                 color: PurchaseTheme.accentDeep,
               ),
@@ -373,9 +374,9 @@ class _LatestLposSection extends ConsumerWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           _titleRow(context, showMore: false),
-          SizedBox(height: 8.h),
+          SizedBox(height: 8.th),
           Container(
-            height: 100.h,
+            height: 100.th,
             decoration: PurchaseTheme.glassPanel(),
             alignment: Alignment.center,
             child: const CircularProgressIndicator(
@@ -394,7 +395,7 @@ class _LatestLposSection extends ConsumerWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             _titleRow(context, showMore: true),
-            SizedBox(height: 8.h),
+            SizedBox(height: 8.th),
             Container(
               decoration: PurchaseTheme.glassPanel(),
               clipBehavior: Clip.antiAlias,
@@ -449,7 +450,7 @@ class _LatestLpoRow extends StatelessWidget {
       child: InkWell(
         onTap: onTap,
         child: Container(
-          padding: EdgeInsets.symmetric(horizontal: 14.w, vertical: 12.h),
+          padding: EdgeInsets.symmetric(horizontal: 14.tw, vertical: 12.th),
           decoration: BoxDecoration(
             color: Colors.white.withValues(alpha: 0.35),
             border: Border(
@@ -464,7 +465,7 @@ class _LatestLpoRow extends StatelessWidget {
                 name: item.vendorName.isNotEmpty ? item.vendorName : item.name,
                 photoUrl: item.clientPhoto,
               ),
-              SizedBox(width: 12.w),
+              SizedBox(width: 12.tw),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -474,29 +475,29 @@ class _LatestLpoRow extends StatelessWidget {
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: GoogleFonts.poppins(
-                        fontSize: 13.sp,
+                        fontSize: 13.tsp,
                         fontWeight: FontWeight.w600,
                         color: PurchaseTheme.textPrimary,
                       ),
                     ),
-                    SizedBox(height: 2.h),
+                    SizedBox(height: 2.th),
                     Text(
                       item.name,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: GoogleFonts.poppins(
-                        fontSize: 11.sp,
+                        fontSize: 11.tsp,
                         color: PurchaseTheme.textSecondary,
                       ),
                     ),
                     if (item.project.isNotEmpty) ...[
-                      SizedBox(height: 2.h),
+                      SizedBox(height: 2.th),
                       Text(
                         item.project,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: GoogleFonts.poppins(
-                          fontSize: 10.sp,
+                          fontSize: 10.tsp,
                           color: PurchaseTheme.textMuted,
                         ),
                       ),
@@ -510,10 +511,10 @@ class _LatestLpoRow extends StatelessWidget {
                   if (badge != null)
                     Container(
                       padding:
-                          EdgeInsets.symmetric(horizontal: 8.w, vertical: 3.h),
+                          EdgeInsets.symmetric(horizontal: 8.tw, vertical: 3.th),
                       decoration: BoxDecoration(
                         gradient: PurchaseTheme.urgentAccentGradient,
-                        borderRadius: BorderRadius.circular(8.r),
+                        borderRadius: BorderRadius.circular(8.tr),
                         border: Border.all(
                           color: PurchaseTheme.pendingBadge
                               .withValues(alpha: 0.35),
@@ -522,28 +523,28 @@ class _LatestLpoRow extends StatelessWidget {
                       child: Text(
                         badge,
                         style: GoogleFonts.poppins(
-                          fontSize: 9.sp,
+                          fontSize: 9.tsp,
                           fontWeight: FontWeight.w700,
                           color: PurchaseTheme.pendingBadge,
                         ),
                       ),
                     ),
                   if (item.dateOrder.isNotEmpty) ...[
-                    SizedBox(height: 4.h),
+                    SizedBox(height: 4.th),
                     Text(
                       item.dateOrder,
                       style: GoogleFonts.poppins(
-                        fontSize: 10.sp,
+                        fontSize: 10.tsp,
                         color: PurchaseTheme.textMuted,
                       ),
                     ),
                   ],
                   if (amountText.isNotEmpty) ...[
-                    SizedBox(height: 2.h),
+                    SizedBox(height: 2.th),
                     Text(
                       amountText,
                       style: GoogleFonts.poppins(
-                        fontSize: 13.sp,
+                        fontSize: 13.tsp,
                         fontWeight: FontWeight.w700,
                         color: PurchaseTheme.accentDeep,
                       ),
@@ -571,13 +572,13 @@ class _LpoPreviewAvatar extends StatelessWidget {
     final url = PurchaseAvatar.sanitizeUrl(photoUrl);
     if (url != null) {
       return CircleAvatar(
-        radius: 20.r,
+        radius: 20.tr,
         backgroundColor: const Color(0xFFE8F4FC),
         child: ClipOval(
           child: CachedNetworkImage(
             imageUrl: url,
-            width: 40.r,
-            height: 40.r,
+            width: 40.tr,
+            height: 40.tr,
             fit: BoxFit.cover,
             placeholder: (_, __) => _initial(initial),
             errorWidget: (_, __, ___) => _initial(initial),
@@ -590,12 +591,12 @@ class _LpoPreviewAvatar extends StatelessWidget {
 
   Widget _initial(String initial) {
     return CircleAvatar(
-      radius: 20.r,
+      radius: 20.tr,
       backgroundColor: PurchaseTheme.accentBlue.withValues(alpha: 0.25),
       child: Text(
         initial,
         style: GoogleFonts.poppins(
-          fontSize: 14.sp,
+          fontSize: 14.tsp,
           fontWeight: FontWeight.w700,
           color: PurchaseTheme.accentDeep,
         ),
@@ -624,7 +625,7 @@ class _UnauthorizedView extends StatelessWidget {
                 child: Text(
                   translate('home.purchase.not_authorized'),
                   style: GoogleFonts.poppins(
-                    fontSize: 16.sp,
+                    fontSize: 16.tsp,
                     color: PurchaseTheme.textSecondary,
                     fontWeight: FontWeight.w500,
                   ),

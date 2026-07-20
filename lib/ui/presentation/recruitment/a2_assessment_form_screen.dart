@@ -1,3 +1,4 @@
+import 'package:el_race/core/utils/responsive_breakpoints.dart';
 import 'package:el_race/core/recruitment/providers/requisition_providers.dart';
 import 'package:el_race/core/theme/hr_module_colors.dart';
 import 'package:el_race/core/theme/hr_module_layout.dart';
@@ -66,7 +67,7 @@ class _A2AssessmentFormScreenState extends ConsumerState<A2AssessmentFormScreen>
         filled: true,
         fillColor: HrModuleColors.surface,
         border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(HrModuleLayout.cardRadius.r),
+          borderRadius: BorderRadius.circular(HrModuleLayout.cardRadius.tr),
         ),
       );
 
@@ -106,13 +107,13 @@ class _A2AssessmentFormScreenState extends ConsumerState<A2AssessmentFormScreen>
           widget.existingAssessmentId != null
               ? 'Edit assessment'
               : 'New assessment',
-          style: HrModuleTypography.sectionHeading().copyWith(fontSize: 18.sp),
+          style: HrModuleTypography.sectionHeading().copyWith(fontSize: 18.tsp),
         ),
       ),
       body: Form(
         key: _formKey,
         child: ListView(
-          padding: EdgeInsets.all(HrModuleLayout.screenPaddingH.w),
+          padding: EdgeInsets.all(HrModuleLayout.screenPaddingH.tw),
           children: [
             Text('Round / stage *', style: HrModuleTypography.caption()),
             DropdownButtonFormField<String>(
@@ -125,7 +126,7 @@ class _A2AssessmentFormScreenState extends ConsumerState<A2AssessmentFormScreen>
               decoration: _dec('Select'),
               validator: (v) => v == null ? 'Required' : null,
             ),
-            SizedBox(height: HrModuleLayout.formFieldSpacingV.h),
+            SizedBox(height: HrModuleLayout.formFieldSpacingV.th),
             Text('Interview date *', style: HrModuleTypography.caption()),
             OutlinedButton(
               onPressed: _pickDate,
@@ -133,10 +134,10 @@ class _A2AssessmentFormScreenState extends ConsumerState<A2AssessmentFormScreen>
                 '${_date.day}/${_date.month}/${_date.year}',
               ),
             ),
-            SizedBox(height: 16.h),
+            SizedBox(height: 16.th),
             Text(
               'Score the candidate',
-              style: HrModuleTypography.sectionHeading().copyWith(fontSize: 14.sp),
+              style: HrModuleTypography.sectionHeading().copyWith(fontSize: 14.tsp),
             ),
             RecruitmentStarInput(
               label: 'Technical knowledge *',
@@ -174,7 +175,7 @@ class _A2AssessmentFormScreenState extends ConsumerState<A2AssessmentFormScreen>
             ),
             Text(
               'Recommendation *',
-              style: HrModuleTypography.sectionHeading().copyWith(fontSize: 14.sp),
+              style: HrModuleTypography.sectionHeading().copyWith(fontSize: 14.tsp),
             ),
             ..._recs.map(
               (r) => RadioListTile<String>(
@@ -190,7 +191,7 @@ class _A2AssessmentFormScreenState extends ConsumerState<A2AssessmentFormScreen>
               maxLines: 4,
               decoration: _dec('Optional'),
             ),
-            SizedBox(height: 24.h),
+            SizedBox(height: 24.th),
             Row(
               children: [
                 Expanded(
@@ -199,7 +200,7 @@ class _A2AssessmentFormScreenState extends ConsumerState<A2AssessmentFormScreen>
                     child: const Text('Save draft'),
                   ),
                 ),
-                SizedBox(width: 12.w),
+                SizedBox(width: 12.tw),
                 Expanded(
                   child: FilledButton(
                     onPressed: () => _submit(draft: false),

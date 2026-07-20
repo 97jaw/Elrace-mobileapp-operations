@@ -22,7 +22,6 @@ class FmSiteManagementHomeScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final profile = ref.watch(timesheetLoginProfileProvider);
     final bucketsAsync = ref.watch(timesheetProjectBucketsProvider);
-    final projectsAsync = ref.watch(timesheetProjectsProvider);
     final laborsAsync = ref.watch(timesheetForemanLaborsProvider);
 
     final laborCount = laborsAsync.maybeWhen(
@@ -35,12 +34,7 @@ class FmSiteManagementHomeScreen extends ConsumerWidget {
         horizontal: TimesheetModuleLayout.screenPaddingH,
         vertical: 12,
       ),
-      appBar: AppBar(
-        title: Text('Site Management', style: TimesheetModuleTypography.h2()),
-        backgroundColor: TimesheetModuleColors.surface,
-        foregroundColor: TimesheetModuleColors.text,
-        elevation: 0,
-      ),
+      glassTitle: 'Site Management',
       bottomNavigationBar: TmBottomNavBar(
         dark: true,
         fabIcon: PhosphorIcons.chatCircleText(),
@@ -66,22 +60,15 @@ class FmSiteManagementHomeScreen extends ConsumerWidget {
           onRetry: () => ref.invalidate(timesheetProjectBucketsProvider),
         ),
         data: (buckets) {
-          return projectsAsync.when(
-            loading: () => const TimesheetLoadingState(
-              style: TimesheetLoadingStyle.list,
-              itemCount: 4,
-            ),
-            error: (_, __) => const TimesheetErrorState(
-              message: 'Could not load active projects',
-            ),
-            data: (projects) {
-              if (projects.isEmpty && buckets.completed.isEmpty) {
-                return const TimesheetEmptyState(
-                  message: 'No projects assigned',
-                );
-              }
+          // Derived directly from buckets — avoids a second skeleton flash.
+          final projects = buckets.inProgress;
+          if (projects.isEmpty && buckets.completed.isEmpty) {
+            return const TimesheetEmptyState(
+              message: 'No projects assigned',
+            );
+          }
 
-              return SingleChildScrollView(
+          return SingleChildScrollView(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
@@ -168,8 +155,6 @@ class FmSiteManagementHomeScreen extends ConsumerWidget {
                   ],
                 ),
               );
-            },
-          );
         },
       ),
     );

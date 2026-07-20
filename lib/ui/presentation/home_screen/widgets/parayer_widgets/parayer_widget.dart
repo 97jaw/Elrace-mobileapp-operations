@@ -1,3 +1,4 @@
+import 'package:el_race/core/utils/responsive_breakpoints.dart';
 import 'package:adhan/adhan.dart';
 import 'package:el_race/core/utils/shared_pref.dart';
 import 'package:el_race/ui/presentation/home_screen/bloc/home_bloc.dart';
@@ -129,7 +130,7 @@ class _ParayerWidgetState extends State<ParayerWidget>
         Positioned(
           left: 15,
           right: 15,
-          bottom: -14.h,
+          bottom: -14.uh,
           child: IgnorePointer(
             child: Align(
               alignment: iconAlignment,
@@ -201,9 +202,9 @@ class _ParayerWidgetState extends State<ParayerWidget>
                 Container(
                     width: double.infinity,
                     height: AppDimen.homeWidgetCardHeight.w + 13.w,
-                    padding: EdgeInsets.symmetric(vertical: 6.h),
+                    padding: EdgeInsets.symmetric(vertical: 6.uh),
                     decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(12.r),
+                      borderRadius: BorderRadius.circular(12.ur),
                       image: const DecorationImage(
                         image: AssetImage(
                             'assets/newapp/newicon/Prayer_widget_packground.png'),
@@ -252,13 +253,13 @@ class _ParayerWidgetState extends State<ParayerWidget>
                                     padding: EdgeInsets.only(right: 6.w),
                                     child: Icon(Icons.error_outline,
                                         color: Colors.yellow.shade200,
-                                        size: 16.sp),
+                                        size: 16.usp),
                                   ),
                               ],
                             ),
-                            SizedBox(height: 4.h),
+                            SizedBox(height: 4.uh),
                             SizedBox(
-                              height: 140.h,
+                              height: 140.uh,
                               child: Stack(
                                 clipBehavior: Clip.none,
                                 children: [
@@ -268,12 +269,12 @@ class _ParayerWidgetState extends State<ParayerWidget>
                                     right: 0,
                                     child: SvgPicture.asset(
                                       'assets/png/prayer_curve.svg',
-                                      height: 80.h,
+                                      height: 80.uh,
                                       fit: BoxFit.fill,
                                     ),
                                   ),
                                   Positioned(
-                                      bottom: 40.h,
+                                      bottom: 40.uh,
                                       left: -1.w,
                                       child: _labelWithIcon(
                                         label: LabelWidget(
@@ -293,7 +294,7 @@ class _ParayerWidgetState extends State<ParayerWidget>
                                         iconAlignment: Alignment.centerRight,
                                       )),
                                   Positioned(
-                                    bottom: 80.h,
+                                    bottom: 80.uh,
                                     left: 60.w,
                                     child: _labelWithIcon(
                                       label: LabelWidget(
@@ -378,7 +379,7 @@ class _ParayerWidgetState extends State<ParayerWidget>
                                         iconAlignment: Alignment.centerLeft,
                                       )),
                                   Positioned(
-                                      bottom: 25.h,
+                                      bottom: 25.uh,
                                       right: -20.w,
                                       child: _labelWithIcon(
                                         label: LabelWidget(
@@ -398,7 +399,7 @@ class _ParayerWidgetState extends State<ParayerWidget>
                                         iconAlignment: Alignment.centerLeft,
                                       )),
                                   Positioned(
-                                    bottom: 18.h,
+                                    bottom: 18.uh,
                                     right: 0,
                                     left: 0,
                                     child: Column(

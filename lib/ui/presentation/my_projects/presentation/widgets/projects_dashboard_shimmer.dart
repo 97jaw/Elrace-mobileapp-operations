@@ -1,3 +1,4 @@
+import 'package:el_race/core/utils/responsive_breakpoints.dart';
 import 'package:el_race/ui/presentation/my_projects/presentation/theme/projects_dashboard_theme.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
@@ -62,11 +63,11 @@ class ProjectsKpiShimmerRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: EdgeInsets.symmetric(horizontal: 16.w),
+      padding: EdgeInsets.symmetric(horizontal: 16.tw),
       child: Row(
         children: [
           Expanded(child: _box()),
-          SizedBox(width: 10.w),
+          SizedBox(width: 10.tw),
           Expanded(child: _box()),
         ],
       ),
@@ -75,13 +76,13 @@ class ProjectsKpiShimmerRow extends StatelessWidget {
 
   Widget _box() {
     return Container(
-      height: 88.h,
-      padding: EdgeInsets.all(14.w),
+      height: 88.th,
+      padding: EdgeInsets.all(14.tw),
       decoration: ProjectsDashboardTheme.frostedPanel(radius: 16),
       child: Row(
         children: [
-          ProjectsShimmerBox(width: 42.w, height: 42.w, borderRadius: 12.r),
-          SizedBox(width: 10.w),
+          ProjectsShimmerBox(width: 42.tw, height: 42.tw, borderRadius: 12.tr),
+          SizedBox(width: 10.tw),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -89,11 +90,11 @@ class ProjectsKpiShimmerRow extends StatelessWidget {
               children: [
                 ProjectsShimmerBox(
                   width: double.infinity,
-                  height: 10.h,
-                  borderRadius: 6.r,
+                  height: 10.th,
+                  borderRadius: 6.tr,
                 ),
-                SizedBox(height: 8.h),
-                ProjectsShimmerBox(width: 64.w, height: 18.h, borderRadius: 6.r),
+                SizedBox(height: 8.th),
+                ProjectsShimmerBox(width: 64.tw, height: 18.th, borderRadius: 6.tr),
               ],
             ),
           ),
@@ -114,11 +115,11 @@ class ProjectsChartShimmer extends StatelessWidget {
         5,
         (i) => Expanded(
           child: Padding(
-            padding: EdgeInsets.symmetric(horizontal: 4.w),
+            padding: EdgeInsets.symmetric(horizontal: 4.tw),
             child: ProjectsShimmerBox(
               width: double.infinity,
-              height: 72.h + (i * 10).h,
-              borderRadius: 8.r,
+              height: 72.th + (i * 10).th,
+              borderRadius: 8.tr,
             ),
           ),
         ),
@@ -134,28 +135,28 @@ class ProjectsProjectRowShimmer extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: EdgeInsets.all(12.w),
+      padding: EdgeInsets.all(12.tw),
       decoration: ProjectsDashboardTheme.frostedPanel(radius: 14),
       child: Row(
         children: [
-          ProjectsShimmerBox(width: 44.w, height: 44.w, borderRadius: 22.r),
-          SizedBox(width: 12.w),
+          ProjectsShimmerBox(width: 44.tw, height: 44.tw, borderRadius: 22.tr),
+          SizedBox(width: 12.tw),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 ProjectsShimmerBox(
                   width: double.infinity,
-                  height: 13.h,
-                  borderRadius: 6.r,
+                  height: 13.th,
+                  borderRadius: 6.tr,
                 ),
-                SizedBox(height: 8.h),
-                ProjectsShimmerBox(width: 120.w, height: 10.h, borderRadius: 6.r),
+                SizedBox(height: 8.th),
+                ProjectsShimmerBox(width: 120.tw, height: 10.th, borderRadius: 6.tr),
               ],
             ),
           ),
-          SizedBox(width: 8.w),
-          ProjectsShimmerBox(width: 48.w, height: 28.h, borderRadius: 10.r),
+          SizedBox(width: 8.tw),
+          ProjectsShimmerBox(width: 48.tw, height: 28.th, borderRadius: 10.tr),
         ],
       ),
     );
@@ -168,14 +169,14 @@ class ProjectsAgreementCardShimmer extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      margin: EdgeInsets.symmetric(horizontal: 16.w, vertical: 6.h),
-      height: 120.h,
-      padding: EdgeInsets.all(12.w),
+      margin: EdgeInsets.symmetric(horizontal: 16.tw, vertical: 6.th),
+      height: 120.th,
+      padding: EdgeInsets.all(12.tw),
       decoration: ProjectsDashboardTheme.frostedPanel(radius: 18),
       child: Row(
         children: [
-          ProjectsShimmerBox(width: 64.w, height: 64.w, borderRadius: 12.r),
-          SizedBox(width: 12.w),
+          ProjectsShimmerBox(width: 64.tw, height: 64.tw, borderRadius: 12.tr),
+          SizedBox(width: 12.tw),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -183,11 +184,11 @@ class ProjectsAgreementCardShimmer extends StatelessWidget {
               children: [
                 ProjectsShimmerBox(
                   width: double.infinity,
-                  height: 14.h,
-                  borderRadius: 6.r,
+                  height: 14.th,
+                  borderRadius: 6.tr,
                 ),
-                SizedBox(height: 10.h),
-                ProjectsShimmerBox(width: 90.w, height: 10.h, borderRadius: 6.r),
+                SizedBox(height: 10.th),
+                ProjectsShimmerBox(width: 90.tw, height: 10.th, borderRadius: 6.tr),
               ],
             ),
           ),

@@ -5,35 +5,38 @@ class TmAvatarStack extends StatelessWidget {
   const TmAvatarStack({
     super.key,
     required this.labels,
+    this.imageUrls = const [],
     this.maxVisible = 3,
     this.size = TimesheetModuleLayout.avatarSize,
   });
 
   final List<String> labels;
+  final List<String?> imageUrls;
   final int maxVisible;
   final double size;
 
   @override
   Widget build(BuildContext context) {
-    final visibleLabels = labels.take(maxVisible).toList();
-    final extraCount = labels.length - visibleLabels.length;
+    final visibleCount = labels.length.clamp(0, maxVisible);
+    final extraCount = labels.length - visibleCount;
 
     return SizedBox(
-      width: (visibleLabels.length + (extraCount > 0 ? 1 : 0)) * (size * 0.72),
+      width: (visibleCount + (extraCount > 0 ? 1 : 0)) * (size * 0.72),
       height: size,
       child: Stack(
         children: [
-          for (var i = 0; i < visibleLabels.length; i++)
+          for (var i = 0; i < visibleCount; i++)
             Positioned(
               left: i * (size * 0.62),
               child: _TmAvatarBubble(
-                label: visibleLabels[i],
+                label: labels[i],
+                imageUrl: i < imageUrls.length ? imageUrls[i] : null,
                 size: size,
               ),
             ),
           if (extraCount > 0)
             Positioned(
-              left: visibleLabels.length * (size * 0.62),
+              left: visibleCount * (size * 0.62),
               child: _TmAvatarBubble(
                 label: '+$extraCount',
                 size: size,
@@ -50,10 +53,12 @@ class _TmAvatarBubble extends StatelessWidget {
   const _TmAvatarBubble({
     required this.label,
     required this.size,
+    this.imageUrl,
     this.isCount = false,
   });
 
   final String label;
+  final String? imageUrl;
   final double size;
   final bool isCount;
 
@@ -64,6 +69,7 @@ class _TmAvatarBubble extends StatelessWidget {
         : label.trim().isEmpty
             ? '?'
             : label.trim().characters.first.toUpperCase();
+    final url = imageUrl?.trim() ?? '';
 
     return Container(
       width: size,
@@ -78,16 +84,31 @@ class _TmAvatarBubble extends StatelessWidget {
           width: 2,
         ),
       ),
+      clipBehavior: Clip.antiAlias,
       alignment: Alignment.center,
-      child: Text(
-        text,
-        style: TimesheetModuleTypography.caption().copyWith(
-          color: isCount
-              ? TimesheetModuleColors.surface
-              : TimesheetModuleColors.primary,
-          fontWeight: FontWeight.w700,
-        ),
-      ),
+      child: !isCount && url.isNotEmpty
+          ? Image.network(
+              url,
+              fit: BoxFit.cover,
+              width: size,
+              height: size,
+              errorBuilder: (_, __, ___) => Text(
+                text,
+                style: TimesheetModuleTypography.caption().copyWith(
+                  color: TimesheetModuleColors.primary,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            )
+          : Text(
+              text,
+              style: TimesheetModuleTypography.caption().copyWith(
+                color: isCount
+                    ? TimesheetModuleColors.surface
+                    : TimesheetModuleColors.primary,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
     );
   }
 }

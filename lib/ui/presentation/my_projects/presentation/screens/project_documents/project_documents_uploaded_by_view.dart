@@ -1,3 +1,4 @@
+import 'package:el_race/core/utils/responsive_breakpoints.dart';
 import 'package:el_race/ui/presentation/my_projects/presentation/bloc/project_documents/project_documents_cubit.dart';
 import 'package:el_race/ui/presentation/my_projects/presentation/bloc/project_documents/project_documents_state.dart';
 import 'package:el_race/ui/presentation/my_projects/presentation/theme/projects_dashboard_theme.dart';
@@ -19,12 +20,12 @@ class ProjectDocumentsUploadedByView extends StatelessWidget {
         if (state.error != null && state.uploaders.isEmpty && !state.showTabLoadingOverlay) {
           return Center(
             child: Padding(
-              padding: EdgeInsets.symmetric(horizontal: 24.w),
+              padding: EdgeInsets.symmetric(horizontal: 24.tw),
               child: Text(
                 state.error!,
                 textAlign: TextAlign.center,
                 style: GoogleFonts.poppins(
-                  fontSize: 13.sp,
+                  fontSize: 13.tsp,
                   color: ProjectsDashboardTheme.white,
                 ),
               ),
@@ -36,7 +37,7 @@ class ProjectDocumentsUploadedByView extends StatelessWidget {
             child: Text(
               'No upload activity found',
               style: GoogleFonts.poppins(
-                fontSize: 13.sp,
+                fontSize: 13.tsp,
                 color: ProjectsDashboardTheme.greyPanel,
               ),
             ),
@@ -66,7 +67,7 @@ class ProjectDocumentsUploadedByView extends StatelessWidget {
               ),
               padding: ProjectDocumentsLayout.listPadding(context),
               itemCount: state.uploaders.length + (state.uploadersLoading ? 1 : 0),
-              separatorBuilder: (_, __) => SizedBox(height: 10.h),
+              separatorBuilder: (_, __) => SizedBox(height: 10.th),
               itemBuilder: (context, index) {
                 if (index >= state.uploaders.length) {
                   return const Center(

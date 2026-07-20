@@ -1,8 +1,9 @@
+import 'package:el_race/core/utils/responsive_breakpoints.dart';
 import 'package:el_race/core/recruitment/models/recruitment_entities.dart';
 import 'package:el_race/core/recruitment/providers/requisition_providers.dart';
-import 'package:el_race/core/theme/hr_module_colors.dart';
 import 'package:el_race/core/theme/hr_module_layout.dart';
 import 'package:el_race/core/theme/hr_module_typography.dart';
+import 'package:el_race/core/widgets/hr_management/hr_module_glass_header.dart';
 import 'package:el_race/core/widgets/hr_management/hr_search_bar.dart';
 import 'package:el_race/core/widgets/recruitment/recruitment_candidate_tile.dart';
 import 'package:el_race/core/widgets/recruitment/recruitment_gradient_scaffold.dart';
@@ -87,17 +88,15 @@ class _C1CandidatesListScreenState extends ConsumerState<C1CandidatesListScreen>
     final global = widget.requisitionIdFilter == null;
 
     return RecruitmentGradientScaffold(
-      appBar: AppBar(
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        scrolledUnderElevation: 0,
-        foregroundColor: HrModuleColors.text,
-        title: Text(
-          'Candidates',
-          style: HrModuleTypography.sectionHeading().copyWith(fontSize: 18.sp),
-        ),
-      ),
-      body: async.when(
+      body: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          const HrModuleGlassHeader(
+            title: 'Candidates',
+            accentTint: HrModuleHeaderTints.recruitment,
+          ),
+          Expanded(
+            child: async.when(
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (e, _) => Center(child: Text('$e')),
         data: (all) {
@@ -112,7 +111,7 @@ class _C1CandidatesListScreenState extends ConsumerState<C1CandidatesListScreen>
             'WITHDRAWN',
           ];
           return ListView(
-            padding: EdgeInsets.all(HrModuleLayout.screenPaddingH.w),
+            padding: EdgeInsets.all(HrModuleLayout.screenPaddingH.tw),
             children: [
               SingleChildScrollView(
                 scrollDirection: Axis.horizontal,
@@ -125,7 +124,7 @@ class _C1CandidatesListScreenState extends ConsumerState<C1CandidatesListScreen>
                     ),
                     ...stages.map(
                       (s) => Padding(
-                        padding: EdgeInsets.only(left: 8.w),
+                        padding: EdgeInsets.only(left: 8.tw),
                         child: ChoiceChip(
                           label: Text(s),
                           selected: _stage == s,
@@ -136,12 +135,12 @@ class _C1CandidatesListScreenState extends ConsumerState<C1CandidatesListScreen>
                   ],
                 ),
               ),
-              SizedBox(height: 12.h),
+              SizedBox(height: 12.th),
               HrSearchBar(
                 hintText: 'Name or email',
                 onDebouncedChanged: (q) => setState(() => _search = q),
               ),
-              SizedBox(height: 8.h),
+              SizedBox(height: 8.th),
               Row(
                 children: [
                   Text('Sort: ', style: HrModuleTypography.caption()),
@@ -165,10 +164,10 @@ class _C1CandidatesListScreenState extends ConsumerState<C1CandidatesListScreen>
                   ),
                 ],
               ),
-              SizedBox(height: 12.h),
+              SizedBox(height: 12.th),
               if (rows.isEmpty)
                 Padding(
-                  padding: EdgeInsets.only(top: 32.h),
+                  padding: EdgeInsets.only(top: 32.th),
                   child: Center(
                     child: Text(
                       'No candidates match.',
@@ -179,7 +178,7 @@ class _C1CandidatesListScreenState extends ConsumerState<C1CandidatesListScreen>
               else
                 ...rows.map(
                   (c) => Padding(
-                    padding: EdgeInsets.only(bottom: 10.h),
+                    padding: EdgeInsets.only(bottom: 10.th),
                     child: RecruitmentCandidateTile(
                       candidate: c,
                       showRequisitionLink: global,
@@ -197,6 +196,9 @@ class _C1CandidatesListScreenState extends ConsumerState<C1CandidatesListScreen>
             ],
           );
         },
+            ),
+          ),
+        ],
       ),
     );
   }

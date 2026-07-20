@@ -1,3 +1,4 @@
+import 'package:el_race/core/utils/responsive_breakpoints.dart';
 import 'package:el_race/ui/presentation/my_projects/presentation/models/project_document_hub_kind.dart';
 import 'package:el_race/ui/presentation/my_projects/presentation/theme/projects_dashboard_theme.dart';
 import 'package:flutter/material.dart';
@@ -45,16 +46,16 @@ class ProjectDocumentsKindBadge extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: EdgeInsets.symmetric(horizontal: 7.w, vertical: 3.h),
+      padding: EdgeInsets.symmetric(horizontal: 7.tw, vertical: 3.th),
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(8.r),
+        borderRadius: BorderRadius.circular(8.tr),
         color: _background,
         border: Border.all(color: _border),
       ),
       child: Text(
         _shortLabel,
         style: GoogleFonts.poppins(
-          fontSize: 9.sp,
+          fontSize: 9.tsp,
           fontWeight: FontWeight.w600,
           letterSpacing: 0.3,
           color: _text,

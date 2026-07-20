@@ -1,3 +1,4 @@
+import 'package:el_race/core/utils/responsive_breakpoints.dart';
 import 'package:el_race/ui/presentation/Email%20Approval/theme/approvals_overview_theme.dart';
 import 'package:el_race/ui/presentation/Email%20Approval/widgets/approval_overview_records_sheet.dart';
 import 'package:el_race/ui/presentation/Email%20Approval/widgets/stat_counter_card.dart';
@@ -218,19 +219,19 @@ class _AllApprovalsOverviewState extends State<AllApprovalsOverview> {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         Padding(
-          padding: EdgeInsets.fromLTRB(16.w, 2.h, 16.w, 0),
+          padding: EdgeInsets.fromLTRB(16.tw, 2.th, 16.tw, 0),
           child: const _WaitingApprovalsHeadingCard(),
         ),
-        SizedBox(height: 10.h),
+        SizedBox(height: 10.th),
         Padding(
-          padding: EdgeInsets.symmetric(horizontal: 16.w),
+          padding: EdgeInsets.symmetric(horizontal: 16.tw),
           child: OverviewSegmentedTabs(
             selectedIndex: _tabIndex,
             onChanged: (i) => setState(() => _tabIndex = i),
           ),
         ),
         Padding(
-          padding: EdgeInsets.fromLTRB(16.w, 10.h, 16.w, 0),
+          padding: EdgeInsets.fromLTRB(16.tw, 10.th, 16.tw, 0),
           child: AnimatedSwitcher(
             duration: const Duration(milliseconds: 220),
             switchInCurve: Curves.easeOutCubic,
@@ -242,10 +243,10 @@ class _AllApprovalsOverviewState extends State<AllApprovalsOverview> {
                   )
                 : SizedBox(
                     key: const ValueKey('ror'),
-                    height: _kRorTabHeight.h,
+                    height: _kRorTabHeight.th,
                     child: _RorCard(
                       compact: true,
-                      height: _kRorTabHeight.h,
+                      height: _kRorTabHeight.th,
                       rorPercentage: widget.rorPercentage ?? 0,
                       hrRor: widget.rorHrRor,
                       rfqRor: widget.rorRfqRor,
@@ -259,15 +260,15 @@ class _AllApprovalsOverviewState extends State<AllApprovalsOverview> {
                   ),
           ),
         ),
-        SizedBox(height: 12.h),
+        SizedBox(height: 12.th),
         Expanded(
           child: SingleChildScrollView(
             physics: const BouncingScrollPhysics(),
             padding: EdgeInsets.fromLTRB(
-              16.w,
+              16.tw,
               0,
-              16.w,
-              kBottomNavigationBarHeight + context.systemBottomInset + 16.h,
+              16.tw,
+              kBottomNavigationBarHeight + context.systemBottomInset + 16.th,
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -280,7 +281,7 @@ class _AllApprovalsOverviewState extends State<AllApprovalsOverview> {
                   onTap: _openDelayedSheet,
                 ),
                 if (widget.onHrManagementTestCasesTap != null) ...[
-                  SizedBox(height: 10.h),
+                  SizedBox(height: 10.th),
                   _HrManagementTestCasesCard(
                     onTap: widget.onHrManagementTestCasesTap!,
                   ),
@@ -303,13 +304,13 @@ class _WaitingApprovalsHeadingCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       width: double.infinity,
-      padding: EdgeInsets.fromLTRB(14.w, 14.h, 12.w, 13.h),
+      padding: EdgeInsets.fromLTRB(14.tw, 14.th, 12.tw, 13.th),
       decoration: ApprovalsOverviewTheme.waitingHeadingDecoration(),
       child: Row(
         children: [
           Container(
-            width: 38.w,
-            height: 38.w,
+            width: 38.tw,
+            height: 38.tw,
             decoration: BoxDecoration(
               color: Colors.white.withValues(alpha: 0.18),
               shape: BoxShape.circle,
@@ -319,11 +320,11 @@ class _WaitingApprovalsHeadingCard extends StatelessWidget {
             ),
             child: Icon(
               Icons.pending_actions_rounded,
-              size: 20.sp,
+              size: 20.tsp,
               color: Colors.white,
             ),
           ),
-          SizedBox(width: 12.w),
+          SizedBox(width: 12.tw),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -331,16 +332,16 @@ class _WaitingApprovalsHeadingCard extends StatelessWidget {
                 Text(
                   'Waiting for approvals',
                   style: GoogleFonts.poppins(
-                    fontSize: 13.sp,
+                    fontSize: 13.tsp,
                     fontWeight: FontWeight.w600,
                     color: Colors.white,
                   ),
                 ),
-                SizedBox(height: 2.h),
+                SizedBox(height: 2.th),
                 Text(
                   'Review pending requests across modules',
                   style: GoogleFonts.poppins(
-                    fontSize: 10.sp,
+                    fontSize: 10.tsp,
                     fontWeight: FontWeight.w500,
                     color: Colors.white.withValues(alpha: 0.78),
                   ),
@@ -429,14 +430,14 @@ class _RorCard extends StatelessWidget {
     return Container(
       height: compact ? height : null,
       padding: EdgeInsets.fromLTRB(
-        compact ? 12.w : 16.w,
-        compact ? 12.h : 16.h,
-        compact ? 12.w : 16.w,
-        compact ? 10.h : 14.h,
+        compact ? 12.tw : 16.tw,
+        compact ? 12.th : 16.th,
+        compact ? 12.tw : 16.tw,
+        compact ? 10.th : 14.th,
       ),
       decoration: BoxDecoration(
         color: ApprovalsOverviewTheme.white,
-        borderRadius: BorderRadius.circular(compact ? 16.r : 18.r),
+        borderRadius: BorderRadius.circular(compact ? 16.tr : 18.tr),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withValues(alpha: 0.06),
@@ -459,16 +460,16 @@ class _RorCard extends StatelessWidget {
                     Text(
                       'Response Rate',
                       style: GoogleFonts.poppins(
-                        fontSize: compact ? 14.sp : 16.sp,
+                        fontSize: compact ? 14.tsp : 16.tsp,
                         fontWeight: FontWeight.w700,
                         color: ApprovalsOverviewTheme.textDark,
                       ),
                     ),
-                    SizedBox(height: compact ? 2.h : 4.h),
+                    SizedBox(height: compact ? 2.th : 4.th),
                     Text(
                       '$displayOverall%',
                       style: GoogleFonts.poppins(
-                        fontSize: compact ? 26.sp : 30.sp,
+                        fontSize: compact ? 26.tsp : 30.tsp,
                         fontWeight: FontWeight.w700,
                         color: ApprovalsOverviewTheme.textDark,
                         height: 1.05,
@@ -486,17 +487,17 @@ class _RorCard extends StatelessWidget {
                 ),
             ],
           ),
-          SizedBox(height: compact ? 8.h : 12.h),
+          SizedBox(height: compact ? 8.th : 12.th),
           if (hasData) ...[
             if (!compact) ...[
               _RorValueLabelsRow(points: points),
-              SizedBox(height: 6.h),
+              SizedBox(height: 6.th),
             ],
             Expanded(
               child: Stack(
                 children: [
                   Padding(
-                    padding: EdgeInsets.fromLTRB(2.w, 8.h, 6.w, 2.h),
+                    padding: EdgeInsets.fromLTRB(2.tw, 8.th, 6.tw, 2.th),
                     child: LineChart(
                       LineChartData(
                         minX: 0,
@@ -523,7 +524,7 @@ class _RorCard extends StatelessWidget {
                               ? AxisTitles(
                                   sideTitles: SideTitles(
                                     showTitles: true,
-                                    reservedSize: 22.h,
+                                    reservedSize: 22.th,
                                     interval: 1,
                                     getTitlesWidget: (value, meta) {
                                       if (!_isWholeStep(value)) {
@@ -534,11 +535,11 @@ class _RorCard extends StatelessWidget {
                                         return const SizedBox.shrink();
                                       }
                                       return Padding(
-                                        padding: EdgeInsets.only(bottom: 2.h),
+                                        padding: EdgeInsets.only(bottom: 2.th),
                                         child: Text(
                                           '${points[i].percent}%',
                                           style: GoogleFonts.poppins(
-                                            fontSize: 9.sp,
+                                            fontSize: 9.tsp,
                                             fontWeight: FontWeight.w700,
                                             color:
                                                 ApprovalsOverviewTheme.textDark,
@@ -554,7 +555,7 @@ class _RorCard extends StatelessWidget {
                           leftTitles: AxisTitles(
                             sideTitles: SideTitles(
                               showTitles: true,
-                              reservedSize: compact ? 28.w : 32.w,
+                              reservedSize: compact ? 28.tw : 32.tw,
                               interval: _chartMaxY / 4,
                               getTitlesWidget: (value, meta) {
                                 if (value < 0 || value > _chartMaxY) {
@@ -563,7 +564,7 @@ class _RorCard extends StatelessWidget {
                                 return Text(
                                   value.toInt().toString(),
                                   style: GoogleFonts.poppins(
-                                    fontSize: 8.sp,
+                                    fontSize: 8.tsp,
                                     fontWeight: FontWeight.w500,
                                     color: ApprovalsOverviewTheme.textSoft,
                                   ),
@@ -574,7 +575,7 @@ class _RorCard extends StatelessWidget {
                           bottomTitles: AxisTitles(
                             sideTitles: SideTitles(
                               showTitles: true,
-                              reservedSize: compact ? 24.h : 28.h,
+                              reservedSize: compact ? 24.th : 28.th,
                               interval: 1,
                               getTitlesWidget: (value, meta) {
                                 if (!_isWholeStep(value)) {
@@ -585,14 +586,14 @@ class _RorCard extends StatelessWidget {
                                   return const SizedBox.shrink();
                                 }
                                 return Padding(
-                                  padding: EdgeInsets.only(top: 4.h),
+                                  padding: EdgeInsets.only(top: 4.th),
                                   child: Text(
                                     _shortLabel(points[i].label),
                                     maxLines: 1,
                                     overflow: TextOverflow.ellipsis,
                                     textAlign: TextAlign.center,
                                     style: GoogleFonts.poppins(
-                                      fontSize: 7.sp,
+                                      fontSize: 7.tsp,
                                       fontWeight: FontWeight.w600,
                                       color: ApprovalsOverviewTheme.textSoft,
                                     ),
@@ -670,7 +671,7 @@ class _RorCard extends StatelessWidget {
               ),
             ),
             if (!compact) ...[
-              SizedBox(height: 12.h),
+              SizedBox(height: 12.th),
               Row(
                 children: [
                   for (var i = 0; i < points.length; i++)
@@ -680,7 +681,7 @@ class _RorCard extends StatelessWidget {
                 ],
               ),
             ] else ...[
-              SizedBox(height: 6.h),
+              SizedBox(height: 6.th),
               Row(
                 children: [
                   for (var i = 0; i < points.length; i++)
@@ -696,7 +697,7 @@ class _RorCard extends StatelessWidget {
                 child: Text(
                   'No response rate data yet',
                   style: GoogleFonts.poppins(
-                    fontSize: 11.sp,
+                    fontSize: 11.tsp,
                     color: ApprovalsOverviewTheme.textSoft,
                   ),
                 ),
@@ -809,7 +810,7 @@ class _RorPeriodFilters extends StatelessWidget {
           label: monthLabel,
           onTap: () => _openMonthSheet(context),
         ),
-        SizedBox(width: 4.w),
+        SizedBox(width: 4.tw),
         _periodChip(
           context: context,
           label: yearLabel,
@@ -828,12 +829,12 @@ class _RorPeriodFilters extends StatelessWidget {
       color: Colors.transparent,
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(8.r),
+        borderRadius: BorderRadius.circular(8.tr),
         child: Container(
-          padding: EdgeInsets.symmetric(horizontal: 8.w, vertical: 5.h),
+          padding: EdgeInsets.symmetric(horizontal: 8.tw, vertical: 5.th),
           decoration: BoxDecoration(
             color: ApprovalsOverviewTheme.screenTintLight.withValues(alpha: 0.55),
-            borderRadius: BorderRadius.circular(8.r),
+            borderRadius: BorderRadius.circular(8.tr),
             border: Border.all(
               color: ApprovalsOverviewTheme.textSoft.withValues(alpha: 0.35),
             ),
@@ -844,15 +845,15 @@ class _RorPeriodFilters extends StatelessWidget {
               Text(
                 label,
                 style: GoogleFonts.poppins(
-                  fontSize: compact ? 9.sp : 10.sp,
+                  fontSize: compact ? 9.tsp : 10.tsp,
                   fontWeight: FontWeight.w600,
                   color: ApprovalsOverviewTheme.textDark,
                 ),
               ),
-              SizedBox(width: 2.w),
+              SizedBox(width: 2.tw),
               Icon(
                 Icons.keyboard_arrow_down_rounded,
-                size: compact ? 14.sp : 16.sp,
+                size: compact ? 14.tsp : 16.tsp,
                 color: ApprovalsOverviewTheme.textSoft,
               ),
             ],
@@ -885,9 +886,9 @@ class _RorPeriodPickerSheet {
       builder: (ctx) {
         final bottomInset = MediaQuery.paddingOf(ctx).bottom;
         return Padding(
-          padding: EdgeInsets.fromLTRB(12.w, 0, 12.w, 12.h + bottomInset),
+          padding: EdgeInsets.fromLTRB(12.tw, 0, 12.tw, 12.th + bottomInset),
           child: ClipRRect(
-            borderRadius: BorderRadius.circular(20.r),
+            borderRadius: BorderRadius.circular(20.tr),
             child: DecoratedBox(
               decoration: const BoxDecoration(
                 gradient: LinearGradient(
@@ -903,14 +904,14 @@ class _RorPeriodPickerSheet {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Padding(
-                    padding: EdgeInsets.fromLTRB(16.w, 14.h, 8.w, 8.h),
+                    padding: EdgeInsets.fromLTRB(16.tw, 14.th, 8.tw, 8.th),
                     child: Row(
                       children: [
                         Expanded(
                           child: Text(
                             title,
                             style: GoogleFonts.poppins(
-                              fontSize: 15.sp,
+                              fontSize: 15.tsp,
                               fontWeight: FontWeight.w700,
                               color: Colors.white,
                             ),
@@ -929,12 +930,12 @@ class _RorPeriodPickerSheet {
                     color: Colors.white.withValues(alpha: 0.18),
                   ),
                   ConstrainedBox(
-                    constraints: BoxConstraints(maxHeight: 320.h),
+                    constraints: BoxConstraints(maxHeight: 320.th),
                     child: ListView.separated(
                       shrinkWrap: true,
-                      padding: EdgeInsets.fromLTRB(12.w, 8.h, 12.w, 12.h),
+                      padding: EdgeInsets.fromLTRB(12.tw, 8.th, 12.tw, 12.th),
                       itemCount: options.length,
-                      separatorBuilder: (_, __) => SizedBox(height: 6.h),
+                      separatorBuilder: (_, __) => SizedBox(height: 6.th),
                       itemBuilder: (context, index) {
                         final option = options[index];
                         final selected = option.value == selectedValue;
@@ -942,17 +943,17 @@ class _RorPeriodPickerSheet {
                           color: Colors.transparent,
                           child: InkWell(
                             onTap: () => Navigator.pop(ctx, option.value),
-                            borderRadius: BorderRadius.circular(12.r),
+                            borderRadius: BorderRadius.circular(12.tr),
                             child: Container(
                               padding: EdgeInsets.symmetric(
-                                horizontal: 14.w,
-                                vertical: 12.h,
+                                horizontal: 14.tw,
+                                vertical: 12.th,
                               ),
                               decoration: BoxDecoration(
                                 color: selected
                                     ? Colors.white.withValues(alpha: 0.22)
                                     : Colors.white.withValues(alpha: 0.08),
-                                borderRadius: BorderRadius.circular(12.r),
+                                borderRadius: BorderRadius.circular(12.tr),
                                 border: Border.all(
                                   color: selected
                                       ? Colors.white.withValues(alpha: 0.55)
@@ -965,7 +966,7 @@ class _RorPeriodPickerSheet {
                                     child: Text(
                                       option.label,
                                       style: GoogleFonts.poppins(
-                                        fontSize: 14.sp,
+                                        fontSize: 14.tsp,
                                         fontWeight: selected
                                             ? FontWeight.w700
                                             : FontWeight.w500,
@@ -977,7 +978,7 @@ class _RorPeriodPickerSheet {
                                     Icon(
                                       Icons.check_circle_rounded,
                                       color: Colors.white,
-                                      size: 20.sp,
+                                      size: 20.tsp,
                                     ),
                                 ],
                               ),
@@ -1013,7 +1014,7 @@ class _RorValueLabelsRow extends StatelessWidget {
   Widget build(BuildContext context) {
     return Row(
       children: [
-        SizedBox(width: 28.w),
+        SizedBox(width: 28.tw),
         Expanded(
           child: Row(
             children: [
@@ -1023,7 +1024,7 @@ class _RorValueLabelsRow extends StatelessWidget {
                     '${points[i].percent}%',
                     textAlign: TextAlign.center,
                     style: GoogleFonts.poppins(
-                      fontSize: 11.sp,
+                      fontSize: 11.tsp,
                       fontWeight: FontWeight.w700,
                       color: ApprovalsOverviewTheme.textDark,
                     ),
@@ -1054,16 +1055,16 @@ class _RorLegendItem extends StatelessWidget {
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
           style: GoogleFonts.poppins(
-            fontSize: compact ? 9.sp : 10.sp,
+            fontSize: compact ? 9.tsp : 10.tsp,
             fontWeight: FontWeight.w600,
             color: point.color,
           ),
         ),
-        SizedBox(height: 1.h),
+        SizedBox(height: 1.th),
         Text(
           '${point.percent}%',
           style: GoogleFonts.poppins(
-            fontSize: compact ? 11.sp : 13.sp,
+            fontSize: compact ? 11.tsp : 13.tsp,
             fontWeight: FontWeight.w700,
             color: ApprovalsOverviewTheme.textDark,
             height: 1,
@@ -1097,7 +1098,7 @@ class _DelayedGlassCard extends StatelessWidget {
       fillAlpha: 0.84,
       blurSigma: 6,
       onTap: onTap,
-      padding: EdgeInsets.fromLTRB(14.w, 14.h, 12.w, 13.h),
+      padding: EdgeInsets.fromLTRB(14.tw, 14.th, 12.tw, 13.th),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
@@ -1108,7 +1109,7 @@ class _DelayedGlassCard extends StatelessWidget {
                 child: Text(
                   'Delayed Requests',
                   style: GoogleFonts.poppins(
-                    fontSize: 13.sp,
+                    fontSize: 13.tsp,
                     fontWeight: FontWeight.w600,
                     color: ApprovalsOverviewTheme.textDark,
                   ),
@@ -1117,18 +1118,18 @@ class _DelayedGlassCard extends StatelessWidget {
               OverviewArrowButton(onTap: onTap, size: 26),
             ],
           ),
-          SizedBox(height: 2.h),
+          SizedBox(height: 2.th),
           Text(
             total > 0
                 ? 'Beyond SLA · Action required'
                 : 'All requests on time',
             style: GoogleFonts.poppins(
-              fontSize: 10.sp,
+              fontSize: 10.tsp,
               fontWeight: FontWeight.w500,
               color: ApprovalsOverviewTheme.textSoft,
             ),
           ),
-          SizedBox(height: 12.h),
+          SizedBox(height: 12.th),
           Row(
             crossAxisAlignment: CrossAxisAlignment.baseline,
             textBaseline: TextBaseline.alphabetic,
@@ -1136,7 +1137,7 @@ class _DelayedGlassCard extends StatelessWidget {
               Text(
                 '$total',
                 style: GoogleFonts.poppins(
-                  fontSize: 28.sp,
+                  fontSize: 28.tsp,
                   fontWeight: FontWeight.w700,
                   color: total > 0
                       ? ApprovalsOverviewTheme.hr
@@ -1144,20 +1145,20 @@ class _DelayedGlassCard extends StatelessWidget {
                   height: 1,
                 ),
               ),
-              SizedBox(width: 5.w),
+              SizedBox(width: 5.tw),
               Text(
                 'Total',
                 style: GoogleFonts.poppins(
-                  fontSize: 12.sp,
+                  fontSize: 12.tsp,
                   fontWeight: FontWeight.w500,
                   color: ApprovalsOverviewTheme.textSoft,
                 ),
               ),
               const Spacer(),
               _DelayedInline(value: hrCount, label: 'HR'),
-              SizedBox(width: 12.w),
+              SizedBox(width: 12.tw),
               _DelayedInline(value: rfqCount, label: 'RFQ'),
-              SizedBox(width: 12.w),
+              SizedBox(width: 12.tw),
               _DelayedInline(value: invoiceCount, label: 'Inv'),
             ],
           ),
@@ -1188,7 +1189,7 @@ class _DelayedInline extends StatelessWidget {
         Text(
           '$value',
           style: GoogleFonts.poppins(
-            fontSize: 16.sp,
+            fontSize: 16.tsp,
             fontWeight: FontWeight.w700,
             color: color,
             height: 1,
@@ -1197,7 +1198,7 @@ class _DelayedInline extends StatelessWidget {
         Text(
           label,
           style: GoogleFonts.poppins(
-            fontSize: 9.sp,
+            fontSize: 9.tsp,
             fontWeight: FontWeight.w500,
             color: ApprovalsOverviewTheme.textSoft,
           ),
@@ -1217,7 +1218,7 @@ class _HrManagementTestCasesCard extends StatelessWidget {
     return OverviewGlassPanel(
       fillAlpha: 0.8,
       blurSigma: 4,
-      padding: EdgeInsets.symmetric(horizontal: 14.w, vertical: 11.h),
+      padding: EdgeInsets.symmetric(horizontal: 14.tw, vertical: 11.th),
       onTap: onTap,
       child: Row(
         children: [
@@ -1225,7 +1226,7 @@ class _HrManagementTestCasesCard extends StatelessWidget {
             child: Text(
               'HR Management Test Cases',
               style: GoogleFonts.poppins(
-                fontSize: 12.sp,
+                fontSize: 12.tsp,
                 fontWeight: FontWeight.w600,
                 color: ApprovalsOverviewTheme.textDark,
               ),

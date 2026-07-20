@@ -1,3 +1,4 @@
+import 'package:el_race/core/utils/responsive_breakpoints.dart';
 import 'package:el_race/core/widgets/hr_management/hr_module_glass_header.dart';
 import 'package:el_race/core/theme/hr_module_colors.dart';
 import 'package:el_race/core/theme/hr_module_typography.dart';
@@ -173,10 +174,10 @@ class _HrCircularAnnouncementsScreenState
     final announcementCount = _data?.announcementCount ?? 0;
 
     return Padding(
-      padding: EdgeInsets.fromLTRB(16.w, 14.h, 16.w, 8.h),
+      padding: EdgeInsets.fromLTRB(16.tw, 14.th, 16.tw, 8.th),
       child: Container(
-        height: 42.h,
-        padding: EdgeInsets.all(4.w),
+        height: 42.th,
+        padding: EdgeInsets.all(4.tw),
         decoration: BoxDecoration(
           color: HrModuleColors.requestsTabTrack,
           borderRadius: BorderRadius.circular(999),
@@ -193,11 +194,11 @@ class _HrCircularAnnouncementsScreenState
           labelColor: Colors.white,
           unselectedLabelColor: HrModuleColors.mutedText,
           labelStyle: HrModuleTypography.caption().copyWith(
-            fontSize: 12.sp,
+            fontSize: 12.tsp,
             fontWeight: FontWeight.w700,
           ),
           unselectedLabelStyle: HrModuleTypography.caption().copyWith(
-            fontSize: 12.sp,
+            fontSize: 12.tsp,
             fontWeight: FontWeight.w600,
           ),
           tabs: [
@@ -232,23 +233,23 @@ class _HrCircularAnnouncementsScreenState
   Widget _buildError() {
     return Center(
       child: Padding(
-        padding: EdgeInsets.all(24.w),
+        padding: EdgeInsets.all(24.tw),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.error_outline, size: 48.sp, color: HrModuleColors.danger),
-            SizedBox(height: 12.h),
+            Icon(Icons.error_outline, size: 48.tsp, color: HrModuleColors.danger),
+            SizedBox(height: 12.th),
             Text(
               translate('common.error_occurred'),
               style: HrModuleTypography.cardTitle(),
             ),
-            SizedBox(height: 8.h),
+            SizedBox(height: 8.th),
             Text(
               _error ?? '',
               textAlign: TextAlign.center,
               style: HrModuleTypography.caption(),
             ),
-            SizedBox(height: 16.h),
+            SizedBox(height: 16.th),
             FilledButton.icon(
               onPressed: _loadData,
               icon: const Icon(Icons.refresh),
@@ -284,13 +285,13 @@ class _HrCircularAnnouncementsScreenState
       onRefresh: _loadData,
       child: ListView.separated(
         padding: EdgeInsets.fromLTRB(
-          16.w,
-          4.h,
-          16.w,
-          context.systemBottomInset + 16.h,
+          16.tw,
+          4.th,
+          16.tw,
+          context.systemBottomInset + 16.th,
         ),
         itemCount: items.length,
-        separatorBuilder: (_, __) => SizedBox(height: 10.h),
+        separatorBuilder: (_, __) => SizedBox(height: 10.th),
         itemBuilder: (context, index) => _buildCard(items[index]),
       ),
     );
@@ -302,19 +303,19 @@ class _HrCircularAnnouncementsScreenState
     return Material(
       color: HrModuleColors.surface,
       elevation: 0,
-      borderRadius: BorderRadius.circular(14.r),
+      borderRadius: BorderRadius.circular(14.tr),
       shadowColor: HrModuleColors.primary.withValues(alpha: 0.08),
       child: InkWell(
         onTap: () => _openFile(item),
-        borderRadius: BorderRadius.circular(14.r),
+        borderRadius: BorderRadius.circular(14.tr),
         child: Ink(
           decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(14.r),
+            borderRadius: BorderRadius.circular(14.tr),
             border: Border.all(color: HrModuleColors.border.withValues(alpha: 0.55)),
             boxShadow: HrModuleColors.cardShadow,
           ),
           child: Padding(
-            padding: EdgeInsets.symmetric(horizontal: 14.w, vertical: 12.h),
+            padding: EdgeInsets.symmetric(horizontal: 14.tw, vertical: 12.th),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -326,7 +327,7 @@ class _HrCircularAnnouncementsScreenState
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
                         style: HrModuleTypography.cardTitle().copyWith(
-                          fontSize: 14.sp,
+                          fontSize: 14.tsp,
                           fontWeight: FontWeight.w700,
                         ),
                       ),
@@ -334,30 +335,30 @@ class _HrCircularAnnouncementsScreenState
                     if (item.hasFile)
                       Icon(
                         Icons.attach_file_rounded,
-                        size: 18.sp,
+                        size: 18.tsp,
                         color: HrModuleColors.secondary,
                       ),
                   ],
                 ),
                 if (item.displayBody.isNotEmpty) ...[
-                  SizedBox(height: 6.h),
+                  SizedBox(height: 6.th),
                   Text(
                     item.displayBody,
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
                     style: HrModuleTypography.body().copyWith(
-                      fontSize: 12.sp,
+                      fontSize: 12.tsp,
                       color: HrModuleColors.mutedText,
                       height: 1.35,
                     ),
                   ),
                 ],
                 if (dateLabel.isNotEmpty) ...[
-                  SizedBox(height: 8.h),
+                  SizedBox(height: 8.th),
                   Text(
                     dateLabel,
                     style: HrModuleTypography.caption().copyWith(
-                      fontSize: 11.sp,
+                      fontSize: 11.tsp,
                       color: HrModuleColors.mutedText,
                     ),
                   ),

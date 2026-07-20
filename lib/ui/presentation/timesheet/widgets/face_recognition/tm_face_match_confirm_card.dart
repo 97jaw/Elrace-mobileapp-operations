@@ -214,6 +214,7 @@ class _TmFaceMatchConfirmCardState extends State<TmFaceMatchConfirmCard>
                       const SizedBox(height: 12),
                       TmPrimaryButton(
                         label: 'Confirm ($_secondsLeft s)',
+                        warm: true,
                         icon: PhosphorIcons.check(),
                         onPressed: widget.onConfirm,
                       ),

@@ -29,6 +29,9 @@ class ReportModel extends HiveObject {
   /// Set on the report record after PDF upload (`report.management.report.report_link`).
   final String? reportLink;
 
+  /// Preview image URLs from list API (max 3); not persisted in Hive.
+  final List<String> latestItemImages;
+
   ReportModel({
     required this.id,
     required this.name,
@@ -38,12 +41,26 @@ class ReportModel extends HiveObject {
     required this.updatedAt,
     this.reportType,
     this.reportLink,
+    this.latestItemImages = const [],
   });
 
   bool get hasGeneratedPdf =>
       reportLink != null && reportLink!.trim().isNotEmpty;
 
   factory ReportModel.fromJson(Map<String, dynamic> json) {
+    final parsedLatestItemImages = (json['latest_items'] is List)
+        ? (json['latest_items'] as List)
+            .whereType<Map>()
+            .map((item) {
+              final image = item['item_data'];
+              if (image == null || image == false) return '';
+              return image.toString().trim();
+            })
+            .where((image) => image.isNotEmpty)
+            .take(3)
+            .toList()
+        : <String>[];
+
     return ReportModel(
       id: json['id'].toString(),
       name: (json['name'] ?? '').toString(),
@@ -64,6 +81,7 @@ class ReportModel extends HiveObject {
           ? json['report_type'].toString()
           : null,
       reportLink: _optionalString(json['report_link']),
+      latestItemImages: parsedLatestItemImages,
     );
   }
 
@@ -83,5 +101,29 @@ class ReportModel extends HiveObject {
       'updated_at': updatedAt.toIso8601String(),
       'report_type': reportType,
     };
+  }
+
+  ReportModel copyWith({
+    String? id,
+    String? name,
+    String? companyId,
+    String? folderId,
+    DateTime? createdAt,
+    DateTime? updatedAt,
+    String? reportType,
+    String? reportLink,
+    List<String>? latestItemImages,
+  }) {
+    return ReportModel(
+      id: id ?? this.id,
+      name: name ?? this.name,
+      companyId: companyId ?? this.companyId,
+      folderId: folderId ?? this.folderId,
+      createdAt: createdAt ?? this.createdAt,
+      updatedAt: updatedAt ?? this.updatedAt,
+      reportType: reportType ?? this.reportType,
+      reportLink: reportLink ?? this.reportLink,
+      latestItemImages: latestItemImages ?? this.latestItemImages,
+    );
   }
 }

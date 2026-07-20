@@ -1,3 +1,4 @@
+import 'package:el_race/core/utils/responsive_breakpoints.dart';
 import 'package:el_race/core/purchase/purchase_dev_role_provider.dart';
 import 'package:el_race/ui/presentation/purchase_management/data/purchase_models.dart';
 import 'package:el_race/ui/presentation/purchase_management/data/purchase_repository.dart';
@@ -145,7 +146,7 @@ class _InvoiceReceivingCreateScreenState
           ),
           Expanded(
             child: ListView(
-              padding: EdgeInsets.all(16.w),
+              padding: EdgeInsets.all(16.tw),
               children: [
                   _field(
                     label: 'Invoice No',
@@ -154,7 +155,7 @@ class _InvoiceReceivingCreateScreenState
                       decoration: _inputDeco('e.g. 0081-SHAM'),
                     ),
                   ),
-                  SizedBox(height: 12.h),
+                  SizedBox(height: 12.th),
                   _field(
                     label: 'LPO No',
                     child: _loadingLpos
@@ -181,7 +182,7 @@ class _InvoiceReceivingCreateScreenState
                             }),
                           ),
                   ),
-                  SizedBox(height: 12.h),
+                  SizedBox(height: 12.th),
                   Row(
                     children: [
                       Expanded(
@@ -195,7 +196,7 @@ class _InvoiceReceivingCreateScreenState
                           ),
                         ),
                       ),
-                      SizedBox(width: 10.w),
+                      SizedBox(width: 10.tw),
                       Expanded(
                         child: _field(
                           label: 'Invoicing Date',
@@ -209,7 +210,7 @@ class _InvoiceReceivingCreateScreenState
                       ),
                     ],
                   ),
-                  SizedBox(height: 12.h),
+                  SizedBox(height: 12.th),
                   _field(
                     label: 'Amount',
                     child: TextField(
@@ -219,7 +220,7 @@ class _InvoiceReceivingCreateScreenState
                       decoration: _inputDeco('0.00'),
                     ),
                   ),
-                  SizedBox(height: 12.h),
+                  SizedBox(height: 12.th),
                   _field(
                     label: 'Remark',
                     child: TextField(
@@ -229,23 +230,23 @@ class _InvoiceReceivingCreateScreenState
                     ),
                   ),
                   if (_error != null) ...[
-                    SizedBox(height: 12.h),
+                    SizedBox(height: 12.th),
                     Text(
                       _error!,
                       style: GoogleFonts.poppins(
-                          color: Colors.red, fontSize: 12.sp),
+                          color: Colors.red, fontSize: 12.tsp),
                     ),
                   ],
-                  SizedBox(height: 20.h),
+                  SizedBox(height: 20.th),
                   SizedBox(
                     width: double.infinity,
-                    height: 48.h,
+                    height: 48.th,
                     child: ElevatedButton(
                       onPressed: _submitting ? null : _submit,
                       style: ElevatedButton.styleFrom(
                         backgroundColor: PurchaseTheme.accentDeep,
                         shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12.r),
+                          borderRadius: BorderRadius.circular(12.tr),
                         ),
                       ),
                       child: _submitting
@@ -282,12 +283,12 @@ class _InvoiceReceivingCreateScreenState
         Text(
           label,
           style: GoogleFonts.poppins(
-            fontSize: 11.sp,
+            fontSize: 11.tsp,
             fontWeight: FontWeight.w600,
             color: const Color(0xFF8A9BB5),
           ),
         ),
-        SizedBox(height: 6.h),
+        SizedBox(height: 6.th),
         child,
       ],
     );
@@ -298,7 +299,7 @@ class _InvoiceReceivingCreateScreenState
         filled: true,
         fillColor: Colors.white,
         border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(10.r),
+          borderRadius: BorderRadius.circular(10.tr),
           borderSide: const BorderSide(color: Color(0xFFE0E4EE)),
         ),
       );

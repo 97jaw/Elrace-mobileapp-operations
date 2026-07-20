@@ -1,3 +1,7 @@
+import 'dart:async';
+
+import 'package:el_race/core/utils/app_orientations.dart';
+import 'package:el_race/core/utils/responsive_breakpoints.dart';
 import 'package:el_race/core/utils/shared_pref.dart';
 import 'package:el_race/ui/presentation/timesheet/widgets/tm_loading_placeholders.dart';
 import 'package:el_race/utils/custom_navigate.dart';
@@ -56,10 +60,10 @@ class _GlassPlaceholderBody extends StatelessWidget {
         GlassSubScreenShell.search => _buildSearchPlaceholder(context),
         GlassSubScreenShell.chat => _buildChatPlaceholder(context),
         GlassSubScreenShell.list => GlassContactsListPlaceholder(
-            padding: EdgeInsets.all(16.w),
+            padding: EdgeInsets.all(16.tw),
           ),
         GlassSubScreenShell.contacts => GlassContactsListPlaceholder(
-            padding: EdgeInsets.all(16.w),
+            padding: EdgeInsets.all(16.tw),
           ),
       },
     );
@@ -67,7 +71,7 @@ class _GlassPlaceholderBody extends StatelessWidget {
 
   Widget _buildSearchPlaceholder(BuildContext context) {
     return Padding(
-      padding: EdgeInsets.fromLTRB(16.w, 16.h, 16.w, 0),
+      padding: EdgeInsets.fromLTRB(16.tw, 16.th, 16.tw, 0),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -76,22 +80,22 @@ class _GlassPlaceholderBody extends StatelessWidget {
             height: 48,
             borderRadius: 24,
           ),
-          SizedBox(height: 16.h),
+          SizedBox(height: 16.th),
           Row(
             children: List.generate(
               4,
               (i) => Padding(
-                padding: EdgeInsets.only(right: 8.w),
-                child: TmShimmerBox(width: 72.w, height: 32, borderRadius: 16),
+                padding: EdgeInsets.only(right: 8.tw),
+                child: TmShimmerBox(width: 72.tw, height: 32, borderRadius: 16),
               ),
             ),
           ),
-          SizedBox(height: 20.h),
+          SizedBox(height: 20.th),
           Expanded(
             child: ListView.separated(
               physics: const NeverScrollableScrollPhysics(),
               itemCount: 6,
-              separatorBuilder: (_, __) => SizedBox(height: 12.h),
+              separatorBuilder: (_, __) => SizedBox(height: 12.th),
               itemBuilder: (_, __) => const TmShimmerBox(
                 width: double.infinity,
                 height: 72,
@@ -105,12 +109,12 @@ class _GlassPlaceholderBody extends StatelessWidget {
   }
 
   Widget _buildChatPlaceholder(BuildContext context) {
-    final top = MediaQuery.paddingOf(context).top + 56.h;
+    final top = MediaQuery.paddingOf(context).top + 56.th;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         Container(
-          height: top + 100.h,
+          height: top + 100.th,
           decoration: const BoxDecoration(
             gradient: LinearGradient(
               begin: Alignment.topLeft,
@@ -118,18 +122,18 @@ class _GlassPlaceholderBody extends StatelessWidget {
               colors: [Color(0xFF161B54), Color(0xFF2A3568)],
             ),
           ),
-          padding: EdgeInsets.fromLTRB(16.w, top + 8.h, 16.w, 12.h),
+          padding: EdgeInsets.fromLTRB(16.tw, top + 8.th, 16.tw, 12.th),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Row(
                 children: [
-                  TmShimmerBox(width: 36.w, height: 36, borderRadius: 18),
-                  SizedBox(width: 12.w),
-                  TmShimmerBox(width: 120.w, height: 18, borderRadius: 8),
+                  TmShimmerBox(width: 36.tw, height: 36, borderRadius: 18),
+                  SizedBox(width: 12.tw),
+                  TmShimmerBox(width: 120.tw, height: 18, borderRadius: 8),
                 ],
               ),
-              SizedBox(height: 14.h),
+              SizedBox(height: 14.th),
               const TmShimmerBox(
                 width: double.infinity,
                 height: 40,
@@ -140,7 +144,7 @@ class _GlassPlaceholderBody extends StatelessWidget {
         ),
         Expanded(
           child: GlassContactsListPlaceholder(
-            padding: EdgeInsets.fromLTRB(16.w, 12.h, 16.w, 0),
+            padding: EdgeInsets.fromLTRB(16.tw, 12.th, 16.tw, 0),
             itemCount: 8,
           ),
         ),
@@ -163,13 +167,13 @@ class GlassContactsListPlaceholder extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ListView.separated(
-      padding: padding ?? EdgeInsets.all(16.w),
+      padding: padding ?? EdgeInsets.all(16.tw),
       physics: const NeverScrollableScrollPhysics(),
       itemCount: itemCount,
-      separatorBuilder: (_, __) => SizedBox(height: 12.h),
+      separatorBuilder: (_, __) => SizedBox(height: 12.th),
       itemBuilder: (_, __) => Container(
-        height: 88.h,
-        padding: EdgeInsets.all(12.w),
+        height: 88.th,
+        padding: EdgeInsets.all(12.tw),
         decoration: BoxDecoration(
           color: const Color(0xFFF8F9FC),
           borderRadius: BorderRadius.circular(12),
@@ -177,16 +181,16 @@ class GlassContactsListPlaceholder extends StatelessWidget {
         ),
         child: Row(
           children: [
-            TmShimmerBox(width: 48.w, height: 48.w, borderRadius: 24),
-            SizedBox(width: 12.w),
+            TmShimmerBox(width: 48.tw, height: 48.tw, borderRadius: 24),
+            SizedBox(width: 12.tw),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  TmShimmerBox(width: double.infinity, height: 14.h),
-                  SizedBox(height: 8.h),
-                  TmShimmerBox(width: 120.w, height: 10.h),
+                  TmShimmerBox(width: double.infinity, height: 14.th),
+                  SizedBox(height: 8.th),
+                  TmShimmerBox(width: 120.tw, height: 10.th),
                 ],
               ),
             ),
@@ -217,6 +221,9 @@ Future<T?> openGlassSubScreen<T>(
   _routeOpeningLocks[routeName] = true;
 
   try {
+    // Don't block the push on orientation unlock — run it in parallel.
+    unawaited(AppOrientations.allowTabletRotation());
+
     final route = SlideRightPageRoute<T>(
       child: child,
       settings: RouteSettings(name: routeName),
