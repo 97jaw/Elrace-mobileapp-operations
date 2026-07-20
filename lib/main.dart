@@ -162,18 +162,27 @@ void _logGuardedError(String source, Object error, StackTrace? stack) {
   _lastGuardLogAt[signature] = now;
 
   if (error is StackOverflowError) {
+    final lines = stack?.toString().split('\n') ?? const <String>[];
     // The async plumbing frames are useless; surface the first app-code frame
     // (if any) so the runaway source can be identified.
-    final appFrame = stack
-        ?.toString()
-        .split('\n')
-        .firstWhere(
-          (line) => line.contains('package:el_race/'),
-          orElse: () => '(no app frame in stack — likely infinite async chain)',
-        );
+    final appFrame = lines.firstWhere(
+      (line) => line.contains('package:el_race/'),
+      orElse: () => '(no app frame in stack — likely infinite async chain)',
+    );
+    // When there's no app frame, the recursion is happening inside a plugin
+    // or the Dart SDK itself. A StackOverflowError's trace is almost always
+    // a small cycle of frames repeated thousands of times — the first ~20
+    // lines are enough to show that cycle and name the actual package
+    // responsible, instead of just "no app frame" with no further lead.
+    final packageFrames = lines
+        .where((line) => line.contains('package:') || line.contains('dart:'))
+        .take(20)
+        .join('\n');
     debugPrint('🛑 [$source] StackOverflowError swallowed. First app frame: '
         '$appFrame');
-    _persistStackOverflowBreadcrumb(source, appFrame);
+    debugPrint('🛑 [$source] First 20 package/dart frames (repeating cycle):\n'
+        '$packageFrames');
+    _persistStackOverflowBreadcrumb(source, '$appFrame\n$packageFrames');
     return;
   }
 
