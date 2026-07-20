@@ -1,9 +1,7 @@
 import 'dart:async';
 
-import 'package:el_race/core/app_globals.dart';
 import 'package:el_race/core/biometric/device_auth_service.dart';
 import 'package:el_race/core/biometric/unified_biometric_helper.dart';
-import 'package:el_race/core/services/attendance_status_sync_service.dart';
 import 'package:el_race/ui/presentation/home_screen/bloc/home_bloc.dart';
 import 'package:el_race/ui/presentation/home_screen/bloc/location_bloc/location_bloc.dart';
 import 'package:el_race/ui/presentation/home_screen/screens/main_home_content_widget.dart';
@@ -14,9 +12,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
-import 'package:flutter_translate/flutter_translate.dart';
 import 'package:get/get.dart';
-import 'package:location/location.dart';
 import 'package:el_race/core/services/app_config_service.dart';
 import 'package:el_race/ui/presentation/home_screen/screens/biometric_sign_in_gate_screen.dart';
 
@@ -53,8 +49,7 @@ class HomeScreenPage extends StatefulWidget {
   State<HomeScreenPage> createState() => _HomeScreenState();
 }
 
-class _HomeScreenState extends State<HomeScreenPage>
-    with WidgetsBindingObserver {
+class _HomeScreenState extends State<HomeScreenPage> {
   // auth flags are stored on the widget class so they can be reset from outside
 
   // bool isMuted = false; // default value
@@ -66,7 +61,6 @@ class _HomeScreenState extends State<HomeScreenPage>
   /// After cancel/miss: show logo + "Sign in with biometric" screen.
   bool _showBiometricGateScreen = false;
   final _locationBloc = LocationBloc();
-  final Location _location = Location();
 
   // _loadMuteStatus() {
   //   setState(() {
@@ -84,17 +78,19 @@ class _HomeScreenState extends State<HomeScreenPage>
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addObserver(this); // مراقبة حالة التطبيق
     Get.put(TimerController()); // only once!
     // _loadMuteStatus();
     // Future.delayed(const Duration(seconds: 5), () {
     //   showBabyGirlPopup(context);
     // });
-    _checkLocationService(); // Check location service on initialization
+    // Location-services enforcement moved to the check-in panel
+    // (LocationServiceBanner) — validated on demand where it matters,
+    // instead of a blocking dialog on every Home mount/resume.
+    // One GPS prime per Home mount (post-login); resumes no longer re-fetch.
     _locationBloc.add(GetCurrentLocationET());
 
-    // After login: lock Home with a biometric gate only once per app session.
-    // The user taps the gate button to start the platform biometric prompt.
+    // After login: authenticate with biometrics only once per app session.
+    // Do not ask again when returning from Contacts or other tabs to Home.
     if (!AppConfigService.instance.shouldSkipFaceId &&
         !HomeScreenPage._didAuthenticateThisSession &&
         !HomeScreenPage._isAuthenticating) {
@@ -197,118 +193,10 @@ class _HomeScreenState extends State<HomeScreenPage>
     );
   }
 
-  @override
-  void dispose() {
-    WidgetsBinding.instance.removeObserver(this); // إزالة المراقبة
-    super.dispose();
-  }
-
-  // Phase 8.2: guards against rapid app-switching stacking concurrent
-  // resume work (location check + GPS fetch + attendance sync),
-  // independent of the Phase 8.1 splash-restart skip above.
-  bool _resumeRefreshInFlight = false;
-
-  @override
-  void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state == AppLifecycleState.resumed) {
-      debugPrint('⏱️ [home-resume] didChangeAppLifecycleState(resumed)');
-      // Phase 8.1: main.dart's own resume handler is about to tear down the
-      // route stack and mount a fresh SplashScreen (10-minute inactivity
-      // restart) — there's no point kicking off a location dialog, GPS
-      // fetch, attendance sync, or role refresh on a screen that's being
-      // replaced. Splash's own navigation back into Home re-primes this
-      // data anyway.
-      if (isRestartingFromSplashTimeout.value) {
-        debugPrint('⏱️ [home-resume] skipped — splash restart in flight');
-        return;
-      }
-      // ignore: unawaited_futures
-      _handleResume();
-    }
-  }
-
-  Future<void> _handleResume() async {
-    if (_resumeRefreshInFlight) {
-      debugPrint('⏱️ [home-resume] skipped — previous resume still in flight');
-      return;
-    }
-    _resumeRefreshInFlight = true;
-    try {
-      debugPrint('⏱️ [home-resume] location check start');
-      await _checkLocationService(); // إعادة التحقق عند العودة
-      debugPrint('⏱️ [home-resume] location check complete');
-      _locationBloc.add(GetCurrentLocationET()); // إعادة جلب اللوكيشن
-
-      // مزامنة حالة الحضور من السيرفر عند العودة من الخلفية
-      // لضمان تحديث الأوقات والعداد بدون الحاجة لتسجيل خروج/دخول
-      debugPrint('⏱️ [home-resume] attendance sync start');
-      await AttendanceStatusSyncService.refreshFromServer(reason: 'app_resumed')
-          .timeout(const Duration(seconds: 10), onTimeout: () => null);
-      debugPrint('⏱️ [home-resume] attendance sync complete');
-      // Removed: LoginSessionRefreshService.refreshRoles() / POST
-      // /api/session/refresh on every resume. Device logs (2026-07-19) showed
-      // this endpoint taking 15-20+ seconds per call (one attempt hit
-      // ApiClient's 20s receiveTimeout outright) — not needed on every single
-      // app resume, and not worth the latency/complexity of debouncing
-      // separately from the rest of this handler.
-    } finally {
-      _resumeRefreshInFlight = false;
-    }
-  }
-
-  // Phase 8.3: the dialog below is non-dismissible (barrierDismissible:
-  // false) — possibly intentional for check-in accuracy reasons, so kept
-  // blocking rather than downgraded to a snackbar. But firing it on every
-  // single resume whenever location services are off was its own source
-  // of a "stuck screen" report independent of the splash issue. Only
-  // surface it once per session; a resume with location still disabled
-  // won't re-show it. Does not affect the dialog's own internal "still
-  // disabled after tapping OK" retry loop below, which is the same user
-  // interaction continuing, not a new resume-triggered occurrence.
-  bool _locationDialogShownThisSession = false;
-
-  Future<void> _checkLocationService() async {
-    // Check if location service is enabled
-    bool isServiceEnabled = await _location.serviceEnabled();
-    if (!isServiceEnabled) {
-      if (_locationDialogShownThisSession) {
-        debugPrint(
-            '⏱️ [home-resume] location dialog already shown this session — skipping');
-        return;
-      }
-      _locationDialogShownThisSession = true;
-      debugPrint(
-          '⏱️ [home-resume] showing location-services dialog (non-dismissible)');
-      // If not enabled, show popup
-      _showLocationServiceDialog();
-    }
-  }
-
-  void _showLocationServiceDialog() {
-    showDialog(
-      context: context,
-      barrierDismissible: false, // Prevent dismissing by tapping outside
-      builder: (BuildContext context) {
-        return AlertDialog(
-          title: Text(translate('location.enable_service')),
-          content: Text(translate('location.please_enable')),
-          actions: [
-            TextButton(
-              onPressed: () async {
-                Navigator.of(context).pop(); // Close the dialog
-                bool serviceEnabled = await _location.requestService();
-                if (!serviceEnabled) {
-                  // If still not enabled, show the dialog again
-                  _showLocationServiceDialog();
-                }
-              },
-              child: Text(translate('common.ok')),
-            ),
-          ],
-        );
-      },
-    );
-  }
+  // NOTE: HomeScreen no longer registers a WidgetsBindingObserver. All
+  // app-resume work (attendance sync, badge refresh, prayer handover) is
+  // owned by ResumeCoordinator (see main.dart), and location-services
+  // enforcement lives in the check-in panel where it actually matters.
 
   @override
   Widget build(BuildContext context) {

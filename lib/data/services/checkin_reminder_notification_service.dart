@@ -33,6 +33,14 @@ class CheckInReminderNotificationService {
 
   Future<void> initialize() async {
     if (_initialized) return;
+    // Set before the awaited call below, not after: cancelAllReminders()
+    // calls cancelCheckInReminders()/cancelCheckOutReminders(), which each
+    // call initialize() again. With the flag only set at the end, that
+    // reentrant call saw _initialized still false and recursed — a real
+    // infinite loop (initialize -> cancelAllReminders ->
+    // cancelCheckInReminders -> initialize -> ...) that overflowed the
+    // stack. Confirmed from a real device stack trace (2026-07-20).
+    _initialized = true;
 
     tz.initializeTimeZones();
     try {
@@ -45,7 +53,6 @@ class CheckInReminderNotificationService {
 
     // Cancel any leftover check-in/out schedules from older builds.
     await cancelAllReminders();
-    _initialized = true;
   }
 
   /// طلب صلاحيات الإشعارات والإشعارات الدقيقة + إيقاف تحسين البطارية (Samsung)

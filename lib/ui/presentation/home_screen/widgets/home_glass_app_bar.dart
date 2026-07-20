@@ -5,6 +5,7 @@ import 'dart:async';
 import 'package:el_race/core/ui/adaptive_glass.dart';
 import 'package:el_race/core/services/approval_count_service.dart';
 import 'package:el_race/core/services/approval_viewed_service.dart';
+import 'package:el_race/core/services/badge_refresh_service.dart';
 import 'package:el_race/core/services/notification_storage_service.dart';
 import 'package:el_race/core/utils/shared_pref.dart';
 import 'package:el_race/ui/presentation/home_screen/widgets/profile_widgets/profile_bottom_sheet.dart';
@@ -60,8 +61,7 @@ class HomeGlassAppBar extends StatefulWidget {
   State<HomeGlassAppBar> createState() => _HomeGlassAppBarState();
 }
 
-class _HomeGlassAppBarState extends State<HomeGlassAppBar>
-    with WidgetsBindingObserver {
+class _HomeGlassAppBarState extends State<HomeGlassAppBar> {
   String _imageBase64 = '';
   int _notificationCount = 0;
   int _approvalCount = 0;
@@ -71,7 +71,6 @@ class _HomeGlassAppBarState extends State<HomeGlassAppBar>
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addObserver(this);
     _loadUserData();
     _loadNotificationCount();
     ApprovalCountService.invalidateCache();
@@ -85,7 +84,15 @@ class _HomeGlassAppBarState extends State<HomeGlassAppBar>
     NotificationStorageService.onCountChanged = () {
       if (mounted) _loadNotificationCountLocal();
     };
-    
+    // Resume badge refresh: ResumeCoordinator runs one shared server sync,
+    // then this callback re-reads the warm local/cached values (no duplicate
+    // API calls per header widget anymore).
+    BadgeRefreshService.addListener(this, () {
+      if (!mounted) return;
+      _loadNotificationCountLocal();
+      _loadApprovalCount();
+    });
+
     // Poll notification counter every 5 seconds (iOS often misses FCM Dart wake).
     _notificationPollTimer = Timer.periodic(
       const Duration(seconds: 5),
@@ -96,20 +103,11 @@ class _HomeGlassAppBarState extends State<HomeGlassAppBar>
   @override
   void dispose() {
     _notificationPollTimer?.cancel();
-    WidgetsBinding.instance.removeObserver(this);
+    BadgeRefreshService.removeListener(this);
     ApprovalViewedService.setOnCountChangedCallback(null);
     ApprovalCountService.onCountChanged = null;
     NotificationStorageService.onCountChanged = null;
     super.dispose();
-  }
-
-  @override
-  void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state == AppLifecycleState.resumed) {
-      ApprovalCountService.invalidateCache();
-      _loadNotificationCount();
-      _loadApprovalCount();
-    }
   }
 
   Future<void> _loadUserData() async {

@@ -10,6 +10,7 @@ import 'package:el_race/ui/presentation/home_screen/screens/custom_swipe_button.
 import 'package:el_race/ui/presentation/home_screen/widgets/home_city_helper.dart';
 import 'package:el_race/ui/presentation/home_screen/widgets/home_glass_theme.dart';
 import 'package:el_race/ui/presentation/home_screen/widgets/home_mid_attendance_times.dart';
+import 'package:el_race/ui/presentation/home_screen/widgets/location_service_banner.dart';
 import 'package:el_race/ui/presentation/home_screen/widgets/home_mid_prayer_panel.dart';
 import 'package:el_race/ui/presentation/timesheet/widgets/tm_loading_placeholders.dart';
 import 'package:flutter/material.dart';
@@ -347,6 +348,10 @@ class _MidCheckInPanelState extends State<_MidCheckInPanel> {
             ),
           ),
         ),
+        // Location enforcement on demand: shown only when the attendance
+        // panel is open with device location services off (replaces the old
+        // app-wide blocking dialog on every resume).
+        const LocationServiceBanner(),
         Padding(
           padding: EdgeInsets.symmetric(horizontal: 18.w),
           child: Opacity(

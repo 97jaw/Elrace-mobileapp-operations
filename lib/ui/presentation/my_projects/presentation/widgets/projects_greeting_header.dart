@@ -1,6 +1,7 @@
 import 'package:el_race/core/utils/responsive_breakpoints.dart';
 import 'dart:convert';
 
+import 'package:el_race/core/services/badge_refresh_service.dart';
 import 'package:el_race/core/services/notification_storage_service.dart';
 import 'package:el_race/core/utils/shared_pref.dart';
 import 'package:el_race/ui/presentation/Notification/notification_screen.dart';
@@ -19,8 +20,7 @@ class ProjectsGreetingHeader extends StatefulWidget {
   State<ProjectsGreetingHeader> createState() => _ProjectsGreetingHeaderState();
 }
 
-class _ProjectsGreetingHeaderState extends State<ProjectsGreetingHeader>
-    with WidgetsBindingObserver {
+class _ProjectsGreetingHeaderState extends State<ProjectsGreetingHeader> {
   int _notificationCount = 0;
   bool _openingNotifications = false;
   String _userName = '';
@@ -30,30 +30,27 @@ class _ProjectsGreetingHeaderState extends State<ProjectsGreetingHeader>
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addObserver(this);
     _previousCountCallback = NotificationStorageService.onCountChanged;
     NotificationStorageService.onCountChanged = () {
       _previousCountCallback?.call();
       _loadNotificationCount();
     };
+    // Resume badge refresh — shared server sync happens in ResumeCoordinator;
+    // this just re-reads the warm local count.
+    BadgeRefreshService.addListener(this, () {
+      if (mounted) _loadNotificationCount();
+    });
     _loadUser();
     _loadNotificationCount();
   }
 
   @override
   void dispose() {
-    WidgetsBinding.instance.removeObserver(this);
+    BadgeRefreshService.removeListener(this);
     if (NotificationStorageService.onCountChanged != null) {
       NotificationStorageService.onCountChanged = _previousCountCallback;
     }
     super.dispose();
-  }
-
-  @override
-  void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state == AppLifecycleState.resumed) {
-      _loadNotificationCount();
-    }
   }
 
   void _loadUser() {

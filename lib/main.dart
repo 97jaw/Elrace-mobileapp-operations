@@ -8,6 +8,8 @@ import 'package:el_race/core/services/notification_storage_service.dart';
 import 'package:el_race/core/timesheet/services/capture_queue_service.dart';
 import 'package:el_race/core/utils/app_orientations.dart';
 import 'package:el_race/core/utils/shared_pref.dart';
+import 'package:el_race/core/security/device_security_service.dart';
+import 'package:el_race/core/services/resume_coordinator.dart';
 import 'package:el_race/chat/chat.dart';
 import 'package:el_race/data/services/hive_service.dart';
 import 'package:el_race/data/services/prayer_audio_service.dart';
@@ -160,18 +162,27 @@ void _logGuardedError(String source, Object error, StackTrace? stack) {
   _lastGuardLogAt[signature] = now;
 
   if (error is StackOverflowError) {
+    final lines = stack?.toString().split('\n') ?? const <String>[];
     // The async plumbing frames are useless; surface the first app-code frame
     // (if any) so the runaway source can be identified.
-    final appFrame = stack
-        ?.toString()
-        .split('\n')
-        .firstWhere(
-          (line) => line.contains('package:el_race/'),
-          orElse: () => '(no app frame in stack — likely infinite async chain)',
-        );
+    final appFrame = lines.firstWhere(
+      (line) => line.contains('package:el_race/'),
+      orElse: () => '(no app frame in stack — likely infinite async chain)',
+    );
+    // When there's no app frame, the recursion is happening inside a plugin
+    // or the Dart SDK itself. A StackOverflowError's trace is almost always
+    // a small cycle of frames repeated thousands of times — the first ~20
+    // lines are enough to show that cycle and name the actual package
+    // responsible, instead of just "no app frame" with no further lead.
+    final packageFrames = lines
+        .where((line) => line.contains('package:') || line.contains('dart:'))
+        .take(20)
+        .join('\n');
     debugPrint('🛑 [$source] StackOverflowError swallowed. First app frame: '
         '$appFrame');
-    _persistStackOverflowBreadcrumb(source, appFrame);
+    debugPrint('🛑 [$source] First 20 package/dart frames (repeating cycle):\n'
+        '$packageFrames');
+    _persistStackOverflowBreadcrumb(source, '$appFrame\n$packageFrames');
     return;
   }
 
@@ -727,21 +738,25 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
+      // T0 — synchronous UI chrome only; everything else is deferred.
       _enableAndroidImmersiveMode();
       // ignore: unawaited_futures
       _lockPortraitOrientation();
 
-      // Foreground owns azan again — cancel OS schedules; timer plays once.
-      // ignore: unawaited_futures
-      PrayerAudioService().enterForegroundMode();
-
+      // Long-idle security re-verification runs silently in the background;
+      // it only routes to splash if the device check actually fails.
       final lastBackground = _backgroundedAt;
       if (lastBackground != null && !_isRestartingFromTimeout) {
         final inactiveFor = DateTime.now().difference(lastBackground);
         if (inactiveFor >= _inactiveTimeout) {
-          _restartFromSplashAfterTimeout(inactiveFor);
+          // ignore: unawaited_futures
+          _recheckSecurityAfterTimeout(inactiveFor);
         }
       }
+
+      // Tiered resume work (prayer foreground handover, badge refresh,
+      // attendance sync) — single owner, never blocks the UI.
+      ResumeCoordinator.instance.onResumed();
 
       _backgroundedAt = null;
       return;
@@ -761,15 +776,53 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
     }
   }
 
-  void _restartFromSplashAfterTimeout(Duration inactiveFor) {
+  /// Long-idle (>= [_inactiveTimeout]) security re-verification.
+  ///
+  /// Previously this unconditionally tore down the route stack and replayed
+  /// the full SplashScreen (video decode + security check + re-navigation) on
+  /// every 10-minute background — while HomeScreen's own resume work raced it
+  /// for CPU, producing the "splash video stuck" hang. The security intent is
+  /// preserved: the same device check still runs after long idle, but
+  /// silently. Only a failed check (or an expired login) falls back to the
+  /// splash restart, where SplashScreen's own gates show the blocking
+  /// security dialog / login flow.
+  Future<void> _recheckSecurityAfterTimeout(Duration inactiveFor) async {
     _isRestartingFromTimeout = true;
-    // Phase 8.1: tell other resume observers (HomeScreen) a splash restart
-    // is in flight so they skip their own resume work instead of racing
-    // the new SplashScreen's video/security-check gates.
-    isRestartingFromSplashTimeout.value = true;
     debugPrint(
-      '⏱️ Inactivity timeout reached (${inactiveFor.inMinutes} min). Restarting from SplashScreen...',
+      '⏱️ Inactivity timeout reached (${inactiveFor.inMinutes} min). '
+      'Running silent security re-check...',
     );
+    try {
+      if (!SharedPref.isUserAuthenticated()) {
+        debugPrint('⏱️ Silent re-check: session no longer authenticated — restarting from splash');
+        _restartFromSplash();
+        return;
+      }
+      final result = await DeviceSecurityService.instance
+          .performSecurityCheck()
+          .timeout(const Duration(seconds: 6));
+      if (result.isSecure) {
+        debugPrint('⏱️ Silent security re-check passed — continuing without splash restart');
+        return;
+      }
+      debugPrint('⏱️ Silent security re-check FAILED — restarting from splash');
+      _restartFromSplash();
+    } catch (e) {
+      // Fail-open, same policy as SplashScreen's own check: a check error
+      // (timeout, plugin failure) must not lock the user out.
+      debugPrint('⏱️ Silent security re-check error ($e) — fail-open, no restart');
+    } finally {
+      if (!isRestartingFromSplashTimeout.value) {
+        _isRestartingFromTimeout = false;
+      }
+    }
+  }
+
+  void _restartFromSplash() {
+    // Tell other resume observers (ResumeCoordinator, HomeScreen) a splash
+    // restart is in flight so they skip their own resume work instead of
+    // racing the new SplashScreen's video/security-check gates.
+    isRestartingFromSplashTimeout.value = true;
 
     final navigator = navKey.currentState;
     if (navigator == null) {

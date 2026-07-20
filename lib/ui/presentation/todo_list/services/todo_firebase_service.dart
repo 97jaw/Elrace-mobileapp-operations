@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/foundation.dart' show kDebugMode;
 import 'package:el_race/core/utils/shared_pref.dart';
 
 import '../data/todo_list_model.dart';
@@ -147,7 +148,9 @@ class TodoFirebaseService {
       derived.add(firebaseUid);
     }
 
-    print('🔍 [TaskAssign] _currentUserIdentifiers: ${[...numericIds, ...derived]}');
+    if (kDebugMode) {
+      print('🔍 [TaskAssign] _currentUserIdentifiers: ${[...numericIds, ...derived]}');
+    }
     return [...numericIds, ...derived];
   }
 
@@ -282,7 +285,14 @@ class TodoFirebaseService {
       try {
         final snapshot = await _firestore.collectionGroup('todos').get();
         final all = snapshot.docs.map((doc) => TodoModel.fromFirestore(doc)).toList();
-        return all.where(_isAssignedToCurrentUser).toList();
+        // Computed once here instead of per-todo inside _isAssignedToCurrentUser
+        // — this scan can be every todo across every user when the required
+        // Firestore index is missing (see the caught error above).
+        final ids = _currentUserIdentifiers;
+        final names = _currentUserNames;
+        return all
+            .where((todo) => _isAssignedToCurrentUser(todo, ids: ids, names: names))
+            .toList();
       } catch (e2) {
         print('❌ TodoFirebaseService: Error loading assigned tasks from all users: $e2');
         return const [];
@@ -299,20 +309,31 @@ class TodoFirebaseService {
     return chunks;
   }
 
-  bool _isAssignedToCurrentUser(TodoModel todo) {
-    final ids = _currentUserIdentifiers;
-    final names = _currentUserNames;
-    if (ids.isEmpty && names.isEmpty) return false;
+  /// [ids]/[names] let a caller iterating many todos (e.g. a `.where()` over
+  /// a whole collection-group scan) compute the current user's identifiers
+  /// once and reuse them, instead of this method re-deriving (and
+  /// re-printing) the same unchanging data on every single todo checked.
+  /// Falls back to computing them fresh for the few single-todo callers.
+  bool _isAssignedToCurrentUser(
+    TodoModel todo, {
+    List<String>? ids,
+    List<String>? names,
+  }) {
+    final resolvedIds = ids ?? _currentUserIdentifiers;
+    final resolvedNames = names ?? _currentUserNames;
+    if (resolvedIds.isEmpty && resolvedNames.isEmpty) return false;
 
     // Collect all stored IDs from assignedMembers (odooId + userId + firebase_uid format)
     final memberIds = (todo.assignedMembers ?? const <TaskMember>[])
         .expand(_memberAllIds)
         .toSet();
 
-    print('🔍 [TaskAssign] Checking "${todo.title}" | storedIds=$memberIds | myIds=$ids | storedNames=${(todo.assignedMembers ?? []).map((m) => m.name).toSet()} | myNames=$names');
+    if (kDebugMode) {
+      print('🔍 [TaskAssign] Checking "${todo.title}" | storedIds=$memberIds | myIds=$resolvedIds | storedNames=${(todo.assignedMembers ?? []).map((m) => m.name).toSet()} | myNames=$resolvedNames');
+    }
 
-    if (memberIds.any(ids.contains)) {
-      print('✅ [TaskAssign] ID match for "${todo.title}"');
+    if (memberIds.any(resolvedIds.contains)) {
+      if (kDebugMode) print('✅ [TaskAssign] ID match for "${todo.title}"');
       return true;
     }
 
@@ -320,15 +341,15 @@ class TodoFirebaseService {
         .map((m) => m.name.trim().toLowerCase())
         .where((name) => name.isNotEmpty)
         .toSet();
-    if (memberNames.any(names.contains)) {
-      print('✅ [TaskAssign] Name match for "${todo.title}"');
+    if (memberNames.any(resolvedNames.contains)) {
+      if (kDebugMode) print('✅ [TaskAssign] Name match for "${todo.title}"');
       return true;
     }
 
     final assignedTo = todo.assignedTo?.trim();
     if (assignedTo != null &&
         assignedTo.isNotEmpty &&
-        ids.contains(assignedTo)) {
+        resolvedIds.contains(assignedTo)) {
       return true;
     }
 
@@ -339,7 +360,7 @@ class TodoFirebaseService {
           .map((e) => e.trim())
           .where((e) => e.isNotEmpty)
           .toSet();
-      if (splitNames.any(names.contains)) return true;
+      if (splitNames.any(resolvedNames.contains)) return true;
     }
 
     return false;
@@ -545,7 +566,11 @@ class TodoFirebaseService {
           .map((snapshot) {
         final all =
             snapshot.docs.map((d) => TodoModel.fromFirestore(d)).toList();
-        return all.where(_isAssignedToCurrentUser).toList();
+        final ids = _currentUserIdentifiers;
+        final names = _currentUserNames;
+        return all
+            .where((todo) => _isAssignedToCurrentUser(todo, ids: ids, names: names))
+            .toList();
       }).handleError((e) {
         print('⚠️ TodoFirebaseService: collectionGroup stream error: $e');
       });
@@ -657,9 +682,11 @@ class TodoFirebaseService {
   Future<List<TodoModel>> getAssignedToMeTodos(String? assignee) async {
     try {
       final allTodos = await getAllTodos();
+      final ids = _currentUserIdentifiers;
+      final names = _currentUserNames;
 
       final assigned = allTodos.where((todo) {
-        if (!_isAssignedToCurrentUser(todo)) return false;
+        if (!_isAssignedToCurrentUser(todo, ids: ids, names: names)) return false;
         if (assignee == null || assignee.trim().isEmpty) return true;
         return (todo.assignedTo ?? '').trim() == assignee.trim();
       }).toList()
