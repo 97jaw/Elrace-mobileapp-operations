@@ -8,6 +8,8 @@ import 'package:el_race/core/timesheet/providers/timesheet_entry_mode_provider.d
 import 'package:el_race/ui/presentation/timesheet/timesheet_entry_mode_scope.dart';
 import 'package:el_race/core/clients_vendors/clients_vendors_route_names.dart';
 import 'package:el_race/ui/presentation/clients_vendors/clients_screen.dart';
+import 'package:el_race/ui/presentation/clients_vendors/screens/accounts_receivable_screen.dart';
+import 'package:el_race/ui/presentation/clients_vendors/screens/outstanding_invoices_screen.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:el_race/ui/presentation/home_screen/screens/home_screen.dart';
@@ -161,6 +163,17 @@ class OnGeneratedRoutes {
             builder: (_) => const HrModuleWidgetsSandbox());
       case ClientsVendorsRouteNames.clients:
         return CupertinoPageRoute(builder: (_) => const ClientsScreen());
+      case ClientsVendorsRouteNames.accountsReceivable:
+        return CupertinoPageRoute(
+          builder: (_) => const AccountsReceivableScreen(),
+        );
+      case ClientsVendorsRouteNames.outstandingInvoices:
+        final oiArgs = settings.arguments;
+        return CupertinoPageRoute(
+          builder: (_) => OutstandingInvoicesScreen(
+            args: oiArgs is OutstandingInvoicesArgs ? oiArgs : null,
+          ),
+        );
       case TimesheetRouteNames.home:
         return CupertinoPageRoute(
           builder: (_) => const TimesheetEntryModeScope(
