@@ -93,16 +93,16 @@ class _HomeScreenState extends State<HomeScreenPage>
     _checkLocationService(); // Check location service on initialization
     _locationBloc.add(GetCurrentLocationET());
 
-    // After login: authenticate with biometrics only once per app session.
-    // Do not ask again when returning from Contacts or other tabs to Home.
+    // After login: lock Home with a biometric gate only once per app session.
+    // The user taps the gate button to start the platform biometric prompt.
     if (!AppConfigService.instance.shouldSkipFaceId &&
         !HomeScreenPage._didAuthenticateThisSession &&
         !HomeScreenPage._isAuthenticating) {
       // Lock on the first frame — before the system prompt appears — so taps
       // cannot slip through in the delay / cancel / retry gaps.
       _isBiometricLocked = true;
+      _showBiometricGateScreen = true;
       HomeScreenPage._sessionUiLocked = true;
-      _authenticateAfterLogin();
     }
     // List of pages or widgets that you want to display for each navigation ite
   }
