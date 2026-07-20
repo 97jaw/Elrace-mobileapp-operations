@@ -451,8 +451,23 @@ class FirebaseChatAuthService {
       // Firebase ID tokens are valid for 1 hour. We refresh proactively
       // when we receive a token-change event (Firebase SDK triggers this
       // ~5 min before expiry when the app is in the foreground).
+      //
+      // signInWithCustomToken below itself changes the ID token, which
+      // re-fires this same idTokenChanges() stream — this listener was
+      // re-entering itself. The _isRefreshing bool guards the synchronous
+      // check at callback entry, but doesn't stop the stream from queueing
+      // and delivering its own triggered event across the await gap.
+      // Pausing the subscription for the duration of the refresh makes
+      // that structurally impossible instead of relying on a flag's
+      // timing. This matches a real device stack trace: a Future error
+      // repeatedly re-fed into another Future's error path
+      // (Future._completeErrorObject <-> Future._propagateToListeners
+      // .handleError) until the stack overflowed, with the entry point
+      // being a microtask — consistent with a self-triggering stream
+      // listener whose refresh attempt kept failing/re-firing.
+      _isRefreshing = true;
+      _idTokenSub?.pause();
       try {
-        _isRefreshing = true;
         print(
             '🔄 FirebaseChatAuth: ID token changed – refreshing custom token...');
 
@@ -474,6 +489,7 @@ class FirebaseChatAuthService {
         print('⚠️ FirebaseChatAuth: Auto-refresh error (non-fatal): $e');
       } finally {
         _isRefreshing = false;
+        _idTokenSub?.resume();
       }
     });
   }
