@@ -60,7 +60,8 @@ class _SplashScreenState extends State<SplashScreen> {
     // Instrumentation only: log when appInitCompleter resolves, independent
     // of the Future.wait gate in _waitForInitAndNavigate (Completers support
     // multiple listeners, so this does not change existing behavior).
-    appInitCompleter.future.then((_) => _logGateTiming('appInitCompleter-resolved'));
+    appInitCompleter.future
+        .then((_) => _logGateTiming('appInitCompleter-resolved'));
 
     // Phase 2: start the update check now, in parallel with init/video/
     // security, since it has no dependency on any of them. Previously this
@@ -168,11 +169,10 @@ class _SplashScreenState extends State<SplashScreen> {
           print('⚠️ Heavy init timeout in splash – continuing anyway');
         },
       ),
-      // Soft-capped from 20s to 5s: the AnimatedSwitcher already handles the
-      // video/placeholder swap gracefully, so cutting the wait short (video
-      // keeps playing in the background) is visually safe.
+      // Wait for the splash video to finish. Keep a generous fallback only so
+      // a decoder/player failure cannot trap the user on splash forever.
       _videoCompletedCompleter.future.timeout(
-        const Duration(seconds: 5),
+        const Duration(seconds: 30),
         onTimeout: () {
           print('⚠️ Video completion timeout in splash – continuing anyway');
         },
