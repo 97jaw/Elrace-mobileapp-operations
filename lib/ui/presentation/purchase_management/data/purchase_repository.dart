@@ -97,9 +97,30 @@ class PurchaseRepository {
     return [];
   }
 
+  bool _flagTrue(dynamic value) {
+    if (value == true || value == 1) return true;
+    final s = value?.toString().trim().toLowerCase();
+    return s == 'true' || s == '1';
+  }
+
+  /// Controllers pass pagination via `meta=`, but [helpers.success_response]
+  /// flattens those keys onto the top-level result (`has_more`, `total`, `page`).
   bool _hasMore(Map<String, dynamic>? result) {
     if (result == null) return false;
-    return result['has_more'] == true;
+    if (_flagTrue(result['has_more'])) return true;
+    final meta = result['meta'];
+    if (meta is Map && _flagTrue(meta['has_more'])) return true;
+    return false;
+  }
+
+  int _readTotal(Map<String, dynamic>? result, int fallback) {
+    if (result == null) return fallback;
+    if (result['total'] != null) return _parseMetaInt(result['total']);
+    final meta = result['meta'];
+    if (meta is Map && meta['total'] != null) {
+      return _parseMetaInt(meta['total']);
+    }
+    return fallback;
   }
 
   Future<PurchaseOverview> fetchOverview({
@@ -368,39 +389,72 @@ class PurchaseRepository {
   }
 
   Future<({List<DraftInvoiceItem> items, bool hasMore, int total})>
-      fetchDraftInvoices({
+      fetchInvoices({
     int page = 1,
     int limit = 15,
     String keyword = '',
     PurchaseDevTestRole? testRole,
   }) async {
-    final result = await _post(
-      '/purchase/draft_invoices',
-      _withTestRole({
-        'page': page,
-        'limit': limit,
-        if (keyword.isNotEmpty) 'keyword': keyword,
-      }, testRole),
-    );
+    // Prefer new route; fall back to legacy alias if not deployed yet.
+    Map<String, dynamic>? result;
+    try {
+      result = await _post(
+        '/purchase/invoices',
+        _withTestRole({
+          'page': page,
+          'limit': limit,
+          if (keyword.isNotEmpty) 'keyword': keyword,
+        }, testRole),
+      );
+    } catch (_) {
+      result = null;
+    }
+    final invoicesOk = result != null &&
+        (result['status'] == 'success' || result['data'] is List);
+    if (!invoicesOk) {
+      result = await _post(
+        '/purchase/draft_invoices',
+        _withTestRole({
+          'page': page,
+          'limit': limit,
+          if (keyword.isNotEmpty) 'keyword': keyword,
+        }, testRole),
+      );
+    }
     if (result == null) {
       return (items: <DraftInvoiceItem>[], hasMore: false, total: 0);
     }
     final data = _unwrapList(result);
-    final meta = result['meta'];
-    final total = meta is Map ? _parseMetaInt(meta['total']) : data.length;
+    final items = data
+        .whereType<Map>()
+        .map((e) => DraftInvoiceItem.fromJson(Map<String, dynamic>.from(e)))
+        .toList();
+    final total = _readTotal(result, 0);
+    // Flattened meta.has_more, then total math, then "full page" heuristic.
+    var hasMore = _hasMore(result);
+    if (!hasMore && total > 0) {
+      final loadedThrough = ((page - 1) * limit) + items.length;
+      hasMore = loadedThrough < total;
+    }
+    if (!hasMore && items.length >= limit) {
+      hasMore = true;
+    }
+    if (kDebugMode) {
+      debugPrint(
+        'purchase/invoices page=$page items=${items.length} '
+        'total=$total hasMore=$hasMore rawHasMore=${result['has_more']}',
+      );
+    }
     return (
-      items: data
-          .whereType<Map>()
-          .map((e) => DraftInvoiceItem.fromJson(Map<String, dynamic>.from(e)))
-          .toList(),
-      hasMore: _hasMore(result),
-      total: total,
+      items: items,
+      hasMore: hasMore,
+      total: total > 0 ? total : (hasMore ? 0 : items.length),
     );
   }
 
-  Future<DraftInvoicesPreview> fetchDraftInvoicesPreview({
+  Future<DraftInvoicesPreview> fetchInvoicesPreview({
     PurchaseDevTestRole? testRole,
-    int limit = 4,
+    int limit = 5,
     bool refresh = false,
   }) async {
     if (!refresh &&
@@ -413,7 +467,7 @@ class PurchaseRepository {
     }
 
     final result = await _post(
-      '/purchase/draft_invoices_preview',
+      '/purchase/invoices_preview',
       _withTestRole({'limit': limit}, testRole),
     );
     final payload = _unwrap(result);
@@ -423,6 +477,46 @@ class PurchaseRepository {
     _cachedDraftPreviewRole = testRole;
     return preview;
   }
+
+  Future<PurchaseInvoiceDetail?> fetchInvoiceDetails(
+    int invoiceId, {
+    PurchaseDevTestRole? testRole,
+  }) async {
+    final result = await _post(
+      '/purchase/invoice_details',
+      _withTestRole({'invoice_id': invoiceId}, testRole),
+    );
+    final payload = _unwrap(result);
+    if (payload == null) return null;
+    return PurchaseInvoiceDetail.fromJson(payload);
+  }
+
+  /// Legacy alias — same as [fetchInvoices].
+  Future<({List<DraftInvoiceItem> items, bool hasMore, int total})>
+      fetchDraftInvoices({
+    int page = 1,
+    int limit = 15,
+    String keyword = '',
+    PurchaseDevTestRole? testRole,
+  }) =>
+      fetchInvoices(
+        page: page,
+        limit: limit,
+        keyword: keyword,
+        testRole: testRole,
+      );
+
+  /// Legacy alias — same as [fetchInvoicesPreview].
+  Future<DraftInvoicesPreview> fetchDraftInvoicesPreview({
+    PurchaseDevTestRole? testRole,
+    int limit = 5,
+    bool refresh = false,
+  }) =>
+      fetchInvoicesPreview(
+        testRole: testRole,
+        limit: limit,
+        refresh: refresh,
+      );
 
   DraftInvoicesPreview? _cachedDraftPreview;
   DateTime? _cachedDraftPreviewAt;

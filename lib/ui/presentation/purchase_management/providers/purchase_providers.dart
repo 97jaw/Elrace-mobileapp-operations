@@ -63,15 +63,19 @@ final mrDetailProvider =
   return repo.fetchRequisitionDetails(mrId, testRole: testRole);
 });
 
-final draftInvoicesPreviewProvider =
+/// Recent vendor bills preview for the purchase hub (all states, newest first).
+final recentInvoicesPreviewProvider =
     FutureProvider.autoDispose<DraftInvoicesPreview>((ref) async {
   ref.watch(purchaseDevRoleOverrideProvider);
   final repo = ref.read(purchaseRepositoryProvider);
   final testRole = ref.read(purchaseDevRoleOverrideProvider);
-  return repo.fetchDraftInvoicesPreview(testRole: testRole);
+  return repo.fetchInvoicesPreview(testRole: testRole, limit: 5);
 });
 
-/// Latest confirmed LPOs (purchase/done) for the purchase hub preview.
+/// Legacy alias for [recentInvoicesPreviewProvider].
+final draftInvoicesPreviewProvider = recentInvoicesPreviewProvider;
+
+/// Latest confirmed LPOs (purchase/done) — kept for LPO hub use if needed.
 final lpoLatestPreviewProvider =
     FutureProvider.autoDispose<List<RfqItem>>((ref) async {
   ref.watch(purchaseDevRoleOverrideProvider);
@@ -87,6 +91,7 @@ final lpoLatestPreviewProvider =
   return result.items;
 });
 
+/// Invoice Receiving detail (invoice.receiving model).
 final invoiceDetailProvider =
     FutureProvider.autoDispose
         .family<InvoiceReceivingDetail?, int>((ref, invoiceId) async {
@@ -94,4 +99,13 @@ final invoiceDetailProvider =
   final repo = ref.read(purchaseRepositoryProvider);
   final testRole = ref.read(purchaseDevRoleOverrideProvider);
   return repo.fetchInvoiceReceivingDetails(invoiceId, testRole: testRole);
+});
+
+/// Vendor bill (account.move) detail with payments for hub sheet.
+final purchaseInvoiceDetailProvider = FutureProvider.autoDispose
+    .family<PurchaseInvoiceDetail?, int>((ref, invoiceId) async {
+  ref.watch(purchaseDevRoleOverrideProvider);
+  final repo = ref.read(purchaseRepositoryProvider);
+  final testRole = ref.read(purchaseDevRoleOverrideProvider);
+  return repo.fetchInvoiceDetails(invoiceId, testRole: testRole);
 });

@@ -136,6 +136,16 @@ class DraftInvoiceItem {
     required this.createDate,
     required this.timeAgo,
     required this.state,
+    this.invoiceDate = '',
+    this.dueDate = '',
+    this.currency = 'AED',
+    this.amountResidual = 0,
+    this.formattedResidual = '',
+    this.amountPaid = 0,
+    this.formattedPaid = '',
+    this.paymentState = '',
+    this.statusLabel = '',
+    this.origin = '',
   });
 
   final int id;
@@ -146,7 +156,27 @@ class DraftInvoiceItem {
   final String formattedAmount;
   final String createDate;
   final String timeAgo;
+  /// Odoo `state` (draft/posted/cancel) — kept for compatibility.
   final String state;
+  final String invoiceDate;
+  final String dueDate;
+  final String currency;
+  final double amountResidual;
+  final String formattedResidual;
+  final double amountPaid;
+  final String formattedPaid;
+  final String paymentState;
+  /// Display badge: DRAFT / NOT PAID / PARTIAL / PAID / …
+  final String statusLabel;
+  final String origin;
+
+  String get displayStatus {
+    if (statusLabel.isNotEmpty) return statusLabel;
+    if (state.toUpperCase() == 'PENDING' || state.toUpperCase() == 'DRAFT') {
+      return 'DRAFT';
+    }
+    return state.isNotEmpty ? state.toUpperCase() : 'POSTED';
+  }
 
   factory DraftInvoiceItem.fromJson(Map<String, dynamic> json) =>
       DraftInvoiceItem(
@@ -161,6 +191,137 @@ class DraftInvoiceItem {
         createDate: json['create_date']?.toString() ?? '',
         timeAgo: json['time_ago']?.toString() ?? '',
         state: json['state']?.toString() ?? 'PENDING',
+        invoiceDate: json['invoice_date']?.toString() ?? '',
+        dueDate: json['due_date']?.toString() ?? '',
+        currency: json['currency']?.toString() ?? 'AED',
+        amountResidual: _parseDouble(json['amount_residual']) ?? 0,
+        formattedResidual: json['formatted_residual']?.toString() ?? '',
+        amountPaid: _parseDouble(json['amount_paid']) ?? 0,
+        formattedPaid: json['formatted_paid']?.toString() ?? '',
+        paymentState: json['payment_state']?.toString() ?? '',
+        statusLabel: json['status_label']?.toString() ?? '',
+        origin: json['origin']?.toString() ?? '',
+      );
+}
+
+class InvoicePaymentItem {
+  const InvoicePaymentItem({
+    required this.id,
+    required this.name,
+    required this.date,
+    required this.amount,
+    required this.formattedAmount,
+    required this.currency,
+    required this.journal,
+    required this.state,
+  });
+
+  final int id;
+  final String name;
+  final String date;
+  final double amount;
+  final String formattedAmount;
+  final String currency;
+  final String journal;
+  final String state;
+
+  factory InvoicePaymentItem.fromJson(Map<String, dynamic> json) =>
+      InvoicePaymentItem(
+        id: _parseInt(json['id']),
+        name: json['name']?.toString() ?? '',
+        date: json['date']?.toString() ?? '',
+        amount: _parseDouble(json['amount']) ?? 0,
+        formattedAmount: json['formatted_amount']?.toString() ?? '',
+        currency: json['currency']?.toString() ?? 'AED',
+        journal: json['journal']?.toString() ?? '',
+        state: json['state']?.toString() ?? '',
+      );
+}
+
+class PurchaseInvoiceDetail {
+  const PurchaseInvoiceDetail({
+    required this.id,
+    required this.vendor,
+    required this.vendorPhoto,
+    required this.invoiceId,
+    required this.invoiceDate,
+    required this.dueDate,
+    required this.amount,
+    required this.formattedAmount,
+    required this.currency,
+    required this.amountResidual,
+    required this.formattedResidual,
+    required this.amountPaid,
+    required this.formattedPaid,
+    required this.amountUntaxed,
+    required this.formattedUntaxed,
+    required this.amountTax,
+    required this.formattedTax,
+    required this.paymentState,
+    required this.state,
+    required this.statusLabel,
+    required this.origin,
+    required this.narration,
+    required this.ref,
+    required this.payments,
+  });
+
+  final int id;
+  final String vendor;
+  final String vendorPhoto;
+  final String invoiceId;
+  final String invoiceDate;
+  final String dueDate;
+  final double amount;
+  final String formattedAmount;
+  final String currency;
+  final double amountResidual;
+  final String formattedResidual;
+  final double amountPaid;
+  final String formattedPaid;
+  final double amountUntaxed;
+  final String formattedUntaxed;
+  final double amountTax;
+  final String formattedTax;
+  final String paymentState;
+  final String state;
+  final String statusLabel;
+  final String origin;
+  final String narration;
+  final String ref;
+  final List<InvoicePaymentItem> payments;
+
+  String get displayStatus {
+    if (statusLabel.isNotEmpty) return statusLabel;
+    return state.isNotEmpty ? state.toUpperCase() : 'POSTED';
+  }
+
+  factory PurchaseInvoiceDetail.fromJson(Map<String, dynamic> json) =>
+      PurchaseInvoiceDetail(
+        id: _parseInt(json['id']),
+        vendor: json['vendor']?.toString() ?? '',
+        vendorPhoto: json['vendor_photo']?.toString() ?? '',
+        invoiceId: json['invoice_id']?.toString() ?? '',
+        invoiceDate: json['invoice_date']?.toString() ?? '',
+        dueDate: json['due_date']?.toString() ?? '',
+        amount: _parseDouble(json['amount']) ?? 0,
+        formattedAmount: json['formatted_amount']?.toString() ?? '',
+        currency: json['currency']?.toString() ?? 'AED',
+        amountResidual: _parseDouble(json['amount_residual']) ?? 0,
+        formattedResidual: json['formatted_residual']?.toString() ?? '',
+        amountPaid: _parseDouble(json['amount_paid']) ?? 0,
+        formattedPaid: json['formatted_paid']?.toString() ?? '',
+        amountUntaxed: _parseDouble(json['amount_untaxed']) ?? 0,
+        formattedUntaxed: json['formatted_untaxed']?.toString() ?? '',
+        amountTax: _parseDouble(json['amount_tax']) ?? 0,
+        formattedTax: json['formatted_tax']?.toString() ?? '',
+        paymentState: json['payment_state']?.toString() ?? '',
+        state: json['state']?.toString() ?? '',
+        statusLabel: json['status_label']?.toString() ?? '',
+        origin: json['origin']?.toString() ?? '',
+        narration: json['narration']?.toString() ?? '',
+        ref: json['ref']?.toString() ?? '',
+        payments: _parseList(json['payments'], InvoicePaymentItem.fromJson),
       );
 }
 
