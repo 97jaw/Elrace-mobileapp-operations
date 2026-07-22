@@ -1,5 +1,6 @@
 abstract final class ClientsVendorsRouteNames {
   static const String clients = '/clients_vendors/clients';
+  static const String vendors = '/clients_vendors/vendors';
   static const String accountsReceivable =
       '/clients_vendors/accounts_receivable';
   static const String outstandingInvoices =

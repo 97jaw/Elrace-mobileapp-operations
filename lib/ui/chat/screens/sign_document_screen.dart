@@ -21,11 +21,18 @@ class SignDocumentScreen extends StatefulWidget {
   final String chatId;
   final Uint8List? signatureImageBytes;
 
+  /// Overrides how the signed PDF is persisted. When null, the default
+  /// chat pipeline (`ChatRepository.signDocument`) is used. Callers outside
+  /// the chat module (e.g. My Actions -> Signature "sign myself" flow) can
+  /// supply their own persistence without duplicating the signing UI.
+  final Future<void> Function(Uint8List signedPdfBytes)? onSigned;
+
   const SignDocumentScreen({
     super.key,
     required this.message,
     required this.chatId,
     this.signatureImageBytes,
+    this.onSigned,
   });
 
   @override
@@ -201,12 +208,16 @@ class _SignDocumentScreenState extends State<SignDocumentScreen> {
     if (_pdfBytes == null || _sending) return;
     setState(() => _sending = true);
     try {
-      await ChatRepository.instance.signDocument(
-        widget.chatId,
-        widget.message.id,
-        _pdfBytes!,
-        widget.message.fileName ?? 'document.pdf',
-      );
+      if (widget.onSigned != null) {
+        await widget.onSigned!(_pdfBytes!);
+      } else {
+        await ChatRepository.instance.signDocument(
+          widget.chatId,
+          widget.message.id,
+          _pdfBytes!,
+          widget.message.fileName ?? 'document.pdf',
+        );
+      }
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(

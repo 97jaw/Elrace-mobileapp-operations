@@ -169,7 +169,8 @@ class ClientsVendorsCategoryVendorsCard extends StatelessWidget {
     // Spec base 160° #252A6B → #100F30
     // Design panel wash 180° #F2ECEE @ 88% → #977DFF @ 49%
     return _ClientsVendorsHeroCard(
-      onTap: () => _comingSoon(context, 'Vendors'),
+      onTap: () =>
+          Navigator.of(context).pushNamed(ClientsVendorsRouteNames.vendors),
       baseGradient: _cssAngleGradient(
         160,
         const [
@@ -240,7 +241,8 @@ class ClientsVendorsCategoryVendorsSubContractorsRow extends StatelessWidget {
         children: [
           Expanded(
             child: _SharedSkylineHalfCard(
-              onTap: () => _comingSoon(context, 'Vendors'),
+              onTap: () => Navigator.of(context)
+                  .pushNamed(ClientsVendorsRouteNames.vendors),
               skylineAlignLeft: true,
               showDotTexture: false,
               baseGradient: _cssAngleGradient(

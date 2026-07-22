@@ -43,17 +43,30 @@ service cloud.firestore {
         allow read: if isSignedIn();
         allow write: if isSignedIn() && request.auth.uid == userId;
       }
+
+      // Signature -> Documents tab personal library (self-signed + sent-for-signature copies)
+      match /signature_documents/{docId} {
+        allow read, write: if isSignedIn() && request.auth.uid == userId;
+      }
     }
 
     match /chats/{chatId} {
       allow create: if isSignedIn();
+      // Read: members, open role chats, or legacy docs without member_ids.
       allow read: if isSignedIn() &&
                      (resource.data.type == 'role' ||
                       resource.data.member_ids == null ||
-                      request.auth.uid in resource.data.member_ids);
+                      request.auth.uid in resource.data.member_ids ||
+                      (resource.data.dm_pair != null &&
+                       request.auth.uid in resource.data.dm_pair));
+      // Update: must already be a member, be in dm_pair, or be joining a role chat.
+      // Note: security checks use pre-write `resource.data`, so arrayUnion alone
+      // cannot self-authorize an update for a brand-new member on an existing doc.
       allow update: if isSignedIn() &&
                        (resource.data.member_ids == null ||
                         request.auth.uid in resource.data.member_ids ||
+                        (resource.data.dm_pair != null &&
+                         request.auth.uid in resource.data.dm_pair) ||
                         (resource.data.type == 'role' &&
                          request.auth.uid in request.resource.data.member_ids));
       allow delete: if false;
