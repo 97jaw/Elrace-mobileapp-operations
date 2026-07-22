@@ -2,7 +2,6 @@ import 'dart:io';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/foundation.dart';
 import 'package:path/path.dart' as p;
@@ -12,6 +11,7 @@ import 'package:uuid/uuid.dart';
 import '../../../../../chat/models/chat_user.dart';
 import '../../../../../chat/models/message.dart';
 import '../../../../../chat/repositories/chat_repository.dart';
+import '../../../../../chat/services/firebase_chat_auth_service.dart';
 import '../models/signature_document.dart';
 
 /// Owns the `users/{uid}/signature_documents` collection: the personal
@@ -27,15 +27,25 @@ class SignatureDocumentsRepository {
   final FirebaseStorage _storage = FirebaseStorage.instance;
   final Uuid _uuid = const Uuid();
 
-  String? get _currentUid => FirebaseAuth.instance.currentUser?.uid;
+  /// Storage path under `chat_media/` so existing Storage rules that already
+  /// allow chat uploads also cover Signature self-sign / library files.
+  String _storagePath(String uid, String docId, String fileName) =>
+      'chat_media/signature_docs/$uid/$docId/$fileName';
 
   CollectionReference<Map<String, dynamic>> _collection(String uid) =>
       _firestore.collection('users').doc(uid).collection('signature_documents');
 
+  /// Refresh / restore Firebase Auth via chat auth + `/api/firebase/refresh_token`.
+  Future<String> _ensureUid() async {
+    final user =
+        await FirebaseChatAuthService.instance.ensureAuthenticated();
+    return user.uid;
+  }
+
   /// Live stream of the current user's documents, newest first.
   /// Never hangs forever on permission/index errors — emits `[]` instead.
   Stream<List<SignatureDocument>> watchMyDocuments() {
-    final uid = _currentUid;
+    final uid = FirebaseAuth.instance.currentUser?.uid;
     if (uid == null) return Stream.value(const []);
 
     // Prefer ordered query; fall back without orderBy if index is missing.
@@ -62,37 +72,47 @@ class SignatureDocumentsRepository {
     required List<SignZone> signZones,
     int? pageCount,
   }) async {
-    final uid = _currentUid;
-    if (uid == null) throw Exception('Not authenticated');
+    final uid = await _ensureUid();
 
     final docId = _uuid.v4();
     final fileName = p.basename(pdfFile.path);
-    final storagePath = 'signature_documents/$uid/$docId/original_$fileName';
+    final storagePath = _storagePath(uid, docId, 'original_$fileName');
 
-    final ref = _storage.ref(storagePath);
-    final bytes = await pdfFile.readAsBytes();
-    await ref.putData(
-      bytes,
-      SettableMetadata(
-        contentType: 'application/pdf',
-        customMetadata: {'ownerUid': uid},
-      ),
-    );
-    final fileUrl = await ref.getDownloadURL();
+    try {
+      final ref = _storage.ref(storagePath);
+      final bytes = await pdfFile.readAsBytes();
+      await ref.putData(
+        bytes,
+        SettableMetadata(
+          contentType: 'application/pdf',
+          customMetadata: {'ownerUid': uid},
+        ),
+      );
+      final fileUrl = await ref.getDownloadURL();
 
-    final doc = SignatureDocument(
-      id: docId,
-      ownerUid: uid,
-      fileName: fileName,
-      fileUrl: fileUrl,
-      pageCount: pageCount,
-      signZones: signZones,
-      status: SignatureDocumentStatus.pendingSelf,
-      createdAt: DateTime.now(),
-    );
+      final doc = SignatureDocument(
+        id: docId,
+        ownerUid: uid,
+        fileName: fileName,
+        fileUrl: fileUrl,
+        pageCount: pageCount,
+        signZones: signZones,
+        status: SignatureDocumentStatus.pendingSelf,
+        createdAt: DateTime.now(),
+      );
 
-    await _collection(uid).doc(docId).set(doc.toFirestore());
-    return doc;
+      await _collection(uid).doc(docId).set(doc.toFirestore());
+      return doc;
+    } on FirebaseException catch (e) {
+      if (e.code == 'unauthorized' || e.code == 'permission-denied') {
+        throw Exception(
+          'Firebase Storage denied upload (${e.code}). '
+          'Auth was refreshed; if this persists, Storage rules must allow '
+          'chat_media/signature_docs/{uid}/**. ${e.message ?? ''}',
+        );
+      }
+      rethrow;
+    }
   }
 
   Future<void> markSelfSigned({
@@ -100,27 +120,36 @@ class SignatureDocumentsRepository {
     required Uint8List signedBytes,
     required String fileName,
   }) async {
-    final uid = _currentUid;
-    if (uid == null) throw Exception('Not authenticated');
+    final uid = await _ensureUid();
 
-    final storagePath = 'signature_documents/$uid/$docId/signed_$fileName';
-    final ref = _storage.ref(storagePath);
-    await ref.putData(
-      signedBytes,
-      SettableMetadata(
-        contentType: 'application/pdf',
-        customMetadata: {'signedBy': uid},
-      ),
-    );
-    final signedUrl = await ref.getDownloadURL();
+    final storagePath = _storagePath(uid, docId, 'signed_$fileName');
+    try {
+      final ref = _storage.ref(storagePath);
+      await ref.putData(
+        signedBytes,
+        SettableMetadata(
+          contentType: 'application/pdf',
+          customMetadata: {'signedBy': uid},
+        ),
+      );
+      final signedUrl = await ref.getDownloadURL();
 
-    await _collection(uid).doc(docId).update({
-      'status': SignatureDocumentStatus.signed.toJson(),
-      'signed_pdf_url': signedUrl,
-      'signed_at': FieldValue.serverTimestamp(),
-      'signed_by': uid,
-      'updated_at': FieldValue.serverTimestamp(),
-    });
+      await _collection(uid).doc(docId).update({
+        'status': SignatureDocumentStatus.signed.toJson(),
+        'signed_pdf_url': signedUrl,
+        'signed_at': FieldValue.serverTimestamp(),
+        'signed_by': uid,
+        'updated_at': FieldValue.serverTimestamp(),
+      });
+    } on FirebaseException catch (e) {
+      if (e.code == 'unauthorized' || e.code == 'permission-denied') {
+        throw Exception(
+          'Firebase Storage denied signed upload (${e.code}). '
+          '${e.message ?? ''}',
+        );
+      }
+      rethrow;
+    }
   }
 
   /// Send a PDF to one or more signees sequentially.
@@ -135,11 +164,7 @@ class SignatureDocumentsRepository {
     required String currentUserName,
     int? pageCount,
   }) async {
-    final uid = _currentUid;
-    if (uid == null) {
-      throw Exception(
-          'Not authenticated with Firebase. Open Chat once after login, then retry.');
-    }
+    final uid = await _ensureUid();
     if (recipients.isEmpty) throw Exception('Select at least one signee');
 
     final signerUids = recipients.map((r) => r.uid).toList();
@@ -168,11 +193,10 @@ class SignatureDocumentsRepository {
         signatureDocumentId: docId,
       );
     } on FirebaseException catch (e) {
-      if (e.code == 'permission-denied') {
+      if (e.code == 'permission-denied' || e.code == 'unauthorized') {
         throw Exception(
-          'Firestore permission denied while sending via chat '
-          '(${e.message}). Confirm you are signed into Firebase Chat, '
-          'then deploy firestore.rules if rules are outdated.',
+          'Firebase permission denied while sending via chat '
+          '(${e.code}: ${e.message}). Confirm Chat Firebase auth is active.',
         );
       }
       rethrow;
@@ -217,7 +241,7 @@ class SignatureDocumentsRepository {
   }
 
   Future<void> deleteDocument(String docId) async {
-    final uid = _currentUid;
+    final uid = FirebaseAuth.instance.currentUser?.uid;
     if (uid == null) return;
     await _collection(uid).doc(docId).delete();
   }
