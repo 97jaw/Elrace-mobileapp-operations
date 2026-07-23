@@ -1,3 +1,4 @@
+import 'package:el_race/ui/presentation/my_documents/screens/shared_documents_screen.dart';
 import 'package:el_race/ui/presentation/tasks/tasks_screen.dart';
 import 'package:el_race/ui/presentation/tasks_dashboard/screens/tasks_dashboard_screen.dart';
 import 'package:flutter/material.dart';
@@ -24,6 +25,14 @@ class HomeProductivityNavigation {
     Navigator.of(context).push(
       MaterialPageRoute(
         builder: (_) => TasksScreen(highPriorityOnly: highPriorityOnly),
+      ),
+    );
+  }
+
+  static void openSharedDocuments(BuildContext context) {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => const SharedDocumentsScreen(),
       ),
     );
   }

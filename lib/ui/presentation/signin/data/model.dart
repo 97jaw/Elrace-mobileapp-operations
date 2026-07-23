@@ -666,6 +666,7 @@ class WidgetsData {
   final WidgetInfo? lpoWidget;
   final WidgetInfo? taskManagementWidget;
   final WidgetInfo? ticketsWidget;
+  final WidgetInfo? sharedDocumentsWidget;
   final WidgetInfo? pettyCashWidget;
   final WidgetInfo? prayerTimesWidget;
   final WidgetInfo? clientsWidget;
@@ -687,6 +688,7 @@ class WidgetsData {
     this.lpoWidget,
     this.taskManagementWidget,
     this.ticketsWidget,
+    this.sharedDocumentsWidget,
     this.pettyCashWidget,
     this.prayerTimesWidget,
     this.clientsWidget,
@@ -748,6 +750,10 @@ class WidgetsData {
             ? null
             : WidgetInfo.fromJson(
                 json["tickets_widget"] as Map<String, dynamic>),
+        sharedDocumentsWidget: json["shared_documents_widget"] == null
+            ? null
+            : WidgetInfo.fromJson(
+                json["shared_documents_widget"] as Map<String, dynamic>),
         pettyCashWidget: json["petty_cash_widget"] == null
             ? null
             : WidgetInfo.fromJson(
@@ -785,6 +791,7 @@ class WidgetsData {
         "lpo_widget": lpoWidget?.toJson(),
         "taskmanagement_widget": taskManagementWidget?.toJson(),
         "tickets_widget": ticketsWidget?.toJson(),
+        "shared_documents_widget": sharedDocumentsWidget?.toJson(),
         "petty_cash_widget": pettyCashWidget?.toJson(),
         "prayer_times_widget": prayerTimesWidget?.toJson(),
         "clients_widget": clientsWidget?.toJson(),
@@ -943,6 +950,15 @@ class WidgetInfo {
     if (map.containsKey('total_open') ||
         map.containsKey('high_priority_count')) {
       return TicketsWidgetRecord.fromMap(map);
+    }
+    return null;
+  }
+
+  SharedDocumentsWidgetRecord? get sharedDocumentsRecord {
+    final map = recordMap;
+    if (map == null) return null;
+    if (map.containsKey('folder_count') || map.containsKey('file_count')) {
+      return SharedDocumentsWidgetRecord.fromMap(map);
     }
     return null;
   }
@@ -1379,6 +1395,37 @@ class NotesWidgetRecord {
     final title = lastNoteTitle?.trim();
     if (title == null || title.isEmpty) return 'No notes yet';
     return 'Last: $title';
+  }
+}
+
+class SharedDocumentsWidgetRecord {
+  const SharedDocumentsWidgetRecord({
+    required this.folderCount,
+    required this.fileCount,
+  });
+
+  final int folderCount;
+  final int fileCount;
+
+  factory SharedDocumentsWidgetRecord.fromMap(Map<String, dynamic> m) {
+    int readInt(dynamic value) {
+      if (value is int) return value;
+      return int.tryParse(value?.toString() ?? '') ?? 0;
+    }
+
+    return SharedDocumentsWidgetRecord(
+      folderCount: readInt(m['folder_count']),
+      fileCount: readInt(m['file_count']),
+    );
+  }
+
+  factory SharedDocumentsWidgetRecord.empty() =>
+      const SharedDocumentsWidgetRecord(folderCount: 0, fileCount: 0);
+
+  String get filesLabel {
+    if (folderCount <= 0) return 'No folders yet';
+    if (fileCount == 1) return '1 file';
+    return '$fileCount files';
   }
 }
 

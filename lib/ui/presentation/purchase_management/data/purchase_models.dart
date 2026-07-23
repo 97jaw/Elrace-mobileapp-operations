@@ -653,6 +653,82 @@ class PurchaseFilterOptions {
   }
 }
 
+/// Paginated page from `/purchase/filter_options` (kind-scoped).
+class PurchaseFilterOptionsPage {
+  const PurchaseFilterOptionsPage({
+    required this.items,
+    required this.total,
+    required this.hasMore,
+    required this.offset,
+    required this.limit,
+    this.kind = '',
+  });
+
+  final List<PurchaseFilterOption> items;
+  final int total;
+  final bool hasMore;
+  final int offset;
+  final int limit;
+  final String kind;
+
+  static const empty = PurchaseFilterOptionsPage(
+    items: [],
+    total: 0,
+    hasMore: false,
+    offset: 0,
+    limit: 40,
+  );
+
+  factory PurchaseFilterOptionsPage.fromJson(
+    Map<String, dynamic> json, {
+    String fallbackKind = '',
+  }) {
+    List<PurchaseFilterOption> parseList(dynamic raw) {
+      if (raw is! List) return const [];
+      return raw
+          .whereType<Map>()
+          .map((e) => PurchaseFilterOption.fromJson(
+                Map<String, dynamic>.from(e),
+              ))
+          .where((e) => e.id > 0 || e.label.isNotEmpty)
+          .toList();
+    }
+
+    final kind = (json['kind'] as String?)?.trim().isNotEmpty == true
+        ? (json['kind'] as String).trim()
+        : fallbackKind;
+
+    var items = parseList(json['items']);
+    // Legacy bag fallback when `items` is absent.
+    if (items.isEmpty) {
+      items = switch (kind) {
+        'vendors' => parseList(json['vendors']),
+        'material_types' || 'tags' => parseList(json['material_types']),
+        'cities' => parseList(json['cities']),
+        'project_managers' => parseList(json['project_managers']),
+        'years' => parseList(json['years']),
+        _ => const <PurchaseFilterOption>[],
+      };
+    }
+
+    final total = (json['total'] as num?)?.toInt() ?? items.length;
+    final limit = (json['limit'] as num?)?.toInt() ?? 40;
+    final offset = (json['offset'] as num?)?.toInt() ?? 0;
+    final hasMore = json.containsKey('has_more')
+        ? json['has_more'] == true
+        : (offset + items.length) < total;
+
+    return PurchaseFilterOptionsPage(
+      items: items,
+      total: total,
+      hasMore: hasMore,
+      offset: offset,
+      limit: limit,
+      kind: kind,
+    );
+  }
+}
+
 class PurchaseListFilters {
   const PurchaseListFilters({
     this.dateFrom = '',

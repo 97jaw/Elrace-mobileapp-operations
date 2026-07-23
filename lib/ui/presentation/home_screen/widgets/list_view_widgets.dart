@@ -1092,16 +1092,19 @@ class _ListViewWidgetsState extends State<ListViewWidgets> {
         const ProductivityCategorySectionHeader(),
         SizedBox(height: _isTabletPane ? 10 : 10.h),
       ]);
-      if (visibility.isVisible(HomeWidgetCode.taskManagement)) {
-        children.add(
-          _fullWidthCard(
+      if (visibility.isVisible(HomeWidgetCode.taskManagement) ||
+          visibility.isVisible(HomeWidgetCode.sharedDocuments)) {
+        final cards = <Widget>[
+          if (visibility.isVisible(HomeWidgetCode.taskManagement))
             ProductivityCategoryTaskManagementCard(
               tabletCompact: tabletCompact,
             ),
-            height: _isTabletPane ? 160 : 150.h,
-            designHeight: 150,
-          ),
-        );
+          if (visibility.isVisible(HomeWidgetCode.sharedDocuments))
+            ProductivityCategorySharedDocumentsCard(
+              tabletCompact: tabletCompact,
+            ),
+        ];
+        children.add(_pairCards(cards));
         children.add(SizedBox(height: _isTabletPane ? 10 : 10.h));
       }
       if (visibility.isVisible(HomeWidgetCode.notes) ||

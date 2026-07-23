@@ -14,6 +14,7 @@ class HomeWidgetSessionCache {
   static Map<String, dynamic>? notesRaw;
   static Map<String, dynamic>? taskManagementRaw;
   static Map<String, dynamic>? ticketsRaw;
+  static Map<String, dynamic>? sharedDocumentsRaw;
   static Map<String, dynamic>? pettyCashRaw;
   static Map<String, dynamic>? myDocumentsRaw;
   static Map<String, dynamic>? mediaRaw;
@@ -44,6 +45,7 @@ class HomeWidgetSessionCache {
     Map<String, dynamic>? notesRaw,
     Map<String, dynamic>? taskManagementRaw,
     Map<String, dynamic>? ticketsRaw,
+    Map<String, dynamic>? sharedDocumentsRaw,
     Map<String, dynamic>? pettyCashRaw,
     Map<String, dynamic>? myDocumentsRaw,
     Map<String, dynamic>? mediaRaw,
@@ -85,6 +87,9 @@ class HomeWidgetSessionCache {
     if (ticketsRaw != null) {
       HomeWidgetSessionCache.ticketsRaw = ticketsRaw;
     }
+    if (sharedDocumentsRaw != null) {
+      HomeWidgetSessionCache.sharedDocumentsRaw = sharedDocumentsRaw;
+    }
     if (pettyCashRaw != null) {
       HomeWidgetSessionCache.pettyCashRaw = pettyCashRaw;
     }
@@ -113,6 +118,7 @@ class HomeWidgetSessionCache {
     notesRaw = null;
     taskManagementRaw = null;
     ticketsRaw = null;
+    sharedDocumentsRaw = null;
     pettyCashRaw = null;
     myDocumentsRaw = null;
     mediaRaw = null;

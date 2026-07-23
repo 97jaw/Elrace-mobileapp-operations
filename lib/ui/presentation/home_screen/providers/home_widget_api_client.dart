@@ -30,6 +30,7 @@ class HomeWidgetApiClient {
     _WidgetFetch(HomeWidgetCode.vendors, 'vendors'),
     _WidgetFetch(HomeWidgetCode.lpo, 'lpo'),
     _WidgetFetch(HomeWidgetCode.notes, 'notes'),
+    _WidgetFetch(HomeWidgetCode.sharedDocuments, 'shared_documents'),
     _WidgetFetch(HomeWidgetCode.pettyCash, 'petty_cash'),
     _WidgetFetch(HomeWidgetCode.myDocuments, 'my_documents'),
     _WidgetFetch(HomeWidgetCode.media, 'media'),
@@ -109,6 +110,8 @@ class HomeWidgetApiClient {
         if (raw != null) HomeWidgetSessionCache.taskManagementRaw = raw;
       case 'tickets':
         if (raw != null) HomeWidgetSessionCache.ticketsRaw = raw;
+      case 'shared_documents':
+        if (raw != null) HomeWidgetSessionCache.sharedDocumentsRaw = raw;
       case 'petty_cash':
         if (raw != null) HomeWidgetSessionCache.pettyCashRaw = raw;
       case 'my_documents':

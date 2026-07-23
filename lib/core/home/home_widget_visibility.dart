@@ -16,6 +16,7 @@ enum HomeWidgetCode {
   taskManagement,
   notes,
   tickets,
+  sharedDocuments,
   pettyCash,
   myDocuments,
   media,
@@ -84,6 +85,7 @@ class HomeWidgetVisibility {
 
   bool get hasVisibleProductivity =>
       isVisible(HomeWidgetCode.taskManagement) ||
+      isVisible(HomeWidgetCode.sharedDocuments) ||
       isVisible(HomeWidgetCode.notes) ||
       isVisible(HomeWidgetCode.tickets);
 
@@ -121,6 +123,8 @@ class HomeWidgetVisibility {
         return _data?.myNotesWidget;
       case HomeWidgetCode.tickets:
         return _data?.ticketsWidget;
+      case HomeWidgetCode.sharedDocuments:
+        return _data?.sharedDocumentsWidget;
       case HomeWidgetCode.pettyCash:
         return _data?.pettyCashWidget;
       case HomeWidgetCode.myDocuments:
