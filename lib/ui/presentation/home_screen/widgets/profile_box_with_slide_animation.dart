@@ -4,6 +4,8 @@ import 'package:el_race/core/services/notification_api_service.dart';
 import 'package:el_race/core/services/notification_storage_service.dart';
 import 'package:el_race/core/utils/shared_pref.dart';
 import 'package:el_race/data/services/hive_service.dart';
+import 'package:el_race/data/services/prayer_audio_service.dart';
+import 'package:el_race/data/services/prayer_background_service.dart';
 import 'package:el_race/data/services/prayer_notification_service.dart';
 import 'package:el_race/ui/presentation/home_screen/bloc/home_bloc.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -180,7 +182,17 @@ class _ProfileBoxWithSlideAnimationState
 
     final settings = results[0] as Map<String, bool>;
     final apiCategories = results[1] as List<NotificationCategoryApiModel>;
-    final adhanMuted = results[2] as bool;
+    var adhanMuted = results[2] as bool;
+
+    // Prefer SharedPrefs/API mute into Hive so audio gate matches UI.
+    final prefsMuted =
+        settings['prayer'] == true || settings['adhan'] == true;
+    if (prefsMuted && !adhanMuted) {
+      await HiveService.setPrayerSoundMuted(true);
+      adhanMuted = true;
+    } else if (adhanMuted && settings['prayer'] != true) {
+      await NotificationStorageService.setLocalMuteSetting('adhan', true);
+    }
 
     final apiChannels = apiCategories
         .where((c) => c.model.trim().isNotEmpty)
@@ -248,6 +260,16 @@ class _ProfileBoxWithSlideAnimationState
           await NotificationStorageService.setLocalMuteSetting('adhan', value);
           if (value) {
             await PrayerNotificationService().cancelAllPendingAdhan();
+            try {
+              await PrayerAudioService().stopAdhan();
+            } catch (_) {}
+          } else {
+            try {
+              await PrayerAudioService().rescheduleBackgroundNotifications();
+            } catch (_) {}
+            try {
+              await PrayerBackgroundService.reschedule();
+            } catch (_) {}
           }
           if (mounted) {
             context.read<HomeBloc>().add(const LoadPrayerMuteStateEvent());

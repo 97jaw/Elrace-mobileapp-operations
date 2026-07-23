@@ -84,13 +84,32 @@ enum SignStatus {
   String toJson() => name;
 }
 
-/// A zone on a PDF page where a signature should be placed
+/// Kind of zone placed on a PDF for signing / stamping.
+enum SignZoneType {
+  signature,
+  stamp;
+
+  static SignZoneType fromString(String? value) {
+    switch (value) {
+      case 'stamp':
+        return SignZoneType.stamp;
+      case 'signature':
+      default:
+        return SignZoneType.signature;
+    }
+  }
+
+  String toJson() => name;
+}
+
+/// A zone on a PDF page where a signature or stamp should be placed
 class SignZone {
   final int page; // 0-based page index
   final double x; // relative x (0..1) from left
   final double y; // relative y (0..1) from top
   final double width; // relative width (0..1)
   final double height; // relative height (0..1)
+  final SignZoneType type;
 
   const SignZone({
     required this.page,
@@ -98,7 +117,10 @@ class SignZone {
     required this.y,
     this.width = 0.25,
     this.height = 0.08,
+    this.type = SignZoneType.signature,
   });
+
+  bool get isStamp => type == SignZoneType.stamp;
 
   factory SignZone.fromMap(Map<String, dynamic> data) {
     return SignZone(
@@ -107,6 +129,7 @@ class SignZone {
       y: (data['y'] ?? 0).toDouble(),
       width: (data['width'] ?? 0.25).toDouble(),
       height: (data['height'] ?? 0.08).toDouble(),
+      type: SignZoneType.fromString(data['type']?.toString()),
     );
   }
 
@@ -117,7 +140,26 @@ class SignZone {
       'y': y,
       'width': width,
       'height': height,
+      'type': type.toJson(),
     };
+  }
+
+  SignZone copyWith({
+    int? page,
+    double? x,
+    double? y,
+    double? width,
+    double? height,
+    SignZoneType? type,
+  }) {
+    return SignZone(
+      page: page ?? this.page,
+      x: x ?? this.x,
+      y: y ?? this.y,
+      width: width ?? this.width,
+      height: height ?? this.height,
+      type: type ?? this.type,
+    );
   }
 }
 

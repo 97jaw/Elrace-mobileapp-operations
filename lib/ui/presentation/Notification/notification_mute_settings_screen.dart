@@ -215,15 +215,24 @@ class _NotificationMuteSettingsScreenState
         }
       }
 
-      // Keep Prayer/Adhan mute in sync with Hive (canonical for local azan).
-      if (merged.containsKey('prayer')) {
-        final adhanMuted = await HiveService.isPrayerSoundMuted();
-        if (adhanMuted && merged['prayer'] != true) {
-          merged['prayer'] = true;
-        }
-      } else {
-        final adhanMuted = await HiveService.isPrayerSoundMuted();
-        merged['prayer'] = settings['prayer'] ?? adhanMuted;
+      // Bidirectional sync: SharedPrefs/API prayer|adhan <-> Hive
+      // (Hive is canonical for azan AudioPlayer / OS schedule).
+      final hiveMuted = await HiveService.isPrayerSoundMuted();
+      final prefsMuted = settings['prayer'] == true ||
+          settings['adhan'] == true ||
+          merged['prayer'] == true;
+      final effectiveMuted = prefsMuted || hiveMuted;
+      if (effectiveMuted != hiveMuted) {
+        await HiveService.setPrayerSoundMuted(effectiveMuted);
+      }
+      if (effectiveMuted) {
+        merged['prayer'] = true;
+        await NotificationStorageService.setLocalMuteSetting(
+          'adhan',
+          true,
+        );
+      } else if (!merged.containsKey('prayer')) {
+        merged['prayer'] = false;
       }
 
       final fixedCategoryModels = _alwaysOnCategories
@@ -307,6 +316,10 @@ class _NotificationMuteSettingsScreenState
           await NotificationStorageService.setLocalMuteSetting('adhan', muted);
           if (muted) {
             await PrayerNotificationService().cancelAllPendingAdhan();
+            // Stop any azan already playing in the foreground AudioPlayer.
+            try {
+              await PrayerAudioService().stopAdhan();
+            } catch (_) {}
           } else {
             // Re-arm local adhan schedules after unmute.
             try {

@@ -132,6 +132,7 @@ class MyActionsSection extends StatelessWidget {
                   stream: SignatureActionsRepository.instance
                       .watchNeedsMySignatureCount(),
                   builder: (context, snapshot) {
+                    final count = snapshot.data ?? 0;
                     return _MyActionTile(
                       iconAsset: _items[i].iconAsset,
                       label: _items[i].label,
@@ -142,7 +143,7 @@ class MyActionsSection extends StatelessWidget {
                       labelGap: labelGap,
                       labelFontSize: dense ? 9.sp : 10.sp,
                       labelMaxLines: dense ? 1 : 2,
-                      badgeCount: snapshot.data ?? 0,
+                      badgeCount: count,
                       onTap: () => HomeMyActionsNavigation.open(
                           context, _items[i].action),
                     );

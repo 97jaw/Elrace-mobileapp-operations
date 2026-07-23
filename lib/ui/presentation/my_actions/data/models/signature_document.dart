@@ -72,6 +72,9 @@ class SignatureDocument {
   final DateTime? signedAt;
   final String? signedBy;
 
+  /// True when any [signZones] entry is a stamp zone.
+  final bool stampNeeded;
+
   const SignatureDocument({
     required this.id,
     required this.ownerUid,
@@ -90,12 +93,21 @@ class SignatureDocument {
     this.signedPdfUrl,
     this.signedAt,
     this.signedBy,
+    this.stampNeeded = false,
   });
 
   bool get isSentToOther => chatId != null && messageId != null;
 
+  static bool zonesNeedStamp(List<SignZone> zones) =>
+      zones.any((z) => z.type == SignZoneType.stamp);
+
   factory SignatureDocument.fromFirestore(DocumentSnapshot doc) {
     final data = doc.data() as Map<String, dynamic>? ?? {};
+    final zones = data['sign_zones'] != null
+        ? (data['sign_zones'] as List)
+            .map((e) => SignZone.fromMap(e as Map<String, dynamic>))
+            .toList()
+        : const <SignZone>[];
     return SignatureDocument(
       id: doc.id,
       ownerUid: data['owner_uid'] ?? '',
@@ -103,11 +115,7 @@ class SignatureDocument {
       fileUrl: data['file_url'] ?? '',
       thumbnailUrl: data['thumbnail_url'],
       pageCount: data['page_count'],
-      signZones: data['sign_zones'] != null
-          ? (data['sign_zones'] as List)
-              .map((e) => SignZone.fromMap(e as Map<String, dynamic>))
-              .toList()
-          : const [],
+      signZones: zones,
       status: SignatureDocumentStatus.fromString(data['status'] ?? 'draft'),
       createdAt: (data['created_at'] as Timestamp?)?.toDate() ?? DateTime.now(),
       updatedAt: (data['updated_at'] as Timestamp?)?.toDate(),
@@ -118,6 +126,7 @@ class SignatureDocument {
       signedPdfUrl: data['signed_pdf_url'],
       signedAt: (data['signed_at'] as Timestamp?)?.toDate(),
       signedBy: data['signed_by'],
+      stampNeeded: data['stamp_needed'] == true || zonesNeedStamp(zones),
     );
   }
 
@@ -127,6 +136,7 @@ class SignatureDocument {
       'file_name': fileName,
       'file_url': fileUrl,
       'status': status.toJson(),
+      'stamp_needed': stampNeeded || zonesNeedStamp(signZones),
       'updated_at': FieldValue.serverTimestamp(),
     };
     if (!isUpdate) map['created_at'] = FieldValue.serverTimestamp();
@@ -150,9 +160,12 @@ class SignatureDocument {
     String? thumbnailUrl,
     SignatureDocumentStatus? status,
     DateTime? updatedAt,
+    String? recipientUid,
+    String? recipientName,
     String? signedPdfUrl,
     DateTime? signedAt,
     String? signedBy,
+    bool? stampNeeded,
   }) {
     return SignatureDocument(
       id: id,
@@ -165,19 +178,23 @@ class SignatureDocument {
       status: status ?? this.status,
       createdAt: createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
-      recipientUid: recipientUid,
-      recipientName: recipientName,
+      recipientUid: recipientUid ?? this.recipientUid,
+      recipientName: recipientName ?? this.recipientName,
       chatId: chatId,
       messageId: messageId,
       signedPdfUrl: signedPdfUrl ?? this.signedPdfUrl,
       signedAt: signedAt ?? this.signedAt,
       signedBy: signedBy ?? this.signedBy,
+      stampNeeded: stampNeeded ?? this.stampNeeded,
     );
   }
 }
 
-/// An item for the Home tab, sourced from a chat `signable_doc` message.
-/// Wraps the chat [Message] with enough context to render + navigate.
+/// An item for the Home tab.
+///
+/// Usually sourced from a chat `signable_doc` message. Self-sign drafts from
+/// the Documents library use [personalDoc] so they count under
+/// "Needs My Signature" even with no chat thread yet.
 class SignatureActionItem {
   final Message message;
   final String chatId;
@@ -185,15 +202,56 @@ class SignatureActionItem {
   final String peerName;
   final String currentUid;
 
+  /// When set, this row is a personal library document (Sign Myself / mirror).
+  final SignatureDocument? personalDoc;
+
   const SignatureActionItem({
     required this.message,
     required this.chatId,
     required this.isSender,
     required this.peerName,
     required this.currentUid,
+    this.personalDoc,
   });
 
+  /// Build a Home-tab item from a personal `signature_documents` record.
+  factory SignatureActionItem.fromPersonal(
+    SignatureDocument doc,
+    String currentUid,
+  ) {
+    final isPendingSelf = doc.status == SignatureDocumentStatus.pendingSelf ||
+        (doc.status == SignatureDocumentStatus.pendingOther &&
+            doc.recipientUid == currentUid);
+    final isSigned = doc.status == SignatureDocumentStatus.signed;
+    return SignatureActionItem(
+      message: Message(
+        id: doc.id,
+        senderId: currentUid,
+        type: MessageType.signableDoc,
+        mediaUrl: doc.fileUrl,
+        fileName: doc.fileName,
+        createdAt: doc.createdAt,
+        clientMsgId: doc.id,
+        signZones: doc.signZones,
+        signStatus: isSigned ? SignStatus.signed : SignStatus.pending,
+        signedPdfUrl: doc.signedPdfUrl,
+        pageCount: doc.pageCount,
+        signerUids: isPendingSelf ? [currentUid] : null,
+        currentSignerUid: isPendingSelf ? currentUid : null,
+        currentSignerIndex: isPendingSelf ? 0 : null,
+        signatureDocumentId: doc.id,
+      ),
+      chatId: doc.chatId ?? '',
+      isSender: doc.status == SignatureDocumentStatus.pendingOther &&
+          doc.recipientUid != currentUid,
+      peerName: doc.recipientName ?? 'You',
+      currentUid: currentUid,
+      personalDoc: doc,
+    );
+  }
+
   bool get isExpired {
+    if (personalDoc?.status == SignatureDocumentStatus.expired) return true;
     final expiresAt = message.expiresAt;
     if (expiresAt == null) return false;
     return message.signStatus != SignStatus.signed &&
@@ -201,19 +259,70 @@ class SignatureActionItem {
   }
 
   bool get isMyTurnToSign {
+    if (personalDoc?.status == SignatureDocumentStatus.pendingSelf) {
+      return true;
+    }
+    if (personalDoc?.status == SignatureDocumentStatus.pendingOther &&
+        personalDoc?.recipientUid == currentUid) {
+      return true;
+    }
     final current = message.currentSignerUid;
     if (current == null || current.isEmpty) return !isSender;
     return current == currentUid;
   }
 
+  /// Stable label for who the doc is waiting on (prefers signer_names).
+  String get waitingForDisplayName {
+    final names = message.signerNames;
+    final idx = message.currentSignerIndex ?? 0;
+    if (names != null &&
+        idx >= 0 &&
+        idx < names.length &&
+        names[idx].trim().isNotEmpty) {
+      final name = names[idx].trim();
+      if (message.currentSignerUid == currentUid || name == peerName) {
+        // If somehow waiting on self, callers should use needsSignature instead.
+      }
+      return name;
+    }
+    final personalName = personalDoc?.recipientName?.trim();
+    if (personalName != null && personalName.isNotEmpty) return personalName;
+    if (peerName.trim().isNotEmpty &&
+        peerName != 'Colleague' &&
+        peerName != 'Unknown') {
+      return peerName;
+    }
+    return peerName.isNotEmpty ? peerName : 'recipient';
+  }
+
   SignatureItemBucket get bucket {
+    final personal = personalDoc;
+    if (personal != null) {
+      switch (personal.status) {
+        case SignatureDocumentStatus.pendingSelf:
+          return SignatureItemBucket.needsSignature;
+        case SignatureDocumentStatus.pendingOther:
+          // Sent to myself (or I'm the current recipient) → needs my signature.
+          if (personal.recipientUid == currentUid || isMyTurnToSign) {
+            return SignatureItemBucket.needsSignature;
+          }
+          return SignatureItemBucket.waitingForOthers;
+        case SignatureDocumentStatus.signed:
+          return SignatureItemBucket.completed;
+        case SignatureDocumentStatus.expired:
+          return SignatureItemBucket.expired;
+        case SignatureDocumentStatus.draft:
+          return SignatureItemBucket.waitingForOthers;
+      }
+    }
     if (message.signStatus == SignStatus.signed) {
       return SignatureItemBucket.completed;
     }
     if (isExpired) return SignatureItemBucket.expired;
+    // My turn wins even when I am also the sender (request-to-self).
+    if (isMyTurnToSign) return SignatureItemBucket.needsSignature;
     if (isSender) return SignatureItemBucket.waitingForOthers;
-    if (!isMyTurnToSign) return SignatureItemBucket.waitingForOthers;
-    return SignatureItemBucket.needsSignature;
+    return SignatureItemBucket.waitingForOthers;
   }
 }
 

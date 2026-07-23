@@ -144,6 +144,15 @@ class Data {
   /// Odoo `hr.employee` — foremen under this PM (`x_foreman_ids`).
   final List<dynamic>? xForemanIdsRaw;
 
+  /// Odoo `res.users.x_stamp_user` — authorized to stamp documents.
+  final bool? xStampUser;
+
+  /// Odoo `res.users.x_signature` binary (base64) — primary stamp image.
+  final String? xSignature;
+
+  /// Odoo `res.users.x_sign_english` binary (base64) — alternate stamp image.
+  final String? xSignEnglish;
+
   Data({
     this.uid,
     this.isSystem,
@@ -204,6 +213,9 @@ class Data {
     this.purchaseScope,
     this.xLaborIdsRaw,
     this.xForemanIdsRaw,
+    this.xStampUser,
+    this.xSignature,
+    this.xSignEnglish,
   });
 
   factory Data.fromJson(Map<String, dynamic> json) => Data(
@@ -350,6 +362,9 @@ class Data {
         purchaseScope: json["purchase_scope"]?.toString(),
         xLaborIdsRaw: json["x_labor_ids"] ?? json["labor_ids"],
         xForemanIdsRaw: json["x_foreman_ids"] ?? json["foreman_ids"],
+        xStampUser: _parseBoolLoose(json["x_stamp_user"]),
+        xSignature: _stringOrNull(json["x_signature"]),
+        xSignEnglish: _stringOrNull(json["x_sign_english"]),
       );
 
   Map<String, dynamic> toJson() => {
@@ -429,6 +444,9 @@ class Data {
         "purchase_scope": purchaseScope,
         "x_labor_ids": xLaborIdsRaw,
         "x_foreman_ids": xForemanIdsRaw,
+        "x_stamp_user": xStampUser,
+        "x_signature": xSignature,
+        "x_sign_english": xSignEnglish,
       };
 
   static Map<String, bool>? _parseStringBoolMap(dynamic raw) {

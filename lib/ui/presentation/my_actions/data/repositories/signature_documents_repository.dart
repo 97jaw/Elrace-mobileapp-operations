@@ -45,26 +45,30 @@ class SignatureDocumentsRepository {
   /// Live stream of the current user's documents, newest first.
   /// Never hangs forever on permission/index errors — emits `[]` instead.
   Stream<List<SignatureDocument>> watchMyDocuments() {
-    final uid = FirebaseAuth.instance.currentUser?.uid;
-    if (uid == null) return Stream.value(const []);
+    return FirebaseAuth.instance.authStateChanges().switchMap((user) {
+      final uid = user?.uid;
+      if (uid == null || uid.isEmpty) {
+        return Stream.value(const <SignatureDocument>[]);
+      }
 
-    // Prefer ordered query; fall back without orderBy if index is missing.
-    final ordered = _collection(uid)
-        .orderBy('created_at', descending: true)
-        .snapshots()
-        .map((snap) => snap.docs.map(SignatureDocument.fromFirestore).toList());
+      // Prefer ordered query; fall back without orderBy if index is missing.
+      final ordered = _collection(uid)
+          .orderBy('created_at', descending: true)
+          .snapshots()
+          .map((snap) => snap.docs.map(SignatureDocument.fromFirestore).toList());
 
-    return ordered.onErrorResumeNext(
-      _collection(uid).snapshots().map((snap) {
-        final list =
-            snap.docs.map(SignatureDocument.fromFirestore).toList();
-        list.sort((a, b) => b.createdAt.compareTo(a.createdAt));
-        return list;
-      }).onErrorReturnWith((error, _) {
-        debugPrint('SignatureDocuments watch error: $error');
-        return const <SignatureDocument>[];
-      }),
-    );
+      return ordered.onErrorResumeNext(
+        _collection(uid).snapshots().map((snap) {
+          final list =
+              snap.docs.map(SignatureDocument.fromFirestore).toList();
+          list.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+          return list;
+        }).onErrorReturnWith((error, _) {
+          debugPrint('SignatureDocuments watch error: $error');
+          return const <SignatureDocument>[];
+        }),
+      );
+    });
   }
 
   Future<SignatureDocument> createSelfSignDraft({
@@ -99,6 +103,7 @@ class SignatureDocumentsRepository {
         signZones: signZones,
         status: SignatureDocumentStatus.pendingSelf,
         createdAt: DateTime.now(),
+        stampNeeded: SignatureDocument.zonesNeedStamp(signZones),
       );
 
       await _collection(uid).doc(docId).set(doc.toFirestore());
@@ -202,6 +207,7 @@ class SignatureDocumentsRepository {
       rethrow;
     }
 
+    final sendingToSelf = first.uid == uid;
     final doc = SignatureDocument(
       id: docId,
       ownerUid: uid,
@@ -209,7 +215,10 @@ class SignatureDocumentsRepository {
       fileUrl: message.mediaUrl ?? '',
       pageCount: pageCount,
       signZones: signZones,
-      status: SignatureDocumentStatus.pendingOther,
+      // Request-to-self is my turn immediately → Needs My Signature.
+      status: sendingToSelf
+          ? SignatureDocumentStatus.pendingSelf
+          : SignatureDocumentStatus.pendingOther,
       createdAt: DateTime.now(),
       recipientUid: first.uid,
       recipientName: recipients.length == 1
@@ -217,6 +226,7 @@ class SignatureDocumentsRepository {
           : '${first.name} +${recipients.length - 1}',
       chatId: chatId,
       messageId: message.id,
+      stampNeeded: SignatureDocument.zonesNeedStamp(signZones),
     );
 
     final payload = doc.toFirestore();
@@ -240,9 +250,61 @@ class SignatureDocumentsRepository {
     return doc;
   }
 
-  Future<void> deleteDocument(String docId) async {
+  /// Removes the personal library row and, when present, the linked chat
+  /// `signable_doc` so it disappears from Documents / Home entirely.
+  Future<void> deleteDocument(String docId, {SignatureDocument? doc}) async {
     final uid = FirebaseAuth.instance.currentUser?.uid;
     if (uid == null) return;
-    await _collection(uid).doc(docId).delete();
+
+    SignatureDocument? existing = doc;
+    if (existing == null) {
+      try {
+        final snap = await _collection(uid).doc(docId).get();
+        if (snap.exists) {
+          existing = SignatureDocument.fromFirestore(snap);
+        }
+      } catch (_) {}
+    }
+
+    final chatId = existing?.chatId;
+    final messageId = existing?.messageId;
+
+    try {
+      await _collection(uid).doc(docId).delete();
+    } catch (e) {
+      debugPrint('SignatureDocuments delete personal failed: $e');
+      rethrow;
+    }
+
+    if (chatId != null &&
+        chatId.isNotEmpty &&
+        messageId != null &&
+        messageId.isNotEmpty) {
+      try {
+        await _firestore
+            .collection('chats')
+            .doc(chatId)
+            .collection('messages')
+            .doc(messageId)
+            .delete();
+      } catch (e) {
+        debugPrint(
+            'SignatureDocuments: chat message delete skipped ($chatId/$messageId): $e');
+      }
+    }
+  }
+
+  /// Hide a chat-only signature row (no personal mirror) from Documents.
+  Future<void> deleteChatSignable({
+    required String chatId,
+    required String messageId,
+  }) async {
+    if (chatId.isEmpty || messageId.isEmpty) return;
+    await _firestore
+        .collection('chats')
+        .doc(chatId)
+        .collection('messages')
+        .doc(messageId)
+        .delete();
   }
 }

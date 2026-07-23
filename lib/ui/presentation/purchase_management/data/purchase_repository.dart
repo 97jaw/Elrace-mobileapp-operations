@@ -91,10 +91,13 @@ class PurchaseRepository {
 
   List<dynamic> _unwrapList(Map<String, dynamic>? result) {
     if (result == null) return [];
-    if (result['status'] == 'success' && result['data'] is List) {
-      return List<dynamic>.from(result['data'] as List);
-    }
-    return [];
+    final data = result['data'];
+    if (data is! List) return [];
+    // Reject only explicit errors. Empty/overwritten status must not drop rows —
+    // helpers.success_response flattens meta and a meta key named "status"
+    // previously wiped status=success (invoice status_filter bug).
+    if (result['status']?.toString() == 'error') return [];
+    return List<dynamic>.from(data);
   }
 
   bool _flagTrue(dynamic value) {
@@ -393,34 +396,21 @@ class PurchaseRepository {
     int page = 1,
     int limit = 15,
     String keyword = '',
+    String status = '',
     PurchaseDevTestRole? testRole,
   }) async {
-    // Prefer new route; fall back to legacy alias if not deployed yet.
-    Map<String, dynamic>? result;
-    try {
-      result = await _post(
-        '/purchase/invoices',
-        _withTestRole({
-          'page': page,
-          'limit': limit,
-          if (keyword.isNotEmpty) 'keyword': keyword,
-        }, testRole),
-      );
-    } catch (_) {
-      result = null;
-    }
-    final invoicesOk = result != null &&
-        (result['status'] == 'success' || result['data'] is List);
-    if (!invoicesOk) {
-      result = await _post(
-        '/purchase/draft_invoices',
-        _withTestRole({
-          'page': page,
-          'limit': limit,
-          if (keyword.isNotEmpty) 'keyword': keyword,
-        }, testRole),
-      );
-    }
+    // Always use /purchase/invoices (all vendor bills).
+    // Do NOT fall back to /purchase/draft_invoices — on older deploys that
+    // route still filters state=draft, which hides posted bills + payments.
+    final result = await _post(
+      '/purchase/invoices',
+      _withTestRole({
+        'page': page,
+        'limit': limit,
+        if (keyword.isNotEmpty) 'keyword': keyword,
+        if (status.isNotEmpty) 'status': status,
+      }, testRole),
+    );
     if (result == null) {
       return (items: <DraftInvoiceItem>[], hasMore: false, total: 0);
     }
@@ -430,7 +420,6 @@ class PurchaseRepository {
         .map((e) => DraftInvoiceItem.fromJson(Map<String, dynamic>.from(e)))
         .toList();
     final total = _readTotal(result, 0);
-    // Flattened meta.has_more, then total math, then "full page" heuristic.
     var hasMore = _hasMore(result);
     if (!hasMore && total > 0) {
       final loadedThrough = ((page - 1) * limit) + items.length;
@@ -440,9 +429,11 @@ class PurchaseRepository {
       hasMore = true;
     }
     if (kDebugMode) {
+      final states = items.map((e) => e.displayStatus).toSet().join(',');
       debugPrint(
-        'purchase/invoices page=$page items=${items.length} '
-        'total=$total hasMore=$hasMore rawHasMore=${result['has_more']}',
+        'purchase/invoices page=$page status=$status items=${items.length} '
+        'total=$total hasMore=$hasMore scope=${result['scope_version']} '
+        'msg=${result['message']} states=$states',
       );
     }
     return (
@@ -468,7 +459,10 @@ class PurchaseRepository {
 
     final result = await _post(
       '/purchase/invoices_preview',
-      _withTestRole({'limit': limit}, testRole),
+      _withTestRole({
+        'limit': limit,
+        if (refresh) 'refresh': true,
+      }, testRole),
     );
     final payload = _unwrap(result);
     final preview = DraftInvoicesPreview.fromJson(payload);
@@ -497,12 +491,14 @@ class PurchaseRepository {
     int page = 1,
     int limit = 15,
     String keyword = '',
+    String status = '',
     PurchaseDevTestRole? testRole,
   }) =>
       fetchInvoices(
         page: page,
         limit: limit,
         keyword: keyword,
+        status: status,
         testRole: testRole,
       );
 

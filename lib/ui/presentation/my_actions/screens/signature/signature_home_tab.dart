@@ -7,6 +7,7 @@ import '../../../../../chat/models/message.dart';
 import '../../../../../ui/chat/screens/sign_document_screen.dart';
 import '../../data/models/signature_document.dart';
 import '../../data/repositories/signature_actions_repository.dart';
+import '../../data/repositories/signature_documents_repository.dart';
 import '../../theme/signature_theme.dart';
 import '../../widgets/signature/signature_action_tile.dart';
 import 'signature_document_viewer_screen.dart';
@@ -48,18 +49,28 @@ class SignatureHomeTabState extends State<SignatureHomeTab> {
   void _openItem(SignatureActionItem item) {
     switch (item.bucket) {
       case SignatureItemBucket.needsSignature:
+        final personal = item.personalDoc;
+        final useChatPipeline = item.chatId.isNotEmpty;
         Navigator.push(
           context,
           MaterialPageRoute(
             builder: (_) => SignDocumentScreen(
               message: item.message,
               chatId: item.chatId,
+              onSigned: useChatPipeline || personal == null
+                  ? null
+                  : (bytes) => SignatureDocumentsRepository.instance
+                      .markSelfSigned(
+                        docId: personal.id,
+                        signedBytes: bytes,
+                        fileName: personal.fileName,
+                      ),
             ),
           ),
         );
       case SignatureItemBucket.waitingForOthers:
         _openViewer(item,
-            statusLabel: 'Waiting for ${item.peerName}',
+            statusLabel: 'Waiting for ${item.waitingForDisplayName}',
             statusColor: SignatureTheme.waiting);
       case SignatureItemBucket.completed:
         _openViewer(

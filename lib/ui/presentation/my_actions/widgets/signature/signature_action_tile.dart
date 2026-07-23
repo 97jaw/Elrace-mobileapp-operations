@@ -28,7 +28,7 @@ class SignatureActionTile extends StatelessWidget {
         return (
           icon: Icons.hourglass_top_rounded,
           color: SignatureTheme.waiting,
-          label: 'Waiting for ${item.peerName}',
+          label: 'Waiting for ${item.waitingForDisplayName}',
         );
       case SignatureItemBucket.completed:
         return (

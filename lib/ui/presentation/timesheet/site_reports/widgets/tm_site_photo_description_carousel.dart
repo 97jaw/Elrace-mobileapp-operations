@@ -1,7 +1,13 @@
+import 'dart:io';
+import 'dart:typed_data';
+
 import 'package:el_race/core/theme/timesheet_module_theme.dart';
+import 'package:el_race/report_module/presentation/screens/report_detail/image_editing_screen.dart';
 import 'package:el_race/ui/presentation/timesheet/site_reports/models/tm_site_photo_draft.dart';
 import 'package:el_race/ui/presentation/timesheet/widgets/tm_fast_network_image.dart';
 import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
+import 'package:path_provider/path_provider.dart';
 import 'package:phosphor_flutter/phosphor_flutter.dart';
 
 /// Horizontal sliding editor: one photo per page with description field.
@@ -52,6 +58,51 @@ class _TmSitePhotoDescriptionCarouselState
       duration: const Duration(milliseconds: 280),
       curve: Curves.easeOutCubic,
     );
+  }
+
+  Future<void> _drawOnPhoto(TmSitePhotoDraft draft) async {
+    String? localPath = draft.localFile?.path;
+    final networkUrl = draft.networkImageUrl?.trim() ?? '';
+
+    if ((localPath == null || localPath.isEmpty) && networkUrl.isNotEmpty) {
+      try {
+        final response = await http.get(Uri.parse(networkUrl));
+        if (response.statusCode != 200) return;
+        final dir = await getTemporaryDirectory();
+        final file = File(
+          '${dir.path}/temp_edit_${DateTime.now().millisecondsSinceEpoch}.jpg',
+        );
+        await file.writeAsBytes(response.bodyBytes);
+        localPath = file.path;
+      } catch (_) {
+        return;
+      }
+    }
+    if (localPath == null || localPath.isEmpty) return;
+    if (!mounted) return;
+
+    final result = await Navigator.push<Uint8List>(
+      context,
+      MaterialPageRoute(
+        builder: (_) => ImageEditingScreen(image: localPath!),
+      ),
+    );
+    if (result == null || !mounted) return;
+
+    final dir = await getTemporaryDirectory();
+    final newPath =
+        '${dir.path}/edited_${DateTime.now().millisecondsSinceEpoch}.png';
+    final newFile = File(newPath);
+    await newFile.writeAsBytes(result);
+    if (draft.localFile != null) {
+      try {
+        await FileImage(draft.localFile!).evict();
+      } catch (_) {}
+    }
+    setState(() {
+      draft.editedBytes = result;
+      draft.localFile = newFile;
+    });
   }
 
   @override
@@ -106,6 +157,7 @@ class _TmSitePhotoDescriptionCarouselState
                   index: index,
                   highlightMissing: !draft.hasDescription,
                   onRemove: () => widget.onRemove(index),
+                  onDraw: () => _drawOnPhoto(draft),
                   onChanged: () => setState(() {}),
                 ),
               );
@@ -145,6 +197,16 @@ class _TmSitePhotoDescriptionCarouselState
                     fit: StackFit.expand,
                     children: [
                       _thumb(draft),
+                      if (draft.hasEdited)
+                        Positioned(
+                          left: 2,
+                          top: 2,
+                          child: Icon(
+                            PhosphorIcons.pencilSimple(),
+                            size: 12,
+                            color: TimesheetModuleColors.primary,
+                          ),
+                        ),
                       if (!draft.hasDescription)
                         Positioned(
                           right: 2,
@@ -167,6 +229,13 @@ class _TmSitePhotoDescriptionCarouselState
   }
 
   Widget _thumb(TmSitePhotoDraft draft) {
+    if (draft.editedBytes != null) {
+      return Image.memory(
+        draft.editedBytes!,
+        key: ValueKey(draft.editedBytes.hashCode),
+        fit: BoxFit.cover,
+      );
+    }
     if (draft.localFile != null) {
       return Image.file(draft.localFile!, fit: BoxFit.cover);
     }
@@ -187,6 +256,7 @@ class _PhotoCard extends StatelessWidget {
     required this.index,
     required this.highlightMissing,
     required this.onRemove,
+    required this.onDraw,
     required this.onChanged,
   });
 
@@ -194,6 +264,7 @@ class _PhotoCard extends StatelessWidget {
   final int index;
   final bool highlightMissing;
   final VoidCallback onRemove;
+  final VoidCallback onDraw;
   final VoidCallback onChanged;
 
   @override
@@ -212,12 +283,43 @@ class _PhotoCard extends StatelessWidget {
             Row(
               children: [
                 Text(
-                  draft.isServer ? 'Photo ${index + 1} (saved)' : 'Photo ${index + 1}',
+                  draft.isServer
+                      ? 'Photo ${index + 1} (saved)'
+                      : 'Photo ${index + 1}',
                   style: TimesheetModuleTypography.caption().copyWith(
                     fontWeight: FontWeight.w800,
                   ),
                 ),
+                if (draft.hasEdited) ...[
+                  const SizedBox(width: 6),
+                  Container(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: TimesheetModuleColors.primary.withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    child: Text(
+                      'Edited',
+                      style: TimesheetModuleTypography.caption().copyWith(
+                        fontSize: 10,
+                        fontWeight: FontWeight.w700,
+                        color: TimesheetModuleColors.primary,
+                      ),
+                    ),
+                  ),
+                ],
                 const Spacer(),
+                IconButton(
+                  tooltip: 'Draw / annotate',
+                  visualDensity: VisualDensity.compact,
+                  onPressed: onDraw,
+                  icon: Icon(
+                    PhosphorIcons.pencilSimple(),
+                    size: 20,
+                    color: TimesheetModuleColors.primary,
+                  ),
+                ),
                 IconButton(
                   visualDensity: VisualDensity.compact,
                   onPressed: onRemove,
@@ -284,8 +386,20 @@ class _PhotoCard extends StatelessWidget {
   }
 
   Widget _image() {
+    if (draft.editedBytes != null) {
+      return Image.memory(
+        draft.editedBytes!,
+        key: ValueKey(draft.editedBytes.hashCode),
+        width: double.infinity,
+        fit: BoxFit.cover,
+      );
+    }
     if (draft.localFile != null) {
-      return Image.file(draft.localFile!, width: double.infinity, fit: BoxFit.cover);
+      return Image.file(
+        draft.localFile!,
+        width: double.infinity,
+        fit: BoxFit.cover,
+      );
     }
     final url = draft.networkImageUrl?.trim() ?? '';
     if (url.isNotEmpty) {
@@ -294,7 +408,10 @@ class _PhotoCard extends StatelessWidget {
     return ColoredBox(
       color: TimesheetModuleColors.navyTint,
       child: Center(
-        child: Icon(PhosphorIcons.imageBroken(), color: TimesheetModuleColors.mutedText),
+        child: Icon(
+          PhosphorIcons.imageBroken(),
+          color: TimesheetModuleColors.mutedText,
+        ),
       ),
     );
   }
