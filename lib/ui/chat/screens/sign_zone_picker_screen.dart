@@ -42,6 +42,7 @@ class _SignZonePickerScreenState extends State<SignZonePickerScreen> {
   final List<Size> _pageSizes = [];
 
   bool _isPlaceMode = true;
+  SignZoneType _activeTool = SignZoneType.signature;
   Size _viewSize = Size.zero;
   int? _selectedZoneIndex;
 
@@ -140,6 +141,7 @@ class _SignZonePickerScreenState extends State<SignZonePickerScreen> {
         y: y,
         width: _defaultZoneW,
         height: _defaultZoneH,
+        type: _activeTool,
       ));
       _selectedZoneIndex = _signZones.length - 1;
     });
@@ -174,13 +176,7 @@ class _SignZonePickerScreenState extends State<SignZonePickerScreen> {
     final nextH = (startZone.height + dh).clamp(_minZoneH, maxH);
 
     setState(() {
-      _signZones[index] = SignZone(
-        page: startZone.page,
-        x: startZone.x,
-        y: startZone.y,
-        width: nextW,
-        height: nextH,
-      );
+      _signZones[index] = startZone.copyWith(width: nextW, height: nextH);
     });
   }
 
@@ -226,8 +222,7 @@ class _SignZonePickerScreenState extends State<SignZonePickerScreen> {
     final clampedCenterY = desiredCenterY.clamp(halfH, 1.0 - halfH);
 
     setState(() {
-      _signZones[index] = SignZone(
-        page: startZone.page,
+      _signZones[index] = startZone.copyWith(
         x: clampedCenterX - halfW,
         y: clampedCenterY - halfH,
         width: nextW,
@@ -276,7 +271,7 @@ class _SignZonePickerScreenState extends State<SignZonePickerScreen> {
     if (_signZones.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Please add at least one sign zone'),
+          content: Text('Please add at least one sign or stamp zone'),
           backgroundColor: Colors.orange,
         ),
       );
@@ -286,6 +281,7 @@ class _SignZonePickerScreenState extends State<SignZonePickerScreen> {
     Navigator.pop(context, {
       'signZones': _signZones,
       'pageCount': _pageCount,
+      'stampNeeded': _signZones.any((z) => z.isStamp),
     });
   }
 
@@ -300,7 +296,7 @@ class _SignZonePickerScreenState extends State<SignZonePickerScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const Text(
-              'Set Sign Zones',
+              'Set Sign & Stamp Zones',
               style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
             ),
             Text(
@@ -334,6 +330,7 @@ class _SignZonePickerScreenState extends State<SignZonePickerScreen> {
   Widget _buildBody() {
     return Column(
       children: [
+        _buildToolBar(),
         Container(
           width: double.infinity,
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
@@ -352,7 +349,9 @@ class _SignZonePickerScreenState extends State<SignZonePickerScreen> {
               Expanded(
                 child: Text(
                   _isPlaceMode
-                      ? 'Tap empty page to add. Drag zone to move. Drag corner to resize.'
+                      ? (_activeTool == SignZoneType.stamp
+                          ? 'Stamp tool: tap to place a stamp zone.'
+                          : 'Sign tool: tap to place a signature zone.')
                       : 'Scroll to browse pages. Switch back to edit zones.',
                   style: TextStyle(
                     fontSize: 13,
@@ -479,7 +478,8 @@ class _SignZonePickerScreenState extends State<SignZonePickerScreen> {
                   borderRadius: BorderRadius.circular(16),
                 ),
                 child: Text(
-                  '${_signZones.length} sign zone${_signZones.length != 1 ? 's' : ''}',
+                  '${_signZones.length} zone${_signZones.length != 1 ? 's' : ''}'
+                  '${_signZones.any((z) => z.isStamp) ? ' · stamp' : ''}',
                   style: TextStyle(
                     fontSize: 12,
                     fontWeight: FontWeight.w600,
@@ -491,6 +491,38 @@ class _SignZonePickerScreenState extends State<SignZonePickerScreen> {
           ),
         ),
       ],
+    );
+  }
+
+  Widget _buildToolBar() {
+    return Container(
+      color: Colors.white,
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      child: Row(
+        children: [
+          _ToolChip(
+            selected: _activeTool == SignZoneType.signature && _isPlaceMode,
+            icon: Icons.draw,
+            label: 'Sign',
+            color: const Color(0xFFD4A843),
+            onTap: () => setState(() {
+              _isPlaceMode = true;
+              _activeTool = SignZoneType.signature;
+            }),
+          ),
+          const SizedBox(width: 8),
+          _ToolChip(
+            selected: _activeTool == SignZoneType.stamp && _isPlaceMode,
+            icon: Icons.approval,
+            label: 'Stamp',
+            color: const Color(0xFF2E7D6F),
+            onTap: () => setState(() {
+              _isPlaceMode = true;
+              _activeTool = SignZoneType.stamp;
+            }),
+          ),
+        ],
+      ),
     );
   }
 
@@ -555,33 +587,47 @@ class _SignZonePickerScreenState extends State<SignZonePickerScreen> {
                 onScaleEnd: _onZoneScaleEnd,
                 child: Container(
                   decoration: BoxDecoration(
-                    color: const Color(0xFFD4A843)
+                    color: (zone.isStamp
+                            ? const Color(0xFF2E7D6F)
+                            : const Color(0xFFD4A843))
                         .withValues(alpha: isSelected ? 0.35 : 0.25),
                     border: Border.all(
                       color: isSelected
                           ? const Color(0xFF1D2449)
-                          : const Color(0xFFD4A843),
+                          : (zone.isStamp
+                              ? const Color(0xFF2E7D6F)
+                              : const Color(0xFFD4A843)),
                       width: isSelected ? 2.5 : 2,
+                      style: zone.isStamp
+                          ? BorderStyle.solid
+                          : BorderStyle.solid,
                     ),
                     borderRadius: BorderRadius.circular(6),
                   ),
-                  child: const Center(
+                  child: Center(
                     child: FittedBox(
                       fit: BoxFit.scaleDown,
                       child: Padding(
-                        padding: EdgeInsets.symmetric(horizontal: 4),
+                        padding: const EdgeInsets.symmetric(horizontal: 4),
                         child: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            Icon(Icons.draw,
-                                size: 12, color: Color(0xFF856404)),
-                            SizedBox(width: 3),
+                            Icon(
+                              zone.isStamp ? Icons.approval : Icons.draw,
+                              size: 12,
+                              color: zone.isStamp
+                                  ? const Color(0xFF1B5E50)
+                                  : const Color(0xFF856404),
+                            ),
+                            const SizedBox(width: 3),
                             Text(
-                              'Sign Here',
+                              zone.isStamp ? 'Stamp Here' : 'Sign Here',
                               style: TextStyle(
                                 fontSize: 10,
                                 fontWeight: FontWeight.w700,
-                                color: Color(0xFF856404),
+                                color: zone.isStamp
+                                    ? const Color(0xFF1B5E50)
+                                    : const Color(0xFF856404),
                               ),
                             ),
                           ],
@@ -657,5 +703,58 @@ class _SignZonePickerScreenState extends State<SignZonePickerScreen> {
         ),
       );
     }).toList();
+  }
+}
+
+class _ToolChip extends StatelessWidget {
+  final bool selected;
+  final IconData icon;
+  final String label;
+  final Color color;
+  final VoidCallback onTap;
+
+  const _ToolChip({
+    required this.selected,
+    required this.icon,
+    required this.label,
+    required this.color,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: selected ? color.withValues(alpha: 0.15) : Colors.grey[100],
+      borderRadius: BorderRadius.circular(20),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(20),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(
+              color: selected ? color : Colors.grey[300]!,
+              width: selected ? 1.5 : 1,
+            ),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(icon, size: 18, color: selected ? color : Colors.grey[700]),
+              const SizedBox(width: 6),
+              Text(
+                label,
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w700,
+                  color: selected ? color : Colors.grey[700],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 }

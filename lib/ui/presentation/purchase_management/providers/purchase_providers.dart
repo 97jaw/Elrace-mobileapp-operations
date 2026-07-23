@@ -69,7 +69,12 @@ final recentInvoicesPreviewProvider =
   ref.watch(purchaseDevRoleOverrideProvider);
   final repo = ref.read(purchaseRepositoryProvider);
   final testRole = ref.read(purchaseDevRoleOverrideProvider);
-  return repo.fetchInvoicesPreview(testRole: testRole, limit: 5);
+  // Always refresh so we never keep a draft-only / tier-review stale cache.
+  return repo.fetchInvoicesPreview(
+    testRole: testRole,
+    limit: 5,
+    refresh: true,
+  );
 });
 
 /// Legacy alias for [recentInvoicesPreviewProvider].

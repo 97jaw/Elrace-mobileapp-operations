@@ -10,6 +10,7 @@ import 'package:el_race/data/services/hive_service.dart';
 import 'package:el_race/ui/presentation/attendance_reports/attendance_reports_session.dart';
 import 'package:el_race/ui/presentation/home_screen/bloc/home_bloc.dart';
 import 'package:el_race/ui/presentation/home_screen/screens/home_screen.dart';
+import 'package:el_race/ui/presentation/my_actions/data/user_stamp_assets.dart';
 import 'package:el_race/ui/presentation/signin/sign_in_screen.dart';
 import 'package:el_race/utils/di.dart';
 import 'package:flutter/material.dart';
@@ -95,6 +96,9 @@ class ProfileLogoutHelper {
     );
 
     // 3) Persist the logged-out state.
+    try {
+      UserStampAssets.clearCache();
+    } catch (_) {}
     try {
       await SharedPref().clearPreferences();
     } catch (_) {}

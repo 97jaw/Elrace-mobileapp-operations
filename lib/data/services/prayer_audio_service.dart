@@ -166,7 +166,8 @@ class PrayerAudioService {
             _lastPlayedTime = prayerTime;
             // mark as played to prevent duplicates (foreground/background)
             await HiveService.markPrayerPlayed(playedKey);
-            _isPlaying = false; // إعادة الحالة بعد الانتهاء
+            // Keep _isPlaying true until stopAdhan() / natural end so mute
+            // and volume-button stop still work while audio plays.
             break;
           } else {
             // debugPrint('⏭️ Already played for this prayer time');
@@ -240,12 +241,12 @@ class PrayerAudioService {
       Future.delayed(const Duration(minutes: 4), () async {
         if (_isPlaying) {
           await stopAdhan();
-          _isPlaying = false;
         }
       });
     } catch (e) {
       // debugPrint('❌ Error playing adhan: $e');
       _isPlaying = false;
+      _stopVolumeListener();
     }
   }
 

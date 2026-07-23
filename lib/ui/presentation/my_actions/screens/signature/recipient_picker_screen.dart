@@ -1,16 +1,25 @@
 import 'dart:async';
 
 import 'package:el_race/core/utils/responsive_breakpoints.dart';
+import 'package:el_race/core/utils/shared_pref.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
 import '../../../../../chat/models/chat_user.dart';
 import '../../../../../chat/repositories/user_repository.dart';
+import '../../data/user_stamp_assets.dart';
 import '../../theme/signature_theme.dart';
 
 /// Multi-select user search for the "Request signatures" upload flow.
 /// Returns a [List<ChatUser>] in the order selected (signing order).
+///
+/// When [stampNeeded] is true, loads **all** stamp users immediately (no
+/// search required). Search only filters that list. The logged-in stamp user
+/// is always included when their login has `x_stamp_user`.
 class RecipientPickerScreen extends StatefulWidget {
-  const RecipientPickerScreen({super.key});
+  final bool stampNeeded;
+
+  const RecipientPickerScreen({super.key, this.stampNeeded = false});
 
   @override
   State<RecipientPickerScreen> createState() => _RecipientPickerScreenState();
@@ -20,10 +29,25 @@ class _RecipientPickerScreenState extends State<RecipientPickerScreen> {
   final TextEditingController _searchController = TextEditingController();
   Timer? _debounce;
 
+  /// Full stamp directory when [stampNeeded]; unused for normal search mode.
+  List<ChatUser> _allStampUsers = [];
   List<ChatUser> _results = [];
   final List<ChatUser> _selected = [];
-  bool _isSearching = false;
-  String _message = 'Search and select signees in signing order';
+  bool _isLoading = false;
+  late String _message;
+
+  String? get _currentUid => FirebaseAuth.instance.currentUser?.uid;
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.stampNeeded) {
+      _message = 'Select stamp users (order = signing order)';
+      _loadAllStampUsers();
+    } else {
+      _message = 'Search and select signees in signing order';
+    }
+  }
 
   @override
   void dispose() {
@@ -32,9 +56,71 @@ class _RecipientPickerScreenState extends State<RecipientPickerScreen> {
     super.dispose();
   }
 
+  Future<void> _loadAllStampUsers() async {
+    setState(() => _isLoading = true);
+    try {
+      final users =
+          await UserRepository.instance.listStampUsers(forceRefresh: true);
+      if (!mounted) return;
+      setState(() {
+        _allStampUsers = users;
+        _results = users;
+        _isLoading = false;
+        _message = users.isEmpty
+            ? (UserStampAssets.isStampUser
+                ? 'No stamp users found yet.'
+                : 'Your login is not marked as stamp user. '
+                    'Confirm emp_id is in the stamp list, or ask backend to '
+                    'return x_stamp_user on login.')
+            : '';
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _isLoading = false;
+        _message = 'Failed to load stamp users. Try again.';
+      });
+    }
+  }
+
   void _onChanged(String query) {
     _debounce?.cancel();
-    _debounce = Timer(const Duration(milliseconds: 300), () => _search(query));
+    _debounce = Timer(const Duration(milliseconds: 300), () {
+      if (widget.stampNeeded) {
+        _filterStampUsers(query);
+      } else {
+        _search(query);
+      }
+    });
+  }
+
+  void _filterStampUsers(String query) {
+    final trimmed = query.trim().toLowerCase();
+    if (trimmed.isEmpty) {
+      setState(() {
+        _results = _allStampUsers;
+        _message = _allStampUsers.isEmpty
+            ? (UserStampAssets.isStampUser
+                ? 'No stamp users found yet.'
+                : 'Your login is not marked as stamp user.')
+            : '';
+      });
+      return;
+    }
+    final filtered = _allStampUsers.where((user) {
+      final name = user.name.toLowerCase();
+      final email = (user.email ?? '').toLowerCase();
+      final emp = user.employeeId?.toString() ?? '';
+      final odoo = user.odooUserId.toString();
+      return name.contains(trimmed) ||
+          email.contains(trimmed) ||
+          emp.contains(trimmed) ||
+          odoo.contains(trimmed);
+    }).toList();
+    setState(() {
+      _results = filtered;
+      _message = filtered.isEmpty ? 'No matching stamp users' : '';
+    });
   }
 
   Future<void> _search(String query) async {
@@ -54,19 +140,19 @@ class _RecipientPickerScreenState extends State<RecipientPickerScreen> {
       return;
     }
 
-    setState(() => _isSearching = true);
+    setState(() => _isLoading = true);
     try {
       final result = await UserRepository.instance.searchUsers(query: trimmed);
       if (!mounted) return;
       setState(() {
         _results = result.users;
-        _isSearching = false;
+        _isLoading = false;
         _message = result.users.isEmpty ? 'No matching users found' : '';
       });
     } catch (e) {
       if (!mounted) return;
       setState(() {
-        _isSearching = false;
+        _isLoading = false;
         _message = 'Search error, please try again';
       });
     }
@@ -86,6 +172,22 @@ class _RecipientPickerScreenState extends State<RecipientPickerScreen> {
   bool _isSelected(ChatUser user) =>
       _selected.any((u) => u.uid == user.uid);
 
+  bool _isMe(ChatUser user) {
+    final authUid = _currentUid;
+    if (authUid != null && user.uid == authUid) return true;
+    final login = SharedPref.getLoginData().result?.data;
+    final loginFb = login?.firebase_uid?.trim();
+    if (loginFb != null && loginFb.isNotEmpty && user.uid == loginFb) {
+      return true;
+    }
+    final odooId = login?.odoo_user_id;
+    if (odooId != null && odooId > 0) {
+      if (user.uid == 'odoo_$odooId') return true;
+      if (user.odooUserId == odooId) return true;
+    }
+    return false;
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -95,7 +197,10 @@ class _RecipientPickerScreenState extends State<RecipientPickerScreen> {
         foregroundColor: SignatureTheme.textDark,
         elevation: 0,
         systemOverlayStyle: SignatureTheme.lightStatusBar,
-        title: Text('Select Signees', style: SignatureTheme.appBarTitle),
+        title: Text(
+          widget.stampNeeded ? 'Select Stamp Signees' : 'Select Signees',
+          style: SignatureTheme.appBarTitle,
+        ),
         actions: [
           TextButton(
             onPressed: _selected.isEmpty
@@ -115,31 +220,36 @@ class _RecipientPickerScreenState extends State<RecipientPickerScreen> {
       ),
       body: Column(
         children: [
+          if (widget.stampNeeded)
+            Container(
+              width: double.infinity,
+              padding: EdgeInsets.symmetric(horizontal: 16.tw, vertical: 10.th),
+              color: SignatureTheme.khakiLight,
+              child: Text(
+                'Stamp signees load automatically. You appear first if you are '
+                'a stamp user. Optional search filters by name, email, or emp id.',
+                style: SignatureTheme.cardSubtitle,
+              ),
+            ),
           Padding(
-            padding: EdgeInsets.all(16.tr),
+            padding: EdgeInsets.fromLTRB(16.tw, 12.th, 16.tw, 8.th),
             child: TextField(
               controller: _searchController,
               onChanged: _onChanged,
-              autofocus: true,
               decoration: InputDecoration(
-                hintText: 'Search for colleagues...',
-                hintStyle: SignatureTheme.cardSubtitle,
-                prefixIcon:
-                    const Icon(Icons.search, color: SignatureTheme.brown),
+                hintText: widget.stampNeeded
+                    ? 'Filter stamp users (optional)'
+                    : 'Search by name or email',
+                prefixIcon: const Icon(Icons.search),
                 filled: true,
                 fillColor: SignatureTheme.surface,
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(14.tr),
-                  borderSide: const BorderSide(color: SignatureTheme.divider),
+                  borderSide: BorderSide(color: SignatureTheme.divider),
                 ),
                 enabledBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(14.tr),
-                  borderSide: const BorderSide(color: SignatureTheme.divider),
-                ),
-                focusedBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(14.tr),
-                  borderSide:
-                      const BorderSide(color: SignatureTheme.khaki, width: 1.5),
+                  borderSide: BorderSide(color: SignatureTheme.divider),
                 ),
               ),
             ),
@@ -154,127 +264,64 @@ class _RecipientPickerScreenState extends State<RecipientPickerScreen> {
                 separatorBuilder: (_, __) => SizedBox(width: 8.tw),
                 itemBuilder: (context, index) {
                   final user = _selected[index];
-                  return InputChip(
-                    label: Text('${index + 1}. ${user.name}'),
+                  return Chip(
+                    label: Text(
+                      '${index + 1}. ${_isMe(user) ? '${user.name} (You)' : user.name}',
+                    ),
                     onDeleted: () => _toggle(user),
                     backgroundColor: SignatureTheme.khakiLight,
-                    deleteIconColor: SignatureTheme.brownDeep,
                   );
                 },
               ),
             ),
-          Expanded(child: _buildBody()),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildBody() {
-    if (_isSearching) {
-      return const Center(
-        child: CircularProgressIndicator(color: SignatureTheme.brown),
-      );
-    }
-    if (_results.isEmpty) {
-      return Center(
-        child: Padding(
-          padding: EdgeInsets.all(24.tr),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(Icons.person_search_rounded,
-                  size: 56.tsp, color: SignatureTheme.khaki),
-              SizedBox(height: 12.th),
-              Text(_message,
-                  textAlign: TextAlign.center,
-                  style: SignatureTheme.cardSubtitle),
-            ],
-          ),
-        ),
-      );
-    }
-    return ListView.separated(
-      padding: EdgeInsets.symmetric(horizontal: 16.tw, vertical: 8.th),
-      itemCount: _results.length,
-      separatorBuilder: (_, __) => SizedBox(height: 8.th),
-      itemBuilder: (context, index) {
-        final user = _results[index];
-        final selected = _isSelected(user);
-        return _RecipientTile(
-          user: user,
-          selected: selected,
-          onTap: () => _toggle(user),
-        );
-      },
-    );
-  }
-}
-
-class _RecipientTile extends StatelessWidget {
-  final ChatUser user;
-  final bool selected;
-  final VoidCallback onTap;
-
-  const _RecipientTile({
-    required this.user,
-    required this.selected,
-    required this.onTap,
-  });
-
-  String _initials(String name) {
-    final parts = name.trim().split(RegExp(r'\s+'));
-    if (parts.isEmpty || parts.first.isEmpty) return '?';
-    if (parts.length == 1) return parts[0].substring(0, 1).toUpperCase();
-    return '${parts[0][0]}${parts[1][0]}'.toUpperCase();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(16.tr),
-      child: Container(
-        padding: EdgeInsets.all(12.tr),
-        decoration: SignatureTheme.card(radius: 16).copyWith(
-          border: Border.all(
-            color: selected ? SignatureTheme.khaki : SignatureTheme.divider,
-            width: selected ? 1.5 : 1,
-          ),
-        ),
-        child: Row(
-          children: [
-            CircleAvatar(
-              radius: 22.tr,
-              backgroundColor: SignatureTheme.khakiLight,
-              backgroundImage:
-                  user.avatarUrl != null ? NetworkImage(user.avatarUrl!) : null,
-              child: user.avatarUrl == null
-                  ? Text(
-                      _initials(user.name),
-                      style: const TextStyle(
-                        color: SignatureTheme.brownDeep,
-                        fontWeight: FontWeight.w700,
+          Expanded(
+            child: _isLoading
+                ? const Center(child: CircularProgressIndicator())
+                : _results.isEmpty
+                    ? Center(
+                        child: Padding(
+                          padding: EdgeInsets.all(24.tr),
+                          child: Text(
+                            _message,
+                            textAlign: TextAlign.center,
+                            style: SignatureTheme.cardSubtitle,
+                          ),
+                        ),
+                      )
+                    : ListView.builder(
+                        itemCount: _results.length,
+                        itemBuilder: (context, index) {
+                          final user = _results[index];
+                          final selected = _isSelected(user);
+                          final me = _isMe(user);
+                          return ListTile(
+                            leading: CircleAvatar(
+                              backgroundColor: SignatureTheme.khakiLight,
+                              child: Text(
+                                user.name.isNotEmpty
+                                    ? user.name[0].toUpperCase()
+                                    : '?',
+                                style: TextStyle(
+                                    color: SignatureTheme.brownDeep,
+                                    fontWeight: FontWeight.w700),
+                              ),
+                            ),
+                            title: Text(me ? '${user.name} (You)' : user.name),
+                            subtitle: Text(user.email ?? user.uid),
+                            trailing: Icon(
+                              selected
+                                  ? Icons.check_circle
+                                  : Icons.circle_outlined,
+                              color: selected
+                                  ? SignatureTheme.brown
+                                  : SignatureTheme.textMuted,
+                            ),
+                            onTap: () => _toggle(user),
+                          );
+                        },
                       ),
-                    )
-                  : null,
-            ),
-            SizedBox(width: 12.tw),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(user.name, style: SignatureTheme.cardTitle),
-                  if (user.email != null)
-                    Text(user.email!, style: SignatureTheme.cardSubtitle),
-                ],
-              ),
-            ),
-            Icon(
-              selected ? Icons.check_circle : Icons.circle_outlined,
-              color: selected ? SignatureTheme.signed : SignatureTheme.textMuted,
-            ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }

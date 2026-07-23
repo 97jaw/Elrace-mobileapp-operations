@@ -2,6 +2,7 @@ import 'package:el_race/core/utils/responsive_breakpoints.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:el_race/ui/presentation/purchase_management/data/purchase_models.dart';
 import 'package:el_race/ui/presentation/purchase_management/theme/purchase_theme.dart';
+import 'package:el_race/ui/presentation/purchase_management/utils/purchase_number_format.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
@@ -95,7 +96,7 @@ class PurchaseDraftInvoiceRow extends StatelessWidget {
                         item.displayStatus != 'DRAFT') ...[
                       SizedBox(height: 2.th),
                       Text(
-                        'Due ${item.formattedResidual.isNotEmpty ? item.formattedResidual : item.amountResidual.toStringAsFixed(0)}',
+                        'Due ${formatPurchaseAed(item.amountResidual, currency: item.currency.isNotEmpty ? item.currency : 'AED')}',
                         style: GoogleFonts.poppins(
                           fontSize: 10.tsp,
                           fontWeight: FontWeight.w600,
@@ -124,7 +125,10 @@ class PurchaseDraftInvoiceRow extends StatelessWidget {
                   ),
                   SizedBox(height: 2.th),
                   Text(
-                    item.formattedAmount,
+                    formatPurchaseAed(
+                      item.amount,
+                      currency: item.currency.isNotEmpty ? item.currency : 'AED',
+                    ),
                     style: GoogleFonts.poppins(
                       fontSize: 13.tsp,
                       fontWeight: FontWeight.w700,

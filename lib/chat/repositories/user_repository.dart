@@ -1,8 +1,12 @@
 import 'dart:io';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_messaging/firebase_messaging.dart';
+import 'package:el_race/core/utils/shared_pref.dart';
+import 'package:el_race/ui/presentation/my_actions/data/stamp_authorized_emp_ids.dart';
+import 'package:el_race/ui/presentation/my_actions/data/user_stamp_assets.dart';
 import 'package:el_race/ui/presentation/todo_list/services/team_members_api_service.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
 
 import '../models/models.dart';
 
@@ -65,6 +69,18 @@ class UserRepository {
     }
     if (safeJobTitle != null) {
       data['job_title'] = safeJobTitle;
+    }
+
+    // Stamp flag: promote to true when login/session says so. Never clobber an
+    // existing true with false just because login omitted the field.
+    final loginStamp = SharedPref.getLoginData().result?.data?.xStampUser;
+    final stampNow = session.xStampUser ||
+        loginStamp == true ||
+        UserStampAssets.isStampUser;
+    if (stampNow) {
+      data['x_stamp_user'] = true;
+    } else if (loginStamp == false) {
+      data['x_stamp_user'] = false;
     }
 
     try {
@@ -353,6 +369,240 @@ class UserRepository {
     }
   }
 
+  /// Stamp-authorized users for recipient picker.
+  ///
+  /// Sources (merged):
+  /// 1. Firestore `x_stamp_user == true`
+  /// 2. Known stamp `emp_id`s matched to Firestore users + team directory
+  /// 3. Always inject the logged-in user when [UserStampAssets.isStampUser]
+  Future<List<ChatUser>> listStampUsers({bool forceRefresh = false}) async {
+    try {
+      await _ensureCurrentUserStampFlagSynced();
+
+      final byUid = <String, ChatUser>{};
+
+      // 1) Firestore stamp flag
+      try {
+        final snap = await _usersCollection
+            .where('x_stamp_user', isEqualTo: true)
+            .get();
+        for (final doc in snap.docs) {
+          final u = ChatUser.fromFirestore(doc);
+          byUid[u.uid] = u;
+        }
+      } catch (e) {
+        print('⚠️ UserRepository: stamp where-query failed, scanning: $e');
+        final snap = await _usersCollection.get();
+        for (final doc in snap.docs) {
+          final u = ChatUser.fromFirestore(doc);
+          if (u.xStampUser) byUid[u.uid] = u;
+        }
+      }
+
+      // 2) Resolve allowlisted emp_ids (covers users before login injects flag)
+      await _mergeStampUsersByEmpIds(byUid);
+
+      var users = byUid.values.toList();
+      users = _ensureSelfInStampList(users);
+
+      // Put current user first so search/filter finds "(You)" easily.
+      final selfUid = _resolveCurrentChatUid();
+      if (selfUid != null) {
+        users.sort((a, b) {
+          if (a.uid == selfUid) return -1;
+          if (b.uid == selfUid) return 1;
+          return a.name.toLowerCase().compareTo(b.name.toLowerCase());
+        });
+      } else {
+        users.sort(
+            (a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()));
+      }
+
+      print(
+        '✅ UserRepository: listStampUsers → ${users.length} '
+        '(selfStamp=${UserStampAssets.isStampUser}, selfUid=$selfUid)',
+      );
+      return users;
+    } catch (e) {
+      print('❌ UserRepository: listStampUsers error: $e');
+      return _ensureSelfInStampList(const []);
+    }
+  }
+
+  /// Match [kStampAuthorizedEmpIds] against Firestore users + team directory.
+  Future<void> _mergeStampUsersByEmpIds(Map<String, ChatUser> byUid) async {
+    // From Firestore: employee_id may be badge number (int) or hr id.
+    try {
+      final snap = await _usersCollection.get();
+      for (final doc in snap.docs) {
+        final data = doc.data();
+        final candidates = <String>{
+          if (data['employee_id'] != null) data['employee_id'].toString(),
+          if (data['emp_id'] != null) data['emp_id'].toString(),
+        };
+        final hit = candidates.any(kStampAuthorizedEmpIds.contains);
+        if (!hit) continue;
+        final u = ChatUser.fromFirestore(doc).copyWith(xStampUser: true);
+        byUid.putIfAbsent(u.uid, () => u);
+        // Ensure flag persisted for next query.
+        try {
+          await doc.reference.set(
+            {'x_stamp_user': true, 'updated_at': FieldValue.serverTimestamp()},
+            SetOptions(merge: true),
+          );
+        } catch (_) {}
+      }
+    } catch (e) {
+      print('⚠️ UserRepository: stamp emp_id Firestore scan failed: $e');
+    }
+
+    // From team directory API (has employeeId / odooUserId).
+    try {
+      final members = await TeamMembersApiService.instance.getTeamMembers();
+      final now = DateTime.now();
+      for (final m in members) {
+        final empKeys = <String>{
+          if (m.employeeId != null) m.employeeId.toString(),
+          m.id.toString(),
+        };
+        if (!empKeys.any(kStampAuthorizedEmpIds.contains)) continue;
+
+        final odooId = m.odooUserId ?? 0;
+        final uid = odooId > 0
+            ? 'odoo_$odooId'
+            : (m.employeeId != null ? 'emp_${m.employeeId}' : 'member_${m.id}');
+        if (byUid.containsKey(uid)) {
+          byUid[uid] = byUid[uid]!.copyWith(xStampUser: true);
+          continue;
+        }
+        byUid[uid] = ChatUser(
+          uid: uid,
+          odooUserId: odooId,
+          employeeId: m.employeeId,
+          name: m.name,
+          email: m.email,
+          roleId: 0,
+          companyId: 0,
+          createdAt: now,
+          updatedAt: now,
+          xStampUser: true,
+        );
+      }
+    } catch (e) {
+      print('⚠️ UserRepository: stamp emp_id team directory failed: $e');
+    }
+  }
+
+  /// Resolves the current user's chat UID from Auth, login firebase_uid, or
+  /// `odoo_{odoo_user_id}` (same convention as chat setup).
+  String? _resolveCurrentChatUid() {
+    final authUid = FirebaseAuth.instance.currentUser?.uid.trim();
+    if (authUid != null && authUid.isNotEmpty) return authUid;
+
+    final login = SharedPref.getLoginData().result?.data;
+    final fromLogin = login?.firebase_uid?.trim();
+    if (fromLogin != null && fromLogin.isNotEmpty) return fromLogin;
+
+    final odooId = login?.odoo_user_id;
+    if (odooId != null && odooId > 0) return 'odoo_$odooId';
+    return null;
+  }
+
+  /// Writes stamp flag onto the current user's Firestore profile.
+  /// Does **not** call session/refresh.
+  Future<void> _ensureCurrentUserStampFlagSynced() async {
+    if (!UserStampAssets.isStampUser) return;
+
+    final login = SharedPref.getLoginData().result?.data;
+    final uids = <String>{};
+    final primary = _resolveCurrentChatUid();
+    if (primary != null && primary.isNotEmpty) uids.add(primary);
+    final loginFb = login?.firebase_uid?.trim();
+    if (loginFb != null && loginFb.isNotEmpty) uids.add(loginFb);
+    final odooId = login?.odoo_user_id;
+    if (odooId != null && odooId > 0) uids.add('odoo_$odooId');
+
+    if (uids.isEmpty) return;
+
+    final payload = <String, dynamic>{
+      'x_stamp_user': true,
+      'name': login?.name ?? login?.emp_name,
+      'email': login?.email ?? login?.username,
+      'odoo_user_id': login?.odoo_user_id,
+      'employee_id': login?.employee_id,
+      if (login?.emp_id != null) 'emp_id': login!.emp_id,
+      'updated_at': FieldValue.serverTimestamp(),
+    };
+
+    for (final uid in uids) {
+      try {
+        await _usersCollection.doc(uid).set(payload, SetOptions(merge: true));
+        _userCache.remove(uid);
+        _cacheTimestamps.remove(uid);
+      } catch (e) {
+        print('⚠️ UserRepository: could not sync self stamp flag ($uid): $e');
+      }
+    }
+  }
+
+  /// Always inject the logged-in stamp user into the list.
+  List<ChatUser> _ensureSelfInStampList(List<ChatUser> users) {
+    if (!UserStampAssets.isStampUser) {
+      print(
+        '⚠️ UserRepository: self not stamp user '
+        '(xStampUser=${SharedPref.getLoginData().result?.data?.xStampUser}, '
+        'emp_id=${SharedPref.getLoginData().result?.data?.emp_id})',
+      );
+      return users;
+    }
+
+    final login = SharedPref.getLoginData().result?.data;
+    final uid = _resolveCurrentChatUid();
+    if (uid == null || uid.isEmpty) {
+      print('⚠️ UserRepository: cannot inject self — no chat uid');
+      return users;
+    }
+
+    final odooId = login?.odoo_user_id;
+    final empId = login?.emp_id?.toString();
+    final already = users.indexWhere((u) =>
+        u.uid == uid ||
+        (odooId != null && odooId > 0 && u.odooUserId == odooId) ||
+        (empId != null &&
+            empId.isNotEmpty &&
+            u.employeeId?.toString() == empId));
+    if (already >= 0) {
+      return [
+        for (var i = 0; i < users.length; i++)
+          if (i == already)
+            users[i].copyWith(
+              uid: uid,
+              xStampUser: true,
+              name: (login?.name ?? login?.emp_name ?? users[i].name).toString(),
+            )
+          else
+            users[i],
+      ];
+    }
+
+    final now = DateTime.now();
+    return [
+      ChatUser(
+        uid: uid,
+        odooUserId: login?.odoo_user_id ?? 0,
+        employeeId: login?.employee_id,
+        name: (login?.name ?? login?.emp_name ?? 'Me').toString(),
+        email: login?.email ?? login?.username,
+        roleId: login?.role_id ?? 0,
+        companyId: login?.companyId ?? 0,
+        createdAt: now,
+        updatedAt: now,
+        xStampUser: true,
+      ),
+      ...users,
+    ];
+  }
+
   /// Search users by fetching all and filtering client-side.
   /// No Firestore index required.
   Future<UserSearchResult> searchUsers({
@@ -360,7 +610,13 @@ class UserRepository {
     int limit = 20,
     DocumentSnapshot? startAfter,
     int? companyId, // Optional filter by company
+    bool stampUsersOnly = false,
   }) async {
+    if (stampUsersOnly && query.trim().isEmpty) {
+      final users = await listStampUsers();
+      return UserSearchResult(users: users, hasMore: false);
+    }
+
     if (query.trim().isEmpty) {
       return UserSearchResult(users: [], hasMore: false);
     }
@@ -368,6 +624,22 @@ class UserRepository {
     final searchTerm = query.toLowerCase().trim();
 
     try {
+      if (stampUsersOnly) {
+        await _ensureCurrentUserStampFlagSynced();
+        final stampUsers = await listStampUsers();
+        final filtered = stampUsers.where((user) {
+          final name = user.name.toLowerCase();
+          final email = (user.email ?? '').toLowerCase();
+          final employeeId = user.employeeId?.toString() ?? '';
+          final odooUserId = user.odooUserId.toString();
+          return name.contains(searchTerm) ||
+              email.contains(searchTerm) ||
+              employeeId == searchTerm ||
+              odooUserId == searchTerm;
+        }).toList();
+        return UserSearchResult(users: filtered, hasMore: false);
+      }
+
       // Fetch all users (no complex query, no index needed)
       Query<Map<String, dynamic>> queryBuilder = _usersCollection;
 

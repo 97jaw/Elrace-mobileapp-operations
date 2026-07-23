@@ -3,6 +3,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:el_race/ui/presentation/purchase_management/data/purchase_models.dart';
 import 'package:el_race/ui/presentation/purchase_management/providers/purchase_providers.dart';
 import 'package:el_race/ui/presentation/purchase_management/theme/purchase_theme.dart';
+import 'package:el_race/ui/presentation/purchase_management/utils/purchase_number_format.dart';
 import 'package:el_race/ui/presentation/purchase_management/widgets/purchase_draft_invoice_row.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -285,6 +286,11 @@ class _MoneyBlock extends StatelessWidget {
 
   final PurchaseInvoiceDetail detail;
 
+  String _fmt(double v) => formatPurchaseAed(
+        v,
+        currency: detail.currency.isNotEmpty ? detail.currency : 'AED',
+      );
+
   @override
   Widget build(BuildContext context) {
     return _SectionCard(
@@ -295,25 +301,19 @@ class _MoneyBlock extends StatelessWidget {
             Expanded(
               child: _MiniAmount(
                 label: 'Untaxed',
-                value: detail.formattedUntaxed.isNotEmpty
-                    ? detail.formattedUntaxed
-                    : _fmt(detail.amountUntaxed),
+                value: _fmt(detail.amountUntaxed),
               ),
             ),
             Expanded(
               child: _MiniAmount(
                 label: 'Tax',
-                value: detail.formattedTax.isNotEmpty
-                    ? detail.formattedTax
-                    : _fmt(detail.amountTax),
+                value: _fmt(detail.amountTax),
               ),
             ),
             Expanded(
               child: _MiniAmount(
                 label: 'Total',
-                value: detail.formattedAmount.isNotEmpty
-                    ? detail.formattedAmount
-                    : _fmt(detail.amount),
+                value: _fmt(detail.amount),
                 emphasize: true,
               ),
             ),
@@ -325,17 +325,13 @@ class _MoneyBlock extends StatelessWidget {
             Expanded(
               child: _MiniAmount(
                 label: 'Paid',
-                value: detail.formattedPaid.isNotEmpty
-                    ? detail.formattedPaid
-                    : _fmt(detail.amountPaid),
+                value: _fmt(detail.amountPaid),
               ),
             ),
             Expanded(
               child: _MiniAmount(
                 label: 'Amount due',
-                value: detail.formattedResidual.isNotEmpty
-                    ? detail.formattedResidual
-                    : _fmt(detail.amountResidual),
+                value: _fmt(detail.amountResidual),
                 emphasize: true,
                 color: detail.amountResidual > 0.01
                     ? const Color(0xFFC05621)
@@ -347,8 +343,6 @@ class _MoneyBlock extends StatelessWidget {
       ],
     );
   }
-
-  String _fmt(double v) => 'AED ${v.toStringAsFixed(2)}';
 }
 
 class _PaymentsSection extends StatelessWidget {
@@ -415,9 +409,7 @@ class _PaymentCard extends StatelessWidget {
                 ),
               ),
               Text(
-                payment.formattedAmount.isNotEmpty
-                    ? payment.formattedAmount
-                    : 'AED ${payment.amount.toStringAsFixed(2)}',
+                formatPurchaseAed(payment.amount),
                 style: GoogleFonts.poppins(
                   fontSize: 13.tsp,
                   fontWeight: FontWeight.w700,

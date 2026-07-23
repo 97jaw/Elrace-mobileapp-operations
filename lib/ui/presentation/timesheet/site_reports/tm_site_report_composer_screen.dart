@@ -267,23 +267,26 @@ class _TmSiteReportComposerScreenState extends State<TmSiteReportComposerScreen>
       if (draft.pendingDelete) continue;
 
       final fallbackLocation = widget._effectiveLocation;
-      if (draft.isServer) {
+      final location = draft.locationController.text.trim().isNotEmpty
+          ? draft.locationController.text.trim()
+          : fallbackLocation;
+      final description = draft.descriptionController.text.trim();
+      final uploadFile = await draft.effectiveFileForUpload();
+
+      if (draft.serverItemId != null) {
         await _provider.updateReportItem(
           reportId: report.id,
           itemId: draft.serverItemId!,
-          description: draft.descriptionController.text.trim(),
-          location: draft.locationController.text.trim().isNotEmpty
-              ? draft.locationController.text.trim()
-              : fallbackLocation,
+          description: description,
+          location: location,
+          imageFile: uploadFile,
         );
-      } else if (draft.localFile != null) {
+      } else if (uploadFile != null) {
         await _provider.addReportItem(
           reportId: report.id,
-          imageFile: draft.localFile!,
-          location: draft.locationController.text.trim().isNotEmpty
-              ? draft.locationController.text.trim()
-              : fallbackLocation,
-          description: draft.descriptionController.text.trim(),
+          imageFile: uploadFile,
+          location: location,
+          description: description,
         );
       }
     }

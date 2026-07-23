@@ -20,6 +20,7 @@ import '../../../../../ui/chat/screens/sign_zone_picker_screen.dart';
 import '../../data/models/signature_document.dart';
 import '../../data/repositories/signature_actions_repository.dart';
 import '../../data/repositories/signature_documents_repository.dart';
+import '../../data/user_stamp_assets.dart';
 import '../../theme/signature_theme.dart';
 import '../../widgets/signature/signature_document_card.dart';
 import 'recipient_picker_screen.dart';
@@ -48,7 +49,12 @@ class _DocRow {
   });
 
   SignatureDocument asCardModel() {
-    if (personal != null) return personal!;
+    if (personal != null) {
+      return personal!.copyWith(
+        status: status,
+        recipientName: recipientName ?? personal!.recipientName,
+      );
+    }
     return SignatureDocument(
       id: id,
       ownerUid: '',
@@ -143,22 +149,30 @@ class SignatureDocumentsTabState extends State<SignatureDocumentsTab> {
       (actionItems, personalDocs) {
         final rows = <_DocRow>[];
         final seenKeys = <String>{};
+        final actionByMsgKey = <String, SignatureActionItem>{};
+        for (final item in actionItems) {
+          actionByMsgKey['msg:${item.chatId}:${item.message.id}'] = item;
+        }
 
         for (final doc in personalDocs) {
           final key = doc.messageId != null
               ? 'msg:${doc.chatId}:${doc.messageId}'
               : 'doc:${doc.id}';
           seenKeys.add(key);
+          final matched = actionByMsgKey[key];
+          final effective = _effectiveDocStatus(doc, matched);
+          final waitingName = matched?.waitingForDisplayName ?? doc.recipientName;
           rows.add(_DocRow(
             id: doc.id,
             fileName: doc.fileName,
-            fileUrl: doc.status == SignatureDocumentStatus.signed
+            fileUrl: effective == SignatureDocumentStatus.signed
                 ? (doc.signedPdfUrl ?? doc.fileUrl)
                 : doc.fileUrl,
             createdAt: doc.createdAt,
-            status: doc.status,
-            recipientName: doc.recipientName,
+            status: effective,
+            recipientName: waitingName,
             personal: doc,
+            action: matched,
           ));
         }
 
@@ -186,7 +200,7 @@ class SignatureDocumentsTabState extends State<SignatureDocumentsTab> {
             fileUrl: url,
             createdAt: item.message.createdAt,
             status: status,
-            recipientName: item.isSender ? item.peerName : null,
+            recipientName: item.waitingForDisplayName,
             action: item,
           ));
         }
@@ -195,6 +209,33 @@ class SignatureDocumentsTabState extends State<SignatureDocumentsTab> {
         return rows;
       },
     );
+  }
+
+  SignatureDocumentStatus _effectiveDocStatus(
+    SignatureDocument doc,
+    SignatureActionItem? action,
+  ) {
+    if (doc.status == SignatureDocumentStatus.signed ||
+        doc.status == SignatureDocumentStatus.expired) {
+      return doc.status;
+    }
+    if (action != null) {
+      return switch (action.bucket) {
+        SignatureItemBucket.needsSignature =>
+          SignatureDocumentStatus.pendingSelf,
+        SignatureItemBucket.waitingForOthers =>
+          SignatureDocumentStatus.pendingOther,
+        SignatureItemBucket.completed => SignatureDocumentStatus.signed,
+        SignatureItemBucket.expired => SignatureDocumentStatus.expired,
+      };
+    }
+    if (doc.status == SignatureDocumentStatus.pendingOther) {
+      final uid = FirebaseAuth.instance.currentUser?.uid;
+      if (uid != null && doc.recipientUid == uid) {
+        return SignatureDocumentStatus.pendingSelf;
+      }
+    }
+    return doc.status;
   }
 
   // ─── Upload (triggered only from Home +) ───────────────────
@@ -227,18 +268,22 @@ class SignatureDocumentsTabState extends State<SignatureDocumentsTab> {
 
     final signZones = pickerResult['signZones'] as List<SignZone>;
     final pageCount = pickerResult['pageCount'] as int?;
+    final stampNeeded = pickerResult['stampNeeded'] == true ||
+        SignatureDocument.zonesNeedStamp(signZones);
 
-    final choice = await _askUploadPurpose();
+    final choice = await _askUploadPurpose(stampNeeded: stampNeeded);
     if (choice == null) return;
 
     if (choice == _UploadPurpose.signMyself) {
       await _selfSign(file, signZones, pageCount);
     } else {
-      await _requestSignature(file, signZones, pageCount);
+      await _requestSignature(file, signZones, pageCount,
+          stampNeeded: stampNeeded);
     }
   }
 
-  Future<_UploadPurpose?> _askUploadPurpose() {
+  Future<_UploadPurpose?> _askUploadPurpose({required bool stampNeeded}) {
+    final canSelfSign = !stampNeeded || UserStampAssets.isStampUser;
     return showModalBottomSheet<_UploadPurpose>(
       context: context,
       backgroundColor: SignatureTheme.surface,
@@ -256,13 +301,20 @@ class SignatureDocumentsTabState extends State<SignatureDocumentsTab> {
                 Text('What would you like to do?',
                     style: SignatureTheme.sectionTitle),
                 SizedBox(height: 4.th),
-                Text('Choose how this document should be signed.',
-                    style: SignatureTheme.cardSubtitle),
+                Text(
+                  stampNeeded
+                      ? 'This document includes stamp zones.'
+                      : 'Choose how this document should be signed.',
+                  style: SignatureTheme.cardSubtitle,
+                ),
                 SizedBox(height: 16.th),
                 _PurposeOption(
                   icon: Icons.edit_rounded,
                   title: 'Sign it myself',
-                  subtitle: 'Draw your signature and stamp the zones you set.',
+                  subtitle: canSelfSign
+                      ? 'Draw your signature and apply stamp zones you set.'
+                      : 'Disabled — stamp required and you are not a stamp user.',
+                  enabled: canSelfSign,
                   onTap: () =>
                       Navigator.pop(sheetContext, _UploadPurpose.signMyself),
                 ),
@@ -270,8 +322,9 @@ class SignatureDocumentsTabState extends State<SignatureDocumentsTab> {
                 _PurposeOption(
                   icon: Icons.send_rounded,
                   title: 'Request signatures',
-                  subtitle:
-                      'Pick one or more signees — they sign one by one with chat notifications.',
+                  subtitle: stampNeeded
+                      ? 'Pick stamp-authorized signees — they sign and stamp one by one.'
+                      : 'Pick one or more signees — they sign one by one with chat notifications.',
                   onTap: () => Navigator.pop(
                       sheetContext, _UploadPurpose.requestSignature),
                 ),
@@ -301,10 +354,16 @@ class SignatureDocumentsTabState extends State<SignatureDocumentsTab> {
   }
 
   Future<void> _requestSignature(
-      File file, List<SignZone> signZones, int? pageCount) async {
+    File file,
+    List<SignZone> signZones,
+    int? pageCount, {
+    bool stampNeeded = false,
+  }) async {
     final recipients = await Navigator.push<List<ChatUser>>(
       context,
-      MaterialPageRoute(builder: (_) => const RecipientPickerScreen()),
+      MaterialPageRoute(
+        builder: (_) => RecipientPickerScreen(stampNeeded: stampNeeded),
+      ),
     );
     if (recipients == null || recipients.isEmpty || !mounted) return;
 
@@ -362,22 +421,36 @@ class SignatureDocumentsTabState extends State<SignatureDocumentsTab> {
   }
 
   void _openRow(_DocRow row) {
-    if (row.action != null) {
+    final needsSign = row.status == SignatureDocumentStatus.pendingSelf ||
+        row.action?.bucket == SignatureItemBucket.needsSignature;
+
+    if (needsSign && row.action != null) {
       final item = row.action!;
-      if (item.bucket == SignatureItemBucket.needsSignature) {
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (_) => SignDocumentScreen(
-              message: item.message,
-              chatId: item.chatId,
-            ),
+      final personal = row.personal ?? item.personalDoc;
+      final useChatPipeline = item.chatId.isNotEmpty;
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => SignDocumentScreen(
+            message: item.message,
+            chatId: item.chatId,
+            // Chat pipeline updates the message + personal mirror.
+            // Personal-only drafts use onSigned / markSelfSigned.
+            onSigned: useChatPipeline || personal == null
+                ? null
+                : (bytes) => SignatureDocumentsRepository.instance
+                    .markSelfSigned(
+                      docId: personal.id,
+                      signedBytes: bytes,
+                      fileName: personal.fileName,
+                    ),
           ),
-        );
-        return;
-      }
+        ),
+      );
+      return;
     }
-    if (row.personal?.status == SignatureDocumentStatus.pendingSelf) {
+
+    if (needsSign && row.personal != null) {
       _openSelfSignDraft(row.personal!);
       return;
     }
@@ -451,10 +524,6 @@ class SignatureDocumentsTabState extends State<SignatureDocumentsTab> {
   }
 
   Future<void> _confirmDelete(_DocRow row) async {
-    if (row.personal == null) {
-      _showMessage('Chat documents can’t be deleted from here');
-      return;
-    }
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (dialogContext) => AlertDialog(
@@ -473,8 +542,26 @@ class SignatureDocumentsTabState extends State<SignatureDocumentsTab> {
         ],
       ),
     );
-    if (confirmed == true) {
-      await SignatureDocumentsRepository.instance.deleteDocument(row.personal!.id);
+    if (confirmed != true) return;
+
+    try {
+      if (row.personal != null) {
+        await SignatureDocumentsRepository.instance.deleteDocument(
+          row.personal!.id,
+          doc: row.personal,
+        );
+      } else if (row.action != null) {
+        await SignatureDocumentsRepository.instance.deleteChatSignable(
+          chatId: row.action!.chatId,
+          messageId: row.action!.message.id,
+        );
+      } else {
+        _showMessage('Nothing to delete', isError: true);
+        return;
+      }
+      _showMessage('Document removed');
+    } catch (e) {
+      _showMessage('Delete failed: $e', isError: true);
     }
   }
 
@@ -563,7 +650,7 @@ class SignatureDocumentsTabState extends State<SignatureDocumentsTab> {
                         onTap: () => _openRow(row),
                         onShare: () => _shareRow(row),
                         onDownload: () => _downloadRow(row),
-                        onDelete: row.personal != null
+                        onDelete: (row.personal != null || row.action != null)
                             ? () => _confirmDelete(row)
                             : null,
                       );
@@ -646,49 +733,56 @@ class _PurposeOption extends StatelessWidget {
   final String title;
   final String subtitle;
   final VoidCallback onTap;
+  final bool enabled;
 
   const _PurposeOption({
     required this.icon,
     required this.title,
     required this.subtitle,
     required this.onTap,
+    this.enabled = true,
   });
 
   @override
   Widget build(BuildContext context) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(16.tr),
-      child: Container(
-        padding: EdgeInsets.all(14.tr),
-        decoration: BoxDecoration(
-          color: SignatureTheme.surfaceMuted,
-          borderRadius: BorderRadius.circular(16.tr),
-          border: Border.all(color: SignatureTheme.divider),
-        ),
-        child: Row(
-          children: [
-            Container(
-              padding: EdgeInsets.all(10.tr),
-              decoration: BoxDecoration(
-                color: SignatureTheme.khakiLight,
-                borderRadius: BorderRadius.circular(12.tr),
+    return Opacity(
+      opacity: enabled ? 1 : 0.45,
+      child: InkWell(
+        onTap: enabled ? onTap : null,
+        borderRadius: BorderRadius.circular(16.tr),
+        child: Container(
+          padding: EdgeInsets.all(14.tr),
+          decoration: BoxDecoration(
+            color: SignatureTheme.surfaceMuted,
+            borderRadius: BorderRadius.circular(16.tr),
+            border: Border.all(color: SignatureTheme.divider),
+          ),
+          child: Row(
+            children: [
+              Container(
+                padding: EdgeInsets.all(10.tr),
+                decoration: BoxDecoration(
+                  color: SignatureTheme.khakiLight,
+                  borderRadius: BorderRadius.circular(12.tr),
+                ),
+                child:
+                    Icon(icon, color: SignatureTheme.brownDeep, size: 20.tsp),
               ),
-              child: Icon(icon, color: SignatureTheme.brownDeep, size: 20.tsp),
-            ),
-            SizedBox(width: 12.tw),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(title, style: SignatureTheme.cardTitle),
-                  SizedBox(height: 2.th),
-                  Text(subtitle, style: SignatureTheme.cardSubtitle),
-                ],
+              SizedBox(width: 12.tw),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(title, style: SignatureTheme.cardTitle),
+                    SizedBox(height: 2.th),
+                    Text(subtitle, style: SignatureTheme.cardSubtitle),
+                  ],
+                ),
               ),
-            ),
-            const Icon(Icons.chevron_right_rounded, color: SignatureTheme.brown),
-          ],
+              const Icon(Icons.chevron_right_rounded,
+                  color: SignatureTheme.brown),
+            ],
+          ),
         ),
       ),
     );

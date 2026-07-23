@@ -17,9 +17,16 @@ import 'package:flutter_translate/flutter_translate.dart';
 
 /// Full list of vendor bills (all states) under Purchase Management.
 class DraftInvoiceListScreen extends StatefulWidget {
-  const DraftInvoiceListScreen({super.key, this.testRole});
+  const DraftInvoiceListScreen({
+    super.key,
+    this.testRole,
+    this.initialStatusFilter = '',
+  });
 
   final PurchaseDevTestRole? testRole;
+
+  /// API status chip value (e.g. `DRAFT`, `PAID`). Empty = All.
+  final String initialStatusFilter;
 
   @override
   State<DraftInvoiceListScreen> createState() => _DraftInvoiceListScreenState();
@@ -39,12 +46,44 @@ class _DraftInvoiceListScreenState extends State<DraftInvoiceListScreen> {
   bool _hasMore = false;
   int _total = 0;
   String _keyword = '';
+  String _statusFilter = '';
+
+  static const _statusFilters = [
+    '',
+    'DRAFT',
+    'NOT PAID',
+    'PARTIAL',
+    'IN PAYMENT',
+    'PAID',
+    'REVERSED',
+    'CANCELLED',
+  ];
+
+  static const _filterLabels = [
+    'All',
+    'Draft',
+    'Not Paid',
+    'Partial',
+    'In Payment',
+    'Paid',
+    'Reversed',
+    'Cancelled',
+  ];
 
   @override
   void initState() {
     super.initState();
+    _statusFilter = widget.initialStatusFilter;
     _searchController.addListener(_onSearchChanged);
     _fetchItems();
+  }
+
+  @override
+  void didUpdateWidget(covariant DraftInvoiceListScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.testRole != widget.testRole) {
+      _fetchItems();
+    }
   }
 
   @override
@@ -64,6 +103,12 @@ class _DraftInvoiceListScreenState extends State<DraftInvoiceListScreen> {
       setState(() => _keyword = text);
       _fetchItems();
     });
+  }
+
+  void _onStatusSelected(String filter) {
+    if (filter == _statusFilter) return;
+    setState(() => _statusFilter = filter);
+    _fetchItems();
   }
 
   bool _onScrollNotification(ScrollNotification notification) {
@@ -88,6 +133,7 @@ class _DraftInvoiceListScreenState extends State<DraftInvoiceListScreen> {
         page: 1,
         limit: 15,
         keyword: _keyword,
+        status: _statusFilter,
         testRole: widget.testRole,
       );
       if (!mounted) return;
@@ -100,7 +146,7 @@ class _DraftInvoiceListScreenState extends State<DraftInvoiceListScreen> {
       });
       if (kDebugMode) {
         debugPrint(
-          'invoices list: page=1 count=${_items.length} '
+          'invoices list: page=1 status=$_statusFilter count=${_items.length} '
           'total=$_total hasMore=$_hasMore',
         );
       }
@@ -122,6 +168,7 @@ class _DraftInvoiceListScreenState extends State<DraftInvoiceListScreen> {
         page: nextPage,
         limit: 15,
         keyword: _keyword,
+        status: _statusFilter,
         testRole: widget.testRole,
       );
       if (!mounted) return;
@@ -140,8 +187,9 @@ class _DraftInvoiceListScreenState extends State<DraftInvoiceListScreen> {
       });
       if (kDebugMode) {
         debugPrint(
-          'invoices list: page=$nextPage got=${result.items.length} '
-          'totalLoaded=${_items.length} hasMore=$_hasMore',
+          'invoices list: page=$nextPage status=$_statusFilter '
+          'got=${result.items.length} totalLoaded=${_items.length} '
+          'hasMore=$_hasMore',
         );
       }
     } catch (e) {
@@ -179,6 +227,12 @@ class _DraftInvoiceListScreenState extends State<DraftInvoiceListScreen> {
                   PurchaseSearchBar(
                     controller: _searchController,
                     hint: 'Search vendor or invoice…',
+                  ),
+                  PurchaseFilterChips(
+                    filters: _statusFilters,
+                    labels: _filterLabels,
+                    selected: _statusFilter,
+                    onSelect: _onStatusSelected,
                   ),
                   if (_total > 0 || _items.isNotEmpty)
                     Padding(

@@ -1287,7 +1287,7 @@ class ChatRepository {
   /// Update the other user's userChats entry for a DM.
   /// Creates a FULL entry (not just updated_at) so the chat appears
   /// properly in the other user's chat list with title and peer info.
-  void _updateDmPeerTimestamp(String chatId, String currentUid) async {
+  Future<void> _updateDmPeerTimestamp(String chatId, String currentUid) async {
     try {
       final dmPair = _parseDmPair(chatId, currentUid);
       if (dmPair == null) return;
@@ -1495,11 +1495,13 @@ class ChatRepository {
 
       await batch.commit();
 
+      // Await peer userChats update so the recipient's chat list + unread
+      // badge refresh immediately (fire-and-forget was dropping updates).
       if (chatId.startsWith('dm_')) {
-        _updateDmPeerTimestamp(chatId, currentUid);
+        await _updateDmPeerTimestamp(chatId, currentUid);
       }
       if (chatId.startsWith('support_')) {
-        _updateSupportChatMemberTimestamps(chatId, currentUid);
+        await _updateSupportChatMemberTimestamps(chatId, currentUid);
       }
 
       return message;
@@ -1600,6 +1602,48 @@ class ChatRepository {
           'signed_at': FieldValue.serverTimestamp(),
           'signed_by': currentUid,
         });
+      }
+
+      // Keep personal Documents library in sync when this chat doc was
+      // created from Signature → Request signatures.
+      final linkedDocId = existingMessage?.signatureDocumentId;
+      if (linkedDocId != null && linkedDocId.isNotEmpty) {
+        try {
+          final ownerUid = existingMessage!.senderId;
+          final personalRef = _firestore
+              .collection('users')
+              .doc(ownerUid)
+              .collection('signature_documents')
+              .doc(linkedDocId);
+          if (hasMore) {
+            final nextIndex = index + 1;
+            final nextUid = signers![nextIndex];
+            final nextName = (existingMessage.signerNames != null &&
+                    nextIndex < existingMessage.signerNames!.length)
+                ? existingMessage.signerNames![nextIndex]
+                : 'Colleague';
+            await personalRef.set({
+              'status': 'pending_other',
+              'file_url': signedUrl,
+              'recipient_uid': nextUid,
+              'recipient_name': nextName,
+              'current_signer_index': nextIndex,
+              'updated_at': FieldValue.serverTimestamp(),
+            }, SetOptions(merge: true));
+          } else {
+            await personalRef.set({
+              'status': 'signed',
+              'signed_pdf_url': signedUrl,
+              'file_url': signedUrl,
+              'signed_at': FieldValue.serverTimestamp(),
+              'signed_by': currentUid,
+              'updated_at': FieldValue.serverTimestamp(),
+            }, SetOptions(merge: true));
+          }
+        } catch (e) {
+          print(
+              '⚠️ ChatRepository: could not sync personal signature doc: $e');
+        }
       }
 
       print('✅ Document signed successfully: $messageId');

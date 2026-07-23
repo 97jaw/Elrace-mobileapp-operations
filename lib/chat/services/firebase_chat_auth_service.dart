@@ -422,6 +422,7 @@ class FirebaseChatAuthService {
           'company_id': session.companyId,
           'role_name': session.roleName,
           'avatar_url': session.avatarUrl,
+          'x_stamp_user': session.xStampUser,
         },
       );
 

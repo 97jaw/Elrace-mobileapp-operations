@@ -49,6 +49,9 @@ class ChatUserSession {
   /// Phone number (optional)
   final String? phoneNumber;
 
+  /// Odoo `res.users.x_stamp_user`
+  final bool xStampUser;
+
   ChatUserSession({
     required this.backendJwt,
     required this.odooUserId,
@@ -65,6 +68,7 @@ class ChatUserSession {
     this.avatarUrl,
     this.jobTitle,
     this.phoneNumber,
+    this.xStampUser = false,
   });
 
   /// Create session from backend login response JSON.
@@ -200,6 +204,8 @@ class ChatUserSession {
         'emp_phone',
         'telephone',
       ]),
+      xStampUser: _extractBool(data['x_stamp_user']) ||
+          _extractBool(data['stamp_user']),
     );
   }
 
@@ -237,6 +243,14 @@ class ChatUserSession {
     if (value is int) return value;
     if (value is String) return int.tryParse(value);
     return null;
+  }
+
+  static bool _extractBool(dynamic value) {
+    if (value == null) return false;
+    if (value is bool) return value;
+    if (value is num) return value != 0;
+    final s = value.toString().trim().toLowerCase();
+    return s == 'true' || s == '1' || s == 'yes';
   }
 
   /// Extract avatar URL, filtering out base64 data
@@ -294,6 +308,7 @@ class ChatUserSession {
         'avatar_url': avatarUrl,
         'job_title': jobTitle,
         'phone': phoneNumber,
+        'x_stamp_user': xStampUser,
       };
 
   factory ChatUserSession.fromJson(Map<String, dynamic> json) =>
@@ -313,6 +328,7 @@ class ChatUserSession {
         avatarUrl: json['avatar_url'],
         jobTitle: json['job_title'],
         phoneNumber: json['phone'],
+        xStampUser: json['x_stamp_user'] == true,
       );
 }
 
