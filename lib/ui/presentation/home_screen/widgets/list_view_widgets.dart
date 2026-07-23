@@ -1064,39 +1064,10 @@ class _ListViewWidgetsState extends State<ListViewWidgets> {
         );
         children.add(SizedBox(height: _isTabletPane ? 14 : 14.h));
       }
-      final showVendors = visibility.isVisible(HomeWidgetCode.vendors);
-      final showSubs = visibility.isVisible(HomeWidgetCode.subContractors);
-      if (showVendors && showSubs) {
-        if (_isTabletPane) {
-          children.add(
-            _pairCards(
-              [
-                const ClientsVendorsCategoryVendorsCard(tabletCompact: true),
-                const ClientsVendorsCategorySubContractorsCard(
-                  tabletCompact: true,
-                ),
-              ],
-              designHeight: 182,
-            ),
-          );
-        } else {
-          children.add(const ClientsVendorsCategoryVendorsSubContractorsRow());
-        }
-        children.add(SizedBox(height: _isTabletPane ? 14 : 14.h));
-      } else if (showVendors) {
+      if (visibility.isVisible(HomeWidgetCode.vendors)) {
         children.add(
           _fullWidthCard(
             ClientsVendorsCategoryVendorsCard(tabletCompact: tabletCompact),
-            designHeight: 182,
-          ),
-        );
-        children.add(SizedBox(height: _isTabletPane ? 14 : 14.h));
-      } else if (showSubs) {
-        children.add(
-          _fullWidthCard(
-            ClientsVendorsCategorySubContractorsCard(
-              tabletCompact: tabletCompact,
-            ),
             designHeight: 182,
           ),
         );

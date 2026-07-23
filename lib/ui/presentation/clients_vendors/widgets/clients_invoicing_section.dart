@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:el_race/core/clients_vendors/clients_vendors_route_names.dart';
 import 'package:el_race/ui/presentation/clients_vendors/data/clients_dashboard_repository.dart';
 import 'package:el_race/ui/presentation/clients_vendors/theme/clients_vendors_theme.dart';
@@ -77,7 +79,6 @@ class _ClientsInvoicingSectionState extends State<ClientsInvoicingSection> {
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (context) => _ClientPickerSheet(
-        clients: data.clients,
         topClients: data.topClients,
         selectedScope: _scope,
         selectedPartnerId: _partnerId,
@@ -320,16 +321,14 @@ class _GlassDropdown<T> extends StatelessWidget {
   }
 }
 
-/// Draggable bottom sheet: Top 3 + searchable client list with logo + name.
+/// Draggable bottom sheet: Top 3 + paginated searchable client list.
 class _ClientPickerSheet extends StatefulWidget {
   const _ClientPickerSheet({
-    required this.clients,
     required this.topClients,
     required this.selectedScope,
     required this.selectedPartnerId,
   });
 
-  final List<ClientsDashboardClientOption> clients;
   final List<ClientsDashboardClientOption> topClients;
   final String selectedScope;
   final int? selectedPartnerId;
@@ -339,23 +338,94 @@ class _ClientPickerSheet extends StatefulWidget {
 }
 
 class _ClientPickerSheetState extends State<_ClientPickerSheet> {
+  static const _pageSize = 40;
+
+  final _repo = ClientsDashboardRepository();
   final _search = TextEditingController();
+  Timer? _debounce;
+
+  List<ClientsDashboardClientOption> _items = const [];
   String _query = '';
+  bool _loading = true;
+  bool _loadingMore = false;
+  bool _hasMore = true;
+  String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    _load(reset: true);
+  }
 
   @override
   void dispose() {
+    _debounce?.cancel();
     _search.dispose();
     super.dispose();
   }
 
+  void _onSearchChanged(String value) {
+    _debounce?.cancel();
+    _debounce = Timer(const Duration(milliseconds: 350), () {
+      if (!mounted) return;
+      _query = value;
+      _load(reset: true);
+    });
+  }
+
+  bool _onScrollNotification(ScrollNotification n) {
+    if (n.metrics.pixels < n.metrics.maxScrollExtent - 120) return false;
+    if (_loading || _loadingMore || !_hasMore) return false;
+    _load(reset: false);
+    return false;
+  }
+
+  Future<void> _load({required bool reset}) async {
+    if (reset) {
+      setState(() {
+        _loading = true;
+        _error = null;
+        _hasMore = true;
+      });
+    } else {
+      if (!_hasMore || _loadingMore) return;
+      setState(() => _loadingMore = true);
+    }
+
+    final offset = reset ? 0 : _items.length;
+    try {
+      final page = await _repo.fetchPartners(
+        keyword: _query,
+        offset: offset,
+        limit: _pageSize,
+      );
+      if (!mounted) return;
+      setState(() {
+        _items = reset ? page.items : [..._items, ...page.items];
+        _hasMore = page.hasMore;
+        _loading = false;
+        _loadingMore = false;
+        _error = null;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _loading = false;
+        _loadingMore = false;
+        if (reset) {
+          _items = const [];
+          _error = 'Could not load clients.';
+        }
+      });
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
-    final q = _query.trim().toLowerCase();
-    final filtered = q.isEmpty
-        ? widget.clients
-        : widget.clients
-            .where((c) => c.name.toLowerCase().contains(q))
-            .toList();
+    final q = _query.trim();
+    final showShortcuts = q.isEmpty;
+    final showEmpty = !_loading && _items.isEmpty;
+    final showFooter = _loadingMore || (_hasMore && _items.isNotEmpty);
 
     return DraggableScrollableSheet(
       initialChildSize: 0.72,
@@ -401,7 +471,7 @@ class _ClientPickerSheetState extends State<_ClientPickerSheet> {
                     const SizedBox(height: 12),
                     TextField(
                       controller: _search,
-                      onChanged: (v) => setState(() => _query = v),
+                      onChanged: _onSearchChanged,
                       style: GoogleFonts.poppins(
                         fontSize: 13,
                         color: Colors.white,
@@ -441,86 +511,136 @@ class _ClientPickerSheetState extends State<_ClientPickerSheet> {
                 ),
               ),
               Expanded(
-                child: ListView(
-                  controller: scrollController,
-                  padding: const EdgeInsets.fromLTRB(12, 0, 12, 24),
-                  children: [
-                    if (q.isEmpty) ...[
-                      _ClientPickTile(
-                        title: 'Top 3',
-                        subtitle: widget.topClients.isEmpty
-                            ? 'Highest outstanding receivables'
-                            : widget.topClients.map((c) => c.name).join(' · '),
-                        selected: widget.selectedScope == 'top3',
-                        leading: Container(
-                          width: 40,
-                          height: 40,
-                          decoration: BoxDecoration(
-                            shape: BoxShape.circle,
-                            color: Colors.white.withValues(alpha: 0.12),
-                            border: Border.all(
-                              color: Colors.white.withValues(alpha: 0.22),
-                            ),
-                          ),
-                          child: const Icon(
-                            Icons.emoji_events_rounded,
-                            color: ClientsVendorsTheme.iconAccent,
-                            size: 20,
-                          ),
+                child: _loading && _items.isEmpty
+                    ? const Center(
+                        child: CircularProgressIndicator(
+                          color: Colors.white70,
+                          strokeWidth: 2.5,
                         ),
-                        onTap: () => Navigator.pop(
-                          context,
-                          const _ClientPickResult(
-                            scope: 'top3',
-                            label: 'Top 3',
-                          ),
+                      )
+                    : NotificationListener<ScrollNotification>(
+                        onNotification: _onScrollNotification,
+                        child: ListView.builder(
+                          controller: scrollController,
+                          padding: const EdgeInsets.fromLTRB(12, 0, 12, 24),
+                          itemCount: (showShortcuts ? 2 : 0) +
+                              _items.length +
+                              (showEmpty ? 1 : 0) +
+                              (showFooter ? 1 : 0),
+                          itemBuilder: (context, index) {
+                            var i = index;
+                            if (showShortcuts) {
+                              if (i == 0) {
+                                return _ClientPickTile(
+                                  title: 'Top 3',
+                                  subtitle: widget.topClients.isEmpty
+                                      ? 'Highest outstanding receivables'
+                                      : widget.topClients
+                                          .map((c) => c.name)
+                                          .join(' · '),
+                                  selected: widget.selectedScope == 'top3',
+                                  leading: Container(
+                                    width: 40,
+                                    height: 40,
+                                    decoration: BoxDecoration(
+                                      shape: BoxShape.circle,
+                                      color:
+                                          Colors.white.withValues(alpha: 0.12),
+                                      border: Border.all(
+                                        color: Colors.white
+                                            .withValues(alpha: 0.22),
+                                      ),
+                                    ),
+                                    child: const Icon(
+                                      Icons.emoji_events_rounded,
+                                      color: ClientsVendorsTheme.iconAccent,
+                                      size: 20,
+                                    ),
+                                  ),
+                                  onTap: () => Navigator.pop(
+                                    context,
+                                    const _ClientPickResult(
+                                      scope: 'top3',
+                                      label: 'Top 3',
+                                    ),
+                                  ),
+                                );
+                              }
+                              if (i == 1) {
+                                return Padding(
+                                  padding:
+                                      const EdgeInsets.fromLTRB(8, 14, 8, 8),
+                                  child: Text(
+                                    'All clients',
+                                    style: GoogleFonts.poppins(
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.w600,
+                                      color: Colors.white60,
+                                    ),
+                                  ),
+                                );
+                              }
+                              i -= 2;
+                            }
+
+                            if (i < _items.length) {
+                              final c = _items[i];
+                              return _ClientPickTile(
+                                title: c.name,
+                                selected: widget.selectedScope == 'client' &&
+                                    widget.selectedPartnerId == c.id,
+                                leading: ClientsPartnerAvatar(
+                                  imageUrl: c.imageUrl,
+                                  name: c.name,
+                                  size: 40,
+                                ),
+                                onTap: () => Navigator.pop(
+                                  context,
+                                  _ClientPickResult(
+                                    scope: 'client',
+                                    partnerId: c.id,
+                                    label: c.name,
+                                  ),
+                                ),
+                              );
+                            }
+                            i -= _items.length;
+
+                            if (showEmpty && i == 0) {
+                              return Padding(
+                                padding: const EdgeInsets.all(24),
+                                child: Text(
+                                  _error ??
+                                      (q.isEmpty
+                                          ? 'No clients found.'
+                                          : 'No clients match your search.'),
+                                  textAlign: TextAlign.center,
+                                  style: GoogleFonts.poppins(
+                                    fontSize: 13,
+                                    color: Colors.white70,
+                                  ),
+                                ),
+                              );
+                            }
+
+                            return Padding(
+                              padding: const EdgeInsets.symmetric(vertical: 16),
+                              child: Center(
+                                child: _loadingMore
+                                    ? const SizedBox(
+                                        width: 22,
+                                        height: 22,
+                                        child: CircularProgressIndicator(
+                                          strokeWidth: 2,
+                                          color: Colors.white70,
+                                        ),
+                                      )
+                                    : const SizedBox.shrink(),
+                              ),
+                            );
+                          },
                         ),
                       ),
-                      Padding(
-                        padding: const EdgeInsets.fromLTRB(8, 14, 8, 8),
-                        child: Text(
-                          'All clients',
-                          style: GoogleFonts.poppins(
-                            fontSize: 11,
-                            fontWeight: FontWeight.w600,
-                            color: Colors.white60,
-                          ),
-                        ),
-                      ),
-                    ],
-                    for (final c in filtered)
-                      _ClientPickTile(
-                        title: c.name,
-                        selected: widget.selectedScope == 'client' &&
-                            widget.selectedPartnerId == c.id,
-                        leading: ClientsPartnerAvatar(
-                          imageUrl: c.imageUrl,
-                          name: c.name,
-                          size: 40,
-                        ),
-                        onTap: () => Navigator.pop(
-                          context,
-                          _ClientPickResult(
-                            scope: 'client',
-                            partnerId: c.id,
-                            label: c.name,
-                          ),
-                        ),
-                      ),
-                    if (filtered.isEmpty)
-                      Padding(
-                        padding: const EdgeInsets.all(24),
-                        child: Text(
-                          'No clients match your search.',
-                          textAlign: TextAlign.center,
-                          style: GoogleFonts.poppins(
-                            fontSize: 13,
-                            color: Colors.white70,
-                          ),
-                        ),
-                      ),
-                  ],
-                ),
               ),
             ],
           ),

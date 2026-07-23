@@ -1,6 +1,8 @@
+import 'dart:async';
 import 'dart:math' as math;
 import 'dart:ui';
 
+import 'package:el_race/core/clients_vendors/clients_vendors_route_names.dart';
 import 'package:el_race/ui/presentation/clients_vendors/data/vendors_dashboard_repository.dart';
 import 'package:el_race/ui/presentation/clients_vendors/theme/vendors_theme.dart';
 import 'package:el_race/ui/presentation/clients_vendors/widgets/clients_list_chrome.dart';
@@ -126,6 +128,34 @@ class _VendorsDashboardBodyState extends State<_VendorsDashboardBody> {
   static String _kmOnly(String formatted) =>
       formatted.replaceFirst(RegExp(r'^AED\s*', caseSensitive: false), '');
 
+  static String _fmtMom(double pct) {
+    final sign = pct > 0 ? '+' : '';
+    return '$sign${pct.toStringAsFixed(1)}%';
+  }
+
+  void _openBills(String scope) {
+    final partnerName =
+        _partnerId != null && _vendorLabel != 'All Vendors' ? _vendorLabel : null;
+    Navigator.of(context).pushNamed(
+      ClientsVendorsRouteNames.vendorBills,
+      arguments: VendorBillsArgs(
+        scope: scope,
+        year: scope == 'outstanding' ||
+                scope == 'overdue' ||
+                scope == 'due_soon'
+            ? null
+            : _year,
+        month: scope == 'outstanding' ||
+                scope == 'overdue' ||
+                scope == 'due_soon'
+            ? null
+            : _month,
+        partnerId: _partnerId,
+        partnerName: partnerName,
+      ),
+    );
+  }
+
   @override
   void initState() {
     super.initState();
@@ -177,13 +207,11 @@ class _VendorsDashboardBodyState extends State<_VendorsDashboardBody> {
   }
 
   Future<void> _openVendorPicker() async {
-    final data = _data ?? VendorsDashboardData.empty(year: _year, month: _month);
     final result = await showModalBottomSheet<_VendorPickResult>(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (context) => _VendorPickerSheet(
-        vendors: data.vendors,
         selectedPartnerId: _partnerId,
       ),
     );
@@ -232,50 +260,77 @@ class _VendorsDashboardBodyState extends State<_VendorsDashboardBody> {
               ),
             ),
           SizedBox(
-            height: 178,
+            height: 210,
             child: Stack(
               children: [
                 Row(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
                     Expanded(
-                      child: _VendorsKpiCard(
-                        titleLine1: 'Total',
-                        titleLine2: 'Purchases',
-                        value: _kmOnly(data.totalPurchasesFormatted),
-                        footer: _month == null ? 'YTD' : _monthNames[_month! - 1],
-                        icon: Icons.bar_chart_rounded,
-                        borderColor: VendorsTheme.iconPurchases,
+                      child: PressableScale(
+                        onTap: () => _openBills('purchases'),
+                        child: _VendorsKpiCard(
+                          titleLine1: 'Total',
+                          titleLine2: 'Purchases',
+                          value: _kmOnly(data.totalPurchasesFormatted),
+                          footer: _month == null
+                              ? 'YTD'
+                              : _monthNames[_month! - 1],
+                          footerAccent: _fmtMom(data.purchasesMomPct),
+                          footerAccentColor: data.purchasesMomPct >= 0
+                              ? VendorsTheme.iconPaid
+                              : const Color(0xFFE53E3E),
+                          icon: Icons.bar_chart_rounded,
+                          borderColor: VendorsTheme.iconPurchases,
+                        ),
                       ),
                     ),
                     const SizedBox(width: 10),
                     Expanded(
-                      child: _VendorsKpiCard(
-                        titleLine1: 'Total Paid',
-                        titleLine2: 'to Vendors',
-                        value: _kmOnly(data.totalPaidFormatted),
-                        footer: _month == null ? 'YTD' : _monthNames[_month! - 1],
-                        icon: Icons.check_box_rounded,
-                        borderColor: VendorsTheme.iconPaid,
-                        midText:
-                            '${data.paidPct.toStringAsFixed(data.paidPct % 1 == 0 ? 0 : 1)}% Paid',
+                      child: PressableScale(
+                        onTap: () => _openBills('paid'),
+                        child: _VendorsKpiCard(
+                          titleLine1: 'Total Paid',
+                          titleLine2: 'to Vendors',
+                          value: _kmOnly(data.totalPaidFormatted),
+                          footer: data.paidInvoiceCount == 1
+                              ? '1 invoice'
+                              : '${data.paidInvoiceCount} invoices',
+                          icon: Icons.check_box_rounded,
+                          borderColor: VendorsTheme.iconPaid,
+                          midText:
+                              '${data.paidPct.toStringAsFixed(data.paidPct % 1 == 0 ? 0 : 1)}% Paid',
+                        ),
                       ),
                     ),
                     const SizedBox(width: 10),
                     Expanded(
-                      child: _VendorsKpiCard(
-                        titleLine1: 'Outstanding',
-                        titleLine2: 'Payables',
-                        value: _kmOnly(data.outstandingPayablesFormatted),
-                        footer: 'Due / Over',
-                        icon: Icons.account_balance_wallet_rounded,
-                        borderColor: VendorsTheme.iconPayables,
-                        midText: data.overduePayables > 0.009
-                            ? 'Overdue'
-                            : null,
-                        midSubValue: data.overduePayables > 0.009
-                            ? _kmOnly(data.overduePayablesFormatted)
-                            : null,
+                      child: PressableScale(
+                        onTap: () => _openBills('outstanding'),
+                        child: _VendorsKpiCard(
+                          titleLine1: 'Outstanding',
+                          titleLine2: 'Payables',
+                          value: _kmOnly(data.outstandingPayablesFormatted),
+                          footer: 'All open',
+                          icon: Icons.account_balance_wallet_rounded,
+                          borderColor: VendorsTheme.iconPayables,
+                          midText: data.overdueCount > 0 ||
+                                  data.overduePayables > 0.009
+                              ? 'Overdue · ${data.overdueCount}'
+                              : null,
+                          midSubValue: data.overduePayables > 0.009
+                              ? _kmOnly(data.overduePayablesFormatted)
+                              : null,
+                          midOnTap: () => _openBills('overdue'),
+                          secondaryMidText: data.dueSoonCount > 0 ||
+                                  data.dueSoonAmount > 0.009
+                              ? 'Due soon · ${data.dueSoonCount}'
+                              : null,
+                          secondaryMidSubValue: data.dueSoonAmount > 0.009
+                              ? _kmOnly(data.dueSoonAmountFormatted)
+                              : null,
+                          secondaryMidOnTap: () => _openBills('due_soon'),
+                        ),
                       ),
                     ),
                   ],
@@ -492,11 +547,9 @@ class _GlassDropdown<T> extends StatelessWidget {
 
 class _VendorPickerSheet extends StatefulWidget {
   const _VendorPickerSheet({
-    required this.vendors,
     required this.selectedPartnerId,
   });
 
-  final List<VendorsDashboardVendorOption> vendors;
   final int? selectedPartnerId;
 
   @override
@@ -504,23 +557,105 @@ class _VendorPickerSheet extends StatefulWidget {
 }
 
 class _VendorPickerSheetState extends State<_VendorPickerSheet> {
+  static const _pageSize = 40;
+
+  final _repo = VendorsDashboardRepository();
   final _search = TextEditingController();
+  Timer? _debounce;
+
+  List<VendorsDashboardVendorOption> _items = const [];
   String _query = '';
+  bool _loading = true;
+  bool _loadingMore = false;
+  bool _hasMore = true;
+  String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    _load(reset: true);
+  }
 
   @override
   void dispose() {
+    _debounce?.cancel();
     _search.dispose();
     super.dispose();
   }
 
+  void _onSearchChanged(String value) {
+    _debounce?.cancel();
+    _debounce = Timer(const Duration(milliseconds: 350), () {
+      if (!mounted) return;
+      _query = value;
+      _load(reset: true);
+    });
+  }
+
+  bool _onScrollNotification(ScrollNotification n) {
+    if (n.metrics.pixels < n.metrics.maxScrollExtent - 120) return false;
+    if (_loading || _loadingMore || !_hasMore) return false;
+    _load(reset: false);
+    return false;
+  }
+
+  Future<void> _load({required bool reset}) async {
+    if (reset) {
+      setState(() {
+        _loading = true;
+        _error = null;
+        _hasMore = true;
+      });
+    } else {
+      if (!_hasMore || _loadingMore) return;
+      setState(() => _loadingMore = true);
+    }
+
+    final offset = reset ? 0 : _items.length;
+    try {
+      final page = await _repo.fetchPartners(
+        keyword: _query,
+        offset: offset,
+        limit: _pageSize,
+      );
+      if (!mounted) return;
+      setState(() {
+        _items = reset ? page.items : [..._items, ...page.items];
+        _hasMore = page.hasMore;
+        _loading = false;
+        _loadingMore = false;
+        _error = null;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _loading = false;
+        _loadingMore = false;
+        if (reset) {
+          _items = const [];
+          _error = 'Could not load vendors.';
+        }
+      });
+    }
+  }
+
+  String _typeLabel(String type) {
+    switch (type) {
+      case 'supplier':
+        return 'Supplier';
+      case 'subcontractor':
+        return 'Subcontractor';
+      default:
+        return '';
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
-    final q = _query.trim().toLowerCase();
-    final filtered = q.isEmpty
-        ? widget.vendors
-        : widget.vendors
-            .where((v) => v.name.toLowerCase().contains(q))
-            .toList();
+    final q = _query.trim();
+    final showAllTile = q.isEmpty;
+    final showEmpty = !_loading && _items.isEmpty;
+    final showFooter = _loadingMore || (_hasMore && _items.isNotEmpty);
 
     return DraggableScrollableSheet(
       initialChildSize: 0.72,
@@ -566,7 +701,7 @@ class _VendorPickerSheetState extends State<_VendorPickerSheet> {
                     const SizedBox(height: 12),
                     TextField(
                       controller: _search,
-                      onChanged: (v) => setState(() => _query = v),
+                      onChanged: _onSearchChanged,
                       style: GoogleFonts.poppins(
                         fontSize: 13,
                         color: Colors.white,
@@ -606,66 +741,117 @@ class _VendorPickerSheetState extends State<_VendorPickerSheet> {
                 ),
               ),
               Expanded(
-                child: ListView(
-                  controller: scrollController,
-                  padding: const EdgeInsets.fromLTRB(12, 0, 12, 24),
-                  children: [
-                    if (q.isEmpty)
-                      _VendorPickTile(
-                        title: 'All Vendors',
-                        selected: widget.selectedPartnerId == null,
-                        leading: Container(
-                          width: 40,
-                          height: 40,
-                          decoration: BoxDecoration(
-                            shape: BoxShape.circle,
-                            color: Colors.white.withValues(alpha: 0.12),
-                            border: Border.all(
-                              color: Colors.white.withValues(alpha: 0.22),
-                            ),
-                          ),
-                          child: const Icon(
-                            Icons.storefront_rounded,
-                            color: VendorsTheme.glowBright,
-                            size: 20,
-                          ),
+                child: _loading && _items.isEmpty
+                    ? const Center(
+                        child: CircularProgressIndicator(
+                          color: Colors.white70,
+                          strokeWidth: 2.5,
                         ),
-                        onTap: () => Navigator.pop(
-                          context,
-                          const _VendorPickResult(label: 'All Vendors'),
+                      )
+                    : NotificationListener<ScrollNotification>(
+                        onNotification: _onScrollNotification,
+                        child: ListView.builder(
+                          controller: scrollController,
+                          padding: const EdgeInsets.fromLTRB(12, 0, 12, 24),
+                          itemCount: (showAllTile ? 1 : 0) +
+                              _items.length +
+                              (showEmpty ? 1 : 0) +
+                              (showFooter ? 1 : 0),
+                          itemBuilder: (context, index) {
+                            var i = index;
+                            if (showAllTile) {
+                              if (i == 0) {
+                                return _VendorPickTile(
+                                  title: 'All Vendors',
+                                  selected: widget.selectedPartnerId == null,
+                                  leading: Container(
+                                    width: 40,
+                                    height: 40,
+                                    decoration: BoxDecoration(
+                                      shape: BoxShape.circle,
+                                      color:
+                                          Colors.white.withValues(alpha: 0.12),
+                                      border: Border.all(
+                                        color: Colors.white
+                                            .withValues(alpha: 0.22),
+                                      ),
+                                    ),
+                                    child: const Icon(
+                                      Icons.storefront_rounded,
+                                      color: VendorsTheme.glowBright,
+                                      size: 20,
+                                    ),
+                                  ),
+                                  onTap: () => Navigator.pop(
+                                    context,
+                                    const _VendorPickResult(
+                                      label: 'All Vendors',
+                                    ),
+                                  ),
+                                );
+                              }
+                              i -= 1;
+                            }
+
+                            if (i < _items.length) {
+                              final v = _items[i];
+                              final typeLabel = _typeLabel(v.customerType);
+                              return _VendorPickTile(
+                                title: typeLabel.isEmpty
+                                    ? v.name
+                                    : '${v.name} · $typeLabel',
+                                selected: widget.selectedPartnerId == v.id,
+                                leading: ClientsPartnerAvatar(
+                                  imageUrl: v.imageUrl,
+                                  name: v.name,
+                                  size: 40,
+                                ),
+                                onTap: () => Navigator.pop(
+                                  context,
+                                  _VendorPickResult(
+                                    partnerId: v.id,
+                                    label: v.name,
+                                  ),
+                                ),
+                              );
+                            }
+                            i -= _items.length;
+
+                            if (showEmpty && i == 0) {
+                              return Padding(
+                                padding: const EdgeInsets.all(24),
+                                child: Text(
+                                  _error ??
+                                      (q.isEmpty
+                                          ? 'No vendors found.'
+                                          : 'No vendors match your search.'),
+                                  textAlign: TextAlign.center,
+                                  style: GoogleFonts.poppins(
+                                    fontSize: 13,
+                                    color: Colors.white70,
+                                  ),
+                                ),
+                              );
+                            }
+
+                            return Padding(
+                              padding: const EdgeInsets.symmetric(vertical: 16),
+                              child: Center(
+                                child: _loadingMore
+                                    ? const SizedBox(
+                                        width: 22,
+                                        height: 22,
+                                        child: CircularProgressIndicator(
+                                          strokeWidth: 2,
+                                          color: Colors.white70,
+                                        ),
+                                      )
+                                    : const SizedBox.shrink(),
+                              ),
+                            );
+                          },
                         ),
                       ),
-                    for (final v in filtered)
-                      _VendorPickTile(
-                        title: v.name,
-                        selected: widget.selectedPartnerId == v.id,
-                        leading: ClientsPartnerAvatar(
-                          imageUrl: v.imageUrl,
-                          name: v.name,
-                          size: 40,
-                        ),
-                        onTap: () => Navigator.pop(
-                          context,
-                          _VendorPickResult(
-                            partnerId: v.id,
-                            label: v.name,
-                          ),
-                        ),
-                      ),
-                    if (filtered.isEmpty)
-                      Padding(
-                        padding: const EdgeInsets.all(24),
-                        child: Text(
-                          'No vendors match your search.',
-                          textAlign: TextAlign.center,
-                          style: GoogleFonts.poppins(
-                            fontSize: 13,
-                            color: Colors.white70,
-                          ),
-                        ),
-                      ),
-                  ],
-                ),
               ),
             ],
           ),
@@ -752,6 +938,12 @@ class _VendorsKpiCard extends StatelessWidget {
     required this.borderColor,
     this.midText,
     this.midSubValue,
+    this.midOnTap,
+    this.secondaryMidText,
+    this.secondaryMidSubValue,
+    this.secondaryMidOnTap,
+    this.footerAccent,
+    this.footerAccentColor,
   });
 
   final String titleLine1;
@@ -762,6 +954,12 @@ class _VendorsKpiCard extends StatelessWidget {
   final Color borderColor;
   final String? midText;
   final String? midSubValue;
+  final VoidCallback? midOnTap;
+  final String? secondaryMidText;
+  final String? secondaryMidSubValue;
+  final VoidCallback? secondaryMidOnTap;
+  final String? footerAccent;
+  final Color? footerAccentColor;
 
   @override
   Widget build(BuildContext context) {
@@ -864,47 +1062,112 @@ class _VendorsKpiCard extends StatelessWidget {
             ),
             if (midText != null) ...[
               const SizedBox(height: 4),
-              Text(
-                midText!,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                textAlign: TextAlign.center,
-                style: GoogleFonts.poppins(
-                  fontSize: 9,
-                  fontWeight: FontWeight.w600,
-                  color: VendorsTheme.kpiMuted,
-                  height: 1.1,
-                ),
+              _KpiMidBlock(
+                label: midText!,
+                value: midSubValue,
+                onTap: midOnTap,
               ),
             ],
-            if (midSubValue != null) ...[
+            if (secondaryMidText != null) ...[
               const SizedBox(height: 2),
-              Text(
-                midSubValue!,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                textAlign: TextAlign.center,
-                style: GoogleFonts.poppins(
-                  fontSize: 10,
-                  fontWeight: FontWeight.w700,
-                  color: VendorsTheme.kpiValue,
-                  height: 1.1,
-                ),
+              _KpiMidBlock(
+                label: secondaryMidText!,
+                value: secondaryMidSubValue,
+                onTap: secondaryMidOnTap,
               ),
             ],
             const Spacer(),
-            Text(
-              footer,
-              textAlign: TextAlign.center,
-              style: GoogleFonts.poppins(
-                fontSize: 9,
-                fontWeight: FontWeight.w500,
-                color: VendorsTheme.kpiMuted,
-              ),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Flexible(
+                  child: Text(
+                    footer,
+                    textAlign: TextAlign.center,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: GoogleFonts.poppins(
+                      fontSize: 9,
+                      fontWeight: FontWeight.w500,
+                      color: VendorsTheme.kpiMuted,
+                    ),
+                  ),
+                ),
+                if (footerAccent != null) ...[
+                  Text(
+                    ' · ',
+                    style: GoogleFonts.poppins(
+                      fontSize: 9,
+                      color: VendorsTheme.kpiMuted,
+                    ),
+                  ),
+                  Text(
+                    footerAccent!,
+                    style: GoogleFonts.poppins(
+                      fontSize: 9,
+                      fontWeight: FontWeight.w700,
+                      color: footerAccentColor ?? VendorsTheme.iconPurchases,
+                    ),
+                  ),
+                ],
+              ],
             ),
           ],
         ),
       ),
+    );
+  }
+}
+
+class _KpiMidBlock extends StatelessWidget {
+  const _KpiMidBlock({
+    required this.label,
+    this.value,
+    this.onTap,
+  });
+
+  final String label;
+  final String? value;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final content = Column(
+      children: [
+        Text(
+          label,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          textAlign: TextAlign.center,
+          style: GoogleFonts.poppins(
+            fontSize: 9,
+            fontWeight: FontWeight.w600,
+            color: VendorsTheme.kpiMuted,
+            height: 1.1,
+          ),
+        ),
+        if (value != null) ...[
+          const SizedBox(height: 1),
+          Text(
+            value!,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            textAlign: TextAlign.center,
+            style: GoogleFonts.poppins(
+              fontSize: 10,
+              fontWeight: FontWeight.w700,
+              color: VendorsTheme.kpiValue,
+              height: 1.1,
+            ),
+          ),
+        ],
+      ],
+    );
+    if (onTap == null) return content;
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: onTap,
+      child: content,
     );
   }
 }

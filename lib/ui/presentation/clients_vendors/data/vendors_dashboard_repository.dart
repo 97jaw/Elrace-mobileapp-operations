@@ -9,11 +9,13 @@ class VendorsDashboardVendorOption {
     required this.id,
     required this.name,
     this.imageUrl = '',
+    this.customerType = '',
   });
 
   final int id;
   final String name;
   final String imageUrl;
+  final String customerType;
 
   factory VendorsDashboardVendorOption.fromJson(Map<String, dynamic> json) {
     final id = (json['id'] as num?)?.toInt() ?? 0;
@@ -27,6 +29,44 @@ class VendorsDashboardVendorOption {
       id: id,
       name: (json['name'] as String?)?.trim() ?? '',
       imageUrl: imageUrl,
+      customerType: (json['customer_type'] as String?)?.trim() ?? '',
+    );
+  }
+}
+
+class VendorsPartnerOptionsPage {
+  const VendorsPartnerOptionsPage({
+    required this.items,
+    required this.total,
+    required this.hasMore,
+    required this.offset,
+    required this.limit,
+  });
+
+  final List<VendorsDashboardVendorOption> items;
+  final int total;
+  final bool hasMore;
+  final int offset;
+  final int limit;
+
+  factory VendorsPartnerOptionsPage.fromJson(Map<String, dynamic> json) {
+    final raw = json['items'];
+    return VendorsPartnerOptionsPage(
+      items: raw is List
+          ? raw
+              .whereType<Map>()
+              .map(
+                (e) => VendorsDashboardVendorOption.fromJson(
+                  Map<String, dynamic>.from(e),
+                ),
+              )
+              .where((e) => e.id > 0)
+              .toList()
+          : const [],
+      total: (json['total'] as num?)?.toInt() ?? 0,
+      hasMore: json['has_more'] == true,
+      offset: (json['offset'] as num?)?.toInt() ?? 0,
+      limit: (json['limit'] as num?)?.toInt() ?? 40,
     );
   }
 }
@@ -153,13 +193,18 @@ class VendorsDashboardData {
     required this.partnerId,
     required this.years,
     required this.months,
-    required this.vendors,
     required this.totalPurchasesFormatted,
+    required this.purchasesMomPct,
     required this.totalPaidFormatted,
     required this.paidPct,
+    required this.paidInvoiceCount,
     required this.outstandingPayablesFormatted,
     required this.overduePayablesFormatted,
     required this.overduePayables,
+    required this.overdueCount,
+    required this.dueSoonAmountFormatted,
+    required this.dueSoonAmount,
+    required this.dueSoonCount,
     required this.peakMonth,
     required this.peakAnnotation,
     required this.aging,
@@ -171,13 +216,18 @@ class VendorsDashboardData {
   final int? partnerId;
   final List<int> years;
   final List<VendorsDashboardMonthPoint> months;
-  final List<VendorsDashboardVendorOption> vendors;
   final String totalPurchasesFormatted;
+  final double purchasesMomPct;
   final String totalPaidFormatted;
   final double paidPct;
+  final int paidInvoiceCount;
   final String outstandingPayablesFormatted;
   final String overduePayablesFormatted;
   final double overduePayables;
+  final int overdueCount;
+  final String dueSoonAmountFormatted;
+  final double dueSoonAmount;
+  final int dueSoonCount;
   final int? peakMonth;
   final String peakAnnotation;
   final List<VendorsDashboardAgingBucket> aging;
@@ -191,13 +241,18 @@ class VendorsDashboardData {
       partnerId: null,
       years: [y - 2, y - 1, y],
       months: VendorsDashboardMonthPoint.emptySeries(),
-      vendors: const [],
       totalPurchasesFormatted: 'AED 0',
+      purchasesMomPct: 0,
       totalPaidFormatted: 'AED 0',
       paidPct: 0,
+      paidInvoiceCount: 0,
       outstandingPayablesFormatted: 'AED 0',
       overduePayablesFormatted: 'AED 0',
       overduePayables: 0,
+      overdueCount: 0,
+      dueSoonAmountFormatted: 'AED 0',
+      dueSoonAmount: 0,
+      dueSoonCount: 0,
       peakMonth: null,
       peakAnnotation: '',
       aging: VendorsDashboardAgingBucket.empty(),
@@ -206,7 +261,6 @@ class VendorsDashboardData {
 
   factory VendorsDashboardData.fromJson(Map<String, dynamic> json) {
     final yearsRaw = json['years'];
-    final vendorsRaw = json['vendors'];
     final monthsRaw = json['months'];
     final agingRaw = json['aging'];
     final partnerRaw = json['partner_id'];
@@ -230,27 +284,23 @@ class VendorsDashboardData {
               )
               .toList()
           : VendorsDashboardMonthPoint.emptySeries(),
-      vendors: vendorsRaw is List
-          ? vendorsRaw
-              .whereType<Map>()
-              .map(
-                (e) => VendorsDashboardVendorOption.fromJson(
-                  Map<String, dynamic>.from(e),
-                ),
-              )
-              .where((v) => v.id > 0 && v.name.isNotEmpty)
-              .toList()
-          : const [],
       totalPurchasesFormatted:
           (json['total_purchases_formatted'] as String?) ?? 'AED 0',
+      purchasesMomPct: (json['purchases_mom_pct'] as num?)?.toDouble() ?? 0,
       totalPaidFormatted:
           (json['total_paid_formatted'] as String?) ?? 'AED 0',
       paidPct: (json['paid_pct'] as num?)?.toDouble() ?? 0,
+      paidInvoiceCount: (json['paid_invoice_count'] as num?)?.toInt() ?? 0,
       outstandingPayablesFormatted:
           (json['outstanding_payables_formatted'] as String?) ?? 'AED 0',
       overduePayablesFormatted:
           (json['overdue_payables_formatted'] as String?) ?? 'AED 0',
       overduePayables: (json['overdue_payables'] as num?)?.toDouble() ?? 0,
+      overdueCount: (json['overdue_count'] as num?)?.toInt() ?? 0,
+      dueSoonAmountFormatted:
+          (json['due_soon_amount_formatted'] as String?) ?? 'AED 0',
+      dueSoonAmount: (json['due_soon_amount'] as num?)?.toDouble() ?? 0,
+      dueSoonCount: (json['due_soon_count'] as num?)?.toInt() ?? 0,
       peakMonth:
           peakMonthRaw == null ? null : (peakMonthRaw as num).toInt(),
       peakAnnotation: (json['peak_annotation'] as String?)?.trim() ?? '',
@@ -295,6 +345,29 @@ class VendorsDashboardRepository {
       return VendorsDashboardData.empty(year: year, month: month);
     }
     return VendorsDashboardData.fromJson(data);
+  }
+
+  Future<VendorsPartnerOptionsPage> fetchPartners({
+    String keyword = '',
+    int offset = 0,
+    int limit = 40,
+  }) async {
+    final result = await _post('/vendors/partners', {
+      if (keyword.trim().isNotEmpty) 'keyword': keyword.trim(),
+      'offset': offset,
+      'limit': limit,
+    });
+    final data = _unwrap(result);
+    if (data == null) {
+      return const VendorsPartnerOptionsPage(
+        items: [],
+        total: 0,
+        hasMore: false,
+        offset: 0,
+        limit: 40,
+      );
+    }
+    return VendorsPartnerOptionsPage.fromJson(data);
   }
 
   Map<String, dynamic>? _unwrap(Map<String, dynamic>? result) {

@@ -9,11 +9,13 @@ class ClientsDashboardClientOption {
     required this.id,
     required this.name,
     this.imageUrl = '',
+    this.customerType = '',
   });
 
   final int id;
   final String name;
   final String imageUrl;
+  final String customerType;
 
   factory ClientsDashboardClientOption.fromJson(Map<String, dynamic> json) {
     final id = (json['id'] as num?)?.toInt() ?? 0;
@@ -27,6 +29,44 @@ class ClientsDashboardClientOption {
       id: id,
       name: (json['name'] as String?)?.trim() ?? '',
       imageUrl: imageUrl,
+      customerType: (json['customer_type'] as String?)?.trim() ?? '',
+    );
+  }
+}
+
+class ClientsPartnerOptionsPage {
+  const ClientsPartnerOptionsPage({
+    required this.items,
+    required this.total,
+    required this.hasMore,
+    required this.offset,
+    required this.limit,
+  });
+
+  final List<ClientsDashboardClientOption> items;
+  final int total;
+  final bool hasMore;
+  final int offset;
+  final int limit;
+
+  factory ClientsPartnerOptionsPage.fromJson(Map<String, dynamic> json) {
+    final raw = json['items'];
+    return ClientsPartnerOptionsPage(
+      items: raw is List
+          ? raw
+              .whereType<Map>()
+              .map(
+                (e) => ClientsDashboardClientOption.fromJson(
+                  Map<String, dynamic>.from(e),
+                ),
+              )
+              .where((e) => e.id > 0)
+              .toList()
+          : const [],
+      total: (json['total'] as num?)?.toInt() ?? 0,
+      hasMore: json['has_more'] == true,
+      offset: (json['offset'] as num?)?.toInt() ?? 0,
+      limit: (json['limit'] as num?)?.toInt() ?? 40,
     );
   }
 }
@@ -61,7 +101,6 @@ class ClientsDashboardData {
     required this.partnerId,
     required this.scope,
     required this.years,
-    required this.clients,
     required this.topClients,
     required this.months,
     required this.amountDue,
@@ -80,7 +119,6 @@ class ClientsDashboardData {
   /// `top3` or `client`
   final String scope;
   final List<int> years;
-  final List<ClientsDashboardClientOption> clients;
   final List<ClientsDashboardClientOption> topClients;
   final List<ClientsDashboardMonthPoint> months;
   final double amountDue;
@@ -103,7 +141,6 @@ class ClientsDashboardData {
       partnerId: null,
       scope: 'top3',
       years: [y - 2, y - 1, y],
-      clients: const [],
       topClients: const [],
       months: [
         for (var i = 0; i < 12; i++)
@@ -126,7 +163,6 @@ class ClientsDashboardData {
 
   factory ClientsDashboardData.fromJson(Map<String, dynamic> json) {
     final yearsRaw = json['years'];
-    final clientsRaw = json['clients'];
     final topRaw = json['top_clients'];
     final monthsRaw = json['months'];
     final partnerRaw = json['partner_id'];
@@ -154,7 +190,6 @@ class ClientsDashboardData {
       years: yearsRaw is List
           ? yearsRaw.map((e) => (e as num).toInt()).toList()
           : <int>[DateTime.now().year],
-      clients: parseClients(clientsRaw),
       topClients: parseClients(topRaw),
       months: monthsRaw is List
           ? monthsRaw
@@ -209,6 +244,29 @@ class ClientsDashboardRepository {
       return ClientsDashboardData.empty(year: year);
     }
     return ClientsDashboardData.fromJson(data);
+  }
+
+  Future<ClientsPartnerOptionsPage> fetchPartners({
+    String keyword = '',
+    int offset = 0,
+    int limit = 40,
+  }) async {
+    final result = await _post('/clients/partners', {
+      if (keyword.trim().isNotEmpty) 'keyword': keyword.trim(),
+      'offset': offset,
+      'limit': limit,
+    });
+    final data = _unwrap(result);
+    if (data == null) {
+      return const ClientsPartnerOptionsPage(
+        items: [],
+        total: 0,
+        hasMore: false,
+        offset: 0,
+        limit: 40,
+      );
+    }
+    return ClientsPartnerOptionsPage.fromJson(data);
   }
 
   Map<String, dynamic>? _unwrap(Map<String, dynamic>? result) {

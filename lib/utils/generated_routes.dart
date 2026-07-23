@@ -11,6 +11,7 @@ import 'package:el_race/ui/presentation/clients_vendors/clients_screen.dart';
 import 'package:el_race/ui/presentation/clients_vendors/vendors_screen.dart';
 import 'package:el_race/ui/presentation/clients_vendors/screens/accounts_receivable_screen.dart';
 import 'package:el_race/ui/presentation/clients_vendors/screens/outstanding_invoices_screen.dart';
+import 'package:el_race/ui/presentation/clients_vendors/screens/vendor_bills_screen.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:el_race/ui/presentation/home_screen/screens/home_screen.dart';
@@ -175,6 +176,15 @@ class OnGeneratedRoutes {
         return CupertinoPageRoute(
           builder: (_) => OutstandingInvoicesScreen(
             args: oiArgs is OutstandingInvoicesArgs ? oiArgs : null,
+          ),
+        );
+      case ClientsVendorsRouteNames.vendorBills:
+        final vbArgs = settings.arguments;
+        return CupertinoPageRoute(
+          builder: (_) => VendorBillsScreen(
+            args: vbArgs is VendorBillsArgs
+                ? vbArgs
+                : const VendorBillsArgs(scope: 'purchases'),
           ),
         );
       case TimesheetRouteNames.home:

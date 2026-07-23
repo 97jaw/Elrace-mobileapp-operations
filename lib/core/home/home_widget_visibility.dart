@@ -37,9 +37,26 @@ class HomeWidgetVisibility {
 
   /// Visible when not explicitly disabled. Missing widget info defaults to visible.
   bool isVisible(HomeWidgetCode code) {
+    if (code == HomeWidgetCode.vendors) {
+      return _isVendorsVisible();
+    }
+    // Sub-Contractors merged into Vendors — never show a separate card.
+    if (code == HomeWidgetCode.subContractors) {
+      return false;
+    }
     final info = _widgetInfo(code);
     if (info == null) return true;
     return info.isDisabled != true;
+  }
+
+  /// Vendors card: use vendors_widget; fall back to legacy sub_contractors_widget
+  /// when an older login payload only enabled Subs.
+  bool _isVendorsVisible() {
+    final vendors = _data?.vendorsWidget;
+    if (vendors != null) return vendors.isDisabled != true;
+    final legacySubs = _data?.subContractorsWidget;
+    if (legacySubs != null) return legacySubs.isDisabled != true;
+    return true;
   }
 
   bool get hasVisibleHr =>
@@ -60,8 +77,7 @@ class HomeWidgetVisibility {
         _data?.subContractorsWidget != null;
     if (!configured) return _isManagementFallback();
     return isVisible(HomeWidgetCode.clients) ||
-        isVisible(HomeWidgetCode.vendors) ||
-        isVisible(HomeWidgetCode.subContractors);
+        isVisible(HomeWidgetCode.vendors);
   }
 
   bool get hasVisiblePurchase => isVisible(HomeWidgetCode.lpo);
