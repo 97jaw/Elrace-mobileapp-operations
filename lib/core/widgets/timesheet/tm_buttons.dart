@@ -108,19 +108,21 @@ class _TmButtonContent extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.center,
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        if (icon != null) ...[
-          Icon(icon, size: 20, color: color),
-          const SizedBox(width: 8),
+    return FittedBox(
+      fit: BoxFit.scaleDown,
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (icon != null) ...[
+            Icon(icon, size: 20, color: color),
+            const SizedBox(width: 8),
+          ],
+          Text(
+            label,
+            style: TimesheetModuleTypography.button(color: color),
+          ),
         ],
-        Text(
-          label,
-          style: TimesheetModuleTypography.button(color: color),
-        ),
-      ],
+      ),
     );
   }
 }
