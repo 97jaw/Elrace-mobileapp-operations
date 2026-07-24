@@ -16,9 +16,9 @@ class HomeWidgetApiClient {
   static Future<void>? _inFlight;
 
   // Endpoints that the home UI actually consumes. Removed (never read by UI):
-  // clients / vendors / sub_contractors (cards show static values),
-  // task_management (UI uses TodoFirebaseProvider), tickets (UI uses
-  // TasksProvider), prayer_times (UI uses Aladhan via HomeBloc).
+  // sub_contractors (merged into vendors), task_management
+  // (UI uses TodoFirebaseProvider), tickets (UI uses TasksProvider),
+  // prayer_times (UI uses Aladhan via HomeBloc).
   static const _fetchOrder = <_WidgetFetch>[
     _WidgetFetch(HomeWidgetCode.attendance, 'attendance'),
     _WidgetFetch(HomeWidgetCode.hrms, 'hrms'),
@@ -26,8 +26,11 @@ class HomeWidgetApiClient {
     _WidgetFetch(HomeWidgetCode.myProjects, 'my_projects'),
     _WidgetFetch(HomeWidgetCode.siteManagement, 'site_management'),
     _WidgetFetch(HomeWidgetCode.myReports, 'my_reports'),
+    _WidgetFetch(HomeWidgetCode.clients, 'clients'),
+    _WidgetFetch(HomeWidgetCode.vendors, 'vendors'),
     _WidgetFetch(HomeWidgetCode.lpo, 'lpo'),
     _WidgetFetch(HomeWidgetCode.notes, 'notes'),
+    _WidgetFetch(HomeWidgetCode.sharedDocuments, 'shared_documents'),
     _WidgetFetch(HomeWidgetCode.pettyCash, 'petty_cash'),
     _WidgetFetch(HomeWidgetCode.myDocuments, 'my_documents'),
     _WidgetFetch(HomeWidgetCode.media, 'media'),
@@ -99,8 +102,6 @@ class HomeWidgetApiClient {
         if (raw != null) HomeWidgetSessionCache.clientsRaw = raw;
       case 'vendors':
         if (raw != null) HomeWidgetSessionCache.vendorsRaw = raw;
-      case 'sub_contractors':
-        if (raw != null) HomeWidgetSessionCache.subContractorsRaw = raw;
       case 'lpo':
         if (raw != null) HomeWidgetSessionCache.lpoRaw = raw;
       case 'notes':
@@ -109,6 +110,8 @@ class HomeWidgetApiClient {
         if (raw != null) HomeWidgetSessionCache.taskManagementRaw = raw;
       case 'tickets':
         if (raw != null) HomeWidgetSessionCache.ticketsRaw = raw;
+      case 'shared_documents':
+        if (raw != null) HomeWidgetSessionCache.sharedDocumentsRaw = raw;
       case 'petty_cash':
         if (raw != null) HomeWidgetSessionCache.pettyCashRaw = raw;
       case 'my_documents':

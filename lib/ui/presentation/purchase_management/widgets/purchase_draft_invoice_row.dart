@@ -2,8 +2,8 @@ import 'package:el_race/core/utils/responsive_breakpoints.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:el_race/ui/presentation/purchase_management/data/purchase_models.dart';
 import 'package:el_race/ui/presentation/purchase_management/theme/purchase_theme.dart';
+import 'package:el_race/ui/presentation/purchase_management/utils/purchase_number_format.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 class PurchaseDraftInvoiceRow extends StatelessWidget {
@@ -45,6 +45,11 @@ class PurchaseDraftInvoiceRow extends StatelessWidget {
                 : null,
           );
 
+    final subtitleParts = <String>[
+      if (item.invoiceId.isNotEmpty) item.invoiceId,
+      if (item.invoiceDate.isNotEmpty) item.invoiceDate,
+    ];
+
     return Material(
       color: Colors.transparent,
       child: InkWell(
@@ -76,40 +81,43 @@ class PurchaseDraftInvoiceRow extends StatelessWidget {
                     ),
                     SizedBox(height: 2.th),
                     Text(
-                      item.invoiceId,
+                      subtitleParts.isNotEmpty
+                          ? subtitleParts.join(' · ')
+                          : item.invoiceId,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                       style: GoogleFonts.poppins(
                         fontSize: 11.tsp,
                         color: PurchaseTheme.textSecondary,
                       ),
                     ),
+                    if (item.amountResidual > 0.01 &&
+                        item.displayStatus != 'PAID' &&
+                        item.displayStatus != 'DRAFT') ...[
+                      SizedBox(height: 2.th),
+                      Text(
+                        'Due ${formatPurchaseAed(item.amountResidual, currency: item.currency.isNotEmpty ? item.currency : 'AED')}',
+                        style: GoogleFonts.poppins(
+                          fontSize: 10.tsp,
+                          fontWeight: FontWeight.w600,
+                          color: const Color(0xFFC05621),
+                        ),
+                      ),
+                    ],
                   ],
                 ),
               ),
               Column(
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
-                  Container(
-                    padding:
-                        EdgeInsets.symmetric(horizontal: 8.tw, vertical: 3.th),
-                    decoration: BoxDecoration(
-                      gradient: PurchaseTheme.urgentAccentGradient,
-                      borderRadius: BorderRadius.circular(8.tr),
-                      border: Border.all(
-                        color: PurchaseTheme.pendingBadge.withValues(alpha: 0.35),
-                      ),
-                    ),
-                    child: Text(
-                      item.state,
-                      style: GoogleFonts.poppins(
-                        fontSize: 9.tsp,
-                        fontWeight: FontWeight.w700,
-                        color: PurchaseTheme.pendingBadge,
-                      ),
-                    ),
-                  ),
+                  InvoiceStatusBadge(label: item.displayStatus),
                   SizedBox(height: 4.th),
                   Text(
-                    item.timeAgo.isNotEmpty ? item.timeAgo : item.createDate,
+                    item.timeAgo.isNotEmpty
+                        ? item.timeAgo
+                        : (item.invoiceDate.isNotEmpty
+                            ? item.invoiceDate
+                            : item.createDate),
                     style: GoogleFonts.poppins(
                       fontSize: 10.tsp,
                       color: PurchaseTheme.textMuted,
@@ -117,7 +125,10 @@ class PurchaseDraftInvoiceRow extends StatelessWidget {
                   ),
                   SizedBox(height: 2.th),
                   Text(
-                    item.formattedAmount,
+                    formatPurchaseAed(
+                      item.amount,
+                      currency: item.currency.isNotEmpty ? item.currency : 'AED',
+                    ),
                     style: GoogleFonts.poppins(
                       fontSize: 13.tsp,
                       fontWeight: FontWeight.w700,
@@ -128,6 +139,54 @@ class PurchaseDraftInvoiceRow extends StatelessWidget {
               ),
             ],
           ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Status chip colors for vendor bill badges.
+class InvoiceStatusBadge extends StatelessWidget {
+  const InvoiceStatusBadge({super.key, required this.label});
+
+  final String label;
+
+  static Color colorFor(String raw) {
+    switch (raw.trim().toUpperCase()) {
+      case 'DRAFT':
+      case 'PENDING':
+        return PurchaseTheme.textMuted;
+      case 'NOT PAID':
+        return const Color(0xFFE53E3E);
+      case 'PARTIAL':
+      case 'IN PAYMENT':
+        return PurchaseTheme.pendingBadge;
+      case 'PAID':
+        return const Color(0xFF2F855A);
+      case 'CANCELLED':
+      case 'REVERSED':
+        return const Color(0xFF718096);
+      default:
+        return PurchaseTheme.accentDeep;
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final color = colorFor(label);
+    return Container(
+      padding: EdgeInsets.symmetric(horizontal: 8.tw, vertical: 3.th),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(8.tr),
+        border: Border.all(color: color.withValues(alpha: 0.35)),
+      ),
+      child: Text(
+        label.toUpperCase(),
+        style: GoogleFonts.poppins(
+          fontSize: 9.tsp,
+          fontWeight: FontWeight.w700,
+          color: color,
         ),
       ),
     );

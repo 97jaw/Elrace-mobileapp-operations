@@ -6,6 +6,7 @@ import 'package:el_race/ui/presentation/home_screen/providers/home_lpo_widget_pr
 import 'package:el_race/ui/presentation/home_screen/providers/home_notes_widget_provider.dart';
 import 'package:el_race/ui/presentation/home_screen/providers/home_petty_cash_widget_provider.dart';
 import 'package:el_race/ui/presentation/home_screen/providers/home_projects_widgets_provider.dart';
+import 'package:el_race/ui/presentation/home_screen/providers/home_shared_documents_widget_provider.dart';
 import 'package:el_race/ui/presentation/home_screen/providers/home_task_management_widget_provider.dart';
 import 'package:el_race/ui/presentation/home_screen/providers/home_tickets_widget_provider.dart';
 import 'package:el_race/ui/presentation/home_screen/providers/home_timesheet_widget_provider.dart';
@@ -43,6 +44,7 @@ class HomeWidgetRefreshService {
     container.invalidate(homeNotesWidgetProvider);
     container.invalidate(homeTaskManagementWidgetProvider);
     container.invalidate(homeTicketsWidgetProvider);
+    container.invalidate(homeSharedDocumentsWidgetProvider);
     container.invalidate(homePettyCashWidgetProvider);
     container.invalidate(homeMyDocumentsWidgetProvider);
     container.invalidate(homeMediaWidgetProvider);

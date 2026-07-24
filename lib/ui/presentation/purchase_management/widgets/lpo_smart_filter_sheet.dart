@@ -5,7 +5,6 @@ import 'package:el_race/ui/presentation/purchase_management/data/purchase_reposi
 import 'package:el_race/ui/presentation/purchase_management/theme/purchase_theme.dart';
 import 'package:el_race/ui/presentation/purchase_management/widgets/purchase_filter_picker_dialog.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 
@@ -62,7 +61,7 @@ class _LpoSmartFilterBodyState extends State<_LpoSmartFilterBody> {
   List<int> _projectManagerIds = [];
   List<int> _years = [];
 
-  final Map<int, String> _labelCache = {};
+  final Map<String, String> _labelCache = {};
 
   @override
   void initState() {
@@ -130,37 +129,31 @@ class _LpoSmartFilterBodyState extends State<_LpoSmartFilterBody> {
     });
   }
 
-  void _cacheLabels(List<PurchaseFilterOption> options) {
+  void _cacheLabels(String kind, List<PurchaseFilterOption> options) {
     for (final option in options) {
-      _labelCache[option.id] = option.label;
+      _labelCache['$kind:${option.id}'] = option.label;
     }
   }
 
-  Future<List<PurchaseFilterOption>> _fetchOptions(
+  Future<PurchaseFilterOptionsPage> _fetchPage(
     String kind,
     String search,
-  ) async {
-    final opts = await widget.repository.fetchPurchaseFilterOptions(
-      search: search,
+    int offset,
+    int limit,
+  ) {
+    return widget.repository.fetchPurchaseFilterOptions(
       kind: kind,
+      search: search,
+      offset: offset,
+      limit: limit,
       testRole: widget.testRole,
     );
-    final list = switch (kind) {
-      'material_types' => opts.materialTypes,
-      'vendors' => opts.vendors,
-      'project_managers' => opts.projectManagers,
-      'cities' => opts.cities,
-      'years' => opts.years,
-      _ => <PurchaseFilterOption>[],
-    };
-    if (search.isEmpty) _cacheLabels(list);
-    return list;
   }
 
-  String _selectedDisplay(List<int> ids) {
+  String _selectedDisplay(String kind, List<int> ids) {
     if (ids.isEmpty) return '';
     final labels = ids
-        .map((id) => _labelCache[id])
+        .map((id) => _labelCache['$kind:$id'])
         .whereType<String>()
         .where((l) => l.isNotEmpty)
         .toList();
@@ -181,7 +174,9 @@ class _LpoSmartFilterBodyState extends State<_LpoSmartFilterBody> {
       title: title,
       selectedIds: selected,
       coloredChips: coloredChips,
-      fetchOptions: (search) => _fetchOptions(kind, search),
+      fetchPage: (search, offset, limit) =>
+          _fetchPage(kind, search, offset, limit),
+      onLabelsResolved: (options) => _cacheLabels(kind, options),
     );
     if (result == null) return;
     setState(() => onApply(result));
@@ -346,7 +341,7 @@ class _LpoSmartFilterBodyState extends State<_LpoSmartFilterBody> {
                     _selectionField(
                       label: 'Tags',
                       hint: 'Choose material tags',
-                      display: _selectedDisplay(_materialTypeIds),
+                      display: _selectedDisplay('material_types', _materialTypeIds),
                       onTap: () => _openPicker(
                         title: 'Tags',
                         kind: 'material_types',
@@ -358,7 +353,7 @@ class _LpoSmartFilterBodyState extends State<_LpoSmartFilterBody> {
                     _selectionField(
                       label: 'Vendor',
                       hint: 'Choose vendors',
-                      display: _selectedDisplay(_vendorIds),
+                      display: _selectedDisplay('vendors', _vendorIds),
                       onTap: () => _openPicker(
                         title: 'Vendor',
                         kind: 'vendors',
@@ -369,7 +364,8 @@ class _LpoSmartFilterBodyState extends State<_LpoSmartFilterBody> {
                     _selectionField(
                       label: 'Project Manager',
                       hint: 'Choose project managers',
-                      display: _selectedDisplay(_projectManagerIds),
+                      display:
+                          _selectedDisplay('project_managers', _projectManagerIds),
                       onTap: () => _openPicker(
                         title: 'Project Manager',
                         kind: 'project_managers',
@@ -380,7 +376,7 @@ class _LpoSmartFilterBodyState extends State<_LpoSmartFilterBody> {
                     _selectionField(
                       label: 'City',
                       hint: 'Choose cities',
-                      display: _selectedDisplay(_cityIds),
+                      display: _selectedDisplay('cities', _cityIds),
                       onTap: () => _openPicker(
                         title: 'City',
                         kind: 'cities',
@@ -391,7 +387,7 @@ class _LpoSmartFilterBodyState extends State<_LpoSmartFilterBody> {
                     _selectionField(
                       label: 'Year',
                       hint: 'Choose years',
-                      display: _selectedDisplay(_years),
+                      display: _selectedDisplay('years', _years),
                       onTap: () => _openPicker(
                         title: 'Year',
                         kind: 'years',

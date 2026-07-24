@@ -4,6 +4,7 @@ import 'package:el_race/ui/presentation/purchase_management/data/purchase_models
 import 'package:el_race/ui/presentation/purchase_management/data/purchase_status.dart';
 import 'package:el_race/ui/presentation/purchase_management/providers/purchase_providers.dart';
 import 'package:el_race/ui/presentation/purchase_management/theme/purchase_theme.dart';
+import 'package:el_race/ui/presentation/purchase_management/utils/purchase_number_format.dart';
 import 'package:el_race/ui/presentation/purchase_management/widgets/purchase_background.dart';
 import 'package:el_race/ui/presentation/purchase_management/widgets/purchase_glass_header.dart';
 import 'package:el_race/ui/presentation/purchase_management/widgets/purchase_status_chip.dart';
@@ -260,18 +261,25 @@ class _AmountsCard extends StatelessWidget {
         children: [
           _AmountRow(
               label: 'Untaxed Amount',
-              value: '${detail.currency} ${detail.amountUntaxed.toStringAsFixed(2)}',
+              value: formatPurchaseAed(
+                detail.amountUntaxed,
+                currency: detail.currency.isNotEmpty ? detail.currency : 'AED',
+              ),
               isBold: false),
           _AmountRow(
               label: 'Taxes',
-              value: '${detail.currency} ${detail.amountTax.toStringAsFixed(2)}',
+              value: formatPurchaseAed(
+                detail.amountTax,
+                currency: detail.currency.isNotEmpty ? detail.currency : 'AED',
+              ),
               isBold: false),
           Divider(color: const Color(0xFFE0E4EE), height: 16.th),
           _AmountRow(
               label: 'Total',
-              value: detail.amountDisplay.isNotEmpty
-                  ? detail.amountDisplay
-                  : '${detail.currency} ${detail.amountTotal.toStringAsFixed(2)}',
+              value: formatPurchaseAed(
+                detail.amountTotal,
+                currency: detail.currency.isNotEmpty ? detail.currency : 'AED',
+              ),
               isBold: true),
         ],
       ),
@@ -351,7 +359,7 @@ class _LinesSection extends StatelessWidget {
                               color: const Color(0xFF1E2A4A)),
                         ),
                         Text(
-                          'Qty: ${line.qty} × ${line.priceUnit.toStringAsFixed(2)}',
+                          'Qty: ${line.qty} × ${formatPurchaseAed(line.priceUnit, currency: '')}',
                           style: GoogleFonts.poppins(
                               fontSize: 10.5.tsp,
                               color: const Color(0xFF8A9BB5)),
@@ -360,7 +368,7 @@ class _LinesSection extends StatelessWidget {
                     ),
                   ),
                   Text(
-                    line.subtotal.toStringAsFixed(2),
+                    formatPurchaseAed(line.subtotal, currency: ''),
                     style: GoogleFonts.poppins(
                         fontSize: 12.tsp,
                         fontWeight: FontWeight.w700,

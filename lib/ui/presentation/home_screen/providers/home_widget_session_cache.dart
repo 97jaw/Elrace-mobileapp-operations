@@ -10,11 +10,11 @@ class HomeWidgetSessionCache {
   static Map<String, dynamic>? myReportsRaw;
   static Map<String, dynamic>? clientsRaw;
   static Map<String, dynamic>? vendorsRaw;
-  static Map<String, dynamic>? subContractorsRaw;
   static Map<String, dynamic>? lpoRaw;
   static Map<String, dynamic>? notesRaw;
   static Map<String, dynamic>? taskManagementRaw;
   static Map<String, dynamic>? ticketsRaw;
+  static Map<String, dynamic>? sharedDocumentsRaw;
   static Map<String, dynamic>? pettyCashRaw;
   static Map<String, dynamic>? myDocumentsRaw;
   static Map<String, dynamic>? mediaRaw;
@@ -41,11 +41,11 @@ class HomeWidgetSessionCache {
     Map<String, dynamic>? myReportsRaw,
     Map<String, dynamic>? clientsRaw,
     Map<String, dynamic>? vendorsRaw,
-    Map<String, dynamic>? subContractorsRaw,
     Map<String, dynamic>? lpoRaw,
     Map<String, dynamic>? notesRaw,
     Map<String, dynamic>? taskManagementRaw,
     Map<String, dynamic>? ticketsRaw,
+    Map<String, dynamic>? sharedDocumentsRaw,
     Map<String, dynamic>? pettyCashRaw,
     Map<String, dynamic>? myDocumentsRaw,
     Map<String, dynamic>? mediaRaw,
@@ -75,9 +75,6 @@ class HomeWidgetSessionCache {
     if (vendorsRaw != null) {
       HomeWidgetSessionCache.vendorsRaw = vendorsRaw;
     }
-    if (subContractorsRaw != null) {
-      HomeWidgetSessionCache.subContractorsRaw = subContractorsRaw;
-    }
     if (lpoRaw != null) {
       HomeWidgetSessionCache.lpoRaw = lpoRaw;
     }
@@ -89,6 +86,9 @@ class HomeWidgetSessionCache {
     }
     if (ticketsRaw != null) {
       HomeWidgetSessionCache.ticketsRaw = ticketsRaw;
+    }
+    if (sharedDocumentsRaw != null) {
+      HomeWidgetSessionCache.sharedDocumentsRaw = sharedDocumentsRaw;
     }
     if (pettyCashRaw != null) {
       HomeWidgetSessionCache.pettyCashRaw = pettyCashRaw;
@@ -114,11 +114,11 @@ class HomeWidgetSessionCache {
     myReportsRaw = null;
     clientsRaw = null;
     vendorsRaw = null;
-    subContractorsRaw = null;
     lpoRaw = null;
     notesRaw = null;
     taskManagementRaw = null;
     ticketsRaw = null;
+    sharedDocumentsRaw = null;
     pettyCashRaw = null;
     myDocumentsRaw = null;
     mediaRaw = null;

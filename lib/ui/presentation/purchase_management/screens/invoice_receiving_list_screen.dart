@@ -7,6 +7,7 @@ import 'package:el_race/ui/presentation/purchase_management/screens/invoice_rece
 import 'package:el_race/ui/presentation/purchase_management/screens/invoice_receiving_detail_screen.dart';
 import 'package:el_race/ui/presentation/purchase_management/data/purchase_status.dart';
 import 'package:el_race/ui/presentation/purchase_management/theme/purchase_theme.dart';
+import 'package:el_race/ui/presentation/purchase_management/utils/purchase_number_format.dart';
 import 'package:el_race/ui/presentation/purchase_management/widgets/purchase_background.dart';
 import 'package:el_race/ui/presentation/purchase_management/widgets/purchase_glass_header.dart';
 import 'package:el_race/ui/presentation/purchase_management/widgets/purchase_list_widgets.dart';
@@ -275,9 +276,12 @@ class _InvoiceReceivingRow extends StatelessWidget {
     // Display name: prefer the Odoo sequence name, fall back to invoiceNo.
     final displayName = item.name.isNotEmpty ? item.name : item.invoiceNo;
     final hasSecondaryNo = item.name.isNotEmpty && item.invoiceNo.isNotEmpty && item.name != item.invoiceNo;
-    final amountText = item.amountDisplay.isNotEmpty
-        ? item.amountDisplay
-        : (item.amount > 0 ? '${item.currency} ${item.amount.toStringAsFixed(2)}' : '');
+    final amountText = item.amount > 0
+        ? formatPurchaseAed(
+            item.amount,
+            currency: item.currency.isNotEmpty ? item.currency : 'AED',
+          )
+        : '';
 
     return GestureDetector(
       onTap: onTap,

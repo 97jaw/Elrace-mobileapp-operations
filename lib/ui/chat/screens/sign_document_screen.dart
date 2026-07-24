@@ -10,8 +10,9 @@ import 'package:syncfusion_flutter_pdf/pdf.dart';
 import 'dart:io';
 
 import '../../../chat/chat.dart';
+import '../../presentation/my_actions/data/user_stamp_assets.dart';
 
-/// Recipient signs a document zone-by-zone.
+/// Recipient signs / stamps a document zone-by-zone.
 ///
 /// PDF is shown page-by-page (native scroll disabled) so overlays
 /// never drift. After each stamp the signature is baked into _pdfBytes
@@ -21,11 +22,18 @@ class SignDocumentScreen extends StatefulWidget {
   final String chatId;
   final Uint8List? signatureImageBytes;
 
+  /// Overrides how the signed PDF is persisted. When null, the default
+  /// chat pipeline (`ChatRepository.signDocument`) is used. Callers outside
+  /// the chat module (e.g. My Actions -> Signature "sign myself" flow) can
+  /// supply their own persistence without duplicating the signing UI.
+  final Future<void> Function(Uint8List signedPdfBytes)? onSigned;
+
   const SignDocumentScreen({
     super.key,
     required this.message,
     required this.chatId,
     this.signatureImageBytes,
+    this.onSigned,
   });
 
   @override
@@ -145,20 +153,27 @@ class _SignDocumentScreenState extends State<SignDocumentScreen> {
     if (zone.page != _currentPage) _goPage(zone.page);
   }
 
-  // ─── Sign a single zone ──────────────────────────────────
+  // ─── Sign / stamp a single zone ───────────────────────────
 
   Future<void> _signCurrentZone() async {
     if (_focusedZoneIndex == null || _pdfBytes == null) return;
 
-    Uint8List? sigBytes = _cachedSignatureBytes ?? widget.signatureImageBytes;
-    if (sigBytes == null) {
-      sigBytes = await _showSignaturePad();
-      if (sigBytes == null) return;
-      _cachedSignatureBytes = sigBytes;
-    }
-
     final zone = _allZones[_focusedZoneIndex!];
-    final updated = _stampSingleZone(_pdfBytes!, zone, sigBytes);
+    final Uint8List? imgBytes;
+    if (zone.isStamp) {
+      imgBytes = await _pickStampImage();
+    } else {
+      Uint8List? sigBytes = _cachedSignatureBytes ?? widget.signatureImageBytes;
+      if (sigBytes == null) {
+        sigBytes = await _showSignaturePad();
+        if (sigBytes == null) return;
+        _cachedSignatureBytes = sigBytes;
+      }
+      imgBytes = sigBytes;
+    }
+    if (imgBytes == null) return;
+
+    final updated = _stampSingleZone(_pdfBytes!, zone, imgBytes);
     final stayOnPage = _currentPage;
 
     setState(() {
@@ -168,6 +183,95 @@ class _SignDocumentScreenState extends State<SignDocumentScreen> {
       _signedZoneIndices.add(_focusedZoneIndex!);
       _focusedZoneIndex = null; // clear focus, user sees stamped sig
     });
+  }
+
+  Future<Uint8List?> _pickStampImage() async {
+    // Always fetch latest from Odoo on tap (no stale session cache).
+    showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => const Center(
+        child: Card(
+          child: Padding(
+            padding: EdgeInsets.all(20),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                CircularProgressIndicator(),
+                SizedBox(height: 12),
+                Text('Loading stamp…'),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+
+    List<UserStampOption> options;
+    try {
+      options = await UserStampAssets.fetchStamps(forceRefresh: true);
+    } catch (e) {
+      if (mounted) Navigator.of(context, rootNavigator: true).pop();
+      _showError(
+        'Could not load stamp images. Check that /api/users/my_stamps is '
+        'deployed, or try again.\n$e',
+      );
+      return null;
+    }
+    if (mounted) Navigator.of(context, rootNavigator: true).pop();
+
+    if (options.isEmpty) {
+      _showError(
+        'No stamp image on your account. Ask admin to set x_signature / '
+        'x_sign_english on res.users.',
+      );
+      return null;
+    }
+    // One stamp → apply immediately (no picker).
+    if (options.length == 1) return options.first.bytes;
+
+    return showModalBottomSheet<Uint8List>(
+      context: context,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) {
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 12),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Choose stamp',
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
+                ),
+                const SizedBox(height: 12),
+                for (final opt in options) ...[
+                  ListTile(
+                    contentPadding: EdgeInsets.zero,
+                    leading: ClipRRect(
+                      borderRadius: BorderRadius.circular(8),
+                      child: Image.memory(
+                        opt.bytes,
+                        width: 56,
+                        height: 40,
+                        fit: BoxFit.contain,
+                      ),
+                    ),
+                    title: Text(opt.label),
+                    onTap: () => Navigator.pop(ctx, opt.bytes),
+                  ),
+                  const Divider(height: 1),
+                ],
+              ],
+            ),
+          ),
+        );
+      },
+    );
   }
 
   Uint8List _stampSingleZone(
@@ -201,12 +305,16 @@ class _SignDocumentScreenState extends State<SignDocumentScreen> {
     if (_pdfBytes == null || _sending) return;
     setState(() => _sending = true);
     try {
-      await ChatRepository.instance.signDocument(
-        widget.chatId,
-        widget.message.id,
-        _pdfBytes!,
-        widget.message.fileName ?? 'document.pdf',
-      );
+      if (widget.onSigned != null) {
+        await widget.onSigned!(_pdfBytes!);
+      } else {
+        await ChatRepository.instance.signDocument(
+          widget.chatId,
+          widget.message.id,
+          _pdfBytes!,
+          widget.message.fileName ?? 'document.pdf',
+        );
+      }
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
@@ -412,9 +520,14 @@ class _SignDocumentScreenState extends State<SignDocumentScreen> {
         textColor: Colors.green,
       );
     }
-    final txt = _focusedZoneIndex != null
-        ? 'Zone ${_focusedZoneIndex! + 1} of ${_allZones.length} — tap "Sign & Stamp"'
-        : 'Tap "Next Zone" to go to a sign zone';
+    final focused = _focusedZoneIndex != null
+        ? _allZones[_focusedZoneIndex!]
+        : null;
+    final txt = focused != null
+        ? (focused.isStamp
+            ? 'Stamp zone ${_focusedZoneIndex! + 1} of ${_allZones.length} — tap "Apply Stamp"'
+            : 'Sign zone ${_focusedZoneIndex! + 1} of ${_allZones.length} — tap "Sign"')
+        : 'Tap "Next Zone" to go to the next unsigned zone';
     return _statusBar(
       color: const Color(0xFFFFF3CD),
       icon: Icons.info_outline,
@@ -549,6 +662,8 @@ class _SignDocumentScreenState extends State<SignDocumentScreen> {
   Widget _buildSignRow() {
     final isFocused = _focusedZoneIndex != null;
     final hasUnsigned = _nextUnsignedZoneIndex() != null;
+    final focusedIsStamp =
+        isFocused && _allZones[_focusedZoneIndex!].isStamp;
 
     return Row(
       children: [
@@ -569,7 +684,7 @@ class _SignDocumentScreenState extends State<SignDocumentScreen> {
                 style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
           ),
 
-        // Focused zone → Skip + Sign & Stamp
+        // Focused zone → Skip + Sign / Apply Stamp
         if (isFocused) ...[
           OutlinedButton(
             onPressed: () => setState(() => _focusedZoneIndex = null),
@@ -585,15 +700,19 @@ class _SignDocumentScreenState extends State<SignDocumentScreen> {
           ElevatedButton.icon(
             onPressed: _signCurrentZone,
             style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFFD4A843),
+              backgroundColor: focusedIsStamp
+                  ? const Color(0xFF2E7D6F)
+                  : const Color(0xFFD4A843),
               foregroundColor: Colors.white,
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
               shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(20)),
             ),
-            icon: const Icon(Icons.draw, size: 18),
-            label: const Text('Sign & Stamp',
-                style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13)),
+            icon: Icon(focusedIsStamp ? Icons.approval : Icons.draw, size: 18),
+            label: Text(
+              focusedIsStamp ? 'Apply Stamp' : 'Sign',
+              style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13),
+            ),
           ),
         ],
       ],
@@ -615,6 +734,10 @@ class _SignDocumentScreenState extends State<SignDocumentScreen> {
       final w = zone.width * pageRect.width;
       final h = zone.height * pageRect.height;
       final isFocused = _focusedZoneIndex == i;
+      final accent =
+          zone.isStamp ? const Color(0xFF2E7D6F) : const Color(0xFFD4A843);
+      final textColor =
+          zone.isStamp ? const Color(0xFF1B5E50) : const Color(0xFF856404);
 
       widgets.add(Positioned(
         left: left,
@@ -626,13 +749,9 @@ class _SignDocumentScreenState extends State<SignDocumentScreen> {
           child: AnimatedContainer(
             duration: const Duration(milliseconds: 200),
             decoration: BoxDecoration(
-              color: isFocused
-                  ? const Color(0xFFD4A843).withValues(alpha: 0.35)
-                  : const Color(0xFFD4A843).withValues(alpha: 0.15),
+              color: accent.withValues(alpha: isFocused ? 0.35 : 0.15),
               border: Border.all(
-                color: isFocused
-                    ? const Color(0xFFD4A843)
-                    : const Color(0xFFD4A843).withValues(alpha: 0.6),
+                color: isFocused ? accent : accent.withValues(alpha: 0.6),
                 width: isFocused ? 3 : 2,
               ),
               borderRadius: BorderRadius.circular(6),
@@ -646,17 +765,23 @@ class _SignDocumentScreenState extends State<SignDocumentScreen> {
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       Icon(
-                        isFocused ? Icons.arrow_downward : Icons.draw,
+                        isFocused
+                            ? Icons.arrow_downward
+                            : (zone.isStamp ? Icons.approval : Icons.draw),
                         size: 12,
-                        color: const Color(0xFF856404),
+                        color: textColor,
                       ),
                       const SizedBox(width: 3),
                       Text(
-                        isFocused ? 'Tap Sign below' : 'Sign Here',
-                        style: const TextStyle(
+                        isFocused
+                            ? (zone.isStamp
+                                ? 'Tap Stamp below'
+                                : 'Tap Sign below')
+                            : (zone.isStamp ? 'Stamp Here' : 'Sign Here'),
+                        style: TextStyle(
                           fontSize: 10,
                           fontWeight: FontWeight.w700,
-                          color: Color(0xFF856404),
+                          color: textColor,
                         ),
                       ),
                     ],

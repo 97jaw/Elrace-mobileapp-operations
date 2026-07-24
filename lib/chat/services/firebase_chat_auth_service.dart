@@ -10,6 +10,7 @@ import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../../core/utils/shared_pref.dart';
 import '../../utils/urll_utils.dart';
 import '../models/models.dart';
 import '../repositories/chat_repository.dart';
@@ -421,6 +422,7 @@ class FirebaseChatAuthService {
           'company_id': session.companyId,
           'role_name': session.roleName,
           'avatar_url': session.avatarUrl,
+          'x_stamp_user': session.xStampUser,
         },
       );
 
@@ -617,6 +619,55 @@ class FirebaseChatAuthService {
       print('❌ FirebaseChatAuth: Reauthentication error: $e');
       return false;
     }
+  }
+
+  /// Ensure Firebase Auth is signed in with a usable ID token.
+  ///
+  /// Call before Storage / Firestore writes outside the chat UI (e.g. Signatures).
+  /// Uses `POST /api/firebase/refresh_token` when the session is missing or
+  /// the ID token cannot be refreshed.
+  Future<User> ensureAuthenticated() async {
+    await waitForAuthReady();
+
+    var user = _auth.currentUser;
+    if (user != null) {
+      try {
+        await user.getIdToken(true);
+        return user;
+      } catch (e) {
+        print(
+            '⚠️ FirebaseChatAuth: ID token refresh failed, fetching custom token: $e');
+      }
+    }
+
+    final sessionJwt = _currentSession?.backendJwt.trim() ?? '';
+    final backendToken = sessionJwt.isNotEmpty
+        ? sessionJwt
+        : (SharedPref.getLoginData().result?.token ?? '');
+
+    if (backendToken.isEmpty) {
+      throw Exception(
+        'Not authenticated with Firebase. Open Chat once after login, then retry.',
+      );
+    }
+
+    final freshToken = await refreshFirebaseCustomToken(backendToken);
+    if (freshToken == null || freshToken.isEmpty) {
+      throw Exception(
+        'Could not refresh Firebase auth. Check backend '
+        'POST /api/firebase/refresh_token, then retry.',
+      );
+    }
+
+    final credential =
+        await _auth.signInWithCustomToken(_cleanFirebaseToken(freshToken));
+    final signedIn = credential.user ?? _auth.currentUser;
+    if (signedIn == null) {
+      throw Exception('Firebase sign-in failed after token refresh.');
+    }
+    await signedIn.getIdToken(true);
+    print('✅ FirebaseChatAuth: ensureAuthenticated OK uid=${signedIn.uid}');
+    return signedIn;
   }
 
   /// Sign out from Firebase and cleanup.

@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../core/utils/shared_pref.dart';
 import 'models/models.dart';
 import 'services/services.dart';
 import 'services/chat_credential_storage.dart';
@@ -154,6 +155,8 @@ class ChatModuleHelper {
             _lastResult = result;
             
             // Restore session model from cached data
+            final loginStamp =
+                SharedPref.getLoginData().result?.data?.xStampUser == true;
             _currentSession = ChatUserSession(
               backendJwt: '',
               odooUserId: cachedSession.sessionData['odoo_user_id'] ?? 0,
@@ -166,6 +169,8 @@ class ChatModuleHelper {
               companyId: cachedSession.sessionData['company_id'] ?? 0,
               firebaseUid: cachedSession.firebaseUid,
               avatarUrl: cachedSession.sessionData['avatar_url'],
+              xStampUser: cachedSession.sessionData['x_stamp_user'] == true ||
+                  loginStamp,
             );
             
             // Initialize lifecycle observer for presence

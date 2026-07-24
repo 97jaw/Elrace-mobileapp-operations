@@ -84,13 +84,32 @@ enum SignStatus {
   String toJson() => name;
 }
 
-/// A zone on a PDF page where a signature should be placed
+/// Kind of zone placed on a PDF for signing / stamping.
+enum SignZoneType {
+  signature,
+  stamp;
+
+  static SignZoneType fromString(String? value) {
+    switch (value) {
+      case 'stamp':
+        return SignZoneType.stamp;
+      case 'signature':
+      default:
+        return SignZoneType.signature;
+    }
+  }
+
+  String toJson() => name;
+}
+
+/// A zone on a PDF page where a signature or stamp should be placed
 class SignZone {
   final int page; // 0-based page index
   final double x; // relative x (0..1) from left
   final double y; // relative y (0..1) from top
   final double width; // relative width (0..1)
   final double height; // relative height (0..1)
+  final SignZoneType type;
 
   const SignZone({
     required this.page,
@@ -98,7 +117,10 @@ class SignZone {
     required this.y,
     this.width = 0.25,
     this.height = 0.08,
+    this.type = SignZoneType.signature,
   });
+
+  bool get isStamp => type == SignZoneType.stamp;
 
   factory SignZone.fromMap(Map<String, dynamic> data) {
     return SignZone(
@@ -107,6 +129,7 @@ class SignZone {
       y: (data['y'] ?? 0).toDouble(),
       width: (data['width'] ?? 0.25).toDouble(),
       height: (data['height'] ?? 0.08).toDouble(),
+      type: SignZoneType.fromString(data['type']?.toString()),
     );
   }
 
@@ -117,7 +140,26 @@ class SignZone {
       'y': y,
       'width': width,
       'height': height,
+      'type': type.toJson(),
     };
+  }
+
+  SignZone copyWith({
+    int? page,
+    double? x,
+    double? y,
+    double? width,
+    double? height,
+    SignZoneType? type,
+  }) {
+    return SignZone(
+      page: page ?? this.page,
+      x: x ?? this.x,
+      y: y ?? this.y,
+      width: width ?? this.width,
+      height: height ?? this.height,
+      type: type ?? this.type,
+    );
   }
 }
 
@@ -185,7 +227,22 @@ class Message {
   final int? signExpiresInDays; // validity duration
   final DateTime? expiresAt; // absolute expiry time for signable docs
   final int? pageCount; // number of pages in the PDF
-  
+
+  /// Ordered list of UIDs who must sign (multi-signee sequential flow).
+  final List<String>? signerUids;
+
+  /// Display names parallel to [signerUids] (optional).
+  final List<String>? signerNames;
+
+  /// Index into [signerUids] for whose turn it is.
+  final int? currentSignerIndex;
+
+  /// UID of the person currently expected to sign.
+  final String? currentSignerUid;
+
+  /// Links multi-step signature chain back to the owner's Documents record.
+  final String? signatureDocumentId;
+
   // Local state (not persisted)
   final bool isUploading;
   final double uploadProgress;
@@ -214,6 +271,11 @@ class Message {
     this.signExpiresInDays,
     this.expiresAt,
     this.pageCount,
+    this.signerUids,
+    this.signerNames,
+    this.currentSignerIndex,
+    this.currentSignerUid,
+    this.signatureDocumentId,
     this.isUploading = false,
     this.uploadProgress = 0.0,
   });
@@ -250,6 +312,15 @@ class Message {
       signExpiresInDays: data['sign_expires_in_days'],
       expiresAt: (data['expires_at'] as Timestamp?)?.toDate(),
       pageCount: data['page_count'],
+      signerUids: data['signer_uids'] != null
+          ? List<String>.from(data['signer_uids'])
+          : null,
+      signerNames: data['signer_names'] != null
+          ? List<String>.from(data['signer_names'])
+          : null,
+      currentSignerIndex: data['current_signer_index'],
+      currentSignerUid: data['current_signer_uid'],
+      signatureDocumentId: data['signature_document_id'],
     );
   }
 
@@ -279,6 +350,15 @@ class Message {
     if (signExpiresInDays != null) map['sign_expires_in_days'] = signExpiresInDays;
     if (expiresAt != null) map['expires_at'] = Timestamp.fromDate(expiresAt!);
     if (pageCount != null) map['page_count'] = pageCount;
+    if (signerUids != null) map['signer_uids'] = signerUids;
+    if (signerNames != null) map['signer_names'] = signerNames;
+    if (currentSignerIndex != null) {
+      map['current_signer_index'] = currentSignerIndex;
+    }
+    if (currentSignerUid != null) map['current_signer_uid'] = currentSignerUid;
+    if (signatureDocumentId != null) {
+      map['signature_document_id'] = signatureDocumentId;
+    }
 
     return map;
   }
@@ -325,6 +405,11 @@ class Message {
     int? signExpiresInDays,
     DateTime? expiresAt,
     int? pageCount,
+    List<String>? signerUids,
+    List<String>? signerNames,
+    int? currentSignerIndex,
+    String? currentSignerUid,
+    String? signatureDocumentId,
     bool? isUploading,
     double? uploadProgress,
   }) {
@@ -352,6 +437,11 @@ class Message {
       signExpiresInDays: signExpiresInDays ?? this.signExpiresInDays,
       expiresAt: expiresAt ?? this.expiresAt,
       pageCount: pageCount ?? this.pageCount,
+      signerUids: signerUids ?? this.signerUids,
+      signerNames: signerNames ?? this.signerNames,
+      currentSignerIndex: currentSignerIndex ?? this.currentSignerIndex,
+      currentSignerUid: currentSignerUid ?? this.currentSignerUid,
+      signatureDocumentId: signatureDocumentId ?? this.signatureDocumentId,
       isUploading: isUploading ?? this.isUploading,
       uploadProgress: uploadProgress ?? this.uploadProgress,
     );

@@ -5,6 +5,7 @@ import 'package:el_race/core/purchase/purchase_dev_role_provider.dart';
 import 'package:el_race/ui/presentation/purchase_management/data/purchase_models.dart';
 import 'package:el_race/ui/presentation/purchase_management/data/purchase_repository.dart';
 import 'package:el_race/ui/presentation/purchase_management/data/purchase_status.dart';
+import 'package:el_race/ui/presentation/purchase_management/utils/purchase_number_format.dart';
 import 'package:el_race/ui/presentation/purchase_management/widgets/purchase_background.dart';
 import 'package:el_race/ui/presentation/purchase_management/widgets/purchase_glass_header.dart';
 import 'package:el_race/ui/presentation/purchase_management/widgets/purchase_list_widgets.dart';
@@ -385,9 +386,10 @@ class _RfqCard extends StatelessWidget {
               Align(
                 alignment: Alignment.centerRight,
                 child: Text(
-                  item.amountDisplay.isNotEmpty
-                      ? item.amountDisplay
-                      : 'AED ${item.amountTotal.toStringAsFixed(0)}',
+                  formatPurchaseAed(
+                    item.amountTotal,
+                    currency: item.currency.isNotEmpty ? item.currency : 'AED',
+                  ),
                   style: GoogleFonts.poppins(
                     fontSize: 17.tsp,
                     fontWeight: FontWeight.w800,
@@ -461,9 +463,10 @@ class _RfqQuickViewSheet extends StatelessWidget {
             if (item.amountTotal > 0)
               _SheetRow(
                 label: 'Amount',
-                value: item.amountDisplay.isNotEmpty
-                    ? item.amountDisplay
-                    : 'AED ${item.amountTotal.toStringAsFixed(2)}',
+                value: formatPurchaseAed(
+                  item.amountTotal,
+                  currency: item.currency.isNotEmpty ? item.currency : 'AED',
+                ),
               ),
           ],
         ),

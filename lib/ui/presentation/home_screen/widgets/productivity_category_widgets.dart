@@ -1,5 +1,6 @@
 import 'package:el_race/core/utils/responsive_breakpoints.dart';
 import 'package:el_race/ui/presentation/home_screen/providers/home_notes_widget_provider.dart';
+import 'package:el_race/ui/presentation/home_screen/providers/home_shared_documents_widget_provider.dart';
 import 'package:el_race/ui/presentation/home_screen/widgets/category_widget_gradient_border.dart';
 import 'package:el_race/ui/presentation/home_screen/widgets/home_productivity_navigation.dart';
 import 'package:el_race/ui/presentation/my_notes/screens/my_notes_screen.dart';
@@ -13,7 +14,7 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 
-/// v7 Productivity category — Task Management (full), Notes + Tickets (half).
+/// v7 Productivity category — Task Management + Shared Documents (half), Notes + Tickets (half).
 class ProductivityCategoryTaskManagementCard extends StatefulWidget {
   const ProductivityCategoryTaskManagementCard({
     super.key,
@@ -44,21 +45,158 @@ class _ProductivityCategoryTaskManagementCardState
       builder: (context, todoProvider, _) {
         final data = todoProvider.taskManagementRecord;
 
-        return _ProductivityFullCardShell(
-      onTap: () => HomeProductivityNavigation.openTaskManagement(context),
-      height: widget.tabletCompact ? double.infinity : 150.uh,
+        return _ProductivityHalfCardShell(
+          height: null,
+          onTap: () => HomeProductivityNavigation.openTaskManagement(context),
+          gradient: const LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [
+              Color(0xFF4A8FF5),
+              Color(0xFF2D7FF0),
+              Color(0xFF1E6BE0),
+              Color(0xFF1858C0),
+            ],
+          ),
+          iconBadge: const _GlassIconBadge(
+            icon: Icons.checklist_rounded,
+            iconColor: Colors.white,
+            background: Color(0x33FFFFFF),
+          ),
+          pattern: Stack(
+            clipBehavior: Clip.hardEdge,
+            fit: StackFit.expand,
+            children: [
+              Positioned(
+                right: -36.w,
+                top: -40.uh,
+                child: Container(
+                  width: 140.w,
+                  height: 140.w,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    gradient: RadialGradient(
+                      colors: [
+                        Colors.white.withValues(alpha: 0.14),
+                        Colors.transparent,
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+              Positioned.fill(
+                child: CustomPaint(painter: _CheckmarkPatternPainter()),
+              ),
+            ],
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Today',
+                style: GoogleFonts.poppins(
+                  fontSize: 7.5.usp,
+                  fontWeight: FontWeight.w600,
+                  color: Colors.white.withValues(alpha: 0.72),
+                  letterSpacing: 0.35,
+                ),
+              ),
+              SizedBox(height: 2.uh),
+              Text(
+                'Tasks',
+                style: GoogleFonts.poppins(
+                  fontSize: 13.usp,
+                  fontWeight: FontWeight.w700,
+                  color: Colors.white,
+                  height: 1.1,
+                ),
+              ),
+              SizedBox(height: 8.uh),
+              IntrinsicHeight(
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    _TaskStatColumn(
+                      label: 'Open',
+                      value: '${data.openCount}',
+                      valueColor: Colors.white,
+                      onTap: () => HomeProductivityNavigation.openTaskManagement(
+                        context,
+                        filter: TaskFilter.open,
+                      ),
+                    ),
+                    const _TaskStatDivider(),
+                    _TaskStatColumn(
+                      label: 'Doing',
+                      value: '${data.inProgressCount}',
+                      valueColor: const Color(0xFFF4C842),
+                      onTap: () => HomeProductivityNavigation.openTaskManagement(
+                        context,
+                        filter: TaskFilter.inProgress,
+                      ),
+                    ),
+                    const _TaskStatDivider(),
+                    _TaskStatColumn(
+                      label: 'Done',
+                      value: '${data.doneCount}',
+                      valueColor: const Color(0xFF4ADE80),
+                      onTap: () => HomeProductivityNavigation.openTaskManagement(
+                        context,
+                        filter: TaskFilter.completed,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              if (data.dueTodayMessage.isNotEmpty) ...[
+                SizedBox(height: 6.uh),
+                Text(
+                  data.dueTodayMessage,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: GoogleFonts.poppins(
+                    fontSize: 9.usp,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.white.withValues(alpha: 0.88),
+                  ),
+                ),
+              ],
+            ],
+          ),
+        );
+      },
+    );
+  }
+}
+
+class ProductivityCategorySharedDocumentsCard extends ConsumerWidget {
+  const ProductivityCategorySharedDocumentsCard({
+    super.key,
+    this.tabletCompact = false,
+  });
+
+  final bool tabletCompact;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final data = ref.watch(homeSharedDocumentsWidgetProvider);
+
+    return _ProductivityHalfCardShell(
+      height: null,
+      onTap: () => HomeProductivityNavigation.openSharedDocuments(context),
       gradient: const LinearGradient(
         begin: Alignment.topLeft,
         end: Alignment.bottomRight,
         colors: [
-          Color(0xFF4A8FF5),
-          Color(0xFF2D7FF0),
-          Color(0xFF1E6BE0),
-          Color(0xFF1858C0),
+          Color(0xFFA8324A),
+          Color(0xFF8B1A2B),
+          Color(0xFF7A1F32),
+          Color(0xFF6E1522),
         ],
       ),
       iconBadge: const _GlassIconBadge(
-        icon: Icons.checklist_rounded,
+        icon: Icons.folder_shared_rounded,
         iconColor: Colors.white,
         background: Color(0x33FFFFFF),
       ),
@@ -67,16 +205,16 @@ class _ProductivityCategoryTaskManagementCardState
         fit: StackFit.expand,
         children: [
           Positioned(
-            right: -48.w,
-            top: -52.uh,
+            right: -28.w,
+            bottom: -36.uh,
             child: Container(
-              width: 200.w,
-              height: 200.w,
+              width: 120.w,
+              height: 120.w,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
                 gradient: RadialGradient(
                   colors: [
-                    Colors.white.withValues(alpha: 0.16),
+                    Colors.white.withValues(alpha: 0.12),
                     Colors.transparent,
                   ],
                 ),
@@ -84,7 +222,7 @@ class _ProductivityCategoryTaskManagementCardState
             ),
           ),
           Positioned.fill(
-            child: CustomPaint(painter: _CheckmarkPatternPainter()),
+            child: CustomPaint(painter: _SharedFolderPatternPainter()),
           ),
         ],
       ),
@@ -93,77 +231,47 @@ class _ProductivityCategoryTaskManagementCardState
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            'Today',
+            'Cloud share',
             style: GoogleFonts.poppins(
-              fontSize: 8.usp,
+              fontSize: 7.5.usp,
               fontWeight: FontWeight.w600,
               color: Colors.white.withValues(alpha: 0.72),
-              letterSpacing: 0.4,
+              letterSpacing: 0.35,
             ),
           ),
           SizedBox(height: 2.uh),
           Text(
-            'Task Management',
+            'Shared Docs',
             style: GoogleFonts.poppins(
-              fontSize: 14.usp,
+              fontSize: 13.usp,
               fontWeight: FontWeight.w700,
               color: Colors.white,
               height: 1.1,
             ),
           ),
-          SizedBox(height: 8.uh),
-          IntrinsicHeight(
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                _TaskStatColumn(
-                  label: 'Open',
-                  value: '${data.openCount}',
-                  valueColor: Colors.white,
-                  onTap: () => HomeProductivityNavigation.openTaskManagement(
-                    context,
-                    filter: TaskFilter.open,
-                  ),
-                ),
-                const _TaskStatDivider(),
-                _TaskStatColumn(
-                  label: 'In Progress',
-                  value: '${data.inProgressCount}',
-                  valueColor: const Color(0xFFF4C842),
-                  onTap: () => HomeProductivityNavigation.openTaskManagement(
-                    context,
-                    filter: TaskFilter.inProgress,
-                  ),
-                ),
-                const _TaskStatDivider(),
-                _TaskStatColumn(
-                  label: 'Done',
-                  value: '${data.doneCount}',
-                  valueColor: const Color(0xFF4ADE80),
-                  onTap: () => HomeProductivityNavigation.openTaskManagement(
-                    context,
-                    filter: TaskFilter.completed,
-                  ),
-                ),
-              ],
+          const SizedBox(height: 8),
+          Text(
+            '${data.folderCount}',
+            style: GoogleFonts.poppins(
+              fontSize: 30.usp,
+              fontWeight: FontWeight.w800,
+              color: Colors.white,
+              height: 1,
             ),
           ),
-          const SizedBox(height: 8),
-          if (data.dueTodayMessage.isNotEmpty)
-            Text(
-              data.dueTodayMessage,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: GoogleFonts.poppins(
-                fontSize: 10.usp,
-                fontWeight: FontWeight.w600,
-                color: Colors.white.withValues(alpha: 0.88),
-              ),
+          SizedBox(height: 4.uh),
+          Text(
+            data.filesLabel,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: GoogleFonts.poppins(
+              fontSize: 10.usp,
+              fontWeight: FontWeight.w600,
+              color: Colors.white.withValues(alpha: 0.88),
             ),
+          ),
         ],
       ),
-        );
-      },
     );
   }
 }
@@ -398,81 +506,6 @@ Color _ticketsTrendColor(String trendColor) {
   }
 }
 
-class _ProductivityFullCardShell extends StatelessWidget {
-  const _ProductivityFullCardShell({
-    required this.child,
-    required this.gradient,
-    required this.iconBadge,
-    this.pattern,
-    this.onTap,
-    this.height,
-  });
-
-  final Widget child;
-  final Gradient gradient;
-  final Widget iconBadge;
-  final Widget? pattern;
-  final VoidCallback? onTap;
-  final double? height;
-
-  @override
-  Widget build(BuildContext context) {
-    final innerRadius =
-        (22.ur - CategoryWidgetGradientBorder.width).clamp(0.0, double.infinity);
-
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(22.ur),
-        child: Container(
-          height: height ?? double.infinity,
-          decoration: CategoryWidgetGradientBorder.outer(borderRadius: 22.ur),
-          padding: CategoryWidgetGradientBorder.padding,
-          child: Container(
-            decoration: CategoryWidgetGradientBorder.inner(
-              borderRadius: 22.ur,
-              fillGradient: gradient,
-            ),
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(innerRadius),
-              child: Stack(
-                clipBehavior: Clip.hardEdge,
-                fit: StackFit.expand,
-                children: [
-                  if (pattern != null)
-                    IgnorePointer(child: pattern!),
-                  Padding(
-                    padding: EdgeInsets.fromLTRB(14.w, 12.uh, 46.w, 12.uh),
-                    child: LayoutBuilder(
-                      builder: (context, constraints) {
-                        return Align(
-                          alignment: Alignment.topLeft,
-                          child: FittedBox(
-                            fit: BoxFit.scaleDown,
-                            alignment: Alignment.topLeft,
-                            child: ConstrainedBox(
-                              constraints: BoxConstraints(
-                                maxWidth: constraints.maxWidth,
-                              ),
-                              child: child,
-                            ),
-                          ),
-                        );
-                      },
-                    ),
-                  ),
-                  Positioned(top: 8.uh, right: 8.w, child: iconBadge),
-                ],
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
 class _ProductivityHalfCardShell extends StatelessWidget {
   const _ProductivityHalfCardShell({
     required this.child,
@@ -654,6 +687,31 @@ class _CheckmarkPatternPainter extends CustomPainter {
         ..lineTo(dx + (8 * scale), dy + (18 * scale))
         ..lineTo(dx + (24 * scale), dy);
       canvas.drawPath(path, paint);
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
+}
+
+class _SharedFolderPatternPainter extends CustomPainter {
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = Colors.white.withValues(alpha: 0.12)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.5;
+
+    for (var i = 0; i < 4; i++) {
+      final left = size.width * (0.42 + i * 0.08);
+      final top = size.height * (0.22 + i * 0.12);
+      final w = size.width * 0.28;
+      final h = size.height * 0.22;
+      final r = RRect.fromRectAndRadius(
+        Rect.fromLTWH(left, top, w, h),
+        const Radius.circular(4),
+      );
+      canvas.drawRRect(r, paint);
     }
   }
 

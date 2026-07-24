@@ -1,10 +1,9 @@
-import 'package:el_race/core/utils/responsive_breakpoints.dart';
 import 'dart:async';
 
+import 'package:el_race/core/utils/responsive_breakpoints.dart';
 import 'package:el_race/ui/presentation/purchase_management/data/purchase_models.dart';
 import 'package:el_race/ui/presentation/purchase_management/theme/purchase_theme.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 class PurchaseFilterPickerDialog extends StatefulWidget {
@@ -12,22 +11,36 @@ class PurchaseFilterPickerDialog extends StatefulWidget {
     super.key,
     required this.title,
     required this.selectedIds,
-    required this.fetchOptions,
+    required this.fetchPage,
     this.coloredChips = false,
+    this.onLabelsResolved,
   });
 
   final String title;
   final List<int> selectedIds;
-  final Future<List<PurchaseFilterOption>> Function(String search) fetchOptions;
+
+  /// Paginated option loader: `(search, offset, limit) → page`.
+  final Future<PurchaseFilterOptionsPage> Function(
+    String search,
+    int offset,
+    int limit,
+  ) fetchPage;
   final bool coloredChips;
+
+  /// Called whenever options load so the parent can cache labels.
+  final ValueChanged<List<PurchaseFilterOption>>? onLabelsResolved;
 
   static Future<List<int>?> show(
     BuildContext context, {
     required String title,
     required List<int> selectedIds,
-    required Future<List<PurchaseFilterOption>> Function(String search)
-        fetchOptions,
+    required Future<PurchaseFilterOptionsPage> Function(
+      String search,
+      int offset,
+      int limit,
+    ) fetchPage,
     bool coloredChips = false,
+    ValueChanged<List<PurchaseFilterOption>>? onLabelsResolved,
   }) {
     return showDialog<List<int>>(
       context: context,
@@ -39,8 +52,9 @@ class PurchaseFilterPickerDialog extends StatefulWidget {
         child: PurchaseFilterPickerDialog(
           title: title,
           selectedIds: selectedIds,
-          fetchOptions: fetchOptions,
+          fetchPage: fetchPage,
           coloredChips: coloredChips,
+          onLabelsResolved: onLabelsResolved,
         ),
       ),
     );
@@ -52,12 +66,20 @@ class PurchaseFilterPickerDialog extends StatefulWidget {
 }
 
 class _PurchaseFilterPickerDialogState extends State<PurchaseFilterPickerDialog> {
+  static const _pageSize = 40;
+
   late final TextEditingController _searchCtrl;
   late Set<int> _selected;
+  final _scroll = ScrollController();
+
   List<PurchaseFilterOption> _visible = [];
   bool _loading = true;
+  bool _loadingMore = false;
+  bool _hasMore = true;
   String? _loadError;
+  String _query = '';
   Timer? _searchDebounce;
+  int _requestGen = 0;
 
   static const _chipPalette = [
     Color(0xFF4A9FD4),
@@ -80,43 +102,72 @@ class _PurchaseFilterPickerDialogState extends State<PurchaseFilterPickerDialog>
     _searchCtrl = TextEditingController();
     _selected = widget.selectedIds.toSet();
     _searchCtrl.addListener(_onSearchChanged);
-    _loadOptions('');
+    _scroll.addListener(_onScroll);
+    _load(reset: true);
   }
 
   @override
   void dispose() {
     _searchDebounce?.cancel();
     _searchCtrl.removeListener(_onSearchChanged);
+    _scroll.removeListener(_onScroll);
+    _scroll.dispose();
     _searchCtrl.dispose();
     super.dispose();
   }
 
-  Future<void> _loadOptions(String query) async {
-    setState(() {
-      _loading = true;
-      _loadError = null;
-    });
-    try {
-      final results = await widget.fetchOptions(query);
-      if (!mounted) return;
-      setState(() {
-        _visible = results;
-        _loading = false;
-      });
-    } catch (e) {
-      if (!mounted) return;
-      setState(() {
-        _loading = false;
-        _loadError = 'Could not load options';
-      });
+  void _onScroll() {
+    if (!_scroll.hasClients || _loading || _loadingMore || !_hasMore) return;
+    if (_scroll.position.pixels >= _scroll.position.maxScrollExtent - 120) {
+      _load(reset: false);
     }
   }
 
   void _onSearchChanged() {
     _searchDebounce?.cancel();
     _searchDebounce = Timer(const Duration(milliseconds: 350), () {
-      _loadOptions(_searchCtrl.text.trim());
+      if (!mounted) return;
+      _query = _searchCtrl.text.trim();
+      _load(reset: true);
     });
+  }
+
+  Future<void> _load({required bool reset}) async {
+    final gen = ++_requestGen;
+    if (reset) {
+      setState(() {
+        _loading = true;
+        _loadError = null;
+        _hasMore = true;
+      });
+    } else {
+      if (!_hasMore || _loadingMore) return;
+      setState(() => _loadingMore = true);
+    }
+
+    final offset = reset ? 0 : _visible.length;
+    try {
+      final page = await widget.fetchPage(_query, offset, _pageSize);
+      if (!mounted || gen != _requestGen) return;
+      setState(() {
+        _visible = reset ? page.items : [..._visible, ...page.items];
+        _hasMore = page.hasMore;
+        _loading = false;
+        _loadingMore = false;
+        _loadError = null;
+      });
+      widget.onLabelsResolved?.call(page.items);
+    } catch (_) {
+      if (!mounted || gen != _requestGen) return;
+      setState(() {
+        _loading = false;
+        _loadingMore = false;
+        if (reset) {
+          _visible = const [];
+          _loadError = 'Could not load options';
+        }
+      });
+    }
   }
 
   Color _chipColor(PurchaseFilterOption option) {
@@ -124,6 +175,16 @@ class _PurchaseFilterPickerDialogState extends State<PurchaseFilterPickerDialog>
       return _chipPalette[option.color! % _chipPalette.length];
     }
     return _chipPalette[option.id % _chipPalette.length];
+  }
+
+  void _toggle(int id) {
+    setState(() {
+      if (_selected.contains(id)) {
+        _selected.remove(id);
+      } else {
+        _selected.add(id);
+      }
+    });
   }
 
   @override
@@ -252,12 +313,12 @@ class _PurchaseFilterPickerDialogState extends State<PurchaseFilterPickerDialog>
   }
 
   Widget _buildOptionsList() {
-    if (_loading) {
+    if (_loading && _visible.isEmpty) {
       return const Center(
         child: CircularProgressIndicator(color: PurchaseTheme.accentBlue),
       );
     }
-    if (_loadError != null) {
+    if (_loadError != null && _visible.isEmpty) {
       return Center(
         child: Text(
           _loadError!,
@@ -280,14 +341,34 @@ class _PurchaseFilterPickerDialogState extends State<PurchaseFilterPickerDialog>
       );
     }
 
+    final footer = _loadingMore || _hasMore ? 1 : 0;
     return ListView.separated(
+      controller: _scroll,
       padding: EdgeInsets.symmetric(horizontal: 12.tw),
-      itemCount: _visible.length,
+      itemCount: _visible.length + footer,
       separatorBuilder: (_, __) => Divider(
         height: 1,
         color: PurchaseTheme.textMuted.withValues(alpha: 0.15),
       ),
       itemBuilder: (context, index) {
+        if (index >= _visible.length) {
+          return Padding(
+            padding: EdgeInsets.symmetric(vertical: 14.th),
+            child: Center(
+              child: _loadingMore
+                  ? SizedBox(
+                      width: 22.tw,
+                      height: 22.tw,
+                      child: const CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: PurchaseTheme.accentBlue,
+                      ),
+                    )
+                  : const SizedBox.shrink(),
+            ),
+          );
+        }
+
         final option = _visible[index];
         final checked = _selected.contains(option.id);
         final chipColor = widget.coloredChips
@@ -295,15 +376,7 @@ class _PurchaseFilterPickerDialogState extends State<PurchaseFilterPickerDialog>
             : PurchaseTheme.accentBlue;
 
         return InkWell(
-          onTap: () {
-            setState(() {
-              if (checked) {
-                _selected.remove(option.id);
-              } else {
-                _selected.add(option.id);
-              }
-            });
-          },
+          onTap: () => _toggle(option.id),
           borderRadius: BorderRadius.circular(10.tr),
           child: Padding(
             padding: EdgeInsets.symmetric(horizontal: 8.tw, vertical: 10.th),
@@ -349,15 +422,7 @@ class _PurchaseFilterPickerDialogState extends State<PurchaseFilterPickerDialog>
                 Checkbox(
                   value: checked,
                   activeColor: chipColor,
-                  onChanged: (_) {
-                    setState(() {
-                      if (checked) {
-                        _selected.remove(option.id);
-                      } else {
-                        _selected.add(option.id);
-                      }
-                    });
-                  },
+                  onChanged: (_) => _toggle(option.id),
                 ),
               ],
             ),

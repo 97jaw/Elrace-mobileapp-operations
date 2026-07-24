@@ -1,16 +1,57 @@
 import 'dart:math' as math;
 
+import 'package:el_race/core/clients_vendors/clients_vendors_route_names.dart';
+import 'package:el_race/core/home/home_widget_visibility.dart';
 import 'package:el_race/core/utils/responsive_breakpoints.dart';
+import 'package:el_race/ui/presentation/home_screen/providers/home_widget_api_client.dart';
+import 'package:el_race/ui/presentation/home_screen/providers/home_widget_session_cache.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 const _kCvAssetRoot = 'assets/images/clients_vendors';
 
-/// Shared height so Client / Vendor / Sub-Contractor cards align.
+/// Shared height so Client / Vendors&Subs cards align.
 const double _kCvCardHeight = 182;
 
-class ClientsVendorsCategoryClientsCard extends StatelessWidget {
+/// Parsed view of the `clients` widget's `{is_authorized, metrics: {...}}`
+/// payload (see ClientsVendorsWidgetService.get_clients_payload on the
+/// backend). "-" placeholders when data hasn't loaded yet or the user isn't
+/// authorized (metrics comes back empty in that case, by design).
+class _ClientsMetrics {
+  const _ClientsMetrics({
+    required this.activeCount,
+    required this.receivables,
+    required this.overdueInvoices,
+    required this.agreementsExpiring,
+  });
+
+  final String activeCount;
+  final String receivables;
+  final int overdueInvoices;
+  final int agreementsExpiring;
+
+  static const _empty = _ClientsMetrics(
+    activeCount: '-',
+    receivables: '-',
+    overdueInvoices: 0,
+    agreementsExpiring: 0,
+  );
+
+  factory _ClientsMetrics.fromRaw(Map<String, dynamic>? raw) {
+    final metrics = raw?['metrics'];
+    if (metrics is! Map) return _empty;
+    return _ClientsMetrics(
+      activeCount: (metrics['active_count'] ?? '-').toString(),
+      receivables: (metrics['receivables'] ?? '-').toString(),
+      overdueInvoices: (metrics['overdue_invoices'] as num?)?.toInt() ?? 0,
+      agreementsExpiring:
+          (metrics['agreements_expiring'] as num?)?.toInt() ?? 0,
+    );
+  }
+}
+
+class ClientsVendorsCategoryClientsCard extends StatefulWidget {
   const ClientsVendorsCategoryClientsCard({
     super.key,
     this.tabletCompact = false,
@@ -19,13 +60,37 @@ class ClientsVendorsCategoryClientsCard extends StatelessWidget {
   final bool tabletCompact;
 
   @override
+  State<ClientsVendorsCategoryClientsCard> createState() =>
+      _ClientsVendorsCategoryClientsCardState();
+}
+
+class _ClientsVendorsCategoryClientsCardState
+    extends State<ClientsVendorsCategoryClientsCard> {
+  @override
+  void initState() {
+    super.initState();
+    _loadIfNeeded();
+  }
+
+  Future<void> _loadIfNeeded() async {
+    if (HomeWidgetSessionCache.clientsRaw != null) return;
+    await HomeWidgetApiClient.refreshIfStale(
+      onlyCodes: const {HomeWidgetCode.clients},
+    );
+    if (mounted) setState(() {});
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final metrics = _ClientsMetrics.fromRaw(HomeWidgetSessionCache.clientsRaw);
+
     // Design panel: 130°, #138A00@49% | #0F0C08@92% | #FF0000@20% | #000000@49%
     // Colors match the design-preview card after those stops composite on white
     // (sage → pale pink). Using raw #0F0C08@92% mid-card caused the bright
     // sheen / black edge in the app screenshot.
     return _ClientsVendorsHeroCard(
-      onTap: () => _comingSoon(context, 'Clients'),
+      onTap: () =>
+          Navigator.of(context).pushNamed(ClientsVendorsRouteNames.clients),
       baseColor: Colors.white,
       washGradient: _cssAngleGradient(
         130,
@@ -54,10 +119,10 @@ class ClientsVendorsCategoryClientsCard extends StatelessWidget {
       artFadeLeft: false,
       label: 'CLIENTS',
       labelColor: const Color(0xFF0A5C12),
-      activeCount: '71',
+      activeCount: metrics.activeCount,
       activeCountColor: Colors.white,
       leftStatLabel: 'RECEIVABLES',
-      leftStatValue: 'AED 3.66M',
+      leftStatValue: metrics.receivables,
       rightStatLabel: null,
       rightStatValue: null,
       statLabelColor: const Color(0x99000000),
@@ -67,7 +132,7 @@ class ClientsVendorsCategoryClientsCard extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         children: [
           Text(
-            '▲ 12 overdue invoices',
+            '▲ ${metrics.overdueInvoices} overdue invoices',
             style: GoogleFonts.poppins(
               fontSize: 12.5.usp,
               fontWeight: FontWeight.w600,
@@ -77,7 +142,7 @@ class ClientsVendorsCategoryClientsCard extends StatelessWidget {
           ),
           SizedBox(height: 4.uh),
           Text(
-            '2 agreements expiring',
+            '${metrics.agreementsExpiring} agreements expiring',
             style: GoogleFonts.poppins(
               fontSize: 12.5.usp,
               fontWeight: FontWeight.w600,
@@ -91,7 +156,54 @@ class ClientsVendorsCategoryClientsCard extends StatelessWidget {
   }
 }
 
-class ClientsVendorsCategoryVendorsCard extends StatelessWidget {
+class _VendorsMetrics {
+  const _VendorsMetrics({
+    required this.activeCount,
+    required this.payables,
+    required this.retentionHeld,
+    required this.lpoValuePct,
+    required this.invoicesPendingApproval,
+    required this.mrPending,
+    required this.agreementExpiringDays,
+  });
+
+  final String activeCount;
+  final String payables;
+  final String retentionHeld;
+  final int lpoValuePct;
+  final int invoicesPendingApproval;
+  final int mrPending;
+  final int agreementExpiringDays;
+
+  static const _empty = _VendorsMetrics(
+    activeCount: '-',
+    payables: '-',
+    retentionHeld: '-',
+    lpoValuePct: 0,
+    invoicesPendingApproval: 0,
+    mrPending: 0,
+    agreementExpiringDays: 0,
+  );
+
+  factory _VendorsMetrics.fromRaw(Map<String, dynamic>? raw) {
+    final metrics = raw?['metrics'];
+    if (metrics is! Map) return _empty;
+    return _VendorsMetrics(
+      activeCount: (metrics['active_count'] ?? '-').toString(),
+      payables: (metrics['payables'] ?? '-').toString(),
+      retentionHeld: (metrics['retention_held'] ?? '-').toString(),
+      lpoValuePct: (metrics['lpo_value_pct'] as num?)?.toInt() ?? 0,
+      invoicesPendingApproval:
+          (metrics['invoices_pending_approval'] as num?)?.toInt() ?? 0,
+      mrPending: (metrics['mr_pending'] as num?)?.toInt() ?? 0,
+      agreementExpiringDays:
+          (metrics['agreement_expiring_days'] as num?)?.toInt() ?? 0,
+    );
+  }
+}
+
+/// Merged Vendors + Sub-Contractors home card (opens Vendors screen).
+class ClientsVendorsCategoryVendorsCard extends StatefulWidget {
   const ClientsVendorsCategoryVendorsCard({
     super.key,
     this.tabletCompact = false,
@@ -100,11 +212,35 @@ class ClientsVendorsCategoryVendorsCard extends StatelessWidget {
   final bool tabletCompact;
 
   @override
+  State<ClientsVendorsCategoryVendorsCard> createState() =>
+      _ClientsVendorsCategoryVendorsCardState();
+}
+
+class _ClientsVendorsCategoryVendorsCardState
+    extends State<ClientsVendorsCategoryVendorsCard> {
+  @override
+  void initState() {
+    super.initState();
+    _loadIfNeeded();
+  }
+
+  Future<void> _loadIfNeeded() async {
+    if (HomeWidgetSessionCache.vendorsRaw != null) return;
+    await HomeWidgetApiClient.refreshIfStale(
+      onlyCodes: const {HomeWidgetCode.vendors},
+    );
+    if (mounted) setState(() {});
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final metrics = _VendorsMetrics.fromRaw(HomeWidgetSessionCache.vendorsRaw);
+
     // Spec base 160° #252A6B → #100F30
     // Design panel wash 180° #F2ECEE @ 88% → #977DFF @ 49%
     return _ClientsVendorsHeroCard(
-      onTap: () => _comingSoon(context, 'Vendors'),
+      onTap: () =>
+          Navigator.of(context).pushNamed(ClientsVendorsRouteNames.vendors),
       baseGradient: _cssAngleGradient(
         160,
         const [
@@ -115,8 +251,8 @@ class ClientsVendorsCategoryVendorsCard extends StatelessWidget {
       washGradient: _cssAngleGradient(
         180,
         const [
-          Color(0xB3F2ECEE), // #F2ECEE @ 70% — top a bit darker than 88%
-          Color(0x7D977DFF), // #977DFF @ 49%
+          Color(0xB3F2ECEE),
+          Color(0x7D977DFF),
         ],
       ),
       artAsset: '$_kCvAssetRoot/dubai-skyline-cutout.png',
@@ -125,13 +261,13 @@ class ClientsVendorsCategoryVendorsCard extends StatelessWidget {
       artHeightFactor: 1.05,
       artCenterVertically: true,
       artOpacity: 0.28,
-      label: 'VENDORS',
+      label: 'VENDORS & SUBS',
       labelColor: const Color(0xFF3E50A8),
-      activeCount: '58',
+      activeCount: metrics.activeCount,
       leftStatLabel: 'PAYABLES',
-      leftStatValue: 'AED 2.1M',
-      rightStatLabel: null,
-      rightStatValue: null,
+      leftStatValue: metrics.payables,
+      rightStatLabel: 'RETENTION',
+      rightStatValue: metrics.retentionHeld,
       footer: Text.rich(
         TextSpan(
           style: GoogleFonts.poppins(
@@ -139,379 +275,32 @@ class ClientsVendorsCategoryVendorsCard extends StatelessWidget {
             fontWeight: FontWeight.w600,
             height: 1.2,
           ),
-          children: const [
+          children: [
             TextSpan(
-              text: '▼ 65% LPO value',
-              style: TextStyle(color: Color(0xFFC7D2FE)),
+              text: '▼ ${metrics.lpoValuePct}% LPO',
+              style: const TextStyle(color: Color(0xFFC7D2FE)),
             ),
-            TextSpan(
+            const TextSpan(
               text: '  ·  ',
               style: TextStyle(color: Color(0x73FFFFFF)),
             ),
             TextSpan(
-              text: '4 invoices pending approval',
-              style: TextStyle(color: Color(0xFFFDE68A)),
+              text: '${metrics.invoicesPendingApproval} invoices pending',
+              style: const TextStyle(color: Color(0xFFFDE68A)),
+            ),
+            const TextSpan(
+              text: '  ·  ',
+              style: TextStyle(color: Color(0x73FFFFFF)),
+            ),
+            TextSpan(
+              text: '${metrics.mrPending} MR · ${metrics.agreementExpiringDays}d',
+              style: const TextStyle(color: Color(0xFFFDBA74)),
             ),
           ],
         ),
       ),
     );
   }
-}
-
-/// Vendors + Sub-Contractors in one row (same pattern as Site Management /
-/// My Reports). One skyline art: left half on Vendors, right half on Subs.
-class ClientsVendorsCategoryVendorsSubContractorsRow extends StatelessWidget {
-  const ClientsVendorsCategoryVendorsSubContractorsRow({super.key});
-
-  static const double _rowHeight = 140;
-  static const String _skyline = '$_kCvAssetRoot/dubai-skyline-cutout.png';
-
-  @override
-  Widget build(BuildContext context) {
-    return SizedBox(
-      height: ResponsiveBreakpoints.landscapeAwareCardHeight(_rowHeight),
-      child: Row(
-        children: [
-          Expanded(
-            child: _SharedSkylineHalfCard(
-              onTap: () => _comingSoon(context, 'Vendors'),
-              skylineAlignLeft: true,
-              showDotTexture: false,
-              baseGradient: _cssAngleGradient(
-                160,
-                const [Color(0xFF252A6B), Color(0xFF100F30)],
-              ),
-              washGradient: _cssAngleGradient(
-                180,
-                const [Color(0xB3F2ECEE), Color(0x7D977DFF)],
-              ),
-              child: _CompactHalfPanel(
-                label: 'VENDORS',
-                // Darker indigo than wash tint so title stays readable.
-                labelColor: const Color(0xFF3E50A8),
-                statLabelColor: const Color(0xFFE8ECFF),
-                activeCount: '58',
-                stats: const [
-                  _CompactStat(label: 'PAYABLES', value: 'AED 2.1M'),
-                ],
-                footer: Text.rich(
-                  TextSpan(
-                    style: GoogleFonts.poppins(
-                      fontSize: 9.usp,
-                      fontWeight: FontWeight.w600,
-                      height: 1.2,
-                    ),
-                    children: const [
-                      TextSpan(
-                        text: '▼ 65% LPO',
-                        style: TextStyle(color: Color(0xFFC7D2FE)),
-                      ),
-                      TextSpan(
-                        text: ' · ',
-                        style: TextStyle(color: Color(0x73FFFFFF)),
-                      ),
-                      TextSpan(
-                        text: '4 pending',
-                        style: TextStyle(color: Color(0xFFFDE68A)),
-                      ),
-                    ],
-                  ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ),
-            ),
-          ),
-          SizedBox(width: 10.w),
-          Expanded(
-            child: _SharedSkylineHalfCard(
-              onTap: () => _comingSoon(context, 'Sub-Contractors'),
-              skylineAlignLeft: false,
-              showDotTexture: true,
-              baseGradient: _cssAngleGradient(
-                160,
-                const [Color(0xFF7C2D12), Color(0xFF3A1206)],
-              ),
-              washGradient: _cssAngleGradient(
-                180,
-                const [Color(0xFF5F576F), Color(0xB3C8CED6)],
-              ),
-              child: _CompactHalfPanel(
-                label: 'SUB-CONTRACTORS',
-                // Same vivid orange family as the top title.
-                labelColor: const Color(0xFFFDBA74),
-                statLabelColor: const Color(0xFFFDBA74),
-                activeCount: '34',
-                stats: const [
-                  _CompactStat(label: 'RETENTION HELD', value: 'AED 540K'),
-                ],
-                footer: Text(
-                  '⚠ 1 expiring in 15 days',
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: GoogleFonts.poppins(
-                    fontSize: 9.usp,
-                    fontWeight: FontWeight.w600,
-                    color: const Color(0xFFFED7AA),
-                    height: 1.2,
-                  ),
-                ),
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-/// Half-card that reveals left or right half of the shared skyline asset.
-class _SharedSkylineHalfCard extends StatelessWidget {
-  const _SharedSkylineHalfCard({
-    required this.onTap,
-    required this.skylineAlignLeft,
-    required this.baseGradient,
-    required this.washGradient,
-    required this.child,
-    this.showDotTexture = false,
-  });
-
-  final VoidCallback onTap;
-  final bool skylineAlignLeft;
-  final LinearGradient baseGradient;
-  final LinearGradient washGradient;
-  final bool showDotTexture;
-  final Widget child;
-
-  @override
-  Widget build(BuildContext context) {
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(22.ur),
-        child: ClipRRect(
-          borderRadius: BorderRadius.circular(22.ur),
-          child: Stack(
-            fit: StackFit.expand,
-            children: [
-              DecoratedBox(decoration: BoxDecoration(gradient: baseGradient)),
-              DecoratedBox(decoration: BoxDecoration(gradient: washGradient)),
-              if (showDotTexture)
-                const Positioned.fill(
-                  child: CustomPaint(painter: _DotTexturePainter()),
-                ),
-              // Full-width skyline clipped to this half → continuous merged view.
-              Positioned.fill(
-                child: LayoutBuilder(
-                  builder: (context, constraints) {
-                    final halfW = constraints.maxWidth;
-                    final fullW = halfW * 2 + 10.w;
-                    return ClipRect(
-                      child: OverflowBox(
-                        alignment: skylineAlignLeft
-                            ? Alignment.centerLeft
-                            : Alignment.centerRight,
-                        maxWidth: fullW,
-                        minWidth: fullW,
-                        maxHeight: constraints.maxHeight,
-                        minHeight: constraints.maxHeight,
-                        child: SizedBox(
-                          width: fullW,
-                          height: constraints.maxHeight,
-                          child: Opacity(
-                            opacity: 0.34,
-                            child: Image.asset(
-                              ClientsVendorsCategoryVendorsSubContractorsRow
-                                  ._skyline,
-                              fit: BoxFit.cover,
-                              alignment: Alignment.center,
-                              filterQuality: FilterQuality.high,
-                            ),
-                          ),
-                        ),
-                      ),
-                    );
-                  },
-                ),
-              ),
-              child,
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _CompactStat {
-  const _CompactStat({required this.label, required this.value});
-  final String label;
-  final String value;
-}
-
-class _CompactHalfPanel extends StatelessWidget {
-  const _CompactHalfPanel({
-    required this.label,
-    required this.labelColor,
-    required this.activeCount,
-    required this.stats,
-    required this.footer,
-    this.statLabelColor,
-  });
-
-  final String label;
-  final Color labelColor;
-  final Color? statLabelColor;
-  final String activeCount;
-  final List<_CompactStat> stats;
-  final Widget footer;
-
-  @override
-  Widget build(BuildContext context) {
-    final detailLabelColor = statLabelColor ?? labelColor;
-    return Padding(
-      padding: EdgeInsets.fromLTRB(14.w, 12.uh, 14.w, 12.uh),
-      child: _cvScaleDownContent(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              label,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: GoogleFonts.poppins(
-                fontSize: 9.usp,
-                fontWeight: FontWeight.w800,
-                letterSpacing: 0.7,
-                color: labelColor,
-                height: 1.1,
-              ),
-            ),
-            SizedBox(height: 4.uh),
-            Text.rich(
-              TextSpan(
-                children: [
-                  TextSpan(
-                    text: '$activeCount ',
-                    style: GoogleFonts.poppins(
-                      fontSize: 18.usp,
-                      fontWeight: FontWeight.w800,
-                      color: Colors.white,
-                      height: 1.05,
-                    ),
-                  ),
-                  TextSpan(
-                    text: 'Active',
-                    style: GoogleFonts.poppins(
-                      fontSize: 11.usp,
-                      fontWeight: FontWeight.w600,
-                      color: Colors.white.withValues(alpha: 0.95),
-                      height: 1.05,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            SizedBox(height: 14.uh),
-            for (var i = 0; i < stats.length; i++) ...[
-              if (i > 0) SizedBox(height: 8.uh),
-              Text(
-                stats[i].label,
-                style: GoogleFonts.poppins(
-                  fontSize: 9.usp,
-                  fontWeight: FontWeight.w800,
-                  letterSpacing: 0.7,
-                  color: detailLabelColor,
-                  height: 1.1,
-                ),
-              ),
-              SizedBox(height: 4.uh),
-              Text(
-                stats[i].value,
-                style: GoogleFonts.poppins(
-                  fontSize: 14.usp,
-                  fontWeight: FontWeight.w800,
-                  color: Colors.white,
-                  height: 1.1,
-                ),
-              ),
-            ],
-            SizedBox(height: 10.uh),
-            footer,
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class ClientsVendorsCategorySubContractorsCard extends StatelessWidget {
-  const ClientsVendorsCategorySubContractorsCard({
-    super.key,
-    this.tabletCompact = false,
-  });
-
-  final bool tabletCompact;
-
-  @override
-  Widget build(BuildContext context) {
-    // Spec base 160° #7C2D12 → #3A1206
-    // Design panel wash 180° #736A86 @ 100% → #C8CED6 @ 87%
-    return _ClientsVendorsHeroCard(
-      onTap: () => _comingSoon(context, 'Sub-Contractors'),
-      baseGradient: _cssAngleGradient(
-        160,
-        const [
-          Color(0xFF7C2D12),
-          Color(0xFF3A1206),
-        ],
-      ),
-      // Reversed: top dark, bottom light; slightly darkened overall.
-      washGradient: _cssAngleGradient(
-        180,
-        const [
-          Color(0xFF5F576F), // darker than #736A86 (top)
-          Color(0xB3C8CED6), // #C8CED6 @ 70% (bottom, toned down)
-        ],
-      ),
-      showDotTexture: true,
-      artAsset: '$_kCvAssetRoot/subcontractor-helmet-cutout.png',
-      artRight: -28,
-      artWidthFactor: 0.58,
-      artHeightFactor: 1.05,
-      artCenterVertically: true,
-      artOpacity: 0.28,
-      label: 'SUB-CONTRACTORS',
-      labelColor: const Color(0xFFFDBA74),
-      activeCount: '34',
-      leftStatLabel: 'RETENTION HELD',
-      leftStatValue: 'AED 540K',
-      rightStatLabel: null,
-      rightStatValue: null,
-      footer: Text(
-        '⚠  1 agreement expiring in 15 days',
-        style: GoogleFonts.poppins(
-          fontSize: 12.5.usp,
-          fontWeight: FontWeight.w600,
-          color: const Color(0xFFFED7AA),
-          height: 1.2,
-        ),
-      ),
-    );
-  }
-}
-
-void _comingSoon(BuildContext context, String title) {
-  ScaffoldMessenger.of(context).showSnackBar(
-    SnackBar(
-      content: Text('$title — coming soon'),
-      behavior: SnackBarBehavior.floating,
-      duration: const Duration(seconds: 2),
-    ),
-  );
 }
 
 /// Composite [hex] RGB over white at [opacity] (0–1) — matches design-tool canvas.

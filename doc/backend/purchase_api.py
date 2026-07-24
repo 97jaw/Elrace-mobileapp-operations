@@ -911,3 +911,28 @@ class PurchaseManagementApi(http.Controller):
 #       "x_is_doc_controller": purchase_roles["is_doc_controller"],
 #   })
 #   response_dict["role_capabilities"] = existing_caps
+
+# ---------------------------------------------------------------------------
+# Recent vendor bills (hub) — live routes in elrace_backend_apis
+# ---------------------------------------------------------------------------
+# POST /api/purchase/invoices            — all in_invoice bills, newest first
+#   params: page, limit, keyword, status (DRAFT|NOT PAID|PARTIAL|IN PAYMENT|PAID|REVERSED|CANCELLED)
+# POST /api/purchase/invoices_preview    — { total_count, items[limit] }
+# POST /api/purchase/invoice_details     — { invoice_id } + payments[]
+# Legacy aliases (same payloads):
+#   /api/purchase/draft_invoices
+#   /api/purchase/draft_invoices_preview
+#
+# List card fields: id, vendor, vendor_photo, invoice_id, invoice_date, due_date,
+# amount, formatted_amount, currency, amount_residual, formatted_residual,
+# amount_paid, formatted_paid, payment_state, state, status_label, create_date,
+# time_ago, origin.
+#
+# Domain (authorized purchase manager / cost-control only):
+#   [("move_type", "=", "in_invoice"), ("state", "!=", "cancel")]
+#   + ("rejected", "!=", True) when field exists
+# Does NOT use DashboardDomainFactory (that was tier.review → drafts only).
+#
+# Detail adds: amount_untaxed, amount_tax, narration, ref, payments[{id,name,
+# date,amount,formatted_amount,currency,journal,state}].
+# Draft bills return payments=[] (no reconciliations yet).

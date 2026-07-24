@@ -1064,39 +1064,10 @@ class _ListViewWidgetsState extends State<ListViewWidgets> {
         );
         children.add(SizedBox(height: _isTabletPane ? 14 : 14.h));
       }
-      final showVendors = visibility.isVisible(HomeWidgetCode.vendors);
-      final showSubs = visibility.isVisible(HomeWidgetCode.subContractors);
-      if (showVendors && showSubs) {
-        if (_isTabletPane) {
-          children.add(
-            _pairCards(
-              [
-                const ClientsVendorsCategoryVendorsCard(tabletCompact: true),
-                const ClientsVendorsCategorySubContractorsCard(
-                  tabletCompact: true,
-                ),
-              ],
-              designHeight: 182,
-            ),
-          );
-        } else {
-          children.add(const ClientsVendorsCategoryVendorsSubContractorsRow());
-        }
-        children.add(SizedBox(height: _isTabletPane ? 14 : 14.h));
-      } else if (showVendors) {
+      if (visibility.isVisible(HomeWidgetCode.vendors)) {
         children.add(
           _fullWidthCard(
             ClientsVendorsCategoryVendorsCard(tabletCompact: tabletCompact),
-            designHeight: 182,
-          ),
-        );
-        children.add(SizedBox(height: _isTabletPane ? 14 : 14.h));
-      } else if (showSubs) {
-        children.add(
-          _fullWidthCard(
-            ClientsVendorsCategorySubContractorsCard(
-              tabletCompact: tabletCompact,
-            ),
             designHeight: 182,
           ),
         );
@@ -1121,16 +1092,19 @@ class _ListViewWidgetsState extends State<ListViewWidgets> {
         const ProductivityCategorySectionHeader(),
         SizedBox(height: _isTabletPane ? 10 : 10.h),
       ]);
-      if (visibility.isVisible(HomeWidgetCode.taskManagement)) {
-        children.add(
-          _fullWidthCard(
+      if (visibility.isVisible(HomeWidgetCode.taskManagement) ||
+          visibility.isVisible(HomeWidgetCode.sharedDocuments)) {
+        final cards = <Widget>[
+          if (visibility.isVisible(HomeWidgetCode.taskManagement))
             ProductivityCategoryTaskManagementCard(
               tabletCompact: tabletCompact,
             ),
-            height: _isTabletPane ? 160 : 150.h,
-            designHeight: 150,
-          ),
-        );
+          if (visibility.isVisible(HomeWidgetCode.sharedDocuments))
+            ProductivityCategorySharedDocumentsCard(
+              tabletCompact: tabletCompact,
+            ),
+        ];
+        children.add(_pairCards(cards));
         children.add(SizedBox(height: _isTabletPane ? 10 : 10.h));
       }
       if (visibility.isVisible(HomeWidgetCode.notes) ||

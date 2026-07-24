@@ -21,6 +21,9 @@ class ChatUser {
   final DateTime updatedAt;
   final List<String> searchKeywords;
 
+  /// Odoo `res.users.x_stamp_user` — may stamp documents when required.
+  final bool xStampUser;
+
   ChatUser({
     required this.uid,
     required this.odooUserId,
@@ -39,6 +42,7 @@ class ChatUser {
     required this.createdAt,
     required this.updatedAt,
     this.searchKeywords = const [],
+    this.xStampUser = false,
   });
 
   /// Generate search keywords from name and email for prefix search.
@@ -137,6 +141,7 @@ class ChatUser {
       createdAt: (data['created_at'] as Timestamp?)?.toDate() ?? DateTime.now(),
       updatedAt: (data['updated_at'] as Timestamp?)?.toDate() ?? DateTime.now(),
       searchKeywords: List<String>.from(data['search_keywords'] ?? []),
+      xStampUser: _asBool(data['x_stamp_user']),
     );
   }
 
@@ -158,6 +163,14 @@ class ChatUser {
     return null;
   }
 
+  static bool _asBool(dynamic value) {
+    if (value == true) return true;
+    if (value == false || value == null) return false;
+    if (value is num) return value != 0;
+    final s = value.toString().trim().toLowerCase();
+    return s == 'true' || s == '1' || s == 'yes';
+  }
+
   Map<String, dynamic> toFirestore({bool isUpdate = false}) {
     final map = <String, dynamic>{
       'odoo_user_id': odooUserId,
@@ -174,6 +187,7 @@ class ChatUser {
       'last_login_at': FieldValue.serverTimestamp(),
       'updated_at': FieldValue.serverTimestamp(),
       'search_keywords': searchKeywords,
+      'x_stamp_user': xStampUser,
     };
 
     if (!isUpdate) {
@@ -201,6 +215,7 @@ class ChatUser {
     DateTime? createdAt,
     DateTime? updatedAt,
     List<String>? searchKeywords,
+    bool? xStampUser,
   }) {
     return ChatUser(
       uid: uid ?? this.uid,
@@ -220,6 +235,7 @@ class ChatUser {
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
       searchKeywords: searchKeywords ?? this.searchKeywords,
+      xStampUser: xStampUser ?? this.xStampUser,
     );
   }
 

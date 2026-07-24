@@ -1,8 +1,7 @@
-import 'dart:ui';
-
 import 'package:el_race/core/ui/adaptive_glass.dart';
 import 'package:el_race/ui/presentation/home_screen/widgets/home_glass_theme.dart';
 import 'package:el_race/ui/presentation/home_screen/widgets/home_my_actions_navigation.dart';
+import 'package:el_race/ui/presentation/my_actions/data/repositories/signature_actions_repository.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -128,19 +127,42 @@ class MyActionsSection extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             for (var i = 0; i < _items.length; i++) ...[
-              _MyActionTile(
-                iconAsset: _items[i].iconAsset,
-                label: _items[i].label,
-                tint: _items[i].tint,
-                tileSize: tileSize,
-                iconSize: iconSize,
-                tileWidth: tileWidth,
-                labelGap: labelGap,
-                labelFontSize: dense ? 9.sp : 10.sp,
-                labelMaxLines: dense ? 1 : 2,
-                onTap: () =>
-                    HomeMyActionsNavigation.open(context, _items[i].action),
-              ),
+              if (_items[i].action == HomeMyAction.signature)
+                StreamBuilder<int>(
+                  stream: SignatureActionsRepository.instance
+                      .watchNeedsMySignatureCount(),
+                  builder: (context, snapshot) {
+                    final count = snapshot.data ?? 0;
+                    return _MyActionTile(
+                      iconAsset: _items[i].iconAsset,
+                      label: _items[i].label,
+                      tint: _items[i].tint,
+                      tileSize: tileSize,
+                      iconSize: iconSize,
+                      tileWidth: tileWidth,
+                      labelGap: labelGap,
+                      labelFontSize: dense ? 9.sp : 10.sp,
+                      labelMaxLines: dense ? 1 : 2,
+                      badgeCount: count,
+                      onTap: () => HomeMyActionsNavigation.open(
+                          context, _items[i].action),
+                    );
+                  },
+                )
+              else
+                _MyActionTile(
+                  iconAsset: _items[i].iconAsset,
+                  label: _items[i].label,
+                  tint: _items[i].tint,
+                  tileSize: tileSize,
+                  iconSize: iconSize,
+                  tileWidth: tileWidth,
+                  labelGap: labelGap,
+                  labelFontSize: dense ? 9.sp : 10.sp,
+                  labelMaxLines: dense ? 1 : 2,
+                  onTap: () =>
+                      HomeMyActionsNavigation.open(context, _items[i].action),
+                ),
               if (i != _items.length - 1) SizedBox(width: gap),
             ],
           ],
@@ -314,6 +336,7 @@ class _MyActionTile extends StatelessWidget {
     required this.labelFontSize,
     required this.labelMaxLines,
     required this.onTap,
+    this.badgeCount = 0,
     this.crisp = false,
   });
 
@@ -327,6 +350,7 @@ class _MyActionTile extends StatelessWidget {
   final double labelFontSize;
   final int labelMaxLines;
   final VoidCallback onTap;
+  final int badgeCount;
   /// Dock mode: solid tiles, high-quality icons (no backdrop blur).
   final bool crisp;
 
@@ -375,51 +399,86 @@ class _MyActionTile extends StatelessWidget {
       ),
     );
 
+    Widget tileWithBadge(Widget child) {
+      if (badgeCount <= 0) return child;
+      return Stack(
+        clipBehavior: Clip.none,
+        children: [
+          child,
+          Positioned(
+            right: -2,
+            top: -2,
+            child: Container(
+              constraints: const BoxConstraints(minWidth: 18, minHeight: 18),
+              padding: const EdgeInsets.symmetric(horizontal: 4),
+              decoration: BoxDecoration(
+                color: const Color(0xFFE04B4B),
+                borderRadius: BorderRadius.circular(999),
+                border: Border.all(color: Colors.white, width: 1.5),
+              ),
+              alignment: Alignment.center,
+              child: Text(
+                badgeCount > 99 ? '99+' : '$badgeCount',
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 10,
+                  fontWeight: FontWeight.w700,
+                  height: 1,
+                ),
+              ),
+            ),
+          ),
+        ],
+      );
+    }
+
     final body = Column(
       mainAxisSize: MainAxisSize.min,
       children: [
         if (crisp)
-          iconTile
+          tileWithBadge(iconTile)
         else
-          ClipRRect(
-            borderRadius: borderRadius,
-            child: AdaptiveGlassLayer(
+          tileWithBadge(
+            ClipRRect(
               borderRadius: borderRadius,
-              sigma: 6,
-              fallbackColor: Colors.white.withValues(alpha: 0.92),
-              fallbackBorder: Border.all(color: Colors.white, width: 1.1),
-              child: Container(
-                width: tileSize,
-                height: tileSize,
-                decoration: BoxDecoration(
-                  borderRadius: borderRadius,
-                  boxShadow: [
-                    BoxShadow(
-                      color: const Color(0xFF1B2A4A).withValues(alpha: 0.06),
-                      blurRadius: 8,
-                      offset: const Offset(0, 3),
-                    ),
-                  ],
-                ),
-                child: DecoratedBox(
+              child: AdaptiveGlassLayer(
+                borderRadius: borderRadius,
+                sigma: 6,
+                fallbackColor: Colors.white.withValues(alpha: 0.92),
+                fallbackBorder: Border.all(color: Colors.white, width: 1.1),
+                child: Container(
+                  width: tileSize,
+                  height: tileSize,
                   decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                      colors: [
-                        tint.withValues(alpha: 0.55),
-                        tint.withValues(alpha: 0.22),
-                      ],
-                    ),
-                    borderRadius: BorderRadius.circular(14.r),
+                    borderRadius: borderRadius,
+                    boxShadow: [
+                      BoxShadow(
+                        color: const Color(0xFF1B2A4A).withValues(alpha: 0.06),
+                        blurRadius: 8,
+                        offset: const Offset(0, 3),
+                      ),
+                    ],
                   ),
-                  child: Center(
-                    child: Image.asset(
-                      iconAsset,
-                      width: iconSize,
-                      height: iconSize,
-                      fit: BoxFit.contain,
-                      filterQuality: FilterQuality.high,
+                  child: DecoratedBox(
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                        colors: [
+                          tint.withValues(alpha: 0.55),
+                          tint.withValues(alpha: 0.22),
+                        ],
+                      ),
+                      borderRadius: BorderRadius.circular(14.r),
+                    ),
+                    child: Center(
+                      child: Image.asset(
+                        iconAsset,
+                        width: iconSize,
+                        height: iconSize,
+                        fit: BoxFit.contain,
+                        filterQuality: FilterQuality.high,
+                      ),
                     ),
                   ),
                 ),
