@@ -428,24 +428,37 @@ class _TmSiteReportComposerScreenState extends State<TmSiteReportComposerScreen>
                         decoration: _fieldDecoration('Name on generated PDF'),
                       ),
                       const SizedBox(height: TimesheetModuleLayout.cardSpacing),
-                      Row(
-                        children: [
-                          Expanded(
-                            child: TmSecondaryButton(
-                              label: 'Multi capture',
-                              icon: PhosphorIcons.camera(),
-                              onPressed: _pickCamera,
-                            ),
-                          ),
-                          const SizedBox(width: 10),
-                          Expanded(
-                            child: TmSecondaryButton(
-                              label: 'Upload',
-                              icon: PhosphorIcons.upload(),
-                              onPressed: _pickGallery,
-                            ),
-                          ),
-                        ],
+                      LayoutBuilder(
+                        builder: (context, constraints) {
+                          final stackButtons = constraints.maxWidth < 340;
+                          final capture = TmSecondaryButton(
+                            label: stackButtons ? 'Capture' : 'Multi capture',
+                            icon: PhosphorIcons.camera(),
+                            onPressed: _pickCamera,
+                          );
+                          final upload = TmSecondaryButton(
+                            label: 'Upload',
+                            icon: PhosphorIcons.upload(),
+                            onPressed: _pickGallery,
+                          );
+                          if (stackButtons) {
+                            return Column(
+                              crossAxisAlignment: CrossAxisAlignment.stretch,
+                              children: [
+                                capture,
+                                const SizedBox(height: 10),
+                                upload,
+                              ],
+                            );
+                          }
+                          return Row(
+                            children: [
+                              Expanded(child: capture),
+                              const SizedBox(width: 10),
+                              Expanded(child: upload),
+                            ],
+                          );
+                        },
                       ),
                       const SizedBox(height: 8),
                       Text(

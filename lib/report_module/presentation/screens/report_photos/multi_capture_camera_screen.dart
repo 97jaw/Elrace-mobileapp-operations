@@ -267,71 +267,89 @@ class _MultiCaptureCameraScreenState extends State<MultiCaptureCameraScreen>
                         ),
                       ),
                     ),
-                  // Shutter row
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                    children: [
-                      // Switch camera
-                      GestureDetector(
-                        onTap: _switchCamera,
-                        child: Container(
-                          padding: EdgeInsets.all(12.r),
-                          decoration: const BoxDecoration(
-                            color: Colors.black45,
-                            shape: BoxShape.circle,
-                          ),
-                          child: Icon(Icons.flip_camera_ios,
-                              color: Colors.white, size: 26.sp),
-                        ),
-                      ),
-                      // Shutter button
-                      GestureDetector(
-                        onTap: _capturePhoto,
-                        child: Container(
-                          width: 72.r,
-                          height: 72.r,
-                          decoration: BoxDecoration(
-                            shape: BoxShape.circle,
-                            border: Border.all(color: Colors.white, width: 4.r),
-                          ),
-                          child: Center(
-                            child: AnimatedContainer(
-                              duration: const Duration(milliseconds: 100),
-                              width: _isCapturing ? 54.r : 60.r,
-                              height: _isCapturing ? 54.r : 60.r,
-                              decoration: const BoxDecoration(
-                                color: Colors.white,
-                                shape: BoxShape.circle,
+                  // Shutter row — Expanded slots avoid overflow on narrow Android.
+                  Padding(
+                    padding: EdgeInsets.symmetric(horizontal: 16.w),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: Align(
+                            alignment: Alignment.center,
+                            child: GestureDetector(
+                              onTap: _switchCamera,
+                              child: Container(
+                                padding: EdgeInsets.all(12.r.clamp(8, 14)),
+                                decoration: const BoxDecoration(
+                                  color: Colors.black45,
+                                  shape: BoxShape.circle,
+                                ),
+                                child: Icon(
+                                  Icons.flip_camera_ios,
+                                  color: Colors.white,
+                                  size: 26.sp.clamp(20, 28),
+                                ),
                               ),
                             ),
                           ),
                         ),
-                      ),
-                      // Done button
-                      GestureDetector(
-                        onTap: _capturedPaths.isNotEmpty ? _done : null,
-                        child: Container(
-                          padding: EdgeInsets.symmetric(
-                              horizontal: 18.w, vertical: 10.h),
-                          decoration: BoxDecoration(
-                            color: _capturedPaths.isNotEmpty
-                                ? const Color(0xFF27304E)
-                                : Colors.black26,
-                            borderRadius: BorderRadius.circular(24.r),
-                          ),
-                          child: Text(
-                            'Done',
-                            style: GoogleFonts.poppins(
-                              fontSize: 16.sp,
-                              fontWeight: FontWeight.w700,
-                              color: _capturedPaths.isNotEmpty
-                                  ? Colors.white
-                                  : Colors.white38,
+                        GestureDetector(
+                          onTap: _capturePhoto,
+                          child: Container(
+                            width: 72.r.clamp(56, 72),
+                            height: 72.r.clamp(56, 72),
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              border:
+                                  Border.all(color: Colors.white, width: 4),
+                            ),
+                            child: Center(
+                              child: AnimatedContainer(
+                                duration: const Duration(milliseconds: 100),
+                                width: (_isCapturing ? 54.0 : 60.0)
+                                    .clamp(44, 60),
+                                height: (_isCapturing ? 54.0 : 60.0)
+                                    .clamp(44, 60),
+                                decoration: const BoxDecoration(
+                                  color: Colors.white,
+                                  shape: BoxShape.circle,
+                                ),
+                              ),
                             ),
                           ),
                         ),
-                      ),
-                    ],
+                        Expanded(
+                          child: Align(
+                            alignment: Alignment.center,
+                            child: GestureDetector(
+                              onTap:
+                                  _capturedPaths.isNotEmpty ? _done : null,
+                              child: Container(
+                                padding: EdgeInsets.symmetric(
+                                  horizontal: 14.w.clamp(10, 18),
+                                  vertical: 10.h.clamp(8, 12),
+                                ),
+                                decoration: BoxDecoration(
+                                  color: _capturedPaths.isNotEmpty
+                                      ? const Color(0xFF27304E)
+                                      : Colors.black26,
+                                  borderRadius: BorderRadius.circular(24.r),
+                                ),
+                                child: Text(
+                                  'Done',
+                                  style: GoogleFonts.poppins(
+                                    fontSize: 15.sp.clamp(13, 16),
+                                    fontWeight: FontWeight.w700,
+                                    color: _capturedPaths.isNotEmpty
+                                        ? Colors.white
+                                        : Colors.white38,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 ],
               ),
