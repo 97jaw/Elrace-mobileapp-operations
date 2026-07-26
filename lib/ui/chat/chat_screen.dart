@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:io';
 import 'dart:ui';
 
+import 'package:el_race/core/ui/adaptive_glass.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:image_picker/image_picker.dart';
@@ -10,13 +11,14 @@ import 'package:permission_handler/permission_handler.dart';
 
 import '../../chat/chat.dart';
 import '../../chat/services/chat_notification_service.dart';
-import '../../resources/app_colors.dart';
 import '../../core/utils/shared_pref.dart';
 import 'chat_user_profile_screen.dart';
 import 'chat_group_profile_screen.dart';
 import 'screens/sign_zone_picker_screen.dart';
+import 'theme/chat_glass_theme.dart';
+import 'widgets/blue_geometric_background.dart';
 import 'widgets/chat_merged_header.dart';
-import 'widgets/chat_sub_app_glass_bar.dart';
+import 'widgets/chat_top_glass_app_bar.dart';
 import 'widgets/chat_unified_header_backdrop.dart';
 import 'widgets/message_bubble.dart';
 import 'widgets/chat_input_bar.dart';
@@ -282,8 +284,9 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
 
   Widget _buildChatScaffold({PresenceStatus? presence}) {
     return Scaffold(
-      backgroundColor: Colors.white,
-      body: ChatIdProvider(
+      backgroundColor: Colors.transparent,
+      body: BlueGeometricBackground(
+        child: ChatIdProvider(
         chatId: widget.chatId,
         child: Column(
           children: [
@@ -294,7 +297,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                     SliverPersistentHeader(
                       pinned: true,
                       delegate: ChatConversationHeaderDelegate(
-                        topBarExtent: SubAppGlassAppBar.extent(context),
+                        topBarExtent: ChatTopGlassAppBar.extent(context),
                         title: widget.title,
                         onBack: () => Navigator.of(context).pop(),
                         leading: GestureDetector(
@@ -314,9 +317,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                   ];
                 },
                 body: Container(
-                  decoration: const BoxDecoration(
-                    gradient: ChatSurfaceTheme.messageAreaGradient,
-                  ),
+                  color: Colors.transparent,
                   child: Stack(
                     children: [
                       Positioned.fill(
@@ -330,7 +331,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
             _buildTypingIndicator(),
             _buildReplyBar(),
             Container(
-              color: Colors.white,
+              color: Colors.transparent,
               padding: EdgeInsets.only(
                 bottom: (MediaQuery.of(context).padding.bottom / 2)
                     .clamp(0.0, 6.0),
@@ -351,6 +352,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
             ),
           ],
         ),
+      ),
       ),
     );
   }
@@ -377,16 +379,22 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   Widget _buildConversationMenu() {
     return PopupMenuButton<String>(
       onSelected: _onMenuAction,
-      color: Colors.white,
+      color: const Color(0xFF1A2438),
       icon: const Icon(Icons.more_vert, color: Colors.white),
       itemBuilder: (context) => [
         PopupMenuItem(
           value: 'mute',
           child: Row(
             children: [
-              Icon(_isMuted ? Icons.volume_up : Icons.volume_off),
+              Icon(
+                _isMuted ? Icons.volume_up : Icons.volume_off,
+                color: ChatGlassTheme.silverLight,
+              ),
               const SizedBox(width: 8),
-              Text(_isMuted ? 'Unmute' : 'Mute'),
+              Text(
+                _isMuted ? 'Unmute' : 'Mute',
+                style: ChatGlassTheme.body(),
+              ),
             ],
           ),
         ),
@@ -411,7 +419,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
                   border: Border.all(
-                      color: const Color(0xFFE9B23A), width: 1.2),
+                      color: ChatGlassTheme.avatarRing, width: 1.2),
                 ),
                 child: CircleAvatar(
                   radius: 22,
@@ -456,7 +464,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
       padding: const EdgeInsets.all(1.3),
       decoration: BoxDecoration(
         shape: BoxShape.circle,
-        border: Border.all(color: const Color(0xFFE9B23A), width: 1.2),
+        border: Border.all(color: ChatGlassTheme.avatarRing, width: 1.2),
       ),
       child: CircleAvatar(
         radius: 22,
@@ -516,7 +524,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
               height: 28,
               child: CircularProgressIndicator(
                 strokeWidth: 2.5,
-                color: AppColors.primaryColor,
+                color: ChatGlassTheme.gold,
               ),
             ),
           );
@@ -542,22 +550,47 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
         // Only show empty state AFTER we got real data (not while loading)
         if (messages.isEmpty && !isWaiting) {
           return Center(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(Icons.chat_bubble_outline,
-                    size: 60, color: Colors.grey[400]),
-                const SizedBox(height: 16),
-                Text(
-                  'No messages yet',
-                  style: TextStyle(color: Colors.grey[600]),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 28),
+              child: AdaptiveGlassLayer(
+                borderRadius: BorderRadius.circular(20),
+                sigma: 18,
+                fallbackColor: ChatGlassTheme.waterFillStrong,
+                fallbackBorder: Border.all(
+                  color: Colors.white.withValues(alpha: 0.38),
                 ),
-                const SizedBox(height: 8),
-                Text(
-                  'Start the conversation!',
-                  style: TextStyle(color: Colors.grey[500], fontSize: 14),
+                child: Container(
+                  width: double.infinity,
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 24, vertical: 28),
+                  decoration: ChatGlassTheme.waterCardDecoration(
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        Icons.chat_bubble_outline,
+                        size: 52,
+                        color: Colors.white.withValues(alpha: 0.9),
+                      ),
+                      const SizedBox(height: 16),
+                      Text(
+                        'No messages yet',
+                        style: ChatGlassTheme.body(
+                          fontSize: 17,
+                          weight: FontWeight.w600,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        'Start the conversation!',
+                        style: ChatGlassTheme.muted(fontSize: 14),
+                      ),
+                    ],
+                  ),
                 ),
-              ],
+              ),
             ),
           );
         }
@@ -569,7 +602,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
               height: 28,
               child: CircularProgressIndicator(
                 strokeWidth: 2.5,
-                color: AppColors.primaryColor,
+                color: ChatGlassTheme.gold,
               ),
             ),
           );
@@ -924,10 +957,10 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
 
     return Container(
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: Colors.black.withValues(alpha: 0.7),
         border: Border(
           top: BorderSide(
-            color: ChatSurfaceTheme.dateChipFill,
+            color: Colors.white.withValues(alpha: 0.12),
             width: 1,
           ),
         ),
@@ -940,7 +973,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
             height: 44,
             decoration: BoxDecoration(
               color: isMyMessage
-                  ? AppColors.primaryColor
+                  ? ChatGlassTheme.gold
                   : ChatSurfaceTheme.accentGold,
               borderRadius: BorderRadius.circular(2),
             ),
@@ -956,9 +989,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                   style: TextStyle(
                     fontSize: 13,
                     fontWeight: FontWeight.w700,
-                    color: isMyMessage
-                        ? AppColors.primaryColor
-                        : ChatSurfaceTheme.accentGold,
+                    color: ChatGlassTheme.gold,
                   ),
                   maxLines: null,
                   overflow: TextOverflow.visible,
@@ -966,10 +997,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                 const SizedBox(height: 2),
                 Text(
                   preview,
-                  style: const TextStyle(
-                    fontSize: 13,
-                    color: Color(0xFF8E8E93),
-                  ),
+                  style: ChatGlassTheme.muted(fontSize: 13),
                   maxLines: null,
                   overflow: TextOverflow.visible,
                 ),

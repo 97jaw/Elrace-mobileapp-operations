@@ -1,39 +1,32 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 
-/// One continuous grey → light glassy navy gradient for chat top chrome + merged header.
+/// Soft translucent wash so the blue geometric wallpaper reads through.
 abstract final class ChatUnifiedHeaderBackdrop {
-  /// Grey at top, soft light navy at bottom (no hard band stops).
   static const LinearGradient gradient = LinearGradient(
     begin: Alignment.topCenter,
     end: Alignment.bottomCenter,
     colors: [
-      Color(0xFFB4B9C2),
-      Color(0xFF8E98A8),
-      Color(0xFF6E7A92),
-      Color(0xFF525E7A),
-      Color(0xFF3D4768),
-      Color(0xFF2C3560),
-      Color(0xFF222B58),
-      Color(0xFF1A2248),
-      Color(0xFF161B54),
+      Color(0x660A1628),
+      Color(0x440A1628),
+      Color(0x220A1628),
+      Color(0x00000000),
     ],
-    stops: [0.0, 0.12, 0.28, 0.42, 0.55, 0.68, 0.8, 0.9, 1.0],
+    stops: [0.0, 0.45, 0.8, 1.0],
   );
 
-  /// Frosted sheen on the lower (navy) portion.
   static const LinearGradient glassSheen = LinearGradient(
     begin: Alignment.topCenter,
     end: Alignment.bottomCenter,
     colors: [
-      Colors.transparent,
       Color(0x33FFFFFF),
-      Color(0x1AFFFFFF),
+      Colors.transparent,
+      Color(0x22A8D0F0),
     ],
-    stops: [0.35, 0.72, 1.0],
+    stops: [0.0, 0.4, 1.0],
   );
 
-  static LinearGradient tintedGradient(Color accent, {double strength = 0.44}) {
+  static LinearGradient tintedGradient(Color accent, {double strength = 0.18}) {
     Color blend(Color base, double amount) =>
         Color.lerp(base, accent, amount.clamp(0.0, 1.0))!;
 
@@ -41,17 +34,12 @@ abstract final class ChatUnifiedHeaderBackdrop {
       begin: Alignment.topCenter,
       end: Alignment.bottomCenter,
       colors: [
-        blend(const Color(0xFFB4B9C2), strength),
-        blend(const Color(0xFF8E98A8), strength * 0.95),
-        blend(const Color(0xFF6E7A92), strength * 0.88),
-        blend(const Color(0xFF525E7A), strength * 0.78),
-        blend(const Color(0xFF3D4768), strength * 0.62),
-        const Color(0xFF2C3560),
-        const Color(0xFF222B58),
-        const Color(0xFF1A2248),
-        const Color(0xFF161B54),
+        blend(const Color(0x660A1628), strength * 0.4),
+        const Color(0x440A1628),
+        blend(const Color(0x220A1628), strength),
+        Colors.transparent,
       ],
-      stops: gradient.stops,
+      stops: const [0.0, 0.5, 0.8, 1.0],
     );
   }
 
@@ -70,7 +58,7 @@ abstract final class ChatUnifiedHeaderBackdrop {
           Positioned.fill(
             child: IgnorePointer(
               child: Opacity(
-                opacity: 0.68,
+                opacity: 0.12,
                 child: Image.asset(
                   'assets/png/header_bg.png',
                   fit: BoxFit.cover,
@@ -84,27 +72,12 @@ abstract final class ChatUnifiedHeaderBackdrop {
             left: -12.w,
             child: IgnorePointer(
               child: Opacity(
-                opacity: 0.52,
+                opacity: 0.1,
                 child: Image.asset(
                   'assets/png/lines.png',
                   width: 240.w,
                   fit: BoxFit.fitWidth,
                   alignment: Alignment.topLeft,
-                ),
-              ),
-            ),
-          ),
-          Positioned(
-            top: 0,
-            right: -20.w,
-            child: IgnorePointer(
-              child: Opacity(
-                opacity: 0.35,
-                child: Image.asset(
-                  'assets/png/lines.png',
-                  width: 180.w,
-                  fit: BoxFit.fitWidth,
-                  alignment: Alignment.topRight,
                 ),
               ),
             ),
@@ -118,27 +91,28 @@ abstract final class ChatUnifiedHeaderBackdrop {
   }
 }
 
-/// Message list + bubble colors aligned with [ChatUnifiedHeaderBackdrop].
+/// Message list + bubble colors for glass chat on blue wallpaper.
 abstract final class ChatSurfaceTheme {
+  /// Transparent so [BlueGeometricBackground] shows through.
   static const LinearGradient messageAreaGradient = LinearGradient(
     begin: Alignment.topCenter,
     end: Alignment.bottomCenter,
     colors: [
-      Color(0xFFF8F9FC),
-      Color(0xFFEEF2FA),
-      Color(0xFFE6EBF5),
+      Color(0x00000000),
+      Color(0x140A1628),
+      Color(0x220A1628),
     ],
-    stops: [0.0, 0.45, 1.0],
+    stops: [0.0, 0.6, 1.0],
   );
 
   static const LinearGradient sentMessageGradient = LinearGradient(
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
     colors: [
-      Color(0xFF161B54),
-      Color(0xFF222B58),
-      Color(0xFF2C3560),
-      Color(0xFF3D4768),
+      Color(0x664A90C8),
+      Color(0x553D7AB8),
+      Color(0x442A6AA8),
+      Color(0x331E5080),
     ],
     stops: [0.0, 0.35, 0.7, 1.0],
   );
@@ -147,22 +121,23 @@ abstract final class ChatSurfaceTheme {
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
     colors: [
-      Color(0xFFFFFFFF),
-      Color(0xFFF5F7FB),
-      Color(0xFFEEF2FA),
+      Color(0x33FFFFFF),
+      Color(0x22FFFFFF),
+      Color(0x18FFFFFF),
     ],
     stops: [0.0, 0.5, 1.0],
   );
 
-  static const Color watermark = Color(0xFF8E98A8);
-  static const Color dateChipFill = Color(0xFFE8ECF4);
-  static const Color dateChipText = Color(0xFF525E7A);
-  static const Color senderName = Color(0xFF6E7A92);
-  static const Color receivedText = Color(0xFF1A2248);
-  static const Color accentGold = Color(0xFFE9B23A);
+  static const Color watermark = Color(0x55FFFFFF);
+  static const Color dateChipFill = Color(0x33FFFFFF);
+  static const Color dateChipText = Color(0xE6FFFFFF);
+  static const Color senderName = Color(0xFFFFFFFF);
+  static const Color receivedText = Color(0xFFFFFFFF);
+  static const Color accentGold = Color(0xFFFFFFFF);
+  static const Color sentBubbleBorder = Color(0x73FFFFFF);
+  static const Color receivedBubbleBorder = Color(0x55FFFFFF);
 }
 
-/// Wraps logo bar + scroll header so one gradient runs through the full height.
 class ChatListHeaderChrome extends StatelessWidget {
   const ChatListHeaderChrome({
     super.key,

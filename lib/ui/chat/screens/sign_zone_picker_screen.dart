@@ -6,6 +6,7 @@ import 'package:flutter_pdfview/flutter_pdfview.dart';
 import 'package:syncfusion_flutter_pdf/pdf.dart';
 
 import '../../../chat/models/message.dart';
+import '../theme/chat_glass_theme.dart';
 
 /// Screen for the sender to pick sign zones on a PDF before sending.
 /// Zones are fixed-size (no resize). Max 2 signature + max 2 stamp zones.
@@ -393,8 +394,8 @@ class _SignZonePickerScreenState extends State<SignZonePickerScreen> {
                     child: FloatingActionButton.small(
                       heroTag: 'mode_toggle',
                       backgroundColor: _isPlaceMode
-                          ? const Color(0xFF1D2449)
-                          : const Color(0xFFD4A843),
+                          ? ChatGlassTheme.silverDeep
+                          : ChatGlassTheme.gold,
                       onPressed: () {
                         setState(() {
                           _isPlaceMode = !_isPlaceMode;
@@ -403,7 +404,9 @@ class _SignZonePickerScreenState extends State<SignZonePickerScreen> {
                       },
                       child: Icon(
                         _isPlaceMode ? Icons.swipe : Icons.touch_app,
-                        color: Colors.white,
+                        color: _isPlaceMode
+                            ? const Color(0xFF1A1A1A)
+                            : const Color(0xFF1A1A1A),
                         size: 20,
                       ),
                     ),

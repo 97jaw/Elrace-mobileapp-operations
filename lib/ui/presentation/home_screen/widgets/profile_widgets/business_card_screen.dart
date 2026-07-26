@@ -1,6 +1,5 @@
 import 'package:el_race/core/utils/responsive_breakpoints.dart';
 import 'dart:io';
-import 'dart:math' as math;
 import 'dart:ui' as ui;
 
 import 'package:el_race/ui/presentation/home_screen/widgets/home_city_helper.dart';
@@ -8,17 +7,14 @@ import 'package:el_race/ui/presentation/home_screen/widgets/profile_widgets/prof
 import 'package:el_race/ui/presentation/home_screen/widgets/profile_widgets/profile_user_info.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
-import 'package:flutter/services.dart';
-import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
 
-const _kBusinessCardAssetRoot = 'assets/images/business_card';
-const _kCompanyLogoAsset = '$_kBusinessCardAssetRoot/company_logo.png';
-const _kShareLogoHeight = 56.0;
-const _kCardGray = Color(0xFFE2E8EB);
-const _kContactNavy = Color(0xFF1B3A5C);
-const _kJobGray = Color(0xFF8A8A8A);
+const _kTemplateAsset = 'assets/png/background-BC.png';
+const _kNavy = Color(0xFF1A2B56);
+const _kRed = Color(0xFFC41E3A);
+const _kDivider = Color(0xFFD0D5DB);
 
 class BusinessCardScreen extends StatefulWidget {
   const BusinessCardScreen({super.key});
@@ -27,87 +23,40 @@ class BusinessCardScreen extends StatefulWidget {
   State<BusinessCardScreen> createState() => _BusinessCardScreenState();
 }
 
-class _BusinessCardScreenState extends State<BusinessCardScreen>
-    with SingleTickerProviderStateMixin {
-  final GlobalKey _cardCaptureKey = GlobalKey();
-  late final AnimationController _flipController;
-  late final Animation<double> _flipAnimation;
-  bool _showBack = false;
+class _BusinessCardScreenState extends State<BusinessCardScreen> {
+  final GlobalKey _captureKey = GlobalKey();
   bool _sharing = false;
 
   @override
   void initState() {
     super.initState();
-    _flipController = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 850),
-    );
-    _flipAnimation = CurvedAnimation(
-      parent: _flipController,
-      curve: Curves.easeInOut,
-    );
-    _flipController.addListener(() {
-      if (!mounted) return;
-      final nowBack = _flipAnimation.value >= 0.5;
-      if (nowBack != _showBack) setState(() => _showBack = nowBack);
-    });
     HomeCityHelper.fetchCity().then((_) {
       if (mounted) setState(() {});
     });
   }
 
-  @override
-  void dispose() {
-    _flipController.dispose();
-    super.dispose();
-  }
-
-  void _toggleSide() {
-    if (_flipController.isAnimating) return;
-    if (_showBack) {
-      _flipController.reverse();
-    } else {
-      _flipController.forward();
-    }
-  }
-
-  static void _noop() {}
-
   Future<void> _shareCard() async {
     if (_sharing) return;
     setState(() => _sharing = true);
 
-    const pixelRatio = 3.0;
-
     try {
       if (!mounted) return;
-      await precacheImage(const AssetImage(_kCompanyLogoAsset), context);
-      await _precacheBusinessCardAssets(context);
-
-      // Rebuild without the Swap button before capture.
+      await precacheImage(const AssetImage(_kTemplateAsset), context);
       await WidgetsBinding.instance.endOfFrame;
       await WidgetsBinding.instance.endOfFrame;
 
-      final boundary = _cardCaptureKey.currentContext?.findRenderObject()
+      final boundary = _captureKey.currentContext?.findRenderObject()
           as RenderRepaintBoundary?;
       if (boundary == null) return;
 
-      final image = await boundary.toImage(pixelRatio: pixelRatio);
-      final byteData =
-          await image.toByteData(format: ui.ImageByteFormat.png);
+      final image = await boundary.toImage(pixelRatio: 3.0);
+      final byteData = await image.toByteData(format: ui.ImageByteFormat.png);
       image.dispose();
       if (byteData == null) return;
 
-      final composited = await _compositeCompanyLogoOnCard(
-        cardPng: byteData.buffer.asUint8List(),
-        pixelRatio: pixelRatio,
-      );
-      if (composited == null) return;
-
       final dir = await getTemporaryDirectory();
-      final side = _showBack ? 'back' : 'front';
-      final file = File('${dir.path}/elrace_business_card_$side.png');
-      await file.writeAsBytes(composited);
+      final file = File('${dir.path}/elrace_business_card.png');
+      await file.writeAsBytes(byteData.buffer.asUint8List());
 
       if (!mounted) return;
       final box = context.findRenderObject();
@@ -126,71 +75,6 @@ class _BusinessCardScreenState extends State<BusinessCardScreen>
     }
   }
 
-  Future<Uint8List?> _compositeCompanyLogoOnCard({
-    required Uint8List cardPng,
-    required double pixelRatio,
-  }) async {
-    final cardCodec = await ui.instantiateImageCodec(cardPng);
-    final cardFrame = await cardCodec.getNextFrame();
-    final cardImage = cardFrame.image;
-
-    final logoBytes =
-        (await rootBundle.load(_kCompanyLogoAsset)).buffer.asUint8List();
-    final logoCodec = await ui.instantiateImageCodec(logoBytes);
-    final logoFrame = await logoCodec.getNextFrame();
-    final logoImage = logoFrame.image;
-
-    const logoAspect = 749 / 349;
-    final logoHeight = _kShareLogoHeight * pixelRatio;
-    final logoWidth = logoHeight * logoAspect;
-    final padRight = 10.tw * pixelRatio;
-    final padBottom = 10.th * pixelRatio;
-
-    final canvasW = cardImage.width.toDouble();
-    final canvasH = cardImage.height.toDouble();
-
-    final recorder = ui.PictureRecorder();
-    final canvas = Canvas(recorder);
-    canvas.drawImage(cardImage, Offset.zero, Paint());
-
-    final dest = Rect.fromLTWH(
-      canvasW - padRight - logoWidth,
-      canvasH - padBottom - logoHeight,
-      logoWidth,
-      logoHeight,
-    );
-    paintImage(
-      canvas: canvas,
-      rect: dest,
-      image: logoImage,
-      fit: BoxFit.contain,
-      filterQuality: FilterQuality.high,
-    );
-
-    final picture = recorder.endRecording();
-    final outImage = await picture.toImage(cardImage.width, cardImage.height);
-    final outData = await outImage.toByteData(format: ui.ImageByteFormat.png);
-
-    cardImage.dispose();
-    logoImage.dispose();
-    outImage.dispose();
-
-    return outData?.buffer.asUint8List();
-  }
-
-  Future<void> _precacheBusinessCardAssets(BuildContext context) async {
-    const assets = <String>[
-      '$_kBusinessCardAssetRoot/bc_pattern.png',
-      '$_kBusinessCardAssetRoot/mail.png',
-      '$_kBusinessCardAssetRoot/phone.png',
-      '$_kBusinessCardAssetRoot/location.png',
-      '$_kBusinessCardAssetRoot/website.png',
-    ];
-    for (final path in assets) {
-      await precacheImage(AssetImage(path), context);
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -201,10 +85,7 @@ class _BusinessCardScreenState extends State<BusinessCardScreen>
         elevation: 0,
         title: Text(
           'Business Card',
-          style: TextStyle(
-            fontSize: 17.tsp,
-            fontWeight: FontWeight.w700,
-          ),
+          style: TextStyle(fontSize: 17.tsp, fontWeight: FontWeight.w700),
         ),
         actions: [
           IconButton(
@@ -226,58 +107,45 @@ class _BusinessCardScreenState extends State<BusinessCardScreen>
       body: SafeArea(
         child: Center(
           child: Padding(
-            padding: EdgeInsets.symmetric(horizontal: 24.tw, vertical: 16.th),
-            child: AnimatedBuilder(
-              animation: _flipAnimation,
-              builder: (context, _) {
-                final t = _flipAnimation.value;
-                final angle = t * math.pi;
-                final isUnder = t >= 0.5;
-                final scale = 1.0 - (math.sin(angle).abs() * 0.04);
+            padding: EdgeInsets.symmetric(horizontal: 28.tw, vertical: 20.th),
+            child: _CardFrame(captureKey: _captureKey),
+          ),
+        ),
+      ),
+    );
+  }
+}
 
-                return Stack(
-                  alignment: Alignment.center,
-                  children: [
-                    Transform(
-                      alignment: Alignment.center,
-                      transform: Matrix4.identity()
-                        ..setEntry(3, 2, 0.0012)
-                        ..rotateY(angle)
-                        ..scale(scale),
-                      child: _BusinessCardFrame(
-                        child: RepaintBoundary(
-                          key: _cardCaptureKey,
-                          child: isUnder
-                              ? Transform(
-                                  alignment: Alignment.center,
-                                  transform: Matrix4.identity()..rotateY(math.pi),
-                                  child: const _BackCardView(
-                                    showSwap: false,
-                                    onSwap: _noop,
-                                  ),
-                                )
-                              : const _FrontCardView(
-                                  showSwap: false,
-                                  onSwap: _noop,
-                                ),
-                        ),
-                      ),
-                    ),
-                    _BusinessCardFrame(
-                      child: Stack(
-                        clipBehavior: Clip.none,
-                        children: [
-                          Positioned(
-                            right: 10.tw,
-                            bottom: 10.th,
-                            child: _SwapButton(onPressed: _toggleSide),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                );
-              },
+class _CardFrame extends StatelessWidget {
+  const _CardFrame({required this.captureKey});
+
+  final GlobalKey captureKey;
+
+  @override
+  Widget build(BuildContext context) {
+    final maxW = MediaQuery.sizeOf(context).width - 56.tw;
+    final maxH = MediaQuery.sizeOf(context).height * 0.74;
+
+    return ConstrainedBox(
+      constraints: BoxConstraints(maxWidth: maxW, maxHeight: maxH),
+      child: AspectRatio(
+        aspectRatio: 900 / 1600,
+        child: DecoratedBox(
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(12.tr),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.14),
+                blurRadius: 18,
+                offset: const Offset(0, 8),
+              ),
+            ],
+          ),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(12.tr),
+            child: RepaintBoundary(
+              key: captureKey,
+              child: const _BusinessCard(),
             ),
           ),
         ),
@@ -286,37 +154,8 @@ class _BusinessCardScreenState extends State<BusinessCardScreen>
   }
 }
 
-class _BusinessCardFrame extends StatelessWidget {
-  const _BusinessCardFrame({super.key, required this.child});
-
-  final Widget child;
-
-  @override
-  Widget build(BuildContext context) {
-    final maxWidth = MediaQuery.sizeOf(context).width - 48.tw;
-    final maxHeight = MediaQuery.sizeOf(context).height * 0.72;
-
-    return ConstrainedBox(
-      constraints: BoxConstraints(
-        maxWidth: maxWidth,
-        maxHeight: maxHeight,
-      ),
-      child: AspectRatio(
-        aspectRatio: 0.57,
-        child: child,
-      ),
-    );
-  }
-}
-
-class _FrontCardView extends StatelessWidget {
-  const _FrontCardView({
-    required this.onSwap,
-    required this.showSwap,
-  });
-
-  final VoidCallback onSwap;
-  final bool showSwap;
+class _BusinessCard extends StatelessWidget {
+  const _BusinessCard();
 
   @override
   Widget build(BuildContext context) {
@@ -324,329 +163,240 @@ class _FrontCardView extends StatelessWidget {
     final jobTitle =
         ProfileUserInfo.displayOrDash(ProfileUserInfo.displayJobTitle());
     final email = ProfileUserInfo.displayOrDash(ProfileUserInfo.displayEmail());
-    final phone = ProfileUserInfo.displayOrDash(ProfileUserInfo.displayPhone());
-    final location =
-        ProfileUserInfo.displayOrDash(ProfileUserInfo.displayLocation());
+    final mobile =
+        ProfileUserInfo.displayOrDash(ProfileUserInfo.displayMobile());
+    final landline = ProfileUserInfo.displayLandline();
     final website = ProfileUserInfo.displayWebsite();
 
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(12.tr),
-      child: LayoutBuilder(
-        builder: (context, constraints) {
-          final padH = constraints.maxWidth * 0.11;
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final w = constraints.maxWidth;
+        final h = constraints.maxHeight;
 
-          return Column(
-            children: [
-              Expanded(
-                flex: 58,
-                child: ColoredBox(
-                  color: Colors.white,
-                  child: LayoutBuilder(
-                    builder: (context, whiteConstraints) {
-                      final whiteH = whiteConstraints.maxHeight;
-                      final patternH = whiteH * 0.46;
+        // background-BC.png bakes in a raised white panel whose ribbon fold
+        // (navy + red) runs down to ~0.46h at this block's left inset —
+        // content must start below that, not at 0.325h (was rendering on
+        // top of the ribbon itself).
+        final firstNameSize = (w * 0.078).clamp(22.0, 30.0);
+        final restNameSize = (w * 0.040).clamp(13.0, 16.0);
+        final titleSize = (w * 0.032).clamp(11.0, 13.0);
+        final contactSize = (w * 0.033).clamp(11.0, 13.0);
+        final iconSize = (w * 0.048).clamp(15.0, 19.0);
 
-                      return Column(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: [
-                          SizedBox(
-                            height: patternH,
-                            child: Image.asset(
-                              '$_kBusinessCardAssetRoot/bc_pattern.png',
-                              fit: BoxFit.cover,
-                              alignment: Alignment.topCenter,
-                            ),
-                          ),
-                          Expanded(
-                            child: Padding(
-                              padding: EdgeInsets.symmetric(
-                                horizontal: padH,
-                              ),
-                              child: Center(
-                                child: _IdentityBlock(
-                                  name: name,
-                                  jobTitle: jobTitle,
-                                ),
-                              ),
-                            ),
-                          ),
-                        ],
-                      );
-                    },
+        return Stack(
+          fit: StackFit.expand,
+          children: [
+            Image.asset(
+              _kTemplateAsset,
+              fit: BoxFit.fill,
+              filterQuality: FilterQuality.high,
+            ),
+
+            // Tight details block — not stretched — inside white plate.
+            Positioned(
+              left: w * 0.145,
+              right: w * 0.11,
+              top: h * 0.49,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _NameBlock(
+                    name: name,
+                    firstSize: firstNameSize,
+                    restSize: restNameSize,
                   ),
-                ),
-              ),
-              Expanded(
-                flex: 42,
-                child: ColoredBox(
-                  color: _kCardGray,
-                  child: Padding(
-                    padding: EdgeInsets.fromLTRB(
-                      padH,
-                      14.th,
-                      padH,
-                      36.th,
-                    ),
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        _ContactRow(
-                          iconPath: '$_kBusinessCardAssetRoot/mail.png',
-                          label: email,
-                        ),
-                        _ContactRow(
-                          iconPath: '$_kBusinessCardAssetRoot/phone.png',
-                          label: phone,
-                        ),
-                        _ContactRow(
-                          iconPath: '$_kBusinessCardAssetRoot/location.png',
-                          label: location,
-                        ),
-                        _ContactRow(
-                          iconPath: '$_kBusinessCardAssetRoot/website.png',
-                          label: website,
-                        ),
-                      ],
+                  SizedBox(height: h * 0.012),
+                  Container(
+                    width: w * 0.18,
+                    height: 1.4,
+                    color: _kRed,
+                  ),
+                  SizedBox(height: h * 0.010),
+                  Text(
+                    jobTitle == '—' ? jobTitle : '$jobTitle |',
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontSize: titleSize,
+                      fontWeight: FontWeight.w500,
+                      color: _kRed,
+                      height: 1.2,
                     ),
                   ),
-                ),
+                  SizedBox(height: h * 0.038),
+                  _ContactList(
+                    email: email,
+                    mobile: mobile,
+                    landline: landline,
+                    website: website,
+                    iconSize: iconSize,
+                    textSize: contactSize,
+                    rowHeight: (h * 0.048).clamp(30.0, 38.0),
+                  ),
+                ],
               ),
-            ],
-          );
-        },
-      ),
+            ),
+          ],
+        );
+      },
     );
   }
 }
 
-class _BackCardView extends StatelessWidget {
-  const _BackCardView({
-    required this.onSwap,
-    required this.showSwap,
-  });
-
-  final VoidCallback onSwap;
-  final bool showSwap;
-
-  @override
-  Widget build(BuildContext context) {
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(12.tr),
-      child: Image.asset(
-        '$_kBusinessCardAssetRoot/back_template.jpeg',
-        fit: BoxFit.cover,
-      ),
-    );
-  }
-}
-
-class _IdentityBlock extends StatelessWidget {
-  const _IdentityBlock({
+class _NameBlock extends StatelessWidget {
+  const _NameBlock({
     required this.name,
-    required this.jobTitle,
+    required this.firstSize,
+    required this.restSize,
   });
 
   final String name;
-  final String jobTitle;
+  final double firstSize;
+  final double restSize;
 
   @override
   Widget build(BuildContext context) {
+    final parts = name.trim().split(RegExp(r'\s+'));
+    final first = parts.isEmpty ? name : parts.first;
+    final rest = parts.length <= 1 ? '' : parts.sublist(1).join(' ');
+
     return Column(
-      mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _NameText(name: name),
-        SizedBox(height: 5.th),
-        _JobTitleText(title: jobTitle),
-        SizedBox(height: 8.th),
-        const _AccentDividerLine(),
+        Text(
+          first,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: GoogleFonts.playfairDisplay(
+            fontSize: firstSize,
+            fontWeight: FontWeight.w700,
+            color: _kNavy,
+            height: 1.05,
+          ),
+        ),
+        if (rest.isNotEmpty) ...[
+          SizedBox(height: 3.th),
+          Text(
+            rest,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            style: GoogleFonts.playfairDisplay(
+              fontSize: restSize,
+              fontWeight: FontWeight.w400,
+              color: _kNavy,
+              height: 1.2,
+            ),
+          ),
+        ],
       ],
     );
   }
 }
 
-class _AccentDividerLine extends StatelessWidget {
-  const _AccentDividerLine();
+class _ContactList extends StatelessWidget {
+  const _ContactList({
+    required this.email,
+    required this.mobile,
+    required this.landline,
+    required this.website,
+    required this.iconSize,
+    required this.textSize,
+    required this.rowHeight,
+  });
+
+  final String email;
+  final String mobile;
+  final String landline;
+  final String website;
+  final double iconSize;
+  final double textSize;
+  final double rowHeight;
 
   @override
   Widget build(BuildContext context) {
-    final redHeight = 5.th;
-    final blackHeight = 1.8.th;
+    final rows = <(IconData, String)>[
+      (Icons.email_outlined, email),
+      (Icons.smartphone_rounded, mobile),
+      (Icons.phone_rounded, landline),
+      (Icons.language_rounded, website),
+    ];
 
-    return SizedBox(
-      width: double.infinity,
-      height: redHeight,
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.center,
-        children: [
-          Container(
-            width: 46.tw,
-            height: redHeight,
-            color: const Color(0xFFC62828),
-          ),
-          Expanded(
-            child: Container(
-              height: blackHeight,
-              color: Colors.black,
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        for (var i = 0; i < rows.length; i++)
+          SizedBox(
+            height: rowHeight,
+            child: _ContactRow(
+              icon: rows[i].$1,
+              label: rows[i].$2,
+              iconSize: iconSize,
+              textSize: textSize,
+              showDivider: i < rows.length - 1,
             ),
           ),
-        ],
-      ),
-    );
-  }
-}
-
-class _NameText extends StatelessWidget {
-  const _NameText({required this.name});
-
-  final String name;
-
-  @override
-  Widget build(BuildContext context) {
-    final parts = name.trim().split(RegExp(r'\s+'));
-    final fontSize = name.length > 28 ? 16.tsp : 18.tsp;
-    final baseStyle = TextStyle(
-      fontSize: fontSize,
-      color: Colors.black,
-      height: 1.15,
-      letterSpacing: -0.2,
-    );
-
-    Widget text;
-    if (parts.length <= 1) {
-      text = Text(
-        name,
-        maxLines: 2,
-        overflow: TextOverflow.ellipsis,
-        style: baseStyle.copyWith(fontWeight: FontWeight.w700),
-      );
-    } else {
-      final first = parts.first;
-      final rest = parts.sublist(1).join(' ');
-      text = Text.rich(
-        TextSpan(
-          style: baseStyle,
-          children: [
-            TextSpan(
-              text: '$first ',
-              style: const TextStyle(fontWeight: FontWeight.w700),
-            ),
-            TextSpan(
-              text: rest,
-              style: const TextStyle(fontWeight: FontWeight.w400),
-            ),
-          ],
-        ),
-        maxLines: 2,
-        overflow: TextOverflow.ellipsis,
-      );
-    }
-
-    return SizedBox(
-      width: double.infinity,
-      child: text,
-    );
-  }
-}
-
-class _JobTitleText extends StatelessWidget {
-  const _JobTitleText({required this.title});
-
-  final String title;
-
-  @override
-  Widget build(BuildContext context) {
-    return SizedBox(
-      width: double.infinity,
-      child: Text(
-        title,
-        maxLines: 2,
-        overflow: TextOverflow.ellipsis,
-        style: TextStyle(
-          fontSize: 12.tsp,
-          color: _kJobGray,
-          fontWeight: FontWeight.w400,
-          height: 1.15,
-        ),
-      ),
+      ],
     );
   }
 }
 
 class _ContactRow extends StatelessWidget {
   const _ContactRow({
-    required this.iconPath,
+    required this.icon,
     required this.label,
+    required this.iconSize,
+    required this.textSize,
+    required this.showDivider,
   });
 
-  final String iconPath;
+  final IconData icon;
   final String label;
+  final double iconSize;
+  final double textSize;
+  final bool showDivider;
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.center,
+    return Column(
       children: [
-        SizedBox(
-          width: 16.tw,
-          height: 16.tw,
-          child: Image.asset(
-            iconPath,
-            fit: BoxFit.contain,
-          ),
-        ),
-        SizedBox(width: 10.tw),
         Expanded(
-          child: Text(
-            label,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: TextStyle(
-              fontSize: 11.tsp,
-              fontWeight: FontWeight.w500,
-              color: _kContactNavy,
-              height: 1.1,
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-class _SwapButton extends StatelessWidget {
-  const _SwapButton({required this.onPressed});
-
-  final VoidCallback onPressed;
-
-  @override
-  Widget build(BuildContext context) {
-    return Material(
-      color: ProfileSheetTheme.navy.withValues(alpha: 0.88),
-      borderRadius: BorderRadius.circular(20.tr),
-      child: InkWell(
-        onTap: onPressed,
-        borderRadius: BorderRadius.circular(20.tr),
-        child: Padding(
-          padding: EdgeInsets.symmetric(horizontal: 10.tw, vertical: 6.th),
           child: Row(
-            mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(Icons.swap_horiz_rounded, color: Colors.white, size: 16.tsp),
-              SizedBox(width: 4.tw),
-              Text(
-                'Swap',
-                style: TextStyle(
+              Container(
+                width: iconSize,
+                height: iconSize,
+                decoration: const BoxDecoration(
+                  color: _kNavy,
+                  shape: BoxShape.circle,
+                ),
+                alignment: Alignment.center,
+                child: Icon(
+                  icon,
+                  size: iconSize * 0.52,
                   color: Colors.white,
-                  fontSize: 11.tsp,
-                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              SizedBox(width: 10.tw),
+              Expanded(
+                child: Text(
+                  label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: textSize,
+                    fontWeight: FontWeight.w500,
+                    color: _kNavy,
+                    height: 1.1,
+                  ),
                 ),
               ),
             ],
           ),
         ),
-      ),
+        if (showDivider)
+          const Divider(height: 1, thickness: 0.7, color: _kDivider),
+      ],
     );
   }
 }

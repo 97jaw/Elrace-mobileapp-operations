@@ -11,6 +11,7 @@ import 'dart:io';
 
 import '../../../chat/chat.dart';
 import '../../presentation/my_actions/data/user_stamp_assets.dart';
+import '../theme/chat_glass_theme.dart';
 
 /// Recipient signs / stamps a document zone-by-zone.
 ///
@@ -396,7 +397,7 @@ class _SignDocumentScreenState extends State<SignDocumentScreen> {
     return Scaffold(
       backgroundColor: Colors.grey[100],
       appBar: AppBar(
-        backgroundColor: const Color(0xFF1D2449),
+        backgroundColor: ChatGlassTheme.goldDeep,
         foregroundColor: Colors.white,
         title: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -657,8 +658,8 @@ class _SignDocumentScreenState extends State<SignDocumentScreen> {
       child: ElevatedButton.icon(
         onPressed: _sending ? null : _sendSignedDocument,
         style: ElevatedButton.styleFrom(
-          backgroundColor: Colors.green,
-          foregroundColor: Colors.white,
+          backgroundColor: ChatGlassTheme.gold,
+          foregroundColor: const Color(0xFF1A1A1A),
           padding: const EdgeInsets.symmetric(vertical: 12),
           shape:
               RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
@@ -668,7 +669,7 @@ class _SignDocumentScreenState extends State<SignDocumentScreen> {
                 width: 16,
                 height: 16,
                 child: CircularProgressIndicator(
-                    strokeWidth: 2, color: Colors.white))
+                    strokeWidth: 2, color: Color(0xFF1A1A1A)))
             : const Icon(Icons.send, size: 18),
         label: Text(
           _sending ? 'Sending...' : 'Send Signed Document',
@@ -692,7 +693,7 @@ class _SignDocumentScreenState extends State<SignDocumentScreen> {
           ElevatedButton.icon(
             onPressed: _goToNextZone,
             style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF1D2449),
+              backgroundColor: ChatGlassTheme.goldDeep,
               foregroundColor: Colors.white,
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
               shape: RoundedRectangleBorder(
@@ -982,7 +983,7 @@ class _SignaturePadDialogState extends State<_SignaturePadDialog> {
         ElevatedButton(
           onPressed: _confirm,
           style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF1D2449)),
+              backgroundColor: ChatGlassTheme.goldDeep),
           child: const Text('Confirm', style: TextStyle(color: Colors.white)),
         ),
       ],

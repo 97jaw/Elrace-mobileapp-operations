@@ -6,7 +6,7 @@ import 'package:flutter_pdfview/flutter_pdfview.dart';
 import 'package:http/http.dart' as http;
 
 import '../../../chat/chat.dart';
-import '../../../resources/app_colors.dart';
+import '../theme/chat_glass_theme.dart';
 
 /// Card widget displayed inside a message bubble for signable documents.
 /// Shows a PDF thumbnail, document info, sign status, and action button.
@@ -212,7 +212,7 @@ class _SignableDocumentCardState extends State<SignableDocumentCard> {
                   _buildSignButton(
                     label: 'SENDING',
                     icon: Icons.cloud_upload_outlined,
-                    color: Colors.blueGrey,
+                    color: ChatGlassTheme.silverDeep,
                     onTap: null,
                   )
                 else if (_isFailed)
@@ -280,7 +280,7 @@ class _SignableDocumentCardState extends State<SignableDocumentCard> {
                     style: TextStyle(
                       fontSize: 11,
                       color: _isUploading
-                          ? Colors.blueGrey
+                          ? ChatGlassTheme.silverDeep
                           : _isFailed
                               ? Colors.red[400]
                               : isSigned
@@ -304,7 +304,7 @@ class _SignableDocumentCardState extends State<SignableDocumentCard> {
                                   : Icons.schedule,
                   size: 16,
                   color: _isUploading
-                      ? Colors.blueGrey
+                      ? ChatGlassTheme.silverDeep
                       : _isFailed
                           ? Colors.red[400]
                           : isSigned
@@ -374,7 +374,7 @@ class _SignableDocumentCardState extends State<SignableDocumentCard> {
                 height: 56,
                 child: CircularProgressIndicator(
                   strokeWidth: 3,
-                  color: AppColors.primaryColor.withValues(alpha: 0.6),
+                  color: ChatGlassTheme.gold.withValues(alpha: 0.6),
                 ),
               ),
               Icon(

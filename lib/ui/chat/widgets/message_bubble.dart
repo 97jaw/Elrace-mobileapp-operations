@@ -7,10 +7,10 @@ import 'package:just_audio/just_audio.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../../chat/chat.dart';
-import '../../../resources/app_colors.dart';
 import 'chat_unified_header_backdrop.dart';
 import 'signable_document_card.dart';
 import '../screens/sign_document_screen.dart';
+import '../theme/chat_glass_theme.dart';
 
 /// Callback types for message actions
 typedef MessageActionCallback = void Function(Message message);
@@ -200,10 +200,16 @@ class MessageBubble extends StatelessWidget {
               ? ChatSurfaceTheme.sentMessageGradient
               : ChatSurfaceTheme.receivedMessageGradient,
           borderRadius: bubbleRadius,
+          border: Border.all(
+            color: isMe
+                ? ChatSurfaceTheme.sentBubbleBorder
+                : ChatSurfaceTheme.receivedBubbleBorder,
+            width: 1,
+          ),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withValues(alpha: isMe ? 0.10 : 0.03),
-              blurRadius: 4,
+              color: Colors.black.withValues(alpha: isMe ? 0.25 : 0.15),
+              blurRadius: 6,
               offset: const Offset(0, 2),
             ),
           ],
@@ -313,7 +319,7 @@ class MessageBubble extends StatelessWidget {
         return Icon(
           Icons.done_all,
           size: 14,
-          color: Colors.blue[400],
+          color: ChatGlassTheme.gold,
         );
     }
   }
@@ -401,7 +407,7 @@ class _ImageContent extends StatelessWidget {
               child: Text(
                 message.text!,
                 style: TextStyle(
-                  color: isMe ? AppColors.primaryColor : Colors.black87,
+                  color: isMe ? Colors.white : Colors.white,
                   fontSize: 14,
                 ),
               ),
@@ -534,7 +540,7 @@ class _AudioContentState extends State<_AudioContent> {
     const playedBarColor = Colors.white;
     const unplayedBarColor = ChatSurfaceTheme.accentGold;
     const iconBg = Colors.white;
-    const iconColor = AppColors.primaryColor;
+    const iconColor = ChatGlassTheme.gold;
 
     final displayDuration = _isPlaying ? _position : _duration;
 
@@ -691,7 +697,7 @@ class _VideoContent extends StatelessWidget {
               child: Text(
                 message.text!,
                 style: TextStyle(
-                  color: isMe ? AppColors.primaryColor : Colors.black87,
+                  color: isMe ? Colors.white : Colors.white,
                   fontSize: 14,
                 ),
               ),
@@ -827,8 +833,8 @@ class _FileContent extends StatelessWidget {
               decoration: BoxDecoration(
                 borderRadius: BorderRadius.circular(8),
                 color: isMe
-                    ? AppColors.primaryColor.withValues(alpha: 0.2)
-                    : Colors.grey[300],
+                    ? ChatGlassTheme.gold.withValues(alpha: 0.2)
+                    : Colors.white.withValues(alpha: 0.12),
               ),
               child: Icon(
                 _getFileIcon(),
@@ -922,7 +928,7 @@ class _ReplyToPreview extends StatelessWidget {
         ? Colors.white.withValues(alpha: 0.12)
         : ChatSurfaceTheme.dateChipFill;
     final accentColor =
-        isMe ? ChatSurfaceTheme.accentGold : AppColors.primaryColor;
+        isMe ? ChatSurfaceTheme.accentGold : ChatGlassTheme.silverLight;
     final textColor =
         isMe ? Colors.white70 : ChatSurfaceTheme.senderName;
 

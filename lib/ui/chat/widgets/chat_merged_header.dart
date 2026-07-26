@@ -1,7 +1,10 @@
 import 'dart:ui';
 
 import 'package:el_race/chat/chat.dart';
-import 'package:el_race/ui/chat/widgets/chat_sub_app_glass_bar.dart';
+import 'package:el_race/core/ui/adaptive_glass.dart';
+import 'package:el_race/ui/chat/theme/chat_glass_theme.dart';
+import 'package:el_race/ui/chat/widgets/chat_glass_button.dart';
+import 'package:el_race/ui/chat/widgets/chat_top_glass_app_bar.dart';
 import 'package:el_race/ui/chat/widgets/chat_unified_header_backdrop.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
@@ -144,7 +147,7 @@ class ChatListHeaderDelegate extends SliverPersistentHeaderDelegate {
     double shrinkOffset,
     bool overlapsContent,
   ) {
-    final topExtent = SubAppGlassAppBar.extent(context);
+    final topExtent = ChatTopGlassAppBar.extent(context);
     final filterMax = _filterExtent(searchExpanded.value);
     final filterMin = _filterMinExtent();
     final totalMax = topExtent + filterMax;
@@ -171,7 +174,7 @@ class ChatListHeaderDelegate extends SliverPersistentHeaderDelegate {
             Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                const SubAppGlassAppBar(),
+                const ChatTopGlassAppBar(),
                 SizedBox(
                   height: filterH,
                   child: Padding(
@@ -457,7 +460,7 @@ class _NavTitleRow extends StatelessWidget {
         ),
         SizedBox(width: 5.w),
         Text(
-          'Chats',
+          'Discuss',
           style: GoogleFonts.poppins(
             fontSize: titleSize,
             fontWeight: FontWeight.w700,
@@ -540,7 +543,7 @@ class _QuickBubble extends StatelessWidget {
   final bool iconOnly;
 
   Widget _avatar(double radius) {
-    const borderColor = Color(0xFFE9B23A);
+    const borderColor = ChatGlassTheme.avatarRing;
     return Container(
       padding: EdgeInsets.all(1.2.w),
       decoration: BoxDecoration(
@@ -737,54 +740,82 @@ class ChatConversationHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final compact = shrinkRatio > 0.35;
-    final showSubtitle = subtitle != null &&
-        !compact &&
-        availableHeight >= 62.h;
-    final vPad = availableHeight < 56.h ? 2.h : (compact ? 4.h : 6.h);
+    final showSubtitle =
+        subtitle != null && !compact && availableHeight >= 62.h;
 
-    return Padding(
-      padding: EdgeInsets.fromLTRB(8.w, vPad, 8.w, vPad),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.center,
-        children: [
-          IconButton(
-            onPressed: onBack,
-            icon: Icon(Icons.arrow_back_ios_new_rounded,
-                color: Colors.white, size: 18.sp),
-            padding: EdgeInsets.zero,
-            constraints: BoxConstraints(minWidth: 36.w, minHeight: 36.w),
+    return SizedBox(
+      height: availableHeight,
+      child: Padding(
+        padding: EdgeInsets.symmetric(horizontal: 8.w, vertical: 4.h),
+        child: AdaptiveGlassLayer(
+          borderRadius: BorderRadius.circular(16.r),
+          sigma: 14,
+          fallbackColor: ChatGlassTheme.waterFillStrong,
+          fallbackBorder: Border.all(
+            color: Colors.white.withValues(alpha: 0.38),
+            width: 1,
           ),
-          leading,
-          SizedBox(width: 10.w),
-          Expanded(
-            child: ClipRect(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisAlignment: MainAxisAlignment.center,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    title,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: GoogleFonts.poppins(
-                      fontSize: compact ? 14.sp : 16.sp,
-                      fontWeight: FontWeight.w700,
-                      color: Colors.white,
-                      height: 1.1,
-                    ),
-                  ),
-                  if (showSubtitle)
-                    Padding(
-                      padding: EdgeInsets.only(top: 2.h),
-                      child: subtitle!,
-                    ),
-                ],
+          child: Container(
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              color: ChatGlassTheme.waterFill,
+              borderRadius: BorderRadius.circular(16.r),
+              border: Border.all(
+                color: Colors.white.withValues(alpha: 0.4),
+                width: 1,
               ),
             ),
+            padding: EdgeInsets.symmetric(horizontal: 6.w),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                ChatGlassIconButton(
+                  icon: Icons.arrow_back_ios_new_rounded,
+                  onPressed: onBack,
+                  size: 36.w,
+                  iconColor: Colors.white,
+                ),
+                SizedBox(width: 4.w),
+                leading,
+                SizedBox(width: 10.w),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        title,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: GoogleFonts.poppins(
+                          fontSize: compact ? 14.sp : 16.sp,
+                          fontWeight: FontWeight.w700,
+                          color: Colors.white,
+                          height: 1.15,
+                        ),
+                      ),
+                      if (showSubtitle)
+                        Padding(
+                          padding: EdgeInsets.only(top: 2.h),
+                          child: DefaultTextStyle.merge(
+                            style: GoogleFonts.poppins(
+                              fontSize: 12.sp,
+                              color: Colors.white.withValues(alpha: 0.85),
+                              fontWeight: FontWeight.w500,
+                              height: 1.1,
+                            ),
+                            child: subtitle!,
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+                trailing,
+              ],
+            ),
           ),
-          trailing,
-        ],
+        ),
       ),
     );
   }
@@ -845,7 +876,7 @@ class ChatConversationHeaderDelegate extends SliverPersistentHeaderDelegate {
             Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                const SubAppGlassAppBar(),
+                const ChatTopGlassAppBar(),
                 SizedBox(
                   height: convH,
                   child: ChatConversationHeader(

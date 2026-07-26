@@ -1,9 +1,9 @@
 import 'dart:async';
 
+import 'package:el_race/core/ui/adaptive_glass.dart';
+import 'package:el_race/ui/chat/theme/chat_glass_theme.dart';
+import 'package:el_race/ui/chat/widgets/chat_glass_button.dart';
 import 'package:flutter/material.dart';
-
-import '../../../chat/chat.dart';
-import '../../../resources/app_colors.dart';
 
 /// Chat input bar with text field and attachment buttons
 class ChatInputBar extends StatefulWidget {
@@ -74,7 +74,6 @@ class _ChatInputBarState extends State<ChatInputBar>
   void didUpdateWidget(ChatInputBar oldWidget) {
     super.didUpdateWidget(oldWidget);
 
-    // Handle recording state changes
     if (widget.isRecording && !oldWidget.isRecording) {
       _startRecordingTimer();
     } else if (!widget.isRecording && oldWidget.isRecording) {
@@ -98,26 +97,19 @@ class _ChatInputBarState extends State<ChatInputBar>
   Widget build(BuildContext context) {
     return Container(
       padding: EdgeInsets.only(
-        left: 18,
-        right: 18,
-        top: 12,
-        bottom: MediaQuery.of(context).padding.bottom + 12,
+        left: 14,
+        right: 14,
+        top: 10,
+        bottom: MediaQuery.of(context).padding.bottom + 10,
       ),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: Colors.white.withValues(alpha: 0.1),
         border: Border(
           top: BorderSide(
-            color: const Color(0xFFDCE6E5).withValues(alpha: 0.7),
+            color: Colors.white.withValues(alpha: 0.35),
             width: 1,
           ),
         ),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.025),
-            blurRadius: 6,
-            offset: const Offset(0, -1),
-          ),
-        ],
       ),
       child: widget.isRecording ? _buildRecordingBar() : _buildInputBar(),
     );
@@ -135,42 +127,51 @@ class _ChatInputBarState extends State<ChatInputBar>
         ),
         const SizedBox(width: 10),
         Expanded(
-          child: Container(
-            constraints: const BoxConstraints(minHeight: 54, maxHeight: 120),
-            decoration: BoxDecoration(
-              color: const Color(0xFFE9EAEC),
-              borderRadius: BorderRadius.circular(30),
+          child: AdaptiveGlassLayer(
+            borderRadius: BorderRadius.circular(30),
+            sigma: 12,
+            fallbackColor: ChatGlassTheme.waterFillStrong,
+            fallbackBorder: Border.all(
+              color: Colors.white.withValues(alpha: 0.4),
             ),
-            child: TextField(
-              controller: widget.controller,
-              maxLines: null,
-              textCapitalization: TextCapitalization.sentences,
-              style: const TextStyle(fontSize: 16),
-              decoration: const InputDecoration(
-                hintText: 'Write your message',
-                hintStyle: TextStyle(
-                  color: Color(0xFF9DA2A6),
-                  fontSize: 16,
-                  fontWeight: FontWeight.w400,
-                ),
-                contentPadding: EdgeInsets.symmetric(
-                  horizontal: 20,
-                  vertical: 16,
-                ),
-                border: InputBorder.none,
+            child: Container(
+              constraints: const BoxConstraints(minHeight: 48, maxHeight: 120),
+              decoration: BoxDecoration(
+                color: ChatGlassTheme.waterFill,
+                borderRadius: BorderRadius.circular(30),
               ),
-              onSubmitted: (_) => widget.onSendText(),
+              child: TextField(
+                controller: widget.controller,
+                maxLines: null,
+                textCapitalization: TextCapitalization.sentences,
+                style: ChatGlassTheme.body(fontSize: 16),
+                cursorColor: Colors.white,
+                decoration: InputDecoration(
+                  hintText: 'Write your message',
+                  hintStyle: ChatGlassTheme.muted(fontSize: 16),
+                  contentPadding: const EdgeInsets.symmetric(
+                    horizontal: 20,
+                    vertical: 14,
+                  ),
+                  border: InputBorder.none,
+                ),
+                onSubmitted: (_) => widget.onSendText(),
+              ),
             ),
           ),
         ),
-        const SizedBox(width: 12),
+        const SizedBox(width: 10),
         AnimatedSwitcher(
           duration: const Duration(milliseconds: 180),
           child: _hasText
-              ? _buildSideIcon(
-                  icon: Icons.send_rounded, onTap: widget.onSendText)
-              : _buildSideIcon(
-                  icon: Icons.camera_alt_outlined, onTap: widget.onPickImage),
+              ? _buildGoldSend(onTap: widget.onSendText)
+              : ChatGlassIconButton(
+                  key: const ValueKey('camera'),
+                  icon: Icons.camera_alt_outlined,
+                  onPressed: widget.onPickImage,
+                  size: 40,
+                  iconColor: ChatGlassTheme.silverLight,
+                ),
         ),
         const SizedBox(width: 8),
         AnimatedSwitcher(
@@ -179,26 +180,47 @@ class _ChatInputBarState extends State<ChatInputBar>
               ? const SizedBox(
                   width: 28,
                   height: 28,
-                  child: CircularProgressIndicator(strokeWidth: 2),
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    color: ChatGlassTheme.gold,
+                  ),
                 )
-              : _buildSideIcon(
-                  icon: Icons.mic_none_rounded, onTap: widget.onStartRecording),
+              : ChatGlassIconButton(
+                  key: const ValueKey('mic'),
+                  icon: Icons.mic_none_rounded,
+                  onPressed: widget.onStartRecording,
+                  size: 40,
+                  iconColor: ChatGlassTheme.silverLight,
+                ),
         ),
       ],
     );
   }
 
-  Widget _buildSideIcon({required IconData icon, VoidCallback? onTap}) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(20),
-      child: SizedBox(
-        width: 32,
-        height: 32,
-        child: Icon(
-          icon,
-          size: 22,
-          color: const Color(0xFF1C2226),
+  Widget _buildGoldSend({required VoidCallback onTap}) {
+    return Material(
+      key: const ValueKey('send'),
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(999),
+        child: Ink(
+          width: 40,
+          height: 40,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            gradient: ChatGlassTheme.goldButtonGradient,
+            border: Border.all(color: Colors.white.withValues(alpha: 0.25)),
+            boxShadow: [
+              BoxShadow(
+                color: ChatGlassTheme.gold.withValues(alpha: 0.25),
+                blurRadius: 8,
+                offset: const Offset(0, 2),
+              ),
+            ],
+          ),
+          child: const Icon(Icons.send_rounded,
+              size: 20, color: Color(0xFF1A1A1A)),
         ),
       ),
     );
@@ -207,16 +229,15 @@ class _ChatInputBarState extends State<ChatInputBar>
   Widget _buildRecordingBar() {
     return Row(
       children: [
-        // Cancel button
-        TextButton.icon(
+        ChatGlassButton(
+          label: 'Cancel',
+          icon: Icons.delete_outline,
+          variant: ChatGlassButtonVariant.silver,
           onPressed: widget.onCancelRecording,
-          icon: const Icon(Icons.delete, color: Colors.red),
-          label: const Text('Cancel', style: TextStyle(color: Colors.red)),
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+          fontSize: 14,
         ),
-
         const Spacer(),
-
-        // Recording indicator
         AnimatedBuilder(
           animation: _recordingAnimController,
           builder: (context, child) {
@@ -234,32 +255,32 @@ class _ChatInputBarState extends State<ChatInputBar>
                 const SizedBox(width: 8),
                 Text(
                   _formatDuration(_recordingDuration),
-                  style: const TextStyle(
+                  style: ChatGlassTheme.body(
                     fontSize: 16,
-                    fontWeight: FontWeight.w500,
+                    weight: FontWeight.w500,
                   ),
                 ),
               ],
             );
           },
         ),
-
         const Spacer(),
-
-        // Stop and send button
         Material(
-          color: AppColors.white,
-          borderRadius: BorderRadius.circular(24),
+          color: Colors.transparent,
           child: InkWell(
             onTap: widget.onStopRecording,
-            borderRadius: BorderRadius.circular(24),
-            child: Container(
+            borderRadius: BorderRadius.circular(999),
+            child: Ink(
               width: 44,
               height: 44,
-              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                gradient: ChatGlassTheme.goldButtonGradient,
+                border: Border.all(color: Colors.white.withValues(alpha: 0.25)),
+              ),
               child: const Icon(
                 Icons.stop,
-                color: AppColors.primaryColor,
+                color: Color(0xFF1A1A1A),
                 size: 24,
               ),
             ),
@@ -308,15 +329,15 @@ class _AttachmentButton extends StatelessWidget {
       },
       offset: const Offset(0, -180),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      color: Colors.white,
+      color: const Color(0xFF1A2438),
       itemBuilder: (context) => [
         PopupMenuItem(
           value: 'image',
           child: Row(
             children: [
-              Icon(Icons.image, color: Colors.green[600]),
+              const Icon(Icons.image, color: ChatGlassTheme.gold),
               const SizedBox(width: 12),
-              const Text('Image'),
+              Text('Image', style: ChatGlassTheme.body()),
             ],
           ),
         ),
@@ -324,9 +345,10 @@ class _AttachmentButton extends StatelessWidget {
           value: 'file',
           child: Row(
             children: [
-              Icon(Icons.insert_drive_file, color: Colors.blue[600]),
+              const Icon(Icons.insert_drive_file,
+                  color: ChatGlassTheme.silverLight),
               const SizedBox(width: 12),
-              const Text('File'),
+              Text('File', style: ChatGlassTheme.body()),
             ],
           ),
         ),
@@ -335,21 +357,33 @@ class _AttachmentButton extends StatelessWidget {
             value: 'signable_doc',
             child: Row(
               children: [
-                Icon(Icons.draw, color: Colors.orange[700]),
+                const Icon(Icons.draw, color: ChatGlassTheme.gold),
                 const SizedBox(width: 12),
-                const Text('Document for Signing'),
+                Text('Document for Signing', style: ChatGlassTheme.body()),
               ],
             ),
           ),
       ],
       child: Container(
-        width: 32,
-        height: 32,
+        width: 36,
+        height: 36,
         alignment: Alignment.center,
-        child: Icon(
-          Icons.attach_file_rounded,
-          color: const Color(0xFF1C2226),
-          size: 22,
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          gradient: ChatGlassTheme.silverButtonGradient,
+          border: Border.all(color: Colors.white.withValues(alpha: 0.28)),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.2),
+              blurRadius: 8,
+              offset: const Offset(0, 2),
+            ),
+          ],
+        ),
+        child: const Icon(
+          Icons.attach_file,
+          size: 20,
+          color: Color(0xFF1A1A1A),
         ),
       ),
     );

@@ -1120,6 +1120,7 @@ class ChatRepository {
         'updated_at': FieldValue.serverTimestamp(),
       }, SetOptions(merge: true));
 
+      var isFirst = true;
       for (final uid in allMembers) {
         try {
           await _chatsCollection
@@ -1129,7 +1130,9 @@ class ChatRepository {
               .set({
             'joined_at': FieldValue.serverTimestamp(),
             'muted': false,
+            'is_admin': isFirst && uid == currentUid,
           }, SetOptions(merge: true));
+          isFirst = false;
         } catch (e) {
           print('⚠️ ensureProjectGroupChat member $uid: $e');
         }
@@ -2072,6 +2075,159 @@ class ChatRepository {
     } catch (e) {
       print('❌ ChatRepository: Error toggling pin: $e');
     }
+  }
+
+  /// Archive / unarchive a chat for the current user.
+  Future<void> toggleArchive(String chatId, bool archived) async {
+    final currentUid = _currentUid;
+    if (currentUid == null) return;
+
+    try {
+      await _userChatsCollection(currentUid).doc(chatId).set({
+        'archived': archived,
+        // Unarchive should surface the chat again; pinning stays as-is.
+        if (archived) 'pinned': false,
+      }, SetOptions(merge: true));
+    } catch (e) {
+      print('❌ ChatRepository: Error toggling archive: $e');
+    }
+  }
+
+  /// Active (non-archived) chats for the inbox list.
+  Stream<List<UserChat>> subscribeToActiveUserChats(String uid) {
+    return subscribeToUserChats(uid).map((chats) {
+      final active = chats.where((c) => !c.archived).toList();
+      active.sort(_compareChatsForList);
+      return active;
+    });
+  }
+
+  /// Archived chats list.
+  Stream<List<UserChat>> subscribeToArchivedUserChats(String uid) {
+    return subscribeToUserChats(uid).map((chats) {
+      final archived = chats.where((c) => c.archived).toList();
+      archived.sort(_compareChatsForList);
+      return archived;
+    });
+  }
+
+  /// Count of archived chats (for the Archived row badge).
+  Stream<int> subscribeToArchivedCount(String uid) {
+    return subscribeToUserChats(uid)
+        .map((chats) => chats.where((c) => c.archived).length);
+  }
+
+  static int _compareChatsForList(UserChat a, UserChat b) {
+    if (a.pinned != b.pinned) return a.pinned ? -1 : 1;
+    return b.updatedAt.compareTo(a.updatedAt);
+  }
+
+  /// Whether membership can be edited (freeform / project groups only).
+  bool canManageMembers(ChatType type) => type == ChatType.group;
+
+  /// Add members to a group chat. Current user must be an admin (or sole member).
+  Future<void> addMembers(String chatId, List<String> uids) async {
+    final currentUid = _currentUid;
+    if (currentUid == null) throw Exception('Not authenticated');
+
+    final chat = await getChat(chatId);
+    if (chat == null) throw Exception('Chat not found');
+    if (!canManageMembers(chat.type)) {
+      throw Exception('Members cannot be managed for this chat type');
+    }
+
+    final members = await getChatMembers(chatId);
+    final isAdmin = members.any((m) => m.uid == currentUid && m.isAdmin) ||
+        members.every((m) => !m.isAdmin); // bootstrap: no admins yet → allow
+    if (!isAdmin) throw Exception('Only admins can add members');
+
+    final title = chat.title ?? 'Group';
+    final toAdd = uids.where((u) => u.isNotEmpty && u != currentUid).toSet();
+    if (toAdd.isEmpty) return;
+
+    for (final uid in toAdd) {
+      await _chatsCollection.doc(chatId).collection('members').doc(uid).set({
+        'joined_at': FieldValue.serverTimestamp(),
+        'muted': false,
+        'is_admin': false,
+      }, SetOptions(merge: true));
+
+      await _userChatsCollection(uid).doc(chatId).set({
+        'type': chat.type.toJson(),
+        'title': title,
+        'updated_at': FieldValue.serverTimestamp(),
+        'has_messages': chat.lastMessage != null,
+        'archived': false,
+      }, SetOptions(merge: true));
+    }
+
+    await _chatsCollection.doc(chatId).set({
+      'member_ids': FieldValue.arrayUnion(toAdd.toList()),
+      'updated_at': FieldValue.serverTimestamp(),
+    }, SetOptions(merge: true));
+  }
+
+  /// Remove a member from a group. Admins can remove others; anyone can leave via [leaveGroup].
+  Future<void> removeMember(String chatId, String uid) async {
+    final currentUid = _currentUid;
+    if (currentUid == null) throw Exception('Not authenticated');
+    if (uid == currentUid) {
+      await leaveGroup(chatId);
+      return;
+    }
+
+    final chat = await getChat(chatId);
+    if (chat == null) throw Exception('Chat not found');
+    if (!canManageMembers(chat.type)) {
+      throw Exception('Members cannot be managed for this chat type');
+    }
+
+    final members = await getChatMembers(chatId);
+    final amAdmin = members.any((m) => m.uid == currentUid && m.isAdmin) ||
+        members.every((m) => !m.isAdmin);
+    if (!amAdmin) throw Exception('Only admins can remove members');
+
+    await _chatsCollection.doc(chatId).collection('members').doc(uid).delete();
+    await _userChatsCollection(uid).doc(chatId).delete();
+    await _chatsCollection.doc(chatId).set({
+      'member_ids': FieldValue.arrayRemove([uid]),
+      'updated_at': FieldValue.serverTimestamp(),
+    }, SetOptions(merge: true));
+  }
+
+  /// Current user leaves a group chat.
+  Future<void> leaveGroup(String chatId) async {
+    final currentUid = _currentUid;
+    if (currentUid == null) throw Exception('Not authenticated');
+
+    final chat = await getChat(chatId);
+    if (chat == null) throw Exception('Chat not found');
+    if (!canManageMembers(chat.type)) {
+      throw Exception('Cannot leave this chat type via leaveGroup');
+    }
+
+    await _chatsCollection
+        .doc(chatId)
+        .collection('members')
+        .doc(currentUid)
+        .delete();
+    await _userChatsCollection(currentUid).doc(chatId).delete();
+    await _chatsCollection.doc(chatId).set({
+      'member_ids': FieldValue.arrayRemove([currentUid]),
+      'updated_at': FieldValue.serverTimestamp(),
+    }, SetOptions(merge: true));
+  }
+
+  /// Promote first member to admin if the group has no admins yet.
+  Future<void> ensureGroupHasAdmin(String chatId) async {
+    final members = await getChatMembers(chatId);
+    if (members.isEmpty || members.any((m) => m.isAdmin)) return;
+    final first = members.first;
+    await _chatsCollection
+        .doc(chatId)
+        .collection('members')
+        .doc(first.uid)
+        .set({'is_admin': true}, SetOptions(merge: true));
   }
 
   // ============== Starred Messages ==============

@@ -1,5 +1,10 @@
 import 'dart:async';
 
+import 'package:el_race/core/ui/adaptive_glass.dart';
+import 'package:el_race/ui/chat/theme/chat_glass_theme.dart';
+import 'package:el_race/ui/chat/widgets/blue_geometric_background.dart';
+import 'package:el_race/ui/chat/widgets/chat_glass_button.dart';
+import 'package:el_race/ui/chat/widgets/chat_top_glass_app_bar.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
@@ -8,7 +13,6 @@ import '../../chat/models/chat_user.dart';
 import '../../chat/repositories/chat_repository.dart';
 import '../../chat/repositories/user_repository.dart';
 import '../../chat/services/presence_service.dart';
-import '../../resources/app_colors.dart';
 import 'chat_screen.dart';
 
 /// Screen for searching users and starting a new DM chat
@@ -143,52 +147,94 @@ class _NewChatScreenState extends State<NewChatScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('New Chat'),
-        bottom: PreferredSize(
-          preferredSize: const Size.fromHeight(60),
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
-            child: TextField(
-              controller: _searchController,
-              focusNode: _searchFocusNode,
-              decoration: InputDecoration(
-                hintText: 'Search for a user...',
-                prefixIcon: const Icon(Icons.search),
-                suffixIcon: _searchController.text.isNotEmpty
-                    ? IconButton(
-                        icon: const Icon(Icons.clear),
-                        onPressed: () {
-                          _searchController.clear();
-                          setState(() {
-                            _searchResults = [];
-                            _errorMessage = '';
-                          });
-                        },
-                      )
-                    : null,
-                filled: true,
-                fillColor: Theme.of(context).cardColor,
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  borderSide: BorderSide.none,
-                ),
-                contentPadding: const EdgeInsets.symmetric(
-                  horizontal: 16,
-                  vertical: 12,
+      backgroundColor: Colors.transparent,
+      body: BlueGeometricBackground(
+        child: Column(
+          children: [
+            const ChatTopGlassAppBar(),
+            Expanded(
+              child: SafeArea(
+                top: false,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(8, 4, 12, 8),
+                      child: Row(
+                        children: [
+                          ChatGlassIconButton(
+                            icon: Icons.arrow_back_ios_new,
+                            onPressed: () => Navigator.of(context).pop(),
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              'New chat',
+                              style: ChatGlassTheme.title(fontSize: 22),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+                      child: AdaptiveGlassLayer(
+                        borderRadius: BorderRadius.circular(22),
+                        sigma: 12,
+                        fallbackColor: ChatGlassTheme.waterFillStrong,
+                        child: TextField(
+                          controller: _searchController,
+                          focusNode: _searchFocusNode,
+                          style: ChatGlassTheme.body(),
+                          cursorColor: Colors.white,
+                          decoration: InputDecoration(
+                            hintText: 'Search for a user...',
+                            hintStyle: ChatGlassTheme.muted(),
+                            prefixIcon: const Icon(Icons.search,
+                                color: Colors.white),
+                            suffixIcon: _searchController.text.isNotEmpty
+                                ? IconButton(
+                                    icon: const Icon(Icons.clear,
+                                        color: Colors.white),
+                                    onPressed: () {
+                                      _searchController.clear();
+                                      setState(() {
+                                        _searchResults = [];
+                                        _errorMessage = '';
+                                      });
+                                    },
+                                  )
+                                : null,
+                            filled: true,
+                            fillColor: ChatGlassTheme.waterFill,
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(22),
+                              borderSide: BorderSide.none,
+                            ),
+                            contentPadding: const EdgeInsets.symmetric(
+                              horizontal: 16,
+                              vertical: 12,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                    Expanded(child: _buildBody()),
+                  ],
                 ),
               ),
             ),
-          ),
+          ],
         ),
       ),
-      body: _buildBody(),
     );
   }
 
   Widget _buildBody() {
     if (_isSearching) {
-      return const Center(child: CircularProgressIndicator());
+      return const Center(
+        child: CircularProgressIndicator(color: Colors.white),
+      );
     }
 
     if (_searchController.text.isEmpty) {
@@ -206,12 +252,10 @@ class _NewChatScreenState extends State<NewChatScreen> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.search_off, size: 60, color: Colors.grey[400]),
+            Icon(Icons.search_off,
+                size: 60, color: Colors.white.withValues(alpha: 0.85)),
             const SizedBox(height: 16),
-            Text(
-              _errorMessage,
-              style: TextStyle(color: Colors.grey[600]),
-            ),
+            Text(_errorMessage, style: ChatGlassTheme.muted()),
           ],
         ),
       );
@@ -220,39 +264,27 @@ class _NewChatScreenState extends State<NewChatScreen> {
     return ListView(
       padding: const EdgeInsets.symmetric(vertical: 8),
       children: [
-        // Groups section
         if (_filteredGroups.isNotEmpty) ...[
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
-            child: Text(
-              'Departments',
-              style: TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.w700,
-                color: Colors.grey[600],
-              ),
-            ),
+            child: Text('Departments', style: ChatGlassTheme.accent()),
           ),
           ..._filteredGroups.map((group) => _GroupSupportTile(
                 group: group,
                 onTap: () => _startSupportChat(group),
               )),
           if (_searchResults.isNotEmpty)
-            const Divider(height: 16, indent: 16, endIndent: 16),
+            Divider(
+                height: 16,
+                indent: 16,
+                endIndent: 16,
+                color: Colors.white.withValues(alpha: 0.1)),
         ],
-        // Users section
         if (_searchResults.isNotEmpty) ...[
           if (_filteredGroups.isNotEmpty)
             Padding(
               padding: const EdgeInsets.fromLTRB(16, 4, 16, 4),
-              child: Text(
-                'Users',
-                style: TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w700,
-                  color: Colors.grey[600],
-                ),
-              ),
+              child: Text('Users', style: ChatGlassTheme.accent()),
             ),
           ..._searchResults.map((user) => _UserListTile(
                 user: user,
@@ -269,14 +301,7 @@ class _NewChatScreenState extends State<NewChatScreen> {
       children: [
         Padding(
           padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
-          child: Text(
-            'Contact Department',
-            style: TextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.w700,
-              color: Colors.grey[600],
-            ),
-          ),
+          child: Text('Contact Department', style: ChatGlassTheme.accent()),
         ),
         ..._availableGroups.map((group) => _GroupSupportTile(
               group: group,
@@ -284,19 +309,35 @@ class _NewChatScreenState extends State<NewChatScreen> {
             )),
         const SizedBox(height: 24),
         Center(
-          child: Column(
-            children: [
-              Icon(Icons.person_search, size: 60, color: Colors.grey[400]),
-              const SizedBox(height: 16),
-              Text(
-                'Or search for a user',
-                style: TextStyle(
-                  fontSize: 16,
-                  color: Colors.grey[600],
-                  fontWeight: FontWeight.w500,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 28),
+            child: AdaptiveGlassLayer(
+              borderRadius: BorderRadius.circular(18),
+              sigma: 16,
+              fallbackColor: ChatGlassTheme.waterFillStrong,
+              child: Container(
+                width: double.infinity,
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 20, vertical: 22),
+                decoration: ChatGlassTheme.waterCardDecoration(
+                  borderRadius: BorderRadius.circular(18),
+                ),
+                child: Column(
+                  children: [
+                    Icon(
+                      Icons.person_search,
+                      size: 48,
+                      color: Colors.white.withValues(alpha: 0.92),
+                    ),
+                    const SizedBox(height: 14),
+                    Text(
+                      'Or search for a user',
+                      style: ChatGlassTheme.body(weight: FontWeight.w600),
+                    ),
+                  ],
                 ),
               ),
-            ],
+            ),
           ),
         ),
       ],
@@ -305,28 +346,47 @@ class _NewChatScreenState extends State<NewChatScreen> {
 
   Widget _buildEmptyState() {
     return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(Icons.person_search, size: 80, color: Colors.grey[400]),
-          const SizedBox(height: 24),
-          Text(
-            'Search for a user',
-            style: TextStyle(
-              fontSize: 18,
-              color: Colors.grey[600],
-              fontWeight: FontWeight.w500,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 28),
+        child: AdaptiveGlassLayer(
+          borderRadius: BorderRadius.circular(20),
+          sigma: 18,
+          fallbackColor: ChatGlassTheme.waterFillStrong,
+          fallbackBorder: Border.all(
+            color: Colors.white.withValues(alpha: 0.38),
+          ),
+          child: Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 28),
+            decoration: ChatGlassTheme.waterCardDecoration(
+              borderRadius: BorderRadius.circular(20),
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  Icons.person_search,
+                  size: 64,
+                  color: Colors.white.withValues(alpha: 0.92),
+                ),
+                const SizedBox(height: 20),
+                Text(
+                  'Search for a user',
+                  style: ChatGlassTheme.body(
+                    fontSize: 18,
+                    weight: FontWeight.w600,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'You can search by name or email',
+                  textAlign: TextAlign.center,
+                  style: ChatGlassTheme.muted(),
+                ),
+              ],
             ),
           ),
-          const SizedBox(height: 8),
-          Text(
-            'You can search by name or email',
-            style: TextStyle(
-              fontSize: 14,
-              color: Colors.grey[500],
-            ),
-          ),
-        ],
+        ),
       ),
     );
   }
@@ -467,85 +527,97 @@ class _UserListTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ListTile(
-      onTap: onTap,
-      leading: Stack(
-        children: [
-          CircleAvatar(
-            radius: 24,
-            backgroundColor: AppColors.primaryBlackLight,
-            backgroundImage:
-                user.avatarUrl != null ? NetworkImage(user.avatarUrl!) : null,
-            child: user.avatarUrl == null
-                ? Text(
-                    _getInitials(user.name),
-                    style: const TextStyle(
-                      color: AppColors.primaryColor,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  )
-                : null,
-          ),
-          // Online indicator
-          StreamBuilder<PresenceStatus>(
-            stream: PresenceService.instance.subscribeToUserPresence(user.uid),
-            builder: (context, snapshot) {
-              final isOnline = snapshot.data?.online ?? false;
-              if (!isOnline) return const SizedBox.shrink();
-
-              return Positioned(
-                right: 0,
-                bottom: 0,
-                child: Container(
-                  width: 14,
-                  height: 14,
-                  decoration: BoxDecoration(
-                    color: Colors.green,
-                    shape: BoxShape.circle,
-                    border: Border.all(color: Colors.white, width: 2),
-                  ),
-                ),
-              );
-            },
-          ),
-        ],
-      ),
-      title: Text(
-        user.name,
-        style: const TextStyle(fontWeight: FontWeight.w600),
-      ),
-      subtitle: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          if (user.email != null)
-            Text(
-              user.email!,
-              style: TextStyle(fontSize: 13, color: Colors.grey[600]),
-            ),
-          Row(
-            children: [
-              Icon(Icons.work_outline, size: 12, color: Colors.grey[500]),
-              const SizedBox(width: 4),
-              Text(
-                'Role: ${user.roleId}',
-                style: TextStyle(fontSize: 12, color: Colors.grey[500]),
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+      child: AdaptiveGlassLayer(
+        borderRadius: BorderRadius.circular(16),
+        sigma: 16,
+        fallbackColor: ChatGlassTheme.waterFillStrong,
+        child: Material(
+          color: Colors.transparent,
+          child: InkWell(
+            onTap: onTap,
+            borderRadius: BorderRadius.circular(16),
+            child: Ink(
+              decoration: ChatGlassTheme.waterCardDecoration(
+                borderRadius: BorderRadius.circular(16),
               ),
-              if (user.branchId != null) ...[
-                const SizedBox(width: 8),
-                Icon(Icons.location_on_outlined,
-                    size: 12, color: Colors.grey[500]),
-                const SizedBox(width: 4),
-                Text(
-                  'Branch: ${user.branchId}',
-                  style: TextStyle(fontSize: 12, color: Colors.grey[500]),
+              child: ListTile(
+                leading: Stack(
+                  children: [
+                    CircleAvatar(
+                      radius: 24,
+                      backgroundColor: Colors.white.withValues(alpha: 0.14),
+                      backgroundImage: user.avatarUrl != null
+                          ? NetworkImage(user.avatarUrl!)
+                          : null,
+                      child: user.avatarUrl == null
+                          ? Text(
+                              _getInitials(user.name),
+                              style: ChatGlassTheme.body(
+                                weight: FontWeight.bold,
+                              ),
+                            )
+                          : null,
+                    ),
+                    StreamBuilder<PresenceStatus>(
+                      stream: PresenceService.instance
+                          .subscribeToUserPresence(user.uid),
+                      builder: (context, snapshot) {
+                        final isOnline = snapshot.data?.online ?? false;
+                        if (!isOnline) return const SizedBox.shrink();
+                        return Positioned(
+                          right: 0,
+                          bottom: 0,
+                          child: Container(
+                            width: 14,
+                            height: 14,
+                            decoration: BoxDecoration(
+                              color: Colors.green,
+                              shape: BoxShape.circle,
+                              border:
+                                  Border.all(color: Colors.white, width: 2),
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+                  ],
                 ),
-              ],
-            ],
+                title: Text(
+                  user.name,
+                  style: ChatGlassTheme.body(weight: FontWeight.w600),
+                ),
+                subtitle: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    if (user.email != null)
+                      Text(user.email!,
+                          style: ChatGlassTheme.muted(fontSize: 13)),
+                    Row(
+                      children: [
+                        Icon(Icons.work_outline,
+                            size: 12,
+                            color: Colors.white.withValues(alpha: 0.7)),
+                        const SizedBox(width: 4),
+                        Text(
+                          'Role: ${user.roleId}',
+                          style: ChatGlassTheme.muted(fontSize: 12),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+                isThreeLine: true,
+                trailing: Icon(
+                  Icons.message,
+                  color: Colors.white.withValues(alpha: 0.9),
+                ),
+              ),
+            ),
           ),
-        ],
+        ),
       ),
-      isThreeLine: true,
-      trailing: const Icon(Icons.message, color: AppColors.primaryColor),
     );
   }
 
@@ -569,36 +641,56 @@ class _GroupSupportTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ListTile(
-      onTap: onTap,
-      leading: Container(
-        padding: const EdgeInsets.all(1.3),
-        decoration: BoxDecoration(
-          shape: BoxShape.circle,
-          border: Border.all(color: const Color(0xFFE9B23A), width: 1.2),
-        ),
-        child: CircleAvatar(
-          radius: 24,
-          backgroundColor: AppColors.primaryColor.withOpacity(0.1),
-          child: const Icon(
-            Icons.support_agent_rounded,
-            color: AppColors.primaryColor,
-            size: 26,
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+      child: AdaptiveGlassLayer(
+        borderRadius: BorderRadius.circular(16),
+        sigma: 16,
+        fallbackColor: ChatGlassTheme.waterFillStrong,
+        child: Material(
+          color: Colors.transparent,
+          child: InkWell(
+            onTap: onTap,
+            borderRadius: BorderRadius.circular(16),
+            child: Ink(
+              decoration: ChatGlassTheme.waterCardDecoration(
+                borderRadius: BorderRadius.circular(16),
+              ),
+              child: ListTile(
+                leading: Container(
+                  padding: const EdgeInsets.all(1.3),
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    border: Border.all(
+                        color: ChatGlassTheme.avatarRing, width: 1.2),
+                  ),
+                  child: CircleAvatar(
+                    radius: 24,
+                    backgroundColor: Colors.white.withValues(alpha: 0.14),
+                    child: Icon(
+                      Icons.support_agent_rounded,
+                      color: Colors.white.withValues(alpha: 0.95),
+                      size: 26,
+                    ),
+                  ),
+                ),
+                title: Text(
+                  group.title ?? 'Group ${group.roleId}',
+                  style: ChatGlassTheme.body(weight: FontWeight.w600),
+                ),
+                subtitle: Text(
+                  'Contact department',
+                  style: ChatGlassTheme.muted(fontSize: 13),
+                ),
+                trailing: Icon(
+                  Icons.arrow_forward_ios_rounded,
+                  color: Colors.white.withValues(alpha: 0.9),
+                  size: 18,
+                ),
+              ),
+            ),
           ),
         ),
-      ),
-      title: Text(
-        group.title ?? 'Group ${group.roleId}',
-        style: const TextStyle(fontWeight: FontWeight.w600),
-      ),
-      subtitle: Text(
-        'Contact department',
-        style: TextStyle(fontSize: 13, color: Colors.grey[600]),
-      ),
-      trailing: const Icon(
-        Icons.arrow_forward_ios_rounded,
-        color: AppColors.primaryColor,
-        size: 18,
       ),
     );
   }

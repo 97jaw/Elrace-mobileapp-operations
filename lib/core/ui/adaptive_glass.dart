@@ -46,7 +46,14 @@ class AdaptiveGlassLayer extends StatelessWidget {
           sigmaX: effectiveSigma,
           sigmaY: effectiveSigma,
         ),
-        child: child,
+        child: DecoratedBox(
+          decoration: BoxDecoration(
+            color: fallbackColor ?? Colors.white.withValues(alpha: 0.08),
+            borderRadius: radius,
+            border: fallbackBorder,
+          ),
+          child: child,
+        ),
       ),
     );
   }

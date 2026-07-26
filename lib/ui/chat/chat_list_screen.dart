@@ -1,21 +1,29 @@
 import 'dart:async';
 
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:el_race/core/ui/adaptive_glass.dart';
+import 'package:el_race/ui/chat/widgets/chat_glass_button.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
 import '../../chat/chat.dart';
-import '../../resources/app_colors.dart';
+import 'chat_archived_list_screen.dart';
 import 'chat_screen.dart';
-import 'widgets/chat_merged_header.dart';
-import 'widgets/chat_sub_app_glass_bar.dart';
+import 'new_chat_screen.dart';
+import 'starred_messages_screen.dart';
+import 'theme/chat_glass_theme.dart';
+import 'widgets/chat_top_glass_app_bar.dart';
 import 'widgets/chat_unified_header_backdrop.dart';
 import 'widgets/typing_indicator.dart';
+import 'widgets/whatsapp_chat_list_header.dart';
 
 /// Main chat list screen showing all user's conversations
 class ChatListScreen extends StatefulWidget {
-  const ChatListScreen({super.key});
+  /// When true, parent [ChatShellScreen] already shows the glass app bar.
+  final bool embeddedInShell;
+
+  const ChatListScreen({super.key, this.embeddedInShell = false});
 
   @override
   State<ChatListScreen> createState() => _ChatListScreenState();
@@ -25,16 +33,10 @@ class _ChatListScreenState extends State<ChatListScreen> {
   String? _currentUid;
   bool _isChatAvailable = false;
   bool _isInitializing = false;
-  final ValueNotifier<bool> _searchExpandedNotifier = ValueNotifier(false);
 
   final TextEditingController _localSearchController = TextEditingController();
   final ValueNotifier<String> _searchNotifier = ValueNotifier('');
   Timer? _debounce;
-
-  // Tab state for Groups / Support — ValueNotifier so only tab section rebuilds
-  final ValueNotifier<int> _topTabNotifier =
-      ValueNotifier(0); // 0 = Groups, 1 = Support
-  List<Chat> _supportGroups = [];
 
   /// Cached chat stream — created once, reused across rebuilds
   Stream<List<UserChat>>? _userChatsStream;
@@ -74,8 +76,6 @@ class _ChatListScreenState extends State<ChatListScreen> {
     _globalDebounce?.cancel();
     _localSearchController.dispose();
     _searchNotifier.dispose();
-    _topTabNotifier.dispose();
-    _searchExpandedNotifier.dispose();
     _globalResultsNotifier.dispose();
     _globalSearchingNotifier.dispose();
     super.dispose();
@@ -84,21 +84,6 @@ class _ChatListScreenState extends State<ChatListScreen> {
   Future<void> _loadCurrentUser() async {
     if (_currentUid != null) {
       _currentUser = await UserRepository.instance.getUser(_currentUid!);
-    }
-    // Load support groups for the Support tab
-    _loadSupportGroups();
-  }
-
-  Future<void> _loadSupportGroups() async {
-    try {
-      final groups = await ChatRepository.instance.getAllRoleGroups();
-      if (mounted) {
-        setState(() {
-          _supportGroups = groups;
-        });
-      }
-    } catch (e) {
-      print('⚠️ ChatListScreen: Error loading support groups: $e');
     }
   }
 
@@ -167,16 +152,18 @@ class _ChatListScreenState extends State<ChatListScreen> {
     // Show loading indicator while initializing chat
     if (_isInitializing) {
       return Scaffold(
-        backgroundColor: Colors.white,
+        backgroundColor: Colors.transparent,
         body: _ChatListStaticBody(
-          child: const Center(child: CircularProgressIndicator()),
+          child: const Center(
+            child: CircularProgressIndicator(color: ChatGlassTheme.gold),
+          ),
         ),
       );
     }
 
     if (!_isChatAvailable || _currentUid == null) {
       return Scaffold(
-        backgroundColor: Colors.white,
+        backgroundColor: Colors.transparent,
         body: _ChatListStaticBody(
           child: Center(
             child: Column(
@@ -192,7 +179,7 @@ class _ChatListScreenState extends State<ChatListScreen> {
                 'Chat not available',
                 style: TextStyle(
                   fontSize: 18,
-                  color: Colors.grey[600],
+                  color: ChatGlassTheme.textSecondary,
                 ),
               ),
               const SizedBox(height: 8),
@@ -202,21 +189,17 @@ class _ChatListScreenState extends State<ChatListScreen> {
                   ChatModuleHelper.instance.getStatusMessage(),
                   style: TextStyle(
                     fontSize: 14,
-                    color: Colors.grey[500],
+                    color: ChatGlassTheme.textMuted,
                   ),
                   textAlign: TextAlign.center,
                   maxLines: 3,
                 ),
               ),
               const SizedBox(height: 24),
-              ElevatedButton.icon(
+              ChatGlassButton(
+                label: 'Retry',
+                icon: Icons.refresh,
                 onPressed: _initializeChat,
-                icon: const Icon(Icons.refresh),
-                label: const Text('Retry'),
-                style: ElevatedButton.styleFrom(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-                ),
               ),
               const SizedBox(height: 12),
               // Show logout button if error mentions session expired
@@ -226,16 +209,13 @@ class _ChatListScreenState extends State<ChatListScreen> {
                   ChatModuleHelper.instance
                       .getStatusMessage()
                       .contains('login again'))
-                TextButton.icon(
+                ChatGlassButton(
+                  label: 'Logout & Login Again',
+                  icon: Icons.logout,
+                  variant: ChatGlassButtonVariant.silver,
                   onPressed: () {
-                    // Navigate to logout or login screen
                     Navigator.of(context).pushReplacementNamed('/signIN');
                   },
-                  icon: const Icon(Icons.logout, size: 20),
-                  label: const Text('Logout & Login Again'),
-                  style: TextButton.styleFrom(
-                    foregroundColor: Colors.orange,
-                  ),
                 ),
               ],
             ),
@@ -245,37 +225,45 @@ class _ChatListScreenState extends State<ChatListScreen> {
     }
 
     return Scaffold(
-      backgroundColor: Colors.white,
-      body: StreamBuilder<List<UserChat>>(
-              stream: _userChatsStream ??=
-                  ChatRepository.instance.subscribeToUserChats(_currentUid!),
+      backgroundColor: Colors.transparent,
+      body: Column(
+        children: [
+          if (!widget.embeddedInShell)
+            ClipRRect(
+              borderRadius:
+                  const BorderRadius.vertical(bottom: Radius.circular(20)),
+              child: Stack(
+                children: [
+                  ChatUnifiedHeaderBackdrop.layer(),
+                  const ChatTopGlassAppBar(),
+                ],
+              ),
+            ),
+          Expanded(
+            child: StreamBuilder<List<UserChat>>(
+              stream: _userChatsStream ??= ChatRepository.instance
+                  .subscribeToActiveUserChats(_currentUid!),
               builder: (context, snapshot) {
                 if (snapshot.connectionState == ConnectionState.waiting) {
-                  return const Center(child: CircularProgressIndicator());
-                }
-
-                if (snapshot.hasError) {
-                  return Center(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(Icons.error_outline,
-                            size: 56, color: Colors.red[300]),
-                        const SizedBox(height: 12),
-                        Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 16),
-                          child: Text(
-                            'Error: ${snapshot.error}',
-                            textAlign: TextAlign.center,
-                            style: const TextStyle(color: Colors.white70),
-                          ),
-                        ),
-                      ],
+                  return const Center(
+                    child: CircularProgressIndicator(
+                      color: ChatGlassTheme.gold,
                     ),
                   );
                 }
 
-                // Filter out chats that have no messages sent yet
+                if (snapshot.hasError) {
+                  return Center(
+                    child: Padding(
+                      padding: const EdgeInsets.all(16),
+                      child: Text(
+                        'Error: ${snapshot.error}',
+                        textAlign: TextAlign.center,
+                      ),
+                    ),
+                  );
+                }
+
                 final allChats = (snapshot.data ?? []).where((c) {
                   if (c.type == ChatType.role || c.type == ChatType.group) {
                     return true;
@@ -291,271 +279,301 @@ class _ChatListScreenState extends State<ChatListScreen> {
                   UserRepository.instance.prefetchUsers(peerUids);
                 }
 
-                final groups = allChats
-                    .where((c) =>
-                        c.type == ChatType.role || c.type == ChatType.group)
-                    .toList();
-
-                return NestedScrollView(
-                  floatHeaderSlivers: true,
-                  headerSliverBuilder: (context, innerBoxIsScrolled) {
-                    return [
-                      ValueListenableBuilder<bool>(
-                        valueListenable: _searchExpandedNotifier,
-                        builder: (context, _, __) {
-                          return SliverPersistentHeader(
-                            pinned: true,
-                            delegate: ChatListHeaderDelegate(
-                              topBarExtent: SubAppGlassAppBar.extent(context),
-                              tabIndexListenable: _topTabNotifier,
-                              groups: groups,
-                              supportGroups: _supportGroups,
-                              searchController: _localSearchController,
-                              searchExpanded: _searchExpandedNotifier,
-                              onTabChanged: (i) => _topTabNotifier.value = i,
-                              onGroupTap: _openChat,
-                              onSupportTap: _startSupportChat,
-                              onSearchClear: () {
-                                _globalResultsNotifier.value = [];
-                                _globalSearchingNotifier.value = false;
-                              },
-                            ),
-                          );
+                return CustomScrollView(
+                  slivers: [
+                    SliverPersistentHeader(
+                      floating: true,
+                      pinned: true,
+                      delegate: WhatsAppChatListHeaderDelegate(
+                        searchController: _localSearchController,
+                        onSearchChanged: () {
+                          // Trigger rebuild of suffix clear via setState on header
+                          // Search filtering uses debounced notifier from listener.
+                          setState(() {});
                         },
+                        onNewChat: _openNewChat,
+                        onOpenMenu: _openOverflowMenu,
                       ),
-                    ];
-                  },
-                  body: CustomScrollView(
-                    slivers: [
-                      // White card header (drag handle)
-                      SliverToBoxAdapter(
-                        child: Container(
-                          decoration: const BoxDecoration(
-                            color: Colors.white,
-                            borderRadius:
-                                BorderRadius.vertical(top: Radius.circular(30)),
-                          ),
-                          padding: const EdgeInsets.only(top: 9, bottom: 8),
-                          alignment: Alignment.center,
-                          child: Container(
-                            width: 70,
-                            height: 4,
-                            decoration: BoxDecoration(
-                              color: Colors.grey.shade300,
-                              borderRadius: BorderRadius.circular(99),
-                            ),
-                          ),
-                        ),
-                      ),
-                      // Chat list items — only this section rebuilds on search
-                      ValueListenableBuilder<String>(
-                        valueListenable: _searchNotifier,
-                        builder: (context, query, _) {
-                          return ValueListenableBuilder<List<ChatUser>>(
-                            valueListenable: _globalResultsNotifier,
-                            builder: (context, globalResults, _) {
-                              return ValueListenableBuilder<bool>(
-                                valueListenable: _globalSearchingNotifier,
-                                builder: (context, isGlobalSearching, _) {
-                                  final filteredChats = query.isEmpty
-                                      ? allChats
-                                      : allChats
-                                          .where((c) => (c.title ?? '')
-                                              .toLowerCase()
-                                              .contains(query))
-                                          .toList();
-
-                                  final bool hasQuery = query.isNotEmpty;
-                                  final bool hasGlobalResults =
-                                      globalResults.isNotEmpty;
-                                  final bool showNoResults = hasQuery &&
-                                      filteredChats.isEmpty &&
-                                      !hasGlobalResults &&
-                                      !isGlobalSearching;
-
-                                  if (showNoResults) {
-                                    return SliverFillRemaining(
-                                      hasScrollBody: false,
-                                      child: Container(
-                                        color: Colors.white,
-                                        child: Center(
-                                          child: Column(
-                                            mainAxisAlignment:
-                                                MainAxisAlignment.center,
-                                            children: [
-                                              Icon(Icons.chat_bubble_outline,
-                                                  size: 70,
-                                                  color: Colors.grey[400]),
-                                              const SizedBox(height: 12),
-                                              Text(
-                                                allChats.isEmpty
-                                                    ? 'No chats yet'
-                                                    : 'No results',
-                                                style: TextStyle(
-                                                    fontSize: 17,
-                                                    color: Colors.grey[700]),
-                                              ),
-                                            ],
-                                          ),
-                                        ),
-                                      ),
-                                    );
-                                  }
-
-                                  // Build combined list: filtered chats + global user results
-                                  final List<Widget> items = [];
-
-                                  for (var i = 0; i < filteredChats.length; i++) {
-                                    final userChat = filteredChats[i];
-                                    items.add(
-                                      Container(
-                                        color: Colors.white,
-                                        padding: const EdgeInsets.symmetric(
-                                            horizontal: 12),
-                                        child: _ChatListTile(
-                                          userChat: userChat,
-                                          currentUid: _currentUid!,
-                                          onTap: () => _openChat(userChat),
-                                        ),
-                                      ),
-                                    );
-                                    if (i < filteredChats.length - 1) {
-                                      items.add(
-                                        Container(
-                                          color: Colors.white,
-                                          padding:
-                                              const EdgeInsets.only(left: 68),
-                                          child: const Divider(
-                                            height: 1,
-                                            thickness: 1,
-                                            color: Color(0xFFE5E5E5),
-                                          ),
-                                        ),
-                                      );
-                                    }
-                                  }
-
-                                  // Show global search results when searching
-                                  if (hasQuery &&
-                                      (isGlobalSearching || hasGlobalResults)) {
-                                    items.add(
-                                      Container(
-                                        color: Colors.white,
-                                        padding: const EdgeInsets.fromLTRB(
-                                            16, 16, 16, 8),
-                                        child: Row(
-                                          children: [
-                                            Text(
-                                              'Users',
-                                              style: TextStyle(
-                                                fontSize: 14,
-                                                fontWeight: FontWeight.w700,
-                                                color: Colors.grey[600],
-                                              ),
-                                            ),
-                                            if (isGlobalSearching) ...[
-                                              const SizedBox(width: 8),
-                                              const SizedBox(
-                                                width: 14,
-                                                height: 14,
-                                                child:
-                                                    CircularProgressIndicator(
-                                                        strokeWidth: 2),
-                                              ),
-                                            ],
-                                          ],
-                                        ),
-                                      ),
-                                    );
-
-                                    for (final user in globalResults) {
-                                      items.add(
-                                        Container(
-                                          color: Colors.white,
-                                          child: _InlineUserTile(
-                                            user: user,
-                                            onTap: () =>
-                                                _startChatWithUser(user),
-                                          ),
-                                        ),
-                                      );
-                                    }
-
-                                    if (!isGlobalSearching &&
-                                        globalResults.isEmpty) {
-                                      items.add(
-                                        Container(
-                                          color: Colors.white,
-                                          padding: const EdgeInsets.symmetric(
-                                              vertical: 16),
-                                          child: Center(
-                                            child: Text(
-                                              'No users found',
-                                              style: TextStyle(
-                                                  color: Colors.grey[500],
-                                                  fontSize: 13),
-                                            ),
-                                          ),
-                                        ),
-                                      );
-                                    }
-                                  }
-
-                                  if (items.isEmpty && !hasQuery) {
-                                    return SliverFillRemaining(
-                                      hasScrollBody: false,
-                                      child: Container(
-                                        color: Colors.white,
-                                        child: Center(
-                                          child: Column(
-                                            mainAxisAlignment:
-                                                MainAxisAlignment.center,
-                                            children: [
-                                              Icon(Icons.chat_bubble_outline,
-                                                  size: 70,
-                                                  color: Colors.grey[400]),
-                                              const SizedBox(height: 12),
-                                              Text(
-                                                'No chats yet',
-                                                style: TextStyle(
-                                                    fontSize: 17,
-                                                    color: Colors.grey[700]),
-                                              ),
-                                            ],
-                                          ),
-                                        ),
-                                      ),
-                                    );
-                                  }
-
-                                  return SliverList(
-                                    delegate: SliverChildBuilderDelegate(
-                                      (context, index) => items[index],
-                                      childCount: items.length,
-                                    ),
-                                  );
-                                },
+                    ),
+                    SliverToBoxAdapter(
+                      child: StreamBuilder<int>(
+                        stream: ChatRepository.instance
+                            .subscribeToArchivedCount(_currentUid!),
+                        builder: (context, archSnap) {
+                          final count = archSnap.data ?? 0;
+                          if (count <= 0) return const SizedBox.shrink();
+                          return _ArchivedRow(
+                            count: count,
+                            onTap: () {
+                              Navigator.of(context).push(
+                                MaterialPageRoute(
+                                  builder: (_) =>
+                                      const ChatArchivedListScreen(),
+                                ),
                               );
                             },
                           );
                         },
                       ),
-                      // Fill remaining space with white
-                      SliverFillRemaining(
-                        hasScrollBody: false,
-                        child: Container(color: Colors.white),
-                      ),
-                      // Bottom safe area padding (iOS home indicator)
-                      SliverToBoxAdapter(
-                        child: SizedBox(
-                          height: (MediaQuery.of(context).padding.bottom / 2).clamp(0.0, 6.0),
-                        ),
-                      ),
-                    ],
-                  ),
+                    ),
+                    ValueListenableBuilder<String>(
+                      valueListenable: _searchNotifier,
+                      builder: (context, query, _) {
+                        return ValueListenableBuilder<List<ChatUser>>(
+                          valueListenable: _globalResultsNotifier,
+                          builder: (context, globalResults, _) {
+                            return ValueListenableBuilder<bool>(
+                              valueListenable: _globalSearchingNotifier,
+                              builder: (context, isGlobalSearching, _) {
+                                final filteredChats = query.isEmpty
+                                    ? allChats
+                                    : allChats
+                                        .where((c) => (c.title ?? '')
+                                            .toLowerCase()
+                                            .contains(query))
+                                        .toList();
+
+                                final bool hasQuery = query.isNotEmpty;
+                                final bool hasGlobalResults =
+                                    globalResults.isNotEmpty;
+                                final bool showNoResults = hasQuery &&
+                                    filteredChats.isEmpty &&
+                                    !hasGlobalResults &&
+                                    !isGlobalSearching;
+
+                                if (showNoResults) {
+                                  return SliverFillRemaining(
+                                    hasScrollBody: false,
+                                    child: Center(
+                                      child: Text(
+                                        allChats.isEmpty
+                                            ? 'No chats yet'
+                                            : 'No results',
+                                        style: ChatGlassTheme.muted(fontSize: 17),
+                                      ),
+                                    ),
+                                  );
+                                }
+
+                                final List<Widget> items = [];
+
+                                for (var i = 0;
+                                    i < filteredChats.length;
+                                    i++) {
+                                  final userChat = filteredChats[i];
+                                  items.add(
+                                    Dismissible(
+                                      key: ValueKey(
+                                          'chat_${userChat.chatId}'),
+                                      direction: DismissDirection.endToStart,
+                                      background: Container(
+                                        alignment: Alignment.centerRight,
+                                        padding:
+                                            const EdgeInsets.only(right: 20),
+                                        color: ChatGlassTheme.gold,
+                                        child: const Icon(
+                                          Icons.archive,
+                                          color: Color(0xFF1A1A1A),
+                                        ),
+                                      ),
+                                      confirmDismiss: (_) async {
+                                        await ChatRepository.instance
+                                            .toggleArchive(
+                                                userChat.chatId, true);
+                                        if (context.mounted) {
+                                          ScaffoldMessenger.of(context)
+                                              .showSnackBar(
+                                            SnackBar(
+                                              content:
+                                                  const Text('Chat archived'),
+                                              action: SnackBarAction(
+                                                label: 'Undo',
+                                                onPressed: () {
+                                                  ChatRepository.instance
+                                                      .toggleArchive(
+                                                          userChat.chatId,
+                                                          false);
+                                                },
+                                              ),
+                                            ),
+                                          );
+                                        }
+                                        return true;
+                                      },
+                                      child: _ChatListTile(
+                                        userChat: userChat,
+                                        currentUid: _currentUid!,
+                                        onTap: () => _openChat(userChat),
+                                      ),
+                                    ),
+                                  );
+                                }
+
+                                if (hasQuery &&
+                                    (isGlobalSearching || hasGlobalResults)) {
+                                  items.add(
+                                    Padding(
+                                      padding: const EdgeInsets.fromLTRB(
+                                          16, 16, 16, 8),
+                                      child: Row(
+                                        children: [
+                                          Text(
+                                            'Users',
+                                            style: TextStyle(
+                                              fontSize: 14,
+                                              fontWeight: FontWeight.w700,
+                                              color: Colors.grey[600],
+                                            ),
+                                          ),
+                                          if (isGlobalSearching) ...[
+                                            const SizedBox(width: 8),
+                                            const SizedBox(
+                                              width: 14,
+                                              height: 14,
+                                              child:
+                                                  CircularProgressIndicator(
+                                                      strokeWidth: 2),
+                                            ),
+                                          ],
+                                        ],
+                                      ),
+                                    ),
+                                  );
+
+                                  for (final user in globalResults) {
+                                    items.add(
+                                      _InlineUserTile(
+                                        user: user,
+                                        onTap: () =>
+                                            _startChatWithUser(user),
+                                      ),
+                                    );
+                                  }
+
+                                  if (!isGlobalSearching &&
+                                      globalResults.isEmpty) {
+                                    items.add(
+                                      Padding(
+                                        padding: const EdgeInsets.symmetric(
+                                            vertical: 16),
+                                        child: Center(
+                                          child: Text(
+                                            'No users found',
+                                            style: TextStyle(
+                                                color: Colors.grey[500],
+                                                fontSize: 13),
+                                          ),
+                                        ),
+                                      ),
+                                    );
+                                  }
+                                }
+
+                                if (items.isEmpty && !hasQuery) {
+                                  return SliverFillRemaining(
+                                    hasScrollBody: false,
+                                    child: Center(
+                                      child: Column(
+                                        mainAxisAlignment:
+                                            MainAxisAlignment.center,
+                                        children: [
+                                          Icon(Icons.chat_bubble_outline,
+                                              size: 70,
+                                              color: Colors.grey[400]),
+                                          const SizedBox(height: 12),
+                                          Text(
+                                            'No chats yet',
+                                            style: TextStyle(
+                                                fontSize: 17,
+                                                color: Colors.grey[700]),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  );
+                                }
+
+                                return SliverList(
+                                  delegate: SliverChildBuilderDelegate(
+                                    (context, index) => items[index],
+                                    childCount: items.length,
+                                  ),
+                                );
+                              },
+                            );
+                          },
+                        );
+                      },
+                    ),
+                    const SliverToBoxAdapter(child: SizedBox(height: 110)),
+                  ],
                 );
               },
             ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _openNewChat() {
+    Navigator.of(context).push(
+      MaterialPageRoute(builder: (_) => const NewChatScreen()),
+    );
+  }
+
+  void _openOverflowMenu() {
+    showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: const Color(0xFF1A1A1A),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (ctx) {
+        return SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              ListTile(
+                leading: const Icon(Icons.star_outline,
+                    color: ChatGlassTheme.gold),
+                title: Text('Starred messages',
+                    style: ChatGlassTheme.body()),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (_) => const StarredMessagesScreen(),
+                    ),
+                  );
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.archive_outlined,
+                    color: ChatGlassTheme.textSecondary),
+                title: Text('Archived', style: ChatGlassTheme.body()),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (_) => const ChatArchivedListScreen(),
+                    ),
+                  );
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.add_comment_outlined,
+                    color: ChatGlassTheme.gold),
+                title: Text('New chat', style: ChatGlassTheme.body()),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  _openNewChat();
+                },
+              ),
+            ],
+          ),
+        );
+      },
     );
   }
 
@@ -568,6 +586,8 @@ class _ChatListScreenState extends State<ChatListScreen> {
           title: userChat.title ?? 'Chat',
           chatType: userChat.type,
           peerUid: userChat.peerUid,
+          supportUserUid: userChat.supportUserUid,
+          supportGroupTitle: userChat.supportGroupTitle,
         ),
       ),
     );
@@ -725,151 +745,181 @@ class _ChatListTileState extends State<_ChatListTile> {
             final typingInfo = typingSnapshot.data;
             final isTyping = typingInfo?.isTyping ?? false;
 
-            return InkWell(
-              onTap: widget.onTap,
-              onLongPress: () => _showChatActions(context),
-              child: Padding(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.center,
-                  children: [
-                    _buildAvatar(),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
+            return Padding(
+              padding: const EdgeInsets.fromLTRB(12, 4, 12, 8),
+              child: AdaptiveGlassLayer(
+                borderRadius: BorderRadius.circular(18),
+                sigma: 20,
+                fallbackColor: ChatGlassTheme.waterFillStrong,
+                fallbackBorder: Border.all(
+                  color: Colors.white.withValues(alpha: 0.38),
+                  width: 1,
+                ),
+                child: Material(
+                  color: Colors.transparent,
+                  child: InkWell(
+                    onTap: widget.onTap,
+                    onLongPress: () => _showChatActions(context),
+                    borderRadius: BorderRadius.circular(18),
+                    child: Ink(
+                      decoration: ChatGlassTheme.waterCardDecoration(
+                        borderRadius: BorderRadius.circular(18),
+                      ),
+                      child: Padding(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 12, vertical: 10),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.center,
                         children: [
-                          // For DM chats, always show the peer's actual name
-                          // from the users collection (avoids showing role name duplicates)
-                          if (userChat.type == ChatType.dm &&
-                              userChat.peerUid != null)
-                            FutureBuilder<ChatUser?>(
-                              future: _peerUserFuture,
-                              builder: (context, snap) {
-                                final rawName = snap.data?.name ??
-                                    userChat.title ??
-                                    'Chat';
-                                final displayName = _limitToTwoWords(rawName);
-                                return Text(
-                                  displayName,
-                                  style:
-                                      theme.textTheme.titleMedium?.copyWith(
-                                    color: const Color(0xFF171717),
-                                    fontWeight: FontWeight.w700,
-                                  ),
-                                  overflow: TextOverflow.ellipsis,
-                                  maxLines: 1,
-                                );
-                              },
-                            )
-                          else
-                            Text(
-                              _limitToTwoWords(userChat.title ?? 'Chat'),
-                              style: theme.textTheme.titleMedium?.copyWith(
-                                color: const Color(0xFF171717),
-                                fontWeight: FontWeight.w700,
-                              ),
-                              overflow: TextOverflow.ellipsis,
-                              maxLines: 1,
-                            ),
-                          const SizedBox(height: 4),
-                          DefaultTextStyle.merge(
-                            style: theme.textTheme.bodySmall?.copyWith(
-                              color: const Color(0xFF8B8B8B),
-                              fontWeight:
-                                  hasUnread ? FontWeight.w600 : FontWeight.w400,
-                            ),
-                            child: isTyping
-                                ? TypingTextWidget(
-                                    typingUserNames: typingInfo!.typingNames,
-                                    isGroupChat: userChat.type != ChatType.dm,
-                                    style: theme.textTheme.bodySmall?.copyWith(
-                                      color: const Color(0xFF20B051),
-                                      fontStyle: FontStyle.italic,
-                                      fontWeight: FontWeight.w600,
-                                    ),
+                          _buildAvatar(),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                if (userChat.type == ChatType.dm &&
+                                    userChat.peerUid != null)
+                                  FutureBuilder<ChatUser?>(
+                                    future: _peerUserFuture,
+                                    builder: (context, snap) {
+                                      final rawName = snap.data?.name ??
+                                          userChat.title ??
+                                          'Chat';
+                                      final displayName =
+                                          _limitToTwoWords(rawName);
+                                      return Text(
+                                        displayName,
+                                        style: theme.textTheme.titleMedium
+                                            ?.copyWith(
+                                          color: ChatGlassTheme.textPrimary,
+                                          fontWeight: FontWeight.w700,
+                                        ),
+                                        overflow: TextOverflow.ellipsis,
+                                        maxLines: 1,
+                                      );
+                                    },
                                   )
-                                : _buildLastMessage(lastMessage),
+                                else
+                                  Text(
+                                    _limitToTwoWords(userChat.title ?? 'Chat'),
+                                    style:
+                                        theme.textTheme.titleMedium?.copyWith(
+                                      color: ChatGlassTheme.textPrimary,
+                                      fontWeight: FontWeight.w700,
+                                    ),
+                                    overflow: TextOverflow.ellipsis,
+                                    maxLines: 1,
+                                  ),
+                                const SizedBox(height: 4),
+                                DefaultTextStyle.merge(
+                                  style: theme.textTheme.bodySmall?.copyWith(
+                                    color: ChatGlassTheme.textSecondary,
+                                    fontWeight: hasUnread
+                                        ? FontWeight.w600
+                                        : FontWeight.w400,
+                                  ),
+                                  child: isTyping
+                                      ? TypingTextWidget(
+                                          typingUserNames:
+                                              typingInfo!.typingNames,
+                                          isGroupChat:
+                                              userChat.type != ChatType.dm,
+                                          style: theme.textTheme.bodySmall
+                                              ?.copyWith(
+                                            color: Colors.white,
+                                            fontStyle: FontStyle.italic,
+                                            fontWeight: FontWeight.w600,
+                                          ),
+                                        )
+                                      : _buildLastMessage(lastMessage),
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(width: 10),
+                          StreamBuilder<int>(
+                            stream: ChatRepository.instance
+                                .subscribeToUnreadCount(userChat.chatId),
+                            builder: (context, unreadSnap) {
+                              final unreadCount = unreadSnap.data ?? 0;
+                              return Column(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                crossAxisAlignment: CrossAxisAlignment.end,
+                                children: [
+                                  Text(
+                                    lastMessage != null
+                                        ? _formatTime(lastMessage.createdAt)
+                                        : '',
+                                      style: TextStyle(
+                                        color: unreadCount > 0
+                                            ? Colors.white
+                                            : ChatGlassTheme.textMuted,
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.w400,
+                                      ),
+                                  ),
+                                  const SizedBox(height: 6),
+                                  Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      if (userChat.pinned)
+                                        const Padding(
+                                          padding: EdgeInsets.only(right: 4),
+                                          child: Icon(
+                                            Icons.push_pin,
+                                            size: 14,
+                                            color: ChatGlassTheme.textSecondary,
+                                          ),
+                                        ),
+                                      if (userChat.muted)
+                                        const Padding(
+                                          padding: EdgeInsets.only(right: 4),
+                                          child: Icon(
+                                            Icons.volume_off,
+                                            size: 14,
+                                            color: ChatGlassTheme.textSecondary,
+                                          ),
+                                        ),
+                                      if (unreadCount > 0)
+                                        Container(
+                                          constraints: const BoxConstraints(
+                                              minWidth: 22, minHeight: 22),
+                                          padding: const EdgeInsets.symmetric(
+                                              horizontal: 5, vertical: 2),
+                                          alignment: Alignment.center,
+                                            decoration: BoxDecoration(
+                                              color: userChat.muted
+                                                  ? Colors.white
+                                                      .withValues(alpha: 0.35)
+                                                  : Colors.white,
+                                              shape: BoxShape.circle,
+                                            ),
+                                            child: Text(
+                                              unreadCount > 99
+                                                  ? '99+'
+                                                  : '$unreadCount',
+                                              style: TextStyle(
+                                                color: userChat.muted
+                                                    ? Colors.white
+                                                    : const Color(0xFF1A3A5C),
+                                                fontSize: 11,
+                                                fontWeight: FontWeight.w700,
+                                              ),
+                                            ),
+                                        )
+                                      else
+                                        const SizedBox(height: 22),
+                                    ],
+                                  ),
+                                ],
+                              );
+                            },
                           ),
                         ],
                       ),
                     ),
-                    const SizedBox(width: 10),
-                    StreamBuilder<int>(
-                      stream: ChatRepository.instance
-                          .subscribeToUnreadCount(userChat.chatId),
-                      builder: (context, unreadSnap) {
-                        final unreadCount = unreadSnap.data ?? 0;
-                        return Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          crossAxisAlignment: CrossAxisAlignment.end,
-                          children: [
-                            Text(
-                              lastMessage != null
-                                  ? _formatTime(lastMessage.createdAt)
-                                  : '',
-                              style: TextStyle(
-                                color: unreadCount > 0
-                                    ? const Color(0xFF8C8C8C)
-                                    : const Color(0xFFAAAAAA),
-                                fontSize: 12,
-                                fontWeight: FontWeight.w400,
-                              ),
-                            ),
-                            const SizedBox(height: 6),
-                            Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                if (userChat.pinned)
-                                  const Padding(
-                                    padding: EdgeInsets.only(right: 4),
-                                    child: Icon(
-                                      Icons.push_pin,
-                                      size: 14,
-                                      color: Color(0xFF8E8E93),
-                                    ),
-                                  ),
-                                if (userChat.muted)
-                                  const Padding(
-                                    padding: EdgeInsets.only(right: 4),
-                                    child: Icon(
-                                      Icons.volume_off,
-                                      size: 14,
-                                      color: Color(0xFF8E8E93),
-                                    ),
-                                  ),
-                                if (unreadCount > 0)
-                                  Container(
-                                    constraints: const BoxConstraints(
-                                        minWidth: 22, minHeight: 22),
-                                    padding: const EdgeInsets.symmetric(
-                                        horizontal: 5, vertical: 2),
-                                    alignment: Alignment.center,
-                                    decoration: BoxDecoration(
-                                      color: userChat.muted
-                                          ? const Color(0xFFB0B0B0)
-                                          : const Color(0xFFF04D57),
-                                      shape: BoxShape.circle,
-                                    ),
-                                    child: Text(
-                                      unreadCount > 99 ? '99+' : '$unreadCount',
-                                      style: const TextStyle(
-                                        color: Colors.white,
-                                        fontSize: 11,
-                                        fontWeight: FontWeight.w700,
-                                      ),
-                                    ),
-                                  )
-                                else
-                                  const SizedBox(height: 22),
-                              ],
-                            ),
-                          ],
-                        );
-                      },
                     ),
-                  ],
+                  ),
                 ),
               ),
             );
@@ -895,7 +945,7 @@ class _ChatListTileState extends State<_ChatListTile> {
                 isOnline: isOnline,
                 child: CircleAvatar(
                   radius: 24,
-                  backgroundColor: const Color(0xFFECECEC),
+                  backgroundColor: Colors.white.withValues(alpha: 0.12),
                   backgroundImage: avatarUrl != null && avatarUrl.isNotEmpty
                       ? CachedNetworkImageProvider(avatarUrl)
                       : null,
@@ -903,7 +953,7 @@ class _ChatListTileState extends State<_ChatListTile> {
                       ? Text(
                           _getInitials(peerUser?.name ?? userChat.title ?? '?'),
                           style: const TextStyle(
-                            color: Color(0xFF2E2E2E),
+                            color: ChatGlassTheme.textPrimary,
                             fontWeight: FontWeight.w700,
                           ),
                         )
@@ -920,7 +970,7 @@ class _ChatListTileState extends State<_ChatListTile> {
       isOnline: true,
       child: CircleAvatar(
         radius: 24,
-        backgroundColor: Colors.white,
+        backgroundColor: Colors.white.withValues(alpha: 0.1),
         child: Padding(
           padding: const EdgeInsets.all(6),
           child: Image.asset(
@@ -940,7 +990,7 @@ class _ChatListTileState extends State<_ChatListTile> {
           padding: const EdgeInsets.all(1.5),
           decoration: BoxDecoration(
             shape: BoxShape.circle,
-            border: Border.all(color: const Color(0xFFE9B23A), width: 1.8),
+            border: Border.all(color: ChatGlassTheme.avatarRing, width: 1.8),
             boxShadow: [
               BoxShadow(
                 color: Colors.black.withValues(alpha: 0.06),
@@ -973,8 +1023,8 @@ class _ChatListTileState extends State<_ChatListTile> {
     if (lastMessage == null) {
       return const Text(
         'No messages',
-        maxLines: null,
-        overflow: TextOverflow.visible,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
       );
     }
 
@@ -993,14 +1043,20 @@ class _ChatListTileState extends State<_ChatListTile> {
       case 'video':
         text = '🎬 Video';
         break;
+      case 'signable_doc':
+        text = '📄 Document';
+        break;
       default:
         text = lastMessage.text;
     }
 
+    final isMine = lastMessage.senderId == widget.currentUid;
+    final display = isMine ? 'You: $text' : text;
+
     return Text(
-      text,
-      maxLines: null,
-      overflow: TextOverflow.visible,
+      display,
+      maxLines: 1,
+      overflow: TextOverflow.ellipsis,
     );
   }
 
@@ -1030,7 +1086,7 @@ class _ChatListTileState extends State<_ChatListTile> {
       position: menuPosition,
       elevation: 8,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      color: Colors.white,
+      color: const Color(0xFF1F1F1F),
       items: [
         PopupMenuItem<String>(
           value: 'pin',
@@ -1039,14 +1095,14 @@ class _ChatListTileState extends State<_ChatListTile> {
             children: [
               Icon(
                 userChat.pinned ? Icons.push_pin : Icons.push_pin_outlined,
-                color: const Color(0xFF8E8E93),
+                color: ChatGlassTheme.textSecondary,
                 size: 22,
               ),
               const SizedBox(width: 14),
               Text(
                 userChat.pinned ? 'Unpin' : 'Pin',
                 style: const TextStyle(
-                  color: Color(0xFF2C2C2E),
+                  color: ChatGlassTheme.textPrimary,
                   fontSize: 17,
                   fontWeight: FontWeight.w500,
                 ),
@@ -1061,14 +1117,36 @@ class _ChatListTileState extends State<_ChatListTile> {
             children: [
               Icon(
                 userChat.muted ? Icons.volume_up : Icons.volume_off,
-                color: const Color(0xFF8E8E93),
+                color: ChatGlassTheme.textSecondary,
                 size: 22,
               ),
               const SizedBox(width: 14),
               Text(
                 userChat.muted ? 'Unmute' : 'Mute',
                 style: const TextStyle(
-                  color: Color(0xFF2C2C2E),
+                  color: ChatGlassTheme.textPrimary,
+                  fontSize: 17,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ],
+          ),
+        ),
+        PopupMenuItem<String>(
+          value: 'archive',
+          height: 48,
+          child: Row(
+            children: [
+              Icon(
+                userChat.archived ? Icons.unarchive : Icons.archive_outlined,
+                color: ChatGlassTheme.textSecondary,
+                size: 22,
+              ),
+              const SizedBox(width: 14),
+              Text(
+                userChat.archived ? 'Unarchive' : 'Archive',
+                style: const TextStyle(
+                  color: ChatGlassTheme.textPrimary,
                   fontSize: 17,
                   fontWeight: FontWeight.w500,
                 ),
@@ -1090,6 +1168,12 @@ class _ChatListTileState extends State<_ChatListTile> {
           ChatRepository.instance.toggleMute(
             userChat.chatId,
             !userChat.muted,
+          );
+          break;
+        case 'archive':
+          ChatRepository.instance.toggleArchive(
+            userChat.chatId,
+            !userChat.archived,
           );
           break;
       }
@@ -1131,7 +1215,7 @@ class _InlineUserTile extends StatelessWidget {
         children: [
           CircleAvatar(
             radius: 24,
-            backgroundColor: AppColors.primaryBlackLight,
+            backgroundColor: Colors.white.withValues(alpha: 0.14),
             backgroundImage: user.avatarUrl != null
                 ? CachedNetworkImageProvider(user.avatarUrl!)
                 : null,
@@ -1139,7 +1223,7 @@ class _InlineUserTile extends StatelessWidget {
                 ? Text(
                     _getInitials(user.name),
                     style: const TextStyle(
-                      color: AppColors.primaryColor,
+                      color: ChatGlassTheme.gold,
                       fontWeight: FontWeight.bold,
                     ),
                   )
@@ -1169,16 +1253,16 @@ class _InlineUserTile extends StatelessWidget {
       ),
       title: Text(
         user.name,
-        style: const TextStyle(fontWeight: FontWeight.w600),
+        style: ChatGlassTheme.body(weight: FontWeight.w600),
       ),
       subtitle: user.email != null
           ? Text(
               user.email!,
-              style: TextStyle(fontSize: 13, color: Colors.grey[600]),
+              style: ChatGlassTheme.muted(fontSize: 13),
             )
           : null,
       trailing: const Icon(Icons.message_rounded,
-          color: AppColors.primaryColor, size: 22),
+          color: ChatGlassTheme.gold, size: 22),
     );
   }
 
@@ -1198,20 +1282,60 @@ class _ChatListStaticBody extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final embedded = context
+            .findAncestorWidgetOfExactType<ChatListScreen>()
+            ?.embeddedInShell ??
+        false;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        ClipRRect(
-          borderRadius: BorderRadius.vertical(bottom: Radius.circular(20)),
-          child: Stack(
-            children: [
-              ChatUnifiedHeaderBackdrop.layer(),
-              const SubAppGlassAppBar(),
-            ],
+        if (!embedded)
+          ClipRRect(
+            borderRadius:
+                const BorderRadius.vertical(bottom: Radius.circular(20)),
+            child: Stack(
+              children: [
+                ChatUnifiedHeaderBackdrop.layer(),
+                const ChatTopGlassAppBar(),
+              ],
+            ),
           ),
-        ),
         Expanded(child: child),
       ],
+    );
+  }
+}
+
+class _ArchivedRow extends StatelessWidget {
+  const _ArchivedRow({required this.count, required this.onTap});
+
+  final int count;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        child: Row(
+          children: [
+            const Icon(Icons.archive_outlined,
+                color: ChatGlassTheme.textSecondary),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Text(
+                'Archived',
+                style: ChatGlassTheme.body(weight: FontWeight.w500),
+              ),
+            ),
+            Text(
+              '$count',
+              style: ChatGlassTheme.accent(fontSize: 15),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }
