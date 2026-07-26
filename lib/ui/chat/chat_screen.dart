@@ -271,18 +271,12 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
 
   @override
   Widget build(BuildContext context) {
-    if (_peerPresenceStream != null) {
-      return StreamBuilder<PresenceStatus>(
-        stream: _peerPresenceStream,
-        builder: (context, snapshot) {
-          return _buildChatScaffold(presence: snapshot.data);
-        },
-      );
-    }
+    // Do NOT wrap the whole scaffold in presence StreamBuilder —
+    // that was rebuilding the message list in a tight loop.
     return _buildChatScaffold();
   }
 
-  Widget _buildChatScaffold({PresenceStatus? presence}) {
+  Widget _buildChatScaffold() {
     return Scaffold(
       backgroundColor: Colors.transparent,
       body: BlueGeometricBackground(
@@ -306,11 +300,9 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                               ? _openPeerProfile
                               : _openGroupProfile,
                           behavior: HitTestBehavior.opaque,
-                          child: _buildAvatar(
-                            isOnline: presence?.online ?? false,
-                          ),
+                          child: _buildPresenceAwareAvatar(),
                         ),
-                        subtitle: _buildConversationSubtitle(presence),
+                        subtitle: _buildPresenceAwareSubtitle(),
                         trailing: _buildConversationMenu(),
                       ),
                     ),
@@ -355,6 +347,32 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
       ),
       ),
     );
+  }
+
+  Widget? _buildPresenceAwareSubtitle() {
+    if (widget.chatType == ChatType.dm &&
+        widget.peerUid != null &&
+        _peerPresenceStream != null) {
+      return StreamBuilder<PresenceStatus>(
+        stream: _peerPresenceStream,
+        builder: (context, snapshot) {
+          return _buildPresenceStatusText(snapshot.data);
+        },
+      );
+    }
+    return _buildConversationSubtitle(null);
+  }
+
+  Widget _buildPresenceAwareAvatar() {
+    if (widget.chatType == ChatType.dm && _peerPresenceStream != null) {
+      return StreamBuilder<PresenceStatus>(
+        stream: _peerPresenceStream,
+        builder: (context, snapshot) {
+          return _buildAvatar(isOnline: snapshot.data?.online ?? false);
+        },
+      );
+    }
+    return _buildAvatar();
   }
 
   Widget? _buildConversationSubtitle(PresenceStatus? presence) {
@@ -509,13 +527,6 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
             snapshot.connectionState == ConnectionState.waiting;
         final bool hasPending = _pendingMessages.isNotEmpty;
 
-        // Log every rebuild so we can trace
-        debugPrint(
-            '📨 StreamBuilder rebuild: state=${snapshot.connectionState}, '
-            'firestoreCount=${snapshot.data?.length ?? 0}, '
-            'pendingCount=${_pendingMessages.length}, '
-            'hasError=${snapshot.hasError}');
-
         // Show loading ONLY if no Firestore data yet AND no pending messages
         if (isWaiting && !hasPending) {
           return const Center(
@@ -543,9 +554,6 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
           ..._pendingMessages,
           ...firestoreMessages,
         ]..sort((a, b) => b.createdAt.compareTo(a.createdAt));
-
-        debugPrint('📨 StreamBuilder: merged total=${messages.length} '
-            '(${_pendingMessages.length} pending + ${firestoreMessages.length} firestore)');
 
         // Only show empty state AFTER we got real data (not while loading)
         if (messages.isEmpty && !isWaiting) {
@@ -819,36 +827,27 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   }
 
   Widget _buildChatBackgroundPattern() {
+    // Lightweight static watermark — avoid GridView under NestedScrollView
+    // which was contributing to expensive rebuilds/jank.
     final token = _watermarkToken();
     return IgnorePointer(
-      child: GridView.builder(
-        physics: const NeverScrollableScrollPhysics(),
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
-        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-          crossAxisCount: 2,
-          childAspectRatio: 2.4,
-          crossAxisSpacing: 8,
-          mainAxisSpacing: 8,
-        ),
-        itemCount: 30,
-        itemBuilder: (context, index) {
-          return Opacity(
-            opacity: index.isEven ? 0.07 : 0.04,
-            child: FittedBox(
-              fit: BoxFit.scaleDown,
-              child: Text(
-                token,
-                maxLines: null,
-                overflow: TextOverflow.visible,
-                style: const TextStyle(
-                  fontSize: 48,
-                  fontWeight: FontWeight.w700,
-                  color: ChatSurfaceTheme.watermark,
-                ),
+      child: Opacity(
+        opacity: 0.06,
+        child: Center(
+          child: Transform.rotate(
+            angle: -0.35,
+            child: Text(
+              '$token  $token  $token\n$token  $token  $token\n$token  $token  $token',
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                fontSize: 42,
+                fontWeight: FontWeight.w700,
+                color: ChatSurfaceTheme.watermark,
+                height: 2.2,
               ),
             ),
-          );
-        },
+          ),
+        ),
       ),
     );
   }
