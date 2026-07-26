@@ -1,5 +1,4 @@
 import 'dart:io';
-import 'dart:math' as math;
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
@@ -9,7 +8,7 @@ import 'package:syncfusion_flutter_pdf/pdf.dart';
 import '../../../chat/models/message.dart';
 
 /// Screen for the sender to pick sign zones on a PDF before sending.
-/// The user can add, move, resize, and remove zones.
+/// Zones are fixed-size (no resize). Max 2 signature + max 2 stamp zones.
 class SignZonePickerScreen extends StatefulWidget {
   final File pdfFile;
   final String fileName;
@@ -25,10 +24,16 @@ class SignZonePickerScreen extends StatefulWidget {
 }
 
 class _SignZonePickerScreenState extends State<SignZonePickerScreen> {
-  static const double _defaultZoneW = 0.30;
-  static const double _defaultZoneH = 0.06;
-  static const double _minZoneW = 0.12;
-  static const double _minZoneH = 0.04;
+  static const int _maxSignatureZones = 2;
+  static const int _maxStampZones = 2;
+
+  /// Fixed signature zone (relative to page).
+  static const double _sigZoneW = 0.30;
+  static const double _sigZoneH = 0.06;
+
+  /// Fixed stamp zone — roomy box; image is drawn contain/centered (no stretch).
+  static const double _stampZoneW = 0.22;
+  static const double _stampZoneH = 0.12;
 
   Uint8List? _pdfBytes;
   bool _loading = true;
@@ -46,13 +51,9 @@ class _SignZonePickerScreenState extends State<SignZonePickerScreen> {
   Size _viewSize = Size.zero;
   int? _selectedZoneIndex;
 
-  int? _resizingZoneIndex;
-  Offset? _resizeStartGlobal;
-  SignZone? _resizeStartZone;
-
-  int? _scalingZoneIndex;
-  Offset? _scaleStartGlobal;
-  SignZone? _scaleStartZone;
+  int? _movingZoneIndex;
+  Offset? _moveStartGlobal;
+  SignZone? _moveStartZone;
 
   @override
   void initState() {
@@ -120,45 +121,73 @@ class _SignZonePickerScreenState extends State<SignZonePickerScreen> {
     return Rect.fromLTWH(0, top, width, height);
   }
 
+  int get _signatureCount =>
+      _signZones.where((z) => z.type == SignZoneType.signature).length;
+  int get _stampCount =>
+      _signZones.where((z) => z.type == SignZoneType.stamp).length;
+
   void _addSignZone(Offset tapPosition) {
     if (_viewSize == Size.zero) return;
 
     final pageRect = _pdfPageRectForCurrentView();
     if (!pageRect.contains(tapPosition)) return;
 
+    if (_activeTool == SignZoneType.signature &&
+        _signatureCount >= _maxSignatureZones) {
+      _showLimitSnack(
+        'Maximum $_maxSignatureZones signature zones allowed',
+      );
+      return;
+    }
+    if (_activeTool == SignZoneType.stamp && _stampCount >= _maxStampZones) {
+      _showLimitSnack('Maximum $_maxStampZones stamp zones allowed');
+      return;
+    }
+
+    final zoneW =
+        _activeTool == SignZoneType.stamp ? _stampZoneW : _sigZoneW;
+    final zoneH =
+        _activeTool == SignZoneType.stamp ? _stampZoneH : _sigZoneH;
+
     final relX =
         ((tapPosition.dx - pageRect.left) / pageRect.width).clamp(0.0, 1.0);
     final relY =
         ((tapPosition.dy - pageRect.top) / pageRect.height).clamp(0.0, 1.0);
 
-    final x = (relX - _defaultZoneW / 2).clamp(0.0, 1.0 - _defaultZoneW);
-    final y = (relY - _defaultZoneH / 2).clamp(0.0, 1.0 - _defaultZoneH);
+    final x = (relX - zoneW / 2).clamp(0.0, 1.0 - zoneW);
+    final y = (relY - zoneH / 2).clamp(0.0, 1.0 - zoneH);
 
     setState(() {
       _signZones.add(SignZone(
         page: _currentPage,
         x: x,
         y: y,
-        width: _defaultZoneW,
-        height: _defaultZoneH,
+        width: zoneW,
+        height: zoneH,
         type: _activeTool,
       ));
       _selectedZoneIndex = _signZones.length - 1;
     });
   }
 
-  void _onResizeStart(int index, DragStartDetails details) {
+  void _showLimitSnack(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(message), backgroundColor: Colors.orange),
+    );
+  }
+
+  void _onZoneMoveStart(int index, DragStartDetails details) {
     if (index < 0 || index >= _signZones.length) return;
-    _resizingZoneIndex = index;
-    _resizeStartGlobal = details.globalPosition;
-    _resizeStartZone = _signZones[index];
+    _movingZoneIndex = index;
+    _moveStartGlobal = details.globalPosition;
+    _moveStartZone = _signZones[index];
     setState(() => _selectedZoneIndex = index);
   }
 
-  void _onResizeUpdate(DragUpdateDetails details) {
-    final index = _resizingZoneIndex;
-    final startGlobal = _resizeStartGlobal;
-    final startZone = _resizeStartZone;
+  void _onZoneMoveUpdate(DragUpdateDetails details) {
+    final index = _movingZoneIndex;
+    final startGlobal = _moveStartGlobal;
+    final startZone = _moveStartZone;
     if (index == null || startGlobal == null || startZone == null) return;
     if (index < 0 || index >= _signZones.length) return;
 
@@ -166,75 +195,21 @@ class _SignZonePickerScreenState extends State<SignZonePickerScreen> {
     if (pageRect.width <= 0 || pageRect.height <= 0) return;
 
     final totalDelta = details.globalPosition - startGlobal;
-    final dw = totalDelta.dx / pageRect.width;
-    final dh = totalDelta.dy / pageRect.height;
-
-    final maxW = math.max(_minZoneW, 1.0 - startZone.x);
-    final maxH = math.max(_minZoneH, 1.0 - startZone.y);
-
-    final nextW = (startZone.width + dw).clamp(_minZoneW, maxW);
-    final nextH = (startZone.height + dh).clamp(_minZoneH, maxH);
-
-    setState(() {
-      _signZones[index] = startZone.copyWith(width: nextW, height: nextH);
-    });
-  }
-
-  void _onResizeEnd([DragEndDetails? _]) {
-    _resizingZoneIndex = null;
-    _resizeStartGlobal = null;
-    _resizeStartZone = null;
-  }
-
-  void _onZoneScaleStart(int index, ScaleStartDetails details) {
-    if (index < 0 || index >= _signZones.length) return;
-    _scalingZoneIndex = index;
-    _scaleStartGlobal = details.focalPoint;
-    _scaleStartZone = _signZones[index];
-    setState(() => _selectedZoneIndex = index);
-  }
-
-  void _onZoneScaleUpdate(ScaleUpdateDetails details) {
-    final index = _scalingZoneIndex;
-    final startGlobal = _scaleStartGlobal;
-    final startZone = _scaleStartZone;
-    if (index == null || startGlobal == null || startZone == null) return;
-    if (index < 0 || index >= _signZones.length) return;
-
-    final pageRect = _pdfPageRectForCurrentView();
-    if (pageRect.width <= 0 || pageRect.height <= 0) return;
-
-    final totalDelta = details.focalPoint - startGlobal;
     final dx = totalDelta.dx / pageRect.width;
     final dy = totalDelta.dy / pageRect.height;
 
-    final scale = details.scale.clamp(0.4, 5.0);
-    final nextW = (startZone.width * scale).clamp(_minZoneW, 1.0);
-    final nextH = (startZone.height * scale).clamp(_minZoneH, 1.0);
-
-    final halfW = nextW / 2;
-    final halfH = nextH / 2;
-
-    final desiredCenterX = startZone.x + (startZone.width / 2) + dx;
-    final desiredCenterY = startZone.y + (startZone.height / 2) + dy;
-
-    final clampedCenterX = desiredCenterX.clamp(halfW, 1.0 - halfW);
-    final clampedCenterY = desiredCenterY.clamp(halfH, 1.0 - halfH);
+    final nextX = (startZone.x + dx).clamp(0.0, 1.0 - startZone.width);
+    final nextY = (startZone.y + dy).clamp(0.0, 1.0 - startZone.height);
 
     setState(() {
-      _signZones[index] = startZone.copyWith(
-        x: clampedCenterX - halfW,
-        y: clampedCenterY - halfH,
-        width: nextW,
-        height: nextH,
-      );
+      _signZones[index] = startZone.copyWith(x: nextX, y: nextY);
     });
   }
 
-  void _onZoneScaleEnd([ScaleEndDetails? _]) {
-    _scalingZoneIndex = null;
-    _scaleStartGlobal = null;
-    _scaleStartZone = null;
+  void _onZoneMoveEnd([DragEndDetails? _]) {
+    _movingZoneIndex = null;
+    _moveStartGlobal = null;
+    _moveStartZone = null;
   }
 
   int? _findZoneAt(Offset point, Rect pageRect) {
@@ -257,7 +232,7 @@ class _SignZonePickerScreenState extends State<SignZonePickerScreen> {
   void _removeSignZone(int index) {
     setState(() {
       _signZones.removeAt(index);
-      if (_resizingZoneIndex == index) _onResizeEnd();
+      if (_movingZoneIndex == index) _onZoneMoveEnd();
 
       if (_selectedZoneIndex == index) {
         _selectedZoneIndex = null;
@@ -350,8 +325,8 @@ class _SignZonePickerScreenState extends State<SignZonePickerScreen> {
                 child: Text(
                   _isPlaceMode
                       ? (_activeTool == SignZoneType.stamp
-                          ? 'Stamp tool: tap to place a stamp zone.'
-                          : 'Sign tool: tap to place a signature zone.')
+                          ? 'Stamp: tap to place (max $_maxStampZones). Drag to move.'
+                          : 'Sign: tap to place (max $_maxSignatureZones). Drag to move.')
                       : 'Scroll to browse pages. Switch back to edit zones.',
                   style: TextStyle(
                     fontSize: 13,
@@ -478,8 +453,8 @@ class _SignZonePickerScreenState extends State<SignZonePickerScreen> {
                   borderRadius: BorderRadius.circular(16),
                 ),
                 child: Text(
-                  '${_signZones.length} zone${_signZones.length != 1 ? 's' : ''}'
-                  '${_signZones.any((z) => z.isStamp) ? ' · stamp' : ''}',
+                  '${_signatureCount} sign · ${_stampCount} stamp'
+                  '${_signZones.isEmpty ? ' · none yet' : ''}',
                   style: TextStyle(
                     fontSize: 12,
                     fontWeight: FontWeight.w600,
@@ -582,9 +557,10 @@ class _SignZonePickerScreenState extends State<SignZonePickerScreen> {
               child: GestureDetector(
                 behavior: HitTestBehavior.opaque,
                 onTap: () => setState(() => _selectedZoneIndex = idx),
-                onScaleStart: (details) => _onZoneScaleStart(idx, details),
-                onScaleUpdate: _onZoneScaleUpdate,
-                onScaleEnd: _onZoneScaleEnd,
+                onPanStart: (details) => _onZoneMoveStart(idx, details),
+                onPanUpdate: _onZoneMoveUpdate,
+                onPanEnd: _onZoneMoveEnd,
+                onPanCancel: _onZoneMoveEnd,
                 child: Container(
                   decoration: BoxDecoration(
                     color: (zone.isStamp
@@ -598,9 +574,6 @@ class _SignZonePickerScreenState extends State<SignZonePickerScreen> {
                               ? const Color(0xFF2E7D6F)
                               : const Color(0xFFD4A843)),
                       width: isSelected ? 2.5 : 2,
-                      style: zone.isStamp
-                          ? BorderStyle.solid
-                          : BorderStyle.solid,
                     ),
                     borderRadius: BorderRadius.circular(6),
                   ),
@@ -658,40 +631,6 @@ class _SignZonePickerScreenState extends State<SignZonePickerScreen> {
                       child: const Icon(
                         Icons.close,
                         size: 12,
-                        color: Colors.white,
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-            ),
-            Positioned(
-              right: -14,
-              bottom: -14,
-              child: GestureDetector(
-                behavior: HitTestBehavior.opaque,
-                onTap: () => setState(() => _selectedZoneIndex = idx),
-                onPanStart: (details) => _onResizeStart(idx, details),
-                onPanUpdate: _onResizeUpdate,
-                onPanEnd: _onResizeEnd,
-                onPanCancel: _onResizeEnd,
-                child: SizedBox(
-                  width: 34,
-                  height: 34,
-                  child: Center(
-                    child: Container(
-                      width: 22,
-                      height: 22,
-                      decoration: BoxDecoration(
-                        color: isSelected
-                            ? const Color(0xFF1D2449)
-                            : const Color(0xFF5B648F),
-                        borderRadius: BorderRadius.circular(11),
-                        border: Border.all(color: Colors.white, width: 1.2),
-                      ),
-                      child: const Icon(
-                        Icons.open_in_full,
-                        size: 13,
                         color: Colors.white,
                       ),
                     ),

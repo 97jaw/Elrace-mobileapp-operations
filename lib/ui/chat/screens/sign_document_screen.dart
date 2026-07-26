@@ -283,15 +283,34 @@ class _SignDocumentScreenState extends State<SignDocumentScreen> {
     if (zone.page < doc.pages.count) {
       final page = doc.pages[zone.page];
       final ps = page.getClientSize();
-      final x = zone.x * ps.width;
-      final y = zone.y * ps.height;
-      final w = zone.width * ps.width;
-      final h = zone.height * ps.height;
-      page.graphics
-          .drawImage(PdfBitmap(sigImgBytes), Rect.fromLTWH(x, y, w, h));
-      page.graphics.drawRectangle(
-        pen: PdfPen(PdfColor(180, 180, 180), width: 0.5),
-        bounds: Rect.fromLTWH(x, y, w, h),
+      final boxX = zone.x * ps.width;
+      final boxY = zone.y * ps.height;
+      final boxW = zone.width * ps.width;
+      final boxH = zone.height * ps.height;
+
+      final bitmap = PdfBitmap(sigImgBytes);
+      final imgW = bitmap.width.toDouble();
+      final imgH = bitmap.height.toDouble();
+
+      // Contain inside the zone — never stretch.
+      late final double drawW;
+      late final double drawH;
+      if (imgW <= 0 || imgH <= 0) {
+        drawW = boxW;
+        drawH = boxH;
+      } else if (imgW / imgH > boxW / boxH) {
+        drawW = boxW;
+        drawH = boxW * imgH / imgW;
+      } else {
+        drawH = boxH;
+        drawW = boxH * imgW / imgH;
+      }
+      final drawX = boxX + (boxW - drawW) / 2;
+      final drawY = boxY + (boxH - drawH) / 2;
+
+      page.graphics.drawImage(
+        bitmap,
+        Rect.fromLTWH(drawX, drawY, drawW, drawH),
       );
     }
     final bytes = doc.saveSync();
