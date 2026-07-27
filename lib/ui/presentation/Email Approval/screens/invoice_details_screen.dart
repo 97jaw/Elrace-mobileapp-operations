@@ -10,7 +10,6 @@ import 'package:el_race/ui/widgets/contextual_glass_chrome_header.dart';
 import 'package:el_race/utils/safe_insets.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:fluttertoast/fluttertoast.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:http/http.dart' as http;
@@ -361,84 +360,244 @@ class _InvoiceDetailsScreenState extends State<InvoiceDetailsScreen> {
     }
   }
 
-  Widget _tagChip(String text, Color bg, Color fg) {
-    return Container(
-      padding: EdgeInsets.symmetric(horizontal: 8.tw, vertical: 3.tw),
-      decoration: BoxDecoration(
-        color: bg,
-        borderRadius: BorderRadius.circular(8.tr),
-      ),
-      child: Text(
-        text,
-        style: GoogleFonts.poppins(
-          fontSize: 9.tsp,
-          fontWeight: FontWeight.w700,
-          color: fg,
+  Widget _sectionTitle({
+    required String title,
+    required IconData icon,
+    Color iconColor = const Color(0xFF2F80ED),
+    Widget? trailing,
+  }) {
+    return Row(
+      children: [
+        Container(
+          width: 22.tw,
+          height: 22.tw,
+          decoration: BoxDecoration(
+            color: iconColor.withValues(alpha: 0.12),
+            borderRadius: BorderRadius.circular(6.tr),
+          ),
+          child: Icon(icon, size: 13.tsp, color: iconColor),
         ),
-      ),
+        SizedBox(width: 8.tw),
+        Expanded(
+          child: Text(
+            title.toUpperCase(),
+            style: GoogleFonts.poppins(
+              fontSize: 11.tsp,
+              fontWeight: FontWeight.w700,
+              letterSpacing: 0.6,
+              color: const Color(0xFF2F80ED),
+            ),
+          ),
+        ),
+        if (trailing != null) trailing,
+      ],
     );
   }
 
-  Widget _glassSectionCard({required String title, required Widget child}) {
+  Widget _glassCard({required Widget child, EdgeInsetsGeometry? padding}) {
     return OverviewGlassPanel(
-      fillAlpha: 0.9,
+      fillAlpha: 0.94,
       blurSigma: 8,
-      radius: 16,
-      padding: EdgeInsets.fromLTRB(12.tw, 10.th, 12.tw, 10.th),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      radius: 18,
+      padding: padding ?? EdgeInsets.fromLTRB(14.tw, 12.th, 14.tw, 12.th),
+      child: child,
+    );
+  }
+
+  Widget _infoField({
+    required String label,
+    required String value,
+    Color? valueColor,
+    IconData? leadingIcon,
+    Color? iconColor,
+    int maxLines = 2,
+  }) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label,
+          style: GoogleFonts.poppins(
+            fontSize: 10.tsp,
+            fontWeight: FontWeight.w500,
+            color: ApprovalsOverviewTheme.textSoft,
+          ),
+        ),
+        SizedBox(height: 4.th),
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            if (leadingIcon != null) ...[
+              Icon(
+                leadingIcon,
+                size: 14.tsp,
+                color: iconColor ?? ApprovalsOverviewTheme.textMuted,
+              ),
+              SizedBox(width: 5.tw),
+            ],
+            Expanded(
+              child: Text(
+                _displayOrDash(value),
+                maxLines: maxLines,
+                overflow: TextOverflow.ellipsis,
+                style: GoogleFonts.poppins(
+                  fontSize: 12.tsp,
+                  fontWeight: FontWeight.w700,
+                  height: 1.25,
+                  color: valueColor ?? ApprovalsOverviewTheme.textDark,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  Widget _categoryPill(String text) {
+    return Container(
+      padding: EdgeInsets.symmetric(horizontal: 10.tw, vertical: 5.th),
+      decoration: BoxDecoration(
+        color: const Color(0xFFEDE7FF),
+        borderRadius: BorderRadius.circular(20.tr),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
         children: [
+          Icon(Icons.brush_rounded, size: 12.tsp, color: const Color(0xFF6B4EFF)),
+          SizedBox(width: 5.tw),
           Text(
-            title.toUpperCase(),
+            text,
             style: GoogleFonts.poppins(
               fontSize: 10.tsp,
               fontWeight: FontWeight.w700,
-              letterSpacing: 0.7,
-              color: ApprovalsOverviewTheme.screenDeep,
+              color: const Color(0xFF6B4EFF),
             ),
           ),
-          SizedBox(height: 6.th),
-          child,
         ],
       ),
     );
   }
 
-  Widget _themeDetailCell(String label, String value,
-      {bool highlight = false}) {
+  Widget _docIconButton({
+    required VoidCallback? onTap,
+    Color color = const Color(0xFF2F80ED),
+  }) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(10.tr),
+        child: Container(
+          width: 34.tw,
+          height: 34.tw,
+          decoration: BoxDecoration(
+            color: color.withValues(alpha: 0.12),
+            borderRadius: BorderRadius.circular(10.tr),
+          ),
+          child: Icon(Icons.description_outlined, size: 18.tsp, color: color),
+        ),
+      ),
+    );
+  }
+
+  Widget _financeMetricTile({
+    required String label,
+    required String value,
+    required IconData icon,
+    required Color accent,
+  }) {
     return Container(
-      width: double.infinity,
-      padding: EdgeInsets.symmetric(horizontal: 8.tw, vertical: 6.th),
+      padding: EdgeInsets.fromLTRB(10.tw, 10.th, 10.tw, 10.th),
       decoration: BoxDecoration(
-        color: ApprovalsOverviewTheme.screenTintLight.withValues(alpha: 0.65),
-        borderRadius: BorderRadius.circular(12.tr),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.85)),
+        color: ApprovalsOverviewTheme.screenTintLight.withValues(alpha: 0.7),
+        borderRadius: BorderRadius.circular(14.tr),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.9)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: GoogleFonts.poppins(
+                    fontSize: 10.tsp,
+                    fontWeight: FontWeight.w500,
+                    color: ApprovalsOverviewTheme.textSoft,
+                  ),
+                ),
+              ),
+              Container(
+                width: 24.tw,
+                height: 24.tw,
+                decoration: BoxDecoration(
+                  color: accent.withValues(alpha: 0.14),
+                  borderRadius: BorderRadius.circular(8.tr),
+                ),
+                child: Icon(icon, size: 13.tsp, color: accent),
+              ),
+            ],
+          ),
+          SizedBox(height: 8.th),
           Text(
-            label,
+            _displayOrDash(value),
             maxLines: 2,
             overflow: TextOverflow.ellipsis,
             style: GoogleFonts.poppins(
-              fontSize: 9.tsp,
-              fontWeight: FontWeight.w500,
-              color: ApprovalsOverviewTheme.textSoft,
+              fontSize: 13.tsp,
+              fontWeight: FontWeight.w700,
+              color: ApprovalsOverviewTheme.textDark,
             ),
           ),
-          SizedBox(height: 2.th),
-          Text(
-            _displayOrDash(value),
-            maxLines: 3,
-            overflow: TextOverflow.ellipsis,
-            style: GoogleFonts.poppins(
-              fontSize: 11.tsp,
-              fontWeight: FontWeight.w700,
-              color: highlight
-                  ? ApprovalsOverviewTheme.invoice
-                  : ApprovalsOverviewTheme.textDark,
+        ],
+      ),
+    );
+  }
+
+  Widget _invoiceAmountBar({
+    required String amount,
+    VoidCallback? onTapDoc,
+  }) {
+    return Container(
+      width: double.infinity,
+      padding: EdgeInsets.symmetric(horizontal: 12.tw, vertical: 12.th),
+      decoration: BoxDecoration(
+        color: const Color(0xFFFFE8E6),
+        borderRadius: BorderRadius.circular(14.tr),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Invoice Amount',
+                  style: GoogleFonts.poppins(
+                    fontSize: 10.tsp,
+                    fontWeight: FontWeight.w500,
+                    color: const Color(0xFFB4534A),
+                  ),
+                ),
+                SizedBox(height: 2.th),
+                Text(
+                  _displayOrDash(amount),
+                  style: GoogleFonts.poppins(
+                    fontSize: 18.tsp,
+                    fontWeight: FontWeight.w800,
+                    color: const Color(0xFFD32F2F),
+                  ),
+                ),
+              ],
             ),
+          ),
+          _docIconButton(
+            onTap: onTapDoc,
+            color: const Color(0xFFD32F2F),
           ),
         ],
       ),
@@ -449,29 +608,26 @@ class _InvoiceDetailsScreenState extends State<InvoiceDetailsScreen> {
     required String imageUrl,
     required String projectName,
     required String department,
-    required String requestNo,
+    required String projectCode,
     required double completionPercent,
   }) {
-    return OverviewGlassPanel(
-      fillAlpha: 0.88,
-      blurSigma: 10,
-      radius: 16,
-      padding: EdgeInsets.symmetric(horizontal: 10.tw, vertical: 8.th),
+    return _glassCard(
+      padding: EdgeInsets.symmetric(horizontal: 12.tw, vertical: 12.th),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
           Container(
-            width: 62.tw,
-            height: 62.tw,
+            width: 58.tw,
+            height: 58.tw,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
               border: Border.all(
-                color: Colors.white.withValues(alpha: 0.9),
+                color: Colors.white.withValues(alpha: 0.95),
                 width: 2,
               ),
               boxShadow: [
                 BoxShadow(
-                  color: ApprovalsOverviewTheme.invoice.withValues(alpha: 0.15),
+                  color: ApprovalsOverviewTheme.invoice.withValues(alpha: 0.14),
                   blurRadius: 10,
                   offset: const Offset(0, 3),
                 ),
@@ -481,122 +637,222 @@ class _InvoiceDetailsScreenState extends State<InvoiceDetailsScreen> {
               child: _buildAvatar(imageUrl: imageUrl, name: projectName),
             ),
           ),
-          SizedBox(width: 10.tw),
+          SizedBox(width: 12.tw),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
               children: [
                 Text(
                   _displayOrDash(projectName),
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                   style: GoogleFonts.poppins(
-                    fontSize: 14.tsp,
+                    fontSize: 15.tsp,
                     fontWeight: FontWeight.w700,
                     color: ApprovalsOverviewTheme.textDark,
                     height: 1.2,
                   ),
                 ),
-                if (department.trim().isNotEmpty) ...[
-                  SizedBox(height: 2.th),
-                  Text(
-                    department,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: GoogleFonts.poppins(
-                      fontSize: 11.tsp,
-                      fontWeight: FontWeight.w500,
-                      color: ApprovalsOverviewTheme.textMuted,
+                SizedBox(height: 2.th),
+                Text(
+                  department.trim().isEmpty ? 'N/A' : department,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: GoogleFonts.poppins(
+                    fontSize: 11.tsp,
+                    fontWeight: FontWeight.w500,
+                    color: ApprovalsOverviewTheme.textMuted,
+                  ),
+                ),
+                SizedBox(height: 8.th),
+                Row(
+                  children: [
+                    Text(
+                      'Project Code',
+                      style: GoogleFonts.poppins(
+                        fontSize: 10.tsp,
+                        fontWeight: FontWeight.w500,
+                        color: ApprovalsOverviewTheme.textSoft,
+                      ),
                     ),
-                  ),
-                ],
-                SizedBox(height: 6.th),
-                Container(
-                  padding: EdgeInsets.symmetric(horizontal: 8.tw, vertical: 4.th),
-                  decoration: BoxDecoration(
-                    color: ApprovalsOverviewTheme.screenTintMid
-                        .withValues(alpha: 0.75),
-                    borderRadius: BorderRadius.circular(16.tr),
-                  ),
-                  child: Text(
-                    _displayOrDash(requestNo),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: GoogleFonts.poppins(
-                      fontSize: 10.tsp,
-                      fontWeight: FontWeight.w700,
-                      color: ApprovalsOverviewTheme.textDark,
+                    SizedBox(width: 8.tw),
+                    Flexible(
+                      child: Container(
+                        padding: EdgeInsets.symmetric(
+                          horizontal: 8.tw,
+                          vertical: 4.th,
+                        ),
+                        decoration: BoxDecoration(
+                          color: ApprovalsOverviewTheme.screenTintMid
+                              .withValues(alpha: 0.85),
+                          borderRadius: BorderRadius.circular(8.tr),
+                        ),
+                        child: Text(
+                          _displayOrDash(projectCode),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: GoogleFonts.poppins(
+                            fontSize: 11.tsp,
+                            fontWeight: FontWeight.w700,
+                            color: ApprovalsOverviewTheme.textDark,
+                          ),
+                        ),
+                      ),
                     ),
-                  ),
+                  ],
                 ),
               ],
             ),
           ),
-          SizedBox(width: 6.tw),
+          SizedBox(width: 8.tw),
           _buildCompletionDonut(completionPercent, compact: true),
         ],
       ),
     );
   }
 
-  Widget _buildSimCommentCard(String comment) {
-    return OverviewGlassPanel(
-      fillAlpha: 0.9,
-      blurSigma: 8,
-      radius: 16,
-      padding: EdgeInsets.fromLTRB(10.tw, 8.th, 10.tw, 8.th),
+  Widget _invoiceInfoCard({
+    required String workOrderNo,
+    required String requestDate,
+    required String vendorName,
+    required List<String> tags,
+  }) {
+    return _glassCard(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          _sectionTitle(
+            title: 'Invoice Info',
+            icon: Icons.description_outlined,
+          ),
+          SizedBox(height: 14.th),
           Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
-                'COMMENT',
-                style: GoogleFonts.poppins(
-                  fontSize: 10.tsp,
-                  fontWeight: FontWeight.w700,
-                  letterSpacing: 0.8,
-                  color: ApprovalsOverviewTheme.screenDeep,
-                ),
+              Expanded(
+                child: _infoField(label: 'W.O No#', value: workOrderNo),
               ),
-              const Spacer(),
-              Text(
-                '${comment.characters.length}/50',
-                style: GoogleFonts.poppins(
-                  fontSize: 9.tsp,
-                  fontWeight: FontWeight.w500,
-                  color: ApprovalsOverviewTheme.textSoft,
+              SizedBox(width: 16.tw),
+              Expanded(
+                child: _infoField(
+                  label: 'Request Date',
+                  value: requestDate,
+                  leadingIcon: Icons.calendar_today_rounded,
+                  iconColor: const Color(0xFF2F80ED),
                 ),
               ),
             ],
           ),
-          SizedBox(height: 5.th),
-          Container(
-            width: double.infinity,
-            constraints: BoxConstraints(minHeight: 36.th),
-            padding: EdgeInsets.symmetric(horizontal: 10.tw, vertical: 7.th),
-            decoration: BoxDecoration(
-              color:
-                  ApprovalsOverviewTheme.screenTintLight.withValues(alpha: 0.7),
-              borderRadius: BorderRadius.circular(12.tr),
-              border: Border.all(color: Colors.white.withValues(alpha: 0.85)),
-            ),
-            child: Text(
-              comment.trim().isEmpty ? 'No comment' : comment,
-              style: GoogleFonts.poppins(
-                fontSize: 12.tsp,
-                fontWeight:
-                    comment.trim().isEmpty ? FontWeight.w400 : FontWeight.w500,
-                color: comment.trim().isEmpty
-                    ? ApprovalsOverviewTheme.textSoft
-                    : ApprovalsOverviewTheme.textDark,
-                fontStyle: comment.trim().isEmpty
-                    ? FontStyle.italic
-                    : FontStyle.normal,
+          SizedBox(height: 14.th),
+          _infoField(
+            label: 'Vendor',
+            value: vendorName,
+            valueColor: ApprovalsOverviewTheme.invoice,
+            maxLines: 3,
+          ),
+          if (tags.isNotEmpty) ...[
+            SizedBox(height: 12.th),
+            SizedBox(
+              height: 32.th,
+              child: ListView.separated(
+                scrollDirection: Axis.horizontal,
+                itemCount: tags.length,
+                separatorBuilder: (_, __) => SizedBox(width: 8.tw),
+                itemBuilder: (_, index) => _categoryPill(tags[index]),
               ),
             ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _financialDetailsCard({
+    required String contractLpo,
+    required String advance,
+    required String progress,
+    required String lastUpdate,
+    required String retention,
+    required String invoiceAmount,
+    VoidCallback? onOpenDoc,
+  }) {
+    return _glassCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _sectionTitle(
+            title: 'Financial Details',
+            icon: Icons.description_outlined,
           ),
+          SizedBox(height: 12.th),
+          Container(
+            width: double.infinity,
+            padding: EdgeInsets.fromLTRB(12.tw, 10.th, 8.tw, 10.th),
+            decoration: BoxDecoration(
+              color: ApprovalsOverviewTheme.screenTintLight.withValues(alpha: 0.7),
+              borderRadius: BorderRadius.circular(14.tr),
+              border: Border.all(color: Colors.white.withValues(alpha: 0.9)),
+            ),
+            child: Row(
+              children: [
+                Expanded(
+                  child: _infoField(
+                    label: 'Contract / LPO',
+                    value: contractLpo,
+                    maxLines: 2,
+                  ),
+                ),
+                SizedBox(width: 8.tw),
+                _docIconButton(onTap: onOpenDoc),
+              ],
+            ),
+          ),
+          SizedBox(height: 10.th),
+          Row(
+            children: [
+              Expanded(
+                child: _financeMetricTile(
+                  label: 'Advance',
+                  value: advance,
+                  icon: Icons.account_balance_wallet_outlined,
+                  accent: const Color(0xFF2F80ED),
+                ),
+              ),
+              SizedBox(width: 8.tw),
+              Expanded(
+                child: _financeMetricTile(
+                  label: 'Progress',
+                  value: progress,
+                  icon: Icons.pie_chart_outline_rounded,
+                  accent: const Color(0xFF2E9B6C),
+                ),
+              ),
+            ],
+          ),
+          SizedBox(height: 8.th),
+          Row(
+            children: [
+              Expanded(
+                child: _financeMetricTile(
+                  label: 'Last Update',
+                  value: lastUpdate,
+                  icon: Icons.calendar_month_rounded,
+                  accent: const Color(0xFFE08A00),
+                ),
+              ),
+              SizedBox(width: 8.tw),
+              Expanded(
+                child: _financeMetricTile(
+                  label: 'Retention',
+                  value: retention,
+                  icon: Icons.verified_user_outlined,
+                  accent: const Color(0xFF6B4EFF),
+                ),
+              ),
+            ],
+          ),
+          SizedBox(height: 10.th),
+          _invoiceAmountBar(amount: invoiceAmount, onTapDoc: onOpenDoc),
         ],
       ),
     );
@@ -634,115 +890,55 @@ class _InvoiceDetailsScreenState extends State<InvoiceDetailsScreen> {
   Widget _buildAvatar({required String imageUrl, required String name}) {
     return ApprovalDisplayHelpers.buildCircleAvatar(
       imageData: imageUrl,
-      size: 62.tw,
+      size: 58.tw,
       initials: name,
-    );
-  }
-
-  Widget _buildMetricRow({
-    required String label,
-    required String value,
-    String? percentBadge,
-    bool valueHighlighted = false,
-  }) {
-    final badgeText = _safe(percentBadge, fallback: '');
-
-    return Padding(
-      padding: EdgeInsets.only(bottom: 6.th),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.center,
-        children: [
-          Expanded(
-            child: _themeDetailCell(
-              label,
-              value,
-              highlight: valueHighlighted ||
-                  label == 'Invoice Amount' ||
-                  label == 'Vendor',
-            ),
-          ),
-          if (badgeText.isNotEmpty && badgeText != '-') ...[
-            SizedBox(width: 6.tw),
-            _buildMiniPercentBadge(badgeText),
-          ],
-        ],
-      ),
-    );
-  }
-
-  Widget _buildMiniPercentBadge(String badgeText) {
-    final parsed = _parsePercent(badgeText);
-    final text = parsed > 0 ? '${parsed.round()}%' : _displayOrDash(badgeText);
-
-    return Container(
-      width: 26.tw,
-      height: 26.tw,
-      decoration: BoxDecoration(
-        shape: BoxShape.circle,
-        gradient: const LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [Color(0xFFF4F4F4), Color(0xFFD1D1D1)],
-        ),
-        border: Border.all(color: const Color(0xFFCBCBCB), width: 0.8),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.14),
-            blurRadius: 2.5,
-            offset: const Offset(0, 1),
-          ),
-        ],
-      ),
-      alignment: Alignment.center,
-      child: Text(
-        text,
-        style: GoogleFonts.poppins(
-          fontSize: 8.5.tsp,
-          fontWeight: FontWeight.w700,
-          color: const Color(0xFF151515),
-          height: 1,
-        ),
-      ),
     );
   }
 
   Widget _buildCompletionDonut(double percent, {bool compact = false}) {
     final p = percent.clamp(0, 100).toDouble();
-    final outer = compact ? 54.tw : 74.tw;
-    final inner = compact ? 46.tw : 64.tw;
+    final outer = compact ? 58.tw : 74.tw;
+    final inner = compact ? 48.tw : 64.tw;
     return SizedBox(
       width: outer,
-      height: outer,
-      child: Stack(
-        alignment: Alignment.center,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
         children: [
-          Container(
-            width: inner,
-            height: inner,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              boxShadow: [
-                BoxShadow(
-                  color: ApprovalsOverviewTheme.invoice.withValues(alpha: 0.15),
-                  blurRadius: 4,
-                  offset: const Offset(0, 2),
+          SizedBox(
+            width: outer,
+            height: outer,
+            child: Stack(
+              alignment: Alignment.center,
+              children: [
+                SizedBox(
+                  width: inner,
+                  height: inner,
+                  child: CustomPaint(
+                    painter: _PiePercentPainter(
+                      percent: p,
+                      fillColor: ApprovalsOverviewTheme.invoice,
+                      baseColor: ApprovalsOverviewTheme.screenTintMid,
+                    ),
+                  ),
+                ),
+                Text(
+                  '${p.round()}%',
+                  style: GoogleFonts.poppins(
+                    fontSize: compact ? 12.tsp : 15.tsp,
+                    fontWeight: FontWeight.w800,
+                    color: ApprovalsOverviewTheme.textDark,
+                  ),
                 ),
               ],
             ),
-            child: CustomPaint(
-              painter: _PiePercentPainter(
-                percent: p,
-                fillColor: ApprovalsOverviewTheme.invoice,
-                baseColor: ApprovalsOverviewTheme.screenTintMid,
-              ),
-            ),
           ),
+          SizedBox(height: 2.th),
           Text(
-            '${p.round()}%',
+            'Progress',
             style: GoogleFonts.poppins(
-              fontSize: compact ? 11.tsp : 15.tsp,
-              fontWeight: FontWeight.w800,
-              color: ApprovalsOverviewTheme.textDark,
+              fontSize: 9.tsp,
+              fontWeight: FontWeight.w600,
+              color: ApprovalsOverviewTheme.textMuted,
             ),
           ),
         ],
@@ -752,7 +948,10 @@ class _InvoiceDetailsScreenState extends State<InvoiceDetailsScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final requestNo = _pick([
+    final projectCode = _pick([
+      _formData['project_code'],
+      _formData['analytic_account_code'],
+      _formData['code'],
       _formData['request_no'],
       _formData['invoice_no_code'],
       _formData['invoice_no'],
@@ -826,27 +1025,10 @@ class _InvoiceDetailsScreenState extends State<InvoiceDetailsScreen> {
     ], fallback: '0');
     final completionPercent = _parsePercent(completionRaw);
 
-    final advance = _pick([_formData['advance']], fallback: '-');
-    final progress = _pick([_formData['progress']], fallback: '-');
-    final lastUpdate = _pick([_formData['last_update']], fallback: '-');
-    final retention = _pick([_formData['retention']], fallback: '-');
-
-    final advancePct = _pick([
-      _formData['advance_percentage'],
-      _formData['advance_percent'],
-    ], fallback: '-');
-    final progressPct = _pick([
-      _formData['progress_percentage'],
-      _formData['progress_percent'],
-    ], fallback: '-');
-    final lastUpdatePct = _pick([
-      _formData['last_update_percentage'],
-      _formData['last_update_percent'],
-    ], fallback: '-');
-    final retentionPct = _pick([
-      _formData['retention_percentage'],
-      _formData['retention_percent'],
-    ], fallback: '-');
+    final advance = _formatAmount(_pick([_formData['advance']], fallback: '-'));
+    final progress = _formatAmount(_pick([_formData['progress']], fallback: '-'));
+    final lastUpdate = _formatDate(_pick([_formData['last_update']], fallback: '-'));
+    final retention = _displayOrDash(_pick([_formData['retention']], fallback: '-'));
 
     final contractLpo = _pick([
       _formData['contract_lpo'],
@@ -866,15 +1048,12 @@ class _InvoiceDetailsScreenState extends State<InvoiceDetailsScreen> {
       _formData['vendor_tags'],
       _formData['tags'],
       _formData['tag_names'],
-    ]).take(4).toList();
-
-    final comment = _pick([
-      _formData['comment'],
-      _formData['note'],
-      _formData['description'],
-    ]);
+      _formData['material_type'],
+      _formData['category'],
+    ]).take(8).toList();
 
     final canViewReport = int.tryParse(widget.requestId) != null;
+    final openDoc = canViewReport ? _viewAttachment : null;
 
     final userId =
         SharedPref.getLoginData().result?.data?.uid?.toString() ?? '';
@@ -895,7 +1074,7 @@ class _InvoiceDetailsScreenState extends State<InvoiceDetailsScreen> {
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 const ContextualGlassChromeHeader(
-                  title: 'Invoice',
+                  title: 'Invoice Details',
                   showBack: true,
                   onLightSurface: true,
                   transparentGlassBar: false,
@@ -921,225 +1100,42 @@ class _InvoiceDetailsScreenState extends State<InvoiceDetailsScreen> {
                             )
                           : Stack(
                               children: [
-                                Column(
-                                  crossAxisAlignment:
-                                      CrossAxisAlignment.stretch,
-                                  children: [
-                                    Padding(
-                                      padding: EdgeInsets.fromLTRB(
-                                          16.tw, 4.th, 16.tw, 0),
-                                      child: _invoiceRequestHeader(
+                                SingleChildScrollView(
+                                  physics: const ClampingScrollPhysics(),
+                                  padding: EdgeInsets.fromLTRB(
+                                    16.tw,
+                                    4.th,
+                                    16.tw,
+                                    78.th + context.systemBottomInset,
+                                  ),
+                                  child: Column(
+                                    children: [
+                                      _invoiceRequestHeader(
                                         imageUrl: vendorPhotoUrl,
                                         projectName: projectName,
                                         department: department,
-                                        requestNo: requestNo,
+                                        projectCode: projectCode,
                                         completionPercent: completionPercent,
                                       ),
-                                    ),
-                                    SizedBox(height: 6.th),
-                                    Expanded(
-                                      child: SingleChildScrollView(
-                                        physics: const ClampingScrollPhysics(),
-                                        padding: EdgeInsets.fromLTRB(
-                                          16.tw,
-                                          0,
-                                          16.tw,
-                                          68.th + context.systemBottomInset,
-                                        ),
-                                        child: Column(
-                                          children: [
-                                            _glassSectionCard(
-                                              title: 'Invoice Info',
-                                              child: LayoutBuilder(
-                                                builder:
-                                                    (context, constraints) {
-                                                  final cellW =
-                                                      (constraints.maxWidth -
-                                                              6.tw) /
-                                                          2;
-                                                  return Column(
-                                                    crossAxisAlignment:
-                                                        CrossAxisAlignment
-                                                            .start,
-                                                    children: [
-                                                      Wrap(
-                                                        spacing: 6.tw,
-                                                        runSpacing: 6.th,
-                                                        children: [
-                                                          SizedBox(
-                                                            width: cellW,
-                                                            child:
-                                                                _themeDetailCell(
-                                                              'W.O No#',
-                                                              workOrderNo,
-                                                            ),
-                                                          ),
-                                                          SizedBox(
-                                                            width: cellW,
-                                                            child:
-                                                                _themeDetailCell(
-                                                              'Request Date',
-                                                              requestDate,
-                                                            ),
-                                                          ),
-                                                          SizedBox(
-                                                            width: constraints
-                                                                .maxWidth,
-                                                            child:
-                                                                _themeDetailCell(
-                                                              'Vendor',
-                                                              vendorName,
-                                                              highlight: true,
-                                                            ),
-                                                          ),
-                                                        ],
-                                                      ),
-                                                      if (tags.isNotEmpty) ...[
-                                                        SizedBox(height: 6.th),
-                                                        Wrap(
-                                                          spacing: 6.tw,
-                                                          runSpacing: 4.th,
-                                                          children: [
-                                                            for (int i = 0;
-                                                                i < tags.length;
-                                                                i++)
-                                                              _tagChip(
-                                                                tags[i],
-                                                                [
-                                                                  const Color(
-                                                                      0xFFE1E4FF),
-                                                                  const Color(
-                                                                      0xFFFCE6E6),
-                                                                  const Color(
-                                                                      0xFFFFF1D8),
-                                                                  const Color(
-                                                                      0xFFE1F5EC),
-                                                                ][i % 4],
-                                                                [
-                                                                  const Color(
-                                                                      0xFF3F51E8),
-                                                                  const Color(
-                                                                      0xFFD32F2F),
-                                                                  const Color(
-                                                                      0xFFE08A00),
-                                                                  const Color(
-                                                                      0xFF00A05A),
-                                                                ][i % 4],
-                                                              ),
-                                                          ],
-                                                        ),
-                                                      ],
-                                                    ],
-                                                  );
-                                                },
-                                              ),
-                                            ),
-                                            SizedBox(height: 6.th),
-                                            _glassSectionCard(
-                                              title: 'Financial Details',
-                                              child: Column(
-                                                children: [
-                                                  _buildMetricRow(
-                                                    label: 'Contract/Lpo',
-                                                    value: contractLpo,
-                                                    percentBadge: '-',
-                                                  ),
-                                                  _buildMetricRow(
-                                                    label: 'Advance',
-                                                    value:
-                                                        _formatAmount(advance),
-                                                    percentBadge: advancePct,
-                                                  ),
-                                                  _buildMetricRow(
-                                                    label: 'Progress',
-                                                    value:
-                                                        _formatAmount(progress),
-                                                    percentBadge: progressPct,
-                                                  ),
-                                                  _buildMetricRow(
-                                                    label: 'Last update',
-                                                    value:
-                                                        _formatDate(lastUpdate),
-                                                    percentBadge: lastUpdatePct,
-                                                  ),
-                                                  _buildMetricRow(
-                                                    label: 'Retention',
-                                                    value: _displayOrDash(
-                                                        retention),
-                                                    percentBadge: retentionPct,
-                                                  ),
-                                                  _buildMetricRow(
-                                                    label: 'Invoice Amount',
-                                                    value: _displayOrDash(
-                                                        invoiceAmount),
-                                                    percentBadge: '-',
-                                                    valueHighlighted: true,
-                                                  ),
-                                                ],
-                                              ),
-                                            ),
-                                            SizedBox(height: 6.th),
-                                            _buildSimCommentCard(comment),
-                                            if (canViewReport) ...[
-                                              SizedBox(height: 8.th),
-                                              Material(
-                                                color: Colors.transparent,
-                                                child: InkWell(
-                                                  onTap: _viewAttachment,
-                                                  borderRadius:
-                                                      BorderRadius.circular(
-                                                          14.tr),
-                                                  child: Ink(
-                                                    padding:
-                                                        EdgeInsets.symmetric(
-                                                            vertical: 11.th),
-                                                    decoration: BoxDecoration(
-                                                      borderRadius:
-                                                          BorderRadius.circular(
-                                                              14.tr),
-                                                      gradient: LinearGradient(
-                                                        colors: [
-                                                          ApprovalsOverviewTheme
-                                                              .screenMid,
-                                                          ApprovalsOverviewTheme
-                                                              .screenDeep,
-                                                        ],
-                                                      ),
-                                                    ),
-                                                    child: Row(
-                                                      mainAxisAlignment:
-                                                          MainAxisAlignment
-                                                              .center,
-                                                      children: [
-                                                        Icon(
-                                                          Icons
-                                                              .attach_file_rounded,
-                                                          color: Colors.white,
-                                                          size: 18.tsp,
-                                                        ),
-                                                        SizedBox(width: 6.tw),
-                                                        Text(
-                                                          'View Attachments',
-                                                          style: GoogleFonts
-                                                              .poppins(
-                                                            fontSize: 13.tsp,
-                                                            fontWeight:
-                                                                FontWeight.w700,
-                                                            color: Colors.white,
-                                                          ),
-                                                        ),
-                                                      ],
-                                                    ),
-                                                  ),
-                                                ),
-                                              ),
-                                            ],
-                                            SizedBox(height: 8.th),
-                                          ],
-                                        ),
+                                      SizedBox(height: 10.th),
+                                      _invoiceInfoCard(
+                                        workOrderNo: workOrderNo,
+                                        requestDate: requestDate,
+                                        vendorName: vendorName,
+                                        tags: tags,
                                       ),
-                                    ),
-                                  ],
+                                      SizedBox(height: 10.th),
+                                      _financialDetailsCard(
+                                        contractLpo: contractLpo,
+                                        advance: advance,
+                                        progress: progress,
+                                        lastUpdate: lastUpdate,
+                                        retention: retention,
+                                        invoiceAmount: invoiceAmount,
+                                        onOpenDoc: openDoc,
+                                      ),
+                                    ],
+                                  ),
                                 ),
                                 Positioned(
                                   left: 16.tw,

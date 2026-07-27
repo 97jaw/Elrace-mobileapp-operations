@@ -1158,9 +1158,18 @@ class _InfoTable extends StatelessWidget {
       ('Education', education.isEmpty ? '—' : education),
       (
         'Experience',
-        (info.experienceYears ?? '').trim().isEmpty
-            ? '—'
-            : '${info.experienceYears} years',
+        () {
+          final raw = (info.experienceYears ?? '').trim();
+          if (raw.isEmpty) return '—';
+          // API may return "2 years 10 days" or a bare number.
+          final lower = raw.toLowerCase();
+          if (lower.contains('year') ||
+              lower.contains('month') ||
+              lower.contains('day')) {
+            return raw;
+          }
+          return '$raw years';
+        }(),
       ),
       ('Visa Co.', info.visaCo ?? '—'),
       ('Email', info.email ?? '—'),

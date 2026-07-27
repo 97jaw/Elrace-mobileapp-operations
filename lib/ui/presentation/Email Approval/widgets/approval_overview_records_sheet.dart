@@ -106,6 +106,7 @@ class _RecordsSheetBody extends StatefulWidget {
 
 class _RecordsSheetBodyState extends State<_RecordsSheetBody> {
   Timer? _pollTimer;
+  Timer? _postActionPollTimer;
   int _pollAttempts = 0;
 
   @override
@@ -137,9 +138,30 @@ class _RecordsSheetBodyState extends State<_RecordsSheetBody> {
     });
   }
 
+  /// After approve/reject, keep rebuilding briefly until parent reload settles.
+  void _pollForUpdatedItems() {
+    _postActionPollTimer?.cancel();
+    var attempts = 0;
+    final previousCount = widget.getItems().length;
+
+    _postActionPollTimer =
+        Timer.periodic(const Duration(milliseconds: 300), (_) {
+      if (!mounted) return;
+      attempts++;
+      setState(() {});
+      final items = widget.getItems();
+      final settled = !widget.isCategoryLoading() &&
+          (items.length != previousCount || attempts >= 3);
+      if (settled || attempts >= 20) {
+        _postActionPollTimer?.cancel();
+      }
+    });
+  }
+
   @override
   void dispose() {
     _pollTimer?.cancel();
+    _postActionPollTimer?.cancel();
     super.dispose();
   }
 
@@ -242,6 +264,11 @@ class _RecordsSheetBodyState extends State<_RecordsSheetBody> {
                                 item,
                                 widget.categoryKey,
                               );
+                              if (!mounted) return;
+                              // Parent reloads lists after approve/reject; rebuild
+                              // so getItems() picks up the updated category data.
+                              setState(() {});
+                              _pollForUpdatedItems();
                             },
                           );
                         },
@@ -397,6 +424,8 @@ class _DelayedRecordsSheetBodyState extends State<_DelayedRecordsSheetBody> {
                                 statusLabel: 'DELAYED',
                                 onTap: () async {
                                   await widget.onItemTap(context, item);
+                                  if (!mounted) return;
+                                  await _load();
                                 },
                               );
                             },

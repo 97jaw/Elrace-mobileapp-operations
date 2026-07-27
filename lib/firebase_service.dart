@@ -50,43 +50,31 @@ class FirebaseService {
     _isHomeReady = false;
   }
 
-  static Future<void> initialize() async {
+  static Future<void> initialize({
+    bool requestPermissions = true,
+    bool fetchToken = true,
+  }) async {
     await _firebaseMessaging.setAutoInitEnabled(true);
 
-    // Request notification permission with more detailed settings
-    NotificationSettings settings = await _firebaseMessaging.requestPermission(
-      alert: true,
-      announcement: false,
-      badge: true,
-      carPlay: false,
-      criticalAlert: false,
-      provisional: false,
-      sound: true,
-    );
-
-    print('🔔 Notification permission status: ${settings.authorizationStatus}');
-    if (settings.authorizationStatus == AuthorizationStatus.authorized) {
-      print('✅ Notification permission granted');
-    } else if (settings.authorizationStatus ==
-        AuthorizationStatus.provisional) {
-      print('⚠️ Provisional notification permission granted');
-    } else {
-      print(
-          '❌ Notification permission declined: ${settings.authorizationStatus}');
+    // Permission prompts are slow on iOS and must NOT gate splash navigation.
+    // Critical startup calls initialize(requestPermissions: false, fetchToken: false).
+    if (requestPermissions) {
+      await requestNotificationPermissions();
     }
 
     // Initialize local notifications (for showing notifications in foreground)
     const AndroidInitializationSettings androidInitSettings =
         AndroidInitializationSettings('@mipmap/ic_launcher');
 
-    const DarwinInitializationSettings iosInitSettings =
+    final DarwinInitializationSettings iosInitSettings =
         DarwinInitializationSettings(
-      requestAlertPermission: true,
-      requestBadgePermission: true,
-      requestSoundPermission: true,
+      // Avoid a second iOS permission prompt during critical init.
+      requestAlertPermission: requestPermissions,
+      requestBadgePermission: requestPermissions,
+      requestSoundPermission: requestPermissions,
     );
 
-    const InitializationSettings initSettings = InitializationSettings(
+    final initSettings = InitializationSettings(
       android: androidInitSettings,
       iOS: iosInitSettings,
     );
@@ -217,12 +205,56 @@ class FirebaseService {
       }
     });
 
-    // Get and print the FCM token (you can send this to your server)
+    // Token fetch can wait for APNS (~2s+) — keep it off the splash-critical path.
+    if (fetchToken) {
+      await _fetchAndStoreFcmToken();
+    }
+
+    // Listen for token refresh
+    FirebaseMessaging.instance.onTokenRefresh.listen((newToken) {
+      SharedPref().setPreferencesString(fcm_token, newToken.toString());
+      if (kDebugMode) print('🔁 FCM Token refreshed: $newToken');
+    });
+  }
+
+  /// Request notification permission (iOS prompt). Safe to call after splash.
+  static Future<void> requestNotificationPermissions() async {
+    final settings = await _firebaseMessaging.requestPermission(
+      alert: true,
+      announcement: false,
+      badge: true,
+      carPlay: false,
+      criticalAlert: false,
+      provisional: false,
+      sound: true,
+    );
+
+    print('🔔 Notification permission status: ${settings.authorizationStatus}');
+    if (settings.authorizationStatus == AuthorizationStatus.authorized) {
+      print('✅ Notification permission granted');
+    } else if (settings.authorizationStatus ==
+        AuthorizationStatus.provisional) {
+      print('⚠️ Provisional notification permission granted');
+    } else {
+      print(
+          '❌ Notification permission declined: ${settings.authorizationStatus}');
+    }
+  }
+
+  /// Completes deferred FCM setup after splash can navigate.
+  static Future<void> completeDeferredSetup() async {
     try {
-      // For iOS, we need to wait for APNS token first
+      await requestNotificationPermissions();
+      await _fetchAndStoreFcmToken();
+    } catch (e) {
+      print('⚠️ Deferred Firebase setup error: $e');
+    }
+  }
+
+  static Future<void> _fetchAndStoreFcmToken() async {
+    try {
       if (defaultTargetPlatform == TargetPlatform.iOS) {
         print('🍎 iOS detected - waiting for APNS token...');
-        // Wait a bit for APNS token to be available
         await Future.delayed(const Duration(seconds: 2));
 
         final apnsToken = await _firebaseMessaging.getAPNSToken();
@@ -233,7 +265,7 @@ class FirebaseService {
         }
       }
 
-      String? token = await _firebaseMessaging.getToken();
+      final token = await _firebaseMessaging.getToken();
       if (token != null) {
         SharedPref().setPreferencesString(fcm_token, token);
         if (kDebugMode) print('📱 FCM Token obtained: $token');
@@ -243,12 +275,6 @@ class FirebaseService {
     } catch (e) {
       print('❌ Error getting FCM token during initialization: $e');
     }
-
-    // Listen for token refresh
-    FirebaseMessaging.instance.onTokenRefresh.listen((newToken) {
-      SharedPref().setPreferencesString(fcm_token, newToken.toString());
-      if (kDebugMode) print('🔁 FCM Token refreshed: $newToken');
-    });
   }
 
   static Future<String?> ensureFCMToken() async {

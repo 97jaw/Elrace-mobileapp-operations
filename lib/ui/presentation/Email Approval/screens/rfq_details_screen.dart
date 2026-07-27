@@ -357,13 +357,13 @@ class _RfqDetailsScreenState extends State<RfqDetailsScreen> {
         MaterialPageRoute(
           builder: (_) => LpoPdfViewerScreen(
             pdfUrl: pdfUrl,
-            title: 'RFQ ${_pick([
-                  _formData['title'],
-                  _formData['request_no'],
-                  _formData['rfq_no_code'],
-                  _formData['rfq_no'],
-                  _formData['name'],
-                ], fallback: widget.requestId)}',
+            title: _pick([
+              _formData['request_no'],
+              _formData['rfq_no_code'],
+              _formData['rfq_no'],
+              _formData['name'],
+              _formData['title'],
+            ], fallback: widget.requestId),
           ),
         ),
       );

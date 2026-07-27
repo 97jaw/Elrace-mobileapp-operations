@@ -173,15 +173,13 @@ class _BusinessCard extends StatelessWidget {
         final w = constraints.maxWidth;
         final h = constraints.maxHeight;
 
-        // background-BC.png bakes in a raised white panel whose ribbon fold
-        // (navy + red) runs down to ~0.46h at this block's left inset —
-        // content must start below that, not at 0.325h (was rendering on
-        // top of the ribbon itself).
-        final firstNameSize = (w * 0.078).clamp(22.0, 30.0);
-        final restNameSize = (w * 0.040).clamp(13.0, 16.0);
-        final titleSize = (w * 0.032).clamp(11.0, 13.0);
-        final contactSize = (w * 0.033).clamp(11.0, 13.0);
-        final iconSize = (w * 0.048).clamp(15.0, 19.0);
+        // background-BC.png white plate + left ribbon: keep content clear of
+        // the navy accent and inset a bit more from the left.
+        final firstNameSize = (w * 0.082).clamp(23.0, 31.0);
+        final restNameSize = (w * 0.044).clamp(13.5, 16.5);
+        final titleSize = (w * 0.031).clamp(10.5, 12.5);
+        final contactSize = (w * 0.034).clamp(11.5, 13.5);
+        final iconSize = (w * 0.050).clamp(16.0, 20.0);
 
         return Stack(
           fit: StackFit.expand,
@@ -192,10 +190,10 @@ class _BusinessCard extends StatelessWidget {
               filterQuality: FilterQuality.high,
             ),
 
-            // Tight details block — not stretched — inside white plate.
+            // Details block inside white plate — extra left margin.
             Positioned(
-              left: w * 0.145,
-              right: w * 0.11,
+              left: w * 0.175,
+              right: w * 0.10,
               top: h * 0.49,
               child: Column(
                 mainAxisSize: MainAxisSize.min,
@@ -206,13 +204,13 @@ class _BusinessCard extends StatelessWidget {
                     firstSize: firstNameSize,
                     restSize: restNameSize,
                   ),
-                  SizedBox(height: h * 0.012),
+                  SizedBox(height: h * 0.011),
                   Container(
-                    width: w * 0.18,
-                    height: 1.4,
+                    width: w * 0.17,
+                    height: 1.5,
                     color: _kRed,
                   ),
-                  SizedBox(height: h * 0.010),
+                  SizedBox(height: h * 0.009),
                   Text(
                     jobTitle == '—' ? jobTitle : '$jobTitle |',
                     maxLines: 2,
@@ -222,9 +220,10 @@ class _BusinessCard extends StatelessWidget {
                       fontWeight: FontWeight.w500,
                       color: _kRed,
                       height: 1.2,
+                      letterSpacing: 0.15,
                     ),
                   ),
-                  SizedBox(height: h * 0.038),
+                  SizedBox(height: h * 0.034),
                   _ContactList(
                     email: email,
                     mobile: mobile,
@@ -272,20 +271,21 @@ class _NameBlock extends StatelessWidget {
             fontSize: firstSize,
             fontWeight: FontWeight.w700,
             color: _kNavy,
-            height: 1.05,
+            height: 1.02,
+            letterSpacing: -0.3,
           ),
         ),
         if (rest.isNotEmpty) ...[
-          SizedBox(height: 3.th),
+          SizedBox(height: 4.th),
           Text(
             rest,
             maxLines: 2,
             overflow: TextOverflow.ellipsis,
             style: GoogleFonts.playfairDisplay(
               fontSize: restSize,
-              fontWeight: FontWeight.w400,
+              fontWeight: FontWeight.w500,
               color: _kNavy,
-              height: 1.2,
+              height: 1.18,
             ),
           ),
         ],
@@ -377,7 +377,7 @@ class _ContactRow extends StatelessWidget {
                   color: Colors.white,
                 ),
               ),
-              SizedBox(width: 10.tw),
+              SizedBox(width: 11.tw),
               Expanded(
                 child: Text(
                   label,
@@ -387,7 +387,8 @@ class _ContactRow extends StatelessWidget {
                     fontSize: textSize,
                     fontWeight: FontWeight.w500,
                     color: _kNavy,
-                    height: 1.1,
+                    height: 1.15,
+                    letterSpacing: 0.1,
                   ),
                 ),
               ),

@@ -60,6 +60,10 @@ class _FmFaceEnrollCaptureScreenState
   DateTime _suppressAutoUntil = DateTime.fromMillisecondsSinceEpoch(0);
   bool _autoCaptureInFlight = false;
   int _consecutiveReadyFrames = 0;
+  /// Bumped on every open/switch so in-flight frame analysis and iOS pollers
+  /// drop results from a disposed or replaced camera session.
+  int _cameraSessionId = 0;
+  int _iosPollerGeneration = 0;
 
   bool get _isFrontCamera =>
       _camera?.lensDirection == CameraLensDirection.front;
@@ -94,8 +98,12 @@ class _FmFaceEnrollCaptureScreenState
 
   @override
   void dispose() {
+    _cameraSessionId++;
+    _iosPollerGeneration++;
     unawaited(_stopStream());
-    _controller?.dispose();
+    final controller = _controller;
+    _controller = null;
+    unawaited(controller?.dispose());
     unawaited(_captureService.dispose());
     super.dispose();
   }
@@ -138,14 +146,48 @@ class _FmFaceEnrollCaptureScreenState
 
   Future<void> _resetCameraZoom(CameraController controller) async {
     try {
+      if (!controller.value.isInitialized) return;
+      // Some iOS lenses return null from the platform channel for zoom APIs
+      // right after switch/init — treat as unsupported and skip quietly.
       final minZoom = await controller.getMinZoomLevel();
-      await controller.setZoomLevel(minZoom);
-    } catch (e) {
-      debugPrint('FmFaceEnroll: zoom reset failed: $e');
+      final maxZoom = await controller.getMaxZoomLevel();
+      if (minZoom <= 0 || maxZoom < minZoom) return;
+      final target = minZoom.clamp(minZoom, maxZoom);
+      await controller.setZoomLevel(target);
+    } catch (_) {
+      // Zoom is best-effort; never block enroll / flip on platform nulls.
+    }
+  }
+
+  /// Re-apply min zoom after preview warm-up so a flipped camera doesn't keep
+  /// a stuck digital zoom from the previous session.
+  Future<void> _settleCameraZoom(int sessionId) async {
+    for (final delay in const [
+      Duration(milliseconds: 450),
+      Duration(milliseconds: 900),
+    ]) {
+      await Future<void>.delayed(delay);
+      if (!mounted || sessionId != _cameraSessionId) return;
+      final controller = _controller;
+      if (controller == null || !controller.value.isInitialized) return;
+      await _resetCameraZoom(controller);
+    }
+  }
+
+  Future<void> _waitForInFlightAnalysis({
+    Duration timeout = const Duration(milliseconds: 1200),
+  }) async {
+    final deadline = DateTime.now().add(timeout);
+    while ((_isAnalyzingFrame || _autoCaptureInFlight) &&
+        DateTime.now().isBefore(deadline)) {
+      await Future<void>.delayed(const Duration(milliseconds: 40));
     }
   }
 
   Future<void> _openCamera(CameraDescription camera) async {
+    _cameraSessionId++;
+    _iosPollerGeneration++;
+    final sessionId = _cameraSessionId;
     final controller = CameraController(
       camera,
       Platform.isIOS ? ResolutionPreset.high : ResolutionPreset.medium,
@@ -153,10 +195,14 @@ class _FmFaceEnrollCaptureScreenState
       imageFormatGroup: Platform.isAndroid ? ImageFormatGroup.yuv420 : null,
     );
     await controller.initialize();
+    if (!mounted || sessionId != _cameraSessionId) {
+      await controller.dispose();
+      return;
+    }
     await controller.setFlashMode(FlashMode.off);
     await controller.setFocusMode(FocusMode.auto);
     await _resetCameraZoom(controller);
-    if (!mounted) {
+    if (!mounted || sessionId != _cameraSessionId) {
       await controller.dispose();
       return;
     }
@@ -166,18 +212,26 @@ class _FmFaceEnrollCaptureScreenState
       _camera = camera;
     });
     await old?.dispose();
+    unawaited(_settleCameraZoom(sessionId));
   }
 
   Future<void> _switchCamera() async {
     if (_cameras.length < 2 ||
         _cameraSwitching ||
         _capturing ||
-        _processing) {
+        _processing ||
+        _autoCaptureInFlight) {
       return;
     }
     _cameraSwitching = true;
+    if (mounted) setState(() {});
     try {
+      // Invalidate any in-flight frame callbacks before tearing down.
+      _cameraSessionId++;
+      _iosPollerGeneration++;
       await _stopStream();
+      await _waitForInFlightAnalysis();
+      if (!mounted) return;
       // Toggle strictly between front and back so devices with several back
       // lenses (wide/ultrawide/tele) don't get stuck on a same-side lens.
       final wantDirection = _isFrontCamera
@@ -194,57 +248,99 @@ class _FmFaceEnrollCaptureScreenState
       if (!mounted) return;
       setState(() {
         _previewReady = false;
+        _qualityStatus = null;
         _consecutiveReadyFrames = 0;
         _readySince = null;
         _suppressAutoUntil =
-            DateTime.now().add(const Duration(milliseconds: 800));
+            DateTime.now().add(const Duration(milliseconds: 900));
+        _hint = _currentPose.instruction;
       });
+      // Clear BEFORE restarting the stream — `_startStream` / frame analysis
+      // both no-op while `_cameraSwitching` is true, which left enroll stuck
+      // on a frozen preview after every flip.
+      _cameraSwitching = false;
       await _startStream();
     } finally {
       _cameraSwitching = false;
+      if (mounted) setState(() {});
     }
   }
 
   Future<void> _startStream() async {
     final controller = _controller;
+    final camera = _camera;
+    final sessionId = _cameraSessionId;
     if (controller == null ||
+        camera == null ||
         !controller.value.isInitialized ||
         _isStreaming ||
         _processing) {
       return;
     }
     try {
+      // Snapshot [camera] so ML Kit orientation stays correct if the user
+      // flips while a frame is still queued from the previous lens.
       await controller.startImageStream((image) {
-        unawaited(_onCameraFrame(image));
+        unawaited(_onCameraFrame(image, camera, sessionId));
       });
+      if (sessionId != _cameraSessionId) {
+        try {
+          await controller.stopImageStream();
+        } catch (_) {}
+        return;
+      }
       _isStreaming = true;
     } catch (e) {
       debugPrint('FmFaceEnroll: stream start failed: $e');
-      if (Platform.isIOS && mounted) {
-        unawaited(_iosPreviewPolling());
+      if (Platform.isIOS && mounted && sessionId == _cameraSessionId) {
+        unawaited(_iosPreviewPolling(sessionId));
       }
     }
   }
 
-  Future<void> _iosPreviewPolling() async {
-    while (mounted && !_processing && _poseIndex < FaceEnrollmentPose.captureOrder.length) {
+  Future<void> _iosPreviewPolling(int sessionId) async {
+    final pollerGen = ++_iosPollerGeneration;
+    while (mounted &&
+        !_processing &&
+        pollerGen == _iosPollerGeneration &&
+        sessionId == _cameraSessionId &&
+        _poseIndex < FaceEnrollmentPose.captureOrder.length) {
       await Future<void>.delayed(const Duration(milliseconds: 1000));
-      if (!mounted || _capturing || _processing || _isStreaming) continue;
+      if (!mounted ||
+          pollerGen != _iosPollerGeneration ||
+          sessionId != _cameraSessionId ||
+          _capturing ||
+          _processing ||
+          _isStreaming ||
+          _cameraSwitching) {
+        continue;
+      }
       final controller = _controller;
-      if (controller == null || !controller.value.isInitialized) continue;
+      final camera = _camera;
+      if (controller == null ||
+          camera == null ||
+          !controller.value.isInitialized) {
+        continue;
+      }
       if (DateTime.now().isBefore(_suppressAutoUntil)) continue;
       try {
         final photo = await controller.takePicture();
+        if (sessionId != _cameraSessionId || !mounted) {
+          try {
+            await File(photo.path).delete();
+          } catch (_) {}
+          return;
+        }
         final preview = await _captureService.validateEnrollmentFrame(
           photo.path,
           _currentPose,
-          frontCamera: _isFrontCamera,
+          frontCamera: camera.lensDirection == CameraLensDirection.front,
           requireSharpness: false,
         );
         try {
           await File(photo.path).delete();
         } catch (_) {}
-        if (!mounted) return;
+        if (!mounted || sessionId != _cameraSessionId) return;
         setState(() {
           _previewReady = preview.ok;
           _hint = preview.message;
@@ -269,19 +365,27 @@ class _FmFaceEnrollCaptureScreenState
 
   Future<void> _stopStream() async {
     final controller = _controller;
-    if (controller == null || !_isStreaming) return;
+    if (controller == null || !_isStreaming) {
+      _isStreaming = false;
+      return;
+    }
     try {
       await controller.stopImageStream();
     } catch (_) {}
     _isStreaming = false;
   }
 
-  Future<void> _onCameraFrame(CameraImage image) async {
-    if (_processing ||
+  Future<void> _onCameraFrame(
+    CameraImage image,
+    CameraDescription camera,
+    int sessionId,
+  ) async {
+    if (sessionId != _cameraSessionId ||
+        _processing ||
         _capturing ||
+        _cameraSwitching ||
         _isAnalyzingFrame ||
-        !_isStreaming ||
-        _camera == null) {
+        !_isStreaming) {
       return;
     }
     final now = DateTime.now();
@@ -290,19 +394,21 @@ class _FmFaceEnrollCaptureScreenState
 
     _isAnalyzingFrame = true;
     _lastFrameAt = now;
+    final isFront = camera.lensDirection == CameraLensDirection.front;
     try {
       final inputImage = TimesheetFaceCaptureService.inputImageFromCameraImage(
         image: image,
-        camera: _camera!,
+        camera: camera,
       );
       if (inputImage == null) return;
+      if (sessionId != _cameraSessionId) return;
 
       final preview = await _captureService.previewEnrollmentPose(
         inputImage,
         _currentPose,
-        frontCamera: _isFrontCamera,
+        frontCamera: isFront,
       );
-      if (!mounted) return;
+      if (!mounted || sessionId != _cameraSessionId) return;
 
       setState(() {
         _previewReady = preview.readyToCapture;
@@ -317,7 +423,10 @@ class _FmFaceEnrollCaptureScreenState
             now.difference(_readySince!) >= _holdReadyDuration;
         final stableEnough =
             _consecutiveReadyFrames >= _requiredReadyFrames;
-        if (heldLongEnough && stableEnough) {
+        if (heldLongEnough &&
+            stableEnough &&
+            sessionId == _cameraSessionId &&
+            !_cameraSwitching) {
           await _autoCapturePose();
         }
       } else {
@@ -345,9 +454,16 @@ class _FmFaceEnrollCaptureScreenState
 
   Future<void> _capturePose({bool auto = false}) async {
     final controller = _controller;
-    if (controller == null || !controller.value.isInitialized || _capturing) {
+    final camera = _camera;
+    final sessionId = _cameraSessionId;
+    if (controller == null ||
+        camera == null ||
+        !controller.value.isInitialized ||
+        _capturing ||
+        _cameraSwitching) {
       return;
     }
+    final isFront = camera.lensDirection == CameraLensDirection.front;
     setState(() {
       _capturing = true;
       _hint = auto ? 'Capturing…' : 'Hold still…';
@@ -357,15 +473,21 @@ class _FmFaceEnrollCaptureScreenState
 
     try {
       final file = await controller.takePicture();
+      if (sessionId != _cameraSessionId || !mounted) {
+        try {
+          await File(file.path).delete();
+        } catch (_) {}
+        return;
+      }
       final validation = await _captureService.validateEnrollmentFrame(
         file.path,
         _currentPose,
-        frontCamera: _isFrontCamera,
+        frontCamera: isFront,
         requireSharpness: !auto,
         trustStreamPose: auto,
       );
       if (!validation.ok) {
-        if (!mounted) return;
+        if (!mounted || sessionId != _cameraSessionId) return;
         setState(() {
           _capturing = false;
           _hint = validation.message;
@@ -378,7 +500,7 @@ class _FmFaceEnrollCaptureScreenState
       }
 
       _paths[_currentPose] = validation.imagePath;
-      if (!mounted) return;
+      if (!mounted || sessionId != _cameraSessionId) return;
 
       if (_poseIndex + 1 < FaceEnrollmentPose.captureOrder.length) {
         setState(() {
@@ -475,7 +597,14 @@ class _FmFaceEnrollCaptureScreenState
       body: Stack(
         fit: StackFit.expand,
         children: [
-          if (_controller != null) CameraPreview(_controller!),
+          if (_controller != null)
+            KeyedSubtree(
+              key: ValueKey(
+                'enroll-cam-${_camera?.name ?? 'none'}-'
+                '${_camera?.lensDirection.name ?? 'unknown'}',
+              ),
+              child: CameraPreview(_controller!),
+            ),
           FmFaceEnrollOvalOverlay(
             frameColor: _frameColor,
             instruction: _hint ?? _currentPose.instruction,
@@ -506,18 +635,6 @@ class _FmFaceEnrollCaptureScreenState
                             ? null
                             : () => Navigator.maybePop(context),
                         icon: Icon(PhosphorIcons.x(), color: Colors.white),
-                      ),
-                      IconButton(
-                        tooltip: 'Switch camera',
-                        onPressed: _processing ||
-                                _capturing ||
-                                _cameras.length < 2
-                            ? null
-                            : _switchCamera,
-                        icon: Icon(
-                          PhosphorIcons.cameraRotate(),
-                          color: Colors.white70,
-                        ),
                       ),
                       Expanded(
                         child: Text(

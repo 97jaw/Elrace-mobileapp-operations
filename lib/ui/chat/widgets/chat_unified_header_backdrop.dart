@@ -43,7 +43,11 @@ abstract final class ChatUnifiedHeaderBackdrop {
     );
   }
 
-  static Widget layer({BorderRadius? bottomRadius, Color? accentTint}) {
+  static Widget layer({
+    BorderRadius? bottomRadius,
+    Color? accentTint,
+    bool showLines = true,
+  }) {
     final headerGradient =
         accentTint != null ? tintedGradient(accentTint) : gradient;
 
@@ -67,21 +71,22 @@ abstract final class ChatUnifiedHeaderBackdrop {
               ),
             ),
           ),
-          Positioned(
-            top: -4.h,
-            left: -12.w,
-            child: IgnorePointer(
-              child: Opacity(
-                opacity: 0.1,
-                child: Image.asset(
-                  'assets/png/lines.png',
-                  width: 240.w,
-                  fit: BoxFit.fitWidth,
-                  alignment: Alignment.topLeft,
+          if (showLines)
+            Positioned(
+              top: -4.h,
+              left: -12.w,
+              child: IgnorePointer(
+                child: Opacity(
+                  opacity: 0.1,
+                  child: Image.asset(
+                    'assets/png/lines.png',
+                    width: 240.w,
+                    fit: BoxFit.fitWidth,
+                    alignment: Alignment.topLeft,
+                  ),
                 ),
               ),
             ),
-          ),
           const Positioned.fill(
             child: DecoratedBox(decoration: BoxDecoration(gradient: glassSheen)),
           ),

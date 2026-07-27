@@ -498,8 +498,13 @@ class _LpoListScreenState extends State<LpoListScreen> {
                                   state: state,
                                   attachments: attachments,
                                   onTap: poId != null
-                                      ? () =>
-                                          Util.openLpoPdfReport(context, poId)
+                                      ? () => Util.openLpoPdfReport(
+                                            context,
+                                            poId,
+                                            lpoName: name.isNotEmpty
+                                                ? name
+                                                : null,
+                                          )
                                       : null,
                                 );
                               },

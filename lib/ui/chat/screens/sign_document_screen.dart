@@ -359,11 +359,17 @@ class _SignDocumentScreenState extends State<SignDocumentScreen> {
       final name = widget.message.fileName ?? 'signed_document.pdf';
       final file = File('${dir.path}/$name');
       await file.writeAsBytes(_pdfBytes!);
-      if (mounted) {
-        await SharePlus.instance.share(
-          ShareParams(files: [XFile(file.path)]),
-        );
-      }
+      if (!mounted) return;
+      final box = context.findRenderObject();
+      final origin = box is RenderBox
+          ? (box.localToGlobal(Offset.zero) & box.size)
+          : const Rect.fromLTWH(1, 1, 1, 1);
+      await SharePlus.instance.share(
+        ShareParams(
+          files: [XFile(file.path)],
+          sharePositionOrigin: origin,
+        ),
+      );
     } catch (e) {
       _showError('Share failed: $e');
     }

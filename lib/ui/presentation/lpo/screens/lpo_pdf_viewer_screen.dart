@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:el_race/core/utils/shared_pref.dart';
@@ -6,6 +7,7 @@ import 'package:syncfusion_flutter_pdfviewer/pdfviewer.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:http/http.dart' as http;
+import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:syncfusion_flutter_pdf/pdf.dart';
 
@@ -132,23 +134,31 @@ class _LpoPdfViewerScreenState extends State<LpoPdfViewerScreen> {
   Future<void> _sharePdf() async {
     if (_pdfBytes == null) return;
 
-    final rawName = widget.title?.trim() ?? 'lpo_report';
-    // Only strip characters that are truly invalid in file names, keep spaces and dots
+    // Prefer document number as share filename (LPO/RFQ/Invoice).
+    var rawName = (widget.title ?? 'document').trim();
+    rawName = rawName.replaceFirst(
+      RegExp(r'^(LPO Report\s*#?\s*|RFQ\s+|Invoice\s+)', caseSensitive: false),
+      '',
+    );
+    if (rawName.isEmpty) rawName = 'document';
     final safeName = rawName.replaceAll(RegExp(r'[/\\:*?"<>|]'), '_');
-    final fileName = safeName.toLowerCase().endsWith('.pdf') ? safeName : '$safeName.pdf';
+    final fileName =
+        safeName.toLowerCase().endsWith('.pdf') ? safeName : '$safeName.pdf';
 
+    final dir = await getTemporaryDirectory();
+    final file = File('${dir.path}/$fileName');
+    await file.writeAsBytes(_pdfBytes!, flush: true);
+
+    if (!mounted) return;
     final renderObject = context.findRenderObject();
     final shareOrigin = renderObject is RenderBox
         ? (renderObject.localToGlobal(Offset.zero) & renderObject.size)
         : const Rect.fromLTWH(1, 1, 1, 1);
 
-    await Share.shareXFiles([
-      XFile.fromData(
-        _pdfBytes!,
-        name: fileName,
-        mimeType: 'application/pdf',
-      ),
-    ], sharePositionOrigin: shareOrigin);
+    await Share.shareXFiles(
+      [XFile(file.path, mimeType: 'application/pdf', name: fileName)],
+      sharePositionOrigin: shareOrigin,
+    );
   }
 
   @override

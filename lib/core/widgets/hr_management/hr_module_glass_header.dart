@@ -15,6 +15,7 @@ abstract final class HrModuleHeaderTints {
   static const Color payslip = Color(0xFF5B5680);
   static const Color circulars = Color(0xFF457C62);
   static const Color employeesProfile = Color(0xFF1F4E8C);
+  static const Color companyDocuments = Color(0xFF3D5A80);
 }
 
 /// Glass logo bar + optional title row for HR Management hub and service screens.
@@ -42,7 +43,7 @@ class HrModuleGlassHeader extends StatelessWidget {
   final Color? accentTint;
   final Widget? titleTrailing;
 
-  static double titleRowHeight = 48;
+  static double titleRowHeight = 44;
 
   static double extent(
     BuildContext context, {
@@ -74,7 +75,7 @@ class HrModuleGlassHeader extends StatelessWidget {
           SizedBox(
             height: titleRowHeight.th,
             child: Padding(
-              padding: EdgeInsets.fromLTRB(8.tw, 0, 8.tw, 4.th),
+              padding: EdgeInsets.fromLTRB(8.tw, 0, 8.tw, 2.th),
               child: Row(
                 children: [
                   if (showBack)
@@ -100,6 +101,7 @@ class HrModuleGlassHeader extends StatelessWidget {
                         fontWeight: FontWeight.w700,
                         color: Colors.white,
                         height: 1.1,
+                        decoration: TextDecoration.none,
                       ),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
@@ -134,7 +136,10 @@ class HrModuleGlassHeader extends StatelessWidget {
       child: Stack(
         fit: StackFit.expand,
         children: [
-          ChatUnifiedHeaderBackdrop.layer(accentTint: accentTint),
+          ChatUnifiedHeaderBackdrop.layer(
+            accentTint: accentTint,
+            showLines: false,
+          ),
           chrome,
         ],
       ),

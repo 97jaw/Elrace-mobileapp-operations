@@ -130,9 +130,13 @@ class Util {
     }
   }
 
-  /// Fetches the PDF report URL for a given PO ID and opens it
-  /// Returns true if successful, false otherwise
-  static Future<bool> openLpoPdfReport(BuildContext context, int poId) async {
+  /// Fetches the PDF report URL for a given PO ID and opens it.
+  /// Pass [lpoName] (e.g. PO/2026/001) so share uses `{lpoName}.pdf`.
+  static Future<bool> openLpoPdfReport(
+    BuildContext context,
+    int poId, {
+    String? lpoName,
+  }) async {
     try {
       // Show loading indicator
       ScaffoldMessenger.of(context).showSnackBar(
@@ -206,7 +210,9 @@ class Util {
           MaterialPageRoute(
             builder: (_) => LpoPdfViewerScreen(
               pdfUrl: pdfUrl,
-              title: 'LPO Report #$poId',
+              title: (lpoName != null && lpoName.trim().isNotEmpty)
+                  ? lpoName.trim()
+                  : 'LPO Report #$poId',
             ),
           ),
         );

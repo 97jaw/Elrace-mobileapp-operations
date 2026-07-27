@@ -4,6 +4,7 @@ import 'dart:io';
 
 import 'package:el_race/core/utils/shared_pref.dart';
 import 'package:el_race/ui/presentation/my_documents/theme/shared_documents_theme.dart';
+import 'package:el_race/ui/presentation/my_documents/widgets/documents_list_tiles.dart';
 import 'package:el_race/ui/presentation/todo_list/services/team_members_api_service.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
@@ -15,9 +16,15 @@ class ShareDocumentsTab extends StatefulWidget {
   const ShareDocumentsTab({
     super.key,
     this.onOpenDocument,
+    this.rootTitle = 'Shared Documents',
+    this.onDrillChanged,
+    this.onChromeTrailingChanged,
   });
 
   final Future<void> Function(Map<String, dynamic> document)? onOpenDocument;
+  final String rootTitle;
+  final DocumentsDrillChanged? onDrillChanged;
+  final ValueChanged<Widget?>? onChromeTrailingChanged;
 
   @override
   State<ShareDocumentsTab> createState() => _ShareDocumentsTabState();
@@ -28,6 +35,7 @@ class _ShareDocumentsTabState extends State<ShareDocumentsTab> {
   bool _isLoadingFolderContents = false;
   bool _isCreatingFolder = false;
   bool _isAddingUser = false;
+  bool _isAddingAttachments = false;
   bool _isCreateDialogOpen = false;
   bool _isAddUserDialogOpen = false;
   String? _error;
@@ -41,7 +49,84 @@ class _ShareDocumentsTabState extends State<ShareDocumentsTab> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      _notifyDrill();
+      _notifyChromeTrailing();
+    });
     _fetchSharedFolders();
+  }
+
+  @override
+  void dispose() {
+    super.dispose();
+  }
+
+  void _notifyDrill() {
+    final folder = _selectedFolder;
+    final title =
+        folder == null ? widget.rootTitle : _folderNameForUi(folder);
+    final exit = folder == null ? null : _goBackToFolders;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      widget.onDrillChanged?.call(title, exit);
+    });
+  }
+
+  Widget _buildChromeAddButton({
+    required VoidCallback? onTap,
+    required bool busy,
+  }) {
+    return Padding(
+      padding: EdgeInsets.only(right: 4.tw),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: busy ? null : onTap,
+          borderRadius: BorderRadius.circular(20.tr),
+          child: Container(
+            width: 36.tw,
+            height: 36.tw,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: SharedDocumentsTheme.accent.withValues(alpha: 0.12),
+              border: Border.all(
+                color: SharedDocumentsTheme.accent.withValues(alpha: 0.35),
+              ),
+            ),
+            child: busy
+                ? Padding(
+                    padding: EdgeInsets.all(8.tw),
+                    child: const CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: SharedDocumentsTheme.accent,
+                    ),
+                  )
+                : Icon(
+                    Icons.add_rounded,
+                    color: SharedDocumentsTheme.accent,
+                    size: 22.tsp,
+                  ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _notifyChromeTrailing() {
+    final trailing = _selectedFolder == null
+        ? _buildChromeAddButton(
+            onTap: _showCreateFolderDialog,
+            busy: _isCreatingFolder,
+          )
+        : _buildChromeAddButton(
+            onTap: _addAttachmentsToOpenedFolder,
+            busy: _isAddingAttachments || _isLoadingFolderContents,
+          );
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      widget.onChromeTrailingChanged?.call(trailing);
+    });
   }
 
   String _normalizeToken(dynamic value) {
@@ -123,6 +208,16 @@ class _ShareDocumentsTabState extends State<ShareDocumentsTab> {
     return const <Map<String, dynamic>>[];
   }
 
+  /// Prefer the non-empty users list. Details API historically returned the
+  /// wrong relation and could wipe members that the list API already had.
+  List<Map<String, dynamic>> _resolveAllowedUsers({
+    required List<Map<String, dynamic>> primary,
+    required List<Map<String, dynamic>> fallback,
+  }) {
+    if (primary.isNotEmpty) return primary;
+    return fallback;
+  }
+
   Future<void> _fetchSharedFolders({dynamic focusFolderId}) async {
     if (!mounted) return;
     setState(() {
@@ -188,7 +283,14 @@ class _ShareDocumentsTabState extends State<ShareDocumentsTab> {
             return mapped;
           })
           .where((folder) => folder['id'] != null)
-          .toList(growable: false);
+          .toList();
+
+      // Newest first (higher id = more recently created).
+      folders.sort((a, b) {
+        final aId = int.tryParse(_folderIdFrom(a).toString()) ?? 0;
+        final bId = int.tryParse(_folderIdFrom(b).toString()) ?? 0;
+        return bId.compareTo(aId);
+      });
 
       if (!mounted) return;
       setState(() {
@@ -200,8 +302,13 @@ class _ShareDocumentsTabState extends State<ShareDocumentsTab> {
           );
           if (selectedIndex >= 0) {
             final refreshed = folders[selectedIndex];
+            final mergedUsers = _resolveAllowedUsers(
+              primary: _toMapList(refreshed['allowed_users']),
+              fallback: _toMapList(_selectedFolder?['allowed_users']),
+            );
             _selectedFolder = {
               ...refreshed,
+              'allowed_users': mergedUsers,
               'attachments':
                   (_selectedFolder?['attachments'] ?? refreshed['attachments']),
             };
@@ -228,12 +335,6 @@ class _ShareDocumentsTabState extends State<ShareDocumentsTab> {
     final folder = _activeFolder;
     if (folder == null) return const <Map<String, dynamic>>[];
     return _toMapList(folder['allowed_users']);
-  }
-
-  List<Map<String, dynamic>> get _currentActivities {
-    final folder = _activeFolder;
-    if (folder == null) return const <Map<String, dynamic>>[];
-    return _toMapList(folder['activities']);
   }
 
   List<_SharedAttachment> _extractAttachments(Map<String, dynamic> folder) {
@@ -366,6 +467,21 @@ class _ShareDocumentsTabState extends State<ShareDocumentsTab> {
         ? Map<String, dynamic>.from(envelope['folder'] as Map)
         : <String, dynamic>{};
 
+    final detailsUsers = _toMapList(envelope['allowed_users']);
+    final payloadUsers = _toMapList(folderPayload['allowed_users']);
+    final baseUsers = _toMapList(baseFolder['allowed_users']);
+    final resolvedUsers = _resolveAllowedUsers(
+      primary: detailsUsers.isNotEmpty ? detailsUsers : payloadUsers,
+      fallback: baseUsers,
+    );
+
+    final detailsAttachments = _toMapList(envelope['attachments']);
+    final payloadAttachments = _toMapList(
+      folderPayload['attachments'] ??
+          folderPayload['files'] ??
+          folderPayload['documents'],
+    );
+
     final detailedFolder = {
       ...baseFolder,
       ...folderPayload,
@@ -373,8 +489,10 @@ class _ShareDocumentsTabState extends State<ShareDocumentsTab> {
           _folderIdFrom(folderPayload.isNotEmpty ? folderPayload : baseFolder),
       'name': _folderNameFrom(
           folderPayload.isNotEmpty ? folderPayload : baseFolder),
-      'attachments': _toMapList(envelope['attachments']),
-      'allowed_users': _toMapList(envelope['allowed_users']),
+      'attachments': detailsAttachments.isNotEmpty
+          ? detailsAttachments
+          : payloadAttachments,
+      'allowed_users': resolvedUsers,
       'activities': _toMapList(envelope['activities']),
     };
 
@@ -402,6 +520,8 @@ class _ShareDocumentsTabState extends State<ShareDocumentsTab> {
       _selectedFolderAttachments = const [];
       _folderOpenError = null;
     });
+    _notifyDrill();
+    _notifyChromeTrailing();
 
     try {
       final detailedFolder = await _fetchSharedFolderDetails(
@@ -428,9 +548,11 @@ class _ShareDocumentsTabState extends State<ShareDocumentsTab> {
         (f) => _folderIdFrom(f).toString() == folderId.toString(),
       );
       if (selectedIndex >= 0) {
+        final detailsUsers = _toMapList(detailedFolder['allowed_users']);
         _folders[selectedIndex] = {
           ..._folders[selectedIndex],
-          'allowed_users': _toMapList(detailedFolder['allowed_users']),
+          // Never overwrite list avatars with an empty details payload.
+          if (detailsUsers.isNotEmpty) 'allowed_users': detailsUsers,
           'attachments': _toMapList(detailedFolder['attachments']),
         };
       }
@@ -452,6 +574,7 @@ class _ShareDocumentsTabState extends State<ShareDocumentsTab> {
         setState(() {
           _isLoadingFolderContents = false;
         });
+        _notifyChromeTrailing();
       }
     }
   }
@@ -464,6 +587,10 @@ class _ShareDocumentsTabState extends State<ShareDocumentsTab> {
       _folderOpenError = null;
       _error = null;
     });
+    _notifyDrill();
+    _notifyChromeTrailing();
+    // Keep folder-list avatars fresh after member changes inside a folder.
+    _fetchSharedFolders();
   }
 
   Future<void> _openAttachment(_SharedAttachment attachment) async {
@@ -496,68 +623,15 @@ class _ShareDocumentsTabState extends State<ShareDocumentsTab> {
     _isCreateDialogOpen = true;
 
     final nameController = TextEditingController();
-    var isDialogActive = true;
     try {
       final draft = await showDialog<_CreateFolderDraft>(
         context: context,
         useRootNavigator: true,
         builder: (ctx) {
-          final pickedAttachments = <_CreateFolderAttachment>[];
-          var isPickingFiles = false;
           var nameLength = 0;
 
           return StatefulBuilder(
             builder: (context, setLocalState) {
-              Future<void> pickAttachments() async {
-                if (!isDialogActive) return;
-                setLocalState(() {
-                  isPickingFiles = true;
-                });
-
-                try {
-                  final result = await FilePicker.pickFiles(
-                    allowMultiple: true,
-                    withData: true,
-                  );
-
-                  if (!isDialogActive) return;
-                  if (result == null) return;
-
-                  for (final file in result.files) {
-                    final filename = file.name.trim();
-                    if (filename.isEmpty) continue;
-
-                    final existing = pickedAttachments.any(
-                      (e) => e.filename.toLowerCase() == filename.toLowerCase(),
-                    );
-                    if (existing) continue;
-
-                    List<int>? bytes = file.bytes;
-                    if ((bytes == null || bytes.isEmpty) && file.path != null) {
-                      bytes = await File(file.path!).readAsBytes();
-                    }
-                    if (bytes == null || bytes.isEmpty) continue;
-
-                    pickedAttachments.add(
-                      _CreateFolderAttachment(
-                        filename: filename,
-                        base64File: base64Encode(bytes),
-                      ),
-                    );
-                  }
-
-                  if (context.mounted && isDialogActive) {
-                    setLocalState(() {});
-                  }
-                } finally {
-                  if (context.mounted && isDialogActive) {
-                    setLocalState(() {
-                      isPickingFiles = false;
-                    });
-                  }
-                }
-              }
-
               return Dialog(
                 backgroundColor: Colors.transparent,
                 insetPadding:
@@ -574,7 +648,6 @@ class _ShareDocumentsTabState extends State<ShareDocumentsTab> {
                           alignment: Alignment.topRight,
                           child: InkWell(
                             onTap: () {
-                              isDialogActive = false;
                               if (Navigator.canPop(ctx)) {
                                 Navigator.pop(ctx);
                               }
@@ -609,7 +682,7 @@ class _ShareDocumentsTabState extends State<ShareDocumentsTab> {
                         ),
                         SizedBox(height: 4.th),
                         Text(
-                          'Name it and optionally attach files',
+                          'Name the folder, then add files inside it',
                           style: GoogleFonts.poppins(
                             fontSize: 12.tsp,
                             fontWeight: FontWeight.w500,
@@ -675,47 +748,6 @@ class _ShareDocumentsTabState extends State<ShareDocumentsTab> {
                             ),
                           ),
                         ),
-                        SizedBox(height: 12.th),
-                        InkWell(
-                          onTap: isPickingFiles ? null : pickAttachments,
-                          borderRadius: BorderRadius.circular(12.tr),
-                          child: Padding(
-                            padding: EdgeInsets.symmetric(
-                                horizontal: 8.tw, vertical: 6.th),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Icon(
-                                  Icons.upload_file_rounded,
-                                  size: 20.tsp,
-                                  color: SharedDocumentsTheme.accent,
-                                ),
-                                SizedBox(width: 6.tw),
-                                Text(
-                                  isPickingFiles
-                                      ? 'Attaching…'
-                                      : 'Attach files',
-                                  style: GoogleFonts.poppins(
-                                    fontSize: 13.tsp,
-                                    fontWeight: FontWeight.w600,
-                                    color: SharedDocumentsTheme.accent,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                        if (pickedAttachments.isNotEmpty) ...[
-                          SizedBox(height: 4.th),
-                          Text(
-                            '${pickedAttachments.length} file(s) selected',
-                            style: GoogleFonts.poppins(
-                              fontSize: 11.tsp,
-                              color: SharedDocumentsTheme.textSecondary,
-                              fontWeight: FontWeight.w500,
-                            ),
-                          ),
-                        ],
                         SizedBox(height: 16.th),
                         SizedBox(
                           width: double.infinity,
@@ -734,14 +766,9 @@ class _ShareDocumentsTabState extends State<ShareDocumentsTab> {
                                 return;
                               }
 
-                              isDialogActive = false;
                               Navigator.pop(
                                 ctx,
-                                _CreateFolderDraft(
-                                  folderName: value,
-                                  attachments: pickedAttachments.toList(
-                                      growable: false),
-                                ),
+                                _CreateFolderDraft(folderName: value),
                               );
                             },
                             style: SharedDocumentsTheme.softFilledButton(
@@ -767,28 +794,20 @@ class _ShareDocumentsTabState extends State<ShareDocumentsTab> {
         },
       );
 
-      isDialogActive = false;
-
       if (draft == null || draft.folderName.trim().isEmpty) return;
-      await _createFolder(
-        draft.folderName.trim(),
-        attachments: draft.attachments,
-      );
+      await _createFolder(draft.folderName.trim());
     } finally {
       nameController.dispose();
       _isCreateDialogOpen = false;
     }
   }
 
-  Future<void> _createFolder(
-    String folderName, {
-    List<_CreateFolderAttachment> attachments =
-        const <_CreateFolderAttachment>[],
-  }) async {
+  Future<void> _createFolder(String folderName) async {
     if (!mounted) return;
     setState(() {
       _isCreatingFolder = true;
     });
+    _notifyChromeTrailing();
 
     try {
       final token = SharedPref.getLoginData().result?.token ?? '';
@@ -806,13 +825,6 @@ class _ShareDocumentsTabState extends State<ShareDocumentsTab> {
         'jsonrpc': '2.0',
         'params': {
           'name': folderName,
-          if (attachments.isNotEmpty)
-            'attachments': attachments
-                .map((a) => {
-                      'filename': a.filename,
-                      'file': a.base64File,
-                    })
-                .toList(growable: false),
         },
       });
 
@@ -832,12 +844,46 @@ class _ShareDocumentsTabState extends State<ShareDocumentsTab> {
         );
       }
 
-      _showSnackMessage(
-        attachments.isEmpty
-            ? 'Folder created successfully'
-            : 'Folder and attachments created successfully',
-      );
+      _showSnackMessage('Folder created successfully');
       await _fetchSharedFolders();
+
+      // Always open the new folder so attachments can be added inside it.
+      dynamic createdId;
+      final data = envelope['data'];
+      if (data is Map) {
+        createdId = data['id'] ?? data['folder_id'];
+      }
+      createdId ??= envelope['id'];
+
+      Map<String, dynamic>? match;
+      if (createdId != null) {
+        for (final f in _folders) {
+          if (_folderIdFrom(f).toString() == createdId.toString()) {
+            match = f;
+            break;
+          }
+        }
+      }
+      if (match == null) {
+        for (final f in _folders) {
+          if (_folderNameFrom(f).toLowerCase() == folderName.toLowerCase()) {
+            match = f;
+            break;
+          }
+        }
+      }
+      // Fallback: open from create response even if list refresh lagged.
+      match ??= createdId == null
+          ? null
+          : <String, dynamic>{
+              'id': createdId,
+              'name': folderName,
+              'allowed_users': const <Map<String, dynamic>>[],
+            };
+
+      if (match != null && mounted) {
+        await _openFolder(match);
+      }
     } catch (e) {
       _showSnackMessage(e.toString());
     } finally {
@@ -845,6 +891,116 @@ class _ShareDocumentsTabState extends State<ShareDocumentsTab> {
         setState(() {
           _isCreatingFolder = false;
         });
+        _notifyChromeTrailing();
+      }
+    }
+  }
+
+  Future<List<_FolderUploadAttachment>> _pickFolderAttachments() async {
+    final result = await FilePicker.pickFiles(
+      allowMultiple: true,
+      withData: true,
+    );
+    if (result == null) return const [];
+
+    final picked = <_FolderUploadAttachment>[];
+    for (final file in result.files) {
+      final filename = file.name.trim();
+      if (filename.isEmpty) continue;
+
+      final existing = picked.any(
+        (e) => e.filename.toLowerCase() == filename.toLowerCase(),
+      );
+      if (existing) continue;
+
+      List<int>? bytes = file.bytes;
+      if ((bytes == null || bytes.isEmpty) && file.path != null) {
+        bytes = await File(file.path!).readAsBytes();
+      }
+      if (bytes == null || bytes.isEmpty) continue;
+
+      picked.add(
+        _FolderUploadAttachment(
+          filename: filename,
+          base64File: base64Encode(bytes),
+        ),
+      );
+    }
+    return picked;
+  }
+
+  Future<void> _addAttachmentsToOpenedFolder() async {
+    final folder = _activeFolder;
+    if (folder == null || _isAddingAttachments) return;
+
+    final picked = await _pickFolderAttachments();
+    if (picked.isEmpty) return;
+
+    final folderId = _folderIdFrom(folder);
+    if (folderId == null) return;
+
+    if (!mounted) return;
+    setState(() {
+      _isAddingAttachments = true;
+    });
+    _notifyChromeTrailing();
+
+    try {
+      final token = SharedPref.getLoginData().result?.token ?? '';
+      if (token.isEmpty) {
+        throw Exception('Session expired. Please login again.');
+      }
+
+      final url =
+          Uri.parse('https://erp.elrace.com/api/cloud/folder/add_attachment');
+      final headers = {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+        'Authorization': 'Bearer $token',
+      };
+      final body = jsonEncode({
+        'jsonrpc': '2.0',
+        'params': {
+          'folder_id': folderId,
+          'attachments': picked
+              .map((a) => {
+                    'filename': a.filename,
+                    'file': a.base64File,
+                  })
+              .toList(growable: false),
+        },
+      });
+
+      final response = await http.post(url, headers: headers, body: body);
+      if (response.statusCode != 200) {
+        throw Exception(
+            'Failed to upload attachments (HTTP ${response.statusCode})');
+      }
+
+      final decoded = jsonDecode(response.body);
+      final envelope = _extractResultEnvelope(decoded);
+      if (!_isSuccessEnvelope(envelope)) {
+        throw Exception(
+          envelope['message']?.toString() ??
+              (decoded is Map ? decoded['error']?.toString() : null) ??
+              'Failed to upload attachments',
+        );
+      }
+
+      _showSnackMessage(
+        picked.length == 1
+            ? 'Attachment uploaded successfully'
+            : '${picked.length} attachments uploaded successfully',
+      );
+      await _openFolder(folder);
+    } catch (e) {
+      _showSnackMessage(e.toString());
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isAddingAttachments = false;
+        });
+        _notifyChromeTrailing();
       }
     }
   }
@@ -1175,6 +1331,10 @@ class _ShareDocumentsTabState extends State<ShareDocumentsTab> {
       }
 
       await _fetchSharedFolders(focusFolderId: folderId);
+      // Re-open so Given access / Files stay in sync with details API.
+      if (_selectedFolder != null) {
+        await _openFolder(_selectedFolder!);
+      }
 
       if (successCount > 0 && failed.isEmpty) {
         _showSnackMessage('Users added successfully');
@@ -1240,6 +1400,9 @@ class _ShareDocumentsTabState extends State<ShareDocumentsTab> {
 
       _showSnackMessage('User added successfully');
       await _fetchSharedFolders(focusFolderId: folderId);
+      if (_selectedFolder != null) {
+        await _openFolder(_selectedFolder!);
+      }
     } catch (e) {
       _showSnackMessage(e.toString());
     } finally {
@@ -1281,55 +1444,6 @@ class _ShareDocumentsTabState extends State<ShareDocumentsTab> {
     return trimmed.substring(0, 1).toUpperCase();
   }
 
-  String _activityTime(Map<String, dynamic> activity) {
-    final raw = (activity['time'] ??
-            activity['create_date'] ??
-            activity['created_at'] ??
-            activity['date'] ??
-            activity['timestamp'] ??
-            '')
-        .toString()
-        .trim();
-
-    if (raw.isEmpty) return '';
-
-    final normalized = raw.contains('T') ? raw : raw.replaceFirst(' ', 'T');
-    final parsed = DateTime.tryParse(normalized);
-    if (parsed == null) return raw;
-
-    final now = DateTime.now();
-    final diff = now.difference(parsed);
-    if (diff.inSeconds < 60) return 'now';
-    if (diff.inMinutes < 60) return '${diff.inMinutes}m ago';
-    if (diff.inHours < 24) return '${diff.inHours}h ago';
-    if (diff.inDays < 7) return '${diff.inDays}d ago';
-    return raw;
-  }
-
-  String _activityMessage(Map<String, dynamic> activity) {
-    final direct = (activity['message'] ?? activity['description'] ?? '')
-        .toString()
-        .trim();
-    if (direct.isNotEmpty) return direct;
-
-    final actor = (activity['user_name'] ??
-            activity['employee_name'] ??
-            activity['name'] ??
-            'User')
-        .toString()
-        .trim();
-    final action =
-        (activity['action'] ?? activity['type'] ?? 'updated').toString().trim();
-    final target = (activity['document_name'] ??
-            activity['file_name'] ??
-            activity['target'] ??
-            'folder')
-        .toString()
-        .trim();
-
-    return '$actor $action $target'.trim();
-  }
-
   int _folderFileCount(Map<String, dynamic> folder) {
     final attachments = _toMapList(folder['attachments']);
     if (attachments.isNotEmpty) return attachments.length;
@@ -1345,6 +1459,8 @@ class _ShareDocumentsTabState extends State<ShareDocumentsTab> {
     required String subtitle,
     IconData? icon,
     String? assetPath,
+    String? actionLabel,
+    VoidCallback? onAction,
   }) {
     return Padding(
       padding: EdgeInsets.symmetric(vertical: 20.th, horizontal: 12.tw),
@@ -1388,6 +1504,15 @@ class _ShareDocumentsTabState extends State<ShareDocumentsTab> {
               height: 1.35,
             ),
           ),
+          if (actionLabel != null) ...[
+            SizedBox(height: 14.th),
+            OutlinedButton.icon(
+              onPressed: onAction,
+              icon: Icon(Icons.attach_file_rounded, size: 16.tsp),
+              label: Text(actionLabel),
+              style: SharedDocumentsTheme.softOutlinedButton(),
+            ),
+          ],
         ],
       ),
     );
@@ -1414,10 +1539,23 @@ class _ShareDocumentsTabState extends State<ShareDocumentsTab> {
             builder: (context) {
               final folder = _folders[index];
               final users = _toMapList(folder['allowed_users']);
-              return _SharedFolderCard(
+              return DocumentsFolderTile(
                 title: _folderNameForUi(folder),
-                users: users,
                 fileCount: _folderFileCount(folder),
+                trailingMeta: users.isEmpty
+                    ? null
+                    : '${users.length} member${users.length == 1 ? '' : 's'}',
+                leading: Image.asset(
+                  'assets/newapp/shared_documents_folder.png',
+                  width: 48.tw,
+                  height: 48.tw,
+                  fit: BoxFit.contain,
+                  errorBuilder: (_, __, ___) => Icon(
+                    Icons.folder_shared_rounded,
+                    size: 36.tsp,
+                    color: SharedDocumentsTheme.textPrimary,
+                  ),
+                ),
                 onTap: () => _openFolder(folder),
               );
             },
@@ -1435,666 +1573,238 @@ class _ShareDocumentsTabState extends State<ShareDocumentsTab> {
       physics: const BouncingScrollPhysics(),
       padding: EdgeInsets.only(bottom: 8.th),
       children: [
-        Padding(
-          padding: EdgeInsets.only(bottom: 10.th),
-          child: Row(
-            children: [
-              Material(
-                color: Colors.transparent,
-                child: InkWell(
-                  onTap: _goBackToFolders,
-                  borderRadius: BorderRadius.circular(20.tr),
-                  child: Container(
-                    padding:
-                        EdgeInsets.symmetric(horizontal: 12.tw, vertical: 8.th),
-                    decoration: BoxDecoration(
-                      color: Colors.white.withValues(alpha: 0.85),
-                      borderRadius: BorderRadius.circular(20.tr),
-                      border: Border.all(color: SharedDocumentsTheme.border),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(
-                          Icons.arrow_back_ios_new_rounded,
-                          size: 14.tsp,
-                          color: SharedDocumentsTheme.accent,
-                        ),
-                        SizedBox(width: 6.tw),
-                        Text(
-                          'All folders',
-                          style: GoogleFonts.poppins(
-                            fontSize: 12.tsp,
-                            fontWeight: FontWeight.w600,
-                            color: SharedDocumentsTheme.accent,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-              SizedBox(width: 10.tw),
-              Expanded(
-                child: Text(
-                  _folderNameForUi(folder),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: GoogleFonts.poppins(
-                    fontSize: 16.tsp,
-                    fontWeight: FontWeight.w700,
-                    color: SharedDocumentsTheme.textPrimary,
-                  ),
-                ),
-              ),
-            ],
-          ),
+        DocumentsSectionHeader(
+          title: 'Given access',
+          subtitle: '${_currentAllowedUsers.length} people',
         ),
         Container(
           width: double.infinity,
           padding: EdgeInsets.fromLTRB(12.tw, 12.th, 12.tw, 8.th),
-          decoration: SharedDocumentsTheme.glassCard(radius: 18.tr),
-          child: _buildGivenAccessSection(),
+          decoration: documentsFrostedTileDecoration(),
+          child: _buildGivenAccessAvatarsOnly(),
         ),
-        SizedBox(height: 12.th),
-        Container(
-          width: double.infinity,
-          constraints: BoxConstraints(minHeight: 220.th),
-          padding: EdgeInsets.fromLTRB(12.tw, 12.th, 12.tw, 12.th),
-          decoration: SharedDocumentsTheme.glassCard(radius: 18.tr),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Text(
-                'Files',
-                style: GoogleFonts.poppins(
-                  fontSize: 14.tsp,
-                  fontWeight: FontWeight.w700,
-                  color: SharedDocumentsTheme.textPrimary,
-                ),
-              ),
-              SizedBox(height: 8.th),
-              SizedBox(
-                height: 280.th,
-                child: _buildFilesSectionBody(),
-              ),
-            ],
-          ),
+        SizedBox(height: 14.th),
+        DocumentsSectionHeader(
+          title: 'Files',
+          subtitle: _isLoadingFolderContents
+              ? 'Loading…'
+              : '${_selectedFolderAttachments.length} file${_selectedFolderAttachments.length == 1 ? '' : 's'}',
         ),
-        SizedBox(height: 12.th),
-        Container(
-          width: double.infinity,
-          padding: EdgeInsets.fromLTRB(12.tw, 12.th, 12.tw, 12.th),
-          decoration: SharedDocumentsTheme.glassCard(radius: 18.tr),
-          child: _buildRecentActivitySection(),
-        ),
+        _buildFilesListSection(),
       ],
     );
   }
 
-  /// Files body without Expanded wrapper (used inside opened-folder card).
-  Widget _buildFilesSectionBody() {
-    if (_isLoadingFolderContents) {
-      return const Center(
-        child: CircularProgressIndicator(color: SharedDocumentsTheme.accent),
-      );
-    }
-
-    if (_folderOpenError != null) {
-      return Center(
-        child: Padding(
-          padding: EdgeInsets.symmetric(horizontal: 12.tw),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(
-                Icons.error_outline_rounded,
-                size: 36.tsp,
-                color: SharedDocumentsTheme.danger,
-              ),
-              SizedBox(height: 8.th),
-              Text(
-                'Couldn’t open this folder',
-                style: GoogleFonts.poppins(
-                  fontSize: 13.tsp,
-                  fontWeight: FontWeight.w700,
-                  color: SharedDocumentsTheme.textPrimary,
-                ),
-              ),
-              SizedBox(height: 10.th),
-              OutlinedButton(
-                onPressed: _selectedFolder == null
-                    ? null
-                    : () => _openFolder(_selectedFolder!),
-                style: SharedDocumentsTheme.softOutlinedButton(),
-                child: const Text('Retry'),
-              ),
-            ],
-          ),
-        ),
-      );
-    }
-
-    if (_selectedFolderAttachments.isEmpty) {
-      return _buildEmptyState(
-        title: 'No files yet',
-        subtitle: 'Files added to this folder will show up here.',
-        assetPath: 'assets/newapp/Share Document file.png',
-        icon: Icons.insert_drive_file_outlined,
-      );
-    }
-
-    return Column(
-      children: [
-        Align(
-          alignment: Alignment.centerLeft,
-          child: Text(
-            '${_selectedFolderAttachments.length} files',
-            style: GoogleFonts.poppins(
-              fontSize: 12.tsp,
-              fontWeight: FontWeight.w600,
-              color: SharedDocumentsTheme.textSecondary,
-            ),
-          ),
-        ),
-        SizedBox(height: 8.th),
-        Expanded(
-          child: GridView.builder(
-            itemCount: _selectedFolderAttachments.length,
-            gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount: 2,
-              crossAxisSpacing: 10.tw,
-              mainAxisSpacing: 10.th,
-              mainAxisExtent: 140.th,
-            ),
-            itemBuilder: (context, index) {
-              final item = _selectedFolderAttachments[index];
-              return Material(
-                color: Colors.transparent,
-                child: InkWell(
-                  borderRadius: BorderRadius.circular(14.tr),
-                  onTap: () => _openAttachment(item),
-                  child: Container(
-                    decoration: BoxDecoration(
-                      color: SharedDocumentsTheme.hubBackground,
-                      borderRadius: BorderRadius.circular(14.tr),
-                      border: Border.all(color: SharedDocumentsTheme.border),
-                    ),
-                    padding: EdgeInsets.fromLTRB(8.tw, 10.th, 8.tw, 8.th),
-                    child: Column(
-                      children: [
-                        Expanded(
-                          child: Image.asset(
-                            'assets/newapp/pdf.png',
-                            fit: BoxFit.contain,
-                          ),
-                        ),
-                        SizedBox(height: 6.th),
-                        Text(
-                          item.name,
-                          textAlign: TextAlign.center,
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                          style: GoogleFonts.poppins(
-                            fontSize: 11.tsp,
-                            fontWeight: FontWeight.w600,
-                            color: SharedDocumentsTheme.textPrimary,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              );
-            },
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildGivenAccessSection() {
+  Widget _buildGivenAccessAvatarsOnly() {
     final users = _currentAllowedUsers;
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          'Given access',
-          style: GoogleFonts.poppins(
-            fontSize: 14.tsp,
-            fontWeight: FontWeight.w700,
-            color: SharedDocumentsTheme.textPrimary,
-          ),
-        ),
-        SizedBox(height: 12.th),
-        SizedBox(
-          height: 72.th,
-          child: ListView.separated(
-            scrollDirection: Axis.horizontal,
-            itemCount: users.length + 1,
-            separatorBuilder: (_, __) => SizedBox(width: 10.tw),
-            itemBuilder: (context, index) {
-              if (index == 0) {
-                return InkWell(
-                  onTap: _isAddingUser ? null : _showAddUserDialog,
-                  borderRadius: BorderRadius.circular(28.tr),
-                  child: SizedBox(
-                    width: 52.tw,
-                    height: 52.tw,
-                    child: CustomPaint(
-                      painter: _DashedCirclePainter(
-                        color: SharedDocumentsTheme.accent,
-                      ),
-                      child: Center(
-                        child: _isAddingUser
-                            ? SizedBox(
-                                width: 16.tw,
-                                height: 16.tw,
-                                child: const CircularProgressIndicator(
-                                  strokeWidth: 2,
-                                  color: SharedDocumentsTheme.accent,
-                                ),
-                              )
-                            : Icon(
-                                Icons.add,
-                                color: SharedDocumentsTheme.accent,
-                                size: 24.tsp,
-                              ),
-                      ),
-                    ),
+    return SizedBox(
+      height: 72.th,
+      child: ListView.separated(
+        scrollDirection: Axis.horizontal,
+        itemCount: users.length + 1,
+        separatorBuilder: (_, __) => SizedBox(width: 10.tw),
+        itemBuilder: (context, index) {
+          if (index == 0) {
+            return InkWell(
+              onTap: _isAddingUser ? null : _showAddUserDialog,
+              borderRadius: BorderRadius.circular(28.tr),
+              child: SizedBox(
+                width: 52.tw,
+                height: 52.tw,
+                child: CustomPaint(
+                  painter: _DashedCirclePainter(
+                    color: SharedDocumentsTheme.accent,
                   ),
-                );
-              }
-
-              final user = users[index - 1];
-              final name = _userNameFrom(user);
-              final avatarUrl = _userAvatarUrlFrom(user);
-
-              return CircleAvatar(
-                radius: 26.tr,
-                backgroundColor: SharedDocumentsTheme.border,
-                backgroundImage:
-                    avatarUrl != null ? NetworkImage(avatarUrl) : null,
-                child: avatarUrl == null
-                    ? Text(
-                        _userInitial(name),
-                        style: GoogleFonts.poppins(
-                          fontSize: 14.tsp,
-                          fontWeight: FontWeight.w700,
-                          color: SharedDocumentsTheme.textPrimary,
-                        ),
-                      )
-                    : null,
-              );
-            },
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildRecentActivitySection() {
-    final activities = _currentActivities;
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          'Recent activity',
-          style: GoogleFonts.poppins(
-            fontSize: 14.tsp,
-            fontWeight: FontWeight.w700,
-            color: SharedDocumentsTheme.textPrimary,
-          ),
-        ),
-        SizedBox(height: 10.th),
-        if (activities.isEmpty)
-          _buildEmptyState(
-            icon: Icons.history_toggle_off_rounded,
-            title: 'No recent activity',
-            subtitle: 'Folder actions will appear here once available.',
-          )
-        else
-          Column(
-            children:
-                activities.take(6).toList().asMap().entries.map((entry) {
-              final index = entry.key;
-              final activity = entry.value;
-              final message = _activityMessage(activity);
-              final time = _activityTime(activity);
-              final actorName = (activity['user_name'] ??
-                      activity['employee_name'] ??
-                      activity['name'] ??
-                      'U')
-                  .toString();
-              final avatarUrl = _userAvatarUrlFrom(activity);
-
-              return Container(
-                padding:
-                    EdgeInsets.symmetric(horizontal: 4.tw, vertical: 10.th),
-                decoration: BoxDecoration(
-                  border: index == activities.take(6).length - 1
-                      ? null
-                      : Border(
-                          bottom: BorderSide(
-                            color: SharedDocumentsTheme.border,
-                            width: 1.tw,
+                  child: Center(
+                    child: _isAddingUser
+                        ? SizedBox(
+                            width: 16.tw,
+                            height: 16.tw,
+                            child: const CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: SharedDocumentsTheme.accent,
+                            ),
+                          )
+                        : Icon(
+                            Icons.add,
+                            color: SharedDocumentsTheme.accent,
+                            size: 24.tsp,
                           ),
-                        ),
-                ),
-                child: Row(
-                  children: [
-                    CircleAvatar(
-                      radius: 16.tr,
-                      backgroundColor: SharedDocumentsTheme.hubBackground,
-                      backgroundImage:
-                          avatarUrl != null ? NetworkImage(avatarUrl) : null,
-                      child: avatarUrl == null
-                          ? Text(
-                              _userInitial(actorName),
-                              style: GoogleFonts.poppins(
-                                fontSize: 11.tsp,
-                                fontWeight: FontWeight.w700,
-                                color: SharedDocumentsTheme.textSecondary,
-                              ),
-                            )
-                          : null,
-                    ),
-                    SizedBox(width: 10.tw),
-                    Expanded(
-                      child: Text(
-                        message,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: GoogleFonts.poppins(
-                          fontSize: 13.tsp,
-                          fontWeight: FontWeight.w500,
-                          color: SharedDocumentsTheme.textPrimary,
-                        ),
-                      ),
-                    ),
-                    SizedBox(width: 6.tw),
-                    Text(
-                      time,
-                      style: GoogleFonts.poppins(
-                        fontSize: 11.tsp,
-                        fontWeight: FontWeight.w500,
-                        color: SharedDocumentsTheme.textMuted,
-                      ),
-                    ),
-                  ],
-                ),
-              );
-            }).toList(growable: false),
-          ),
-      ],
-    );
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return PopScope(
-      canPop: _selectedFolder == null,
-      onPopInvokedWithResult: (didPop, _) {
-        if (didPop) return;
-        if (_selectedFolder != null) {
-          _goBackToFolders();
-        }
-      },
-      child: Builder(
-        builder: (context) {
-          if (_isLoadingFolders && _folders.isEmpty) {
-            return const Center(
-              child: CircularProgressIndicator(
-                color: SharedDocumentsTheme.accent,
-              ),
-            );
-          }
-
-          if (_error != null && _folders.isEmpty) {
-            return Center(
-              child: Padding(
-                padding: EdgeInsets.symmetric(horizontal: 20.tw),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      _error!,
-                      textAlign: TextAlign.center,
-                      style: GoogleFonts.poppins(
-                        color: SharedDocumentsTheme.danger,
-                        fontSize: 12.tsp,
-                      ),
-                    ),
-                    SizedBox(height: 12.th),
-                    OutlinedButton(
-                      onPressed: _fetchSharedFolders,
-                      style: SharedDocumentsTheme.softOutlinedButton(),
-                      child: const Text('Retry'),
-                    ),
-                  ],
+                  ),
                 ),
               ),
             );
           }
 
-          if (_selectedFolder != null) {
-            return _buildOpenedFolderView();
-          }
+          final user = users[index - 1];
+          final name = _userNameFrom(user);
+          final avatarUrl = _userAvatarUrlFrom(user);
 
-          return Stack(
-            children: [
-              ListView(
-                physics: const BouncingScrollPhysics(),
-                padding: EdgeInsets.only(top: 4.th, bottom: 12.th),
-                children: [
-                  Row(
-                    children: [
-                      Text(
-                        'Folders (${_folders.length})',
-                        style: GoogleFonts.poppins(
-                          fontSize: 14.tsp,
-                          fontWeight: FontWeight.w600,
-                          color: SharedDocumentsTheme.textSecondary,
-                        ),
-                      ),
-                      const Spacer(),
-                      OutlinedButton(
-                        onPressed: _isCreatingFolder
-                            ? null
-                            : _showCreateFolderDialog,
-                        style: SharedDocumentsTheme.softOutlinedButton(
-                          padding: EdgeInsets.symmetric(
-                            horizontal: 14.tw,
-                            vertical: 8.th,
-                          ),
-                        ),
-                        child: _isCreatingFolder
-                            ? SizedBox(
-                                width: 14.tw,
-                                height: 14.tw,
-                                child: const CircularProgressIndicator(
-                                  strokeWidth: 2,
-                                  color: SharedDocumentsTheme.accent,
-                                ),
-                              )
-                            : Text(
-                                'Create folder',
-                                style: GoogleFonts.poppins(
-                                  fontSize: 12.tsp,
-                                  color: SharedDocumentsTheme.accent,
-                                  fontWeight: FontWeight.w700,
-                                ),
-                              ),
-                      ),
-                    ],
-                  ),
-                  SizedBox(height: 12.th),
-                  _buildFoldersList(),
-                ],
-              ),
-              if (_isLoadingFolders && _folders.isNotEmpty)
-                Positioned.fill(
-                  child: IgnorePointer(
-                    child: Container(
-                      color: Colors.white.withValues(alpha: 0.35),
-                      child: const Center(
-                        child: CircularProgressIndicator(
-                          color: SharedDocumentsTheme.accent,
-                        ),
-                      ),
+          return CircleAvatar(
+            radius: 26.tr,
+            backgroundColor: SharedDocumentsTheme.border,
+            backgroundImage:
+                avatarUrl != null ? NetworkImage(avatarUrl) : null,
+            child: avatarUrl == null
+                ? Text(
+                    _userInitial(name),
+                    style: GoogleFonts.poppins(
+                      fontSize: 14.tsp,
+                      fontWeight: FontWeight.w700,
+                      color: SharedDocumentsTheme.textPrimary,
                     ),
-                  ),
-                ),
-            ],
+                  )
+                : null,
           );
         },
       ),
     );
   }
-}
 
-class _SharedFolderCard extends StatelessWidget {
-  const _SharedFolderCard({
-    required this.title,
-    required this.users,
-    required this.fileCount,
-    required this.onTap,
-  });
-
-  final String title;
-  final List<Map<String, dynamic>> users;
-  final int fileCount;
-  final VoidCallback onTap;
-
-  String? _avatarFrom(Map<String, dynamic> user) {
-    final candidates = [
-      user['image_1920'],
-      user['image_url'],
-      user['avatar'],
-      user['photo'],
-    ];
-
-    for (final value in candidates) {
-      final url = value?.toString().trim() ?? '';
-      if (url.isNotEmpty) return url;
+  Widget _buildFilesListSection() {
+    if (_isLoadingFolderContents) {
+      return Padding(
+        padding: EdgeInsets.symmetric(vertical: 40.th),
+        child: const Center(
+          child: CircularProgressIndicator(color: SharedDocumentsTheme.accent),
+        ),
+      );
     }
-    return null;
+
+    if (_folderOpenError != null) {
+      return Padding(
+        padding: EdgeInsets.symmetric(horizontal: 12.tw, vertical: 24.th),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              Icons.error_outline_rounded,
+              size: 36.tsp,
+              color: SharedDocumentsTheme.danger,
+            ),
+            SizedBox(height: 8.th),
+            Text(
+              'Couldn’t open this folder',
+              style: GoogleFonts.poppins(
+                fontSize: 13.tsp,
+                fontWeight: FontWeight.w700,
+                color: SharedDocumentsTheme.textPrimary,
+              ),
+            ),
+            SizedBox(height: 10.th),
+            OutlinedButton(
+              onPressed: _selectedFolder == null
+                  ? null
+                  : () => _openFolder(_selectedFolder!),
+              style: SharedDocumentsTheme.softOutlinedButton(),
+              child: const Text('Retry'),
+            ),
+          ],
+        ),
+      );
+    }
+
+    if (_selectedFolderAttachments.isEmpty) {
+      return Padding(
+        padding: EdgeInsets.only(top: 8.th),
+        child: _buildEmptyState(
+          title: 'No files yet',
+          subtitle: 'Tap + to upload attachments into this folder.',
+          assetPath: 'assets/newapp/Share Document file.png',
+          icon: Icons.insert_drive_file_outlined,
+          actionLabel: _isAddingAttachments ? 'Uploading…' : 'Add attachment',
+          onAction: _isAddingAttachments ? null : _addAttachmentsToOpenedFolder,
+        ),
+      );
+    }
+
+    return Column(
+      children: [
+        for (var i = 0; i < _selectedFolderAttachments.length; i++) ...[
+          if (i > 0) SizedBox(height: 10.th),
+          DocumentsFileRow(
+            fileName: _selectedFolderAttachments[i].name,
+            onTap: () => _openAttachment(_selectedFolderAttachments[i]),
+          ),
+        ],
+      ],
+    );
   }
 
   @override
   Widget build(BuildContext context) {
-    final visibleUsers = users.take(3).toList(growable: false);
+    return Builder(
+      builder: (context) {
+        if (_isLoadingFolders && _folders.isEmpty) {
+          return const Center(
+            child: CircularProgressIndicator(
+              color: SharedDocumentsTheme.accent,
+            ),
+          );
+        }
 
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(16.tr),
-        child: Container(
-          decoration: SharedDocumentsTheme.glassCard(radius: 16.tr),
-          padding: EdgeInsets.symmetric(horizontal: 12.tw, vertical: 12.th),
-          child: Row(
-            children: [
-              Image.asset(
-                'assets/newapp/shared_documents_folder.png',
-                width: 44.tw,
-                height: 44.tw,
-                fit: BoxFit.contain,
-                errorBuilder: (_, __, ___) => Image.asset(
-                  'assets/newapp/shared_folder_new_image.png',
-                  width: 44.tw,
-                  height: 44.tw,
-                  fit: BoxFit.contain,
-                ),
+        if (_error != null && _folders.isEmpty) {
+          return Center(
+            child: Padding(
+              padding: EdgeInsets.symmetric(horizontal: 20.tw),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    _error!,
+                    textAlign: TextAlign.center,
+                    style: GoogleFonts.poppins(
+                      color: SharedDocumentsTheme.danger,
+                      fontSize: 12.tsp,
+                    ),
+                  ),
+                  SizedBox(height: 12.th),
+                  OutlinedButton(
+                    onPressed: _fetchSharedFolders,
+                    style: SharedDocumentsTheme.softOutlinedButton(),
+                    child: const Text('Retry'),
+                  ),
+                ],
               ),
-              SizedBox(width: 12.tw),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      title,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: GoogleFonts.poppins(
-                        fontSize: 14.tsp,
-                        fontWeight: FontWeight.w700,
-                        color: SharedDocumentsTheme.textPrimary,
+            ),
+          );
+        }
+
+        if (_selectedFolder != null) {
+          return _buildOpenedFolderView();
+        }
+
+        return Stack(
+          children: [
+            ListView(
+              physics: const BouncingScrollPhysics(),
+              padding: EdgeInsets.only(top: 4.th, bottom: 12.th),
+              children: [
+                DocumentsSectionHeader(
+                  title: 'Folders',
+                  subtitle:
+                      '${_folders.length} folder${_folders.length == 1 ? '' : 's'}',
+                ),
+                _buildFoldersList(),
+              ],
+            ),
+            if (_isLoadingFolders && _folders.isNotEmpty)
+              Positioned.fill(
+                child: IgnorePointer(
+                  child: Container(
+                    color: Colors.white.withValues(alpha: 0.35),
+                    child: const Center(
+                      child: CircularProgressIndicator(
+                        color: SharedDocumentsTheme.accent,
                       ),
                     ),
-                    SizedBox(height: 4.th),
-                    Text(
-                      fileCount == 1 ? '1 file' : '$fileCount files',
-                      style: GoogleFonts.poppins(
-                        fontSize: 11.tsp,
-                        fontWeight: FontWeight.w500,
-                        color: SharedDocumentsTheme.textMuted,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              if (visibleUsers.isNotEmpty) ...[
-                SizedBox(width: 8.tw),
-                SizedBox(
-                  height: 28.th,
-                  width: 28.tw + (visibleUsers.length - 1) * 16.tw,
-                  child: Stack(
-                    children: [
-                      for (var i = 0; i < visibleUsers.length; i++)
-                        Positioned(
-                          left: i * 16.tw,
-                          child: CircleAvatar(
-                            radius: 13.tr,
-                            backgroundColor: Colors.white,
-                            child: CircleAvatar(
-                              radius: 11.tr,
-                              backgroundImage:
-                                  _avatarFrom(visibleUsers[i]) != null
-                                      ? NetworkImage(
-                                          _avatarFrom(visibleUsers[i])!)
-                                      : null,
-                              backgroundColor:
-                                  SharedDocumentsTheme.hubBackground,
-                              child: _avatarFrom(visibleUsers[i]) == null
-                                  ? Text(
-                                      ((visibleUsers[i]['name'] ?? 'U')
-                                              .toString()
-                                              .trim()
-                                              .isNotEmpty
-                                          ? (visibleUsers[i]['name']
-                                              .toString()
-                                              .trim()
-                                              .substring(0, 1)
-                                              .toUpperCase())
-                                          : 'U'),
-                                      style: GoogleFonts.poppins(
-                                        fontSize: 9.tsp,
-                                        fontWeight: FontWeight.w700,
-                                        color:
-                                            SharedDocumentsTheme.textSecondary,
-                                      ),
-                                    )
-                                  : null,
-                            ),
-                          ),
-                        ),
-                    ],
                   ),
                 ),
-              ],
-              SizedBox(width: 6.tw),
-              Icon(
-                Icons.chevron_right_rounded,
-                color: SharedDocumentsTheme.accentMuted,
-                size: 22.tsp,
               ),
-            ],
-          ),
-        ),
-      ),
+          ],
+        );
+      },
     );
   }
 }
@@ -2113,8 +1823,8 @@ class _SharedAttachment {
   final Map<String, dynamic> raw;
 }
 
-class _CreateFolderAttachment {
-  const _CreateFolderAttachment({
+class _FolderUploadAttachment {
+  const _FolderUploadAttachment({
     required this.filename,
     required this.base64File,
   });
@@ -2126,11 +1836,9 @@ class _CreateFolderAttachment {
 class _CreateFolderDraft {
   const _CreateFolderDraft({
     required this.folderName,
-    required this.attachments,
   });
 
   final String folderName;
-  final List<_CreateFolderAttachment> attachments;
 }
 
 class _DashedCirclePainter extends CustomPainter {

@@ -139,17 +139,28 @@ class TimesheetFaceCapturePermissions {
 /// callable clients. // TODO(backend)
 class TimesheetFaceCaptureService {
   TimesheetFaceCaptureService({FaceDetector? detector})
-      : _detector = detector ??
-            FaceDetector(
-              options: FaceDetectorOptions(
-                enableClassification: true,
-                enableLandmarks: true,
-                enableContours: true,
-                enableTracking: true,
-                minFaceSize: minFaceDetectorSize,
-                performanceMode: FaceDetectorMode.fast,
-              ),
-            );
+      : _usesSharedDetector = detector == null,
+        _detector = detector ?? _acquireSharedDetector();
+
+  /// One shared ML Kit detector for the whole app. Creating a new
+  /// [FaceDetector] per screen spams iOS with
+  /// `Multiple instances of CCTClearcutUploader` and wastes battery.
+  static FaceDetector? _sharedDetector;
+  static int _sharedDetectorRefCount = 0;
+
+  static FaceDetector _acquireSharedDetector() {
+    _sharedDetectorRefCount++;
+    return _sharedDetector ??= FaceDetector(
+      options: FaceDetectorOptions(
+        enableClassification: true,
+        enableLandmarks: true,
+        enableContours: true,
+        enableTracking: true,
+        minFaceSize: minFaceDetectorSize,
+        performanceMode: FaceDetectorMode.fast,
+      ),
+    );
+  }
 
   static const int cropSizePx = 224;
   /// Still capture / shutter quality (absolute px in analyzed image).
@@ -165,6 +176,7 @@ class TimesheetFaceCaptureService {
   static const double minFaceDetectorSize = 0.08;
 
   final FaceDetector _detector;
+  final bool _usesSharedDetector;
   final math.Random _random = math.Random();
 
   Future<TimesheetFaceCapturePermissions> requestCameraPermissions() async {
@@ -580,7 +592,17 @@ class TimesheetFaceCaptureService {
     );
   }
 
-  Future<void> dispose() => _detector.close();
+  Future<void> dispose() async {
+    if (!_usesSharedDetector) {
+      await _detector.close();
+      return;
+    }
+    _sharedDetectorRefCount = (_sharedDetectorRefCount - 1).clamp(0, 1 << 30);
+    if (_sharedDetectorRefCount > 0) return;
+    final shared = _sharedDetector;
+    _sharedDetector = null;
+    await shared?.close();
+  }
 
   static InputImageRotation _rotationFromSensorOrientation(int orientation) {
     switch (orientation) {

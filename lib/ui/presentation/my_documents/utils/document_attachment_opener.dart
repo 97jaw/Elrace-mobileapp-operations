@@ -4,6 +4,7 @@ import 'package:el_race/core/utils/shared_pref.dart';
 import 'package:el_race/ui/presentation/my_documents/screens/attachment_viewer_screen.dart';
 import 'package:el_race/utils/urll_utils.dart';
 import 'package:flutter/material.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'package:http/http.dart' as http;
 
 /// Shared attachment open flow for My Documents / Shared Documents.
@@ -146,6 +147,30 @@ class DocumentAttachmentOpener {
 
       dismissLoader();
       if (!context.mounted) return;
+
+      final nameLower = name.toLowerCase();
+      final looksLikeExcel = nameLower.endsWith('.xlsx') ||
+          nameLower.endsWith('.xls') ||
+          type.contains('spreadsheet') ||
+          type.contains('excel') ||
+          type.contains('sheet');
+
+      if (looksLikeExcel) {
+        final uri = Uri.parse(publicUrl);
+        final launched = await launchUrl(
+          uri,
+          mode: LaunchMode.externalApplication,
+        );
+        if (!context.mounted) return;
+        if (!launched) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Could not open Excel file: $name'),
+            ),
+          );
+        }
+        return;
+      }
 
       await Navigator.of(context).push(
         MaterialPageRoute(

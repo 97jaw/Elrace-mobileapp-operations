@@ -1,6 +1,7 @@
 import 'package:el_race/core/utils/responsive_breakpoints.dart';
 import 'dart:convert';
 
+import 'package:el_race/core/services/approval_count_service.dart';
 import 'package:el_race/core/utils/shared_pref.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
@@ -364,6 +365,7 @@ class _ApprovalsScreenState extends State<ApprovalsScreen> {
       debugPrint(
         '✅ [ApprovalsScreen] Loaded $categoryKey with ${items.length} items',
       );
+      _syncApprovalBadgeCountIfReady();
       _warmCategoryPhotos(categoryKey, items);
     } catch (e) {
       if (!mounted) return;
@@ -375,13 +377,26 @@ class _ApprovalsScreenState extends State<ApprovalsScreen> {
     }
   }
 
+  /// Keep home badge in sync once all category lists are loaded.
+  void _syncApprovalBadgeCountIfReady() {
+    const keys = ['hr', 'rfq', 'invoice', 'petty_cash'];
+    if (keys.any((k) => _categoryLoaded[k] != true)) return;
+    final total = hrItems.length +
+        rfqItems.length +
+        invoiceItems.length +
+        pettyCashItems.length;
+    ApprovalCountService.updateCachedCount(total);
+  }
+
   /// Invoice is fetched first; other categories follow immediately after.
-  void _loadAllCategoriesInBackground({bool force = false}) {
+  Future<void> _loadAllCategoriesInBackground({bool force = false}) {
     debugPrint('🚀 [ApprovalsScreen] Loading all categories (force=$force)');
-    _loadCategory('invoice', force: force);
-    _loadCategory('hr', force: force);
-    _loadCategory('rfq', force: force);
-    _loadCategory('petty_cash', force: force);
+    return Future.wait([
+      _loadCategory('invoice', force: force),
+      _loadCategory('hr', force: force),
+      _loadCategory('rfq', force: force),
+      _loadCategory('petty_cash', force: force),
+    ]);
   }
 
   int _displayCategoryCount(String categoryKey, List<dynamic> items) {
@@ -465,9 +480,14 @@ class _ApprovalsScreenState extends State<ApprovalsScreen> {
     _fetchRorData(month: month, year: year);
   }
 
-  void _refreshApprovalsAfterAction() {
+  Future<void> _refreshApprovalsAfterAction() async {
     debugPrint('🔁 [ApprovalsScreen] Refresh requested after approve/reject');
-    _loadAllCategoriesInBackground(force: true);
+    // Clear badge cache immediately so home header refetch starts in parallel.
+    ApprovalCountService.invalidateCache();
+    ApprovalCountService.onCountChanged?.call();
+    await _loadAllCategoriesInBackground(force: true);
+    if (!mounted) return;
+    _syncApprovalBadgeCountIfReady();
     _fetchDelayedCount();
     _fetchRorData();
   }
@@ -584,7 +604,7 @@ class _ApprovalsScreenState extends State<ApprovalsScreen> {
     }
 
     if (result == true) {
-      _refreshApprovalsAfterAction();
+      await _refreshApprovalsAfterAction();
     }
   }
 

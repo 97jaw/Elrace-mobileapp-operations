@@ -112,6 +112,7 @@ class ProjectDocumentsFilesView extends StatelessWidget {
       context,
       rawUrl: file.url,
       fileName: file.name,
+      attachmentId: parseProjectAttachmentId(file.id),
     );
   }
 }

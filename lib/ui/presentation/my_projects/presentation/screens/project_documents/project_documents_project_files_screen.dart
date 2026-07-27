@@ -175,6 +175,7 @@ class _ProjectDocumentsProjectFilesScreenState
               context,
               rawUrl: file.url,
               fileName: file.name,
+              attachmentId: parseProjectAttachmentId(file.id),
             );
           },
         );

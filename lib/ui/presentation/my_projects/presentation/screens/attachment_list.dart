@@ -201,7 +201,11 @@ class _AttachmentListScreenState extends State<AttachmentListScreen> {
     }
 
     return GestureDetector(
-      onTap: () => _downloadFile(url, name),
+      onTap: () => _downloadFile(
+        url,
+        name,
+        attachmentId: int.tryParse((attachment.id ?? '').toString()),
+      ),
       child: Container(
         height: 82.th,
         decoration: BoxDecoration(
@@ -355,7 +359,11 @@ class _AttachmentListScreenState extends State<AttachmentListScreen> {
     }
 
     return GestureDetector(
-      onTap: () => _downloadFile(url, name),
+      onTap: () => _downloadFile(
+        url,
+        name,
+        attachmentId: int.tryParse((attachment.id ?? '').toString()),
+      ),
       child: Container(
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(24.tr),
@@ -418,12 +426,17 @@ class _AttachmentListScreenState extends State<AttachmentListScreen> {
     );
   }
 
-  void _downloadFile(String url, String fileName) async {
+  void _downloadFile(
+    String url,
+    String fileName, {
+    int? attachmentId,
+  }) async {
     try {
       await openProjectFileInApp(
         context,
         rawUrl: url,
         fileName: fileName,
+        attachmentId: attachmentId,
       );
     } catch (e) {
       print('Error downloading file: $e');

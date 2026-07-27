@@ -404,7 +404,10 @@ Future<void> _performHeavyInitialization() async {
               const Duration(seconds: 10),
               onTimeout: () => print('⚠️ AppConfig load timeout'),
             ),
-        FirebaseService.initialize().timeout(
+        FirebaseService.initialize(
+          requestPermissions: false,
+          fetchToken: false,
+        ).timeout(
           const Duration(seconds: 10),
           onTimeout: () => print('⚠️ Firebase service init timeout'),
         ),
@@ -439,6 +442,7 @@ Future<void> _initializeNonCriticalServices() async {
 
   // Run all independent services in parallel
   await Future.wait<void>([
+    FirebaseService.completeDeferredSetup(),
     _initWorkManager(),
     _initPrayerAndCheckoutServices(),
     _initializeChatIfLoggedIn(),

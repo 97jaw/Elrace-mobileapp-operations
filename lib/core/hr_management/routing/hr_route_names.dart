@@ -18,6 +18,8 @@ abstract final class HrRouteNames {
       '/hr_management/circular_announcements';
   /// Employee directory — smart search by name / file id.
   static const String employeesProfile = '/hr_management/employees_profile';
+  /// Company documents — operating-unit folders (managers / HR / PM).
+  static const String companyDocuments = '/hr_management/company_documents';
   /// Module 1 — employee/manager HR requests (from hub or deep link).
   static const String requests = '/hr_management/requests';
   static const String simRequest = '/hr_management/asset/sim';

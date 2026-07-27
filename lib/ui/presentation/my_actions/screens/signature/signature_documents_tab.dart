@@ -495,9 +495,17 @@ class SignatureDocumentsTabState extends State<SignatureDocumentsTab> {
       final dir = await getTemporaryDirectory();
       final file = File('${dir.path}/${row.fileName}');
       await file.writeAsBytes(response.bodyBytes);
-      if (mounted) {
-        await SharePlus.instance.share(ShareParams(files: [XFile(file.path)]));
-      }
+      if (!mounted) return;
+      final box = context.findRenderObject();
+      final origin = box is RenderBox
+          ? (box.localToGlobal(Offset.zero) & box.size)
+          : const Rect.fromLTWH(1, 1, 1, 1);
+      await SharePlus.instance.share(
+        ShareParams(
+          files: [XFile(file.path)],
+          sharePositionOrigin: origin,
+        ),
+      );
     } catch (e) {
       _showMessage('Share failed: $e', isError: true);
     }

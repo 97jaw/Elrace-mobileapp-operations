@@ -75,11 +75,17 @@ class _SignatureDocumentViewerScreenState
       final dir = await getTemporaryDirectory();
       final file = File('${dir.path}/${widget.title}');
       await file.writeAsBytes(_bytes!);
-      if (mounted) {
-        await SharePlus.instance.share(
-          ShareParams(files: [XFile(file.path)]),
-        );
-      }
+      if (!mounted) return;
+      final box = context.findRenderObject();
+      final origin = box is RenderBox
+          ? (box.localToGlobal(Offset.zero) & box.size)
+          : const Rect.fromLTWH(1, 1, 1, 1);
+      await SharePlus.instance.share(
+        ShareParams(
+          files: [XFile(file.path)],
+          sharePositionOrigin: origin,
+        ),
+      );
     } catch (e) {
       _showMessage('Share failed: $e', isError: true);
     } finally {
