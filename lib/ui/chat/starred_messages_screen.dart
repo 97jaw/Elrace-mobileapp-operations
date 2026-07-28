@@ -3,9 +3,11 @@ import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
 import '../../chat/chat.dart';
-import '../../resources/app_colors.dart';
-import '../widgets/header_widget.dart';
 import 'chat_screen.dart';
+import 'theme/chat_glass_theme.dart';
+import 'widgets/blue_geometric_background.dart';
+import 'widgets/chat_glass_button.dart';
+import 'widgets/chat_top_glass_app_bar.dart';
 
 /// Screen that displays all starred messages for the current user
 class StarredMessagesScreen extends StatefulWidget {
@@ -48,17 +50,25 @@ class _StarredMessagesScreenState extends State<StarredMessagesScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppColors.primaryColor,
-      appBar: const HeaderWidget(),
-      body: SafeArea(
-        top: false,
+      backgroundColor: Colors.transparent,
+      body: BlueGeometricBackground(
         child: Column(
           children: [
-            _buildHeader(),
+            const ChatTopGlassAppBar(),
             Expanded(
-              child: Container(
-                color: const Color(0xFFF2F2F2),
-                child: _buildStarredList(),
+              child: SafeArea(
+                top: false,
+                child: Column(
+                  children: [
+                    _buildHeader(),
+                    Expanded(
+                      child: Container(
+                        color: Colors.transparent,
+                        child: _buildStarredList(),
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
           ],
@@ -69,25 +79,20 @@ class _StarredMessagesScreenState extends State<StarredMessagesScreen> {
 
   Widget _buildHeader() {
     return Container(
-      color: AppColors.primaryColor,
+      color: Colors.transparent,
       padding: const EdgeInsets.fromLTRB(14, 12, 14, 14),
       child: Row(
         children: [
-          GestureDetector(
-            onTap: () => Navigator.pop(context),
-            child: const Icon(Icons.arrow_back_ios_new_rounded,
-                color: Colors.white, size: 20),
+          ChatGlassIconButton(
+            icon: Icons.arrow_back_ios_new_rounded,
+            onPressed: () => Navigator.pop(context),
           ),
           const SizedBox(width: 12),
-          const Icon(Icons.star_rounded, color: Color(0xFFF4C542), size: 24),
+          const Icon(Icons.star_rounded, color: Colors.white, size: 24),
           const SizedBox(width: 8),
-          const Text(
+          Text(
             'Starred Messages',
-            style: TextStyle(
-              fontSize: 20,
-              color: Colors.white,
-              fontWeight: FontWeight.w700,
-            ),
+            style: ChatGlassTheme.title(fontSize: 20),
           ),
         ],
       ),

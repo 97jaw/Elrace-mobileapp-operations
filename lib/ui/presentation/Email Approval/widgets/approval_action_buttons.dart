@@ -1,12 +1,12 @@
 import 'package:el_race/core/utils/responsive_breakpoints.dart';
+import 'package:el_race/core/utils/shared_pref.dart';
+import 'package:el_race/ui/presentation/Email%20Approval/theme/approvals_overview_theme.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:flutter_screenutil/flutter_screenutil.dart';
 import '../bloc/approval_bloc.dart';
 import '../bloc/approval_event.dart';
 import '../bloc/approval_state.dart';
-import 'package:el_race/core/utils/shared_pref.dart';
 
 class ApprovalActionButtons extends StatelessWidget {
   final String requestId;
@@ -623,27 +623,62 @@ class ApprovalActionButtons extends StatelessWidget {
     return showDialog<_ApprovalDialogDecision>(
       context: context,
       barrierDismissible: false,
+      barrierColor: ApprovalsOverviewTheme.screenDeep.withValues(alpha: 0.35),
       builder: (dialogContext) {
         double sliderProgress = 0.5;
+        final isApprove = actionLabel == 'APPROVE';
+        final accent = isApprove
+            ? const Color(0xFF009859)
+            : ApprovalsOverviewTheme.hr;
 
         return StatefulBuilder(
           builder: (ctx, setModalState) {
             return Dialog(
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(18.tr),
-              ),
-              child: Padding(
-                padding: EdgeInsets.symmetric(horizontal: 18.tw, vertical: 18.tw),
+              backgroundColor: Colors.transparent,
+              insetPadding:
+                  EdgeInsets.symmetric(horizontal: 22.tw, vertical: 24.th),
+              child: OverviewGlassPanel(
+                fillAlpha: 0.96,
+                blurSigma: 12,
+                radius: 22,
+                padding: EdgeInsets.fromLTRB(18.tw, 18.th, 18.tw, 16.th),
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
+                    Container(
+                      width: 44.tw,
+                      height: 44.tw,
+                      decoration: BoxDecoration(
+                        color: accent.withValues(alpha: 0.12),
+                        shape: BoxShape.circle,
+                      ),
+                      child: Icon(
+                        isApprove
+                            ? Icons.check_circle_outline_rounded
+                            : Icons.cancel_outlined,
+                        color: accent,
+                        size: 24.tsp,
+                      ),
+                    ),
+                    SizedBox(height: 12.th),
                     Text(
-                      'Are you sure you want to $actionText ?',
+                      isApprove ? 'Confirm Approval' : 'Confirm Rejection',
                       textAlign: TextAlign.center,
                       style: GoogleFonts.poppins(
                         fontSize: 16.tsp,
                         fontWeight: FontWeight.w700,
-                        color: const Color(0xFF1F1F1F),
+                        color: ApprovalsOverviewTheme.textDark,
+                      ),
+                    ),
+                    SizedBox(height: 6.th),
+                    Text(
+                      'Are you sure you want to $actionText this invoice?',
+                      textAlign: TextAlign.center,
+                      style: GoogleFonts.poppins(
+                        fontSize: 12.tsp,
+                        fontWeight: FontWeight.w500,
+                        color: ApprovalsOverviewTheme.textMuted,
+                        height: 1.35,
                       ),
                     ),
                     SizedBox(height: 16.th),
@@ -652,18 +687,18 @@ class ApprovalActionButtons extends StatelessWidget {
                         Text(
                           'Comments',
                           style: GoogleFonts.poppins(
-                            fontSize: 13.tsp,
+                            fontSize: 12.tsp,
                             fontWeight: FontWeight.w600,
-                            color: const Color(0xFF555555),
+                            color: ApprovalsOverviewTheme.textDark,
                           ),
                         ),
                         const Spacer(),
                         Text(
                           '${commentController.text.length}/50',
                           style: GoogleFonts.poppins(
-                            fontSize: 12.tsp,
+                            fontSize: 11.tsp,
                             fontWeight: FontWeight.w500,
-                            color: const Color(0xFF9E9E9E),
+                            color: ApprovalsOverviewTheme.textSoft,
                           ),
                         ),
                       ],
@@ -675,29 +710,45 @@ class ApprovalActionButtons extends StatelessWidget {
                       onChanged: (_) => setModalState(() {}),
                       minLines: 2,
                       maxLines: 3,
+                      style: GoogleFonts.poppins(
+                        fontSize: 13.tsp,
+                        fontWeight: FontWeight.w500,
+                        color: ApprovalsOverviewTheme.textDark,
+                      ),
                       decoration: InputDecoration(
                         hintText: 'Write your comment...',
+                        hintStyle: GoogleFonts.poppins(
+                          fontSize: 12.tsp,
+                          color: ApprovalsOverviewTheme.textSoft,
+                        ),
+                        filled: true,
+                        fillColor: ApprovalsOverviewTheme.screenTintLight
+                            .withValues(alpha: 0.85),
                         counterText: '',
                         contentPadding: EdgeInsets.symmetric(
                             horizontal: 12.tw, vertical: 10.th),
                         border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(10.tr),
-                          borderSide:
-                              const BorderSide(color: Color(0xFFD8D8D8)),
+                          borderRadius: BorderRadius.circular(14.tr),
+                          borderSide: BorderSide(
+                            color: Colors.white.withValues(alpha: 0.9),
+                          ),
                         ),
                         enabledBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(10.tr),
-                          borderSide:
-                              const BorderSide(color: Color(0xFFD8D8D8)),
+                          borderRadius: BorderRadius.circular(14.tr),
+                          borderSide: BorderSide(
+                            color: Colors.white.withValues(alpha: 0.9),
+                          ),
                         ),
                         focusedBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(10.tr),
-                          borderSide:
-                              const BorderSide(color: Color(0xFFBDBDBD)),
+                          borderRadius: BorderRadius.circular(14.tr),
+                          borderSide: BorderSide(
+                            color: ApprovalsOverviewTheme.screenMid
+                                .withValues(alpha: 0.7),
+                          ),
                         ),
                       ),
                     ),
-                    SizedBox(height: 14.th),
+                    SizedBox(height: 16.th),
                     SizedBox(
                       height: 52.th,
                       width: double.infinity,
@@ -712,13 +763,15 @@ class ApprovalActionButtons extends StatelessWidget {
                             alignment: Alignment.center,
                             children: [
                               Container(
-                                height: 40.th,
-                                padding: EdgeInsets.symmetric(horizontal: 22.tw),
+                                height: 42.th,
+                                padding:
+                                    EdgeInsets.symmetric(horizontal: 20.tw),
                                 decoration: BoxDecoration(
-                                  color: Colors.white,
+                                  color: ApprovalsOverviewTheme.screenTintLight
+                                      .withValues(alpha: 0.9),
                                   borderRadius: BorderRadius.circular(22.tr),
                                   border: Border.all(
-                                    color: const Color(0xFFD6D6D6),
+                                    color: Colors.white.withValues(alpha: 0.95),
                                   ),
                                 ),
                                 child: Row(
@@ -737,7 +790,7 @@ class ApprovalActionButtons extends StatelessWidget {
                                         style: GoogleFonts.poppins(
                                           fontSize: 14.tsp,
                                           fontWeight: FontWeight.w700,
-                                          color: const Color(0xFFBA1719),
+                                          color: ApprovalsOverviewTheme.hr,
                                         ),
                                       ),
                                     ),
@@ -807,10 +860,25 @@ class ApprovalActionButtons extends StatelessWidget {
                                     height: knobSize,
                                     decoration: BoxDecoration(
                                       shape: BoxShape.circle,
-                                      color: const Color(0xFFE0E0E0),
-                                      border: Border.all(
-                                        color: const Color(0xFFCACACA),
+                                      gradient: LinearGradient(
+                                        colors: [
+                                          ApprovalsOverviewTheme.screenLight,
+                                          ApprovalsOverviewTheme.screenDeep,
+                                        ],
                                       ),
+                                      boxShadow: [
+                                        BoxShadow(
+                                          color: ApprovalsOverviewTheme.screenDeep
+                                              .withValues(alpha: 0.25),
+                                          blurRadius: 8,
+                                          offset: const Offset(0, 3),
+                                        ),
+                                      ],
+                                    ),
+                                    child: Icon(
+                                      Icons.drag_indicator_rounded,
+                                      color: Colors.white,
+                                      size: 18.tsp,
                                     ),
                                   ),
                                 ),
@@ -818,6 +886,15 @@ class ApprovalActionButtons extends StatelessWidget {
                             ],
                           );
                         },
+                      ),
+                    ),
+                    SizedBox(height: 8.th),
+                    Text(
+                      'Slide right to confirm · left to cancel',
+                      style: GoogleFonts.poppins(
+                        fontSize: 10.tsp,
+                        fontWeight: FontWeight.w500,
+                        color: ApprovalsOverviewTheme.textSoft,
                       ),
                     ),
                   ],

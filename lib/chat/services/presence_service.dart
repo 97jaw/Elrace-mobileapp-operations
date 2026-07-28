@@ -113,18 +113,25 @@ class PresenceService {
   /// Subscribe to a user's presence status (broadcast — safe for multiple listeners).
   Stream<PresenceStatus> subscribeToUserPresence(String uid) {
     return _presenceStreamCache.putIfAbsent(uid, () {
-      return _database.ref('presence/$uid').onValue.map((event) {
-        final data = event.snapshot.value as Map?;
-        if (data == null) {
-          return PresenceStatus(online: false);
-        }
-        return PresenceStatus(
-          online: data['online'] ?? false,
-          lastChanged: data['lastChanged'] != null
-              ? DateTime.fromMillisecondsSinceEpoch(data['lastChanged'] as int)
-              : null,
-        );
-      }).asBroadcastStream();
+      return _database
+          .ref('presence/$uid')
+          .onValue
+          .map((event) {
+            final data = event.snapshot.value as Map?;
+            if (data == null) {
+              return PresenceStatus(online: false);
+            }
+            return PresenceStatus(
+              online: data['online'] ?? false,
+              lastChanged: data['lastChanged'] != null
+                  ? DateTime.fromMillisecondsSinceEpoch(
+                      data['lastChanged'] as int)
+                  : null,
+            );
+          })
+          // Avoid rebuilding chat UI on duplicate RTDB emissions.
+          .distinct()
+          .asBroadcastStream();
     });
   }
 
@@ -266,6 +273,16 @@ class PresenceStatus {
 
     return '${lastChanged!.day}/${lastChanged!.month}/${lastChanged!.year}';
   }
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is PresenceStatus &&
+          online == other.online &&
+          lastChanged == other.lastChanged;
+
+  @override
+  int get hashCode => Object.hash(online, lastChanged);
 
   @override
   String toString() =>

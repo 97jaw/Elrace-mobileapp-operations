@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'package:flutter/foundation.dart' show kDebugMode;
 import 'package:flutter/material.dart';
 import 'package:flutter_jailbreak_detection/flutter_jailbreak_detection.dart';
 import 'package:safe_device/safe_device.dart';
@@ -83,14 +84,30 @@ class DeviceSecurityService {
     String? errorMessage;
 
     try {
-      // Check Root/Jailbreak
+      // Check Root/Jailbreak (bounded — flutter_jailbreak_detection can hang
+      // several seconds on some iOS devices and was the splash bottleneck).
       try {
         if (Platform.isAndroid) {
-          isRooted = await FlutterJailbreakDetection.jailbroken;
+          isRooted = await FlutterJailbreakDetection.jailbroken
+              .timeout(const Duration(milliseconds: 1200), onTimeout: () {
+            print('⚠️ Root check timeout – assuming not rooted');
+            return false;
+          });
           print('🔒 Root check: $isRooted');
         } else if (Platform.isIOS) {
-          isJailbroken = await FlutterJailbreakDetection.jailbroken;
-          print('🔒 Jailbreak check: $isJailbroken');
+          if (kDebugMode) {
+            // Debug installs are never App Store builds; skip the slow native
+            // probe so splash isn't blocked for ~5s every run.
+            print('🔒 Jailbreak check: SKIPPED in debug');
+            isJailbroken = false;
+          } else {
+            isJailbroken = await FlutterJailbreakDetection.jailbroken
+                .timeout(const Duration(milliseconds: 1200), onTimeout: () {
+              print('⚠️ Jailbreak check timeout – assuming not jailbroken');
+              return false;
+            });
+            print('🔒 Jailbreak check: $isJailbroken');
+          }
         }
       } catch (e) {
         print('⚠️ Error checking root/jailbreak: $e');

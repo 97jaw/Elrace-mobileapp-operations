@@ -27,6 +27,7 @@ class AttachmentWidget extends StatelessWidget {
         context,
         rawUrl: item.url,
         fileName: item.name,
+        attachmentId: item.id > 0 ? item.id : null,
       ),
       child: Container(
         padding: const EdgeInsets.symmetric(

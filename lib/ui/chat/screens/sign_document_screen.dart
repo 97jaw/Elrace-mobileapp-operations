@@ -11,6 +11,7 @@ import 'dart:io';
 
 import '../../../chat/chat.dart';
 import '../../presentation/my_actions/data/user_stamp_assets.dart';
+import '../theme/chat_glass_theme.dart';
 
 /// Recipient signs / stamps a document zone-by-zone.
 ///
@@ -283,15 +284,34 @@ class _SignDocumentScreenState extends State<SignDocumentScreen> {
     if (zone.page < doc.pages.count) {
       final page = doc.pages[zone.page];
       final ps = page.getClientSize();
-      final x = zone.x * ps.width;
-      final y = zone.y * ps.height;
-      final w = zone.width * ps.width;
-      final h = zone.height * ps.height;
-      page.graphics
-          .drawImage(PdfBitmap(sigImgBytes), Rect.fromLTWH(x, y, w, h));
-      page.graphics.drawRectangle(
-        pen: PdfPen(PdfColor(180, 180, 180), width: 0.5),
-        bounds: Rect.fromLTWH(x, y, w, h),
+      final boxX = zone.x * ps.width;
+      final boxY = zone.y * ps.height;
+      final boxW = zone.width * ps.width;
+      final boxH = zone.height * ps.height;
+
+      final bitmap = PdfBitmap(sigImgBytes);
+      final imgW = bitmap.width.toDouble();
+      final imgH = bitmap.height.toDouble();
+
+      // Contain inside the zone — never stretch.
+      late final double drawW;
+      late final double drawH;
+      if (imgW <= 0 || imgH <= 0) {
+        drawW = boxW;
+        drawH = boxH;
+      } else if (imgW / imgH > boxW / boxH) {
+        drawW = boxW;
+        drawH = boxW * imgH / imgW;
+      } else {
+        drawH = boxH;
+        drawW = boxH * imgW / imgH;
+      }
+      final drawX = boxX + (boxW - drawW) / 2;
+      final drawY = boxY + (boxH - drawH) / 2;
+
+      page.graphics.drawImage(
+        bitmap,
+        Rect.fromLTWH(drawX, drawY, drawW, drawH),
       );
     }
     final bytes = doc.saveSync();
@@ -339,11 +359,17 @@ class _SignDocumentScreenState extends State<SignDocumentScreen> {
       final name = widget.message.fileName ?? 'signed_document.pdf';
       final file = File('${dir.path}/$name');
       await file.writeAsBytes(_pdfBytes!);
-      if (mounted) {
-        await SharePlus.instance.share(
-          ShareParams(files: [XFile(file.path)]),
-        );
-      }
+      if (!mounted) return;
+      final box = context.findRenderObject();
+      final origin = box is RenderBox
+          ? (box.localToGlobal(Offset.zero) & box.size)
+          : const Rect.fromLTWH(1, 1, 1, 1);
+      await SharePlus.instance.share(
+        ShareParams(
+          files: [XFile(file.path)],
+          sharePositionOrigin: origin,
+        ),
+      );
     } catch (e) {
       _showError('Share failed: $e');
     }
@@ -377,7 +403,7 @@ class _SignDocumentScreenState extends State<SignDocumentScreen> {
     return Scaffold(
       backgroundColor: Colors.grey[100],
       appBar: AppBar(
-        backgroundColor: const Color(0xFF1D2449),
+        backgroundColor: ChatGlassTheme.goldDeep,
         foregroundColor: Colors.white,
         title: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -638,8 +664,8 @@ class _SignDocumentScreenState extends State<SignDocumentScreen> {
       child: ElevatedButton.icon(
         onPressed: _sending ? null : _sendSignedDocument,
         style: ElevatedButton.styleFrom(
-          backgroundColor: Colors.green,
-          foregroundColor: Colors.white,
+          backgroundColor: ChatGlassTheme.gold,
+          foregroundColor: const Color(0xFF1A1A1A),
           padding: const EdgeInsets.symmetric(vertical: 12),
           shape:
               RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
@@ -649,7 +675,7 @@ class _SignDocumentScreenState extends State<SignDocumentScreen> {
                 width: 16,
                 height: 16,
                 child: CircularProgressIndicator(
-                    strokeWidth: 2, color: Colors.white))
+                    strokeWidth: 2, color: Color(0xFF1A1A1A)))
             : const Icon(Icons.send, size: 18),
         label: Text(
           _sending ? 'Sending...' : 'Send Signed Document',
@@ -673,7 +699,7 @@ class _SignDocumentScreenState extends State<SignDocumentScreen> {
           ElevatedButton.icon(
             onPressed: _goToNextZone,
             style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF1D2449),
+              backgroundColor: ChatGlassTheme.goldDeep,
               foregroundColor: Colors.white,
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
               shape: RoundedRectangleBorder(
@@ -963,7 +989,7 @@ class _SignaturePadDialogState extends State<_SignaturePadDialog> {
         ElevatedButton(
           onPressed: _confirm,
           style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF1D2449)),
+              backgroundColor: ChatGlassTheme.goldDeep),
           child: const Text('Confirm', style: TextStyle(color: Colors.white)),
         ),
       ],

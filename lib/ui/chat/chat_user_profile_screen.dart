@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 
 import '../../chat/chat.dart';
-import '../../resources/app_colors.dart';
-import '../widgets/header_widget.dart';
+import 'theme/chat_glass_theme.dart';
+import 'widgets/blue_geometric_background.dart';
+import 'widgets/chat_shared_content_tabs.dart';
+import 'widgets/chat_top_glass_app_bar.dart';
 
 class ChatUserProfileScreen extends StatefulWidget {
   final String chatId;
@@ -44,110 +46,124 @@ class _ChatUserProfileScreenState extends State<ChatUserProfileScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppColors.primaryColor,
-      appBar: const HeaderWidget(),
-      body: SafeArea(
-        top: false,
-        child: StreamBuilder<ChatUser?>(
-          stream: UserRepository.instance.subscribeToUser(widget.peerUid),
-          builder: (context, userSnapshot) {
-            final user = userSnapshot.data;
-            _maybeHydrateMissingProfileFields(user);
-            _debugPrintProfile(userSnapshot, user);
-            return StreamBuilder<PresenceStatus>(
-              stream: PresenceService.instance
-                  .subscribeToUserPresence(widget.peerUid),
-              builder: (context, presenceSnapshot) {
-                final isOnline = presenceSnapshot.data?.online ?? false;
-                return StreamBuilder<List<Message>>(
-                  stream: ChatRepository.instance.subscribeToMessages(
-                    widget.chatId,
-                    pageSize: 200,
-                  ),
-                  builder: (context, messageSnapshot) {
-                    final mediaItems =
-                        _extractMedia(messageSnapshot.data ?? const []);
+      backgroundColor: Colors.transparent,
+      body: BlueGeometricBackground(
+        child: Column(
+          children: [
+            const ChatTopGlassAppBar(),
+            Expanded(
+              child: SafeArea(
+                top: false,
+                child: StreamBuilder<ChatUser?>(
+                  stream:
+                      UserRepository.instance.subscribeToUser(widget.peerUid),
+                  builder: (context, userSnapshot) {
+                    final user = userSnapshot.data;
+                    _maybeHydrateMissingProfileFields(user);
+                    _debugPrintProfile(userSnapshot, user);
+                    return StreamBuilder<PresenceStatus>(
+                      stream: PresenceService.instance
+                          .subscribeToUserPresence(widget.peerUid),
+                      builder: (context, presenceSnapshot) {
+                        final isOnline =
+                            presenceSnapshot.data?.online ?? false;
+                        return StreamBuilder<List<Message>>(
+                          stream: ChatRepository.instance.subscribeToMessages(
+                            widget.chatId,
+                            pageSize: 200,
+                          ),
+                          builder: (context, messageSnapshot) {
+                            final messages =
+                                messageSnapshot.data ?? const <Message>[];
 
-                    return LayoutBuilder(
-                      builder: (context, constraints) {
-                        return SingleChildScrollView(
-                          padding: const EdgeInsets.fromLTRB(10, 6, 10, 0),
-                          child: Container(
-                            clipBehavior: Clip.antiAlias,
-                            constraints: BoxConstraints(
-                              minHeight: constraints.maxHeight - 6,
-                            ),
-                            decoration: BoxDecoration(
-                              color: const Color(0xFFECECEE),
-                              borderRadius: BorderRadius.circular(30),
-                            ),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.stretch,
-                              children: [
-                                    _TopIdentityCard(
-                                      displayName: user?.name.trim().isNotEmpty == true
-                                          ? user!.name
-                                          : widget.fallbackName,
-                                      avatarUrl: user?.avatarUrl,
-                                      initials: _initials(
-                                        user?.name.trim().isNotEmpty == true
-                                            ? user!.name
-                                            : widget.fallbackName,
-                                      ),
-                                      isOnline: isOnline,
+                            return LayoutBuilder(
+                              builder: (context, constraints) {
+                                return SingleChildScrollView(
+                                  padding:
+                                      const EdgeInsets.fromLTRB(10, 6, 10, 0),
+                                  child: Container(
+                                    clipBehavior: Clip.antiAlias,
+                                    constraints: BoxConstraints(
+                                      minHeight: constraints.maxHeight - 6,
                                     ),
-                                    Padding(
-                                      padding:
-                                          const EdgeInsets.fromLTRB(22, 22, 22, 8),
-                                      child: Column(
-                                        crossAxisAlignment: CrossAxisAlignment.start,
-                                        children: [
-                                          _InfoRow(
-                                            label: 'Display Name',
-                                            value:
-                                                (user?.name.trim().isNotEmpty == true)
+                                    decoration:
+                                        ChatGlassTheme.waterCardDecoration(
+                                      borderRadius: BorderRadius.circular(30),
+                                    ),
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.stretch,
+                                      children: [
+                                        _TopIdentityCard(
+                                          displayName: user?.name
+                                                      .trim()
+                                                      .isNotEmpty ==
+                                                  true
+                                              ? user!.name
+                                              : widget.fallbackName,
+                                          avatarUrl: user?.avatarUrl,
+                                          initials: _initials(
+                                            user?.name.trim().isNotEmpty == true
+                                                ? user!.name
+                                                : widget.fallbackName,
+                                          ),
+                                          isOnline: isOnline,
+                                        ),
+                                        Padding(
+                                          padding: const EdgeInsets.fromLTRB(
+                                              22, 22, 22, 8),
+                                          child: Column(
+                                            crossAxisAlignment:
+                                                CrossAxisAlignment.start,
+                                            children: [
+                                              _InfoRow(
+                                                label: 'Display Name',
+                                                value: (user?.name
+                                                            .trim()
+                                                            .isNotEmpty ==
+                                                        true)
                                                     ? user!.name
                                                     : widget.fallbackName,
+                                              ),
+                                              _InfoRow(
+                                                label: 'Email Address',
+                                                value: _displayEmail(user),
+                                              ),
+                                              _InfoRow(
+                                                label: 'Jobtitle',
+                                                value: _resolveJobTitle(user),
+                                              ),
+                                              _InfoRow(
+                                                label: 'ID',
+                                                value: _resolveUserId(user),
+                                              ),
+                                              _InfoRow(
+                                                label: 'Phone Number',
+                                                value: _displayPhone(user),
+                                              ),
+                                            ],
                                           ),
-                                          _InfoRow(
-                                            label: 'Email Address',
-                                            value: _displayEmail(user),
-                                          ),
-                                          _InfoRow(
-                                            label: 'Jobtitle',
-                                            value: _resolveJobTitle(user),
-                                          ),
-                                          _InfoRow(
-                                            label: 'ID',
-                                            value: _resolveUserId(user),
-                                          ),
-                                          _InfoRow(
-                                            label: 'Phone Number',
-                                            value: _displayPhone(user),
-                                          ),
-                                        ],
-                                      ),
+                                        ),
+                                        ChatSharedContentTabs(
+                                          chatId: widget.chatId,
+                                          messages: messages,
+                                        ),
+                                        const SizedBox(height: 16),
+                                      ],
                                     ),
-                                    _MediaSection(
-                                      items: mediaItems,
-                                      onTapItem: (item) =>
-                                          _openMediaPreview(context, item),
-                                      onViewAll: mediaItems.isEmpty
-                                          ? null
-                                          : () => _showAllMediaBottomSheet(
-                                              context, mediaItems),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                          );
+                                  ),
+                                );
+                              },
+                            );
+                          },
+                        );
                       },
                     );
                   },
-                );
-              },
-            );
-          },
+                ),
+              ),
+            ),
+          ],
         ),
       ),
     );
@@ -343,9 +359,12 @@ class _TopIdentityCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),
-      decoration: const BoxDecoration(
-        color: AppColors.primaryColor,
-        borderRadius: BorderRadius.vertical(bottom: Radius.circular(26)),
+      decoration: BoxDecoration(
+        gradient: ChatGlassTheme.waterActiveGradient,
+        borderRadius: const BorderRadius.vertical(bottom: Radius.circular(26)),
+        border: Border(
+          bottom: BorderSide(color: Colors.white.withValues(alpha: 0.35)),
+        ),
       ),
       child: Row(
         children: [
@@ -356,7 +375,7 @@ class _TopIdentityCard extends StatelessWidget {
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
                   border:
-                      Border.all(color: const Color(0xFFE9B23A), width: 2),
+                      Border.all(color: ChatGlassTheme.avatarRing, width: 2),
                 ),
                 child: CircleAvatar(
                   radius: 28,
@@ -443,23 +462,13 @@ class _InfoRow extends StatelessWidget {
             Text(
               label,
               textAlign: TextAlign.start,
-              style: const TextStyle(
-                color: Color(0xFF8A8A8A),
-                fontSize: 12,
-                height: 1,
-                fontWeight: FontWeight.w400,
-              ),
+              style: ChatGlassTheme.muted(fontSize: 12),
             ),
             const SizedBox(height: 6),
             Text(
               value,
               textAlign: TextAlign.start,
-              style: const TextStyle(
-                color: Color(0xFF121212),
-                fontSize: 16,
-                height: 1.2,
-                fontWeight: FontWeight.w700,
-              ),
+              style: ChatGlassTheme.body(fontSize: 16, weight: FontWeight.w700),
             ),
           ],
         ),
@@ -577,7 +586,7 @@ class _MediaThumb extends StatelessWidget {
       child: Container(
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(13),
-          border: Border.all(color: const Color(0xFFE9B23A), width: 1.2),
+          border: Border.all(color: ChatGlassTheme.avatarRing, width: 1.2),
         ),
         child: ClipRRect(
           borderRadius: BorderRadius.circular(11.5),

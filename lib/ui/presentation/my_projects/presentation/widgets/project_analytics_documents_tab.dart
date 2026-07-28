@@ -160,6 +160,7 @@ class _ProjectAnalyticsDocumentsTabState
                 context,
                 rawUrl: file.url,
                 fileName: file.name,
+                attachmentId: parseProjectAttachmentId(file.id),
               );
             },
           );

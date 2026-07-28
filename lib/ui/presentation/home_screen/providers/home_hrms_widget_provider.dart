@@ -45,7 +45,7 @@ class HomeHrmsWidgetData {
     return HomeHrmsWidgetData(
       isManagerScope: false,
       headlineCount: pending,
-      headlineLabel: 'EMPLOYEES',
+      headlineLabel: 'REQUESTS',
       trendLabel: pending == 1 ? '1 pending request' : '$pending pending requests',
       departmentName: null,
       sectionName: null,
@@ -55,31 +55,54 @@ class HomeHrmsWidgetData {
 
   static HomeHrmsWidgetData? fromApiMap(Map<String, dynamic> map) {
     final scope = map['scope']?.toString() ?? 'employee';
-    final isManager = scope == 'manager' || scope == 'management';
+    final isManagement = scope == 'management';
+    final isManager = scope == 'manager';
+    final isManagerScope = isManagement || isManager;
     final direct = _readInt(map['direct_reports_count']);
     final allStaff = _readInt(map['all_staff_count']);
     final pending = _readInt(map['pending_requests_count']);
     final headlineRaw = _readInt(map['headline_count']);
-    final headline = headlineRaw > 0
-        ? headlineRaw
-        : (scope == 'management'
-            ? (allStaff > 0 ? allStaff : direct)
-            : (isManager ? direct : pending));
+
+    // Foreman / employee: never surface company headcount on the home card.
+    final login = SharedPref.getLoginDataOrNull()?.result?.data;
+    final isForeman = login?.isForeman == true ||
+        (login?.roleCapabilities?['x_is_foreman'] == true);
+    final isManagementUser = login?.isManagement == true ||
+        (login?.roleCapabilities?['x_is_management'] == true);
+    final forceEmployeeScope = isForeman && !isManagementUser;
+
+    final headline = forceEmployeeScope
+        ? pending
+        : (headlineRaw > 0
+            ? headlineRaw
+            : (isManagement
+                ? (allStaff > 0 ? allStaff : direct)
+                : (isManager ? direct : pending)));
+
+    final label = (isManagement || (isManager && !forceEmployeeScope))
+        ? 'EMPLOYEES'
+        : 'REQUESTS';
 
     return HomeHrmsWidgetData(
-      isManagerScope: isManager,
+      isManagerScope: isManagerScope && !forceEmployeeScope,
       headlineCount: headline,
-      headlineLabel: 'EMPLOYEES',
+      headlineLabel: label,
       trendLabel: map['trend_label']?.toString() ??
-          (scope == 'management'
-              ? '$headline staff company-wide'
-              : (isManager
-                  ? '$direct under your team'
-                  : (pending == 1
-                      ? '1 pending request'
-                      : pending > 0
-                          ? '$pending pending requests'
-                          : 'No pending requests'))),
+          (forceEmployeeScope
+              ? (pending == 1
+                  ? '1 pending request'
+                  : pending > 0
+                      ? '$pending pending requests'
+                      : 'No pending requests')
+              : (isManagement
+                  ? '$headline staff company-wide'
+                  : (isManager
+                      ? '$direct under your team'
+                      : (pending == 1
+                          ? '1 pending request'
+                          : pending > 0
+                              ? '$pending pending requests'
+                              : 'No pending requests')))),
       departmentName: _stringOrNull(map['department_name']),
       sectionName: _stringOrNull(map['section_name']),
       pendingRequests: pending,
@@ -89,7 +112,7 @@ class HomeHrmsWidgetData {
   static HomeHrmsWidgetData empty() => const HomeHrmsWidgetData(
         isManagerScope: false,
         headlineCount: 0,
-        headlineLabel: 'EMPLOYEES',
+        headlineLabel: 'REQUESTS',
         trendLabel: 'Workforce overview',
         departmentName: null,
         sectionName: null,
@@ -130,6 +153,31 @@ class HomeHrmsWidgetNotifier extends Notifier<HomeHrmsWidgetData> {
 }
 
 HomeHrmsWidgetData _fromHrmsRecord(HrmsWidgetRecord record) {
+  final login = SharedPref.getLoginDataOrNull()?.result?.data;
+  final isForeman = login?.isForeman == true ||
+      (login?.roleCapabilities?['x_is_foreman'] == true);
+  final isManagementUser = login?.isManagement == true ||
+      (login?.roleCapabilities?['x_is_management'] == true);
+  final forceEmployee = isForeman && !isManagementUser;
+  // Login cache may still carry a headcount for foremen; never show it.
+  if (forceEmployee || !record.isManagerScope) {
+    final pending = record.pendingRequestsCount;
+    return HomeHrmsWidgetData(
+      isManagerScope: false,
+      headlineCount: pending,
+      headlineLabel: 'REQUESTS',
+      trendLabel: pending == 1
+          ? '1 pending request'
+          : pending > 0
+              ? '$pending pending requests'
+              : (record.trendLabel.isNotEmpty
+                  ? record.trendLabel
+                  : 'No pending requests'),
+      departmentName: record.departmentName,
+      sectionName: record.sectionName,
+      pendingRequests: pending,
+    );
+  }
   return HomeHrmsWidgetData(
     isManagerScope: record.isManagerScope,
     headlineCount: record.headlineCount,

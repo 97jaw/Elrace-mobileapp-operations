@@ -179,6 +179,7 @@ flutter:
     - assets/newapp/
     - assets/newapp/newicon/
     - assets/images/clients_vendors/
+    - assets/images/business_card/
     - assets/fonts/arbicsupport.ttf
     - assets/mobilefacenet_512.tflite
     - assets/antispoof/

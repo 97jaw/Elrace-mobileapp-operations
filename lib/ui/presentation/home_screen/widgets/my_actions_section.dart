@@ -372,8 +372,9 @@ class _MyActionTile extends StatelessWidget {
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
                 colors: [
-                  tint.withValues(alpha: 0.65),
-                  tint.withValues(alpha: 0.28),
+                  tint.withValues(alpha: 0.38),
+                  Colors.white.withValues(alpha: 0.72),
+                  tint.withValues(alpha: 0.14),
                 ],
               )
             : null,
@@ -443,9 +444,12 @@ class _MyActionTile extends StatelessWidget {
               borderRadius: borderRadius,
               child: AdaptiveGlassLayer(
                 borderRadius: borderRadius,
-                sigma: 6,
-                fallbackColor: Colors.white.withValues(alpha: 0.92),
-                fallbackBorder: Border.all(color: Colors.white, width: 1.1),
+                sigma: 10,
+                fallbackColor: Colors.white.withValues(alpha: 0.97),
+                fallbackBorder: Border.all(
+                  color: Colors.white.withValues(alpha: 0.95),
+                  width: 1.2,
+                ),
                 child: Container(
                   width: tileSize,
                   height: tileSize,
@@ -453,7 +457,7 @@ class _MyActionTile extends StatelessWidget {
                     borderRadius: borderRadius,
                     boxShadow: [
                       BoxShadow(
-                        color: const Color(0xFF1B2A4A).withValues(alpha: 0.06),
+                        color: const Color(0xFF1B2A4A).withValues(alpha: 0.05),
                         blurRadius: 8,
                         offset: const Offset(0, 3),
                       ),
@@ -465,8 +469,9 @@ class _MyActionTile extends StatelessWidget {
                         begin: Alignment.topLeft,
                         end: Alignment.bottomRight,
                         colors: [
-                          tint.withValues(alpha: 0.55),
-                          tint.withValues(alpha: 0.22),
+                          Colors.white.withValues(alpha: 0.55),
+                          tint.withValues(alpha: 0.28),
+                          Colors.white.withValues(alpha: 0.35),
                         ],
                       ),
                       borderRadius: BorderRadius.circular(14.r),

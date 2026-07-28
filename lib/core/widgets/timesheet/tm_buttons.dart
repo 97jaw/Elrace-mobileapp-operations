@@ -114,11 +114,13 @@ class _TmButtonContent extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         children: [
           if (icon != null) ...[
-            Icon(icon, size: 20, color: color),
-            const SizedBox(width: 8),
+            Icon(icon, size: 18, color: color),
+            const SizedBox(width: 6),
           ],
           Text(
             label,
+            maxLines: 1,
+            softWrap: false,
             style: TimesheetModuleTypography.button(color: color),
           ),
         ],

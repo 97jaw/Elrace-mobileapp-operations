@@ -1,10 +1,9 @@
-import 'package:el_race/core/utils/responsive_breakpoints.dart';
 import 'dart:convert';
 
+import 'package:el_race/core/utils/responsive_breakpoints.dart';
 import 'package:el_race/core/utils/shared_pref.dart';
+import 'package:el_race/ui/presentation/my_documents/widgets/documents_list_tiles.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_screenutil/flutter_screenutil.dart';
-import 'package:flutter_svg/flutter_svg.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:http/http.dart' as http;
 
@@ -13,39 +12,53 @@ class CompanyDocumentsTab extends StatefulWidget {
     super.key,
     this.onAddDocument,
     this.onOpenDocument,
+    this.rootTitle = 'Company Documents',
+    this.onDrillChanged,
   });
 
   final VoidCallback? onAddDocument;
   final Future<void> Function(Map<String, dynamic> document)? onOpenDocument;
+  final String rootTitle;
+  final DocumentsDrillChanged? onDrillChanged;
 
   @override
   State<CompanyDocumentsTab> createState() => _CompanyDocumentsTabState();
 }
 
 class _CompanyDocumentsTabState extends State<CompanyDocumentsTab> {
-  final PageController _foldersPageController =
-      PageController(viewportFraction: 0.82);
-
   bool _isLoading = false;
   bool _isLoadingFolderContents = false;
   String? _error;
+  String? _folderOpenError;
 
   List<_CompanyFolder> _folders = const [];
-  int _currentFolderPage = 0;
-
   _CompanyFolder? _selectedFolder;
   List<_CompanyAttachment> _selectedFolderAttachments = const [];
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      _notifyDrill();
+    });
     _fetchCompanyFolders();
   }
 
   @override
   void dispose() {
-    _foldersPageController.dispose();
+    // Avoid parent setState during deactivate/dispose.
     super.dispose();
+  }
+
+  void _notifyDrill() {
+    final folder = _selectedFolder;
+    final title = folder?.name ?? widget.rootTitle;
+    final exit = folder == null ? null : _goBackToFolders;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      widget.onDrillChanged?.call(title, exit);
+    });
   }
 
   String _normalizeToken(dynamic value) {
@@ -93,9 +106,11 @@ class _CompanyDocumentsTabState extends State<CompanyDocumentsTab> {
     setState(() {
       _isLoading = true;
       _error = null;
+      _folderOpenError = null;
       _selectedFolder = null;
       _selectedFolderAttachments = const [];
     });
+    _notifyDrill();
 
     try {
       final token = SharedPref.getLoginData().result?.token ?? '';
@@ -112,7 +127,6 @@ class _CompanyDocumentsTabState extends State<CompanyDocumentsTab> {
 
       var response = await _sendJsonRpcGet(url, headers, <String, dynamic>{});
 
-      // Some environments reject GET with body; fallback to plain GET.
       if (response.statusCode == 400 ||
           response.statusCode == 404 ||
           response.statusCode == 405) {
@@ -162,9 +176,6 @@ class _CompanyDocumentsTabState extends State<CompanyDocumentsTab> {
       if (!mounted) return;
       setState(() {
         _folders = mapped;
-        if (_currentFolderPage >= _folders.length) {
-          _currentFolderPage = _folders.isEmpty ? 0 : _folders.length - 1;
-        }
       });
     } catch (e) {
       if (!mounted) return;
@@ -184,8 +195,12 @@ class _CompanyDocumentsTabState extends State<CompanyDocumentsTab> {
     if (!mounted) return;
     setState(() {
       _isLoadingFolderContents = true;
+      _folderOpenError = null;
       _error = null;
+      _selectedFolder = folder;
+      _selectedFolderAttachments = const [];
     });
+    _notifyDrill();
 
     try {
       final token = SharedPref.getLoginData().result?.token ?? '';
@@ -245,13 +260,12 @@ class _CompanyDocumentsTabState extends State<CompanyDocumentsTab> {
 
       if (!mounted) return;
       setState(() {
-        _selectedFolder = folder;
         _selectedFolderAttachments = attachments;
       });
     } catch (e) {
       if (!mounted) return;
       setState(() {
-        _error = e.toString();
+        _folderOpenError = e.toString();
       });
     } finally {
       if (mounted) {
@@ -275,8 +289,10 @@ class _CompanyDocumentsTabState extends State<CompanyDocumentsTab> {
     setState(() {
       _selectedFolder = null;
       _selectedFolderAttachments = const [];
+      _folderOpenError = null;
       _error = null;
     });
+    _notifyDrill();
   }
 
   Future<void> _openAttachment(_CompanyAttachment attachment) async {
@@ -295,36 +311,10 @@ class _CompanyDocumentsTabState extends State<CompanyDocumentsTab> {
     await callback(map);
   }
 
-  Widget _buildTopFoldersHeader() {
-    return Padding(
-      padding: EdgeInsets.only(left: 22.tw, right: 22.tw, top: 8.th, bottom: 6.th),
-      child: Row(
-        children: [
-          Text(
-            'Folders no ${_folders.length}',
-            style: GoogleFonts.poppins(
-              fontSize: 13.tsp,
-              fontWeight: FontWeight.w500,
-              color: const Color(0xFF7A7A7A),
-              letterSpacing: 1.5,
-            ),
-          ),
-          const Spacer(),
-          IconButton(
-            onPressed: _isLoading ? null : _fetchCompanyFolders,
-            icon: const Icon(Icons.refresh_rounded),
-            color: const Color(0xFF27304E),
-            tooltip: 'Refresh',
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildFoldersPager() {
+  Widget _buildFoldersList() {
     if (_folders.isEmpty) {
       return Padding(
-        padding: EdgeInsets.symmetric(vertical: 26.th),
+        padding: EdgeInsets.symmetric(vertical: 40.th),
         child: Column(
           children: [
             Icon(
@@ -356,330 +346,221 @@ class _CompanyDocumentsTabState extends State<CompanyDocumentsTab> {
       );
     }
 
-    return SizedBox(
-      height: 250.th,
-      child: PageView.builder(
-        controller: _foldersPageController,
-        itemCount: _folders.length,
-        onPageChanged: (index) {
-          if (!mounted) return;
-          setState(() {
-            _currentFolderPage = index;
-          });
-        },
-        itemBuilder: (context, index) {
-          final folder = _folders[index];
-          return Padding(
-            padding: EdgeInsets.symmetric(horizontal: 8.tw),
-            child: GestureDetector(
-              onTap:
-                  _isLoadingFolderContents ? null : () => _openFolder(folder),
-              child: Stack(
-                children: [
-                  Positioned.fill(
-                    child: SvgPicture.asset(
-                      'assets/newapp/company_document_tab_folder.svg',
-                      fit: BoxFit.contain,
-                    ),
-                  ),
-                  Positioned(
-                    top: 20.th,
-                    right: 34.tw,
-                    child: ConstrainedBox(
-                      constraints: BoxConstraints(maxWidth: 140.tw),
-                      child: Text(
-                        folder.name,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        textAlign: TextAlign.right,
-                        style: GoogleFonts.poppins(
-                          fontSize: 16.tsp,
-                          fontWeight: FontWeight.w700,
-                          color: Colors.white,
-                          letterSpacing: 1.0,
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          );
-        },
-      ),
-    );
-  }
-
-  Widget _buildNoOfFilesCard() {
-    final totalFiles = _folders.isEmpty ? 0 : _totalFilesAcrossFolders;
-
-    return Padding(
-      padding: EdgeInsets.symmetric(horizontal: 0.tw, vertical: 4.th),
-      child: SizedBox(
-        height: 360.th,
-        child: LayoutBuilder(
-          builder: (context, constraints) {
-            final bubbleLeft = constraints.maxWidth * 0.60;
-            final bubbleTop = constraints.maxHeight * 0.72;
-            final bubbleSize = constraints.maxWidth * 0.15;
-
-            return Stack(
-              children: [
-                Positioned.fill(
-                  child: Image.asset(
-                    'assets/newapp/company_documents_no_of_file.png',
-                    fit: BoxFit.contain,
-                  ),
-                ),
-                Positioned(
-                  left: bubbleLeft,
-                  top: bubbleTop,
-                  width: bubbleSize,
-                  height: bubbleSize,
-                  child: Center(
-                    child: FittedBox(
-                      fit: BoxFit.scaleDown,
-                      child: Text(
-                        totalFiles.toString(),
-                        style: GoogleFonts.poppins(
-                          fontSize: 30.tsp,
-                          fontWeight: FontWeight.w700,
-                          color: Colors.white,
-                          height: 1,
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-              ],
-            );
-          },
-        ),
-      ),
+    return Column(
+      children: [
+        for (var i = 0; i < _folders.length; i++) ...[
+          if (i > 0) SizedBox(height: 10.th),
+          DocumentsFolderTile(
+            title: _folders[i].name,
+            fileCount: _folders[i].totalFiles,
+            onTap: () {
+              if (_isLoadingFolderContents) return;
+              _openFolder(_folders[i]);
+            },
+          ),
+        ],
+      ],
     );
   }
 
   Widget _buildFolderContents() {
-    final folder = _selectedFolder;
-    if (folder == null) return const SizedBox.shrink();
+    if (_isLoadingFolderContents) {
+      return const Center(child: CircularProgressIndicator());
+    }
 
-    return Column(
-      children: [
-        Padding(
-          padding:
-              EdgeInsets.only(left: 10.tw, right: 12.tw, top: 6.th, bottom: 6.th),
-          child: Row(
+    if (_folderOpenError != null) {
+      return Center(
+        child: Padding(
+          padding: EdgeInsets.symmetric(horizontal: 20.tw),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
             children: [
-              IconButton(
-                onPressed: _goBackToFolders,
-                icon: const Icon(Icons.arrow_back_ios_new_rounded),
-                color: const Color(0xFF27304E),
+              Icon(
+                Icons.cloud_off_rounded,
+                size: 44.tsp,
+                color: const Color(0xFFBA1719),
               ),
-              Expanded(
-                child: Text(
-                  folder.name,
-                  textAlign: TextAlign.center,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: GoogleFonts.poppins(
-                    fontSize: 16.tsp,
-                    fontWeight: FontWeight.w700,
-                    color: const Color(0xFF1D2445),
-                    letterSpacing: 1.0,
-                  ),
+              SizedBox(height: 12.th),
+              Text(
+                'Couldn’t load folder files',
+                textAlign: TextAlign.center,
+                style: GoogleFonts.poppins(
+                  fontSize: 14.tsp,
+                  fontWeight: FontWeight.w700,
+                  color: const Color(0xFF3B4352),
                 ),
               ),
-              SizedBox(width: 40.tw),
+              SizedBox(height: 6.th),
+              Text(
+                _folderOpenError!,
+                textAlign: TextAlign.center,
+                style: GoogleFonts.poppins(
+                  color: const Color(0xFF7B8290),
+                  fontSize: 12.tsp,
+                ),
+              ),
+              SizedBox(height: 14.th),
+              OutlinedButton(
+                onPressed: _selectedFolder == null
+                    ? null
+                    : () => _openFolder(_selectedFolder!),
+                child: const Text('Retry'),
+              ),
             ],
           ),
         ),
-        if (_isLoadingFolderContents)
-          const Expanded(
-            child: Center(child: CircularProgressIndicator()),
-          )
-        else if (_selectedFolderAttachments.isEmpty)
-          Expanded(
-            child: Center(
-              child: Text(
+      );
+    }
+
+    if (_selectedFolderAttachments.isEmpty) {
+      return Center(
+        child: Padding(
+          padding: EdgeInsets.symmetric(horizontal: 24.tw),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                Icons.insert_drive_file_outlined,
+                size: 42.tsp,
+                color: const Color(0xFF98A0AE),
+              ),
+              SizedBox(height: 10.th),
+              Text(
                 'No files in this folder',
                 style: GoogleFonts.poppins(
-                  fontSize: 13.tsp,
-                  fontWeight: FontWeight.w500,
-                  color: const Color(0xFF7A7A7A),
+                  fontSize: 14.tsp,
+                  fontWeight: FontWeight.w700,
+                  color: const Color(0xFF3B4352),
                 ),
               ),
-            ),
-          )
-        else
-          Expanded(
-            child: Column(
-              children: [
-                Padding(
-                  padding:
-                      EdgeInsets.only(left: 28.tw, right: 18.tw, bottom: 8.th),
-                  child: Row(
-                    children: [
-                      Text(
-                        'No of files ${_selectedFolderAttachments.length}',
-                        style: GoogleFonts.poppins(
-                          fontSize: 16.tsp,
-                          fontWeight: FontWeight.w500,
-                          color: const Color(0xFF808080),
-                        ),
-                      ),
-                    ],
-                  ),
+              SizedBox(height: 6.th),
+              Text(
+                'Files added to this operating unit will show up here.',
+                textAlign: TextAlign.center,
+                style: GoogleFonts.poppins(
+                  fontSize: 12.tsp,
+                  fontWeight: FontWeight.w500,
+                  color: const Color(0xFF7B8290),
                 ),
-                Expanded(
-                  child: GridView.builder(
-                    padding:
-                        EdgeInsets.symmetric(horizontal: 22.tw, vertical: 4.th),
-                    itemCount: _selectedFolderAttachments.length,
-                    gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                      crossAxisCount: 2,
-                      crossAxisSpacing: 20.tw,
-                      mainAxisSpacing: 18.th,
-                      mainAxisExtent: 178.th,
-                    ),
-                    itemBuilder: (context, index) {
-                      final item = _selectedFolderAttachments[index];
-                      return InkWell(
-                        borderRadius: BorderRadius.circular(12.tr),
-                        onTap: () => _openAttachment(item),
-                        child: Column(
-                          children: [
-                            SizedBox(
-                              width: 92.tw,
-                              height: 92.tw,
-                              child: Image.asset(
-                                'assets/newapp/pdf.png',
-                                fit: BoxFit.contain,
-                              ),
-                            ),
-                            SizedBox(height: 8.th),
-                            Text(
-                              item.name,
-                              textAlign: TextAlign.center,
-                              maxLines: 2,
-                              overflow: TextOverflow.ellipsis,
-                              style: GoogleFonts.poppins(
-                                fontSize: 15.tsp,
-                                fontWeight: FontWeight.w500,
-                                color: const Color(0xFF111111),
-                                letterSpacing: 0.4,
-                              ),
-                            ),
-                          ],
-                        ),
-                      );
-                    },
-                  ),
-                ),
-              ],
-            ),
+              ),
+            ],
           ),
-      ],
+        ),
+      );
+    }
+
+    return ListView.separated(
+      physics: const BouncingScrollPhysics(),
+      padding: EdgeInsets.only(top: 4.th, bottom: 12.th),
+      itemCount: _selectedFolderAttachments.length + 1,
+      separatorBuilder: (_, __) => SizedBox(height: 10.th),
+      itemBuilder: (context, index) {
+        if (index == 0) {
+          return DocumentsSectionHeader(
+            title: 'Files',
+            subtitle:
+                '${_selectedFolderAttachments.length} file${_selectedFolderAttachments.length == 1 ? '' : 's'}',
+          );
+        }
+        final item = _selectedFolderAttachments[index - 1];
+        return DocumentsFileRow(
+          fileName: item.name,
+          updatedLabel: item.createdAt.isEmpty ? null : item.createdAt,
+          onTap: () => _openAttachment(item),
+        );
+      },
     );
   }
 
   @override
   Widget build(BuildContext context) {
-    return WillPopScope(
-      onWillPop: () async {
-        if (_selectedFolder != null) {
-          _goBackToFolders();
-          return false;
-        }
-        return true;
-      },
-      child: Builder(
-        builder: (context) {
-          if (_isLoading && _folders.isEmpty) {
-            return const Center(child: CircularProgressIndicator());
-          }
+    if (_isLoading && _folders.isEmpty) {
+      return const Center(child: CircularProgressIndicator());
+    }
 
-          if (_error != null && _folders.isEmpty) {
-            return Center(
-              child: Padding(
-                padding: EdgeInsets.symmetric(horizontal: 20.tw),
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Text(
-                      _error!,
-                      textAlign: TextAlign.center,
-                      style: GoogleFonts.poppins(
-                        color: const Color(0xFFBA1719),
-                        fontSize: 12.tsp,
-                      ),
-                    ),
-                    SizedBox(height: 12.th),
-                    OutlinedButton(
-                      onPressed: _fetchCompanyFolders,
-                      child: const Text('Retry'),
-                    ),
-                  ],
-                ),
-              ),
-            );
-          }
-
-          if (_selectedFolder != null) {
-            return _buildFolderContents();
-          }
-
-          return Stack(
+    if (_error != null && _folders.isEmpty) {
+      return Center(
+        child: Padding(
+          padding: EdgeInsets.symmetric(horizontal: 20.tw),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              ListView(
-                padding: EdgeInsets.only(top: 6.th, bottom: 8.th),
-                children: [
-                  _buildTopFoldersHeader(),
-                  _buildFoldersPager(),
-                  _buildNoOfFilesCard(),
-                ],
+              Icon(
+                Icons.cloud_off_rounded,
+                size: 44.tsp,
+                color: const Color(0xFFBA1719),
               ),
-              if (_isLoadingFolderContents)
-                Positioned.fill(
-                  child: AbsorbPointer(
-                    child: Container(
-                      color: Colors.black.withValues(alpha: 0.12),
-                      child: Center(
-                        child: Container(
-                          padding: EdgeInsets.symmetric(
-                              horizontal: 16.tw, vertical: 12.th),
-                          decoration: BoxDecoration(
-                            color: Colors.white,
-                            borderRadius: BorderRadius.circular(14.tr),
-                          ),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              const SizedBox(
-                                width: 22,
-                                height: 22,
-                                child:
-                                    CircularProgressIndicator(strokeWidth: 2.6),
-                              ),
-                              SizedBox(width: 10.tw),
-                              Text(
-                                'Loading folder files...',
-                                style: GoogleFonts.poppins(
-                                  fontSize: 12.tsp,
-                                  fontWeight: FontWeight.w500,
-                                  color: const Color(0xFF27304E),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
+              SizedBox(height: 12.th),
+              Text(
+                'Couldn’t load company documents',
+                textAlign: TextAlign.center,
+                style: GoogleFonts.poppins(
+                  fontSize: 14.tsp,
+                  fontWeight: FontWeight.w700,
+                  color: const Color(0xFF3B4352),
                 ),
+              ),
+              SizedBox(height: 6.th),
+              Text(
+                _error!,
+                textAlign: TextAlign.center,
+                style: GoogleFonts.poppins(
+                  color: const Color(0xFF7B8290),
+                  fontSize: 12.tsp,
+                ),
+              ),
+              SizedBox(height: 14.th),
+              OutlinedButton(
+                onPressed: _fetchCompanyFolders,
+                child: const Text('Retry'),
+              ),
             ],
-          );
-        },
-      ),
+          ),
+        ),
+      );
+    }
+
+    if (_selectedFolder != null) {
+      return _buildFolderContents();
+    }
+
+    return Stack(
+      children: [
+        ListView(
+          physics: const BouncingScrollPhysics(),
+          padding: EdgeInsets.only(top: 4.th, bottom: 12.th),
+          children: [
+            DocumentsSectionHeader(
+              title: 'Folders',
+              subtitle: _folders.isEmpty
+                  ? 'No folders available'
+                  : '${_folders.length} folder${_folders.length == 1 ? '' : 's'} · $_totalFilesAcrossFolders files',
+              trailing: IconButton(
+                onPressed: _isLoading ? null : _fetchCompanyFolders,
+                icon: _isLoading
+                    ? SizedBox(
+                        width: 18.tw,
+                        height: 18.tw,
+                        child: const CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Icon(Icons.refresh_rounded),
+                color: const Color(0xFF27304E),
+                tooltip: 'Refresh',
+              ),
+            ),
+            _buildFoldersList(),
+          ],
+        ),
+        if (_isLoadingFolderContents)
+          Positioned.fill(
+            child: AbsorbPointer(
+              child: Container(
+                color: Colors.black.withValues(alpha: 0.08),
+                child: const Center(child: CircularProgressIndicator()),
+              ),
+            ),
+          ),
+      ],
     );
   }
 }

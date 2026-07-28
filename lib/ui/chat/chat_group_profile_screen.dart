@@ -1,13 +1,18 @@
+import 'dart:async';
+
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:el_race/ui/chat/theme/chat_glass_theme.dart';
+import 'package:el_race/ui/chat/widgets/blue_geometric_background.dart';
+import 'package:el_race/ui/chat/widgets/chat_glass_button.dart';
+import 'package:el_race/ui/chat/widgets/chat_top_glass_app_bar.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
 import '../../chat/chat.dart';
-import '../../resources/app_colors.dart';
-import '../widgets/header_widget.dart';
+import 'widgets/chat_shared_content_tabs.dart';
 
-/// Profile screen for group / support chats.
-/// Same visual design as ChatUserProfileScreen but shows
-/// group info + member list + shared media.
+/// Profile screen for group / support chats with shared content tabs
+/// and (for editable groups) add / remove / leave member actions.
 class ChatGroupProfileScreen extends StatefulWidget {
   final String chatId;
   final String title;
@@ -27,17 +32,22 @@ class ChatGroupProfileScreen extends StatefulWidget {
 }
 
 class _ChatGroupProfileScreenState extends State<ChatGroupProfileScreen> {
-  // Hoisted out of build() (was constructed inline in a FutureBuilder,
-  // re-firing getChatMembers/getUsersByIds on every rebuild). Combined into
-  // one future since the second call depends on the first's result. Per
-  // FIX_IMPLEMENTATION_PLAN.md Phase 5.2.
-  late final Future<({List<ChatMember> members, List<ChatUser> users})>
+  late Future<({List<ChatMember> members, List<ChatUser> users})>
       _membersAndUsersFuture;
+  final String? _currentUid = FirebaseAuth.instance.currentUser?.uid;
+
+  bool get _canManage =>
+      ChatRepository.instance.canManageMembers(widget.chatType);
 
   @override
   void initState() {
     super.initState();
+    _reloadMembers();
+  }
+
+  void _reloadMembers() {
     _membersAndUsersFuture = _loadMembersAndUsers();
+    ChatRepository.instance.ensureGroupHasAdmin(widget.chatId);
   }
 
   Future<({List<ChatMember> members, List<ChatUser> users})>
@@ -50,99 +60,236 @@ class _ChatGroupProfileScreenState extends State<ChatGroupProfileScreen> {
     return (members: members, users: users);
   }
 
+  Future<void> _addMembers() async {
+    final current = await _membersAndUsersFuture;
+    if (!mounted) return;
+    final picked = await showModalBottomSheet<List<ChatUser>>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: const Color(0xFF1A1A1A),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(18)),
+      ),
+      builder: (ctx) => _AddMembersSheet(
+        excludeUids: current.members.map((m) => m.uid).toSet(),
+      ),
+    );
+    if (picked == null || picked.isEmpty || !mounted) return;
+
+    try {
+      await ChatRepository.instance.addMembers(
+        widget.chatId,
+        picked.map((u) => u.uid).toList(),
+      );
+      if (!mounted) return;
+      setState(_reloadMembers);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Added ${picked.length} member(s)')),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to add members: $e')),
+      );
+    }
+  }
+
+  Future<void> _removeMember(ChatMember member, String name) async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: const Color(0xFF1A2438),
+        title: Text('Remove member', style: ChatGlassTheme.title(fontSize: 18)),
+        content: Text(
+          'Remove $name from this group?',
+          style: ChatGlassTheme.body(),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: Text('Cancel', style: ChatGlassTheme.muted()),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: Text('Remove', style: ChatGlassTheme.accent()),
+          ),
+        ],
+      ),
+    );
+    if (ok != true) return;
+    try {
+      await ChatRepository.instance.removeMember(widget.chatId, member.uid);
+      if (!mounted) return;
+      setState(_reloadMembers);
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to remove: $e')),
+      );
+    }
+  }
+
+  Future<void> _leaveGroup() async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: const Color(0xFF1A2438),
+        title: Text('Exit group', style: ChatGlassTheme.title(fontSize: 18)),
+        content: Text(
+          'Are you sure you want to leave this group?',
+          style: ChatGlassTheme.body(),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: Text('Cancel', style: ChatGlassTheme.muted()),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: Text('Exit', style: ChatGlassTheme.accent()),
+          ),
+        ],
+      ),
+    );
+    if (ok != true) return;
+    try {
+      await ChatRepository.instance.leaveGroup(widget.chatId);
+      if (!mounted) return;
+      Navigator.of(context).popUntil((route) => route.isFirst);
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to leave: $e')),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final title = widget.title;
     final chatType = widget.chatType;
     final supportGroupTitle = widget.supportGroupTitle;
+
     return Scaffold(
-      backgroundColor: AppColors.primaryColor,
-      appBar: const HeaderWidget(),
-      body: SafeArea(
-        top: false,
-        child:
-            FutureBuilder<({List<ChatMember> members, List<ChatUser> users})>(
-          future: _membersAndUsersFuture,
-          builder: (context, snap) {
-            final members = snap.data?.members ?? const <ChatMember>[];
-            final users = snap.data?.users ?? const <ChatUser>[];
-            final userMap = {for (final u in users) u.uid: u};
+      backgroundColor: Colors.transparent,
+      body: BlueGeometricBackground(
+        child: Column(
+          children: [
+            const ChatTopGlassAppBar(),
+            Expanded(
+              child: SafeArea(
+                top: false,
+                child: FutureBuilder<
+                    ({List<ChatMember> members, List<ChatUser> users})>(
+                  future: _membersAndUsersFuture,
+                  builder: (context, snap) {
+                    final members =
+                        snap.data?.members ?? const <ChatMember>[];
+                    final users = snap.data?.users ?? const <ChatUser>[];
+                    final userMap = {for (final u in users) u.uid: u};
+                    final amAdmin = members.any(
+                          (m) => m.uid == _currentUid && m.isAdmin,
+                        ) ||
+                        members.every((m) => !m.isAdmin);
 
-            return StreamBuilder<List<Message>>(
-              stream: ChatRepository.instance.subscribeToMessages(
-                widget.chatId,
-                pageSize: 200,
-              ),
-              builder: (context, messageSnapshot) {
-                final mediaItems =
-                    _extractMedia(messageSnapshot.data ?? const []);
+                    return StreamBuilder<List<Message>>(
+                      stream: ChatRepository.instance.subscribeToMessages(
+                        widget.chatId,
+                        pageSize: 200,
+                      ),
+                      builder: (context, messageSnapshot) {
+                        final messages =
+                            messageSnapshot.data ?? const <Message>[];
 
-                return SingleChildScrollView(
-                  padding: const EdgeInsets.fromLTRB(14, 8, 14, 22),
-                  child: Container(
-                    clipBehavior: Clip.antiAlias,
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFF4F4F4),
-                      borderRadius: BorderRadius.circular(24),
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        _GroupIdentityCard(
-                          title: title,
-                          subtitle: chatType == ChatType.support
-                              ? 'Support Group'
-                              : 'Group Chat',
-                          memberCount: members.length,
-                          chatType: chatType,
-                        ),
-                        // Group info section
-                        Padding(
-                          padding: const EdgeInsets.fromLTRB(18, 16, 18, 6),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              _InfoRow(
-                                label: 'Group Name',
-                                value: title,
-                              ),
-                              _InfoRow(
-                                label: 'Type',
-                                value: _chatTypeLabel(chatType),
-                              ),
-                              _InfoRow(
-                                label: 'Members',
-                                value: '${members.length} members',
-                              ),
-                              if (supportGroupTitle != null)
-                                _InfoRow(
-                                  label: 'Department',
-                                  value: supportGroupTitle!,
+                        return SingleChildScrollView(
+                          padding: const EdgeInsets.fromLTRB(14, 8, 14, 22),
+                          child: Container(
+                            clipBehavior: Clip.antiAlias,
+                            decoration: ChatGlassTheme.waterCardDecoration(
+                              borderRadius: BorderRadius.circular(24),
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.stretch,
+                              children: [
+                                _GroupIdentityCard(
+                                  title: title,
+                                  subtitle: chatType == ChatType.support
+                                      ? 'Support Group'
+                                      : 'Group Chat',
+                                  memberCount: members.length,
+                                  chatType: chatType,
                                 ),
-                            ],
+                                Padding(
+                                  padding:
+                                      const EdgeInsets.fromLTRB(18, 16, 18, 6),
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      _InfoRow(
+                                          label: 'Group Name', value: title),
+                                      _InfoRow(
+                                        label: 'Type',
+                                        value: _chatTypeLabel(chatType),
+                                      ),
+                                      _InfoRow(
+                                        label: 'Members',
+                                        value: '${members.length} members',
+                                      ),
+                                      if (supportGroupTitle != null)
+                                        _InfoRow(
+                                          label: 'Department',
+                                          value: supportGroupTitle,
+                                        ),
+                                    ],
+                                  ),
+                                ),
+                                if (_canManage && amAdmin)
+                                  Padding(
+                                    padding: const EdgeInsets.fromLTRB(
+                                        18, 0, 18, 8),
+                                    child: ChatGlassButton(
+                                      label: 'Add members',
+                                      icon: Icons.person_add_alt_1,
+                                      variant: ChatGlassButtonVariant.gold,
+                                      expand: true,
+                                      onPressed: _addMembers,
+                                    ),
+                                  ),
+                                _MembersSection(
+                                  members: members,
+                                  userMap: userMap,
+                                  currentUid: _currentUid,
+                                  canManage: _canManage && amAdmin,
+                                  onRemove: _removeMember,
+                                ),
+                                ChatSharedContentTabs(
+                                  chatId: widget.chatId,
+                                  messages: messages,
+                                ),
+                                if (_canManage)
+                                  Padding(
+                                    padding: const EdgeInsets.fromLTRB(
+                                        18, 8, 18, 18),
+                                    child: ChatGlassButton(
+                                      label: 'Exit group',
+                                      icon: Icons.logout,
+                                      variant: ChatGlassButtonVariant.silver,
+                                      expand: true,
+                                      onPressed: _leaveGroup,
+                                    ),
+                                  ),
+                              ],
+                            ),
                           ),
-                        ),
-                        // Members list
-                        _MembersSection(
-                          members: members,
-                          userMap: userMap,
-                        ),
-                        // Media section
-                        _MediaSection(
-                          items: mediaItems,
-                          onTapItem: (item) => _openMediaPreview(context, item),
-                          onViewAll: mediaItems.isEmpty
-                              ? null
-                              : () =>
-                                  _showAllMediaBottomSheet(context, mediaItems),
-                        ),
-                      ],
-                    ),
-                  ),
-                );
-              },
-            );
-          },
+                        );
+                      },
+                    );
+                  },
+                ),
+              ),
+            ),
+          ],
         ),
       ),
     );
@@ -160,112 +307,171 @@ class _ChatGroupProfileScreenState extends State<ChatGroupProfileScreen> {
         return 'Support Group';
     }
   }
+}
 
-  static List<_SharedMediaItem> _extractMedia(List<Message> messages) {
-    final items = <_SharedMediaItem>[];
-    for (final message in messages) {
-      final url = (message.mediaUrl ?? '').trim();
-      if (url.isEmpty) continue;
-      if (message.type == MessageType.image) {
-        items.add(_SharedMediaItem(
-          type: MessageType.image,
-          url: url,
-          thumbUrl: message.thumbUrl,
-        ));
-      } else if (message.type == MessageType.video) {
-        items.add(_SharedMediaItem(
-          type: MessageType.video,
-          url: url,
-          thumbUrl: message.thumbUrl,
-        ));
-      }
-    }
-    return items;
+class _AddMembersSheet extends StatefulWidget {
+  const _AddMembersSheet({required this.excludeUids});
+
+  final Set<String> excludeUids;
+
+  @override
+  State<_AddMembersSheet> createState() => _AddMembersSheetState();
+}
+
+class _AddMembersSheetState extends State<_AddMembersSheet> {
+  final _controller = TextEditingController();
+  final _selected = <String, ChatUser>{};
+  List<ChatUser> _results = [];
+  bool _searching = false;
+  Timer? _debounce;
+
+  @override
+  void dispose() {
+    _debounce?.cancel();
+    _controller.dispose();
+    super.dispose();
   }
 
-  static void _openMediaPreview(BuildContext context, _SharedMediaItem item) {
-    showDialog(
-      context: context,
-      builder: (_) => Dialog(
-        backgroundColor: Colors.transparent,
-        insetPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 32),
-        child: Stack(
+  void _onQueryChanged(String q) {
+    _debounce?.cancel();
+    _debounce = Timer(const Duration(milliseconds: 350), () async {
+      if (q.trim().length < 2) {
+        setState(() {
+          _results = [];
+          _searching = false;
+        });
+        return;
+      }
+      setState(() => _searching = true);
+      try {
+        final result =
+            await UserRepository.instance.searchUsers(query: q.trim());
+        if (!mounted) return;
+        setState(() {
+          _results = result.users
+              .where((u) => !widget.excludeUids.contains(u.uid))
+              .toList();
+          _searching = false;
+        });
+      } catch (_) {
+        if (!mounted) return;
+        setState(() {
+          _results = [];
+          _searching = false;
+        });
+      }
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final bottom = MediaQuery.of(context).viewInsets.bottom;
+    return Padding(
+      padding: EdgeInsets.only(bottom: bottom),
+      child: SizedBox(
+        height: MediaQuery.of(context).size.height * 0.7,
+        child: Column(
           children: [
-            ClipRRect(
-              borderRadius: BorderRadius.circular(16),
-              child: AspectRatio(
-                aspectRatio: 0.78,
-                child: Container(
-                  color: Colors.black,
-                  child: CachedNetworkImage(
-                    imageUrl: item.displayUrl,
-                    fit: BoxFit.contain,
-                    errorWidget: (_, __, ___) => const Center(
-                      child: Icon(Icons.broken_image_outlined,
-                          color: Colors.white70, size: 38),
+            const SizedBox(height: 10),
+            Container(
+              width: 42,
+              height: 4,
+              decoration: BoxDecoration(
+                color: Colors.grey.shade300,
+                borderRadius: BorderRadius.circular(99),
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 14, 16, 8),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      'Add members',
+                      style: ChatGlassTheme.title(fontSize: 18),
                     ),
+                  ),
+                  ChatGlassButton(
+                    label: 'Add (${_selected.length})',
+                    variant: ChatGlassButtonVariant.gold,
+                    fontSize: 13,
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 14, vertical: 8),
+                    onPressed: _selected.isEmpty
+                        ? null
+                        : () =>
+                            Navigator.pop(context, _selected.values.toList()),
+                  ),
+                ],
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: TextField(
+                controller: _controller,
+                onChanged: _onQueryChanged,
+                style: ChatGlassTheme.body(),
+                cursorColor: ChatGlassTheme.gold,
+                decoration: InputDecoration(
+                  hintText: 'Search users',
+                  hintStyle: ChatGlassTheme.muted(),
+                  prefixIcon: const Icon(Icons.search,
+                      color: ChatGlassTheme.textSecondary),
+                  filled: true,
+                  fillColor: Colors.white.withValues(alpha: 0.08),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide.none,
                   ),
                 ),
               ),
             ),
-            if (item.type == MessageType.video)
-              const Positioned.fill(
-                child: Center(
-                  child: CircleAvatar(
-                    radius: 26,
-                    backgroundColor: Color(0x77000000),
-                    child: Icon(Icons.play_arrow_rounded,
-                        color: Colors.white, size: 34),
-                  ),
-                ),
+            if (_searching)
+              const Padding(
+                padding: EdgeInsets.all(16),
+                child: CircularProgressIndicator(strokeWidth: 2),
               ),
+            Expanded(
+              child: ListView.builder(
+                itemCount: _results.length,
+                itemBuilder: (context, index) {
+                  final user = _results[index];
+                  final checked = _selected.containsKey(user.uid);
+                  return CheckboxListTile(
+                    value: checked,
+                    activeColor: ChatGlassTheme.gold,
+                    checkColor: const Color(0xFF1A1A1A),
+                    onChanged: (v) {
+                      setState(() {
+                        if (v == true) {
+                          _selected[user.uid] = user;
+                        } else {
+                          _selected.remove(user.uid);
+                        }
+                      });
+                    },
+                    title: Text(user.name, style: ChatGlassTheme.body()),
+                    subtitle:
+                        Text(user.email ?? '', style: ChatGlassTheme.muted()),
+                    secondary: CircleAvatar(
+                      backgroundColor: Colors.white.withValues(alpha: 0.12),
+                      child: Text(
+                        user.name.isNotEmpty
+                            ? user.name[0].toUpperCase()
+                            : '?',
+                        style: const TextStyle(color: ChatGlassTheme.textPrimary),
+                      ),
+                    ),
+                  );
+                },
+              ),
+            ),
           ],
         ),
       ),
     );
   }
-
-  static void _showAllMediaBottomSheet(
-      BuildContext context, List<_SharedMediaItem> items) {
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: const Color(0xFF2A3358),
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(22)),
-      ),
-      builder: (sheetContext) {
-        return SafeArea(
-          top: false,
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(14, 12, 14, 16),
-            child: GridView.builder(
-              shrinkWrap: true,
-              itemCount: items.length,
-              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                crossAxisCount: 3,
-                mainAxisSpacing: 10,
-                crossAxisSpacing: 10,
-                childAspectRatio: 1,
-              ),
-              itemBuilder: (_, index) {
-                final item = items[index];
-                return _MediaThumb(
-                  item: item,
-                  onTap: () {
-                    Navigator.pop(sheetContext);
-                    _openMediaPreview(context, item);
-                  },
-                );
-              },
-            ),
-          ),
-        );
-      },
-    );
-  }
 }
-
-// ── Identity Card ──
 
 class _GroupIdentityCard extends StatelessWidget {
   final String title;
@@ -284,9 +490,12 @@ class _GroupIdentityCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       padding: const EdgeInsets.fromLTRB(20, 14, 20, 14),
-      decoration: const BoxDecoration(
-        color: AppColors.primaryColor,
-        borderRadius: BorderRadius.vertical(bottom: Radius.circular(22)),
+      decoration: BoxDecoration(
+        color: Colors.black.withValues(alpha: 0.45),
+        borderRadius: const BorderRadius.vertical(bottom: Radius.circular(22)),
+        border: Border(
+          bottom: BorderSide(color: Colors.white.withValues(alpha: 0.12)),
+        ),
       ),
       child: Row(
         children: [
@@ -294,36 +503,23 @@ class _GroupIdentityCard extends StatelessWidget {
             padding: const EdgeInsets.all(1.3),
             decoration: BoxDecoration(
               shape: BoxShape.circle,
-              border: Border.all(color: const Color(0xFFE9B23A), width: 1.2),
+              border: Border.all(color: ChatGlassTheme.avatarRing, width: 1.2),
             ),
-            child: const CircleAvatar(
-              radius: 24,
-              backgroundImage: AssetImage('assets/logo/rcc2.png'),
+            child: CircleAvatar(
+              radius: 28,
+              backgroundColor: Colors.white.withValues(alpha: 0.1),
+              child: const Icon(Icons.groups, color: ChatGlassTheme.gold),
             ),
           ),
-          const SizedBox(width: 12),
+          const SizedBox(width: 14),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  title,
-                  maxLines: null,
-                  overflow: TextOverflow.visible,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 24,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-                const SizedBox(height: 2),
+                Text(title, style: ChatGlassTheme.title(fontSize: 20)),
                 Text(
                   '$subtitle • $memberCount members',
-                  style: const TextStyle(
-                    color: Colors.white70,
-                    fontSize: 14,
-                    fontWeight: FontWeight.w500,
-                  ),
+                  style: ChatGlassTheme.muted(fontSize: 14),
                 ),
               ],
             ),
@@ -333,8 +529,6 @@ class _GroupIdentityCard extends StatelessWidget {
     );
   }
 }
-
-// ── Info Row ──
 
 class _InfoRow extends StatelessWidget {
   final String label;
@@ -351,20 +545,12 @@ class _InfoRow extends StatelessWidget {
         children: [
           Text(
             label,
-            style: TextStyle(
-              color: Colors.grey.shade600,
-              fontSize: 12,
-              fontWeight: FontWeight.w500,
-            ),
+            style: ChatGlassTheme.muted(fontSize: 12),
           ),
           const SizedBox(height: 2),
           Text(
             value,
-            style: const TextStyle(
-              color: Color(0xFF121212),
-              fontSize: 18,
-              fontWeight: FontWeight.w600,
-            ),
+            style: ChatGlassTheme.body(fontSize: 18, weight: FontWeight.w600),
           ),
         ],
       ),
@@ -372,15 +558,19 @@ class _InfoRow extends StatelessWidget {
   }
 }
 
-// ── Members Section ──
-
 class _MembersSection extends StatelessWidget {
   final List<ChatMember> members;
   final Map<String, ChatUser> userMap;
+  final String? currentUid;
+  final bool canManage;
+  final void Function(ChatMember member, String name) onRemove;
 
   const _MembersSection({
     required this.members,
     required this.userMap,
+    required this.currentUid,
+    required this.canManage,
+    required this.onRemove,
   });
 
   @override
@@ -394,11 +584,7 @@ class _MembersSection extends StatelessWidget {
         children: [
           Text(
             'Group Members',
-            style: TextStyle(
-              color: Colors.grey.shade600,
-              fontSize: 12,
-              fontWeight: FontWeight.w500,
-            ),
+            style: ChatGlassTheme.muted(fontSize: 12),
           ),
           const SizedBox(height: 8),
           ...members.map((member) {
@@ -406,12 +592,12 @@ class _MembersSection extends StatelessWidget {
             final name = user?.name ?? 'Unknown';
             final role = user?.jobTitle ?? user?.roleName ?? '';
             final avatarUrl = user?.avatarUrl;
+            final isMe = member.uid == currentUid;
 
             return Padding(
               padding: const EdgeInsets.only(bottom: 8),
               child: Row(
                 children: [
-                  // Avatar
                   StreamBuilder<PresenceStatus>(
                     stream: PresenceService.instance
                         .subscribeToUserPresence(member.uid),
@@ -424,13 +610,14 @@ class _MembersSection extends StatelessWidget {
                             decoration: BoxDecoration(
                               shape: BoxShape.circle,
                               border: Border.all(
-                                color: const Color(0xFFE9B23A),
+                                color: ChatGlassTheme.gold,
                                 width: 1,
                               ),
                             ),
                             child: CircleAvatar(
                               radius: 18,
-                              backgroundColor: const Color(0xFFECECEC),
+                              backgroundColor:
+                                  Colors.white.withValues(alpha: 0.1),
                               backgroundImage:
                                   avatarUrl != null && avatarUrl.isNotEmpty
                                       ? CachedNetworkImageProvider(avatarUrl)
@@ -440,7 +627,7 @@ class _MembersSection extends StatelessWidget {
                                       _initials(name),
                                       style: const TextStyle(
                                         fontSize: 12,
-                                        color: Color(0xFF2D2D2D),
+                                        color: ChatGlassTheme.textPrimary,
                                         fontWeight: FontWeight.w700,
                                       ),
                                     )
@@ -458,7 +645,7 @@ class _MembersSection extends StatelessWidget {
                                   color: const Color(0xFF2DD65B),
                                   shape: BoxShape.circle,
                                   border: Border.all(
-                                      color: Colors.white, width: 1.5),
+                                      color: Colors.black, width: 1.5),
                                 ),
                               ),
                             ),
@@ -467,34 +654,55 @@ class _MembersSection extends StatelessWidget {
                     },
                   ),
                   const SizedBox(width: 10),
-                  // Name + role
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(
-                          name,
-                          style: const TextStyle(
-                            fontSize: 15,
-                            fontWeight: FontWeight.w600,
-                            color: Color(0xFF1D2449),
-                          ),
-                          maxLines: null,
-                          overflow: TextOverflow.visible,
+                        Row(
+                          children: [
+                            Flexible(
+                              child: Text(
+                                isMe ? '$name (You)' : name,
+                                style: ChatGlassTheme.body(
+                                  weight: FontWeight.w600,
+                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                            if (member.isAdmin) ...[
+                              const SizedBox(width: 6),
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 6, vertical: 2),
+                                decoration: BoxDecoration(
+                                  color: ChatGlassTheme.gold
+                                      .withValues(alpha: 0.18),
+                                  borderRadius: BorderRadius.circular(6),
+                                ),
+                                child: Text(
+                                  'Admin',
+                                  style: ChatGlassTheme.accent(fontSize: 10),
+                                ),
+                              ),
+                            ],
+                          ],
                         ),
                         if (role.isNotEmpty)
                           Text(
                             role,
-                            style: TextStyle(
-                              fontSize: 12,
-                              color: Colors.grey[500],
-                            ),
-                            maxLines: null,
-                            overflow: TextOverflow.visible,
+                            style: ChatGlassTheme.muted(fontSize: 12),
                           ),
                       ],
                     ),
                   ),
+                  if (canManage && !isMe)
+                    IconButton(
+                      tooltip: 'Remove',
+                      icon: const Icon(Icons.person_remove_outlined,
+                          color: Color(0xFFFF8A80)),
+                      onPressed: () => onRemove(member, name),
+                    ),
                 ],
               ),
             );
@@ -510,170 +718,5 @@ class _MembersSection extends StatelessWidget {
     if (parts.isEmpty) return '?';
     if (parts.length == 1) return parts.first.substring(0, 1).toUpperCase();
     return '${parts[0][0]}${parts[1][0]}'.toUpperCase();
-  }
-}
-
-// ── Media Section ──
-
-class _MediaSection extends StatelessWidget {
-  final List<_SharedMediaItem> items;
-  final VoidCallback? onViewAll;
-  final ValueChanged<_SharedMediaItem> onTapItem;
-
-  const _MediaSection({
-    required this.items,
-    required this.onTapItem,
-    this.onViewAll,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final previewItems = items.take(9).toList();
-
-    return Container(
-      decoration: const BoxDecoration(
-        color: Color(0xFF2A3358),
-        borderRadius: BorderRadius.vertical(top: Radius.circular(34)),
-      ),
-      padding: const EdgeInsets.fromLTRB(16, 8, 16, 18),
-      child: Column(
-        children: [
-          Container(
-            width: 66,
-            height: 4,
-            margin: const EdgeInsets.only(bottom: 16),
-            decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.75),
-              borderRadius: BorderRadius.circular(99),
-            ),
-          ),
-          Row(
-            children: [
-              const Text(
-                'Media Shared',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 20,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-              const Spacer(),
-              GestureDetector(
-                onTap: onViewAll,
-                child: Text(
-                  'View All',
-                  style: TextStyle(
-                    color: onViewAll == null ? Colors.white38 : Colors.white,
-                    fontSize: 17,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 14),
-          if (previewItems.isEmpty)
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.symmetric(vertical: 26),
-              alignment: Alignment.center,
-              decoration: BoxDecoration(
-                color: Colors.white.withValues(alpha: 0.06),
-                borderRadius: BorderRadius.circular(14),
-              ),
-              child: const Text(
-                'No media shared yet',
-                style: TextStyle(color: Colors.white70, fontSize: 14),
-              ),
-            )
-          else
-            GridView.builder(
-              shrinkWrap: true,
-              itemCount: previewItems.length,
-              physics: const NeverScrollableScrollPhysics(),
-              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                crossAxisCount: 3,
-                mainAxisSpacing: 10,
-                crossAxisSpacing: 10,
-                childAspectRatio: 1,
-              ),
-              itemBuilder: (_, index) {
-                final item = previewItems[index];
-                return _MediaThumb(
-                  item: item,
-                  onTap: () => onTapItem(item),
-                );
-              },
-            ),
-        ],
-      ),
-    );
-  }
-}
-
-// ── Media Thumbnail ──
-
-class _MediaThumb extends StatelessWidget {
-  final _SharedMediaItem item;
-  final VoidCallback onTap;
-
-  const _MediaThumb({required this.item, required this.onTap});
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(13),
-          border: Border.all(color: const Color(0xFFE9B23A), width: 1.2),
-        ),
-        child: ClipRRect(
-          borderRadius: BorderRadius.circular(11.5),
-          child: Stack(
-            fit: StackFit.expand,
-            children: [
-              CachedNetworkImage(
-                imageUrl: item.displayUrl,
-                fit: BoxFit.cover,
-                errorWidget: (_, __, ___) => Container(
-                  color: Colors.white.withValues(alpha: 0.08),
-                  child: const Icon(Icons.broken_image_outlined,
-                      color: Colors.white70),
-                ),
-              ),
-              if (item.type == MessageType.video)
-                const Center(
-                  child: CircleAvatar(
-                    radius: 15,
-                    backgroundColor: Color(0x77000000),
-                    child: Icon(Icons.play_arrow_rounded,
-                        color: Colors.white, size: 20),
-                  ),
-                ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-// ── Shared Media Item model ──
-
-class _SharedMediaItem {
-  final MessageType type;
-  final String url;
-  final String? thumbUrl;
-
-  const _SharedMediaItem({
-    required this.type,
-    required this.url,
-    this.thumbUrl,
-  });
-
-  String get displayUrl {
-    final thumb = thumbUrl?.trim() ?? '';
-    return thumb.isNotEmpty ? thumb : url;
   }
 }

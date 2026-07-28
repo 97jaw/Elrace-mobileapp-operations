@@ -35,6 +35,29 @@ class ProjectsDashboardAccess {
     return false;
   }
 
+  /// True when user is an HR manager (`is_hr_manager` / capability variants).
+  static bool isHrManagerUser() {
+    final data = SharedPref.getLoginData().result?.data;
+    if (data == null) return false;
+
+    if (data.isHrManager == true) return true;
+
+    final caps = data.roleCapabilities;
+    if (caps != null) {
+      if (caps['x_is_hr_manager'] == true ||
+          caps['is_hr_manager'] == true ||
+          caps['x_is_hr'] == true) {
+        return true;
+      }
+    }
+
+    return false;
+  }
+
+  /// Company Documents (HRMS) — HR manager, management, or project manager.
+  static bool canAccessCompanyDocuments() =>
+      isHrManagerUser() || isManagementUser() || isProjectManagerUser();
+
   /// Media "Projects" tab — management or project manager.
   static bool canSeeProjectVideos() =>
       isManagementUser() || isProjectManagerUser();

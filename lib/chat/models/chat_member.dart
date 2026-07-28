@@ -9,6 +9,7 @@ class ChatMember {
   final int? branchIdSnapshot;
   final int? companyIdSnapshot;
   final bool muted;
+  final bool isAdmin;
 
   ChatMember({
     required this.uid,
@@ -17,6 +18,7 @@ class ChatMember {
     this.branchIdSnapshot,
     this.companyIdSnapshot,
     this.muted = false,
+    this.isAdmin = false,
   });
 
   factory ChatMember.fromFirestore(DocumentSnapshot doc) {
@@ -28,12 +30,14 @@ class ChatMember {
       branchIdSnapshot: data['branch_id_snapshot'],
       companyIdSnapshot: data['company_id_snapshot'],
       muted: data['muted'] ?? false,
+      isAdmin: data['is_admin'] ?? false,
     );
   }
 
   Map<String, dynamic> toFirestore({bool isUpdate = false}) {
     final map = <String, dynamic>{
       'muted': muted,
+      'is_admin': isAdmin,
     };
 
     if (!isUpdate) {
@@ -53,6 +57,7 @@ class ChatMember {
     int? branchIdSnapshot,
     int? companyIdSnapshot,
     bool? muted,
+    bool? isAdmin,
   }) {
     return ChatMember(
       uid: uid ?? this.uid,
@@ -61,9 +66,10 @@ class ChatMember {
       branchIdSnapshot: branchIdSnapshot ?? this.branchIdSnapshot,
       companyIdSnapshot: companyIdSnapshot ?? this.companyIdSnapshot,
       muted: muted ?? this.muted,
+      isAdmin: isAdmin ?? this.isAdmin,
     );
   }
 
   @override
-  String toString() => 'ChatMember(uid: $uid, muted: $muted)';
+  String toString() => 'ChatMember(uid: $uid, muted: $muted, isAdmin: $isAdmin)';
 }

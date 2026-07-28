@@ -703,7 +703,13 @@ class TimesheetCaptureCameraPanelState extends State<TimesheetCaptureCameraPanel
   @override
   void initState() {
     super.initState();
-    unawaited(MinifasnetFusionEngine.instance.ensureLoaded());
+    // Defer TFLite anti-spoof load until after first frame so opening the
+    // camera isn't paired with a cold "Initialized TensorFlow Lite runtime"
+    // on the same tick as preview start / camera flip.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      unawaited(MinifasnetFusionEngine.instance.ensureLoaded());
+    });
     _geofencePreview = _geofenceService.preview(
       point: const TimesheetGeoPoint(lat: 25.2051, lon: 55.271),
       center: const TimesheetGeoPoint(lat: 25.2048, lon: 55.2708),
@@ -775,8 +781,12 @@ class TimesheetCaptureCameraPanelState extends State<TimesheetCaptureCameraPanel
                   ),
                   IconButton(
                     tooltip: 'Switch camera',
-                    onPressed:
-                        _availableCameras.length < 2 ? null : _switchCamera,
+                    onPressed: _availableCameras.length < 2 ||
+                            _isCapturing ||
+                            _isInitializingCamera ||
+                            _cameraInitInFlight
+                        ? null
+                        : _switchCamera,
                     icon: Icon(
                       PhosphorIcons.cameraRotate(),
                       color: TimesheetModuleColors.surface,
@@ -1798,10 +1808,13 @@ class TimesheetCaptureCameraPanelState extends State<TimesheetCaptureCameraPanel
 
   Future<void> _resetCameraZoom(CameraController controller) async {
     try {
+      if (!controller.value.isInitialized) return;
       final minZoom = await controller.getMinZoomLevel();
-      await controller.setZoomLevel(minZoom);
-    } catch (error) {
-      debugPrint('FaceCapture: zoom reset failed: $error');
+      final maxZoom = await controller.getMaxZoomLevel();
+      if (minZoom <= 0 || maxZoom < minZoom) return;
+      await controller.setZoomLevel(minZoom.clamp(minZoom, maxZoom));
+    } catch (_) {
+      // Zoom is best-effort on iOS multi-lens switches.
     }
   }
 
@@ -1822,12 +1835,29 @@ class TimesheetCaptureCameraPanelState extends State<TimesheetCaptureCameraPanel
   }
 
   Future<void> _switchCamera() async {
-    if (_availableCameras.length < 2 || _cameraInitInFlight) return;
+    if (_availableCameras.length < 2 ||
+        _cameraInitInFlight ||
+        _isCapturing ||
+        _isInitializingCamera) {
+      return;
+    }
     final current = _camera;
-    final currentIndex =
-        current == null ? 0 : _availableCameras.indexOf(current);
-    final nextIndex = (currentIndex + 1) % _availableCameras.length;
-    final nextCamera = _availableCameras[nextIndex];
+    // Prefer a clean front ↔ back toggle. Round-robin across every physical
+    // lens (wide/ultrawide/tele) left multi-camera phones on the same side
+    // and felt like the flip "did nothing".
+    final wantDirection = current?.lensDirection == CameraLensDirection.front
+        ? CameraLensDirection.back
+        : CameraLensDirection.front;
+    final nextCamera = _availableCameras.firstWhere(
+      (c) => c.lensDirection == wantDirection,
+      orElse: () {
+        final currentIndex =
+            current == null ? 0 : _availableCameras.indexOf(current);
+        final nextIndex = (currentIndex + 1) % _availableCameras.length;
+        return _availableCameras[nextIndex];
+      },
+    );
+    if (nextCamera == current) return;
     await _stopLiveDetection();
     final oldController = _cameraController;
     _awsLivenessLaunched = false;

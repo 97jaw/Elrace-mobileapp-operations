@@ -25,6 +25,7 @@ class UserChat {
   final DateTime? lastReadAt;
   final bool pinned;
   final bool muted;
+  final bool archived;
   final bool hasMessages;
 
   UserChat({
@@ -41,6 +42,7 @@ class UserChat {
     this.lastReadAt,
     this.pinned = false,
     this.muted = false,
+    this.archived = false,
     this.hasMessages = false,
   });
 
@@ -60,6 +62,7 @@ class UserChat {
       lastReadAt: (data['last_read_at'] as Timestamp?)?.toDate(),
       pinned: data['pinned'] ?? false,
       muted: data['muted'] ?? false,
+      archived: data['archived'] ?? false,
       hasMessages: data['has_messages'] ?? false,
     );
   }
@@ -70,6 +73,7 @@ class UserChat {
       'updated_at': FieldValue.serverTimestamp(),
       'pinned': pinned,
       'muted': muted,
+      'archived': archived,
     };
 
     if (hasMessages) map['has_messages'] = true;
@@ -110,6 +114,7 @@ class UserChat {
     DateTime? lastReadAt,
     bool? pinned,
     bool? muted,
+    bool? archived,
     bool? hasMessages,
   }) {
     return UserChat(
@@ -126,6 +131,7 @@ class UserChat {
       lastReadAt: lastReadAt ?? this.lastReadAt,
       pinned: pinned ?? this.pinned,
       muted: muted ?? this.muted,
+      archived: archived ?? this.archived,
       hasMessages: hasMessages ?? this.hasMessages,
     );
   }

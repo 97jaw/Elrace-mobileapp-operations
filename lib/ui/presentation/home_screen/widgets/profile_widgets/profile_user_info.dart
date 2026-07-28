@@ -168,6 +168,29 @@ class ProfileUserInfo {
     ]);
   }
 
+  /// Prefer mobile-specific fields for the business-card mobile row.
+  static String? displayMobile() {
+    return _readFirst([
+          'mobile_phone',
+          'mobile',
+          'mobile_number',
+          'emp_phone',
+        ]) ??
+        displayPhone();
+  }
+
+  /// Office / landline row; falls back to company main line.
+  static String displayLandline() {
+    return _readFirst([
+          'work_phone',
+          'office_phone',
+          'telephone',
+          'company_phone',
+          'landline',
+        ]) ??
+        '600 500 722';
+  }
+
   static String? displayLocation() {
     return displayBranch() ??
         _readFirst(['location', 'location_name']) ??
