@@ -4,6 +4,7 @@ import 'package:el_race/core/biometric/device_auth_service.dart';
 import 'package:el_race/core/biometric/unified_biometric_helper.dart';
 import 'package:el_race/ui/presentation/home_screen/bloc/home_bloc.dart';
 import 'package:el_race/ui/presentation/home_screen/bloc/location_bloc/location_bloc.dart';
+import 'package:el_race/ui/presentation/home_screen/screens/biometric_sign_in_gate_screen.dart';
 import 'package:el_race/ui/presentation/home_screen/screens/main_home_content_widget.dart';
 import 'package:el_race/ui/presentation/home_screen/screens/main_screens.dart';
 import 'package:el_race/ui/presentation/home_screen/widgets/home_glass_theme.dart';
@@ -56,6 +57,8 @@ class _HomeScreenState extends State<HomeScreenPage> {
 
   /// Blocks home UI until biometrics succeed (covers cancel → gate screen).
   bool _isBiometricLocked = false;
+
+  bool _showBiometricGateScreen = false;
 
   final _locationBloc = LocationBloc();
 
@@ -112,6 +115,7 @@ class _HomeScreenState extends State<HomeScreenPage> {
 
     HomeScreenPage._isAuthenticating = true;
     _setBiometricLocked(true);
+    if (mounted) setState(() => _showBiometricGateScreen = false);
 
     if (!fromButton) {
       await Future.delayed(const Duration(milliseconds: 350));
@@ -131,6 +135,7 @@ class _HomeScreenState extends State<HomeScreenPage> {
     if (!hasBiometrics) {
       await _showBiometricRequiredDialog();
       HomeScreenPage._isAuthenticating = false;
+      if (mounted) setState(() => _showBiometricGateScreen = true);
       return;
     }
 
@@ -144,9 +149,11 @@ class _HomeScreenState extends State<HomeScreenPage> {
     if (authenticated) {
       HomeScreenPage._didAuthenticateThisSession = true;
       _setBiometricLocked(false);
+      setState(() => _showBiometricGateScreen = false);
     } else {
       // Cancel / miss keeps the lock overlay visible (session stays logged in).
       _setBiometricLocked(true);
+      setState(() => _showBiometricGateScreen = true);
     }
     HomeScreenPage._isAuthenticating = false;
   }
@@ -257,7 +264,14 @@ class _HomeScreenState extends State<HomeScreenPage> {
               );
             },
           ),
-          if (gateLocked)
+          if (gateLocked && _showBiometricGateScreen)
+            Positioned.fill(
+              child: BiometricSignInGateScreen(
+                onSignInWithBiometric: () =>
+                    _authenticateAfterLogin(fromButton: true),
+              ),
+            )
+          else if (gateLocked)
             const Positioned.fill(
               child: _BiometricLockOverlay(),
             ),

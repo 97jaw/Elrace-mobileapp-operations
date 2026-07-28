@@ -108,7 +108,7 @@ class _SplashScreenState extends State<SplashScreen> {
       print('🔒 Starting security check...');
       final result = await DeviceSecurityService.instance
           .performSecurityCheck()
-          .timeout(Duration(seconds: kDebugMode ? 2 : 6));
+          .timeout(const Duration(seconds: kDebugMode ? 2 : 6));
 
       if (mounted) {
         setState(() {
@@ -169,16 +169,17 @@ class _SplashScreenState extends State<SplashScreen> {
         },
       ),
       _securityCheckCompleter.future.timeout(
-        Duration(seconds: kDebugMode ? 2 : 6),
+        const Duration(seconds: kDebugMode ? 2 : 6),
         onTimeout: () {
           print('⚠️ Security check timeout in splash – continuing anyway');
         },
       ),
     ]);
-    // Allow a brief beat so the first video frame can paint, then leave.
-    // Never wait for the full clip.
-    await Future<void>.delayed(
-      Duration(milliseconds: kDebugMode ? 300 : 800),
+    await _videoCompletedCompleter.future.timeout(
+      const Duration(seconds: 30),
+      onTimeout: () {
+        print('Video completion timeout in splash - continuing anyway');
+      },
     );
     _logGateTiming('waitForInitAndNavigate-gate-resolved');
 
