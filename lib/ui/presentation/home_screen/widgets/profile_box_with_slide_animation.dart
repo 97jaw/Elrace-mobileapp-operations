@@ -169,40 +169,82 @@ class _ProfileBoxWithSlideAnimationState
   /// Local-only categories that are not returned by the API.
   static const List<_MuteChannelConfig> _localOnlyChannels = [
     _MuteChannelConfig(label: 'Chat', key: 'chat_message'),
+    _MuteChannelConfig(label: 'Prayer / Adhan', key: 'prayer'),
     _MuteChannelConfig(label: 'Tasks', key: 'task'),
   ];
 
+  static const Set<String> _waitingCoveredModels = {
+    'employee.requests',
+    'account.move',
+    'purchase.order',
+    'hr.expense.sheet',
+  };
+
+  static const List<String> _displayOrder = [
+    'waiting',
+    'alert',
+    'prayer',
+    'chat_message',
+    'share',
+    'cloud.folder',
+    'task',
+    'announcement',
+    'circular',
+  ];
+
+  int _muteSortIndex(String key) {
+    final idx = _displayOrder.indexOf(key);
+    return idx >= 0 ? idx : _displayOrder.length + 1;
+  }
+
   Future<void> _openMuteControlPopup() async {
     final results = await Future.wait([
-      NotificationStorageService.getMuteSettings(),
-      NotificationStorageService.getNotificationCategories(),
+      NotificationStorageService.getMuteSettings(forceRefresh: true),
+      NotificationStorageService.getNotificationCategories(forceRefresh: true),
       HiveService.isPrayerSoundMuted(),
     ]);
     if (!mounted) return;
 
     final settings = results[0] as Map<String, bool>;
     final apiCategories = results[1] as List<NotificationCategoryApiModel>;
-    var adhanMuted = results[2] as bool;
-
-    // Prefer SharedPrefs/API mute into Hive so audio gate matches UI.
-    final prefsMuted =
-        settings['prayer'] == true || settings['adhan'] == true;
-    if (prefsMuted && !adhanMuted) {
-      await HiveService.setPrayerSoundMuted(true);
-      adhanMuted = true;
-    } else if (adhanMuted && settings['prayer'] != true) {
-      await NotificationStorageService.setLocalMuteSetting('adhan', true);
-    }
+    // Hive is canonical for azan — do not force-mute from SharedPrefs/API.
+    final hiveMuted = results[2] as bool;
+    await NotificationStorageService.setLocalMuteSetting('prayer', hiveMuted);
+    await NotificationStorageService.setLocalMuteSetting('adhan', hiveMuted);
 
     final apiChannels = apiCategories
         .where((c) => c.model.trim().isNotEmpty)
         .where((c) => c.model.trim().toLowerCase() != 'adhan')
+        .where((c) {
+          final key = c.model.trim().toLowerCase();
+          // Hide per-model approval rows when shared Waiting exists.
+          final hasWaiting = apiCategories.any(
+            (x) => x.model.trim().toLowerCase() == 'waiting',
+          );
+          if (hasWaiting && _waitingCoveredModels.contains(key)) {
+            return false;
+          }
+          return true;
+        })
         .map(
           (c) {
             final key = c.model.trim().toLowerCase();
-            final label = key == 'prayer'
-                ? 'Prayer / Adhan'
-                : (c.title.trim().isNotEmpty ? c.title : c.model);
+            String label;
+            if (key == 'prayer') {
+              label = 'Prayer / Adhan';
+            } else if (key == 'waiting') {
+              label = c.title.trim().isNotEmpty
+                  ? c.title
+                  : 'Waiting / Approvals';
+            } else if (key == 'share' || key == 'cloud.folder') {
+              label = c.title.trim().isNotEmpty ? c.title : 'Share';
+            } else if (key == 'announcement') {
+              label = c.title.trim().isNotEmpty ? c.title : 'Announcements';
+            } else if (key == 'circular') {
+              label = c.title.trim().isNotEmpty ? c.title : 'Circulars';
+            } else {
+              label = c.title.trim().isNotEmpty ? c.title : c.model;
+            }
             return _MuteChannelConfig(label: label, key: key);
           },
         )
@@ -223,12 +265,18 @@ class _ProfileBoxWithSlideAnimationState
       }
     }
 
+    apiChannels.sort((a, b) {
+      final byOrder = _muteSortIndex(a.key).compareTo(_muteSortIndex(b.key));
+      if (byOrder != 0) return byOrder;
+      return a.label.compareTo(b.label);
+    });
+
     setState(() {
       _muteChannels = apiChannels;
       _muteValueByKey = <String, bool>{
         for (final channel in apiChannels)
           channel.key: channel.key == 'prayer'
-              ? (settings['prayer'] == true || adhanMuted)
+              ? hiveMuted
               : (settings[channel.key] == true),
       };
       _isMutePopupVisible = true;
@@ -251,30 +299,36 @@ class _ProfileBoxWithSlideAnimationState
     });
 
     try {
-      if (_isLocalOnlyKey(item.key)) {
+      final isPrayer = item.key == 'prayer' || item.key == 'adhan';
+      if (isPrayer) {
+        // Local-first: Hive + cancel/reschedule even if Odoo sync fails.
+        await HiveService.setPrayerSoundMuted(value);
+        if (value) {
+          await PrayerNotificationService().cancelAllPendingAdhan();
+          try {
+            await PrayerAudioService().stopAdhan();
+          } catch (_) {}
+        } else {
+          try {
+            await PrayerAudioService().rescheduleBackgroundNotifications();
+          } catch (_) {}
+          try {
+            await PrayerBackgroundService.reschedule();
+          } catch (_) {}
+        }
+        try {
+          await NotificationStorageService.setMuteSetting('prayer', value);
+        } catch (_) {
+          await NotificationStorageService.setLocalMuteSetting('prayer', value);
+        }
+        await NotificationStorageService.setLocalMuteSetting('adhan', value);
+        if (mounted) {
+          context.read<HomeBloc>().add(const LoadPrayerMuteStateEvent());
+        }
+      } else if (_isLocalOnlyKey(item.key)) {
         await NotificationStorageService.setLocalMuteSetting(item.key, value);
       } else {
         await NotificationStorageService.setMuteSetting(item.key, value);
-        if (item.key == 'prayer') {
-          await HiveService.setPrayerSoundMuted(value);
-          await NotificationStorageService.setLocalMuteSetting('adhan', value);
-          if (value) {
-            await PrayerNotificationService().cancelAllPendingAdhan();
-            try {
-              await PrayerAudioService().stopAdhan();
-            } catch (_) {}
-          } else {
-            try {
-              await PrayerAudioService().rescheduleBackgroundNotifications();
-            } catch (_) {}
-            try {
-              await PrayerBackgroundService.reschedule();
-            } catch (_) {}
-          }
-          if (mounted) {
-            context.read<HomeBloc>().add(const LoadPrayerMuteStateEvent());
-          }
-        }
       }
     } catch (_) {
       if (!mounted) return;

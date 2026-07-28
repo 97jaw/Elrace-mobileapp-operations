@@ -72,6 +72,11 @@ import 'ui/presentation/home_screen/provider/slider_provider.dart';
 Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
   // Initialize Firebase if not already initialized
   await Firebase.initializeApp();
+  // Mute prefs live in SharedPreferences — must init in this isolate.
+  try {
+    await SharedPref().instantiatePreferences();
+  } catch (_) {}
+
   print('📩 Background message received: ${message.notification?.title}');
   print('📩 Message data: ${message.data}');
 
@@ -103,6 +108,18 @@ Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
       category = message.data['type'].toString();
     } else if (message.data.containsKey('model')) {
       category = message.data['model'].toString();
+    }
+
+    // Local cache only — no network from BG isolate (G4).
+    final muted = await NotificationStorageService.shouldMuteNotification(
+      category: category,
+      data: message.data,
+      allowNetwork: false,
+    );
+    if (muted) {
+      print(
+          '🔇 Background notification suppressed by mute settings: category=$category');
+      return;
     }
 
     await NotificationStorageService.saveNotification(

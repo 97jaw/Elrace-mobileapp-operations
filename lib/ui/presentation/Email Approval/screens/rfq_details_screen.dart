@@ -813,8 +813,8 @@ class _RfqDetailsScreenState extends State<RfqDetailsScreen> {
             Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                const ContextualGlassChromeHeader(
-                  title: 'RFQ',
+                ContextualGlassChromeHeader(
+                  title: requestNo.isNotEmpty ? requestNo : 'RFQ',
                   showBack: true,
                   onLightSurface: true,
                   transparentGlassBar: false,

@@ -863,86 +863,6 @@ class _PettyCashDetailsScreenState extends State<PettyCashDetailsScreen> {
     );
   }
 
-  Widget _agreementManagerCell({
-    required String name,
-    required String imageUrl,
-  }) {
-    return Container(
-      width: double.infinity,
-      padding: EdgeInsets.symmetric(horizontal: 12.tw, vertical: 12.th),
-      decoration: BoxDecoration(
-        color: const Color(0xFFF3E2DC),
-        borderRadius: BorderRadius.circular(12.tr),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.85)),
-      ),
-      child: Row(
-        children: [
-          Container(
-            width: 48.tw,
-            height: 48.tw,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              border: Border.all(color: Colors.white, width: 1.2),
-            ),
-            child: ClipOval(
-              child: imageUrl.isNotEmpty
-                  ? Image.network(
-                      imageUrl,
-                      fit: BoxFit.cover,
-                      errorBuilder: (_, __, ___) => _avatarFallback(name),
-                    )
-                  : _avatarFallback(name),
-            ),
-          ),
-          SizedBox(width: 10.tw),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Agreement Manager',
-                  style: GoogleFonts.poppins(
-                    fontSize: 10.tsp,
-                    fontWeight: FontWeight.w500,
-                    color: ApprovalsOverviewTheme.textSoft,
-                  ),
-                ),
-                SizedBox(height: 2.th),
-                Text(
-                  _displayOrNA(name),
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: GoogleFonts.poppins(
-                    fontSize: 13.tsp,
-                    fontWeight: FontWeight.w700,
-                    color: ApprovalsOverviewTheme.textDark,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _avatarFallback(String name) {
-    final initial = name.trim().isNotEmpty ? name.trim()[0].toUpperCase() : '?';
-    return ColoredBox(
-      color: ApprovalsOverviewTheme.petty.withValues(alpha: 0.18),
-      child: Center(
-        child: Text(
-          initial,
-          style: GoogleFonts.poppins(
-            fontSize: 14.tsp,
-            fontWeight: FontWeight.w700,
-            color: ApprovalsOverviewTheme.petty,
-          ),
-        ),
-      ),
-    );
-  }
-
   Widget _totalAmountCell({required String amount}) {
     return Container(
       width: double.infinity,
@@ -1392,13 +1312,6 @@ class _PettyCashDetailsScreenState extends State<PettyCashDetailsScreen> {
       pettycashLimit,
     ]);
 
-    final agreementManagerName = _pick([
-      _formData['agreement_manager_name'],
-    ]);
-    final agreementManagerImage = _pickImage([
-      _formData['agreement_manager_image_url'],
-    ]);
-
     final date = _pick([
       _formData['date'],
       _formData['request_date'],
@@ -1537,11 +1450,6 @@ class _PettyCashDetailsScreenState extends State<PettyCashDetailsScreen> {
                                         child: Column(
                                           children: [
                                             SizedBox(height: 4.th),
-                                            _agreementManagerCell(
-                                              name: agreementManagerName,
-                                              imageUrl: agreementManagerImage,
-                                            ),
-                                            SizedBox(height: 6.th),
                                             _glassSectionCard(
                                               title: 'Expense Lines',
                                               trailing: InkWell(

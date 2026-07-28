@@ -72,6 +72,11 @@ class SignInBloc extends Bloc<SignInEvent, SignInState> {
           await SharedPref().setPreferencesBoolean('isRegistered', true);
           // Update login state in Hive for background service
           await HiveService.setUserLoggedIn(true);
+          // Login JWT is ready — push FCM token (may have been empty at request time).
+          unawaited(() async {
+            await FirebaseService.ensureFCMToken();
+            await FirebaseService.syncFcmTokenToOdoo(force: true);
+          }());
           emit(InitialSignedInST(loginResponse: loginResponseModel));
           emit(const LoadingST(isLoading: false));
         } else {

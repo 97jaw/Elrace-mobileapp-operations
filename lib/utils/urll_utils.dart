@@ -22,4 +22,7 @@ class UrlUtil {
 
   /// Current user's stamp binaries only (not on login / not session refresh).
   static const String myStamps = 'users/my_stamps';
+
+  /// Persist FCM device token on res.users.expo_token (backend push target).
+  static const String saveExpoToken = 'save_expo_token';
 }

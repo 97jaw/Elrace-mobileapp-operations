@@ -51,6 +51,14 @@ class PrayerAudioService {
     _foregroundActive = false;
     _checkTimer?.cancel();
     _checkTimer = null;
+    // Respect mute — do not re-arm OS azan while muted.
+    final isMuted = await HiveService.isPrayerSoundMuted();
+    if (isMuted) {
+      try {
+        await _notificationService.cancelAllPendingAdhan();
+      } catch (_) {}
+      return;
+    }
     await rescheduleBackgroundNotifications();
   }
 
