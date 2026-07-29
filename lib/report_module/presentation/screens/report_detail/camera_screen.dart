@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:camera/camera.dart';
 import 'package:el_race/report_module/core/constants/colors.dart';
 import 'package:el_race/report_module/core/constants/text_styles.dart';
@@ -46,8 +48,11 @@ class _CustomCameraScreenState extends State<CustomCameraScreen> {
       }
       final cameraController = CameraController(
         _cameras.first,
-        ResolutionPreset.max,
+        ResolutionPreset.ultraHigh,
         enableAudio: false,
+        imageFormatGroup: Platform.isIOS
+            ? ImageFormatGroup.bgra8888
+            : ImageFormatGroup.jpeg,
       );
       controller = cameraController;
       await cameraController.initialize();

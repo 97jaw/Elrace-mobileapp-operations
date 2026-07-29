@@ -33,10 +33,14 @@ class _CameraScreenState extends State<CameraScreen> {
   void initState() {
     super.initState();
 
+    // Avoid ResolutionPreset.max on iOS — btp2 pixel format breaks Metal preview.
     _controller = CameraController(
       widget.camera,
-      ResolutionPreset.max,
+      ResolutionPreset.ultraHigh,
       enableAudio: false,
+      imageFormatGroup: Platform.isIOS
+          ? ImageFormatGroup.bgra8888
+          : ImageFormatGroup.jpeg,
     );
 
     _initializeControllerFuture = _controller.initialize();
@@ -333,31 +337,31 @@ class _CameraScreenState extends State<CameraScreen> {
                                 Text(
                                   _currentTime,
                                   style: GoogleFonts.poppins(
-                                    fontSize: 15.tsp,
-                                    color: Colors.white,
-                                    fontWeight: FontWeight.w600,
-                                    letterSpacing: 0.5,
+                                    fontSize: 11.tsp,
+                                    color: Colors.white.withOpacity(0.9),
+                                    fontWeight: FontWeight.w300,
+                                    height: 1.15,
                                   ),
                                 ),
-                                SizedBox(height: 2.th),
+                                SizedBox(height: 1.th),
                                 Text(
                                   _currentDate,
                                   style: GoogleFonts.poppins(
-                                    fontSize: 15.tsp,
-                                    color: Colors.white,
-                                    fontWeight: FontWeight.w600,
-                                    letterSpacing: 0.5,
+                                    fontSize: 11.tsp,
+                                    color: Colors.white.withOpacity(0.9),
+                                    fontWeight: FontWeight.w300,
+                                    height: 1.15,
                                   ),
                                 ),
                                 if (_currentLocation.isNotEmpty) ...[
-                                  SizedBox(height: 2.th),
+                                  SizedBox(height: 1.th),
                                   Text(
                                     _currentLocation,
                                     style: GoogleFonts.poppins(
-                                      fontSize: 15.tsp,
-                                      color: Colors.white,
-                                      fontWeight: FontWeight.w600,
-                                      letterSpacing: 0.5,
+                                      fontSize: 10.tsp,
+                                      color: Colors.white.withOpacity(0.85),
+                                      fontWeight: FontWeight.w300,
+                                      height: 1.15,
                                     ),
                                   ),
                                 ],

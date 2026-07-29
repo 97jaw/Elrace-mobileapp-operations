@@ -272,10 +272,15 @@ class _CameraSelectionScreenState extends State<CameraSelectionScreen>
         orElse: () => cameras.first,
       );
 
+      // Avoid ResolutionPreset.max on iOS — newer devices (e.g. iPhone 17)
+      // pick a btp2 pixel format Flutter Metal cannot render (black preview).
       final controller = CameraController(
         backCamera,
-        ResolutionPreset.max,
+        ResolutionPreset.ultraHigh,
         enableAudio: false,
+        imageFormatGroup: Platform.isIOS
+            ? ImageFormatGroup.bgra8888
+            : ImageFormatGroup.jpeg,
       );
 
       // Fully await initialization before setState so FutureBuilder sees a
@@ -377,37 +382,18 @@ class _CameraSelectionScreenState extends State<CameraSelectionScreen>
     if (mounted) setState(() {});
   }
 
-  /// Overlay text style matching the live preview
+  /// Overlay text style matching the live preview (light, not bold).
   TextStyle _overlayTextStyle(double fontSize) {
     return GoogleFonts.poppins(
       fontSize: fontSize,
       color: Colors.grey[200]!.withOpacity(0.85),
-      fontWeight: FontWeight.w400,
+      fontWeight: FontWeight.w300,
+      height: 1.15,
       shadows: [
         Shadow(
-          color: Colors.grey.withOpacity(0.5),
-          offset: const Offset(-1, -1),
+          color: Colors.black.withOpacity(0.45),
+          offset: const Offset(0, 1),
           blurRadius: 2,
-        ),
-        Shadow(
-          color: Colors.grey.withOpacity(0.5),
-          offset: const Offset(1, -1),
-          blurRadius: 2,
-        ),
-        Shadow(
-          color: Colors.grey.withOpacity(0.5),
-          offset: const Offset(1, 1),
-          blurRadius: 2,
-        ),
-        Shadow(
-          color: Colors.grey.withOpacity(0.5),
-          offset: const Offset(-1, 1),
-          blurRadius: 2,
-        ),
-        Shadow(
-          color: Colors.grey.withOpacity(0.3),
-          offset: const Offset(0, 0),
-          blurRadius: 4,
         ),
       ],
     );
@@ -447,7 +433,7 @@ class _CameraSelectionScreenState extends State<CameraSelectionScreen>
       }
 
       // Draw date, time, and location text with shadow (all same font, aligned)
-      final font = img.arial24;
+      final font = img.arial14;
       final shadowOffset = 1;
 
       // Measure actual text widths using font metrics
@@ -884,18 +870,18 @@ class _CameraSelectionScreenState extends State<CameraSelectionScreen>
                             children: [
                               Text(
                                 _currentTime,
-                                style: _overlayTextStyle(16.tsp),
+                                style: _overlayTextStyle(11.tsp),
                               ),
-                              SizedBox(height: 2.th),
+                              SizedBox(height: 1.th),
                               Text(
                                 _currentDate,
-                                style: _overlayTextStyle(16.tsp),
+                                style: _overlayTextStyle(11.tsp),
                               ),
                               if (_currentLocation.isNotEmpty) ...[
-                                SizedBox(height: 4.th),
+                                SizedBox(height: 2.th),
                                 Text(
                                   _currentLocation,
-                                  style: _overlayTextStyle(14.tsp),
+                                  style: _overlayTextStyle(10.tsp),
                                   textAlign: TextAlign.right,
                                 ),
                               ],
@@ -1614,7 +1600,7 @@ Future<void> _applyOverlayIsolate(_OverlayParams p) async {
       }
     }
 
-    final font = img.arial24;
+    final font = img.arial14;
     const shadowOffset = 1;
 
     int measureWidth(img.BitmapFont f, String text) {

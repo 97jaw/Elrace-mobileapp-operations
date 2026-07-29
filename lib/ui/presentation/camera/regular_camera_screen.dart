@@ -1,4 +1,6 @@
 import 'package:el_race/core/utils/responsive_breakpoints.dart';
+import 'dart:io';
+
 import 'package:camera/camera.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
@@ -143,6 +145,9 @@ class _RegularCameraScreenState extends State<RegularCameraScreen> {
       widget.cameras[_selectedCameraIndex],
       ResolutionPreset.high,
       enableAudio: false,
+      imageFormatGroup: Platform.isIOS
+          ? ImageFormatGroup.bgra8888
+          : ImageFormatGroup.jpeg,
     );
 
     await _controller.dispose();
@@ -289,20 +294,22 @@ class _RegularCameraScreenState extends State<RegularCameraScreen> {
                   Text(
                     _currentDateTime,
                     style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 13.tsp,
-                      fontWeight: FontWeight.w600,
+                      color: Colors.white.withOpacity(0.9),
+                      fontSize: 11.tsp,
+                      fontWeight: FontWeight.w300,
+                      height: 1.2,
                     ),
                     textAlign: TextAlign.right,
                   ),
                   if (_currentLocation.isNotEmpty) ...[
-                    SizedBox(height: 4.th),
+                    SizedBox(height: 2.th),
                     Text(
                       _currentLocation,
                       style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 11.tsp,
-                        fontWeight: FontWeight.w500,
+                        color: Colors.white.withOpacity(0.85),
+                        fontSize: 10.tsp,
+                        fontWeight: FontWeight.w300,
+                        height: 1.2,
                       ),
                       textAlign: TextAlign.right,
                     ),
