@@ -4,6 +4,9 @@ import 'dart:convert';
 import 'package:adhan/adhan.dart';
 import 'package:el_race/data/services/hive_service.dart';
 import 'package:el_race/data/services/prayer_audio_service.dart';
+import 'package:el_race/data/services/prayer_background_service.dart';
+import 'package:el_race/data/services/prayer_notification_service.dart';
+import 'package:el_race/core/services/notification_storage_service.dart';
 import 'package:equatable/equatable.dart';
 import 'package:el_race/ui/presentation/Attendace_list/repository/attendance_repository.dart';
 import 'package:flutter/material.dart';
@@ -106,9 +109,31 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
   ) async {
     try {
       final newState = !_isSoundMuted;
+      // Local-first: Hive + cancel/reschedule (do not depend on API).
       await HiveService.setPrayerSoundMuted(newState);
       _isSoundMuted = newState;
-      // debugPrint(newState.toString());
+
+      if (newState) {
+        await PrayerNotificationService().cancelAllPendingAdhan();
+        try {
+          await _audioService.stopAdhan();
+        } catch (_) {}
+      } else {
+        try {
+          await _audioService.rescheduleBackgroundNotifications();
+        } catch (_) {}
+        try {
+          await PrayerBackgroundService.reschedule();
+        } catch (_) {}
+      }
+
+      // Prefer API sync; fall back to local keys if category missing.
+      try {
+        await NotificationStorageService.setMuteSetting('prayer', newState);
+      } catch (_) {
+        await NotificationStorageService.setLocalMuteSetting('prayer', newState);
+      }
+      await NotificationStorageService.setLocalMuteSetting('adhan', newState);
 
       if (_prayerTimes != null) {
         emit(PrayerTimesLoaded(

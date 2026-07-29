@@ -5,6 +5,7 @@ import 'package:el_race/core/services/attendance_status_sync_service.dart';
 import 'package:el_race/core/services/badge_refresh_service.dart';
 import 'package:el_race/core/utils/shared_pref.dart';
 import 'package:el_race/data/services/prayer_audio_service.dart';
+import 'package:el_race/firebase_service.dart';
 import 'package:flutter/widgets.dart';
 
 /// Single owner of all app-resume work.
@@ -85,6 +86,8 @@ class ResumeCoordinator {
       unawaited(PrayerAudioService().enterForegroundMode());
       if (SharedPref.isUserAuthenticated()) {
         unawaited(BadgeRefreshService.refreshOnResume());
+        // Keep Odoo expo_token fresh after long sessions / token rotation.
+        unawaited(FirebaseService.syncFcmTokenToOdoo());
       }
     });
 

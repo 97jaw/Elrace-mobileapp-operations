@@ -20,6 +20,14 @@ class _PettyCashMyActionScreenState extends State<PettyCashMyActionScreen>
   @override
   MyActionsType get actionsType => MyActionsType.ptsh;
 
+  void _onItemTap(MyActionItem item) {
+    MyActionsDetailNavigation.showPreview(
+      context,
+      MyActionsModule.pettyCash,
+      item,
+    );
+  }
+
   @override
   void initState() {
     super.initState();
@@ -41,7 +49,7 @@ class _PettyCashMyActionScreenState extends State<PettyCashMyActionScreen>
       error: actionsError,
       onRefresh: refreshActions,
       onRetry: retryInitialActionsLoad,
-      onItemTap: (_) {},
+      onItemTap: _onItemTap,
       filter: _filter,
       onFilterChanged: (f) => setState(() => _filter = f),
       subtitleBuilder: MyActionsDetailNavigation.pettyCashSubtitle,
@@ -49,7 +57,7 @@ class _PettyCashMyActionScreenState extends State<PettyCashMyActionScreen>
         context: context,
         module: MyActionsModule.pettyCash,
         filter: _filter,
-        onItemTap: (_) {},
+        onItemTap: _onItemTap,
         subtitleBuilder: MyActionsDetailNavigation.pettyCashSubtitle,
       ),
     );

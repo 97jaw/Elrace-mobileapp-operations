@@ -685,6 +685,20 @@ class _HrDetailsScreenState extends State<HrDetailsScreen> {
 
       if (data['result'] != null) {
         final result = data['result'] as Map;
+        // Backend may return {status: error, message: ...} with no data —
+        // previously treated as success → empty/null employee + request cards.
+        final status = result['status']?.toString().toLowerCase();
+        if (status == 'error' || result['success'] == false) {
+          final msg = result['message']?.toString() ??
+              'Failed to load HR request details';
+          print('🔴 HR details API error: $msg');
+          setState(() {
+            _error = msg;
+            _isLoading = false;
+          });
+          return;
+        }
+
         final rawData = result['data'] as Map? ?? {};
         // Data is inside form_view
         final formData = rawData['form_view'] as Map? ?? rawData;
@@ -1602,22 +1616,6 @@ class _HrDetailsScreenState extends State<HrDetailsScreen> {
       requestName: rawRequestType,
       requestMaps: requestMaps,
     );
-    final leaveSubtype = _pickFromMaps(requestMaps, [
-      'leave_request_subtype',
-      'leave_request_type',
-      'leave_request_type_labor',
-      'leave_type',
-      'leave_type_code',
-      'holiday_status_name',
-    ]);
-    final normalizedRawType = _normalizeToken(rawRequestType);
-    final requestType = normalizedRawType == 'leave'
-        ? (leaveSubtype.isNotEmpty
-            ? _titleCaseSimple(leaveSubtype)
-            : (_caseTitle[caseKey] ?? rawRequestType))
-        : ((rawRequestType == 'HR Request' || rawRequestType == 'HR Management')
-            ? (_caseTitle[caseKey] ?? rawRequestType)
-            : rawRequestType);
 
     final employeeName = _pick([
       _pickFromMaps(employeeMaps, [
@@ -2226,7 +2224,7 @@ class _HrDetailsScreenState extends State<HrDetailsScreen> {
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 ContextualGlassChromeHeader(
-                  title: requestType,
+                  title: requestNo.isNotEmpty ? requestNo : 'HR Request',
                   showBack: true,
                   onLightSurface: true,
                   transparentGlassBar: false,

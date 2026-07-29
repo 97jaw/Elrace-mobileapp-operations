@@ -191,6 +191,7 @@ class NotificationStorageService {
 
   static Future<Map<String, bool>> getMuteSettings({
     bool forceRefresh = false,
+    bool allowNetwork = true,
   }) async {
     final prefs = await SharedPreferences.getInstance();
     final now = DateTime.now();
@@ -212,11 +213,30 @@ class NotificationStorageService {
       return cachedSettings;
     }
 
+    // Background isolates / offline: use last known prefs (even if stale).
+    if (!allowNetwork) {
+      if (cachedSettings.isNotEmpty) {
+        _memoryMuteSettings = Map<String, bool>.from(cachedSettings);
+        _memoryMuteSettingsFetchedAt = cachedFetchedAt ?? now;
+        return cachedSettings;
+      }
+      return <String, bool>{};
+    }
+
     try {
       final remoteSettings =
           await NotificationApiService.getNotificationPreferences();
-      await _writeCachedMuteSettings(prefs, remoteSettings);
-      return Map<String, bool>.from(remoteSettings);
+      // Preserve local-only mute keys when replacing cache from API.
+      final previous = _readCachedMuteSettings(prefs);
+      const localOnly = {'chat_message', 'task', 'adhan', 'prayer'};
+      final merged = Map<String, bool>.from(remoteSettings);
+      for (final key in localOnly) {
+        if (previous.containsKey(key) && !merged.containsKey(key)) {
+          merged[key] = previous[key]!;
+        }
+      }
+      await _writeCachedMuteSettings(prefs, merged);
+      return Map<String, bool>.from(merged);
     } catch (e) {
       if (cachedSettings.isNotEmpty) {
         _memoryMuteSettings = Map<String, bool>.from(cachedSettings);
@@ -357,9 +377,19 @@ class NotificationStorageService {
   static Future<bool> shouldMuteNotification({
     String? category,
     Map<String, dynamic>? data,
+    bool allowNetwork = true,
   }) async {
-    final settings = await getMuteSettings();
+    final settings = await getMuteSettings(allowNetwork: allowNetwork);
     if (settings.isEmpty) return false;
+
+    // Shared Waiting mute covers all approval FCM models.
+    const waitingApprovalModels = <String>{
+      'waiting',
+      'employee.requests',
+      'account.move',
+      'purchase.order',
+      'hr.expense.sheet',
+    };
 
     final candidates = <String>[
       if (category != null) category,
@@ -373,9 +403,50 @@ class NotificationStorageService {
       ],
     ];
 
+    final normalized = <String>[];
     for (final candidate in candidates) {
       final key = _normalizeKey(candidate);
-      if (key.isEmpty) continue;
+      if (key.isNotEmpty) normalized.add(key);
+    }
+
+    if (settings['waiting'] == true) {
+      for (final key in normalized) {
+        if (waitingApprovalModels.contains(key)) {
+          return true;
+        }
+      }
+    }
+
+    // Safety / Alerts mute covers weather, summer, safety pushes.
+    const alertCoveredModels = <String>{
+      'alert',
+      'weather',
+      'safety',
+      'summer',
+    };
+    if (settings['alert'] == true) {
+      for (final key in normalized) {
+        if (alertCoveredModels.contains(key)) {
+          return true;
+        }
+      }
+    }
+
+    // Projects mute covers assigned + completed.
+    const projectCoveredModels = <String>{
+      'project_open',
+      'project_completed',
+    };
+    if (settings['project_open'] == true ||
+        settings['project_completed'] == true) {
+      for (final key in normalized) {
+        if (projectCoveredModels.contains(key)) {
+          return true;
+        }
+      }
+    }
+
+    for (final key in normalized) {
       if (settings[key] == true) {
         return true;
       }

@@ -6,11 +6,13 @@ import 'package:el_race/data/services/prayer_background_service.dart';
 import 'package:el_race/data/services/prayer_notification_service.dart';
 import 'package:el_race/data/services/task_notification_service.dart';
 import 'package:el_race/ui/presentation/Notification/model/notification_category_listview_model.dart';
+import 'package:el_race/ui/presentation/home_screen/bloc/home_bloc.dart';
 import 'package:el_race/ui/widgets/glass_sub_app_screen_header.dart';
 import 'package:el_race/ui/widgets/global_search_theme.dart';
 import 'package:el_race/utils/color_utils.dart';
 import 'package:el_race/utils/safe_insets.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 class NotificationMuteSettingsScreen extends StatefulWidget {
@@ -23,106 +25,126 @@ class NotificationMuteSettingsScreen extends StatefulWidget {
 
 class _NotificationMuteSettingsScreenState
     extends State<NotificationMuteSettingsScreen> {
-  static const List<String> _alwaysOnCategories = <String>[
-    'circular',
-    'announcement',
-  ];
-
   static const Map<String, _CategoryUiMeta> _knownCategories = {
-    'circular': _CategoryUiMeta(
-      title: 'Circulars',
-      icon: Icons.campaign_rounded,
+    'waiting': _CategoryUiMeta(
+      title: 'Waiting / Approvals',
+      icon: Icons.hourglass_top_rounded,
+      color: Color(0xFFEF6C00),
+    ),
+    'alert': _CategoryUiMeta(
+      title: 'Safety / Alerts',
+      icon: Icons.warning_amber_rounded,
+      color: Color(0xFFEF6C00),
+    ),
+    'weather': _CategoryUiMeta(
+      title: 'Safety / Alerts',
+      icon: Icons.warning_amber_rounded,
+      color: Color(0xFFEF6C00),
+    ),
+    'project_open': _CategoryUiMeta(
+      title: 'Projects',
+      icon: Icons.apartment_rounded,
       color: Color(0xFF455A64),
     ),
-    'announcement': _CategoryUiMeta(
-      title: 'Announcements',
-      icon: Icons.announcement_rounded,
-      color: Color(0xFF6A1B9A),
-    ),
-    'purchase.order': _CategoryUiMeta(
-      title: 'Purchase Orders',
-      icon: Icons.shopping_bag_rounded,
-      color: Color(0xFF6D4C41),
-    ),
-    'hr.expense.sheet': _CategoryUiMeta(
-      title: 'Expense Sheets',
-      icon: Icons.account_balance_wallet_rounded,
-      color: Color(0xFFC62828),
-    ),
-    'account.move': _CategoryUiMeta(
-      title: 'Invoices',
-      icon: Icons.receipt_long_rounded,
-      color: Color(0xFF283593),
-    ),
-    'employee.requests': _CategoryUiMeta(
-      title: 'Employee Requests',
-      icon: Icons.badge_rounded,
-      color: Color(0xFF00897B),
+    'project_completed': _CategoryUiMeta(
+      title: 'Projects',
+      icon: Icons.apartment_rounded,
+      color: Color(0xFF455A64),
     ),
     'prayer': _CategoryUiMeta(
       title: 'Prayer / Adhan',
       icon: Icons.mosque_rounded,
       color: Color(0xFF00695C),
     ),
-    'hr.attendance': _CategoryUiMeta(
-      title: 'Attendance',
-      icon: Icons.access_time_filled_rounded,
-      color: Color(0xFF2E7D32),
-    ),
-    'cloud.folder': _CategoryUiMeta(
-      title: 'Shared Folders',
-      icon: Icons.folder_shared_rounded,
-      color: Color(0xFF0277BD),
-    ),
-    'hr.employee.document': _CategoryUiMeta(
-      title: 'Document expiry',
-      icon: Icons.description_outlined,
-      color: Color(0xFF5D4037),
-    ),
-    'document_expiry_soon': _CategoryUiMeta(
-      title: 'Document expiry',
-      icon: Icons.description_outlined,
-      color: Color(0xFF5D4037),
-    ),
-    'alert': _CategoryUiMeta(
-      title: 'Alerts',
-      icon: Icons.warning_amber_rounded,
-      color: Color(0xFFEF6C00),
-    ),
-    'weather': _CategoryUiMeta(
-      title: 'Weather',
-      icon: Icons.cloud_rounded,
-      color: Color(0xFF0288D1),
-    ),
     'chat_message': _CategoryUiMeta(
       title: 'Chat',
       icon: Icons.chat_bubble_rounded,
       color: Color(0xFF0097A7),
+    ),
+    'share': _CategoryUiMeta(
+      title: 'Share',
+      icon: Icons.share_rounded,
+      color: Color(0xFF0277BD),
+    ),
+    'cloud.folder': _CategoryUiMeta(
+      title: 'Share',
+      icon: Icons.folder_shared_rounded,
+      color: Color(0xFF0277BD),
     ),
     'task': _CategoryUiMeta(
       title: 'Tasks',
       icon: Icons.task_alt_rounded,
       color: Color(0xFF5C6BC0),
     ),
+    'announcement': _CategoryUiMeta(
+      title: 'Announcements',
+      icon: Icons.announcement_rounded,
+      color: Color(0xFF6A1B9A),
+    ),
+    'circular': _CategoryUiMeta(
+      title: 'Circulars',
+      icon: Icons.campaign_rounded,
+      color: Color(0xFF455A64),
+    ),
+    'hr.attendance': _CategoryUiMeta(
+      title: 'Attendance',
+      icon: Icons.access_time_filled_rounded,
+      color: Color(0xFF2E7D32),
+    ),
   };
 
-  /// Local-only categories (not from API). Adhan is merged into `prayer`.
+  /// Only these are local (not Odoo categories). Everything else comes from API.
   static const List<String> _localOnlyCategories = <String>[
     'chat_message',
+    'prayer',
     'task',
   ];
+
+  /// Display order for mute rows (unknown codes go after these).
+  static const List<String> _displayOrder = <String>[
+    'waiting',
+    'alert',
+    'project_open',
+    'prayer',
+    'chat_message',
+    'share',
+    'cloud.folder',
+    'task',
+    'announcement',
+    'circular',
+  ];
+
+  /// Covered by the shared `waiting` mute switch — hide duplicate rows.
+  static const Set<String> _waitingCoveredModels = <String>{
+    'employee.requests',
+    'account.move',
+    'purchase.order',
+    'hr.expense.sheet',
+  };
+
+  /// Covered by the shared `alert` mute — summer / weather / safety.
+  static const Set<String> _alertCoveredModels = <String>{
+    'weather',
+    'safety',
+    'summer',
+  };
+
+  /// Covered by the shared Projects mute (`project_open`).
+  static const Set<String> _projectCoveredModels = <String>{
+    'project_completed',
+  };
 
   List<NotificationCategoryModel> _categories =
       const <NotificationCategoryModel>[];
   final Set<String> _savingModels = <String>{};
   bool _isLoading = true;
-  bool _isBulkUpdating = false;
   String? _error;
 
   @override
   void initState() {
     super.initState();
-    _loadSettings();
+    // Always hit the network so newly disabled Odoo categories disappear.
+    _loadSettings(forceRefresh: true);
   }
 
   String _capitalize(String value) {
@@ -167,9 +189,14 @@ class _NotificationMuteSettingsScreenState
     );
   }
 
-  bool _isAlwaysOnCategory(String model) {
+  bool _isLocalOnlyCategory(String model) {
     final key = model.trim().toLowerCase();
-    return _alwaysOnCategories.contains(key);
+    return _localOnlyCategories.contains(key);
+  }
+
+  int _sortIndex(String key) {
+    final idx = _displayOrder.indexOf(key);
+    return idx >= 0 ? idx : _displayOrder.length + 1;
   }
 
   Future<void> _loadSettings({bool forceRefresh = false}) async {
@@ -190,71 +217,86 @@ class _NotificationMuteSettingsScreenState
         forceRefresh: forceRefresh,
       );
 
-      // Build a map of API-provided titles keyed by normalized model
+      // Build list from *active* API categories only.
+      // Do NOT re-add keys from preferences — inactive categories still have
+      // preference rows and would keep showing after admin disables them.
       final apiTitles = <String, String>{};
       final merged = <String, bool>{};
+      final hasWaiting = categories.any(
+        (c) => c.model.trim().toLowerCase() == 'waiting',
+      );
+      final hasAlert = categories.any(
+        (c) => c.model.trim().toLowerCase() == 'alert',
+      );
+      final hasProjectOpen = categories.any(
+        (c) => c.model.trim().toLowerCase() == 'project_open',
+      );
       for (final category in categories) {
         final key = category.model.trim().toLowerCase();
         if (key.isEmpty) continue;
         apiTitles[key] = category.title;
-        if (_isAlwaysOnCategory(key)) continue;
-        merged[key] = settings[key] ?? false;
-      }
-      for (final entry in settings.entries) {
-        final key = entry.key.trim().toLowerCase();
-        if (_isAlwaysOnCategory(key)) continue;
         // Adhan is merged into Prayer — drop standalone row.
         if (key == 'adhan') continue;
-        merged[key] = entry.value;
+        // One Waiting switch covers all approval models.
+        if (hasWaiting && _waitingCoveredModels.contains(key)) continue;
+        // Safety / Alerts covers weather, summer, safety.
+        if (hasAlert && _alertCoveredModels.contains(key)) continue;
+        // Projects assigned mute also covers completed.
+        if (hasProjectOpen && _projectCoveredModels.contains(key)) continue;
+        merged[key] = settings[key] ?? false;
       }
 
-      // Local-only categories (chat, task) that do not come from the API.
+      // Local-only: chat, prayer, tasks.
       for (final localKey in _localOnlyCategories) {
         if (!merged.containsKey(localKey)) {
           merged[localKey] = settings[localKey] ?? false;
         }
       }
 
-      // Bidirectional sync: SharedPrefs/API prayer|adhan <-> Hive
-      // (Hive is canonical for azan AudioPlayer / OS schedule).
+      // Hive is the only source of truth for azan (OS schedule + AudioPlayer).
+      // Never OR prefs into Hive — that re-mutes after a successful local unmute
+      // when Odoo/SharedPrefs still have prayer=true.
       final hiveMuted = await HiveService.isPrayerSoundMuted();
-      final prefsMuted = settings['prayer'] == true ||
-          settings['adhan'] == true ||
-          merged['prayer'] == true;
-      final effectiveMuted = prefsMuted || hiveMuted;
-      if (effectiveMuted != hiveMuted) {
-        await HiveService.setPrayerSoundMuted(effectiveMuted);
-      }
-      if (effectiveMuted) {
-        merged['prayer'] = true;
-        await NotificationStorageService.setLocalMuteSetting(
-          'adhan',
-          true,
-        );
-      } else if (!merged.containsKey('prayer')) {
-        merged['prayer'] = false;
+      merged['prayer'] = hiveMuted;
+      await NotificationStorageService.setLocalMuteSetting('prayer', hiveMuted);
+      await NotificationStorageService.setLocalMuteSetting('adhan', hiveMuted);
+
+      String? titleFor(String key) {
+        if (key == 'prayer') return 'Prayer / Adhan';
+        if (key == 'chat_message') return 'Chat';
+        if (key == 'task') return 'Tasks';
+        if (key == 'share' || key == 'cloud.folder') {
+          return apiTitles[key]?.trim().isNotEmpty == true
+              ? apiTitles[key]
+              : 'Share';
+        }
+        if (key == 'waiting') {
+          return apiTitles[key]?.trim().isNotEmpty == true
+              ? apiTitles[key]
+              : 'Waiting / Approvals';
+        }
+        if (key == 'alert') {
+          return 'Safety / Alerts';
+        }
+        if (key == 'project_open' || key == 'project_completed') {
+          return 'Projects';
+        }
+        return apiTitles[key];
       }
 
-      final fixedCategoryModels = _alwaysOnCategories
-          .map((model) => _toCategoryModel(model, false))
-          .toList(growable: false);
-
-      final dynamicCategoryModels = merged.entries
+      final categoryModels = merged.entries
           .where((entry) => entry.key != 'adhan')
           .map((entry) => _toCategoryModel(
                 entry.key,
                 entry.value,
-                apiTitle: entry.key == 'prayer'
-                    ? 'Prayer / Adhan'
-                    : apiTitles[entry.key],
+                apiTitle: titleFor(entry.key),
               ))
           .toList(growable: false)
-        ..sort((a, b) => a.title.compareTo(b.title));
-
-      final categoryModels = <NotificationCategoryModel>[
-        ...fixedCategoryModels,
-        ...dynamicCategoryModels,
-      ];
+        ..sort((a, b) {
+          final byOrder = _sortIndex(a.model).compareTo(_sortIndex(b.model));
+          if (byOrder != 0) return byOrder;
+          return a.title.compareTo(b.title);
+        });
 
       if (!mounted) return;
       setState(() {
@@ -268,10 +310,6 @@ class _NotificationMuteSettingsScreenState
         _isLoading = false;
       });
     }
-  }
-
-  int _mutedCount() {
-    return _categories.where((category) => category.muted).length;
   }
 
   void _setCategoryMuted(String model, bool muted) {
@@ -288,13 +326,10 @@ class _NotificationMuteSettingsScreenState
     NotificationCategoryModel category,
     bool muted,
   ) async {
-    if (_isAlwaysOnCategory(category.model)) {
-      return;
-    }
-
     final model = category.model;
     final previous = category.muted;
-    final isLocalOnly = _localOnlyCategories.contains(model);
+    final isLocalOnly = _isLocalOnlyCategory(model);
+    final isPrayer = model == 'prayer' || model == 'adhan';
 
     _setCategoryMuted(model, muted);
     setState(() {
@@ -302,34 +337,41 @@ class _NotificationMuteSettingsScreenState
     });
 
     try {
-      // الفئات المحلية فقط: تخزين محلي بدون مزامنة API
-      if (isLocalOnly) {
+      // Prayer / Adhan: Hive + cancel/reschedule MUST run even if API fails.
+      if (isPrayer) {
+        await HiveService.setPrayerSoundMuted(muted);
+        if (muted) {
+          await PrayerNotificationService().cancelAllPendingAdhan();
+          try {
+            await PrayerAudioService().stopAdhan();
+          } catch (_) {}
+        } else {
+          try {
+            await PrayerAudioService().rescheduleBackgroundNotifications();
+          } catch (_) {}
+          try {
+            await PrayerBackgroundService.reschedule();
+          } catch (_) {}
+        }
+        // Prefer API sync; if it fails, keep local mute keys.
+        try {
+          await NotificationStorageService.setMuteSetting('prayer', muted);
+        } catch (_) {
+          await NotificationStorageService.setLocalMuteSetting('prayer', muted);
+        }
+        await NotificationStorageService.setLocalMuteSetting('adhan', muted);
+        if (mounted) {
+          try {
+            context.read<HomeBloc>().add(const LoadPrayerMuteStateEvent());
+          } catch (_) {}
+        }
+      } else if (isLocalOnly) {
         await NotificationStorageService.setLocalMuteSetting(model, muted);
         if (model == 'task' && muted) {
           await TaskNotificationService().cancelAllPendingTaskNotifications();
         }
       } else {
         await NotificationStorageService.setMuteSetting(model, muted);
-        // Prayer / Adhan are one control: also drive local azan mute.
-        if (model == 'prayer') {
-          await HiveService.setPrayerSoundMuted(muted);
-          await NotificationStorageService.setLocalMuteSetting('adhan', muted);
-          if (muted) {
-            await PrayerNotificationService().cancelAllPendingAdhan();
-            // Stop any azan already playing in the foreground AudioPlayer.
-            try {
-              await PrayerAudioService().stopAdhan();
-            } catch (_) {}
-          } else {
-            // Re-arm local adhan schedules after unmute.
-            try {
-              await PrayerAudioService().rescheduleBackgroundNotifications();
-            } catch (_) {}
-            try {
-              await PrayerBackgroundService.reschedule();
-            } catch (_) {}
-          }
-        }
         if (model == 'task' && muted) {
           await TaskNotificationService().cancelAllPendingTaskNotifications();
         }
@@ -339,7 +381,7 @@ class _NotificationMuteSettingsScreenState
         _setCategoryMuted(model, previous);
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Failed to update $model: $e'),
+            content: Text('Failed to update mute: $e'),
             backgroundColor: Colors.red.shade700,
           ),
         );
@@ -353,83 +395,8 @@ class _NotificationMuteSettingsScreenState
     }
   }
 
-  Future<void> _unmuteAll() async {
-    final mutedItems = _categories.where((item) => item.muted).toList();
-    if (mutedItems.isEmpty) return;
-
-    setState(() {
-      _isBulkUpdating = true;
-    });
-
-    for (final item in mutedItems) {
-      await _toggleMute(item, false);
-    }
-
-    if (!mounted) return;
-    setState(() {
-      _isBulkUpdating = false;
-    });
-  }
-
-  Widget _buildStatusBanner() {
-    final mutedCount = _mutedCount();
-    final total = _categories.length;
-    final statusText = total == 0
-        ? 'No notification categories found.'
-        : mutedCount == 0
-            ? 'All categories are active.'
-            : '$mutedCount of $total categories are muted.';
-
-    return Container(
-      width: double.infinity,
-      padding: EdgeInsets.symmetric(horizontal: 14.tw, vertical: 12.th),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(14.tr),
-        color: appFontColor.withValues(alpha: 0.06),
-        border: Border.all(color: appFontColor.withValues(alpha: 0.12)),
-      ),
-      child: Row(
-        children: [
-          Icon(Icons.tune_rounded, color: appFontColor, size: 22.tsp),
-          SizedBox(width: 10.tw),
-          Expanded(
-            child: Text(
-              statusText,
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-              style: GoogleFonts.poppins(
-                fontSize: 12.tsp,
-                fontWeight: FontWeight.w500,
-                color: const Color(0xFF5F6F89),
-                height: 1.35,
-              ),
-            ),
-          ),
-          if (mutedCount > 0)
-            TextButton(
-              onPressed: _isBulkUpdating ? null : _unmuteAll,
-              style: TextButton.styleFrom(
-                padding: EdgeInsets.symmetric(horizontal: 8.tw),
-                minimumSize: Size(0, 32.th),
-                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-              ),
-              child: Text(
-                'Unmute all',
-                style: GoogleFonts.poppins(
-                  fontSize: 11.tsp,
-                  fontWeight: FontWeight.w700,
-                  color: appFontColor,
-                ),
-              ),
-            ),
-        ],
-      ),
-    );
-  }
-
   Widget _buildCategoryTile(NotificationCategoryModel category) {
     final isSaving = _savingModels.contains(category.model);
-    final isAlwaysOn = _isAlwaysOnCategory(category.model);
 
     return Container(
       margin: EdgeInsets.only(bottom: 10.th),
@@ -458,40 +425,15 @@ class _NotificationMuteSettingsScreenState
           ),
           SizedBox(width: 10.tw),
           Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  category.title,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: GoogleFonts.poppins(
-                    fontSize: 13.tsp,
-                    fontWeight: FontWeight.w700,
-                    color: const Color(0xFF111D3A),
-                  ),
-                ),
-                SizedBox(height: 2.th),
-                Text(
-                  category.model,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: GoogleFonts.poppins(
-                    fontSize: 10.5.tsp,
-                    fontWeight: FontWeight.w600,
-                    color: const Color(0xFF5F6F89),
-                  ),
-                ),
-                if (isAlwaysOn)
-                  Text(
-                    'Always enabled',
-                    style: GoogleFonts.poppins(
-                      fontSize: 10.tsp,
-                      fontWeight: FontWeight.w700,
-                      color: category.color,
-                    ),
-                  ),
-              ],
+            child: Text(
+              category.title,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: GoogleFonts.poppins(
+                fontSize: 13.tsp,
+                fontWeight: FontWeight.w700,
+                color: const Color(0xFF111D3A),
+              ),
             ),
           ),
           if (isSaving)
@@ -505,14 +447,12 @@ class _NotificationMuteSettingsScreenState
             )
           else
             Switch.adaptive(
-              value: isAlwaysOn ? true : !category.muted,
+              value: !category.muted,
               activeColor: const Color(0xFF43A047),
               activeTrackColor: const Color(0xFFA5D6A7),
               inactiveThumbColor: const Color(0xFFE53935),
               inactiveTrackColor: const Color(0xFFEF9A9A),
-              onChanged: _isBulkUpdating || isAlwaysOn
-                  ? null
-                  : (value) => _toggleMute(category, !value),
+              onChanged: (value) => _toggleMute(category, !value),
             ),
         ],
       ),
@@ -526,12 +466,6 @@ class _NotificationMuteSettingsScreenState
           icon: Icons.refresh_rounded,
           tooltip: 'Refresh',
           onPressed: () => _loadSettings(forceRefresh: true),
-        ),
-      if (!_isLoading && _mutedCount() > 0)
-        GlassSubAppHeaderIconButton(
-          icon: Icons.volume_up_rounded,
-          tooltip: 'Unmute all',
-          onPressed: _isBulkUpdating ? () {} : _unmuteAll,
         ),
     ];
   }
@@ -555,8 +489,6 @@ class _NotificationMuteSettingsScreenState
           parent: AlwaysScrollableScrollPhysics(),
         ),
         children: [
-          _buildStatusBanner(),
-          SizedBox(height: 14.th),
           if (_error != null)
             Container(
               margin: EdgeInsets.only(bottom: 10.th),

@@ -19,6 +19,14 @@ class _InvoiceMyActionsScreenState extends State<InvoiceMyActionsScreen>
   @override
   MyActionsType get actionsType => MyActionsType.invoice;
 
+  void _onItemTap(MyActionItem item) {
+    MyActionsDetailNavigation.showPreview(
+      context,
+      MyActionsModule.invoice,
+      item,
+    );
+  }
+
   @override
   void initState() {
     super.initState();
@@ -40,7 +48,7 @@ class _InvoiceMyActionsScreenState extends State<InvoiceMyActionsScreen>
       error: actionsError,
       onRefresh: refreshActions,
       onRetry: retryInitialActionsLoad,
-      onItemTap: (_) {},
+      onItemTap: _onItemTap,
       filter: _filter,
       onFilterChanged: (f) => setState(() => _filter = f),
       subtitleBuilder: MyActionsDetailNavigation.invoiceSubtitle,
@@ -48,7 +56,7 @@ class _InvoiceMyActionsScreenState extends State<InvoiceMyActionsScreen>
         context: context,
         module: MyActionsModule.invoice,
         filter: _filter,
-        onItemTap: (_) {},
+        onItemTap: _onItemTap,
         subtitleBuilder: MyActionsDetailNavigation.invoiceSubtitle,
       ),
     );

@@ -167,3 +167,162 @@ class MyActionItem {
     return s;
   }
 }
+
+/// One row from detail API `approvals[]` (review_ids / request_approvals_ids).
+class MyActionApprovalStep {
+  const MyActionApprovalStep({
+    required this.name,
+    required this.status,
+    this.id,
+    this.sequence,
+    this.image,
+    this.description,
+    this.approveTime,
+    this.comments,
+  });
+
+  final int? id;
+  final String name;
+  final String status;
+  final int? sequence;
+  final String? image;
+  final String? description;
+  final String? approveTime;
+  final String? comments;
+
+  factory MyActionApprovalStep.fromJson(Map<String, dynamic> json) {
+    final rawStatus = json['validation_status'] ?? json['status'];
+    String status;
+    if (rawStatus is bool) {
+      status = rawStatus ? 'approved' : 'pending';
+    } else {
+      status = MyActionItem._safeString(rawStatus).toLowerCase();
+      if (status.isEmpty) status = 'pending';
+      if (status == 'true') status = 'approved';
+      if (status == 'false') status = 'pending';
+    }
+    if (json['skipped'] == true && status == 'pending') {
+      status = 'skipped';
+    }
+
+    final seq = json['sequence'];
+    final approveRaw = json['approve_time'] ?? json['reviewed_date'];
+    return MyActionApprovalStep(
+      id: (json['id'] as num?)?.toInt() ??
+          (json['validator_user_id'] as num?)?.toInt(),
+      name: MyActionItem._safeString(
+        json['name'] ??
+            json['validator'] ??
+            json['approver'] ??
+            json['validating_users'],
+      ),
+      status: status,
+      sequence: seq is num ? seq.toInt() : int.tryParse('$seq'),
+      image: MyActionItem._safeString(json['image']).isEmpty
+          ? null
+          : MyActionItem._safeString(json['image']),
+      description: MyActionItem._safeString(json['description']).isEmpty
+          ? null
+          : MyActionItem._safeString(json['description']),
+      approveTime: MyActionItem._safeString(approveRaw).isEmpty
+          ? null
+          : MyActionItem._safeString(approveRaw),
+      comments: MyActionItem._safeString(json['comments']).isEmpty
+          ? null
+          : MyActionItem._safeString(json['comments']),
+    );
+  }
+}
+
+/// Detail payload used by the My Actions record preview sheet.
+class MyActionRecordPreview {
+  const MyActionRecordPreview({
+    required this.approvals,
+    this.headerExtras = const {},
+  });
+
+  final List<MyActionApprovalStep> approvals;
+
+  /// Extra key/value pairs for the header (from form_view / request_info).
+  final Map<String, String> headerExtras;
+
+  factory MyActionRecordPreview.fromDetailData(
+    Map<String, dynamic> data, {
+    required MyActionsType type,
+  }) {
+    final approvalsRaw = data['approvals'];
+    final approvals = approvalsRaw is List
+        ? approvalsRaw
+            .whereType<Map>()
+            .map((e) => MyActionApprovalStep.fromJson(
+                  Map<String, dynamic>.from(e),
+                ))
+            .toList()
+        : const <MyActionApprovalStep>[];
+
+    final extras = <String, String>{};
+    void put(String label, dynamic value) {
+      final s = MyActionItem._safeString(value).trim();
+      if (s.isEmpty || s == 'N/A') return;
+      extras[label] = s;
+    }
+
+    if (type == MyActionsType.hr) {
+      final requestInfo =
+          (data['request_info'] as Map?)?.cast<String, dynamic>() ?? const {};
+      final employeeInfo =
+          (data['employee_info'] as Map?)?.cast<String, dynamic>() ?? const {};
+      // No Request / Department in header (title already covers request no).
+      put(
+        'Type',
+        requestInfo['request_name'] ?? requestInfo['leave_request_subtype'],
+      );
+      put(
+        'Employee',
+        employeeInfo['employee_name'] ?? requestInfo['requested_by'],
+      );
+      put(
+        'From',
+        requestInfo['request_date_from'] ?? requestInfo['start_date'],
+      );
+      put('To', requestInfo['request_date_to'] ?? requestInfo['end_date']);
+    } else if (type == MyActionsType.rfq) {
+      final form =
+          (data['form_view'] as Map?)?.cast<String, dynamic>() ?? const {};
+      // No RFQ / Department — sheet title already shows RFQ number.
+      put('Vendor', form['vendor']);
+      put('Project', form['project']);
+      put('Amount', form['amount_total']);
+      put('Client', form['client']);
+    } else if (type == MyActionsType.invoice) {
+      final form =
+          (data['form_view'] as Map?)?.cast<String, dynamic>() ?? const {};
+      put('Vendor', form['vendor']);
+      put('Project', form['project']);
+      put('Department', form['department']);
+      put('Client', form['client']);
+      final amount = form['amount_total'];
+      if (amount is num) {
+        put('Amount', '${amount.toStringAsFixed(2)} AED');
+      } else {
+        put('Amount', amount);
+      }
+      put('LPO', form['lpo'] ?? form['lpo_name']);
+      put('Invoice No', form['inv_no']);
+      put('Date', form['date']);
+    } else if (type == MyActionsType.ptsh) {
+      final form =
+          (data['form_view'] as Map?)?.cast<String, dynamic>() ?? const {};
+      put('Employee', form['employee'] ?? form['requester_name']);
+      put('Holder', form['holder'] ?? form['holder_name']);
+      put('Project', form['project']);
+      put('Amount', form['amount'] ?? form['total_amount']);
+      put('Date', form['date']);
+    }
+
+    return MyActionRecordPreview(
+      approvals: approvals,
+      headerExtras: extras,
+    );
+  }
+}

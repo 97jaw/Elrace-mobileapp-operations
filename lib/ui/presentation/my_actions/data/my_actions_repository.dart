@@ -229,4 +229,80 @@ class MyActionsRepository {
       return MyActionItem.fromJson(map);
     }).toList(growable: false);
   }
+
+  /// Fetches My Actions preview sheet payload (dedicated endpoint).
+  /// Does NOT use Waiting detail APIs (get_*_details).
+  Future<MyActionRecordPreview> fetchRecordPreview({
+    required MyActionsType type,
+    required int recordId,
+  }) async {
+    final token = SharedPref.getLoginDataOrNull()?.result?.token;
+    if (token == null || token.isEmpty) {
+      throw Exception('Invalid token');
+    }
+
+    final headers = <String, String>{
+      'Content-Type': 'application/json',
+      'Accept': 'application/json',
+      'Authorization': 'Bearer $token',
+    };
+
+    final url = Uri.parse('${UrlUtil.baseUrl}my_actions/preview');
+    final body = jsonEncode({
+      'jsonrpc': '2.0',
+      'params': {
+        'type': type.apiValue,
+        'record_id': recordId,
+      },
+    });
+    final request = http.Request('GET', url)
+      ..headers.addAll(headers)
+      ..body = body;
+
+    final streamed = await request.send();
+    final response = await http.Response.fromStream(streamed);
+    if (response.statusCode != 200) {
+      throw Exception('Preview HTTP ${response.statusCode}');
+    }
+
+    final decoded = response.body.isEmpty
+        ? <String, dynamic>{}
+        : jsonDecode(response.body);
+    if (decoded is! Map) {
+      throw Exception('Unexpected preview payload');
+    }
+
+    final json = Map<String, dynamic>.from(decoded);
+    if (json['error'] is Map) {
+      final err = Map<String, dynamic>.from(json['error'] as Map);
+      final errData = err['data'];
+      final message = errData is Map
+          ? (errData['message']?.toString() ?? err['message']?.toString())
+          : err['message']?.toString();
+      throw Exception(message ?? 'Failed to load record preview');
+    }
+
+    final result = json['result'];
+    Map<String, dynamic> data = {};
+    if (result is Map) {
+      final map = Map<String, dynamic>.from(result);
+      final status = map['status']?.toString();
+      final message = map['message']?.toString();
+      final raw = map['data'];
+      if (raw is Map) {
+        data = Map<String, dynamic>.from(raw);
+      } else if (map['form_view'] != null ||
+          map['approvals'] != null ||
+          map['request_info'] != null ||
+          map['employee_info'] != null) {
+        data = map;
+      } else if (status != null && status != 'success' && status != 'ok') {
+        throw Exception(message ?? 'Preview failed');
+      }
+    } else if (result == null) {
+      throw Exception('Empty preview response');
+    }
+
+    return MyActionRecordPreview.fromDetailData(data, type: type);
+  }
 }

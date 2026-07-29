@@ -19,6 +19,14 @@ class _RfqScreenState extends State<RfqScreen>
   @override
   MyActionsType get actionsType => MyActionsType.rfq;
 
+  void _onItemTap(MyActionItem item) {
+    MyActionsDetailNavigation.showPreview(
+      context,
+      MyActionsModule.rfq,
+      item,
+    );
+  }
+
   @override
   void initState() {
     super.initState();
@@ -40,7 +48,7 @@ class _RfqScreenState extends State<RfqScreen>
       error: actionsError,
       onRefresh: refreshActions,
       onRetry: retryInitialActionsLoad,
-      onItemTap: (_) {},
+      onItemTap: _onItemTap,
       filter: _filter,
       onFilterChanged: (f) => setState(() => _filter = f),
       subtitleBuilder: MyActionsDetailNavigation.rfqSubtitle,
@@ -48,7 +56,7 @@ class _RfqScreenState extends State<RfqScreen>
         context: context,
         module: MyActionsModule.rfq,
         filter: _filter,
-        onItemTap: (_) {},
+        onItemTap: _onItemTap,
         subtitleBuilder: MyActionsDetailNavigation.rfqSubtitle,
       ),
     );

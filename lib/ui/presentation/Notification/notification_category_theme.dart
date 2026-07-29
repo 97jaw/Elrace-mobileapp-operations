@@ -74,7 +74,7 @@ abstract final class NotificationCategoryTheme {
     'alert': NotificationCategoryVisual(
       icon: Icons.warning_amber_rounded,
       color: Color(0xFFEF6C00),
-      title: 'Alerts',
+      title: 'Safety / Alerts',
     ),
     // High-priority "red alert": the employee's home widgets changed and they
     // must re-login to see the update. Kept a strong red for contrast.
@@ -84,9 +84,19 @@ abstract final class NotificationCategoryTheme {
       title: 'Widget Update',
     ),
     'weather': NotificationCategoryVisual(
-      icon: Icons.cloud_rounded,
-      color: Color(0xFF0288D1),
-      title: 'Weather',
+      icon: Icons.warning_amber_rounded,
+      color: Color(0xFFEF6C00),
+      title: 'Safety / Alerts',
+    ),
+    'project_open': NotificationCategoryVisual(
+      icon: Icons.apartment_rounded,
+      color: Color(0xFF455A64),
+      title: 'Projects',
+    ),
+    'project_completed': NotificationCategoryVisual(
+      icon: Icons.apartment_rounded,
+      color: Color(0xFF455A64),
+      title: 'Projects',
     ),
     'chat_message': NotificationCategoryVisual(
       icon: Icons.chat_bubble_rounded,

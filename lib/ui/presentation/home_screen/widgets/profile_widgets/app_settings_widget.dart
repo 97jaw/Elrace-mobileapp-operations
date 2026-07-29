@@ -47,8 +47,8 @@ class AppSettingsWidget extends StatelessWidget {
 
   Future<void> _showMuteControlPopup(BuildContext context) async {
     final results = await Future.wait([
-      NotificationStorageService.getMuteSettings(),
-      NotificationStorageService.getNotificationCategories(),
+      NotificationStorageService.getMuteSettings(forceRefresh: true),
+      NotificationStorageService.getNotificationCategories(forceRefresh: true),
     ]);
     final dialogHostContext =
         navKey.currentState?.overlay?.context ?? navKey.currentContext;

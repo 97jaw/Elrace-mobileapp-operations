@@ -1,5 +1,6 @@
 import 'package:el_race/ui/presentation/my_actions/data/my_actions_models.dart';
 import 'package:el_race/ui/presentation/my_actions/theme/my_actions_module_theme.dart';
+import 'package:el_race/ui/presentation/my_actions/utils/my_actions_detail_navigation.dart';
 import 'package:el_race/ui/presentation/my_actions/widgets/my_actions_landing_scaffold.dart';
 import 'package:el_race/ui/presentation/my_actions/widgets/my_actions_pagination_mixin.dart';
 import 'package:flutter/material.dart';
@@ -17,6 +18,14 @@ class _HrScreenState extends State<HrScreen>
 
   @override
   MyActionsType get actionsType => MyActionsType.hr;
+
+  void _onItemTap(MyActionItem item) {
+    MyActionsDetailNavigation.showPreview(
+      context,
+      MyActionsModule.hr,
+      item,
+    );
+  }
 
   @override
   void initState() {
@@ -39,14 +48,14 @@ class _HrScreenState extends State<HrScreen>
       error: actionsError,
       onRefresh: refreshActions,
       onRetry: retryInitialActionsLoad,
-      onItemTap: (_) {},
+      onItemTap: _onItemTap,
       filter: _filter,
       onFilterChanged: (f) => setState(() => _filter = f),
       onShowAll: () => showMyActionsAllSheet(
         context: context,
         module: MyActionsModule.hr,
         filter: _filter,
-        onItemTap: (_) {},
+        onItemTap: _onItemTap,
       ),
     );
   }
