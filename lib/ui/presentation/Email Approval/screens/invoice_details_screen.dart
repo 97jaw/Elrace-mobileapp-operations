@@ -2,9 +2,11 @@ import 'package:el_race/core/utils/responsive_breakpoints.dart';
 import 'dart:convert';
 
 import 'package:el_race/core/utils/shared_pref.dart';
+import 'package:el_race/ui/presentation/Email%20Approval/bloc/approval_bloc.dart';
 import 'package:el_race/ui/presentation/Email%20Approval/theme/approvals_overview_theme.dart';
 import 'package:el_race/ui/presentation/Email%20Approval/utils/approval_display_helpers.dart';
 import 'package:el_race/ui/presentation/Email%20Approval/widgets/approval_action_buttons.dart';
+import 'package:el_race/ui/presentation/Email%20Approval/widgets/approval_rejected_banner.dart';
 import 'package:el_race/ui/widgets/contextual_glass_chrome_header.dart';
 import 'package:el_race/utils/Util.dart';
 import 'package:el_race/utils/safe_insets.dart';
@@ -36,6 +38,7 @@ class _InvoiceDetailsScreenState extends State<InvoiceDetailsScreen> {
   static const String _localFakeInvoiceRequestId = 'LOCAL_FAKE_INVOICE_001';
   bool _isLoading = true;
   String _error = '';
+  bool _rejectedLocked = false;
 
   Map<String, dynamic> _formData = const {};
 
@@ -760,6 +763,10 @@ class _InvoiceDetailsScreenState extends State<InvoiceDetailsScreen> {
           variant: ApprovalActionButtonsVariant.glass,
           showHrApproveConfirmation: true,
           enableFakeApproveDemo: _isLocalFakeRequest,
+          onRejectedLocked: () {
+            if (!mounted) return;
+            setState(() => _rejectedLocked = true);
+          },
         ),
       ),
     );
@@ -930,9 +937,11 @@ class _InvoiceDetailsScreenState extends State<InvoiceDetailsScreen> {
         _parsePositiveInt(_formData['po_id']) != null;
     final openDoc =
         canViewLpo ? () => _viewLpoReport(lpoName: contractLpo) : null;
+    final isRejected =
+        _rejectedLocked || ApprovalRejectedBanner.isRejected(_formData);
+    final rejectedMessage = ApprovalRejectedBanner.messageFromForm(_formData);
 
-    final userId =
-        SharedPref.getLoginData().result?.data?.uid?.toString() ?? '';
+    final userId = ApprovalBloc.resolveActingUserId();
 
     return AnnotatedRegion<SystemUiOverlayStyle>(
       value: ApprovalsOverviewTheme.overlay,
@@ -982,10 +991,17 @@ class _InvoiceDetailsScreenState extends State<InvoiceDetailsScreen> {
                                     16.tw,
                                     4.th,
                                     16.tw,
-                                    78.th + context.systemBottomInset,
+                                    (isRejected ? 24.th : 78.th) +
+                                        context.systemBottomInset,
                                   ),
                                   child: Column(
                                     children: [
+                                      if (isRejected) ...[
+                                        ApprovalRejectedBanner(
+                                          message: rejectedMessage,
+                                        ),
+                                        SizedBox(height: 10.th),
+                                      ],
                                       _invoiceRequestHeader(
                                         imageUrl: vendorPhotoUrl,
                                         projectName: projectName,
@@ -1011,12 +1027,13 @@ class _InvoiceDetailsScreenState extends State<InvoiceDetailsScreen> {
                                     ],
                                   ),
                                 ),
-                                Positioned(
-                                  left: 16.tw,
-                                  right: 16.tw,
-                                  bottom: context.systemBottomInset + 8.th,
-                                  child: _floatingApprovalBar(userId),
-                                ),
+                                if (!isRejected)
+                                  Positioned(
+                                    left: 16.tw,
+                                    right: 16.tw,
+                                    bottom: context.systemBottomInset + 8.th,
+                                    child: _floatingApprovalBar(userId),
+                                  ),
                               ],
                             ),
                 ),

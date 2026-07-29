@@ -2,10 +2,12 @@ import 'package:el_race/core/utils/responsive_breakpoints.dart';
 import 'dart:convert';
 
 import 'package:el_race/core/utils/shared_pref.dart';
+import 'package:el_race/ui/presentation/Email%20Approval/bloc/approval_bloc.dart';
 import 'package:el_race/ui/presentation/Email%20Approval/theme/approvals_overview_theme.dart';
 import 'package:el_race/ui/presentation/Email%20Approval/utils/approval_display_helpers.dart';
 import 'package:el_race/ui/presentation/Email%20Approval/utils/petty_cash_expense_line_groups.dart';
 import 'package:el_race/ui/presentation/Email%20Approval/widgets/approval_action_buttons.dart';
+import 'package:el_race/ui/presentation/Email%20Approval/widgets/approval_rejected_banner.dart';
 import 'package:el_race/ui/presentation/Email%20Approval/widgets/petty_cash_expense_lines_popup.dart';
 import 'package:el_race/ui/presentation/my_documents/screens/attachment_viewer_screen.dart';
 import 'package:el_race/ui/widgets/contextual_glass_chrome_header.dart';
@@ -37,6 +39,7 @@ class PettyCashDetailsScreen extends StatefulWidget {
 class _PettyCashDetailsScreenState extends State<PettyCashDetailsScreen> {
   bool _isLoading = true;
   String _error = '';
+  bool _rejectedLocked = false;
 
   Map<String, dynamic> _formData = const {};
   List<dynamic> _attachmentIds = const [];
@@ -1110,6 +1113,10 @@ class _PettyCashDetailsScreenState extends State<PettyCashDetailsScreen> {
           showHrApproveConfirmation: true,
           useProvidedComment: true,
           commentProvider: () => apiComment,
+          onRejectedLocked: () {
+            if (!mounted) return;
+            setState(() => _rejectedLocked = true);
+          },
         ),
       ),
     );
@@ -1345,6 +1352,9 @@ class _PettyCashDetailsScreenState extends State<PettyCashDetailsScreen> {
 
     final lines = _formData['lines'] as List? ?? [];
     final hasAttachments = _attachmentIds.isNotEmpty;
+    final isRejected =
+        _rejectedLocked || ApprovalRejectedBanner.isRejected(_formData);
+    final rejectedMessage = ApprovalRejectedBanner.messageFromForm(_formData);
     final apiComment = _normalizeApiComment(_pick([
       _formData['api_comment'],
       _formData['comment'],
@@ -1371,8 +1381,7 @@ class _PettyCashDetailsScreenState extends State<PettyCashDetailsScreen> {
       );
     }
 
-    final userId =
-        SharedPref.getLoginData().result?.data?.uid?.toString() ?? '';
+    final userId = ApprovalBloc.resolveActingUserId();
 
     return AnnotatedRegion<SystemUiOverlayStyle>(
       value: ApprovalsOverviewTheme.overlay,
@@ -1444,12 +1453,24 @@ class _PettyCashDetailsScreenState extends State<PettyCashDetailsScreen> {
                                           16.tw,
                                           0,
                                           16.tw,
-                                          (hasAttachments ? 120.th : 68.th) +
+                                          (isRejected
+                                                  ? (hasAttachments
+                                                      ? 72.th
+                                                      : 24.th)
+                                                  : (hasAttachments
+                                                      ? 120.th
+                                                      : 68.th)) +
                                               context.systemBottomInset,
                                         ),
                                         child: Column(
                                           children: [
                                             SizedBox(height: 4.th),
+                                            if (isRejected) ...[
+                                              ApprovalRejectedBanner(
+                                                message: rejectedMessage,
+                                              ),
+                                              SizedBox(height: 8.th),
+                                            ],
                                             _glassSectionCard(
                                               title: 'Expense Lines',
                                               trailing: InkWell(
@@ -1508,18 +1529,20 @@ class _PettyCashDetailsScreenState extends State<PettyCashDetailsScreen> {
                                   Positioned(
                                     left: 16.tw,
                                     right: 16.tw,
-                                    bottom: context.systemBottomInset + 72.th,
+                                    bottom: context.systemBottomInset +
+                                        (isRejected ? 8.th : 72.th),
                                     child: _viewAttachmentsButton(),
                                   ),
-                                Positioned(
-                                  left: 16.tw,
-                                  right: 16.tw,
-                                  bottom: context.systemBottomInset + 8.th,
-                                  child: _floatingApprovalBar(
-                                    userId,
-                                    apiComment: apiComment,
+                                if (!isRejected)
+                                  Positioned(
+                                    left: 16.tw,
+                                    right: 16.tw,
+                                    bottom: context.systemBottomInset + 8.th,
+                                    child: _floatingApprovalBar(
+                                      userId,
+                                      apiComment: apiComment,
+                                    ),
                                   ),
-                                ),
                               ],
                             ),
                 ),

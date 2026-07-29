@@ -311,7 +311,9 @@ class _ApprovalsScreenState extends State<ApprovalsScreen> {
 
   /// Loads a single category in the background and updates state when done.
   Future<void> _loadCategory(String categoryKey, {bool force = false}) async {
-    if (_categoryLoading[categoryKey] == true) {
+    // Never skip a forced refresh while a previous load is in flight — that
+    // caused employee-request (and other) lists to stay stale after approve/reject.
+    if (!force && _categoryLoading[categoryKey] == true) {
       debugPrint(
           '⏳ [ApprovalsScreen] Skip loading $categoryKey (already loading)');
       return;

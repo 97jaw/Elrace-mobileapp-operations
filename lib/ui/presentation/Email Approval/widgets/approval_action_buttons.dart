@@ -1,6 +1,7 @@
 import 'package:el_race/core/utils/responsive_breakpoints.dart';
 import 'package:el_race/core/utils/shared_pref.dart';
 import 'package:el_race/ui/presentation/Email%20Approval/theme/approvals_overview_theme.dart';
+import 'package:el_race/ui/presentation/Email%20Approval/widgets/approval_rejected_banner.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -12,6 +13,8 @@ class ApprovalActionButtons extends StatelessWidget {
   final String requestId;
   final String type;
   final void Function(String result)? onResult;
+  /// Called when server says record is rejected / needs restart validation.
+  final VoidCallback? onRejectedLocked;
   final bool disabled;
   final String? selectedAction;
   final List<String> userIds;
@@ -31,6 +34,7 @@ class ApprovalActionButtons extends StatelessWidget {
     required this.requestId,
     required this.type,
     this.onResult,
+    this.onRejectedLocked,
     this.disabled = false,
     this.selectedAction,
     required this.userIds,
@@ -45,6 +49,24 @@ class ApprovalActionButtons extends StatelessWidget {
     this.useProvidedComment = false,
     this.commentProvider,
   });
+
+  Future<void> _showOutcomePopup(
+    BuildContext context, {
+    required String message,
+    required bool isSuccess,
+  }) async {
+    if (!context.mounted) return;
+    final isWarning = ApprovalRejectedBanner.messageLooksRejected(message);
+    if (!isSuccess && isWarning) {
+      onRejectedLocked?.call();
+    }
+    await showApprovalMessagePopup(
+      context,
+      message: message,
+      isSuccess: isSuccess,
+      isWarning: isWarning,
+    );
+  }
 
   String _resolveProvidedComment() {
     final raw = commentProvider?.call() ?? '';
@@ -210,12 +232,10 @@ class ApprovalActionButtons extends StatelessWidget {
             Navigator.pop(context, true);
             Future.delayed(const Duration(milliseconds: 100), () {
               if (context.mounted) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text(state.message),
-                    duration: const Duration(seconds: 2),
-                    backgroundColor: Colors.green,
-                  ),
+                _showOutcomePopup(
+                  context,
+                  message: state.message,
+                  isSuccess: true,
                 );
               }
             });
@@ -225,12 +245,10 @@ class ApprovalActionButtons extends StatelessWidget {
             Navigator.pop(context);
           }
           if (context.mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text(state.error),
-                duration: const Duration(seconds: 4),
-                backgroundColor: Colors.red,
-              ),
+            _showOutcomePopup(
+              context,
+              message: state.error,
+              isSuccess: false,
             );
           }
         }
@@ -376,12 +394,10 @@ class ApprovalActionButtons extends StatelessWidget {
             Navigator.pop(context, true);
             Future.delayed(const Duration(milliseconds: 100), () {
               if (context.mounted) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text(state.message),
-                    duration: const Duration(seconds: 2),
-                    backgroundColor: Colors.green,
-                  ),
+                _showOutcomePopup(
+                  context,
+                  message: state.message,
+                  isSuccess: true,
                 );
               }
             });
@@ -391,12 +407,10 @@ class ApprovalActionButtons extends StatelessWidget {
             Navigator.pop(context);
           }
           if (context.mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text(state.error),
-                duration: const Duration(seconds: 4),
-                backgroundColor: Colors.red,
-              ),
+            _showOutcomePopup(
+              context,
+              message: state.error,
+              isSuccess: false,
             );
           }
         }
@@ -593,13 +607,10 @@ class ApprovalActionButtons extends StatelessWidget {
       onResult!(fakeMessage);
     }
 
-    final messenger = ScaffoldMessenger.maybeOf(context);
-    messenger?.showSnackBar(
-      SnackBar(
-        content: Text(fakeMessage),
-        duration: const Duration(seconds: 2),
-        backgroundColor: isApprove ? Colors.green : Colors.red,
-      ),
+    await showApprovalMessagePopup(
+      context,
+      message: fakeMessage,
+      isSuccess: isApprove,
     );
 
     if (context.mounted && Navigator.canPop(context)) {
@@ -943,12 +954,10 @@ class ApprovalActionButtons extends StatelessWidget {
             Navigator.pop(context, true);
             Future.delayed(const Duration(milliseconds: 100), () {
               if (context.mounted) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text(state.message),
-                    duration: const Duration(seconds: 2),
-                    backgroundColor: Colors.green,
-                  ),
+                _showOutcomePopup(
+                  context,
+                  message: state.message,
+                  isSuccess: true,
                 );
               }
             });
@@ -958,12 +967,10 @@ class ApprovalActionButtons extends StatelessWidget {
             Navigator.pop(context);
           }
           if (context.mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text(state.error),
-                duration: const Duration(seconds: 4),
-                backgroundColor: Colors.red,
-              ),
+            _showOutcomePopup(
+              context,
+              message: state.error,
+              isSuccess: false,
             );
           }
         }
@@ -1171,12 +1178,10 @@ class ApprovalActionButtons extends StatelessWidget {
             // Show success message after dialog closes
             Future.delayed(const Duration(milliseconds: 100), () {
               if (context.mounted) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text(state.message),
-                    duration: const Duration(seconds: 2),
-                    backgroundColor: Colors.green,
-                  ),
+                _showOutcomePopup(
+                  context,
+                  message: state.message,
+                  isSuccess: true,
                 );
               }
             });
@@ -1187,15 +1192,12 @@ class ApprovalActionButtons extends StatelessWidget {
             Navigator.pop(context); // Close loading overlay
           }
 
-          // For failures, show error but don't close main dialog
-          // User needs to see the error and decide what to do
+          // For failures, show proper message popup (not snackbar).
           if (context.mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text(state.error),
-                duration: const Duration(seconds: 4),
-                backgroundColor: Colors.red,
-              ),
+            _showOutcomePopup(
+              context,
+              message: state.error,
+              isSuccess: false,
             );
           }
         }

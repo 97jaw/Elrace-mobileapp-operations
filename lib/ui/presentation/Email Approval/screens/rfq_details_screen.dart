@@ -2,8 +2,10 @@ import 'package:el_race/core/utils/responsive_breakpoints.dart';
 import 'dart:convert';
 
 import 'package:el_race/core/utils/shared_pref.dart';
+import 'package:el_race/ui/presentation/Email%20Approval/bloc/approval_bloc.dart';
 import 'package:el_race/ui/presentation/Email%20Approval/theme/approvals_overview_theme.dart';
 import 'package:el_race/ui/presentation/Email%20Approval/widgets/approval_action_buttons.dart';
+import 'package:el_race/ui/presentation/Email%20Approval/widgets/approval_rejected_banner.dart';
 import 'package:el_race/ui/presentation/lpo/screens/lpo_pdf_viewer_screen.dart';
 import 'package:el_race/ui/widgets/contextual_glass_chrome_header.dart';
 import 'package:el_race/utils/safe_insets.dart';
@@ -35,6 +37,7 @@ class _RfqDetailsScreenState extends State<RfqDetailsScreen> {
   static const String _localFakeRfqRequestId = 'LOCAL_FAKE_RFQ_001';
   bool _isLoading = true;
   String _error = '';
+  bool _rejectedLocked = false;
   Map<String, dynamic> _formData = {};
 
   bool get _isLocalFakeRequest => widget.requestId == _localFakeRfqRequestId;
@@ -653,6 +656,10 @@ class _RfqDetailsScreenState extends State<RfqDetailsScreen> {
           variant: ApprovalActionButtonsVariant.glass,
           showHrApproveConfirmation: true,
           enableFakeApproveDemo: _isLocalFakeRequest,
+          onRejectedLocked: () {
+            if (!mounted) return;
+            setState(() => _rejectedLocked = true);
+          },
         ),
       ),
     );
@@ -794,9 +801,11 @@ class _RfqDetailsScreenState extends State<RfqDetailsScreen> {
     ]).take(4).toList();
 
     final canViewReport = int.tryParse(widget.requestId) != null;
+    final isRejected =
+        _rejectedLocked || ApprovalRejectedBanner.isRejected(_formData);
+    final rejectedMessage = ApprovalRejectedBanner.messageFromForm(_formData);
 
-    final userId =
-        SharedPref.getLoginData().result?.data?.uid?.toString() ?? '';
+    final userId = ApprovalBloc.resolveActingUserId();
 
     return AnnotatedRegion<SystemUiOverlayStyle>(
       value: ApprovalsOverviewTheme.overlay,
@@ -871,10 +880,17 @@ class _RfqDetailsScreenState extends State<RfqDetailsScreen> {
                                           16.tw,
                                           0,
                                           16.tw,
-                                          68.th + context.systemBottomInset,
+                                          (isRejected ? 24.th : 68.th) +
+                                              context.systemBottomInset,
                                         ),
                                         child: Column(
                                           children: [
+                                            if (isRejected) ...[
+                                              ApprovalRejectedBanner(
+                                                message: rejectedMessage,
+                                              ),
+                                              SizedBox(height: 8.th),
+                                            ],
                                             _glassSectionCard(
                                               title: 'Vendor Details',
                                               child: Column(
@@ -1037,13 +1053,14 @@ class _RfqDetailsScreenState extends State<RfqDetailsScreen> {
                                     ),
                                   ],
                                 ),
-                                Positioned(
-                                  left: 16.tw,
-                                  right: 16.tw,
-                                  bottom:
-                                      context.systemBottomInset + 8.th,
-                                  child: _floatingApprovalBar(userId),
-                                ),
+                                if (!isRejected)
+                                  Positioned(
+                                    left: 16.tw,
+                                    right: 16.tw,
+                                    bottom:
+                                        context.systemBottomInset + 8.th,
+                                    child: _floatingApprovalBar(userId),
+                                  ),
                               ],
                             ),
                 ),
