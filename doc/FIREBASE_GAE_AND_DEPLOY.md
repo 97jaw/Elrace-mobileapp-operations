@@ -29,21 +29,28 @@ Some orgs block App Engine or Cloud Build defaults. Ask GCP admin if creation fa
 
 ## What to do instead (recommended)
 
-**Do not block on GAE** for Face Liveness. Deploy only the two Gen2 callables to **`asia-south1`**:
+**Do not block on GAE** for Face Liveness or assignment FCM. Deploy Gen2 functions to **`asia-south1`** in isolated codebases:
 
 ```bash
-cd /Users/mjawad/Downloads/el_race-loayBranch
-cd functions-liveness && npm install && cd ..
-firebase deploy --only functions:liveness:createFaceLivenessSession,functions:liveness:getFaceLivenessSessionResults
+# Face Liveness
+firebase deploy --project elrace-new --only \
+  functions:liveness:createFaceLivenessSession,functions:liveness:getFaceLivenessSessionResults
+
+# Task / ticket assignment pushes
+cd functions-assignment && npm install && cd ..
+firebase deploy --project elrace-new --only \
+  functions:assignment:onAssignedTodoCreated,functions:assignment:onAssignmentPushRequest,firestore:rules
 ```
 
-Liveness lives in the **`functions-liveness`** codebase (`codebase: liveness`, region **`asia-south1`** only). The main **`functions`** folder still uses `me-central-1` for chat — do **not** deploy it until that region is fixed.
+Liveness lives in **`functions-liveness`** (`codebase: liveness`). Assignment FCM lives in **`functions-assignment`** (`codebase: assignment`). Both use **`asia-south1` only**.
+
+The main **`functions`** folder still uses `me-central-1` for chat — do **not** deploy it until that region is fixed.
 
 Flutter uses `kLivenessFunctionsRegion = 'asia-south1'`.
 
 ### Why `--only functions:createFace...` still hit me-central-1
 
-Firebase analyzed the whole `functions/index.js` including `setGlobalOptions({ region: "me-central-1" })`. The separate **`liveness`** codebase avoids that.
+Firebase analyzed the whole `functions/index.js` including `setGlobalOptions({ region: "me-central-1" })`. The separate **`liveness`** / **`assignment`** codebases avoid that.
 
 Gen2 functions in `asia-south1` do **not** require an App Engine app (per Firebase: scheduled 1st gen / default bucket coupling — not applicable here).
 
@@ -79,6 +86,7 @@ If Firestore is already `me-central1`, this will **fail** — skip GAE and use G
 | Firestore (likely) | `me-central1` | No App Engine support |
 | Firebase Functions (chat, etc.) | `me-central-1` | May need GAE workaround / support ticket |
 | **Liveness callables** | **`asia-south1`** | Deploy target in repo |
+| **Assignment FCM triggers** | **`asia-south1`** | `functions-assignment` codebase |
 | AWS Rekognition Liveness | **`ap-south-1`** | Mumbai; set in Firebase secrets / `.env` |
 
 ---
