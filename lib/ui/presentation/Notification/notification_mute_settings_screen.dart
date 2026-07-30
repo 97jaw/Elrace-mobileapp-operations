@@ -76,6 +76,11 @@ class _NotificationMuteSettingsScreenState
       icon: Icons.task_alt_rounded,
       color: Color(0xFF5C6BC0),
     ),
+    'ticket': _CategoryUiMeta(
+      title: 'Tickets',
+      icon: Icons.confirmation_number_outlined,
+      color: Color(0xFF8B4B9F),
+    ),
     'announcement': _CategoryUiMeta(
       title: 'Announcements',
       icon: Icons.announcement_rounded,
@@ -98,6 +103,7 @@ class _NotificationMuteSettingsScreenState
     'chat_message',
     'prayer',
     'task',
+    'ticket',
   ];
 
   /// Display order for mute rows (unknown codes go after these).
@@ -110,6 +116,7 @@ class _NotificationMuteSettingsScreenState
     'share',
     'cloud.folder',
     'task',
+    'ticket',
     'announcement',
     'circular',
   ];
@@ -265,6 +272,7 @@ class _NotificationMuteSettingsScreenState
         if (key == 'prayer') return 'Prayer / Adhan';
         if (key == 'chat_message') return 'Chat';
         if (key == 'task') return 'Tasks';
+        if (key == 'ticket') return 'Tickets';
         if (key == 'share' || key == 'cloud.folder') {
           return apiTitles[key]?.trim().isNotEmpty == true
               ? apiTitles[key]

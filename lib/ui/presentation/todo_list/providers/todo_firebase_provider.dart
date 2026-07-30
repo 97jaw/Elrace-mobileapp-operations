@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 
 import '../data/todo_list_model.dart';
 import '../data/todo_model.dart';
+import '../data/task_member_model.dart';
 import '../services/team_members_api_service.dart';
 import '../services/todo_firebase_service.dart';
 
@@ -116,16 +117,25 @@ class TodoFirebaseProvider extends ChangeNotifier {
 
   // Setup real-time streams
   void _setupStreams() {
+    _todosSubscription?.cancel();
+    _listsSubscription?.cancel();
+
     // Listen to todos changes
     _todosSubscription = _firebaseService.streamAllTodos().listen(
       (todos) {
-        _todos = todos;
-        _applyFilter();
+        // Avoid wiping category filters set via setFilter().
+        if (_currentFilter == TodoFilter.all ||
+            _currentFilter == TodoFilter.tasks) {
+          _todos = todos;
+          _applyFilter();
+        }
         refreshCounts();
         notifyListeners();
       },
       onError: (e) {
         debugPrint('Error in todos stream: $e');
+        _errorMessage = 'Live task updates failed. Pull to refresh.';
+        notifyListeners();
       },
     );
 
@@ -293,6 +303,7 @@ class TodoFirebaseProvider extends ChangeNotifier {
     DateTime? dueDate,
     String? assignedTo,
     String? assignedToName,
+    List<TaskMember>? assignedMembers,
     String? listId,
   }) async {
     try {
@@ -305,6 +316,7 @@ class TodoFirebaseProvider extends ChangeNotifier {
         dueDate: dueDate,
         assignedTo: assignedTo,
         assignedToName: assignedToName,
+        assignedMembers: assignedMembers,
         listId: listId ?? _currentListId,
         sortOrder: _todos.length,
         createdAt: now,
@@ -358,6 +370,7 @@ class TodoFirebaseProvider extends ChangeNotifier {
       await _firebaseService.deleteTodo(
         firebaseId,
         ownerUid: todo.ownerUid,
+        todo: todo,
       );
       _todos.removeWhere((t) => t.firebaseId == firebaseId);
       _applyFilter();

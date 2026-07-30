@@ -290,23 +290,22 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
         final currentUserName =
             SharedPref.getLoginData().result?.data?.name ?? '';
 
-        // Notify each assigned member
-        if (assignedMembers != null) {
-          for (final member in assignedMembers) {
-            // Skip self-assignment notification
-            if (member.name.toLowerCase() ==
-                currentUserName.toLowerCase()) {
-              continue;
-            }
-            await notifService.showNewTaskNotification(
-              taskId: docId,
-              taskTitle: title,
-              assignedBy: currentUserName,
+        // Assignees get FCM via Cloud Function when their path copy is written.
+        // Only show a local notif for self-assign.
+        final selfAssignOnly = assignedMembers == null ||
+            assignedMembers.isEmpty ||
+            assignedMembers.every(
+              (m) => m.name.toLowerCase() == currentUserName.toLowerCase(),
             );
-          }
+        if (selfAssignOnly) {
+          await notifService.showNewTaskNotification(
+            taskId: docId,
+            taskTitle: title,
+            assignedBy: null,
+          );
         }
 
-        // Schedule deadline reminders if due date is set
+        // Schedule deadline reminders if due date is set (creator device)
         if (_endDate != null) {
           await notifService.scheduleDeadlineReminders(
             taskId: docId,

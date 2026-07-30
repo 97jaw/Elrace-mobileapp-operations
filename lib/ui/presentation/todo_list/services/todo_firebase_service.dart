@@ -463,7 +463,7 @@ class TodoFirebaseService {
     }
   }
 
-  /// Update an existing todo
+  /// Update an existing todo and fan-out to assignee path copies.
   Future<void> updateTodo(TodoModel todo) async {
     await _ensureSignedIn();
     final uid = _currentUid;
@@ -472,9 +472,24 @@ class TodoFirebaseService {
 
     try {
       final ownerUid = _resolveOwnerUidForTodo(todo, uid);
-      await _userTodosCollection(ownerUid)
-          .doc(todo.firebaseId)
-          .update(_withMembershipFields(todo.copyWith(ownerUid: ownerUid)));
+      final data = _withMembershipFields(todo.copyWith(ownerUid: ownerUid));
+      await _userTodosCollection(ownerUid).doc(todo.firebaseId).update(data);
+
+      // Keep assignee copies in sync (same doc id under each member uid).
+      final assignedMembers = todo.assignedMembers ?? const <TaskMember>[];
+      for (final member in assignedMembers) {
+        final memberUid = await _resolveFirebaseUid(member);
+        if (memberUid != null && memberUid != ownerUid) {
+          try {
+            await _userTodosCollection(memberUid).doc(todo.firebaseId).set(data);
+          } catch (e) {
+            print(
+              '⚠️ TodoFirebaseService: Could not sync update to $memberUid: $e',
+            );
+          }
+        }
+      }
+
       print('✅ TodoFirebaseService: Updated todo ${todo.firebaseId}');
     } catch (e) {
       print('❌ TodoFirebaseService: Error updating todo: $e');
@@ -482,14 +497,35 @@ class TodoFirebaseService {
     }
   }
 
-  /// Delete a todo
-  Future<void> deleteTodo(String todoId, {String? ownerUid}) async {
+  /// Delete a todo from owner + all assignee copies.
+  Future<void> deleteTodo(String todoId, {String? ownerUid, TodoModel? todo}) async {
     await _ensureSignedIn();
     final uid = _currentUid;
     if (uid == null) throw Exception('User not authenticated');
 
     try {
-      await _userTodosCollection(ownerUid ?? uid).doc(todoId).delete();
+      final resolvedOwner = ownerUid ?? todo?.ownerUid ?? uid;
+      TodoModel? source = todo;
+      if (source == null) {
+        source = await getTodoById(todoId, ownerUid: resolvedOwner);
+      }
+
+      await _userTodosCollection(resolvedOwner).doc(todoId).delete();
+
+      final assignedMembers = source?.assignedMembers ?? const <TaskMember>[];
+      for (final member in assignedMembers) {
+        final memberUid = await _resolveFirebaseUid(member);
+        if (memberUid != null && memberUid != resolvedOwner) {
+          try {
+            await _userTodosCollection(memberUid).doc(todoId).delete();
+          } catch (e) {
+            print(
+              '⚠️ TodoFirebaseService: Could not delete assignee copy $memberUid: $e',
+            );
+          }
+        }
+      }
+
       print('✅ TodoFirebaseService: Deleted todo $todoId');
     } catch (e) {
       print('❌ TodoFirebaseService: Error deleting todo: $e');

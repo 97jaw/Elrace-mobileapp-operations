@@ -100,5 +100,11 @@ service cloud.firestore {
     match /{path=**}/todos/{todoId} {
       allow read: if isSignedIn();
     }
+
+    // Assignment FCM queue — clients enqueue, Cloud Functions deliver.
+    match /assignment_push_requests/{requestId} {
+      allow create: if isSignedIn();
+      allow read, update, delete: if false;
+    }
   }
 }

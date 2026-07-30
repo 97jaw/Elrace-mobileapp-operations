@@ -19,8 +19,7 @@ class TasksScreen extends StatelessWidget {
 
   final bool highPriorityOnly;
 
-  static bool _isHighPriority(String? priority) =>
-      priority == '2' || priority == '3';
+  static bool _isHighPriority(String? priority) => priority == '1';
 
   List<TaskModel> _visibleTasks(TasksProvider provider) {
     final items = provider.tasks;
@@ -652,12 +651,12 @@ class TasksScreen extends StatelessWidget {
             );
             break;
           case TasksStatus.empty:
-            body = const _EmptyState();
+            body = _EmptyState(highPriorityOnly: highPriorityOnly);
             break;
           case TasksStatus.loaded:
             final visibleTasks = _visibleTasks(tasksProvider);
             body = visibleTasks.isEmpty
-                ? const _EmptyState()
+                ? _EmptyState(highPriorityOnly: highPriorityOnly)
                 : RefreshIndicator(
                     onRefresh: tasksProvider.refreshTasks,
                     child: ListView.builder(
@@ -686,7 +685,9 @@ class TasksScreen extends StatelessWidget {
 }
 
 class _EmptyState extends StatelessWidget {
-  const _EmptyState();
+  const _EmptyState({this.highPriorityOnly = false});
+
+  final bool highPriorityOnly;
 
   @override
   Widget build(BuildContext context) {
@@ -701,14 +702,18 @@ class _EmptyState extends StatelessWidget {
               shape: BoxShape.circle,
             ),
             child: Icon(
-              Icons.task_outlined,
+              highPriorityOnly
+                  ? Icons.priority_high_rounded
+                  : Icons.confirmation_number_outlined,
               size: 64,
               color: appFontColor.withOpacity(0.4),
             ),
           ),
           const SizedBox(height: 16),
           Text(
-            'No tasks available',
+            highPriorityOnly
+                ? 'No high-priority tickets'
+                : 'No tickets available',
             style: TextStyle(
               fontSize: 18,
               fontWeight: FontWeight.w600,
@@ -717,7 +722,10 @@ class _EmptyState extends StatelessWidget {
           ),
           const SizedBox(height: 8),
           Text(
-            'Create your first task to get started',
+            highPriorityOnly
+                ? 'You have no open high-priority tickets right now'
+                : 'Create your first ticket to get started',
+            textAlign: TextAlign.center,
             style: TextStyle(
               fontSize: 14,
               color: appFontColor.withOpacity(0.5),

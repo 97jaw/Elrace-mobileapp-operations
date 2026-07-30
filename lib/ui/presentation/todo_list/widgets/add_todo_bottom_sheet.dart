@@ -2,6 +2,7 @@ import 'package:el_race/report_module/data/models/report_detail_model.dart';
 import 'package:el_race/report_module/data/services/report_hive_service.dart';
 import 'package:el_race/report_module/presentation/screens/report_detail/report_detail.dart';
 import 'package:el_race/ui/presentation/todo_list/data/todo_model.dart';
+import 'package:el_race/ui/presentation/todo_list/data/task_member_model.dart';
 import 'package:el_race/ui/presentation/todo_list/providers/todo_firebase_provider.dart';
 import 'package:el_race/ui/presentation/todo_list/services/team_members_api_service.dart';
 import 'package:flutter/material.dart';
@@ -513,6 +514,21 @@ class _AddTodoBottomSheetState extends State<AddTodoBottomSheet> {
     bool success;
 
     if (isEditing) {
+      final members = _selectedMember == null
+          ? null
+          : [
+              TaskMember(
+                name: _selectedMember!.name,
+                odooId: (_selectedMember!.employeeId != null &&
+                        _selectedMember!.employeeId! > 0)
+                    ? _selectedMember!.employeeId.toString()
+                    : _selectedMember!.id.toString(),
+                userId: (_selectedMember!.odooUserId != null &&
+                        _selectedMember!.odooUserId! > 0)
+                    ? _selectedMember!.odooUserId.toString()
+                    : null,
+              ),
+            ];
       final updatedTodo = widget.todo!.copyWith(
         title: title,
         description: _descriptionController.text.trim().isEmpty
@@ -523,10 +539,26 @@ class _AddTodoBottomSheetState extends State<AddTodoBottomSheet> {
         dueDate: _dueDate,
         assignedTo: _selectedMember?.id.toString(),
         assignedToName: _selectedMember?.name,
+        assignedMembers: members,
         updatedAt: DateTime.now(),
       );
       success = await provider.updateTodo(updatedTodo);
     } else {
+      final members = _selectedMember == null
+          ? null
+          : [
+              TaskMember(
+                name: _selectedMember!.name,
+                odooId: (_selectedMember!.employeeId != null &&
+                        _selectedMember!.employeeId! > 0)
+                    ? _selectedMember!.employeeId.toString()
+                    : _selectedMember!.id.toString(),
+                userId: (_selectedMember!.odooUserId != null &&
+                        _selectedMember!.odooUserId! > 0)
+                    ? _selectedMember!.odooUserId.toString()
+                    : null,
+              ),
+            ];
       final newTodo = await provider.addTodo(
         title: title,
         description: _descriptionController.text.trim().isEmpty
@@ -537,6 +569,7 @@ class _AddTodoBottomSheetState extends State<AddTodoBottomSheet> {
         dueDate: _dueDate,
         assignedTo: _selectedMember?.id.toString(),
         assignedToName: _selectedMember?.name,
+        assignedMembers: members,
         listId: widget.listId,
       );
       success = newTodo != null;
