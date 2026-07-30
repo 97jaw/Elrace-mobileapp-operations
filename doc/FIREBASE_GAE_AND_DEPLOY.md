@@ -38,8 +38,8 @@ firebase deploy --project elrace-new --only \
 
 # Task / ticket assignment pushes
 cd functions-assignment && npm install && cd ..
-firebase deploy --project elrace-new --only \
-  functions:assignment:onAssignedTodoCreated,functions:assignment:onAssignmentPushRequest,firestore:rules
+  firebase deploy --project elrace-new --only \
+    functions:assignment:onAssignedTodoCreated,functions:assignment:onTodoCompleted,functions:assignment:onAssignmentPushRequest,firestore:rules
 ```
 
 Liveness lives in **`functions-liveness`** (`codebase: liveness`). Assignment FCM lives in **`functions-assignment`** (`codebase: assignment`). Both use **`asia-south1` only**.

@@ -185,6 +185,20 @@ class TodoFirebaseService {
     return ids.toList();
   }
 
+  /// Stamp who completed the task so Cloud Functions can FCM the owner.
+  /// Skipped when the owner completes their own task.
+  void _stampCompletedByIfNeeded(
+    Map<String, dynamic> data, {
+    required bool isCompleted,
+    required String actorUid,
+    required String ownerUid,
+  }) {
+    if (!isCompleted) return;
+    if (actorUid.isEmpty || actorUid == ownerUid) return;
+    data['last_completed_by_uid'] = actorUid;
+    data['last_completed_by_name'] = _currentUserName;
+  }
+
   Map<String, dynamic> _withMembershipFields(TodoModel todo) {
     final data = todo.toFirestore();
 
@@ -473,6 +487,12 @@ class TodoFirebaseService {
     try {
       final ownerUid = _resolveOwnerUidForTodo(todo, uid);
       final data = _withMembershipFields(todo.copyWith(ownerUid: ownerUid));
+      _stampCompletedByIfNeeded(
+        data,
+        isCompleted: todo.isCompleted,
+        actorUid: uid,
+        ownerUid: ownerUid,
+      );
       await _userTodosCollection(ownerUid).doc(todo.firebaseId).update(data);
 
       // Keep assignee copies in sync (same doc id under each member uid).
@@ -804,10 +824,18 @@ class TodoFirebaseService {
     if (uid == null) throw Exception('User not authenticated');
 
     try {
-      await _userTodosCollection(ownerUid ?? uid).doc(todoId).update({
+      final resolvedOwner = ownerUid ?? uid;
+      final updates = <String, dynamic>{
         'is_completed': isCompleted,
         'updated_at': FieldValue.serverTimestamp(),
-      });
+      };
+      _stampCompletedByIfNeeded(
+        updates,
+        isCompleted: isCompleted,
+        actorUid: uid,
+        ownerUid: resolvedOwner,
+      );
+      await _userTodosCollection(resolvedOwner).doc(todoId).update(updates);
     } catch (e) {
       print('❌ TodoFirebaseService: Error toggling complete: $e');
       rethrow;
@@ -1246,11 +1274,18 @@ class TodoFirebaseService {
         // Check if all assigned members completed - mark task as complete
         final allCompleted = updatedMembers.every((m) => m.isCompleted);
 
-        await _userTodosCollection(resolvedOwnerUid).doc(todoId).update({
+        final updates = <String, dynamic>{
           'assigned_members': updatedMembers.map((m) => m.toMap()).toList(),
           'is_completed': allCompleted,
           'updated_at': FieldValue.serverTimestamp(),
-        });
+        };
+        _stampCompletedByIfNeeded(
+          updates,
+          isCompleted: allCompleted,
+          actorUid: uid,
+          ownerUid: resolvedOwnerUid,
+        );
+        await _userTodosCollection(resolvedOwnerUid).doc(todoId).update(updates);
       } else {
         // Update followed by members
         if (todo.followedUpBy == null || todo.followedUpBy!.isEmpty) {

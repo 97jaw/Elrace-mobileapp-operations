@@ -106,5 +106,12 @@ service cloud.firestore {
       allow create: if isSignedIn();
       allow read, update, delete: if false;
     }
+
+    // Ticket creator lookup for completion FCM (Odoo tickets).
+    match /ticket_creators/{taskId} {
+      allow create, update: if isSignedIn();
+      allow read: if isSignedIn();
+      allow delete: if false;
+    }
   }
 }

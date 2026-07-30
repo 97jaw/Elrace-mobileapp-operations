@@ -562,66 +562,88 @@ class TasksScreen extends StatelessWidget {
               Text(
                 task.description!,
                 maxLines: 2,
-                overflow: TextOverflow.visible,
+                overflow: TextOverflow.ellipsis,
               ),
             Text('Priority P${task.priority ?? '-'} · $dateText'),
           ],
         ),
-        trailing: Wrap(
-          spacing: 4,
-          children: [
+        trailing: PopupMenuButton<String>(
+          tooltip: 'Ticket actions',
+          onSelected: (value) async {
+            if (id == null) return;
+            switch (value) {
+              case 'link':
+                await _showLinkReportDialog(context, provider, task);
+                break;
+              case 'complete':
+                final msg = await provider.completeTask(id);
+                if (context.mounted && msg != null) {
+                  ScaffoldMessenger.of(context)
+                      .showSnackBar(SnackBar(content: Text(msg)));
+                }
+                break;
+              case 'delete':
+                final msg = await provider.deleteTask(id);
+                if (context.mounted && msg != null) {
+                  ScaffoldMessenger.of(context)
+                      .showSnackBar(SnackBar(content: Text(msg)));
+                }
+                break;
+            }
+          },
+          itemBuilder: (context) => [
             if (!task.isCompleted)
-              IconButton(
-                tooltip: 'Link report',
-                icon: isLinking
-                    ? const SizedBox(
-                        width: 18,
-                        height: 18,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
-                    : const Icon(Icons.link),
-                onPressed: id == null || isLinking
-                    ? null
-                    : () => _showLinkReportDialog(context, provider, task),
+              PopupMenuItem(
+                value: 'link',
+                enabled: !isLinking,
+                child: Row(
+                  children: [
+                    isLinking
+                        ? const SizedBox(
+                            width: 18,
+                            height: 18,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : const Icon(Icons.link, size: 20),
+                    const SizedBox(width: 12),
+                    const Text('Link report'),
+                  ],
+                ),
               ),
-            if (!(task.isCompleted))
-              IconButton(
-                tooltip: 'Complete',
-                icon: isCompleting
-                    ? const SizedBox(
-                        width: 18,
-                        height: 18,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
-                    : const Icon(Icons.check_circle_outline),
-                onPressed: id == null || isCompleting
-                    ? null
-                    : () async {
-                        final msg = await provider.completeTask(id);
-                        if (context.mounted && msg != null) {
-                          ScaffoldMessenger.of(context)
-                              .showSnackBar(SnackBar(content: Text(msg)));
-                        }
-                      },
+            if (!task.isCompleted)
+              PopupMenuItem(
+                value: 'complete',
+                enabled: !isCompleting,
+                child: Row(
+                  children: [
+                    isCompleting
+                        ? const SizedBox(
+                            width: 18,
+                            height: 18,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : const Icon(Icons.check_circle_outline, size: 20),
+                    const SizedBox(width: 12),
+                    const Text('Complete'),
+                  ],
+                ),
               ),
-            IconButton(
-              tooltip: 'Delete',
-              icon: isDeleting
-                  ? const SizedBox(
-                      width: 18,
-                      height: 18,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    )
-                  : const Icon(Icons.delete_outline),
-              onPressed: id == null || isDeleting
-                  ? null
-                  : () async {
-                      final msg = await provider.deleteTask(id);
-                      if (context.mounted && msg != null) {
-                        ScaffoldMessenger.of(context)
-                            .showSnackBar(SnackBar(content: Text(msg)));
-                      }
-                    },
+            PopupMenuItem(
+              value: 'delete',
+              enabled: !isDeleting,
+              child: Row(
+                children: [
+                  isDeleting
+                      ? const SizedBox(
+                          width: 18,
+                          height: 18,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Icon(Icons.delete_outline, size: 20),
+                  const SizedBox(width: 12),
+                  const Text('Delete'),
+                ],
+              ),
             ),
           ],
         ),

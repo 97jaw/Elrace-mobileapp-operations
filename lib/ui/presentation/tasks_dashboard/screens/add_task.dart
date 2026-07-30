@@ -174,6 +174,55 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
     }
   }
 
+  /// Whether [member] is the logged-in user (id + name, same rules as
+  /// TodoFirebaseService assignment matching).
+  bool _isCurrentUserAssignee(TaskMember member) {
+    final data = SharedPref.getLoginData().result?.data;
+    final myIds = <String?>[
+      data?.odoo_user_id?.toString(),
+      data?.uid?.toString(),
+      data?.employee_id?.toString(),
+      data?.emp_id?.toString(),
+      data?.emp_profile_id?.toString(),
+      data?.firebase_uid,
+    ]
+        .whereType<String>()
+        .map((e) => e.trim())
+        .where((e) => e.isNotEmpty && e.toLowerCase() != 'false')
+        .toSet();
+    for (final id in [data?.odoo_user_id?.toString(), data?.uid?.toString()]) {
+      final clean = id?.trim();
+      if (clean != null &&
+          clean.isNotEmpty &&
+          clean.toLowerCase() != 'false') {
+        myIds.add('odoo_$clean');
+      }
+    }
+
+    final memberIds = <String>{};
+    final oId = member.odooId?.trim();
+    if (oId != null && oId.isNotEmpty) memberIds.add(oId);
+    final uId = member.userId?.trim();
+    if (uId != null && uId.isNotEmpty) {
+      memberIds.add(uId);
+      memberIds.add('odoo_$uId');
+    }
+    if (memberIds.any(myIds.contains)) return true;
+
+    final myNames = <String?>[
+      data?.name,
+      data?.emp_name,
+      data?.username,
+      data?.partnerDisplayName,
+    ]
+        .whereType<String>()
+        .map((e) => e.trim().toLowerCase())
+        .where((e) => e.isNotEmpty && e != 'false')
+        .toSet();
+    final memberName = member.name.trim().toLowerCase();
+    return memberName.isNotEmpty && myNames.contains(memberName);
+  }
+
   Future<void> _submitTask() async {
     // Validate title
     final title = _titleController.text.trim();
@@ -287,17 +336,14 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
       // ── Fire task notifications ──
       try {
         final notifService = TaskNotificationService();
-        final currentUserName =
-            SharedPref.getLoginData().result?.data?.name ?? '';
 
-        // Assignees get FCM via Cloud Function when their path copy is written.
-        // Only show a local notif for self-assign.
-        final selfAssignOnly = assignedMembers == null ||
+        // Assignees get FCM via Cloud Function when their path copy is written
+        // (skipped for the creator's own uid). Always local-notify when this
+        // task is for the current user (no assignees = personal, or self in list).
+        final assignsToMe = assignedMembers == null ||
             assignedMembers.isEmpty ||
-            assignedMembers.every(
-              (m) => m.name.toLowerCase() == currentUserName.toLowerCase(),
-            );
-        if (selfAssignOnly) {
+            assignedMembers.any(_isCurrentUserAssignee);
+        if (assignsToMe) {
           await notifService.showNewTaskNotification(
             taskId: docId,
             taskTitle: title,
@@ -362,7 +408,8 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
   @override
   Widget build(BuildContext context) {
     return ProductivityScreenShell(
-      title: 'Add Task',
+      // Body keeps the single icon+title heading; avoid duplicating in the shell.
+      showBack: true,
       body: CustomScrollView(
         slivers: [
           SliverPadding(

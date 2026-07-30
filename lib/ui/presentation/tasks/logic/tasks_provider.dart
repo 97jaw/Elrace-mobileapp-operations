@@ -241,6 +241,12 @@ class TasksProvider extends ChangeNotifier {
           taskTitle: name,
           assigneeUserId: resolvedUserId,
         );
+        final login = SharedPref.getLoginDataOrNull()?.result?.data;
+        await AssignmentPushService.instance.rememberTicketCreator(
+          taskId: '${created.id ?? 0}',
+          creatorOdooUserId: login?.uid,
+          creatorFirebaseUid: login?.firebase_uid,
+        );
       } catch (_) {}
 
       if (created.id != null && reportId.isNotEmpty) {
@@ -278,12 +284,16 @@ class TasksProvider extends ChangeNotifier {
               .firstOrNull ??
           'Task #$taskId';
 
-      // Fire task-completed notification
+      // Notify ticket creator (not the completer) via FCM when someone else submits.
       try {
-        await TaskNotificationService().showTaskCompletedNotification(
+        final login = SharedPref.getLoginDataOrNull()?.result?.data;
+        final completedBy = login?.name ?? 'Someone';
+        await AssignmentPushService.instance.enqueueTicketCompleted(
           taskId: '$taskId',
           taskTitle: taskName,
-          isFirebaseTask: false,
+          completedBy: completedBy,
+          completerOdooUserId: login?.uid,
+          completerFirebaseUid: login?.firebase_uid,
         );
       } catch (_) {}
 

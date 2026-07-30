@@ -601,9 +601,9 @@ class _TaskDetailsScreenState extends State<TaskDetailsScreen> {
   @override
   Widget build(BuildContext context) {
     if (_isLoading) {
-      return ProductivityScreenShell(
+      return const ProductivityScreenShell(
         title: 'Task Details',
-        body: const Center(child: CircularProgressIndicator()),
+        body: Center(child: CircularProgressIndicator()),
       );
     }
 
@@ -622,7 +622,8 @@ class _TaskDetailsScreenState extends State<TaskDetailsScreen> {
     final task = _task!;
 
     return ProductivityScreenShell(
-      title: 'Task Details',
+      // Body keeps the single icon+title heading; avoid duplicating in the shell.
+      showBack: true,
       body: CustomScrollView(
         slivers: [
           SliverPadding(
@@ -1110,13 +1111,8 @@ class _TaskDetailsScreenState extends State<TaskDetailsScreen> {
         _task = updatedTask;
       });
 
-      // Fire task-completed notification
-      try {
-        await TaskNotificationService().showTaskCompletedNotification(
-          taskId: task.firebaseId ?? '',
-          taskTitle: task.title,
-        );
-      } catch (_) {}
+      // Owner is FCM-notified via Cloud Function when an assignee completes
+      // (see last_completed_by_* + onTodoCompleted). Completer gets snackbar only.
 
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(

@@ -108,6 +108,11 @@ abstract final class NotificationCategoryTheme {
       color: Color(0xFF5C6BC0),
       title: 'Tasks',
     ),
+    'ticket': NotificationCategoryVisual(
+      icon: Icons.confirmation_number_rounded,
+      color: Color(0xFF00838F),
+      title: 'Tickets',
+    ),
     'notification': NotificationCategoryVisual(
       icon: Icons.notifications_active_rounded,
       color: Color(0xFF3949AB),

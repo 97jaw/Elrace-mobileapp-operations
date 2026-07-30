@@ -181,7 +181,8 @@ class _TasksDashboardScreenState extends State<TasksDashboardScreen> {
   @override
   Widget build(BuildContext context) {
     return ProductivityScreenShell(
-      title: 'Task Management',
+      // Body keeps the single icon+title heading; avoid duplicating in the shell.
+      showBack: true,
       body: Consumer<TodoFirebaseProvider>(
         builder: (context, provider, child) {
           final allTodos = provider.todos;
@@ -221,7 +222,7 @@ class _TasksDashboardScreenState extends State<TasksDashboardScreen> {
                           ),
                           SizedBox(width: 4.w),
                           Text(
-                            'TASKS DASHBOARD',
+                            'Task Management',
                             style: GoogleFonts.poppins(
                               fontSize: 22.sp,
                               fontWeight: FontWeight.w500,
@@ -999,30 +1000,36 @@ class _TaskCardState extends State<_TaskCard> {
                             ),
                           ),
                           const SizedBox(height: 8),
-                          Row(
-                            crossAxisAlignment: CrossAxisAlignment.center,
-                            children: [
-                              Text(
-                                '${remainingDays.abs()}',
-                                style: const TextStyle(
-                                  fontSize: 40,
-                                  fontWeight: FontWeight.w900,
-                                  color: Color(0xFFBDBDBD),
-                                  height: 0.9,
+                          // Fixed 86px column — scale down so "N Days/Late" never overflows.
+                          FittedBox(
+                            fit: BoxFit.scaleDown,
+                            alignment: Alignment.centerLeft,
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              crossAxisAlignment: CrossAxisAlignment.center,
+                              children: [
+                                Text(
+                                  '${remainingDays.abs()}',
+                                  style: const TextStyle(
+                                    fontSize: 40,
+                                    fontWeight: FontWeight.w900,
+                                    color: Color(0xFFBDBDBD),
+                                    height: 0.9,
+                                  ),
                                 ),
-                              ),
-                              const SizedBox(width: 4),
-                              Text(
-                                remainingDays >= 0 ? 'Days' : 'Late',
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w700,
-                                  color: remainingDays >= 0
-                                      ? const Color(0xFFBDBDBD)
-                                      : Colors.red,
+                                const SizedBox(width: 4),
+                                Text(
+                                  remainingDays >= 0 ? 'Days' : 'Late',
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w700,
+                                    color: remainingDays >= 0
+                                        ? const Color(0xFFBDBDBD)
+                                        : Colors.red,
+                                  ),
                                 ),
-                              ),
-                            ],
+                              ],
+                            ),
                           ),
                         ],
                       ),

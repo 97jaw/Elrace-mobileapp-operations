@@ -4,10 +4,10 @@
  *
  * Deploy:
  *   firebase deploy --project elrace-new --only \
- *     functions:assignment:onAssignedTodoCreated,functions:assignment:onAssignmentPushRequest,firestore:rules
+ *     functions:assignment:onAssignedTodoCreated,functions:assignment:onTodoCompleted,functions:assignment:onAssignmentPushRequest,firestore:rules
  */
 const { setGlobalOptions } = require("firebase-functions/v2");
-const { onDocumentCreated } = require("firebase-functions/v2/firestore");
+const { onDocumentCreated, onDocumentUpdated } = require("firebase-functions/v2/firestore");
 const { initializeApp } = require("firebase-admin/app");
 const { getFirestore } = require("firebase-admin/firestore");
 const { getMessaging } = require("firebase-admin/messaging");
@@ -163,7 +163,63 @@ exports.onAssignedTodoCreated = onDocumentCreated(
 );
 
 /**
- * Explicit assignment push requests (Odoo Tickets + optional clients).
+ * When an assignee marks a task complete on the owner's document,
+ * FCM-notify the owner (assigner). Skips self-complete.
+ */
+exports.onTodoCompleted = onDocumentUpdated(
+  "users/{uid}/todos/{todoId}",
+  async (event) => {
+    const change = event.data;
+    if (!change) return;
+
+    const before = change.before.data() || {};
+    const after = change.after.data() || {};
+    if (before.is_completed === true || after.is_completed !== true) {
+      return;
+    }
+
+    const pathUid = event.params.uid;
+    const todoId = event.params.todoId;
+    const ownerUid = (
+      after.owner_uid ||
+      after.created_by ||
+      after.user_id ||
+      pathUid ||
+      ""
+    ).toString();
+
+    // Only the owner doc — assignee copies would otherwise duplicate pushes.
+    if (!ownerUid || pathUid !== ownerUid) {
+      return;
+    }
+
+    const completedByUid = (after.last_completed_by_uid || "").toString().trim();
+    if (!completedByUid || completedByUid === ownerUid) {
+      return;
+    }
+
+    const completedBy =
+      (after.last_completed_by_name || "").toString().trim() || "Someone";
+    const taskTitle = after.title || "Task";
+
+    await sendPushToUserUid({
+      uid: ownerUid,
+      title: "✅ Task Completed",
+      body: `${completedBy} completed: "${taskTitle}"`,
+      data: {
+        type: "task",
+        category: "task",
+        task_id: todoId,
+        action: "completed",
+        is_firebase_task: "true",
+      },
+    });
+  }
+);
+
+/**
+ * Explicit push requests (Odoo Tickets + task_completed fallbacks).
+ * Fields assignee_* identify the *recipient* of the push.
  */
 exports.onAssignmentPushRequest = onDocumentCreated(
   "assignment_push_requests/{requestId}",
@@ -189,11 +245,26 @@ exports.onAssignmentPushRequest = onDocumentCreated(
     const category = (
       data.category || (isFirebase ? "task" : "ticket")
     ).toString();
+    const action = (data.action || "new_task").toString();
     const taskTitle = data.task_title || "New item";
-    const assignedBy = data.assigned_by || "Someone";
-    const title =
-      category === "ticket" ? "🎫 New Ticket Assigned" : "📋 New Task Assigned";
-    const body = `${assignedBy} assigned you: "${taskTitle}"`;
+
+    let title;
+    let body;
+    if (action === "task_completed" || action === "completed") {
+      const completedBy =
+        (data.completed_by || data.assigned_by || "").toString().trim() ||
+        "Someone";
+      title =
+        category === "ticket" ? "✅ Ticket Completed" : "✅ Task Completed";
+      body = `${completedBy} completed: "${taskTitle}"`;
+    } else {
+      const assignedBy = data.assigned_by || "Someone";
+      title =
+        category === "ticket"
+          ? "🎫 New Ticket Assigned"
+          : "📋 New Task Assigned";
+      body = `${assignedBy} assigned you: "${taskTitle}"`;
+    }
 
     await sendPushToUserUid({
       uid,
@@ -203,7 +274,10 @@ exports.onAssignmentPushRequest = onDocumentCreated(
         type: category,
         category,
         task_id: String(data.task_id || ""),
-        action: "new_task",
+        action:
+          action === "task_completed" || action === "completed"
+            ? "completed"
+            : "new_task",
         is_firebase_task: isFirebase ? "true" : "false",
       },
     });
