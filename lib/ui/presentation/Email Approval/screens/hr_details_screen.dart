@@ -4,6 +4,7 @@ import 'dart:convert';
 import 'package:el_race/core/utils/shared_pref.dart';
 import 'package:el_race/ui/presentation/Email%20Approval/bloc/approval_bloc.dart';
 import 'package:el_race/ui/presentation/Email%20Approval/theme/approvals_overview_theme.dart';
+import 'package:el_race/ui/presentation/Email%20Approval/utils/hr_approval_display.dart';
 import 'package:el_race/ui/presentation/Email%20Approval/widgets/approval_action_buttons.dart';
 import 'package:el_race/ui/presentation/Email%20Approval/widgets/approval_rejected_banner.dart';
 import 'package:el_race/ui/widgets/contextual_glass_chrome_header.dart';
@@ -1277,7 +1278,7 @@ class _HrDetailsScreenState extends State<HrDetailsScreen> {
     required String employeeName,
     required String secondaryName,
     required String employeeImage,
-    required String requestNo,
+    required String requestTitle,
     required String branchName,
   }) {
     return OverviewGlassPanel(
@@ -1361,7 +1362,7 @@ class _HrDetailsScreenState extends State<HrDetailsScreen> {
                           borderRadius: BorderRadius.circular(16.tr),
                         ),
                         child: Text(
-                          requestNo,
+                          requestTitle,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           textAlign: TextAlign.center,
@@ -1607,6 +1608,14 @@ class _HrDetailsScreenState extends State<HrDetailsScreen> {
       _pickFromMaps(requestMaps, ['request_no', 'name', 'ref_no']),
     ], fallback: widget.requestId);
 
+    final listingSource = <String, dynamic>{
+      ..._formData,
+      ..._requestInfo,
+    };
+    final leaveSubtypeTitle =
+        HrApprovalDisplay.leaveSubtypeLabel(listingSource);
+    final requestTypeTitle = HrApprovalDisplay.requestTypeName(listingSource);
+
     final rawRequestType = _pickFromMaps(
       requestMaps,
       [
@@ -1616,9 +1625,16 @@ class _HrDetailsScreenState extends State<HrDetailsScreen> {
         'holiday_status_id',
         'leave_type',
         'type',
+        'title',
+        'leave_request_subtype',
       ],
       fallback: 'HR Management',
     );
+    final requestTitle = _pick([
+      leaveSubtypeTitle,
+      requestTypeTitle,
+      rawRequestType,
+    ], fallback: requestNo);
     final caseKey = _resolveCaseKey(
       requestName: rawRequestType,
       requestMaps: requestMaps,
@@ -2276,7 +2292,7 @@ class _HrDetailsScreenState extends State<HrDetailsScreen> {
                                         employeeName: employeeName,
                                         secondaryName: secondaryName,
                                         employeeImage: employeeImage,
-                                        requestNo: requestNo,
+                                        requestTitle: requestTitle,
                                         branchName: branchName.isEmpty
                                             ? '-'
                                             : branchName,

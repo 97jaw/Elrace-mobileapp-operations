@@ -39,6 +39,12 @@ service cloud.firestore {
         }
       }
 
+      match /tickets/{ticketId} {
+        allow read: if isSignedIn();
+        allow create: if isSignedIn();
+        allow update, delete: if isSignedIn() && request.auth.uid == userId;
+      }
+
       match /todoLists/{listId} {
         allow read: if isSignedIn();
         allow write: if isSignedIn() && request.auth.uid == userId;

@@ -429,7 +429,7 @@ class ApprovalActionButtons extends StatelessWidget {
                     final token = SharedPref.getLoginData().result?.token ?? '';
                     String finalComment = '..';
 
-                    if (useProvidedComment) {
+                    if (useProvidedComment && !showHrApproveConfirmation) {
                       finalComment = _resolveProvidedComment();
                     } else if (showHrApproveConfirmation) {
                       final decision =
@@ -440,9 +440,13 @@ class ApprovalActionButtons extends StatelessWidget {
                         return;
                       }
 
-                      finalComment = decision.comment.trim().isEmpty
-                          ? '..'
-                          : decision.comment.trim();
+                      if (useProvidedComment) {
+                        finalComment = _resolveProvidedComment();
+                      } else {
+                        finalComment = decision.comment.trim().isEmpty
+                            ? '..'
+                            : decision.comment.trim();
+                      }
 
                       if (enableFakeApproveDemo) {
                         await _simulateFakeActionSuccess(
@@ -983,9 +987,9 @@ class ApprovalActionButtons extends StatelessWidget {
           final token = SharedPref.getLoginData().result?.token ?? '';
           String finalComment = '..';
 
-          if (useProvidedComment) {
+          if (useProvidedComment && !showHrApproveConfirmation) {
             finalComment = _resolveProvidedComment();
-          } else if (showHrApproveConfirmation && actionLabel == 'APPROVE') {
+          } else if (showHrApproveConfirmation) {
             final decision =
                 await _showHrActionSliderDialog(context, actionLabel);
             if (!context.mounted ||
@@ -993,9 +997,13 @@ class ApprovalActionButtons extends StatelessWidget {
                 !decision.isConfirmed) {
               return;
             }
-            finalComment = decision.comment.trim().isEmpty
-                ? '..'
-                : decision.comment.trim();
+            if (useProvidedComment) {
+              finalComment = _resolveProvidedComment();
+            } else {
+              finalComment = decision.comment.trim().isEmpty
+                  ? '..'
+                  : decision.comment.trim();
+            }
             if (enableFakeApproveDemo) {
               await _simulateFakeActionSuccess(
                 context,

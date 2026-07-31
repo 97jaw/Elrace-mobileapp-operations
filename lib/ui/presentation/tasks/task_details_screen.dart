@@ -3,7 +3,7 @@ import 'package:el_race/report_module/data/provider/reports_provider.dart';
 import 'package:el_race/report_module/presentation/screens/report_detail/report_detail.dart';
 import 'package:el_race/ui/presentation/tasks/data/task_model.dart';
 import 'package:el_race/ui/presentation/tasks/logic/tasks_provider.dart';
-import 'package:el_race/ui/presentation/productivity/widgets/productivity_screen_shell.dart';
+import 'package:el_race/ui/presentation/productivity/widgets/productivity_light_shell.dart';
 import 'package:el_race/utils/color_utils.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
@@ -221,30 +221,24 @@ class TaskDetailsScreen extends StatelessWidget {
     final hasLinkableReports = reportsProvider.reports
         .any((report) => !linkedReportIds.contains(report.id.toString()));
 
-    return ProductivityScreenShell(
+    return ProductivityLightShell(
+      showBack: true,
       title: 'Ticket Details',
       body: SingleChildScrollView(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const SizedBox(height: 10),
+            // Title / stage
             Padding(
               padding: EdgeInsets.symmetric(horizontal: 16.w),
-              child: Row(
-                children: [
-                  Icon(Icons.task_outlined, size: 24.w, color: appFontColor),
-                  SizedBox(width: 8.w),
-                  Expanded(
-                    child: Text(
-                      'Task Details',
-                      style: GoogleFonts.poppins(
-                        fontSize: 22.sp,
-                        fontWeight: FontWeight.w500,
-                        color: appFontColor,
-                      ),
-                    ),
-                  ),
-                ],
+              child: Text(
+                currentTask.name ?? 'Untitled',
+                style: GoogleFonts.poppins(
+                  fontSize: 20.sp,
+                  fontWeight: FontWeight.w700,
+                  color: appFontColor,
+                ),
               ),
             ),
             const SizedBox(height: 20),

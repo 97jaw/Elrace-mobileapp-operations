@@ -160,8 +160,12 @@ class ChatUserSession {
     print('   - In result: ${avatarFromResult ?? "NOT FOUND"}');
     print('   - In root: ${avatarFromRoot ?? "NOT FOUND"}');
 
+    final int? employeeId =
+        _extractInt(data['employee_id']) ?? _extractInt(data['emp_id']);
+
     final rawAvatarUrl = avatarFromData ?? avatarFromResult ?? avatarFromRoot;
-    final String? avatarUrl = _extractAvatarUrl(rawAvatarUrl);
+    final String? avatarUrl = _extractAvatarUrl(rawAvatarUrl) ??
+        _publicEmployeeImageUrl(employeeId);
     print('🖼️ Final avatar URL: ${avatarUrl ?? "NONE"}');
 
     // Branch ID: prefer default_operating_unit_id as per backend update
@@ -171,12 +175,14 @@ class ChatUserSession {
     return ChatUserSession(
       backendJwt: token,
       odooUserId: odooUserId,
-      employeeId:
-          _extractInt(data['employee_id']) ?? _extractInt(data['emp_id']),
-      name: data['name']?.toString() ??
-          data['emp_name']?.toString() ??
-          data['username']?.toString() ??
-          '',
+      employeeId: employeeId,
+      // Prefer emp_name (person) over name — login model does the same.
+      // Backend `name` can be a role/title (e.g. "Project Manager").
+      name: (data['emp_name']?.toString().trim().isNotEmpty == true)
+          ? data['emp_name'].toString().trim()
+          : (data['name']?.toString().trim().isNotEmpty == true)
+              ? data['name'].toString().trim()
+              : (data['username']?.toString() ?? ''),
       email: _extractEmail(data),
       roleId: roleId,
       roleName: roleName,
@@ -253,17 +259,30 @@ class ChatUserSession {
     return s == 'true' || s == '1' || s == 'yes';
   }
 
-  /// Extract avatar URL, filtering out base64 data
+  /// Extract avatar URL, filtering out base64 data.
+  /// Accepts http(s) URLs and relative ERP paths (`/web/image/...`).
   static String? _extractAvatarUrl(dynamic value) {
     if (value == null || value == false || value == '') return null;
-    final str = value.toString();
-    // Skip base64 images
-    if (str.startsWith('data:') || str.length > 500) return null;
-    // Only accept http/https URLs
+    final str = value.toString().trim();
+    if (str.isEmpty) return null;
+    // Skip base64 / data-URI images
+    if (str.startsWith('data:')) return null;
     if (str.startsWith('http://') || str.startsWith('https://')) {
       return str;
     }
+    // Relative Odoo paths → absolute ERP URL
+    if (str.startsWith('/')) {
+      return 'https://erp.elrace.com$str';
+    }
+    // Long non-URL strings are almost always base64 payloads
+    if (str.length > 500) return null;
     return null;
+  }
+
+  /// Public employee image used across the app when login has no HTTPS avatar.
+  static String? _publicEmployeeImageUrl(int? employeeId) {
+    if (employeeId == null || employeeId <= 0) return null;
+    return 'https://erp.elrace.com/public/employee/image/$employeeId';
   }
 
   /// Check if Firebase chat is available (has custom token)

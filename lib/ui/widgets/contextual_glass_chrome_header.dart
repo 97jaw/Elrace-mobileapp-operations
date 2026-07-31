@@ -18,6 +18,7 @@ class ContextualGlassChromeHeader extends StatelessWidget {
     this.bottom,
     this.tabsHeight,
     this.titleTrailing,
+    this.centerTitle = false,
     this.onLightSurface = false,
     this.scrimColor,
     this.scrimTopOpacity,
@@ -33,6 +34,9 @@ class ContextualGlassChromeHeader extends StatelessWidget {
   final Widget? bottom;
   final double? tabsHeight;
   final Widget? titleTrailing;
+
+  /// When true, title is centered between back and trailing slots.
+  final bool centerTitle;
   final bool onLightSurface;
 
   /// Overrides the default title/icon color (navy on light, white on dark).
@@ -113,44 +117,96 @@ class ContextualGlassChromeHeader extends StatelessWidget {
             height: titleRowHeight.th,
             child: Padding(
               padding: EdgeInsets.fromLTRB(8.tw, 0, 8.tw, 4.th),
-              child: Row(
-                children: [
-                  if (showBack)
-                    IconButton(
-                      onPressed: onBack ??
-                          () => Navigator.of(context).maybePop(),
-                      icon: Icon(
-                        Icons.arrow_back_ios_new_rounded,
-                        color: iconColor,
-                        size: 18.tsp,
-                      ),
-                      padding: EdgeInsets.zero,
-                      constraints: BoxConstraints(
-                        minWidth: 32.tw,
-                        minHeight: 32.tw,
-                      ),
-                    ),
-                  if (hasTitle)
-                    Expanded(
-                      child: Text(
-                        title!,
-                        style: GoogleFonts.poppins(
-                          fontSize: 16.tsp,
-                          fontWeight: FontWeight.w700,
-                          color: resolvedTitleColor,
-                          height: 1.1,
+              child: centerTitle && hasTitle
+                  ? Stack(
+                      alignment: Alignment.center,
+                      children: [
+                        Row(
+                          children: [
+                            if (showBack)
+                              IconButton(
+                                onPressed: onBack ??
+                                    () => Navigator.of(context).maybePop(),
+                                icon: Icon(
+                                  Icons.arrow_back_ios_new_rounded,
+                                  color: iconColor,
+                                  size: 18.tsp,
+                                ),
+                                padding: EdgeInsets.zero,
+                                constraints: BoxConstraints(
+                                  minWidth: 32.tw,
+                                  minHeight: 32.tw,
+                                ),
+                              )
+                            else
+                              SizedBox(width: 32.tw),
+                            const Spacer(),
+                            if (titleTrailing != null)
+                              titleTrailing!
+                            else
+                              SizedBox(width: 32.tw),
+                            if (trailing.isNotEmpty)
+                              Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: trailing,
+                              ),
+                          ],
                         ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
+                        Text(
+                          title!,
+                          textAlign: TextAlign.center,
+                          style: GoogleFonts.poppins(
+                            fontSize: 16.tsp,
+                            fontWeight: FontWeight.w700,
+                            color: resolvedTitleColor,
+                            height: 1.1,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ],
                     )
-                  else if (showBack || titleTrailing != null)
-                    const Spacer(),
-                  if (titleTrailing != null) titleTrailing!,
-                  if (trailing.isNotEmpty)
-                    Row(mainAxisSize: MainAxisSize.min, children: trailing),
-                ],
-              ),
+                  : Row(
+                      children: [
+                        if (showBack)
+                          IconButton(
+                            onPressed: onBack ??
+                                () => Navigator.of(context).maybePop(),
+                            icon: Icon(
+                              Icons.arrow_back_ios_new_rounded,
+                              color: iconColor,
+                              size: 18.tsp,
+                            ),
+                            padding: EdgeInsets.zero,
+                            constraints: BoxConstraints(
+                              minWidth: 32.tw,
+                              minHeight: 32.tw,
+                            ),
+                          ),
+                        if (hasTitle)
+                          Expanded(
+                            child: Text(
+                              title!,
+                              style: GoogleFonts.poppins(
+                                fontSize: 16.tsp,
+                                fontWeight: FontWeight.w700,
+                                color: resolvedTitleColor,
+                                height: 1.1,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          )
+                        else if (showBack || titleTrailing != null)
+                          const Spacer(),
+                        if (titleTrailing != null) titleTrailing!,
+                        if (trailing.isNotEmpty)
+                          Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: trailing,
+                          ),
+                      ],
+                    ),
             ),
           ),
         if (bottom != null)

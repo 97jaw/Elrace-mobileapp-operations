@@ -96,12 +96,85 @@ class _InvoiceDetailsScreenState extends State<InvoiceDetailsScreen> {
     return s;
   }
 
+  /// Unwrap Odoo many2one / linked values: Map{name}, [id, name], or plain.
+  String _odooDisplay(dynamic value, {String fallback = ''}) {
+    if (value == null || value == false || value == true) return fallback;
+    if (value is Map) {
+      return _pick([
+        value['wo_ref_no'],
+        value['wo_ref'],
+        value['date'],
+        value['datetime'],
+        value['value'],
+        value['name'],
+        value['display_name'],
+        value['ref'],
+        value['label'],
+      ], fallback: fallback);
+    }
+    if (value is List && value.isNotEmpty) {
+      if (value.length >= 2) {
+        final name = _safe(value[1]);
+        if (name.isNotEmpty) return name;
+      }
+      return _odooDisplay(value.first, fallback: fallback);
+    }
+    return _safe(value, fallback: fallback);
+  }
+
   String _pick(List<dynamic> values, {String fallback = ''}) {
     for (final v in values) {
-      final s = _safe(v);
+      final s = _odooDisplay(v);
       if (s.isNotEmpty) return s;
     }
     return fallback;
+  }
+
+  /// Prefer incoming form_view values, but keep list-item values when Odoo
+  /// sends `false` / null for empty relational fields.
+  Map<String, dynamic> _mergeFormView(
+    Map<String, dynamic> existing,
+    Map<String, dynamic> formView,
+  ) {
+    final merged = Map<String, dynamic>.from(existing);
+    formView.forEach((key, value) {
+      if (value == null || value == false) {
+        if (_odooDisplay(merged[key]).isNotEmpty) return;
+      }
+      merged[key] = value;
+    });
+    return merged;
+  }
+
+  String _pickNestedWoRef(Map<String, dynamic> data) {
+    final direct = _pick([
+      data['wo_ref_no'],
+      data['wo_ref'],
+      data['wo_ref_number'],
+      data['work_order_no'],
+      data['work_order_number'],
+      data['work_order'],
+      data['workorder'],
+      data['wo_order_no'],
+      data['wo_order_number'],
+      data['wo_name'],
+      data['wo'],
+      data['wo_no'],
+      data['wono'],
+      data['wo_no#'],
+      data['wo_id'],
+      data['x_wo_ref_no'],
+      data['x_studio_wo_ref_no'],
+    ]);
+    if (direct.isNotEmpty) return direct;
+
+    for (final value in data.values) {
+      if (value is Map) {
+        final nested = _pickNestedWoRef(Map<String, dynamic>.from(value));
+        if (nested.isNotEmpty) return nested;
+      }
+    }
+    return '';
   }
 
   String _displayOrDash(String value) {
@@ -110,11 +183,17 @@ class _InvoiceDetailsScreenState extends State<InvoiceDetailsScreen> {
   }
 
   String _formatDate(dynamic value) {
-    final raw = _safe(value);
-    if (raw.isEmpty) return '-';
+    final raw = _odooDisplay(value);
+    if (raw.isEmpty || raw == '-') return '-';
     final normalized = raw.contains(' ') ? raw.replaceFirst(' ', 'T') : raw;
     final parsed = DateTime.tryParse(normalized) ?? DateTime.tryParse(raw);
-    if (parsed == null) return raw;
+    if (parsed == null) {
+      // Keep already-formatted dd/MM/yyyy (or similar) as-is.
+      if (RegExp(r'^\d{1,2}[/-]\d{1,2}[/-]\d{2,4}$').hasMatch(raw)) {
+        return raw;
+      }
+      return raw;
+    }
     return DateFormat('dd/MM/yyyy').format(parsed);
   }
 
@@ -244,9 +323,7 @@ class _InvoiceDetailsScreenState extends State<InvoiceDetailsScreen> {
 
       if (!mounted) return;
       setState(() {
-        final merged = Map<String, dynamic>.from(_formData);
-        merged.addAll(formView);
-        _formData = merged;
+        _formData = _mergeFormView(_formData, formView);
         _isLoading = false;
         _error = '';
       });
@@ -575,13 +652,12 @@ class _InvoiceDetailsScreenState extends State<InvoiceDetailsScreen> {
           Expanded(
             child: Text(
               _displayOrDash(projectName),
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
+              softWrap: true,
               style: GoogleFonts.poppins(
                 fontSize: 15.tsp,
                 fontWeight: FontWeight.w700,
                 color: ApprovalsOverviewTheme.textDark,
-                height: 1.2,
+                height: 1.25,
               ),
             ),
           ),
@@ -849,29 +925,50 @@ class _InvoiceDetailsScreenState extends State<InvoiceDetailsScreen> {
       _formData['project'] is Map
           ? (_formData['project'] as Map)['name']
           : _formData['project'],
+      _formData['project_id'],
       _formData['project_name_id'],
       _formData['name'],
     ]);
 
     final requestDate = _formatDate(_pick([
       _formData['request_date'],
-      _formData['create_date'],
       _formData['req_date'],
+      _formData['date_request'],
+      _formData['date_order'],
+      _formData['create_date'],
+      _formData['created_date'],
       _formData['invoice_date'],
       _formData['date_of_invoice'],
+      _formData['date_invoice'],
       _formData['date'],
+      _formData['submitted_date'],
+      _formData['approval_date'],
+      widget.initialData?['request_date'],
+      widget.initialData?['invoice_date'],
+      widget.initialData?['date'],
+      widget.initialData?['create_date'],
+      _formData['write_date'],
     ]));
 
     final projectMap = _formData['project'] is Map
         ? Map<String, dynamic>.from(_formData['project'] as Map)
         : null;
+    final projectIdMap = _formData['project_id'] is Map
+        ? Map<String, dynamic>.from(_formData['project_id'] as Map)
+        : null;
     final workOrderNo = _pick([
       projectMap?['wo_ref_no'],
+      projectMap?['wo_ref'],
+      projectMap?['work_order'],
+      projectIdMap?['wo_ref_no'],
+      projectIdMap?['wo_ref'],
       _formData['wo_ref_no'],
+      _formData['wo_ref'],
       _formData['wo_ref_number'],
       _formData['work_order_no'],
       _formData['work_order_number'],
       _formData['work_order'],
+      _formData['workorder'],
       _formData['wo_order_no'],
       _formData['wo_order_number'],
       _formData['wo_name'],
@@ -879,6 +976,15 @@ class _InvoiceDetailsScreenState extends State<InvoiceDetailsScreen> {
       _formData['wo_no'],
       _formData['wono'],
       _formData['wo_no#'],
+      _formData['wo_id'],
+      _formData['x_wo_ref_no'],
+      _formData['x_studio_wo_ref_no'],
+      widget.initialData?['wo_ref_no'],
+      widget.initialData?['wo_ref'],
+      widget.initialData?['work_order_no'],
+      widget.initialData?['wo_name'],
+      widget.initialData?['wo'],
+      _pickNestedWoRef(_formData),
     ]);
 
     final vendorName = _pick([
@@ -906,7 +1012,19 @@ class _InvoiceDetailsScreenState extends State<InvoiceDetailsScreen> {
 
     final advance = _formatAmount(_pick([_formData['advance']], fallback: '-'));
     final progress = _formatAmount(_pick([_formData['progress']], fallback: '-'));
-    final lastUpdate = _formatDate(_pick([_formData['last_update']], fallback: '-'));
+    final lastUpdate = _formatDate(_pick([
+      _formData['last_update'],
+      _formData['last_update_date'],
+      _formData['last_updated'],
+      _formData['last_updated_at'],
+      _formData['date_last_update'],
+      _formData['__last_update'],
+      _formData['updated_at'],
+      _formData['write_date'],
+      widget.initialData?['last_update'],
+      widget.initialData?['write_date'],
+      widget.initialData?['updated_at'],
+    ], fallback: '-'));
     final retention = _displayOrDash(_pick([_formData['retention']], fallback: '-'));
 
     final contractLpo = _pick([

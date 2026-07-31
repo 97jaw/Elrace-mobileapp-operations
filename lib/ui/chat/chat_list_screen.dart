@@ -277,6 +277,8 @@ class _ChatListScreenState extends State<ChatListScreen> {
                     .toList();
                 if (peerUids.isNotEmpty) {
                   UserRepository.instance.prefetchUsers(peerUids);
+                  // Heal titles/avatars for existing DMs (directory fallback).
+                  UserRepository.instance.healExistingDmPeerProfiles();
                 }
 
                 return CustomScrollView(
@@ -578,14 +580,21 @@ class _ChatListScreenState extends State<ChatListScreen> {
   }
 
   void _openChat(UserChat userChat) {
+    final peerUid = userChat.peerUid;
+    // Prefer live Firestore name when opening so header isn't a stale title.
+    final liveName = peerUid != null
+        ? UserRepository.instance.getCachedUser(peerUid)?.name
+        : null;
     Navigator.push(
       context,
       MaterialPageRoute(
         builder: (context) => ChatScreen(
           chatId: userChat.chatId,
-          title: userChat.title ?? 'Chat',
+          title: (liveName != null && liveName.trim().isNotEmpty)
+              ? liveName
+              : (userChat.title ?? 'Chat'),
           chatType: userChat.type,
-          peerUid: userChat.peerUid,
+          peerUid: peerUid,
           supportUserUid: userChat.supportUserUid,
           supportGroupTitle: userChat.supportGroupTitle,
         ),
@@ -722,7 +731,10 @@ class _ChatListTileState extends State<_ChatListTile> {
 
   void _initPeerUserFuture() {
     _peerUserFuture = (userChat.type == ChatType.dm && userChat.peerUid != null)
-        ? UserRepository.instance.getUser(userChat.peerUid!)
+        ? UserRepository.instance.getUserWithDirectoryFallback(
+            userChat.peerUid!,
+            forceRefresh: true,
+          )
         : null;
   }
 

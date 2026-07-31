@@ -3,10 +3,13 @@ import 'dart:io';
 
 import 'package:el_race/core/utils/shared_pref.dart';
 import 'package:el_race/report_module/data/provider/reports_provider.dart';
+import 'package:el_race/ui/presentation/productivity/theme/productivity_light_theme.dart';
+import 'package:el_race/ui/presentation/productivity/widgets/productivity_light_shell.dart';
+import 'package:el_race/ui/presentation/productivity/widgets/productivity_light_widgets.dart';
+import 'package:el_race/ui/presentation/productivity/widgets/productivity_sober_card.dart';
 import 'package:el_race/ui/presentation/tasks/data/task_model.dart';
 import 'package:el_race/ui/presentation/tasks/logic/tasks_provider.dart';
 import 'package:el_race/ui/presentation/tasks/task_details_screen.dart';
-import 'package:el_race/ui/presentation/productivity/widgets/productivity_screen_shell.dart';
 import 'package:el_race/utils/color_utils.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
@@ -14,18 +17,23 @@ import 'package:fluttertoast/fluttertoast.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 
-class TasksScreen extends StatelessWidget {
+class TasksScreen extends StatefulWidget {
   const TasksScreen({super.key, this.highPriorityOnly = false});
 
   final bool highPriorityOnly;
 
+  @override
+  State<TasksScreen> createState() => _TasksScreenState();
+}
+
+class _TasksScreenState extends State<TasksScreen> {
   static bool _isHighPriority(String? priority) => priority == '1';
 
-  List<TaskModel> _visibleTasks(TasksProvider provider) {
-    final items = provider.tasks;
-    if (!highPriorityOnly) return items;
+  /// Optional home deep-link scope only — no in-screen filter chips.
+  List<TaskModel> _scoped(List<TaskModel> items) {
+    if (!widget.highPriorityOnly) return items;
     return items
-        .where((task) => !task.isCompleted && _isHighPriority(task.priority))
+        .where((t) => !t.isCompleted && _isHighPriority(t.priority))
         .toList();
   }
 
@@ -67,7 +75,7 @@ class TasksScreen extends StatelessWidget {
             bottom: MediaQuery.of(ctx).viewInsets.bottom + 20,
           ),
           child: StatefulBuilder(
-            builder: (context, setState) {
+            builder: (context, setModalState) {
               Future<void> pickAttachment() async {
                 final result = await FilePicker.pickFiles(
                   allowMultiple: false,
@@ -83,7 +91,7 @@ class TasksScreen extends StatelessWidget {
                           ? await File(file.path!).readAsBytes()
                           : null);
                   if (bytes != null) {
-                    setState(() {
+                    setModalState(() {
                       attachmentBase64 = base64Encode(bytes);
                       attachmentFilename = file.name;
                     });
@@ -98,11 +106,12 @@ class TasksScreen extends StatelessWidget {
                   children: [
                     Row(
                       children: [
-                        Icon(Icons.task_alt, color: appFontColor, size: 24),
+                        Icon(Icons.confirmation_number_outlined,
+                            color: appFontColor, size: 24),
                         const SizedBox(width: 10),
                         const Expanded(
                           child: Text(
-                            'Create Task',
+                            'Create Ticket',
                             style: TextStyle(
                               fontSize: 18,
                               fontWeight: FontWeight.w700,
@@ -118,26 +127,16 @@ class TasksScreen extends StatelessWidget {
                       ],
                     ),
                     const SizedBox(height: 16),
-                    const Text(
-                      'Task Title',
-                      style:
-                          TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
-                    ),
+                    const Text('Ticket Title',
+                        style: TextStyle(
+                            fontSize: 14, fontWeight: FontWeight.w600)),
                     const SizedBox(height: 8),
                     TextField(
                       controller: nameController,
                       decoration: InputDecoration(
-                        hintText: 'Enter task title',
+                        hintText: 'Enter ticket title',
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(12),
-                        ),
-                        enabledBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
-                          borderSide: BorderSide(color: Colors.grey.shade300),
-                        ),
-                        focusedBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
-                          borderSide: BorderSide(color: appFontColor, width: 2),
                         ),
                         contentPadding: const EdgeInsets.symmetric(
                           horizontal: 14,
@@ -146,11 +145,9 @@ class TasksScreen extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(height: 14),
-                    const Text(
-                      'Description',
-                      style:
-                          TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
-                    ),
+                    const Text('Description',
+                        style: TextStyle(
+                            fontSize: 14, fontWeight: FontWeight.w600)),
                     const SizedBox(height: 8),
                     TextField(
                       controller: descController,
@@ -160,14 +157,6 @@ class TasksScreen extends StatelessWidget {
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(12),
                         ),
-                        enabledBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
-                          borderSide: BorderSide(color: Colors.grey.shade300),
-                        ),
-                        focusedBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
-                          borderSide: BorderSide(color: appFontColor, width: 2),
-                        ),
                         contentPadding: const EdgeInsets.symmetric(
                           horizontal: 14,
                           vertical: 12,
@@ -175,11 +164,9 @@ class TasksScreen extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(height: 14),
-                    const Text(
-                      'Comment',
-                      style:
-                          TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
-                    ),
+                    const Text('Comment',
+                        style: TextStyle(
+                            fontSize: 14, fontWeight: FontWeight.w600)),
                     const SizedBox(height: 8),
                     TextField(
                       controller: commentController,
@@ -188,14 +175,6 @@ class TasksScreen extends StatelessWidget {
                         hintText: 'Add a comment (optional)',
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(12),
-                        ),
-                        enabledBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
-                          borderSide: BorderSide(color: Colors.grey.shade300),
-                        ),
-                        focusedBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
-                          borderSide: BorderSide(color: appFontColor, width: 2),
                         ),
                         contentPadding: const EdgeInsets.symmetric(
                           horizontal: 14,
@@ -221,13 +200,17 @@ class TasksScreen extends StatelessWidget {
                               ),
                             ),
                             items: const [
-                              DropdownMenuItem(value: '1', child: Text('High')),
+                              DropdownMenuItem(
+                                  value: '1', child: Text('High')),
                               DropdownMenuItem(
                                   value: '2', child: Text('Medium')),
-                              DropdownMenuItem(value: '3', child: Text('Low')),
+                              DropdownMenuItem(
+                                  value: '3', child: Text('Low')),
                             ],
                             onChanged: (val) {
-                              if (val != null) setState(() => priority = val);
+                              if (val != null) {
+                                setModalState(() => priority = val);
+                              }
                             },
                           ),
                         ),
@@ -266,18 +249,12 @@ class TasksScreen extends StatelessWidget {
                                       )
                                       .toList(),
                                   onChanged: (val) =>
-                                      setState(() => selectedUserId = val),
+                                      setModalState(() => selectedUserId = val),
                                 ),
                         ),
                       ],
                     ),
                     const SizedBox(height: 14),
-                    const Text(
-                      'Attachment (optional)',
-                      style:
-                          TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
-                    ),
-                    const SizedBox(height: 8),
                     Row(
                       children: [
                         Expanded(
@@ -296,7 +273,7 @@ class TasksScreen extends StatelessWidget {
                           IconButton(
                             icon: const Icon(Icons.close),
                             onPressed: () {
-                              setState(() {
+                              setModalState(() {
                                 attachmentBase64 = null;
                                 attachmentFilename = null;
                               });
@@ -316,19 +293,18 @@ class TasksScreen extends StatelessWidget {
                                 if (nameController.text.trim().isEmpty) {
                                   Fluttertoast.showToast(
                                     msg: 'Name is required',
-                                    toastLength: Toast.LENGTH_SHORT,
-                                    gravity: ToastGravity.BOTTOM,
                                     backgroundColor: Colors.red,
                                     textColor: Colors.white,
-                                    fontSize: 16.0,
                                   );
                                   return;
                                 }
 
                                 int? userIdToAssign = selectedUserId;
                                 if (userIdToAssign == null) {
-                                  final loginData = SharedPref.getLoginData();
-                                  final uid = loginData.result?.data?.uid;
+                                  final uid = SharedPref.getLoginData()
+                                      .result
+                                      ?.data
+                                      ?.uid;
                                   if (uid != null) userIdToAssign = uid;
                                 }
 
@@ -349,35 +325,29 @@ class TasksScreen extends StatelessWidget {
                                     Navigator.pop(context);
                                     Fluttertoast.showToast(
                                       msg:
-                                          'Task "${createdTask.name ?? ''}" created successfully',
-                                      toastLength: Toast.LENGTH_SHORT,
-                                      gravity: ToastGravity.BOTTOM,
+                                          'Ticket "${createdTask.name ?? ''}" created',
                                       backgroundColor: Colors.green,
                                       textColor: Colors.white,
-                                      fontSize: 16.0,
                                     );
-                                    // Navigate to task details
                                     await Navigator.push(
                                       context,
                                       MaterialPageRoute(
                                         builder: (context) => TaskDetailsScreen(
-                                            task: createdTask),
+                                          task: createdTask,
+                                        ),
                                       ),
                                     );
                                   } else if (provider.errorMessage != null) {
                                     Fluttertoast.showToast(
                                       msg: provider.errorMessage!,
-                                      toastLength: Toast.LENGTH_SHORT,
-                                      gravity: ToastGravity.BOTTOM,
                                       backgroundColor: Colors.red,
                                       textColor: Colors.white,
-                                      fontSize: 16.0,
                                     );
                                   }
                                 }
                               },
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: appFontColor,
+                          backgroundColor: ProductivityLightTheme.ink,
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(12),
                           ),
@@ -393,7 +363,7 @@ class TasksScreen extends StatelessWidget {
                                 ),
                               )
                             : const Text(
-                                'Create Task',
+                                'Create Ticket',
                                 style: TextStyle(
                                   color: Colors.white,
                                   fontSize: 16,
@@ -424,16 +394,11 @@ class TasksScreen extends StatelessWidget {
     final reportProvider = context.read<ReportProvider>();
 
     if (reportProvider.reports.isEmpty) {
-      if (context.mounted) {
-        Fluttertoast.showToast(
-          msg: 'No reports found. Please create or load reports first.',
-          toastLength: Toast.LENGTH_SHORT,
-          gravity: ToastGravity.BOTTOM,
-          backgroundColor: Colors.orange,
-          textColor: Colors.white,
-          fontSize: 16.0,
-        );
-      }
+      Fluttertoast.showToast(
+        msg: 'No reports found. Please create or load reports first.',
+        backgroundColor: Colors.orange,
+        textColor: Colors.white,
+      );
       return;
     }
 
@@ -443,16 +408,11 @@ class TasksScreen extends StatelessWidget {
         .toList();
 
     if (availableReports.isEmpty) {
-      if (context.mounted) {
-        Fluttertoast.showToast(
-          msg: 'All reports are already linked to this task',
-          toastLength: Toast.LENGTH_SHORT,
-          gravity: ToastGravity.BOTTOM,
-          backgroundColor: Colors.blue,
-          textColor: Colors.white,
-          fontSize: 16.0,
-        );
-      }
+      Fluttertoast.showToast(
+        msg: 'All reports are already linked to this ticket',
+        backgroundColor: Colors.blue,
+        textColor: Colors.white,
+      );
       return;
     }
 
@@ -462,21 +422,20 @@ class TasksScreen extends StatelessWidget {
       context: context,
       builder: (ctx) {
         return StatefulBuilder(
-          builder: (context, setState) {
+          builder: (context, setDialogState) {
             return AlertDialog(
               title: const Text('Link report'),
               content: DropdownButtonFormField<String>(
                 value: selectedReportId,
-                decoration: const InputDecoration(
-                  labelText: 'Report',
-                ),
+                decoration: const InputDecoration(labelText: 'Report'),
                 items: availableReports
                     .map((r) => DropdownMenuItem(
                           value: r.id.toString(),
                           child: Text(r.name),
                         ))
                     .toList(),
-                onChanged: (val) => setState(() => selectedReportId = val),
+                onChanged: (val) =>
+                    setDialogState(() => selectedReportId = val),
               ),
               actions: [
                 TextButton(
@@ -491,26 +450,19 @@ class TasksScreen extends StatelessWidget {
                             taskId: task.id!,
                             reportId: selectedReportId!,
                           );
-
                           if (context.mounted) {
                             Navigator.pop(ctx);
                             if (msg != null) {
                               Fluttertoast.showToast(
                                 msg: msg,
-                                toastLength: Toast.LENGTH_SHORT,
-                                gravity: ToastGravity.BOTTOM,
                                 backgroundColor: Colors.green,
                                 textColor: Colors.white,
-                                fontSize: 16.0,
                               );
                             } else if (provider.errorMessage != null) {
                               Fluttertoast.showToast(
                                 msg: provider.errorMessage!,
-                                toastLength: Toast.LENGTH_SHORT,
-                                gravity: ToastGravity.BOTTOM,
                                 backgroundColor: Colors.red,
                                 textColor: Colors.white,
-                                fontSize: 16.0,
                               );
                             }
                           }
@@ -525,130 +477,14 @@ class TasksScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildTaskTile(
-    BuildContext context,
-    TasksProvider provider,
-    TaskModel task,
-  ) {
-    final id = task.id;
-    final isCompleting = id != null && provider.completingTaskIds.contains(id);
-    final isLinking = id != null && provider.linkingTaskIds.contains(id);
-    final isDeleting = id != null && provider.deletingTaskIds.contains(id);
-
-    final dateText = task.createdAt != null
-        ? DateFormat.yMMMd().format(task.createdAt!)
-        : 'N/A';
-
-    return Card(
-      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      child: ListTile(
-        onTap: () {
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (_) => TaskDetailsScreen(task: task),
-            ),
-          ).then((_) {
-            if (context.mounted) {
-              provider.refreshTasks(); // ensure list pulls latest after edits
-            }
-          });
-        },
-        title: Text(task.name ?? 'Untitled Task'),
-        subtitle: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            if (task.description != null && task.description!.isNotEmpty)
-              Text(
-                task.description!,
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-              ),
-            Text('Priority P${task.priority ?? '-'} · $dateText'),
-          ],
-        ),
-        trailing: PopupMenuButton<String>(
-          tooltip: 'Ticket actions',
-          onSelected: (value) async {
-            if (id == null) return;
-            switch (value) {
-              case 'link':
-                await _showLinkReportDialog(context, provider, task);
-                break;
-              case 'complete':
-                final msg = await provider.completeTask(id);
-                if (context.mounted && msg != null) {
-                  ScaffoldMessenger.of(context)
-                      .showSnackBar(SnackBar(content: Text(msg)));
-                }
-                break;
-              case 'delete':
-                final msg = await provider.deleteTask(id);
-                if (context.mounted && msg != null) {
-                  ScaffoldMessenger.of(context)
-                      .showSnackBar(SnackBar(content: Text(msg)));
-                }
-                break;
-            }
-          },
-          itemBuilder: (context) => [
-            if (!task.isCompleted)
-              PopupMenuItem(
-                value: 'link',
-                enabled: !isLinking,
-                child: Row(
-                  children: [
-                    isLinking
-                        ? const SizedBox(
-                            width: 18,
-                            height: 18,
-                            child: CircularProgressIndicator(strokeWidth: 2),
-                          )
-                        : const Icon(Icons.link, size: 20),
-                    const SizedBox(width: 12),
-                    const Text('Link report'),
-                  ],
-                ),
-              ),
-            if (!task.isCompleted)
-              PopupMenuItem(
-                value: 'complete',
-                enabled: !isCompleting,
-                child: Row(
-                  children: [
-                    isCompleting
-                        ? const SizedBox(
-                            width: 18,
-                            height: 18,
-                            child: CircularProgressIndicator(strokeWidth: 2),
-                          )
-                        : const Icon(Icons.check_circle_outline, size: 20),
-                    const SizedBox(width: 12),
-                    const Text('Complete'),
-                  ],
-                ),
-              ),
-            PopupMenuItem(
-              value: 'delete',
-              enabled: !isDeleting,
-              child: Row(
-                children: [
-                  isDeleting
-                      ? const SizedBox(
-                          width: 18,
-                          height: 18,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        )
-                      : const Icon(Icons.delete_outline, size: 20),
-                  const SizedBox(width: 12),
-                  const Text('Delete'),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
+  List<TaskModel> _latestFive(List<TaskModel> items) {
+    final sorted = List<TaskModel>.from(items)
+      ..sort((a, b) {
+        final aAt = a.createdAt ?? DateTime.fromMillisecondsSinceEpoch(0);
+        final bAt = b.createdAt ?? DateTime.fromMillisecondsSinceEpoch(0);
+        return bAt.compareTo(aAt);
+      });
+    return sorted.take(5).toList();
   }
 
   @override
@@ -660,6 +496,15 @@ class TasksScreen extends StatelessWidget {
           Future.microtask(tasksProvider.loadAssignableUsers);
         }
 
+        final all = tasksProvider.tasks;
+        final total = all.length;
+        final pending = all.where((t) => !t.isCompleted).length;
+        final active = all
+            .where((t) => !t.isCompleted && _isHighPriority(t.priority))
+            .length;
+        final ended = all.where((t) => t.isCompleted).length;
+        final visible = _latestFive(_scoped(all));
+
         Widget body;
         switch (tasksProvider.status) {
           case TasksStatus.loading:
@@ -668,41 +513,228 @@ class TasksScreen extends StatelessWidget {
             break;
           case TasksStatus.error:
             body = _ErrorState(
-              message: tasksProvider.errorMessage ?? 'Failed to load tasks.',
+              message: tasksProvider.errorMessage ?? 'Failed to load tickets.',
               onRetry: tasksProvider.loadTasks,
             );
             break;
           case TasksStatus.empty:
-            body = _EmptyState(highPriorityOnly: highPriorityOnly);
-            break;
           case TasksStatus.loaded:
-            final visibleTasks = _visibleTasks(tasksProvider);
-            body = visibleTasks.isEmpty
-                ? _EmptyState(highPriorityOnly: highPriorityOnly)
-                : RefreshIndicator(
-                    onRefresh: tasksProvider.refreshTasks,
-                    child: ListView.builder(
-                      itemCount: visibleTasks.length,
-                      itemBuilder: (context, index) {
-                        final task = visibleTasks[index];
-                        return _buildTaskTile(context, tasksProvider, task);
-                      },
+            body = RefreshIndicator(
+              onRefresh: tasksProvider.refreshTasks,
+              child: CustomScrollView(
+                physics: const AlwaysScrollableScrollPhysics(),
+                slivers: [
+                  const SliverToBoxAdapter(
+                    child: ProductivityLightHero(
+                      eyebrow: 'Get Focused',
+                      title: 'Stay On Top!',
                     ),
-                  );
+                  ),
+                  SliverToBoxAdapter(
+                    child: ProductivityStatsGrid(
+                      items: [
+                        ProductivityStatItem(
+                          label: 'Total Ticket',
+                          value: total,
+                          icon: Icons.confirmation_number_outlined,
+                          accent: ProductivityLightTheme.accentTotal,
+                          sparkHighlightStart: 3,
+                          sparkHighlightEnd: 5,
+                        ),
+                        ProductivityStatItem(
+                          label: 'Pending Ticket',
+                          value: pending,
+                          icon: Icons.description_outlined,
+                          accent: ProductivityLightTheme.accentPending,
+                          sparkHighlightStart: 5,
+                          sparkHighlightEnd: 7,
+                        ),
+                        ProductivityStatItem(
+                          label: 'Active Ticket',
+                          value: active,
+                          icon: Icons.priority_high_rounded,
+                          accent: ProductivityLightTheme.accentActive,
+                          sparkHighlightStart: 4,
+                          sparkHighlightEnd: 6,
+                        ),
+                        ProductivityStatItem(
+                          label: 'Ended Ticket',
+                          value: ended,
+                          icon: Icons.task_alt_outlined,
+                          accent: ProductivityLightTheme.accentEnded,
+                          sparkHighlightStart: 2,
+                          sparkHighlightEnd: 5,
+                        ),
+                      ],
+                    ),
+                  ),
+                  SliverToBoxAdapter(
+                    child: Padding(
+                      padding: const EdgeInsets.fromLTRB(22, 18, 22, 4),
+                      child: Text(
+                        'Currently Tickets',
+                        style: ProductivityLightTheme.sectionLabel,
+                      ),
+                    ),
+                  ),
+                  if (visible.isEmpty)
+                    SliverFillRemaining(
+                      hasScrollBody: false,
+                      child: _EmptyState(
+                        highPriorityOnly: widget.highPriorityOnly,
+                      ),
+                    )
+                  else
+                    SliverList(
+                      delegate: SliverChildBuilderDelegate(
+                        (context, index) {
+                          final task = visible[index];
+                          return _TicketSoberCard(
+                            task: task,
+                            onTap: () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (_) =>
+                                      TaskDetailsScreen(task: task),
+                                ),
+                              ).then((_) {
+                                if (context.mounted) {
+                                  tasksProvider.refreshTasks();
+                                }
+                              });
+                            },
+                            onAction: (value) async {
+                              final id = task.id;
+                              if (id == null) return;
+                              switch (value) {
+                                case 'link':
+                                  await _showLinkReportDialog(
+                                    context,
+                                    tasksProvider,
+                                    task,
+                                  );
+                                  break;
+                                case 'complete':
+                                  final msg =
+                                      await tasksProvider.completeTask(id);
+                                  if (context.mounted && msg != null) {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      SnackBar(content: Text(msg)),
+                                    );
+                                  }
+                                  break;
+                                case 'delete':
+                                  final msg =
+                                      await tasksProvider.deleteTask(id);
+                                  if (context.mounted && msg != null) {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      SnackBar(content: Text(msg)),
+                                    );
+                                  }
+                                  break;
+                              }
+                            },
+                          );
+                        },
+                        childCount: visible.length,
+                      ),
+                    ),
+                  const SliverToBoxAdapter(child: SizedBox(height: 88)),
+                ],
+              ),
+            );
             break;
         }
 
-        return ProductivityScreenShell(
+        return ProductivityLightShell(
+          showBack: true,
           title: 'Tickets',
-          floatingActionButton: FloatingActionButton(
-            onPressed: () => _showCreateTaskSheet(context, tasksProvider),
-            backgroundColor: appFontColor,
-            child: const Icon(Icons.add, color: Colors.white),
-          ),
-          body: SafeArea(child: body),
+          body: body,
         );
       },
     );
+  }
+}
+
+class _TicketSoberCard extends StatelessWidget {
+  const _TicketSoberCard({
+    required this.task,
+    required this.onTap,
+    required this.onAction,
+  });
+
+  final TaskModel task;
+  final VoidCallback onTap;
+  final ValueChanged<String> onAction;
+
+  Widget _initialAvatar(String name) {
+    final initial = name.trim().isNotEmpty ? name.trim()[0].toUpperCase() : 'U';
+    return Container(
+      width: 24,
+      height: 24,
+      decoration: const BoxDecoration(
+        shape: BoxShape.circle,
+        color: Color(0xFFEFEFEF),
+      ),
+      alignment: Alignment.center,
+      child: Text(
+        initial,
+        style: const TextStyle(
+          fontSize: 10,
+          fontWeight: FontWeight.w500,
+          color: ProductivityLightTheme.ink,
+        ),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    late final String statusLabel;
+    late final Color statusBg;
+    if (task.isCompleted) {
+      statusLabel = 'Completed';
+      statusBg = ProductivityLightTheme.statusCompletedBg;
+    } else if (task.priority == '1') {
+      statusLabel = 'High';
+      statusBg = ProductivityLightTheme.statusActiveBg;
+    } else {
+      statusLabel = 'Open';
+      statusBg = ProductivityLightTheme.statusPendingBg;
+    }
+
+    final assignee = (task.assignedUser ?? '').trim();
+    final dateText = task.createdAt != null
+        ? DateFormat('MMM d').format(task.createdAt!)
+        : null;
+
+    return ProductivitySoberCard(
+          title: task.name ?? 'Untitled Ticket',
+          statusLabel: statusLabel,
+          statusBackground: statusBg,
+          leadingAvatar:
+              assignee.isNotEmpty ? _initialAvatar(assignee) : null,
+          subtitle: assignee.isNotEmpty ? assignee : 'Unassigned',
+          dateText: dateText,
+          onTap: onTap,
+          titleTrailing: PopupMenuButton<String>(
+            tooltip: 'Ticket actions',
+            padding: EdgeInsets.zero,
+            onSelected: onAction,
+            itemBuilder: (context) => [
+              if (!task.isCompleted)
+                const PopupMenuItem(value: 'link', child: Text('Link report')),
+              if (!task.isCompleted)
+                const PopupMenuItem(value: 'complete', child: Text('Complete')),
+              const PopupMenuItem(value: 'delete', child: Text('Delete')),
+            ],
+            child: const Icon(
+              Icons.more_horiz,
+              color: ProductivityLightTheme.inkSoft,
+            ),
+          ),
+        );
   }
 }
 
@@ -717,41 +749,19 @@ class _EmptyState extends StatelessWidget {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Container(
-            padding: const EdgeInsets.all(24),
-            decoration: BoxDecoration(
-              color: appFontColor.withOpacity(0.08),
-              shape: BoxShape.circle,
-            ),
-            child: Icon(
-              highPriorityOnly
-                  ? Icons.priority_high_rounded
-                  : Icons.confirmation_number_outlined,
-              size: 64,
-              color: appFontColor.withOpacity(0.4),
-            ),
+          Icon(
+            highPriorityOnly
+                ? Icons.priority_high_rounded
+                : Icons.confirmation_number_outlined,
+            size: 56,
+            color: ProductivityLightTheme.inkSoft,
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 12),
           Text(
             highPriorityOnly
                 ? 'No high-priority tickets'
                 : 'No tickets available',
-            style: TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.w600,
-              color: appFontColor.withOpacity(0.7),
-            ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            highPriorityOnly
-                ? 'You have no open high-priority tickets right now'
-                : 'Create your first ticket to get started',
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              fontSize: 14,
-              color: appFontColor.withOpacity(0.5),
-            ),
+            style: ProductivityLightTheme.cardSubtitle.copyWith(fontSize: 16),
           ),
         ],
       ),
@@ -769,48 +779,22 @@ class _ErrorState extends StatelessWidget {
   Widget build(BuildContext context) {
     return Center(
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 24),
+        padding: const EdgeInsets.all(24),
         child: Column(
-          mainAxisSize: MainAxisSize.min,
+          mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Container(
-              padding: const EdgeInsets.all(20),
-              decoration: BoxDecoration(
-                color: Colors.red.shade50,
-                shape: BoxShape.circle,
-              ),
-              child: Icon(
-                Icons.error_outline,
-                size: 56,
-                color: Colors.red.shade400,
-              ),
-            ),
-            const SizedBox(height: 20),
             Text(
               message,
               textAlign: TextAlign.center,
-              style: TextStyle(
-                fontSize: 16,
-                color: appFontColor.withOpacity(0.8),
-                fontWeight: FontWeight.w500,
-              ),
+              style: ProductivityLightTheme.cardSubtitle,
             ),
             const SizedBox(height: 16),
-            ElevatedButton.icon(
+            ElevatedButton(
               onPressed: onRetry,
-              icon: const Icon(Icons.refresh),
-              label: const Text('Retry'),
               style: ElevatedButton.styleFrom(
-                backgroundColor: appFontColor,
-                foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 24,
-                  vertical: 12,
-                ),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(10),
-                ),
+                backgroundColor: ProductivityLightTheme.ink,
               ),
+              child: const Text('Retry', style: TextStyle(color: Colors.white)),
             ),
           ],
         ),
