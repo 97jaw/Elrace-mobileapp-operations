@@ -169,10 +169,21 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   /// Pre-load peer user for fast avatar rendering
   Future<void> _loadPeerUser() async {
     if (widget.peerUid == null) return;
-    final user = await UserRepository.instance.getUser(widget.peerUid!);
+    final user = await UserRepository.instance.getUserWithDirectoryFallback(
+      widget.peerUid!,
+      forceRefresh: true,
+    );
     if (mounted && user != null) {
       setState(() => _peerUser = user);
     }
+  }
+
+  String get _displayTitle {
+    if (widget.chatType == ChatType.dm) {
+      final live = _peerUser?.name.trim();
+      if (live != null && live.isNotEmpty) return live;
+    }
+    return widget.title;
   }
 
   /// Load member names for support chat so group members see who sent what
@@ -292,7 +303,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                       pinned: true,
                       delegate: ChatConversationHeaderDelegate(
                         topBarExtent: ChatTopGlassAppBar.extent(context),
-                        title: widget.title,
+                        title: _displayTitle,
                         onBack: () => Navigator.of(context).pop(),
                         leading: GestureDetector(
                           onTap: (widget.chatType == ChatType.dm &&
@@ -424,11 +435,15 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     if (widget.chatType == ChatType.dm) {
       return FutureBuilder<ChatUser?>(
         future: widget.peerUid != null
-            ? UserRepository.instance.getUser(widget.peerUid!)
+            ? UserRepository.instance.getUserWithDirectoryFallback(
+                widget.peerUid!,
+              )
             : null,
         builder: (context, userSnapshot) {
           final avatarUrl =
               userSnapshot.data?.avatarUrl ?? _peerUser?.avatarUrl;
+          final displayName =
+              userSnapshot.data?.name ?? _peerUser?.name ?? widget.title;
           return Stack(
             clipBehavior: Clip.none,
             children: [
@@ -448,8 +463,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                           : null,
                   child: avatarUrl == null || avatarUrl.isEmpty
                       ? Text(
-                          _getInitials(
-                              userSnapshot.data?.name ?? widget.title),
+                          _getInitials(displayName),
                           style: const TextStyle(
                             color: Color(0xFF2E2E2E),
                             fontWeight: FontWeight.w700,
@@ -1533,7 +1547,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
         builder: (_) => ChatUserProfileScreen(
           chatId: widget.chatId,
           peerUid: peerUid,
-          fallbackName: widget.title,
+          fallbackName: _displayTitle,
         ),
       ),
     );

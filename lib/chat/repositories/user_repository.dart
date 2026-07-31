@@ -49,11 +49,15 @@ class UserRepository {
       'role_id': session.roleId,
       'branch_id': session.branchId,
       'company_id': session.companyId,
-      'avatar_url': session.avatarUrl,
       'last_login_at': FieldValue.serverTimestamp(),
       'updated_at': FieldValue.serverTimestamp(),
       'search_keywords': keywords,
     };
+
+    final safeAvatar = _normalizeNullableString(session.avatarUrl);
+    if (safeAvatar != null) {
+      data['avatar_url'] = safeAvatar;
+    }
 
     final safeEmail = _normalizeNullableString(session.email);
     final safePhone = _normalizeNullableString(session.phoneNumber);
@@ -122,19 +126,147 @@ class UserRepository {
           }
         }
 
-        // Update existing user
+        // Preserve existing avatar when session has none
+        if (!data.containsKey('avatar_url')) {
+          final existingAvatar =
+              _normalizeNullableString(existing['avatar_url']?.toString());
+          if (existingAvatar != null) {
+            data['avatar_url'] = existingAvatar;
+          }
+        }
+
         await docRef.update(data);
         print('✅ UserRepository: Updated user ${session.firebaseUid}');
       } else {
-        // Create new user
         data['created_at'] = FieldValue.serverTimestamp();
         await docRef.set(data);
         print('✅ UserRepository: Created user ${session.firebaseUid}');
       }
+
+      invalidateUserCache(session.firebaseUid);
+      // Best-effort: keep peer DM list titles in sync with corrected person name.
+      // ignore: unawaited_futures
+      _healDmTitlesForUser(session.firebaseUid, session.name);
     } catch (e) {
       print('❌ UserRepository: Error upserting user: $e');
       rethrow;
     }
+  }
+
+  /// Drop cached profile so next [getUser] hits Firestore.
+  void invalidateUserCache([String? uid]) {
+    if (uid == null) {
+      _userCache.clear();
+      _cacheTimestamps.clear();
+      return;
+    }
+    _userCache.remove(uid);
+    _cacheTimestamps.remove(uid);
+  }
+
+  /// Update peers' `userChats` titles that point at [uid] so list/header
+  /// snapshots show the corrected person name.
+  Future<void> _healDmTitlesForUser(String uid, String name) async {
+    final trimmed = name.trim();
+    if (trimmed.isEmpty) return;
+    try {
+      final ownChats = await _firestore
+          .collection('userChats')
+          .doc(uid)
+          .collection('chats')
+          .where('type', isEqualTo: 'dm')
+          .get();
+      for (final doc in ownChats.docs) {
+        final peerUid = doc.data()['peer_uid']?.toString();
+        if (peerUid == null || peerUid.isEmpty) continue;
+        try {
+          await _firestore
+              .collection('userChats')
+              .doc(peerUid)
+              .collection('chats')
+              .doc(doc.id)
+              .set(
+            {
+              'title': trimmed,
+              'peer_uid': uid,
+              'type': 'dm',
+            },
+            SetOptions(merge: true),
+          );
+        } catch (e) {
+          print('⚠️ UserRepository: heal DM title for $peerUid/$uid: $e');
+        }
+      }
+    } catch (e) {
+      print('⚠️ UserRepository: heal DM titles failed: $e');
+    }
+  }
+
+  /// Resolve peer profile for UI: live Firestore + directory fallback for
+  /// missing avatar / empty name.
+  Future<ChatUser?> getUserWithDirectoryFallback(
+    String uid, {
+    bool forceRefresh = false,
+  }) async {
+    if (forceRefresh) invalidateUserCache(uid);
+    final user = await getUser(uid);
+    if (user == null) return null;
+
+    final needsAvatar = _normalizeNullableString(user.avatarUrl) == null;
+    final nameLooksLikeTitle = user.name.trim().isNotEmpty &&
+        ((user.roleName != null &&
+                user.name.trim().toLowerCase() ==
+                    user.roleName!.trim().toLowerCase()) ||
+            (user.jobTitle != null &&
+                user.name.trim().toLowerCase() ==
+                    user.jobTitle!.trim().toLowerCase()));
+    final needsName = user.name.trim().isEmpty || nameLooksLikeTitle;
+    if (!needsAvatar && !needsName) return user;
+
+    try {
+      final members = await TeamMembersApiService.instance.getTeamMembers();
+      final match = _findBestDirectoryMatch(user, members);
+      if (match == null) {
+        if (needsAvatar && user.employeeId != null && user.employeeId! > 0) {
+          final url =
+              'https://erp.elrace.com/public/employee/image/${user.employeeId}';
+          final enriched = user.copyWith(avatarUrl: url);
+          _userCache[uid] = enriched;
+          return enriched;
+        }
+        return user;
+      }
+
+      String? avatar = user.avatarUrl;
+      if (needsAvatar) {
+        avatar = _httpAvatarFromDirectory(match.image) ??
+            (match.employeeId != null && match.employeeId! > 0
+                ? 'https://erp.elrace.com/public/employee/image/${match.employeeId}'
+                : null);
+      }
+      final resolvedName = match.name.trim().isNotEmpty ? match.name.trim() : null;
+
+      final enriched = user.copyWith(
+        name: needsName ? resolvedName : null,
+        avatarUrl: avatar,
+      );
+      _userCache[uid] = enriched;
+      _cacheTimestamps[uid] = DateTime.now();
+      return enriched;
+    } catch (e) {
+      print('⚠️ UserRepository: directory fallback failed for $uid: $e');
+      return user;
+    }
+  }
+
+  String? _httpAvatarFromDirectory(String? raw) {
+    final text = _normalizeNullableString(raw);
+    if (text == null) return null;
+    if (text.startsWith('data:')) return null;
+    if (text.startsWith('http://') || text.startsWith('https://')) return text;
+    if (text.startsWith('/')) return 'https://erp.elrace.com$text';
+    if (text.length > 500) return null;
+    return null;
   }
 
   String? _normalizeNullableString(String? value) {
@@ -197,14 +329,15 @@ class UserRepository {
     });
   }
 
-  /// Fills missing email/phone/job fields from employee directory API and
+  /// Fills missing email/phone/job/avatar fields from employee directory API and
   /// persists the resolved values to Firestore.
   Future<bool> hydrateUserProfileFromEmployeeDirectory(ChatUser user) async {
     final needsEmail = _normalizeNullableString(user.email) == null;
     final needsPhone = _normalizeNullableString(user.phoneNumber) == null;
     final needsJob = _normalizeNullableString(user.jobTitle) == null;
+    final needsAvatar = _normalizeNullableString(user.avatarUrl) == null;
 
-    if (!needsEmail && !needsPhone && !needsJob) {
+    if (!needsEmail && !needsPhone && !needsJob && !needsAvatar) {
       return false;
     }
 
@@ -225,6 +358,10 @@ class UserRepository {
       final resolvedEmail = _normalizeNullableString(match.email);
       final resolvedPhone = _normalizeNullableString(match.phone);
       final resolvedJob = _normalizeNullableString(match.jobPosition);
+      final resolvedAvatar = _httpAvatarFromDirectory(match.image) ??
+          (match.employeeId != null && match.employeeId! > 0
+              ? 'https://erp.elrace.com/public/employee/image/${match.employeeId}'
+              : null);
 
       final patch = <String, dynamic>{
         'updated_at': FieldValue.serverTimestamp(),
@@ -240,6 +377,9 @@ class UserRepository {
       }
       if (needsJob && resolvedJob != null) {
         patch['job_title'] = resolvedJob;
+      }
+      if (needsAvatar && resolvedAvatar != null) {
+        patch['avatar_url'] = resolvedAvatar;
       }
 
       if (patch.length == 1) {
@@ -271,9 +411,16 @@ class UserRepository {
       }
     }
 
-    if (user.odooUserId > 0) {
+    var odooUserId = user.odooUserId;
+    if (odooUserId <= 0) {
+      final fromUid = RegExp(r'^odoo_(\d+)$').firstMatch(user.uid);
+      if (fromUid != null) {
+        odooUserId = int.tryParse(fromUid.group(1)!) ?? 0;
+      }
+    }
+    if (odooUserId > 0) {
       for (final member in members) {
-        if (member.odooUserId == user.odooUserId) {
+        if (member.odooUserId == odooUserId) {
           return member;
         }
       }
@@ -289,6 +436,59 @@ class UserRepository {
     }
 
     return null;
+  }
+
+  /// Resolve peers in existing DMs via directory and rewrite *our* userChats
+  /// titles so the list shows person names (and caches avatars for UI).
+  ///
+  /// Cannot write other users' `users/{uid}` docs (security rules) — only our
+  /// index titles + in-memory display cache.
+  Future<int> healExistingDmPeerProfiles() async {
+    final myUid = _resolveCurrentChatUid();
+    if (myUid == null || myUid.isEmpty) return 0;
+
+    try {
+      final snap = await _firestore
+          .collection('userChats')
+          .doc(myUid)
+          .collection('chats')
+          .where('type', isEqualTo: 'dm')
+          .get();
+
+      var healed = 0;
+      for (final doc in snap.docs) {
+        final peerUid = doc.data()['peer_uid']?.toString();
+        if (peerUid == null || peerUid.isEmpty) continue;
+
+        final resolved = await getUserWithDirectoryFallback(
+          peerUid,
+          forceRefresh: true,
+        );
+        if (resolved == null) continue;
+
+        final title = resolved.name.trim();
+        final currentTitle = doc.data()['title']?.toString().trim() ?? '';
+        if (title.isEmpty) continue;
+
+        if (title != currentTitle) {
+          try {
+            await doc.reference.set(
+              {'title': title, 'peer_uid': peerUid, 'type': 'dm'},
+              SetOptions(merge: true),
+            );
+            healed++;
+            print(
+                '✅ UserRepository: healed DM title $peerUid → "$title" (was "$currentTitle")');
+          } catch (e) {
+            print('⚠️ UserRepository: could not heal title for $peerUid: $e');
+          }
+        }
+      }
+      return healed;
+    } catch (e) {
+      print('⚠️ UserRepository: healExistingDmPeerProfiles failed: $e');
+      return 0;
+    }
   }
 
   /// Bulk-hydrate missing email/phone/job for ALL users in Firestore
@@ -526,13 +726,18 @@ class UserRepository {
 
     final payload = <String, dynamic>{
       'x_stamp_user': true,
-      'name': login?.name ?? login?.emp_name,
+      'name': login?.emp_name ?? login?.name,
       'email': login?.email ?? login?.username,
       'odoo_user_id': login?.odoo_user_id,
       'employee_id': login?.employee_id,
       if (login?.emp_id != null) 'emp_id': login!.emp_id,
       'updated_at': FieldValue.serverTimestamp(),
     };
+    final empId = login?.employee_id;
+    if (empId != null && empId > 0) {
+      payload['avatar_url'] =
+          'https://erp.elrace.com/public/employee/image/$empId';
+    }
 
     for (final uid in uids) {
       try {
@@ -578,7 +783,7 @@ class UserRepository {
             users[i].copyWith(
               uid: uid,
               xStampUser: true,
-              name: (login?.name ?? login?.emp_name ?? users[i].name).toString(),
+              name: (login?.emp_name ?? login?.name ?? users[i].name).toString(),
             )
           else
             users[i],
@@ -591,7 +796,7 @@ class UserRepository {
         uid: uid,
         odooUserId: login?.odoo_user_id ?? 0,
         employeeId: login?.employee_id,
-        name: (login?.name ?? login?.emp_name ?? 'Me').toString(),
+        name: (login?.emp_name ?? login?.name ?? 'Me').toString(),
         email: login?.email ?? login?.username,
         roleId: login?.role_id ?? 0,
         companyId: login?.companyId ?? 0,

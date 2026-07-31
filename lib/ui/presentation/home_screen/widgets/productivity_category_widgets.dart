@@ -4,8 +4,6 @@ import 'package:el_race/ui/presentation/home_screen/providers/home_shared_docume
 import 'package:el_race/ui/presentation/home_screen/widgets/category_widget_gradient_border.dart';
 import 'package:el_race/ui/presentation/home_screen/widgets/home_productivity_navigation.dart';
 import 'package:el_race/ui/presentation/my_notes/screens/my_notes_screen.dart';
-import 'package:el_race/ui/presentation/tasks/logic/tasks_provider.dart';
-import 'package:el_race/ui/presentation/tasks_dashboard/screens/tasks_dashboard_screen.dart';
 import 'package:el_race/ui/presentation/todo_list/providers/todo_firebase_provider.dart';
 import 'package:el_race/utils/custom_navigate.dart';
 import 'package:flutter/material.dart';
@@ -14,7 +12,7 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 
-/// v7 Productivity category — Task Management + Shared Documents (half), Notes + Tickets (half).
+/// v7 Productivity category — Task Management (full), Shared Docs + Notes (half).
 class ProductivityCategoryTaskManagementCard extends StatefulWidget {
   const ProductivityCategoryTaskManagementCard({
     super.key,
@@ -121,30 +119,24 @@ class _ProductivityCategoryTaskManagementCardState
                       label: 'Open',
                       value: '${data.openCount}',
                       valueColor: Colors.white,
-                      onTap: () => HomeProductivityNavigation.openTaskManagement(
-                        context,
-                        filter: TaskFilter.open,
-                      ),
+                      onTap: () =>
+                          HomeProductivityNavigation.openTaskManagement(context),
                     ),
                     const _TaskStatDivider(),
                     _TaskStatColumn(
                       label: 'Doing',
                       value: '${data.inProgressCount}',
                       valueColor: const Color(0xFFF4C842),
-                      onTap: () => HomeProductivityNavigation.openTaskManagement(
-                        context,
-                        filter: TaskFilter.inProgress,
-                      ),
+                      onTap: () =>
+                          HomeProductivityNavigation.openTaskManagement(context),
                     ),
                     const _TaskStatDivider(),
                     _TaskStatColumn(
                       label: 'Done',
                       value: '${data.doneCount}',
                       valueColor: const Color(0xFF4ADE80),
-                      onTap: () => HomeProductivityNavigation.openTaskManagement(
-                        context,
-                        filter: TaskFilter.completed,
-                      ),
+                      onTap: () =>
+                          HomeProductivityNavigation.openTaskManagement(context),
                     ),
                   ],
                 ),
@@ -365,144 +357,6 @@ class ProductivityCategoryNotesCard extends ConsumerWidget {
         ],
       ),
     );
-  }
-}
-
-class ProductivityCategoryTicketsCard extends StatelessWidget {
-  const ProductivityCategoryTicketsCard({
-    super.key,
-    this.tabletCompact = false,
-  });
-
-  final bool tabletCompact;
-
-  @override
-  Widget build(BuildContext context) {
-    return Consumer<TasksProvider>(
-      builder: (context, tasksProvider, _) {
-        if (tasksProvider.status == TasksStatus.initial) {
-          WidgetsBinding.instance.addPostFrameCallback((_) {
-            tasksProvider.loadTasks();
-          });
-        }
-
-        final data = tasksProvider.ticketsWidgetRecord;
-        final trendColor = _ticketsTrendColor(data.trendColor);
-
-        return _ProductivityHalfCardShell(
-      height: null,
-      onTap: () => HomeProductivityNavigation.openTickets(context),
-      gradient: const LinearGradient(
-        begin: Alignment.topLeft,
-        end: Alignment.bottomRight,
-        colors: [
-          Color(0xFFA065B5),
-          Color(0xFF8B4B9F),
-          Color(0xFF6B2C7F),
-          Color(0xFF4F1F60),
-        ],
-      ),
-      iconBadge: const _GlassIconBadge(
-        icon: Icons.confirmation_number_outlined,
-        iconColor: Colors.white,
-        background: Color(0x33FFFFFF),
-      ),
-      pattern: Stack(
-        clipBehavior: Clip.hardEdge,
-        fit: StackFit.expand,
-        children: [
-          Positioned(
-            left: -16.w,
-            top: -20.uh,
-            child: Container(
-              width: 90.w,
-              height: 90.w,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                gradient: RadialGradient(
-                  colors: [
-                    const Color(0xFFD8B4E8).withValues(alpha: 0.35),
-                    Colors.transparent,
-                  ],
-                ),
-              ),
-            ),
-          ),
-          Positioned.fill(
-            child: CustomPaint(painter: _TicketCutoutPainter()),
-          ),
-        ],
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            'Support',
-            style: GoogleFonts.poppins(
-              fontSize: 7.5.usp,
-              fontWeight: FontWeight.w600,
-              color: const Color(0xFFD8B4E8),
-              letterSpacing: 0.35,
-            ),
-          ),
-          SizedBox(height: 2.uh),
-          Text(
-            'Tickets',
-            style: GoogleFonts.poppins(
-              fontSize: 13.usp,
-              fontWeight: FontWeight.w700,
-              color: Colors.white,
-              height: 1.1,
-            ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            '${data.totalOpen}',
-            style: GoogleFonts.poppins(
-              fontSize: 30.usp,
-              fontWeight: FontWeight.w800,
-              color: Colors.white,
-              height: 1,
-            ),
-          ),
-          if (data.trendMessage.isNotEmpty) ...[
-            SizedBox(height: 4.uh),
-            GestureDetector(
-              onTap: data.highPriorityCount > 0
-                  ? () => HomeProductivityNavigation.openTickets(
-                        context,
-                        highPriorityOnly: true,
-                      )
-                  : null,
-              child: Text(
-                data.trendMessage,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: GoogleFonts.poppins(
-                  fontSize: 10.usp,
-                  fontWeight: FontWeight.w600,
-                  color: trendColor,
-                ),
-              ),
-            ),
-          ],
-        ],
-      ),
-        );
-      },
-    );
-  }
-}
-
-Color _ticketsTrendColor(String trendColor) {
-  switch (trendColor) {
-    case 'green':
-      return const Color(0xFF4ADE80);
-    case 'red':
-      return const Color(0xFFFF6B7A);
-    default:
-      return const Color(0xFFD8B4E8);
   }
 }
 
@@ -732,37 +586,6 @@ class _NotebookLinesPainter extends CustomPainter {
       final y = gap * i;
       canvas.drawLine(Offset(0, y), Offset(size.width, y), paint);
     }
-  }
-
-  @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
-}
-
-class _TicketCutoutPainter extends CustomPainter {
-  @override
-  void paint(Canvas canvas, Size size) {
-    final paint = Paint()
-      ..color = Colors.white.withValues(alpha: 0.3)
-      ..style = PaintingStyle.fill;
-
-    final path = Path();
-    final left = size.width * 0.52;
-    final top = size.height * 0.38;
-    final w = size.width * 0.42;
-    final h = size.height * 0.48;
-    path.moveTo(left, top);
-    path.lineTo(left + w, top);
-    path.lineTo(left + w, top + h);
-    path.lineTo(left, top + h);
-    path.close();
-
-    canvas.drawPath(path, paint);
-
-    final notch = Paint()
-      ..color = Colors.white.withValues(alpha: 0.3)
-      ..style = PaintingStyle.fill;
-    canvas.drawCircle(Offset(left, top + h * 0.5), 8, notch);
-    canvas.drawCircle(Offset(left + w, top + h * 0.5), 8, notch);
   }
 
   @override

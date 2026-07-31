@@ -31,8 +31,7 @@ import 'package:el_race/ui/presentation/my_documents/screens/my_documents_screen
 import 'package:el_race/ui/presentation/my_notes/screens/my_notes_screen.dart';
 import 'package:el_race/ui/presentation/my_projects/presentation/screens/my_project.dart';
 import 'package:el_race/ui/presentation/tasks/logic/tasks_provider.dart';
-import 'package:el_race/ui/presentation/tasks_dashboard/screens/tasks_dashboard_screen.dart';
-import 'package:el_race/ui/presentation/my_projects/presentation/utils/projects_coming_soon.dart';
+import 'package:el_race/ui/presentation/home_screen/widgets/home_productivity_navigation.dart';
 import 'package:el_race/core/timesheet/routing/timesheet_route_names.dart';
 import 'package:el_race/utils/custom_navigate.dart';
 import 'package:el_race/utils/Util.dart';
@@ -353,12 +352,7 @@ class _ListViewWidgetsState extends State<ListViewWidgets> {
                           ),
                         );
                       } else {
-                        // Navigate to new Tasks Dashboard
-                        Navigator.of(context).push(
-                          MaterialPageRoute(
-                            builder: (context) => const TasksDashboardScreen(),
-                          ),
-                        );
+                        HomeProductivityNavigation.openTaskManagement(context);
                       }
                     },
               childWidget: isLoading
@@ -1092,28 +1086,25 @@ class _ListViewWidgetsState extends State<ListViewWidgets> {
         const ProductivityCategorySectionHeader(),
         SizedBox(height: _isTabletPane ? 10 : 10.h),
       ]);
-      if (visibility.isVisible(HomeWidgetCode.taskManagement) ||
-          visibility.isVisible(HomeWidgetCode.sharedDocuments)) {
-        final cards = <Widget>[
-          if (visibility.isVisible(HomeWidgetCode.taskManagement))
+      if (visibility.isVisible(HomeWidgetCode.taskManagement)) {
+        children.add(
+          _fullWidthCard(
             ProductivityCategoryTaskManagementCard(
               tabletCompact: tabletCompact,
             ),
+          ),
+        );
+        children.add(SizedBox(height: _isTabletPane ? 10 : 10.h));
+      }
+      if (visibility.isVisible(HomeWidgetCode.sharedDocuments) ||
+          visibility.isVisible(HomeWidgetCode.notes)) {
+        final cards = <Widget>[
           if (visibility.isVisible(HomeWidgetCode.sharedDocuments))
             ProductivityCategorySharedDocumentsCard(
               tabletCompact: tabletCompact,
             ),
-        ];
-        children.add(_pairCards(cards));
-        children.add(SizedBox(height: _isTabletPane ? 10 : 10.h));
-      }
-      if (visibility.isVisible(HomeWidgetCode.notes) ||
-          visibility.isVisible(HomeWidgetCode.tickets)) {
-        final cards = <Widget>[
           if (visibility.isVisible(HomeWidgetCode.notes))
             ProductivityCategoryNotesCard(tabletCompact: tabletCompact),
-          if (visibility.isVisible(HomeWidgetCode.tickets))
-            ProductivityCategoryTicketsCard(tabletCompact: tabletCompact),
         ];
         children.add(_pairCards(cards));
       }

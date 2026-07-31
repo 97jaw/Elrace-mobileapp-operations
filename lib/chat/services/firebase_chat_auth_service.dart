@@ -359,6 +359,9 @@ class FirebaseChatAuthService {
 
       // Step 2: Create/update user profile in Firestore
       print('📝 FirebaseChatAuth: Upserting user profile...');
+      print('   - display name: ${session.name}');
+      print('   - avatar_url: ${session.avatarUrl ?? "NONE"}');
+      print('   - employee_id: ${session.employeeId}');
       await UserRepository.instance.upsertUser(session);
 
       // Step 3: Ensure role chat membership
@@ -405,6 +408,15 @@ class FirebaseChatAuthService {
         }
       }).catchError((e) {
         print('⚠️ FirebaseChatAuth: Bulk hydration error (non-fatal): $e');
+      });
+
+      // Heal existing DM list titles/avatars from employee directory (fire-and-forget)
+      UserRepository.instance.healExistingDmPeerProfiles().then((count) {
+        if (count > 0) {
+          print('✅ FirebaseChatAuth: Healed $count existing DM titles');
+        }
+      }).catchError((e) {
+        print('⚠️ FirebaseChatAuth: DM peer heal error (non-fatal): $e');
       });
 
       // Cache session securely for fast restore on next app open
@@ -525,10 +537,48 @@ class FirebaseChatAuthService {
       print(
           '🔄 FirebaseChatAuth: Restoring from cached session for $firebaseUid...');
 
-      // Only do lightweight setup: presence + notifications
-      // Skip Firestore writes (upsert user, role membership) since
-      // those were already done in a previous successful setup
+      // Heal Firestore profile from latest SharedPref login (emp_name + avatar).
+      try {
+        final login = SharedPref.getLoginData();
+        final data = login.result?.data;
+        if (data != null) {
+          final session = ChatUserSession.fromLoginResponse(login.toJson());
+          final healed = ChatUserSession(
+            backendJwt: session.backendJwt,
+            odooUserId: session.odooUserId > 0
+                ? session.odooUserId
+                : (data.odoo_user_id ?? 0),
+            employeeId: session.employeeId ?? data.employee_id,
+            name: session.name.isNotEmpty
+                ? session.name
+                : (data.emp_name ?? data.name ?? cached.sessionData['name'] ?? '')
+                    .toString(),
+            email: session.email ?? data.email,
+            roleId: session.roleId > 0 ? session.roleId : (data.role_id ?? 0),
+            roleName: session.roleName,
+            branchId: session.branchId,
+            companyId: session.companyId,
+            firebaseUid: firebaseUid,
+            firebaseCustomToken: session.firebaseCustomToken,
+            roleChatId: cached.roleChatId,
+            avatarUrl: session.avatarUrl,
+            jobTitle: session.jobTitle,
+            phoneNumber: session.phoneNumber,
+            xStampUser: session.xStampUser || (data.xStampUser == true),
+          );
+          await UserRepository.instance.upsertUser(healed);
+          print('✅ FirebaseChatAuth: Profile re-synced on cache restore');
+          print('   - name=${healed.name}');
+          print('   - avatar=${healed.avatarUrl ?? "NONE"}');
+          // ignore: unawaited_futures
+          UserRepository.instance.healExistingDmPeerProfiles();
+        }
+      } catch (e) {
+        print(
+            '⚠️ FirebaseChatAuth: Profile re-sync on restore failed (non-fatal): $e');
+      }
 
+      // Lightweight setup: presence + notifications
       try {
         print('🟢 FirebaseChatAuth: Setting up presence...');
         await PresenceService.instance.initialize(firebaseUid);

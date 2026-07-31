@@ -29,6 +29,7 @@ import 'package:el_race/auth/uaepass_auth_cubit.dart';
 import 'package:el_race/deep_links/uaepass_link_handler.dart';
 import 'package:el_race/ui/presentation/splash_screen/splash_screen.dart';
 import 'package:el_race/ui/presentation/todo_list/providers/todo_firebase_provider.dart';
+import 'package:el_race/ui/presentation/tickets/providers/ticket_firebase_provider.dart';
 import 'package:el_race/ui/presentation/qr_survey/providers/qr_survey_data_provider.dart';
 import 'package:el_race/ui/presentation/qr_survey/services/qr_survey_api_service.dart';
 import 'package:el_race/ui/presentation/qr_survey/screens/qr_code_wrapper.dart';
@@ -886,6 +887,7 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
             ChangeNotifierProvider(create: (_) => ProfileBoxProvider()),
             ChangeNotifierProvider(create: (_) => ReportProvider()),
             ChangeNotifierProvider(create: (_) => TodoFirebaseProvider()),
+            ChangeNotifierProvider(create: (_) => TicketFirebaseProvider()),
             ChangeNotifierProvider(create: (_) => QrSurveyDataProvider()),
             ChangeNotifierProvider(create: (_) => AnnouncementsProvider()),
             ChangeNotifierProvider(create: (_) => GlobalSearchProvider()),
