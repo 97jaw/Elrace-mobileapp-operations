@@ -1208,6 +1208,11 @@ class _HrDetailsScreenState extends State<HrDetailsScreen> {
     return raw;
   }
 
+  bool _isDurationFieldLabel(String label) {
+    final normalized = label.trim().toLowerCase();
+    return normalized == 'duration' || normalized == 'duration time';
+  }
+
   Widget _simSectionCard({
     required String title,
     required List<_DetailItem> items,
@@ -1256,10 +1261,8 @@ class _HrDetailsScreenState extends State<HrDetailsScreen> {
                         child: _themeDetailCell(
                           item.label,
                           item.value,
-                          highlight: item.highlight ||
-                              item.label == 'Suggested Increment' ||
-                              item.label == 'Suggested By Manager' ||
-                              item.label == 'New Salary',
+                          // Form view: only Duration values use red text.
+                          highlight: _isDurationFieldLabel(item.label),
                         ),
                       ),
                   ],
@@ -1305,7 +1308,7 @@ class _HrDetailsScreenState extends State<HrDetailsScreen> {
               fontSize: 11.tsp,
               fontWeight: FontWeight.w700,
               color: highlight
-                  ? ApprovalsOverviewTheme.invoice
+                  ? ApprovalsOverviewTheme.hr
                   : ApprovalsOverviewTheme.textDark,
             ),
           ),
@@ -1319,7 +1322,6 @@ class _HrDetailsScreenState extends State<HrDetailsScreen> {
     required String secondaryName,
     required String employeeImage,
     required String requestTitle,
-    required String branchName,
   }) {
     return OverviewGlassPanel(
       fillAlpha: 0.88,
@@ -1388,62 +1390,29 @@ class _HrDetailsScreenState extends State<HrDetailsScreen> {
                   ),
                 ],
                 SizedBox(height: 6.th),
-                Row(
-                  children: [
-                    Expanded(
-                      child: Container(
-                        padding: EdgeInsets.symmetric(
-                          horizontal: 8.tw,
-                          vertical: 5.th,
-                        ),
-                        decoration: BoxDecoration(
-                          color: ApprovalsOverviewTheme.screenTintMid
-                              .withValues(alpha: 0.75),
-                          borderRadius: BorderRadius.circular(16.tr),
-                        ),
-                        child: Text(
-                          requestTitle,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          textAlign: TextAlign.center,
-                          style: GoogleFonts.poppins(
-                            fontSize: 10.tsp,
-                            fontWeight: FontWeight.w700,
-                            color: ApprovalsOverviewTheme.textDark,
-                          ),
-                        ),
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: Container(
+                    padding: EdgeInsets.symmetric(
+                      horizontal: 10.tw,
+                      vertical: 5.th,
+                    ),
+                    decoration: BoxDecoration(
+                      color: ApprovalsOverviewTheme.screenTintMid
+                          .withValues(alpha: 0.75),
+                      borderRadius: BorderRadius.circular(16.tr),
+                    ),
+                    child: Text(
+                      requestTitle,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: GoogleFonts.poppins(
+                        fontSize: 10.tsp,
+                        fontWeight: FontWeight.w700,
+                        color: ApprovalsOverviewTheme.textDark,
                       ),
                     ),
-                    SizedBox(width: 6.tw),
-                    Expanded(
-                      child: Container(
-                        padding: EdgeInsets.symmetric(
-                          horizontal: 8.tw,
-                          vertical: 5.th,
-                        ),
-                        decoration: BoxDecoration(
-                          gradient: const LinearGradient(
-                            colors: [
-                              ApprovalsOverviewTheme.screenMid,
-                              ApprovalsOverviewTheme.screenDeep,
-                            ],
-                          ),
-                          borderRadius: BorderRadius.circular(16.tr),
-                        ),
-                        child: Text(
-                          branchName,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          textAlign: TextAlign.center,
-                          style: GoogleFonts.poppins(
-                            fontSize: 10.tsp,
-                            fontWeight: FontWeight.w700,
-                            color: Colors.white,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
+                  ),
                 ),
               ],
             ),
@@ -2245,11 +2214,6 @@ class _HrDetailsScreenState extends State<HrDetailsScreen> {
         fallback: '-',
       ),
     );
-    final branchName = _pickFromMaps(
-      employeeMaps,
-      ['city_id', 'city', 'branch'],
-      fallback: '-',
-    );
     final comment = _pickFromMaps(
       detailMaps,
       [
@@ -2335,9 +2299,6 @@ class _HrDetailsScreenState extends State<HrDetailsScreen> {
                                         secondaryName: secondaryName,
                                         employeeImage: employeeImage,
                                         requestTitle: requestTitle,
-                                        branchName: branchName.isEmpty
-                                            ? '-'
-                                            : branchName,
                                       ),
                                     ),
                                     SizedBox(height: 6.th),
