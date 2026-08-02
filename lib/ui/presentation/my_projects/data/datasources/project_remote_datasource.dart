@@ -10,6 +10,7 @@ import 'package:el_race/ui/presentation/my_projects/data/models/project_financia
 import 'package:el_race/ui/presentation/my_projects/data/models/project_model.dart';
 import 'package:el_race/ui/presentation/my_projects/data/models/projects_paged_result.dart';
 import 'package:el_race/ui/presentation/my_projects/presentation/utils/projects_api_coordinator.dart';
+import 'package:el_race/ui/presentation/my_projects/presentation/utils/projects_list_ordering.dart';
 import 'package:el_race/ui/presentation/my_projects/presentation/utils/projects_list_pagination.dart';
 import 'package:el_race/ui/presentation/my_projects/data/models/project_scurve_model.dart';
 import 'package:el_race/ui/presentation/my_projects/data/models/project_manager_filter_item.dart';
@@ -238,7 +239,7 @@ class ProjectRemoteDataSource implements ProjectRemoteDataSourceImpl {
       if (!page.hasMore) break;
     }
 
-    return accumulated;
+    return ProjectsListOrdering.sortModelsDesc(accumulated);
   }
 
   @override
@@ -266,7 +267,7 @@ class ProjectRemoteDataSource implements ProjectRemoteDataSourceImpl {
       if (!page.hasMore) break;
     }
 
-    return accumulated;
+    return ProjectsListOrdering.sortModelsDesc(accumulated);
   }
 
   /// Loads projects for group-by hub (higher cap, optional hub filters).
@@ -302,7 +303,7 @@ class ProjectRemoteDataSource implements ProjectRemoteDataSourceImpl {
       if (!page.hasMore) break;
     }
 
-    return accumulated;
+    return ProjectsListOrdering.sortModelsDesc(accumulated);
   }
 
   static void _applyGroupHubFilters(
@@ -338,6 +339,7 @@ class ProjectRemoteDataSource implements ProjectRemoteDataSourceImpl {
       "limit": limit,
       "offset": offset,
     };
+    ProjectsListOrdering.applyApiOrderParams(params);
     if (portfolio) {
       params['portfolio'] = 1;
       params['scope'] = 'portfolio';
@@ -399,12 +401,13 @@ class ProjectRemoteDataSource implements ProjectRemoteDataSourceImpl {
       final decoded = json.decode(response.body);
       final result = Map<String, dynamic>.from(decoded['result'] as Map);
       final List data = result['data'] as List;
-      final projects = data
-          .map((e) => ProjectModel.fromJson(
-                Map<String, dynamic>.from(e as Map),
-              ))
-          .where((p) => !p.isGeneralWo)
-          .toList(growable: false);
+      final projects = ProjectsListOrdering.sortModelsDesc(
+        data
+            .map((e) => ProjectModel.fromJson(
+                  Map<String, dynamic>.from(e as Map),
+                ))
+            .where((p) => !p.isGeneralWo),
+      );
       return _parsePagedPartnerProjects(result, projects, limit, offset);
     } else {
       throw Exception('Failed to load projects: ${response.statusCode}');
@@ -533,7 +536,9 @@ class ProjectRemoteDataSource implements ProjectRemoteDataSourceImpl {
         allProjects.add(ProjectModel.fromJson(partnerMap));
       }
     }
-    return allProjects.where((p) => !p.isGeneralWo).toList(growable: false);
+    return ProjectsListOrdering.sortModelsDesc(
+      allProjects.where((p) => !p.isGeneralWo),
+    );
   }
 
   static ProjectsPagedResult _parsePagedPartnerProjects(
@@ -542,16 +547,17 @@ class ProjectRemoteDataSource implements ProjectRemoteDataSourceImpl {
     int limit,
     int offset,
   ) {
+    final ordered = ProjectsListOrdering.sortModelsDesc(projects);
     final pagination = result['pagination'];
     if (pagination is Map) {
       final p = Map<String, dynamic>.from(pagination);
-      final total = _asInt(p['total'], projects.length);
+      final total = _asInt(p['total'], ordered.length);
       final lim = _asInt(p['limit'], limit);
       final off = _asInt(p['offset'], offset);
       final hasMore = p['has_more'] == true ||
-          (p['has_more'] == null && (off + projects.length) < total);
+          (p['has_more'] == null && (off + ordered.length) < total);
       return ProjectsPagedResult(
-        projects: projects,
+        projects: ordered,
         total: total,
         limit: lim,
         offset: off,
@@ -560,8 +566,8 @@ class ProjectRemoteDataSource implements ProjectRemoteDataSourceImpl {
     }
 
     return ProjectsPagedResult(
-      projects: projects,
-      total: projects.length,
+      projects: ordered,
+      total: ordered.length,
       limit: limit,
       offset: offset,
       hasMore: false,
@@ -606,6 +612,7 @@ class ProjectRemoteDataSource implements ProjectRemoteDataSourceImpl {
       "limit": limit,
       "offset": offset,
     };
+    ProjectsListOrdering.applyApiOrderParams(params);
     if (keyword != null && keyword.trim().isNotEmpty) {
       params["keyword"] = keyword.trim();
     }
