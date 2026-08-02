@@ -1,5 +1,6 @@
 import 'package:el_race/ui/presentation/my_projects/data/models/project_model.dart';
 import 'package:el_race/ui/presentation/my_projects/domain/entities/partner_entity.dart';
+import 'package:el_race/ui/presentation/my_projects/presentation/utils/projects_list_ordering.dart';
 
 class PartnerModel extends PartnerEntity {
   final List<ProjectModel> projects;
@@ -14,8 +15,9 @@ class PartnerModel extends PartnerEntity {
 
   factory PartnerModel.fromJson(Map<String, dynamic> json) {
     final projectsList = json['projects'] as List<dynamic>? ?? [];
-    final projects =
-        projectsList.map((project) => ProjectModel.fromJson(project)).toList();
+    final projects = ProjectsListOrdering.sortModelsDesc(
+      projectsList.map((project) => ProjectModel.fromJson(project)),
+    );
 
     // Fix malformed photo URL from API (erp.elrace.compublic -> erp.elrace.com/public)
     String? iconUrl =
