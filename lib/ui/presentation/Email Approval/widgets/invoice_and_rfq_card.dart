@@ -377,15 +377,18 @@ class InvoiceAndRfqCard extends StatelessWidget {
           return str;
         }
 
-        // For Invoice: name might be ID, For RFQ: name has ref number
-        String refNo = getSafeString(item["request_no"] ??
-            item["rfq_no_code"] ??
-            item["rfq_no"] ??
-            item["invoice_no_code"] ??
-            item["invoice_no"] ??
-            item["name"] ??
-            item["ref_no"] ??
-            item["title"]);
+        // RFQ sequence stays on RFQ cards; Invoice reference from ERP field.
+        String refNo = isRfq
+            ? getSafeString(item["request_no"] ??
+                item["rfq_no_code"] ??
+                item["rfq_no"] ??
+                item["name"] ??
+                item["ref_no"] ??
+                item["title"])
+            : getSafeString(
+                InvoiceApprovalDisplay.referenceNumber(item),
+                fallback: 'N/A',
+              );
 
         // Check multiple amount fields
         String amount = getSafeString(

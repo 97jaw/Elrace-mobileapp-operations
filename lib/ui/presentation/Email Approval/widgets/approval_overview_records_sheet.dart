@@ -529,6 +529,8 @@ class _ApprovalRecordTile extends StatelessWidget {
   }
 
   String _invoiceSequenceName() {
+    final fromErp = InvoiceApprovalDisplay.referenceNumber(item);
+    if (fromErp.isNotEmpty) return fromErp;
     return _str(
       item['name'] ?? item['invoice_no_code'] ?? item['ref_no'],
     );
