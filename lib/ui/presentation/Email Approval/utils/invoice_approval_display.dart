@@ -61,6 +61,9 @@ class InvoiceApprovalDisplay {
 
   /// Read `wo_ref_no` from a `project.project` many2one / embedded map.
   /// Never falls back to project display name.
+  ///
+  /// Stuck case: Odoo often returns only `123` or `[123, "Project Name"]`
+  /// without embedding `wo_ref_no` — callers must resolve via get_projects.
   static String woRefFromProjectLink(dynamic value) {
     if (value == null || value == false || value == true) return '';
 
@@ -94,6 +97,35 @@ class InvoiceApprovalDisplay {
       return '';
     }
 
+    return '';
+  }
+
+  static int? projectIdFromLink(dynamic value) {
+    if (value == null || value == false || value == true) return null;
+    if (value is int) return value > 0 ? value : null;
+    if (value is num) {
+      final id = value.toInt();
+      return id > 0 ? id : null;
+    }
+    if (value is List && value.isNotEmpty) {
+      return projectIdFromLink(value.first);
+    }
+    if (value is Map) {
+      final map = Map<dynamic, dynamic>.from(value);
+      return projectIdFromLink(map['id'] ?? map['project_id']);
+    }
+    return int.tryParse(value.toString().trim());
+  }
+
+  static String projectNameFromLink(dynamic value) {
+    if (value == null || value == false || value == true) return '';
+    if (value is List && value.length >= 2) {
+      return _scalar(value[1]);
+    }
+    if (value is Map) {
+      final map = Map<dynamic, dynamic>.from(value);
+      return _scalar(map['name'] ?? map['display_name']);
+    }
     return '';
   }
 

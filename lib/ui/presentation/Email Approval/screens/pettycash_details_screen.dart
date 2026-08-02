@@ -9,7 +9,7 @@ import 'package:el_race/ui/presentation/Email%20Approval/utils/petty_cash_expens
 import 'package:el_race/ui/presentation/Email%20Approval/widgets/approval_action_buttons.dart';
 import 'package:el_race/ui/presentation/Email%20Approval/widgets/approval_rejected_banner.dart';
 import 'package:el_race/ui/presentation/Email%20Approval/widgets/petty_cash_expense_lines_popup.dart';
-import 'package:el_race/ui/presentation/my_documents/screens/attachment_viewer_screen.dart';
+import 'package:el_race/ui/presentation/my_documents/utils/document_attachment_opener.dart';
 import 'package:el_race/ui/widgets/contextual_glass_chrome_header.dart';
 import 'package:el_race/utils/safe_insets.dart';
 import 'package:flutter/material.dart';
@@ -563,111 +563,21 @@ class _PettyCashDetailsScreenState extends State<PettyCashDetailsScreen> {
     return 'Attachment${fallbackIndex > 0 ? ' ${fallbackIndex + 1}' : ''}';
   }
 
-  Future<Map<String, dynamic>> _fetchAttachmentDetails(int attachmentId) async {
-    final token = SharedPref.getLoginData().result?.token ?? '';
-    const endpoint = 'https://erp.elrace.com/api/get_attachment_details';
-    final url = Uri.parse(endpoint);
-    final headers = {
-      'Content-Type': 'application/json',
-      'Accept': 'application/json',
-      'Authorization': 'Bearer $token',
-    };
-    final bodyMap = {
-      'jsonrpc': '2.0',
-      'params': {'attachment_id': attachmentId},
-    };
-    final bodyJson = jsonEncode(bodyMap);
-
-    // ── curl log ──────────────────────────────────────────────────────
-    debugPrint(
-      "curl -X GET '$endpoint' "
-      "-H 'Content-Type: application/json' "
-      "-H 'Accept: application/json' "
-      "-H 'Authorization: Bearer $token' "
-      "--data '${bodyJson.replaceAll("'", "'\\''")}'",
-    );
-
-    final request = http.Request('GET', url)
-      ..headers.addAll(headers)
-      ..body = bodyJson;
-    final streamed = await request.send();
-    final response = await http.Response.fromStream(streamed);
-
-    debugPrint(
-        '══════ [PETTYCASH] get_attachment_details ($attachmentId) ══════');
-    debugPrint('STATUS: ${response.statusCode}');
-    debugPrint('BODY: ${response.body}');
-    debugPrint(
-        '═══════════════════════════════════════════════════════════════');
-
-    final decoded = jsonDecode(response.body) as Map;
-    final result = decoded['result'] as Map?;
-
-    if (result == null || result['status'] != 'success') {
-      throw Exception(
-        result?['message']?.toString() ??
-            decoded['error']?.toString() ??
-            'Failed to load attachment (HTTP ${response.statusCode})',
-      );
-    }
-
-    final data = result['data'];
-    if (data is! Map) throw Exception('Invalid attachment details response');
-    return Map<String, dynamic>.from(data);
-  }
-
   Future<void> _openSingleAttachment(int attachmentId,
       {String hintName = ''}) async {
-    bool loaderVisible = true;
-    void dismissLoader() {
-      if (!loaderVisible) return;
-      loaderVisible = false;
-      if (mounted && Navigator.canPop(context)) Navigator.of(context).pop();
-    }
-
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (_) => const Center(child: CircularProgressIndicator()),
-    );
-
+    if (!mounted) return;
+    // API often returns has_binary:false + public_url only — open via
+    // /web/content byte loader (SfPdfViewer.network on public_url is blank).
+    final fallbackName = hintName.isNotEmpty
+        ? hintName
+        : _safe(_formData['name'], fallback: 'Petty Cash Attachment');
     try {
-      final details = await _fetchAttachmentDetails(attachmentId);
-      dismissLoader();
-
-      final publicUrl = (details['public_url'] ?? '').toString().trim();
-
-      // Prefer attachment_name from API, but fall back to petty cash request
-      // name if the API returns a raw field key like "attachment_id".
-      final rawName = (details['attachment_name'] ?? '').toString().trim();
-      final looksLikeKey = rawName.isEmpty ||
-          rawName.toLowerCase() == 'attachment_id' ||
-          rawName.toLowerCase() == 'false' ||
-          rawName.toLowerCase() == 'null';
-      final fallbackName = hintName.isNotEmpty
-          ? hintName
-          : _safe(_formData['name'], fallback: 'Petty Cash Attachment');
-      final fileName = looksLikeKey ? fallbackName : rawName;
-
-      if (publicUrl.isEmpty) {
-        throw Exception('Attachment URL is empty');
-      }
-
-      final attachmentType =
-          (details['attachment_type'] ?? '').toString().trim();
-
-      if (!mounted) return;
-      await Navigator.of(context).push(
-        MaterialPageRoute(
-          builder: (_) => AttachmentViewerScreen(
-            publicUrl: publicUrl,
-            title: fileName,
-            attachmentType: attachmentType.isNotEmpty ? attachmentType : null,
-          ),
-        ),
+      await DocumentAttachmentOpener.openById(
+        context,
+        attachmentId: attachmentId,
+        hintName: fallbackName,
       );
     } catch (e) {
-      dismissLoader();
       if (!mounted) return;
       Fluttertoast.showToast(
         msg: e.toString(),

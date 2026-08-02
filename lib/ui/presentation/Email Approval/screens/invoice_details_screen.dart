@@ -42,6 +42,8 @@ class _InvoiceDetailsScreenState extends State<InvoiceDetailsScreen> {
   bool _rejectedLocked = false;
 
   Map<String, dynamic> _formData = const {};
+  /// Filled when form only has project id/[id,name] without embedded wo_ref_no.
+  String _resolvedWoRefNo = '';
 
   bool get _isLocalFakeRequest =>
       widget.requestId == _localFakeInvoiceRequestId;
@@ -83,6 +85,8 @@ class _InvoiceDetailsScreenState extends State<InvoiceDetailsScreen> {
     }
     if (widget.initialData != null) {
       _formData = Map<String, dynamic>.from(widget.initialData!);
+      // List payload may already include the project link — try early resolve.
+      _resolveWoRefFromLinkedProject();
     }
     _fetchInvoiceDetails();
   }
@@ -339,12 +343,97 @@ class _InvoiceDetailsScreenState extends State<InvoiceDetailsScreen> {
         _isLoading = false;
         _error = '';
       });
+      // form_view often sends x_folder_count_project_id as id or [id, name]
+      // without wo_ref_no — resolve from get_projects.
+      await _resolveWoRefFromLinkedProject();
     } catch (e) {
       if (!mounted) return;
       setState(() {
         _error = e.toString();
         _isLoading = false;
       });
+    }
+  }
+
+  Future<void> _resolveWoRefFromLinkedProject() async {
+    final link = _formData['x_folder_count_project_id'] ??
+        widget.initialData?['x_folder_count_project_id'];
+    final embedded = _woRefFromFolderProject(link);
+    if (embedded.isNotEmpty) {
+      if (!mounted) return;
+      setState(() => _resolvedWoRefNo = embedded);
+      return;
+    }
+
+    final projectId = InvoiceApprovalDisplay.projectIdFromLink(link);
+    final projectName = InvoiceApprovalDisplay.projectNameFromLink(link);
+    debugPrint(
+      '==== INVOICE W.O resolve ====\n'
+      'x_folder_count_project_id raw=$link\n'
+      'embedded wo_ref_no="$embedded" projectId=$projectId name=$projectName\n'
+      '(stuck if only id/[id,name] without wo_ref_no in payload)',
+    );
+    if (projectId == null && projectName.isEmpty) return;
+
+    final token = SharedPref.getLoginData().result?.token;
+    if (token == null || token.isEmpty) return;
+
+    final params = <String, dynamic>{
+      'limit': 10,
+      'offset': 0,
+      if (projectId != null) 'project_id': projectId,
+      if (projectId != null) 'id': projectId,
+      if (projectName.isNotEmpty) 'keyword': projectName,
+    };
+    final body = jsonEncode({'jsonrpc': '2.0', 'params': params});
+    try {
+      final request = http.Request(
+        'GET',
+        Uri.parse('https://erp.elrace.com/api/get_projects'),
+      )
+        ..headers.addAll({
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+          'Authorization': 'Bearer $token',
+        })
+        ..body = body;
+      final response = await http.Response.fromStream(await request.send());
+      if (response.statusCode != 200) {
+        debugPrint('INVOICE W.O get_projects failed: ${response.statusCode}');
+        return;
+      }
+      final decoded = jsonDecode(response.body);
+      final result = decoded is Map ? decoded['result'] : null;
+      final data = result is Map ? result['data'] : null;
+      if (data is! List) return;
+
+      String found = '';
+      for (final row in data) {
+        if (row is! Map) continue;
+        final map = Map<String, dynamic>.from(row);
+        final rowId = _parsePositiveInt(map['id'] ?? map['project_id']);
+        final rowName = _safe(map['name'] ?? map['project_name']);
+        final wo = _safe(
+          map['wo_ref_no'] ?? map['wo_ref'] ?? map['w_o'] ?? map['wo_no'],
+        );
+        if (wo.isEmpty) continue;
+        if (projectId != null && rowId == projectId) {
+          found = wo;
+          break;
+        }
+        if (projectName.isNotEmpty &&
+            rowName.toLowerCase() == projectName.toLowerCase()) {
+          found = wo;
+          break;
+        }
+        found = wo; // first usable row as last resort for narrow keyword match
+      }
+
+      debugPrint('INVOICE W.O resolved wo_ref_no="$found"');
+      if (found.isEmpty || !mounted) return;
+      setState(() => _resolvedWoRefNo = found);
+    } catch (e) {
+      debugPrint('INVOICE W.O resolve error: $e');
     }
   }
 
@@ -970,6 +1059,7 @@ class _InvoiceDetailsScreenState extends State<InvoiceDetailsScreen> {
         : null;
     final workOrderNo = _pick([
       // Related project.project on x_folder_count_project_id → wo_ref_no.
+      _resolvedWoRefNo,
       _woRefFromFolderProject(_formData['x_folder_count_project_id']),
       _woRefFromFolderProject(widget.initialData?['x_folder_count_project_id']),
       _woRefFromFolderProject(projectMap?['x_folder_count_project_id']),

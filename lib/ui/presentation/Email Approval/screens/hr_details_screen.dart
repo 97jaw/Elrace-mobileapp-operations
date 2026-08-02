@@ -145,7 +145,30 @@ class _HrDetailsScreenState extends State<HrDetailsScreen> {
   String _safe(dynamic v, {String fallback = ''}) {
     if (v == null) return fallback;
     if (v == false || v == true) return fallback;
-    final s = v.toString();
+    // Odoo leave durations often arrive as int/double (e.g. 3 / 3.0).
+    if (v is num) {
+      if (v == v.roundToDouble()) return v.toInt().toString();
+      return v.toString();
+    }
+    if (v is List && v.isNotEmpty) {
+      if (v.length >= 2) {
+        final name = _safe(v[1]);
+        if (name.isNotEmpty) return name;
+      }
+      return _safe(v.first, fallback: fallback);
+    }
+    if (v is Map) {
+      return _pick([
+        v['requested_duration'],
+        v['duration'],
+        v['number_of_days'],
+        v['days'],
+        v['value'],
+        v['name'],
+        v['display_name'],
+      ], fallback: fallback);
+    }
+    final s = v.toString().trim();
     if (s.isEmpty) return fallback;
     final lower = s.toLowerCase();
     if (lower == 'false' || lower == 'true' || lower == 'null') return fallback;
@@ -158,6 +181,20 @@ class _HrDetailsScreenState extends State<HrDetailsScreen> {
       if (s.isNotEmpty) return s;
     }
     return fallback;
+  }
+
+  static const _durationFieldKeys = [
+    'requested_duration',
+    'duration',
+    'number_of_days',
+    'no_of_days',
+    'days',
+    'leave_days',
+    'number_of_days_display',
+  ];
+
+  String _pickDuration(List<Map<String, dynamic>> maps) {
+    return _pickFromMaps(maps, _durationFieldKeys);
   }
 
   Map<String, dynamic> _asMap(dynamic value) {
@@ -397,6 +434,9 @@ class _HrDetailsScreenState extends State<HrDetailsScreen> {
             'requested_duration',
             'duration',
             'number_of_days',
+            'no_of_days',
+            'days',
+            'leave_days',
           ]),
           const _FieldDef('Leave Balance', [
             'leave_balance',
@@ -1398,8 +1438,13 @@ class _HrDetailsScreenState extends State<HrDetailsScreen> {
                       vertical: 5.th,
                     ),
                     decoration: BoxDecoration(
-                      color: ApprovalsOverviewTheme.screenTintMid
-                          .withValues(alpha: 0.75),
+                      // Same teal chip style previously used for city badge.
+                      gradient: const LinearGradient(
+                        colors: [
+                          ApprovalsOverviewTheme.screenMid,
+                          ApprovalsOverviewTheme.screenDeep,
+                        ],
+                      ),
                       borderRadius: BorderRadius.circular(16.tr),
                     ),
                     child: Text(
@@ -1409,7 +1454,7 @@ class _HrDetailsScreenState extends State<HrDetailsScreen> {
                       style: GoogleFonts.poppins(
                         fontSize: 10.tsp,
                         fontWeight: FontWeight.w700,
-                        color: ApprovalsOverviewTheme.textDark,
+                        color: Colors.white,
                       ),
                     ),
                   ),
@@ -1847,11 +1892,7 @@ class _HrDetailsScreenState extends State<HrDetailsScreen> {
         fallback: '-',
       ),
     );
-    final shortLeaveDuration = _pickFromMaps(
-      requestMaps,
-      ['requested_duration', 'duration', 'number_of_days'],
-      fallback: '-',
-    );
+    final shortLeaveDuration = _pickDuration(requestMaps);
     final shortLeaveBalance = _pickFromMaps(
       requestMaps,
       [
@@ -1877,11 +1918,7 @@ class _HrDetailsScreenState extends State<HrDetailsScreen> {
         fallback: '-',
       ),
     );
-    final annualLeaveDuration = _pickFromMaps(
-      requestMaps,
-      ['requested_duration', 'duration', 'number_of_days'],
-      fallback: '-',
-    );
+    final annualLeaveDuration = _pickDuration(requestMaps);
     final annualLeaveBalance = _pickFromMaps(
       requestMaps,
       ['leave_balance', 'remaining_leave_days', 'balance_leave'],
@@ -1911,11 +1948,7 @@ class _HrDetailsScreenState extends State<HrDetailsScreen> {
         fallback: '-',
       ),
     );
-    final parentalLeaveDuration = _pickFromMaps(
-      requestMaps,
-      ['requested_duration', 'duration', 'number_of_days'],
-      fallback: '-',
-    );
+    final parentalLeaveDuration = _pickDuration(requestMaps);
     final promotionEffectiveDate = _formatDateForDisplay(
       _pickFromMaps(
         requestMaps,
@@ -2002,11 +2035,7 @@ class _HrDetailsScreenState extends State<HrDetailsScreen> {
         fallback: '-',
       ),
     );
-    final maternityLeaveDuration = _pickFromMaps(
-      requestMaps,
-      ['requested_duration', 'duration', 'number_of_days'],
-      fallback: '-',
-    );
+    final maternityLeaveDuration = _pickDuration(requestMaps);
     final maternityLeaveAvailableDays = _pickFromMaps(
       requestMaps,
       ['available_days'],

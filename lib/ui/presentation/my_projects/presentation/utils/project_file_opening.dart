@@ -3,7 +3,6 @@ import 'package:el_race/ui/presentation/my_projects/presentation/screens/project
 import 'package:el_race/ui/presentation/my_projects/presentation/theme/projects_dashboard_theme.dart';
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
-import 'dart:convert';
 import 'dart:typed_data';
 
 const String _erpBaseUrl = 'https://erp.elrace.com';
@@ -193,13 +192,12 @@ Future<void> openProjectFileInApp(
       final apiName = (details['attachment_name'] ?? '').toString().trim();
       if (apiName.isNotEmpty) displayName = apiName;
       mime = (details['attachment_type'] ?? '').toString();
-      final binary = (details['attachment_binary_data'] ?? '').toString().trim();
-      if (binary.isNotEmpty) {
-        try {
-          seededBytes = base64Decode(binary);
-        } catch (_) {
-          seededBytes = null;
-        }
+      final rawSeeded = DocumentAttachmentOpener.decodeBinaryData(
+        details['attachment_binary_data'] ?? details['datas'],
+      );
+      // Discard truncated/invalid JSON base64 — it causes “corrupted PDF”.
+      if (DocumentAttachmentOpener.isPreviewableBinary(rawSeeded)) {
+        seededBytes = rawSeeded;
       }
       dismissLoader();
     } catch (_) {
@@ -225,24 +223,61 @@ Future<void> openProjectFileInApp(
     mime: mime,
   );
   if (isExcel) {
-    final uri = Uri.parse(normalizedUrl);
-    final launched = await launchUrl(
-      uri,
-      mode: LaunchMode.externalApplication,
-    );
     if (!context.mounted) return;
-    if (!launched) {
-      final launchedInBrowserView =
-          await launchUrl(uri, mode: LaunchMode.inAppBrowserView);
+    var excelLoaderVisible = true;
+    void dismissExcelLoader() {
+      if (!excelLoaderVisible) return;
+      excelLoaderVisible = false;
       if (!context.mounted) return;
-      if (!launchedInBrowserView) {
+      Navigator.of(context, rootNavigator: true).pop();
+    }
+
+    // Loader may already have been dismissed after details fetch; show one
+    // while we download bytes for the system Open/Share sheet.
+    if (seededBytes == null || seededBytes.isEmpty) {
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (_) => const Center(child: CircularProgressIndicator()),
+      );
+    } else {
+      excelLoaderVisible = false;
+    }
+
+    try {
+      final bytes = await DocumentAttachmentOpener.fetchAttachmentBytes(
+        attachmentId: resolvedId,
+        publicUrl: normalizedUrl,
+        seededBytes: seededBytes,
+      );
+      dismissExcelLoader();
+      if (!context.mounted) return;
+      if (bytes == null || bytes.isEmpty) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Could not open Excel file: $displayName'),
+            content: Text('Could not download Excel file: $displayName'),
             backgroundColor: ProjectsDashboardTheme.maroonDark,
           ),
         );
+        return;
       }
+      await DocumentAttachmentOpener.presentSystemOpenShareSheet(
+        context,
+        bytes: bytes,
+        fileName: displayName,
+        mimeType: mime.isNotEmpty
+            ? mime
+            : DocumentAttachmentOpener.excelMimeForName(displayName),
+      );
+    } catch (e) {
+      dismissExcelLoader();
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Could not open Excel file: $e'),
+          backgroundColor: ProjectsDashboardTheme.maroonDark,
+        ),
+      );
     }
     return;
   }
