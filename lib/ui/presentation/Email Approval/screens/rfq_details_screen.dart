@@ -755,6 +755,10 @@ class _RfqDetailsScreenState extends State<RfqDetailsScreen> {
         ? Map<String, dynamic>.from(_formData['project'] as Map)
         : null;
     final workOrderNo = _pick([
+      // Waiting / form field used by ERP for RFQ work order number.
+      _formData['w_o'],
+      widget.initialData?['w_o'],
+      projectMap?['w_o'],
       projectMap?['wo_ref_no'],
       projectMap?['wo_ref'],
       projectMap?['work_order'],

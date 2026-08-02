@@ -148,6 +148,8 @@ class _InvoiceDetailsScreenState extends State<InvoiceDetailsScreen> {
 
   String _pickNestedWoRef(Map<String, dynamic> data) {
     final direct = _pick([
+      // Waiting / form field used by ERP for invoice reference / W.O.
+      data['x_folder_count_project_id'],
       data['wo_ref_no'],
       data['wo_ref'],
       data['wo_ref_number'],
@@ -159,6 +161,7 @@ class _InvoiceDetailsScreenState extends State<InvoiceDetailsScreen> {
       data['wo_order_number'],
       data['wo_name'],
       data['wo'],
+      data['w_o'],
       data['wo_no'],
       data['wono'],
       data['wo_no#'],
@@ -957,6 +960,11 @@ class _InvoiceDetailsScreenState extends State<InvoiceDetailsScreen> {
         ? Map<String, dynamic>.from(_formData['project_id'] as Map)
         : null;
     final workOrderNo = _pick([
+      // Waiting / form field used by ERP for invoice reference number.
+      _formData['x_folder_count_project_id'],
+      widget.initialData?['x_folder_count_project_id'],
+      projectMap?['x_folder_count_project_id'],
+      projectIdMap?['x_folder_count_project_id'],
       projectMap?['wo_ref_no'],
       projectMap?['wo_ref'],
       projectMap?['work_order'],
@@ -973,6 +981,7 @@ class _InvoiceDetailsScreenState extends State<InvoiceDetailsScreen> {
       _formData['wo_order_number'],
       _formData['wo_name'],
       _formData['wo'],
+      _formData['w_o'],
       _formData['wo_no'],
       _formData['wono'],
       _formData['wo_no#'],
