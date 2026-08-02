@@ -5,6 +5,7 @@ import 'package:el_race/core/utils/shared_pref.dart';
 import 'package:el_race/ui/presentation/Email%20Approval/bloc/approval_bloc.dart';
 import 'package:el_race/ui/presentation/Email%20Approval/theme/approvals_overview_theme.dart';
 import 'package:el_race/ui/presentation/Email%20Approval/utils/approval_display_helpers.dart';
+import 'package:el_race/ui/presentation/Email%20Approval/utils/invoice_approval_display.dart';
 import 'package:el_race/ui/presentation/Email%20Approval/widgets/approval_action_buttons.dart';
 import 'package:el_race/ui/presentation/Email%20Approval/widgets/approval_rejected_banner.dart';
 import 'package:el_race/ui/widgets/contextual_glass_chrome_header.dart';
@@ -146,10 +147,18 @@ class _InvoiceDetailsScreenState extends State<InvoiceDetailsScreen> {
     return merged;
   }
 
+  /// `x_folder_count_project_id` → `project.project.wo_ref_no` (not project name).
+  String _woRefFromFolderProject(dynamic value) {
+    return InvoiceApprovalDisplay.woRefFromProjectLink(value);
+  }
+
   String _pickNestedWoRef(Map<String, dynamic> data) {
-    final direct = _pick([
-      // Waiting / form field used by ERP for invoice reference / W.O.
+    final fromFolderProject = _woRefFromFolderProject(
       data['x_folder_count_project_id'],
+    );
+    if (fromFolderProject.isNotEmpty) return fromFolderProject;
+
+    final direct = _pick([
       data['wo_ref_no'],
       data['wo_ref'],
       data['wo_ref_number'],
@@ -960,11 +969,11 @@ class _InvoiceDetailsScreenState extends State<InvoiceDetailsScreen> {
         ? Map<String, dynamic>.from(_formData['project_id'] as Map)
         : null;
     final workOrderNo = _pick([
-      // Waiting / form field used by ERP for invoice reference number.
-      _formData['x_folder_count_project_id'],
-      widget.initialData?['x_folder_count_project_id'],
-      projectMap?['x_folder_count_project_id'],
-      projectIdMap?['x_folder_count_project_id'],
+      // Related project.project on x_folder_count_project_id → wo_ref_no.
+      _woRefFromFolderProject(_formData['x_folder_count_project_id']),
+      _woRefFromFolderProject(widget.initialData?['x_folder_count_project_id']),
+      _woRefFromFolderProject(projectMap?['x_folder_count_project_id']),
+      _woRefFromFolderProject(projectIdMap?['x_folder_count_project_id']),
       projectMap?['wo_ref_no'],
       projectMap?['wo_ref'],
       projectMap?['work_order'],
