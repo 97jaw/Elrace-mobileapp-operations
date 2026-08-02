@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:el_race/core/services/notification_api_service.dart';
+import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class NotificationStorageService {
@@ -18,11 +19,16 @@ class NotificationStorageService {
 
   static const Duration _muteSettingsCacheTtl = Duration(minutes: 5);
   static const Duration _categoriesCacheTtl = Duration(minutes: 5);
+  /// Avoid hammering /notifications when Odoo/proxy returns 5xx (home polls every 5s).
+  static const Duration _badgeSyncFailureCooldown = Duration(seconds: 60);
 
   static Map<String, bool>? _memoryMuteSettings;
   static DateTime? _memoryMuteSettingsFetchedAt;
   static List<NotificationCategoryApiModel>? _memoryCategories;
   static DateTime? _memoryCategoriesFetchedAt;
+  static DateTime? _badgeSyncCooldownUntil;
+  static DateTime? _lastBadgeSyncFailureLoggedAt;
+  static bool _badgeSyncInFlight = false;
 
   /// Callback to notify when notification count changes.
   static void Function()? onCountChanged;
@@ -646,12 +652,28 @@ class NotificationStorageService {
   ///
   /// This matches Android LinkedIn-style behavior without depending on iOS
   /// waking Dart for FCM, and without treating old opened rows as new.
+  ///
+  /// Failures (e.g. HTTP 502) are non-fatal: returns the local badge and
+  /// cools down so periodic home polls do not spam the API/logs.
   static Future<int> syncBadgeFromServer() async {
+    final now = DateTime.now();
+    final cooldownUntil = _badgeSyncCooldownUntil;
+    if (cooldownUntil != null && now.isBefore(cooldownUntil)) {
+      return getLocalStoredCount();
+    }
+    if (_badgeSyncInFlight) {
+      return getLocalStoredCount();
+    }
+
+    _badgeSyncInFlight = true;
     try {
       final result = await NotificationApiService.getNotifications(
         limit: 1,
         offset: 0,
       );
+      _badgeSyncCooldownUntil = null;
+      _lastBadgeSyncFailureLoggedAt = null;
+
       final unread = result.unreadCount;
       if (unread == null) {
         return getLocalStoredCount();
@@ -672,9 +694,20 @@ class NotificationStorageService {
       }
       return next;
     } catch (e) {
-      // ignore: avoid_print
-      print('⚠️ syncBadgeFromServer failed: $e');
+      _badgeSyncCooldownUntil = now.add(_badgeSyncFailureCooldown);
+      final shouldLog = _lastBadgeSyncFailureLoggedAt == null ||
+          now.difference(_lastBadgeSyncFailureLoggedAt!) >=
+              _badgeSyncFailureCooldown;
+      if (shouldLog) {
+        _lastBadgeSyncFailureLoggedAt = now;
+        debugPrint(
+          '⚠️ syncBadgeFromServer failed (using local badge; '
+          'retry in ${_badgeSyncFailureCooldown.inSeconds}s): $e',
+        );
+      }
       return getLocalStoredCount();
+    } finally {
+      _badgeSyncInFlight = false;
     }
   }
 
