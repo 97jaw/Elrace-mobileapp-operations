@@ -82,6 +82,10 @@ class _HrDetailsScreenState extends State<HrDetailsScreen> {
     'passport': 'Passport',
     'leave_encashment': 'Leave Encashment',
     'car_rent': 'Car Rent Request',
+    'death': 'Death Leave',
+    'compensation': 'Compensation Leave',
+    'emergency': 'Emergency Leave',
+    'unpaid': 'Unpaid Leave',
     'generic': 'HR Management',
   };
 
@@ -92,11 +96,23 @@ class _HrDetailsScreenState extends State<HrDetailsScreen> {
     'sick': 'sick',
     'maternity': 'maternity',
     'parental': 'parental',
+    'death': 'death',
+    'death_leave': 'death',
+    'compensation': 'compensation',
+    'compensation_leave': 'compensation',
+    'emergency': 'emergency',
+    'emergency_leave': 'emergency',
+    'unpaid': 'unpaid',
+    'unpaid_leave': 'unpaid',
     'annualleave_short': 'short',
     'annualleave_sick': 'sick',
     'annualleave_annual': 'annual',
     'annualleave_parental': 'parental',
     'annualleave_maternity': 'maternity',
+    'annualleave_death': 'death',
+    'annualleave_compensation': 'compensation',
+    'annualleave_emergency': 'emergency',
+    'annualleave_unpaid': 'unpaid',
     'clearance': 'clearance',
     'temp': 'temporary_permission',
     'effective_date': 'effective_date',
@@ -270,6 +286,10 @@ class _HrDetailsScreenState extends State<HrDetailsScreen> {
     if (n.contains('sim')) return 'sim';
     if (n.contains('sick')) return 'sick';
     if (n.contains('short')) return 'short';
+    if (n.contains('death')) return 'death';
+    if (n.contains('compensation')) return 'compensation';
+    if (n.contains('emergency')) return 'emergency';
+    if (n.contains('unpaid')) return 'unpaid';
     if (n.contains('annual')) return 'annual';
     if (n.contains('maternity')) return 'maternity';
     if (n.contains('parental')) return 'parental';
@@ -364,6 +384,26 @@ class _HrDetailsScreenState extends State<HrDetailsScreen> {
           ]),
           const _FieldDef('End Date', ['-']),
           const _FieldDef('Leave Balance', ['-']),
+        ]);
+      case 'death':
+      case 'compensation':
+      case 'emergency':
+      case 'unpaid':
+        return makeItems([
+          ...common,
+          const _FieldDef('Start Date', ['start_date', 'request_date_from']),
+          const _FieldDef('End Date', ['end_date', 'request_date_to']),
+          const _FieldDef('Duration', [
+            'requested_duration',
+            'duration',
+            'number_of_days',
+          ]),
+          const _FieldDef('Leave Balance', [
+            'leave_balance',
+            'remaining_leave_days',
+            'balance_leave',
+          ]),
+          const _FieldDef('Reason', ['note', 'description'], multiline: true),
         ]);
       case 'annual':
         final annualItems = makeItems([
@@ -1713,6 +1753,10 @@ class _HrDetailsScreenState extends State<HrDetailsScreen> {
     final isCarRentRequest = caseKey == 'car_rent';
     final isTransferRequest = caseKey == 'transfer';
     final isSickLeaveRequest = caseKey == 'sick';
+    final isDeathLeaveRequest = caseKey == 'death';
+    final isOtherLeaveRequest = caseKey == 'compensation' ||
+        caseKey == 'emergency' ||
+        caseKey == 'unpaid';
     final isClearanceRequest = caseKey == 'clearance';
     final isShortLeaveRequest = caseKey == 'short';
     final isTemporaryPermissionRequest = caseKey == 'temporary_permission';
@@ -1725,25 +1769,9 @@ class _HrDetailsScreenState extends State<HrDetailsScreen> {
     final isCertificateRequest =
         caseKey == 'salary_certificate' || caseKey == 'certificate_request';
     final isLoanRequest = caseKey == 'loan';
-    final isReferenceLayoutRequest = caseKey == 'sim' ||
-        isIncrementRequest ||
-        isAnnualLeaveRequest ||
-        isParentalLeaveRequest ||
-        isMaternityLeaveRequest ||
-        isPromotionRequest ||
-        isCarRentRequest ||
-        isTransferRequest ||
-        isSickLeaveRequest ||
-        isShortLeaveRequest ||
-        isClearanceRequest ||
-        isTemporaryPermissionRequest ||
-        isEffectiveDateRequest ||
-        isJobMissionRequest ||
-        isResignationRequest ||
-        isTerminationRequest ||
-        isLeaveEncashmentRequest ||
-        isCertificateRequest ||
-        isLoanRequest;
+    final isPassportRequest = caseKey == 'passport';
+    // One modern grid layout for every HR request type (incl. Death Leave).
+    final isReferenceLayoutRequest = true;
 
     final userId = ApprovalBloc.resolveActingUserId();
     final rejectionForm = <String, dynamic>{
@@ -2127,6 +2155,20 @@ class _HrDetailsScreenState extends State<HrDetailsScreen> {
       detailMaps,
       ['company_no', 'company_number', 'companyno', 'compnay_no'],
       fallback: '-',
+    );
+    final passportNo = _pickFromMaps(
+      requestMaps,
+      ['passport_no', 'passport_number'],
+      fallback: '-',
+    );
+    final passportIssueDate = _formatDateForDisplay(
+      _pickFromMaps(requestMaps, ['issue_date'], fallback: '-'),
+    );
+    final passportExpiryDate = _formatDateForDisplay(
+      _pickFromMaps(requestMaps, ['expiry_date'], fallback: '-'),
+    );
+    final passportReturnDate = _formatDateForDisplay(
+      _pickFromMaps(requestMaps, ['return_date'], fallback: '-'),
     );
     final certificateType = _pickFromMaps(
       requestMaps,
@@ -2965,20 +3007,82 @@ class _HrDetailsScreenState extends State<HrDetailsScreen> {
                                                                                                                                   lastWorkDate.isEmpty ? '-' : lastWorkDate,
                                                                                                                                 ),
                                                                                                                               ]
-                                                                                                                            : [
-                                                                                                                                _DetailItem(
-                                                                                                                                  'Requested By',
-                                                                                                                                  requestedBy.isEmpty ? '-' : requestedBy,
-                                                                                                                                ),
-                                                                                                                                _DetailItem(
-                                                                                                                                  'Company No.',
-                                                                                                                                  companyNo.isEmpty ? '-' : companyNo,
-                                                                                                                                ),
-                                                                                                                                _DetailItem(
-                                                                                                                                  'Request Date',
-                                                                                                                                  requestDate.isEmpty ? '-' : requestDate,
-                                                                                                                                ),
-                                                                                                                              ],
+                                                                                                                            : (isDeathLeaveRequest ||
+                                                                                                                                    isOtherLeaveRequest)
+                                                                                                                                ? [
+                                                                                                                                    _DetailItem(
+                                                                                                                                      'Requested By',
+                                                                                                                                      requestedBy.isEmpty ? '-' : requestedBy,
+                                                                                                                                    ),
+                                                                                                                                    _DetailItem(
+                                                                                                                                      'Request Date',
+                                                                                                                                      requestDate.isEmpty ? '-' : requestDate,
+                                                                                                                                    ),
+                                                                                                                                    _DetailItem(
+                                                                                                                                      'Start Date',
+                                                                                                                                      annualLeaveStartDate.isEmpty ? '-' : annualLeaveStartDate,
+                                                                                                                                      highlight: true,
+                                                                                                                                    ),
+                                                                                                                                    _DetailItem(
+                                                                                                                                      'End Date',
+                                                                                                                                      annualLeaveEndDate.isEmpty ? '-' : annualLeaveEndDate,
+                                                                                                                                      highlight: true,
+                                                                                                                                    ),
+                                                                                                                                    _DetailItem(
+                                                                                                                                      'Duration',
+                                                                                                                                      annualLeaveDuration.isEmpty ? '-' : annualLeaveDuration,
+                                                                                                                                      highlight: true,
+                                                                                                                                    ),
+                                                                                                                                    _DetailItem(
+                                                                                                                                      'Balance Leave',
+                                                                                                                                      annualLeaveBalance.isEmpty ? '-' : annualLeaveBalance,
+                                                                                                                                      highlight: true,
+                                                                                                                                    ),
+                                                                                                                                  ]
+                                                                                                                                : isPassportRequest
+                                                                                                                                    ? [
+                                                                                                                                        _DetailItem(
+                                                                                                                                          'Requested By',
+                                                                                                                                          requestedBy.isEmpty ? '-' : requestedBy,
+                                                                                                                                        ),
+                                                                                                                                        _DetailItem(
+                                                                                                                                          'Request Date',
+                                                                                                                                          requestDate.isEmpty ? '-' : requestDate,
+                                                                                                                                        ),
+                                                                                                                                        _DetailItem(
+                                                                                                                                          'Passport No',
+                                                                                                                                          passportNo.isEmpty ? '-' : passportNo,
+                                                                                                                                          highlight: true,
+                                                                                                                                        ),
+                                                                                                                                        _DetailItem(
+                                                                                                                                          'Issue Date',
+                                                                                                                                          passportIssueDate.isEmpty ? '-' : passportIssueDate,
+                                                                                                                                        ),
+                                                                                                                                        _DetailItem(
+                                                                                                                                          'Expiry Date',
+                                                                                                                                          passportExpiryDate.isEmpty ? '-' : passportExpiryDate,
+                                                                                                                                          highlight: true,
+                                                                                                                                        ),
+                                                                                                                                        _DetailItem(
+                                                                                                                                          'Return Date',
+                                                                                                                                          passportReturnDate.isEmpty ? '-' : passportReturnDate,
+                                                                                                                                          highlight: true,
+                                                                                                                                        ),
+                                                                                                                                      ]
+                                                                                                                                    : [
+                                                                                                                                        _DetailItem(
+                                                                                                                                          'Requested By',
+                                                                                                                                          requestedBy.isEmpty ? '-' : requestedBy,
+                                                                                                                                        ),
+                                                                                                                                        _DetailItem(
+                                                                                                                                          'Company No.',
+                                                                                                                                          companyNo.isEmpty ? '-' : companyNo,
+                                                                                                                                        ),
+                                                                                                                                        _DetailItem(
+                                                                                                                                          'Request Date',
+                                                                                                                                          requestDate.isEmpty ? '-' : requestDate,
+                                                                                                                                        ),
+                                                                                                                                      ],
                                                   ),
                                                   SizedBox(height: 6.tw),
                                                   _buildSimCommentCard(comment),
