@@ -1,5 +1,6 @@
 import 'package:el_race/core/utils/responsive_breakpoints.dart';
 import 'dart:convert';
+import 'dart:ui' as ui show TextDirection;
 
 import 'package:el_race/core/utils/shared_pref.dart';
 import 'package:el_race/ui/presentation/Email%20Approval/bloc/approval_bloc.dart';
@@ -1502,7 +1503,7 @@ class _TwoLineSlowSlideTextState extends State<_TwoLineSlowSlideText>
 
     final painter = TextPainter(
       text: TextSpan(text: widget.text, style: widget.style),
-      textDirection: TextDirection.ltr,
+      textDirection: ui.TextDirection.ltr,
     )..layout(maxWidth: maxWidth);
 
     final overflow = (painter.height - _boxHeight).clamp(0.0, double.infinity);
