@@ -1,0 +1,13 @@
+{
+  "name": "el-race-assignment-functions",
+  "description": "Task/ticket assignment FCM triggers (asia-south1 only — no me-central-1)",
+  "engines": {
+    "node": "22"
+  },
+  "main": "index.js",
+  "dependencies": {
+    "firebase-admin": "^13.10.0",
+    "firebase-functions": "^7.2.5"
+  },
+  "private": true
+}

@@ -1,13 +1,11 @@
 import 'package:el_race/core/utils/responsive_breakpoints.dart';
 import 'package:el_race/core/services/notification_storage_service.dart';
 import 'package:el_race/ui/chat/widgets/chat_sub_app_glass_bar.dart';
-import 'package:el_race/ui/chat/widgets/chat_unified_header_backdrop.dart';
 import 'package:el_race/ui/navigation/home_navigation.dart';
 import 'package:el_race/ui/presentation/Notification/notification_category_theme.dart';
 import 'package:el_race/ui/widgets/glass_sub_app_screen_header.dart';
 import 'package:el_race/utils/safe_insets.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 
@@ -717,7 +715,8 @@ class _LightenedBrandBackdrop extends StatelessWidget {
       _lift(const Color(0xFF1A2248), 0.44),
       _lift(const Color(0xFF161B54), 0.42),
     ],
-    stops: ChatUnifiedHeaderBackdrop.gradient.stops,
+    // Must match [colors] length (do not reuse ChatUnifiedHeaderBackdrop stops).
+    stops: const [0.0, 0.12, 0.24, 0.36, 0.48, 0.60, 0.72, 0.86, 1.0],
   );
 
   @override

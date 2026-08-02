@@ -43,10 +43,10 @@ class TeamMember {
           _asInt(json['employee_id'] ?? json['emp_id'] ?? json['id']) ?? id,
       odooUserId: _asInt(json['odoo_user_id'] ?? json['user_id']),
       name: _asString(
-            json['name'] ??
+            json['emp_name'] ??
                 json['employee_name'] ??
-                json['emp_name'] ??
-                json['display_name'],
+                json['display_name'] ??
+                json['name'],
           ) ??
           '',
       email: _asString(

@@ -3,6 +3,7 @@ import 'package:el_race/ui/presentation/tasks/data/assignable_user_model.dart';
 import 'package:el_race/ui/presentation/tasks/data/task_model.dart';
 import 'package:el_race/ui/presentation/tasks/data/tasks_api_service.dart';
 import 'package:el_race/ui/presentation/tasks/data/tasks_repository.dart';
+import 'package:el_race/data/services/assignment_push_service.dart';
 import 'package:el_race/data/services/task_notification_service.dart';
 import 'package:flutter/foundation.dart';
 import 'package:el_race/core/utils/shared_pref.dart';
@@ -27,11 +28,37 @@ class TasksProvider extends ChangeNotifier {
 
   TasksProvider(this._repository);
 
+  /// Priority then newest-first (matches productivity Tickets spec).
+  static List<TaskModel> _sortTasks(List<TaskModel> items) {
+    int priorityRank(String? p) {
+      switch (p) {
+        case '1':
+          return 0;
+        case '2':
+          return 1;
+        case '3':
+          return 2;
+        default:
+          return 3;
+      }
+    }
+
+    final sorted = List<TaskModel>.from(items);
+    sorted.sort((a, b) {
+      final byPriority = priorityRank(a.priority).compareTo(priorityRank(b.priority));
+      if (byPriority != 0) return byPriority;
+      final aDate = a.createdAt ?? DateTime.fromMillisecondsSinceEpoch(0);
+      final bDate = b.createdAt ?? DateTime.fromMillisecondsSinceEpoch(0);
+      return bDate.compareTo(aDate);
+    });
+    return sorted;
+  }
+
   /// Open helpdesk tickets for the home Tickets widget (same data as [TasksScreen]).
   TicketsWidgetRecord get ticketsWidgetRecord {
     final openTickets = tasks.where((task) => !task.isCompleted).toList();
     final highPriority = openTickets
-        .where((task) => task.priority == '2' || task.priority == '3')
+        .where((task) => task.priority == '1')
         .length;
     final totalOpen = openTickets.length;
 
@@ -67,7 +94,7 @@ class TasksProvider extends ChangeNotifier {
 
     try {
       final response = await _repository.getUserTasks();
-      tasks = response;
+      tasks = _sortTasks(response);
       status = tasks.isEmpty ? TasksStatus.empty : TasksStatus.loaded;
     } on TasksUnauthorizedException {
       errorMessage = 'Your session has expired. Please sign in again.';
@@ -137,19 +164,16 @@ class TasksProvider extends ChangeNotifier {
       }
 
       // Add the created task to the beginning of the list immediately
-      tasks = [taskWithData, ...tasks];
+      tasks = _sortTasks([taskWithData, ...tasks]);
       status = TasksStatus.loaded;
       notifyListeners();
 
-      // Fire new-task-assigned notification
+      // Notify assignee (FCM via Cloud Function). Local notif only if self-assign.
       try {
-        final currentUserName =
-            SharedPref.getLoginData().result?.data?.name ?? '';
-        await TaskNotificationService().showNewTaskNotification(
+        await _notifyTicketAssignment(
           taskId: '${taskWithData.id ?? 0}',
           taskTitle: name,
-          assignedBy: currentUserName,
-          isFirebaseTask: false,
+          assigneeUserId: userId,
         );
       } catch (_) {}
 
@@ -207,19 +231,21 @@ class TasksProvider extends ChangeNotifier {
         created = created.copyWith(priority: priority);
       }
 
-      tasks = [created, ...tasks];
+      tasks = _sortTasks([created, ...tasks]);
       status = TasksStatus.loaded;
       notifyListeners();
 
-      // Fire new-task notification for report tasks
       try {
-        final currentUserName =
-            SharedPref.getLoginData().result?.data?.name ?? '';
-        await TaskNotificationService().showNewTaskNotification(
+        await _notifyTicketAssignment(
           taskId: '${created.id ?? 0}',
           taskTitle: name,
-          assignedBy: currentUserName,
-          isFirebaseTask: false,
+          assigneeUserId: resolvedUserId,
+        );
+        final login = SharedPref.getLoginDataOrNull()?.result?.data;
+        await AssignmentPushService.instance.rememberTicketCreator(
+          taskId: '${created.id ?? 0}',
+          creatorOdooUserId: login?.uid,
+          creatorFirebaseUid: login?.firebase_uid,
         );
       } catch (_) {}
 
@@ -258,12 +284,16 @@ class TasksProvider extends ChangeNotifier {
               .firstOrNull ??
           'Task #$taskId';
 
-      // Fire task-completed notification
+      // Notify ticket creator (not the completer) via FCM when someone else submits.
       try {
-        await TaskNotificationService().showTaskCompletedNotification(
+        final login = SharedPref.getLoginDataOrNull()?.result?.data;
+        final completedBy = login?.name ?? 'Someone';
+        await AssignmentPushService.instance.enqueueTicketCompleted(
           taskId: '$taskId',
           taskTitle: taskName,
-          isFirebaseTask: false,
+          completedBy: completedBy,
+          completerOdooUserId: login?.uid,
+          completerFirebaseUid: login?.firebase_uid,
         );
       } catch (_) {}
 
@@ -369,5 +399,41 @@ class TasksProvider extends ChangeNotifier {
       deletingTaskIds.remove(taskId);
       notifyListeners();
     }
+  }
+
+  /// Push to assignee via Cloud Function; local notif only for self-assign.
+  Future<void> _notifyTicketAssignment({
+    required String taskId,
+    required String taskTitle,
+    int? assigneeUserId,
+  }) async {
+    final login = SharedPref.getLoginDataOrNull()?.result?.data;
+    final currentUserName = login?.name ?? '';
+    final currentUid = login?.uid;
+
+    final resolvedAssignee = assigneeUserId ?? currentUid;
+    final isSelfAssign =
+        resolvedAssignee == null || resolvedAssignee == currentUid;
+
+    if (isSelfAssign) {
+      // Self-assign: keep a quiet local reminder only.
+      await TaskNotificationService().showNewTaskNotification(
+        taskId: taskId,
+        taskTitle: taskTitle,
+        assignedBy: null,
+        isFirebaseTask: false,
+        category: TaskNotificationService.categoryTicket,
+      );
+      return;
+    }
+
+    await AssignmentPushService.instance.enqueue(
+      taskId: taskId,
+      taskTitle: taskTitle,
+      assignedBy: currentUserName,
+      assigneeOdooUserId: resolvedAssignee,
+      isFirebaseTask: false,
+      category: TaskNotificationService.categoryTicket,
+    );
   }
 }

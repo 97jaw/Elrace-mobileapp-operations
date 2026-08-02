@@ -30,7 +30,10 @@ class TaskModel {
     return stageStr == 'done' ||
         stageStr == 'completed' ||
         stageStr == 'finished' ||
-        stageStr == 'complete';
+        stageStr == 'complete' ||
+        stageStr == 'cancelled' ||
+        stageStr == 'canceled' ||
+        stageStr == 'closed';
   }
 
   TaskModel copyWith({

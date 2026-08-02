@@ -38,6 +38,7 @@ class TaskNotificationService {
 
   // ── Category constants ──
   static const String categoryTask = 'task';
+  static const String categoryTicket = 'ticket';
 
   // ──────────────────────────────────────────────────────────────────────
   // Initialization
@@ -90,18 +91,23 @@ class TaskNotificationService {
     required String taskTitle,
     String? assignedBy,
     bool isFirebaseTask = true,
+    String category = categoryTask,
   }) async {
     await initialize();
 
-    final title = '📋 New Task Assigned';
+    final isTicket = category == categoryTicket;
+    final title = isTicket ? '🎫 New Ticket Assigned' : '📋 New Task Assigned';
     final body = assignedBy != null && assignedBy.isNotEmpty
         ? '$assignedBy assigned you: "$taskTitle"'
-        : 'You have a new task: "$taskTitle"';
+        : (isTicket
+            ? 'You have a new ticket: "$taskTitle"'
+            : 'You have a new task: "$taskTitle"');
 
     final payload = _buildPayload(
       taskId: taskId,
       action: 'new_task',
       isFirebaseTask: isFirebaseTask,
+      category: category,
     );
 
     await _show(
@@ -109,10 +115,16 @@ class TaskNotificationService {
       title: title,
       body: body,
       payload: payload,
+      muteCategory: category,
     );
 
     // Persist in notification storage so it appears in the Notification screen.
-    await _saveToStorage(title: title, body: body, payload: payload);
+    await _saveToStorage(
+      title: title,
+      body: body,
+      payload: payload,
+      category: category,
+    );
   }
 
   // ──────────────────────────────────────────────────────────────────────
@@ -303,9 +315,10 @@ class TaskNotificationService {
     required String taskId,
     required String action,
     bool isFirebaseTask = true,
+    String category = categoryTask,
   }) {
     return jsonEncode({
-      'category': categoryTask,
+      'category': category,
       'task_id': taskId,
       'action': action,
       'is_firebase_task': isFirebaseTask,
@@ -317,10 +330,11 @@ class TaskNotificationService {
     required String title,
     required String body,
     required String payload,
+    String muteCategory = categoryTask,
   }) async {
-    // التحقق من إعدادات كتم إشعارات التاسكات
-    final isTaskMuted = await NotificationStorageService.isChannelMuted('task');
-    if (isTaskMuted) return;
+    final isMuted =
+        await NotificationStorageService.isChannelMuted(muteCategory);
+    if (isMuted) return;
 
     await _notificationsPlugin.show(
       id,
@@ -401,6 +415,7 @@ class TaskNotificationService {
     required String title,
     required String body,
     required String payload,
+    String category = categoryTask,
   }) async {
     try {
       Map<String, dynamic>? payloadMap;
@@ -412,7 +427,7 @@ class TaskNotificationService {
         title: title,
         body: body,
         data: payloadMap ?? {},
-        category: categoryTask,
+        category: category,
       );
     } catch (e) {
       debugPrint('⚠️ Could not save task notification to storage: $e');

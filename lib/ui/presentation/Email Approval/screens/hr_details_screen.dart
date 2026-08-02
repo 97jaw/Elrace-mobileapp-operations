@@ -2,8 +2,11 @@ import 'package:el_race/core/utils/responsive_breakpoints.dart';
 import 'dart:convert';
 
 import 'package:el_race/core/utils/shared_pref.dart';
+import 'package:el_race/ui/presentation/Email%20Approval/bloc/approval_bloc.dart';
 import 'package:el_race/ui/presentation/Email%20Approval/theme/approvals_overview_theme.dart';
+import 'package:el_race/ui/presentation/Email%20Approval/utils/hr_approval_display.dart';
 import 'package:el_race/ui/presentation/Email%20Approval/widgets/approval_action_buttons.dart';
+import 'package:el_race/ui/presentation/Email%20Approval/widgets/approval_rejected_banner.dart';
 import 'package:el_race/ui/widgets/contextual_glass_chrome_header.dart';
 import 'package:el_race/utils/safe_insets.dart';
 import 'package:flutter/material.dart';
@@ -117,6 +120,7 @@ class _HrDetailsScreenState extends State<HrDetailsScreen> {
 
   bool _isLoading = true;
   String _error = '';
+  bool _rejectedLocked = false;
 
   Map<String, dynamic> _formData = const {};
   Map<String, dynamic> _employeeInfo = const {};
@@ -1274,7 +1278,7 @@ class _HrDetailsScreenState extends State<HrDetailsScreen> {
     required String employeeName,
     required String secondaryName,
     required String employeeImage,
-    required String requestNo,
+    required String requestTitle,
     required String branchName,
   }) {
     return OverviewGlassPanel(
@@ -1358,7 +1362,7 @@ class _HrDetailsScreenState extends State<HrDetailsScreen> {
                           borderRadius: BorderRadius.circular(16.tr),
                         ),
                         child: Text(
-                          requestNo,
+                          requestTitle,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           textAlign: TextAlign.center,
@@ -1433,6 +1437,10 @@ class _HrDetailsScreenState extends State<HrDetailsScreen> {
           variant: ApprovalActionButtonsVariant.glass,
           showHrApproveConfirmation: true,
           enableFakeApproveDemo: _isLocalFakeRequest,
+          onRejectedLocked: () {
+            if (!mounted) return;
+            setState(() => _rejectedLocked = true);
+          },
         ),
       ),
     );
@@ -1600,6 +1608,14 @@ class _HrDetailsScreenState extends State<HrDetailsScreen> {
       _pickFromMaps(requestMaps, ['request_no', 'name', 'ref_no']),
     ], fallback: widget.requestId);
 
+    final listingSource = <String, dynamic>{
+      ..._formData,
+      ..._requestInfo,
+    };
+    final leaveSubtypeTitle =
+        HrApprovalDisplay.leaveSubtypeLabel(listingSource);
+    final requestTypeTitle = HrApprovalDisplay.requestTypeName(listingSource);
+
     final rawRequestType = _pickFromMaps(
       requestMaps,
       [
@@ -1609,9 +1625,16 @@ class _HrDetailsScreenState extends State<HrDetailsScreen> {
         'holiday_status_id',
         'leave_type',
         'type',
+        'title',
+        'leave_request_subtype',
       ],
       fallback: 'HR Management',
     );
+    final requestTitle = _pick([
+      leaveSubtypeTitle,
+      requestTypeTitle,
+      rawRequestType,
+    ], fallback: requestNo);
     final caseKey = _resolveCaseKey(
       requestName: rawRequestType,
       requestMaps: requestMaps,
@@ -1722,8 +1745,16 @@ class _HrDetailsScreenState extends State<HrDetailsScreen> {
         isCertificateRequest ||
         isLoanRequest;
 
-    final userId =
-        SharedPref.getLoginData().result?.data?.uid?.toString() ?? '';
+    final userId = ApprovalBloc.resolveActingUserId();
+    final rejectionForm = <String, dynamic>{
+      ..._formData,
+      ..._requestInfo,
+    };
+    final isRejected =
+        _rejectedLocked || ApprovalRejectedBanner.isRejected(rejectionForm);
+    final rejectedMessage =
+        ApprovalRejectedBanner.messageFromForm(rejectionForm);
+    final showActions = widget.showApprovalActions && !isRejected;
 
     final employeeType =
         _pickFromMaps(employeeMaps, ['type', 'employee_type'], fallback: '-');
@@ -2261,7 +2292,7 @@ class _HrDetailsScreenState extends State<HrDetailsScreen> {
                                         employeeName: employeeName,
                                         secondaryName: secondaryName,
                                         employeeImage: employeeImage,
-                                        requestNo: requestNo,
+                                        requestTitle: requestTitle,
                                         branchName: branchName.isEmpty
                                             ? '-'
                                             : branchName,
@@ -2275,12 +2306,22 @@ class _HrDetailsScreenState extends State<HrDetailsScreen> {
                                           16.tw,
                                           0,
                                           16.tw,
-                                          widget.showApprovalActions
+                                          showActions
                                               ? 68.th + context.systemBottomInset
-                                              : 8.th,
+                                              : 16.th + context.systemBottomInset,
                                         ),
-                                        child: isReferenceLayoutRequest
-                                            ? Column(
+                                        child: Column(
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.stretch,
+                                          children: [
+                                            if (isRejected) ...[
+                                              ApprovalRejectedBanner(
+                                                message: rejectedMessage,
+                                              ),
+                                              SizedBox(height: 8.th),
+                                            ],
+                                            if (isReferenceLayoutRequest)
+                                            Column(
                                                 children: [
                                                   _simSectionCard(
                                                     title: 'Employee Summary',
@@ -3018,7 +3059,8 @@ class _HrDetailsScreenState extends State<HrDetailsScreen> {
                                                   SizedBox(height: 8.tw),
                                                 ],
                                               )
-                                            : Column(
+                                            else
+                                              Column(
                                                 children: [
                                                   _card(
                                                     child: Column(
@@ -3136,11 +3178,13 @@ class _HrDetailsScreenState extends State<HrDetailsScreen> {
                                                   SizedBox(height: 8.tw),
                                                 ],
                                               ),
+                                          ],
+                                        ),
                                       ),
                                     ),
                                   ],
                                 ),
-                                if (widget.showApprovalActions)
+                                if (showActions)
                                   Positioned(
                                     left: 16.tw,
                                     right: 16.tw,

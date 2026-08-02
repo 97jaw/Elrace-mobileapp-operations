@@ -29,6 +29,7 @@ import '../ui/presentation/task_sheet/task_sheet_screen.dart';
 import '../ui/presentation/attendance_reports/attendance_reports_module_screen.dart';
 import '../ui/presentation/News Banner/news_screen.dart';
 import '../ui/presentation/tasks_dashboard/screens/task_details.dart';
+import '../ui/presentation/tasks/tasks_screen.dart';
 import '../ui/presentation/Email Approval/delayed/screens/delayed_requests_screen.dart';
 import '../ui/presentation/hr_management/hr_management_entry_screen.dart';
 import '../ui/presentation/recruitment/r1_recruitment_landing_screen.dart';
@@ -114,6 +115,8 @@ class OnGeneratedRoutes {
         return CupertinoPageRoute(builder: (_) => const MyRequestsPage());
       case '/tasks':
         return CupertinoPageRoute(builder: (_) => const TaskSheetPage());
+      case '/tickets':
+        return CupertinoPageRoute(builder: (_) => const TasksScreen());
       case '/attendance':
         return CupertinoPageRoute(
             builder: (_) => const AttendanceReportsModuleScreen());

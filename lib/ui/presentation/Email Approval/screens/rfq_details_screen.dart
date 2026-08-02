@@ -2,14 +2,15 @@ import 'package:el_race/core/utils/responsive_breakpoints.dart';
 import 'dart:convert';
 
 import 'package:el_race/core/utils/shared_pref.dart';
+import 'package:el_race/ui/presentation/Email%20Approval/bloc/approval_bloc.dart';
 import 'package:el_race/ui/presentation/Email%20Approval/theme/approvals_overview_theme.dart';
 import 'package:el_race/ui/presentation/Email%20Approval/widgets/approval_action_buttons.dart';
+import 'package:el_race/ui/presentation/Email%20Approval/widgets/approval_rejected_banner.dart';
 import 'package:el_race/ui/presentation/lpo/screens/lpo_pdf_viewer_screen.dart';
 import 'package:el_race/ui/widgets/contextual_glass_chrome_header.dart';
 import 'package:el_race/utils/safe_insets.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:fluttertoast/fluttertoast.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:http/http.dart' as http;
@@ -35,6 +36,7 @@ class _RfqDetailsScreenState extends State<RfqDetailsScreen> {
   static const String _localFakeRfqRequestId = 'LOCAL_FAKE_RFQ_001';
   bool _isLoading = true;
   String _error = '';
+  bool _rejectedLocked = false;
   Map<String, dynamic> _formData = {};
 
   bool get _isLocalFakeRequest => widget.requestId == _localFakeRfqRequestId;
@@ -75,6 +77,11 @@ class _RfqDetailsScreenState extends State<RfqDetailsScreen> {
   String _pick(List<dynamic> values, {String fallback = ''}) {
     for (final val in values) {
       if (val == null || val == false || val == true) continue;
+      if (val is Map || val is List) {
+        final nested = _pickName(val);
+        if (nested.isNotEmpty) return nested;
+        continue;
+      }
       final str = val.toString().trim();
       if (str.isEmpty) continue;
       final lower = str.toLowerCase();
@@ -97,6 +104,17 @@ class _RfqDetailsScreenState extends State<RfqDetailsScreen> {
         map['display_name'],
         map['label'],
       ], fallback: fallback);
+    }
+    if (source is List && source.isNotEmpty) {
+      if (source.length >= 2) {
+        final name = source[1]?.toString().trim() ?? '';
+        if (name.isNotEmpty &&
+            name.toLowerCase() != 'false' &&
+            name.toLowerCase() != 'null') {
+          return name;
+        }
+      }
+      return _pickName(source.first, fallback: fallback);
     }
     return _pick([source], fallback: fallback);
   }
@@ -401,23 +419,23 @@ class _RfqDetailsScreenState extends State<RfqDetailsScreen> {
 
   Widget _glassSectionCard({required String title, required Widget child}) {
     return OverviewGlassPanel(
-      fillAlpha: 0.9,
+      fillAlpha: 0.94,
       blurSigma: 8,
-      radius: 16,
-      padding: EdgeInsets.fromLTRB(12.tw, 10.th, 12.tw, 10.th),
+      radius: 18,
+      padding: EdgeInsets.fromLTRB(14.tw, 12.th, 14.tw, 12.th),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
             title.toUpperCase(),
             style: GoogleFonts.poppins(
-              fontSize: 10.tsp,
+              fontSize: 11.tsp,
               fontWeight: FontWeight.w700,
               letterSpacing: 0.7,
               color: ApprovalsOverviewTheme.screenDeep,
             ),
           ),
-          SizedBox(height: 6.th),
+          SizedBox(height: 14.th),
           child,
         ],
       ),
@@ -425,49 +443,38 @@ class _RfqDetailsScreenState extends State<RfqDetailsScreen> {
   }
 
   Widget _themeDetailCell(String label, String value, {bool highlight = false}) {
-    return Container(
-      width: double.infinity,
-      padding: EdgeInsets.symmetric(horizontal: 8.tw, vertical: 6.th),
-      decoration: BoxDecoration(
-        color: ApprovalsOverviewTheme.screenTintLight.withValues(alpha: 0.65),
-        borderRadius: BorderRadius.circular(12.tr),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.85)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            label,
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
-            style: GoogleFonts.poppins(
-              fontSize: 9.tsp,
-              fontWeight: FontWeight.w500,
-              color: ApprovalsOverviewTheme.textSoft,
-            ),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label,
+          style: GoogleFonts.poppins(
+            fontSize: 10.tsp,
+            fontWeight: FontWeight.w500,
+            color: ApprovalsOverviewTheme.textSoft,
           ),
-          SizedBox(height: 2.th),
-          Text(
-            _displayOrDash(value),
-            maxLines: 3,
-            overflow: TextOverflow.ellipsis,
-            style: GoogleFonts.poppins(
-              fontSize: 11.tsp,
-              fontWeight: FontWeight.w700,
-              color: highlight
-                  ? ApprovalsOverviewTheme.rfq
-                  : ApprovalsOverviewTheme.textDark,
-            ),
+        ),
+        SizedBox(height: 4.th),
+        Text(
+          _displayOrDash(value),
+          softWrap: true,
+          style: GoogleFonts.poppins(
+            fontSize: 12.tsp,
+            fontWeight: FontWeight.w700,
+            height: 1.25,
+            color: highlight
+                ? ApprovalsOverviewTheme.rfq
+                : ApprovalsOverviewTheme.textDark,
           ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 
   Widget _metaPill(String text, {required Color background, Color? textColor}) {
-    return Expanded(
+    return Flexible(
       child: Container(
-        padding: EdgeInsets.symmetric(horizontal: 6.tw, vertical: 4.th),
+        padding: EdgeInsets.symmetric(horizontal: 10.tw, vertical: 6.th),
         decoration: BoxDecoration(
           color: background,
           borderRadius: BorderRadius.circular(16.tr),
@@ -478,7 +485,7 @@ class _RfqDetailsScreenState extends State<RfqDetailsScreen> {
           overflow: TextOverflow.ellipsis,
           textAlign: TextAlign.center,
           style: GoogleFonts.poppins(
-            fontSize: 9.tsp,
+            fontSize: 10.tsp,
             fontWeight: FontWeight.w700,
             color: textColor ?? ApprovalsOverviewTheme.textDark,
           ),
@@ -491,7 +498,6 @@ class _RfqDetailsScreenState extends State<RfqDetailsScreen> {
     required String imageUrl,
     required String projectName,
     required String requestNo,
-    required String city,
     required String department,
     required String vendorName,
   }) {
@@ -499,19 +505,26 @@ class _RfqDetailsScreenState extends State<RfqDetailsScreen> {
       fillAlpha: 0.88,
       blurSigma: 10,
       radius: 16,
-      padding: EdgeInsets.symmetric(horizontal: 10.tw, vertical: 8.th),
+      padding: EdgeInsets.symmetric(horizontal: 12.tw, vertical: 12.th),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
           Container(
-            width: 62.tw,
-            height: 62.tw,
+            width: 58.tw,
+            height: 58.tw,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
               border: Border.all(
-                color: Colors.white.withValues(alpha: 0.9),
+                color: Colors.white.withValues(alpha: 0.95),
                 width: 2,
               ),
+              boxShadow: [
+                BoxShadow(
+                  color: ApprovalsOverviewTheme.rfq.withValues(alpha: 0.14),
+                  blurRadius: 10,
+                  offset: const Offset(0, 3),
+                ),
+              ],
             ),
             child: ClipOval(
               child: _buildClientAvatar(
@@ -520,7 +533,7 @@ class _RfqDetailsScreenState extends State<RfqDetailsScreen> {
               ),
             ),
           ),
-          SizedBox(width: 10.tw),
+          SizedBox(width: 12.tw),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -528,16 +541,15 @@ class _RfqDetailsScreenState extends State<RfqDetailsScreen> {
               children: [
                 Text(
                   _displayOrDash(projectName),
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
+                  softWrap: true,
                   style: GoogleFonts.poppins(
-                    fontSize: 14.tsp,
+                    fontSize: 15.tsp,
                     fontWeight: FontWeight.w700,
                     color: ApprovalsOverviewTheme.textDark,
-                    height: 1.2,
+                    height: 1.25,
                   ),
                 ),
-                SizedBox(height: 6.th),
+                SizedBox(height: 8.th),
                 Row(
                   children: [
                     _metaPill(
@@ -545,18 +557,15 @@ class _RfqDetailsScreenState extends State<RfqDetailsScreen> {
                       background: ApprovalsOverviewTheme.screenTintMid
                           .withValues(alpha: 0.75),
                     ),
-                    SizedBox(width: 4.tw),
-                    _metaPill(
-                      city,
-                      background: ApprovalsOverviewTheme.rfq
-                          .withValues(alpha: 0.22),
-                    ),
-                    SizedBox(width: 4.tw),
-                    _metaPill(
-                      department,
-                      background: ApprovalsOverviewTheme.screenMid
-                          .withValues(alpha: 0.18),
-                    ),
+                    if (department.trim().isNotEmpty &&
+                        department.trim() != '-') ...[
+                      SizedBox(width: 8.tw),
+                      _metaPill(
+                        department,
+                        background: ApprovalsOverviewTheme.screenMid
+                            .withValues(alpha: 0.18),
+                      ),
+                    ],
                   ],
                 ),
               ],
@@ -572,7 +581,7 @@ class _RfqDetailsScreenState extends State<RfqDetailsScreen> {
       fillAlpha: 0.9,
       blurSigma: 8,
       radius: 16,
-      padding: EdgeInsets.fromLTRB(10.tw, 8.th, 10.tw, 8.th),
+      padding: EdgeInsets.fromLTRB(14.tw, 14.th, 14.tw, 14.th),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -581,7 +590,7 @@ class _RfqDetailsScreenState extends State<RfqDetailsScreen> {
               Text(
                 'COMMENT',
                 style: GoogleFonts.poppins(
-                  fontSize: 10.tsp,
+                  fontSize: 11.tsp,
                   fontWeight: FontWeight.w700,
                   letterSpacing: 0.8,
                   color: ApprovalsOverviewTheme.screenDeep,
@@ -591,21 +600,21 @@ class _RfqDetailsScreenState extends State<RfqDetailsScreen> {
               Text(
                 '${comment.characters.length}/50',
                 style: GoogleFonts.poppins(
-                  fontSize: 9.tsp,
+                  fontSize: 10.tsp,
                   fontWeight: FontWeight.w500,
                   color: ApprovalsOverviewTheme.textSoft,
                 ),
               ),
             ],
           ),
-          SizedBox(height: 5.th),
+          SizedBox(height: 10.th),
           Container(
             width: double.infinity,
-            constraints: BoxConstraints(minHeight: 36.th),
-            padding: EdgeInsets.symmetric(horizontal: 10.tw, vertical: 7.th),
+            constraints: BoxConstraints(minHeight: 48.th),
+            padding: EdgeInsets.symmetric(horizontal: 12.tw, vertical: 10.th),
             decoration: BoxDecoration(
               color: ApprovalsOverviewTheme.screenTintLight.withValues(alpha: 0.7),
-              borderRadius: BorderRadius.circular(12.tr),
+              borderRadius: BorderRadius.circular(14.tr),
               border: Border.all(color: Colors.white.withValues(alpha: 0.85)),
             ),
             child: Text(
@@ -653,6 +662,10 @@ class _RfqDetailsScreenState extends State<RfqDetailsScreen> {
           variant: ApprovalActionButtonsVariant.glass,
           showHrApproveConfirmation: true,
           enableFakeApproveDemo: _isLocalFakeRequest,
+          onRejectedLocked: () {
+            if (!mounted) return;
+            setState(() => _rejectedLocked = true);
+          },
         ),
       ),
     );
@@ -716,17 +729,10 @@ class _RfqDetailsScreenState extends State<RfqDetailsScreen> {
     final projectName = _pick([
       _formData['project_name'],
       _formData['project_title'],
-      _formData['project'],
+      _pickName(_formData['project']),
+      _pickName(_formData['project_id']),
       _formData['project_name_id'],
-      _formData['project_id'],
       _formData['name'],
-    ]);
-
-    final city = _pick([
-      _pickName(_formData['city_id']),
-      _formData['city_id'],
-      _formData['city'],
-      _formData['branch'],
     ]);
 
     final department = _pick([
@@ -745,13 +751,24 @@ class _RfqDetailsScreenState extends State<RfqDetailsScreen> {
       _formData['supplier'],
     ]);
 
+    final projectMap = _formData['project'] is Map
+        ? Map<String, dynamic>.from(_formData['project'] as Map)
+        : null;
     final workOrderNo = _pick([
+      projectMap?['wo_ref_no'],
+      projectMap?['wo_ref'],
+      projectMap?['work_order'],
+      _formData['wo_ref_no'],
+      _formData['wo_ref'],
+      _formData['wo_ref_number'],
       _formData['work_order_no'],
       _formData['work_order_number'],
       _formData['wo_no'],
       _formData['wono'],
       _formData['wo_no#'],
       _formData['wo'],
+      _formData['wo_name'],
+      _formData['work_order'],
     ]);
 
     final totalAmount = _pick([
@@ -794,9 +811,11 @@ class _RfqDetailsScreenState extends State<RfqDetailsScreen> {
     ]).take(4).toList();
 
     final canViewReport = int.tryParse(widget.requestId) != null;
+    final isRejected =
+        _rejectedLocked || ApprovalRejectedBanner.isRejected(_formData);
+    final rejectedMessage = ApprovalRejectedBanner.messageFromForm(_formData);
 
-    final userId =
-        SharedPref.getLoginData().result?.data?.uid?.toString() ?? '';
+    final userId = ApprovalBloc.resolveActingUserId();
 
     return AnnotatedRegion<SystemUiOverlayStyle>(
       value: ApprovalsOverviewTheme.overlay,
@@ -857,12 +876,11 @@ class _RfqDetailsScreenState extends State<RfqDetailsScreen> {
                                         imageUrl: clientPhotoUrl,
                                         projectName: projectName,
                                         requestNo: requestNo,
-                                        city: city,
                                         department: department,
                                         vendorName: vendorName,
                                       ),
                                     ),
-                                    SizedBox(height: 6.th),
+                                    SizedBox(height: 12.th),
                                     Expanded(
                                       child: SingleChildScrollView(
                                         physics:
@@ -871,10 +889,17 @@ class _RfqDetailsScreenState extends State<RfqDetailsScreen> {
                                           16.tw,
                                           0,
                                           16.tw,
-                                          68.th + context.systemBottomInset,
+                                          (isRejected ? 24.th : 68.th) +
+                                              context.systemBottomInset,
                                         ),
                                         child: Column(
                                           children: [
+                                            if (isRejected) ...[
+                                              ApprovalRejectedBanner(
+                                                message: rejectedMessage,
+                                              ),
+                                              SizedBox(height: 12.th),
+                                            ],
                                             _glassSectionCard(
                                               title: 'Vendor Details',
                                               child: Column(
@@ -886,82 +911,103 @@ class _RfqDetailsScreenState extends State<RfqDetailsScreen> {
                                                     vendorName,
                                                     highlight: true,
                                                   ),
-                                                  if (tags.isNotEmpty) ...[
-                                                    SizedBox(height: 6.th),
-                                                    Wrap(
-                                                      spacing: 6.tw,
-                                                      runSpacing: 4.th,
-                                                      children: [
-                                                        for (int i = 0;
-                                                            i < tags.length;
-                                                            i++)
-                                                          _tagChip(
-                                                            tags[i],
-                                                            [
-                                                              const Color(
-                                                                  0xFFE1E4FF),
-                                                              const Color(
-                                                                  0xFFFCE6E6),
-                                                              const Color(
-                                                                  0xFFFFF1D8),
-                                                              const Color(
-                                                                  0xFFE1F5EC),
-                                                            ][i % 4],
-                                                            [
-                                                              const Color(
-                                                                  0xFF3F51E8),
-                                                              const Color(
-                                                                  0xFFD32F2F),
-                                                              const Color(
-                                                                  0xFFE08A00),
-                                                              const Color(
-                                                                  0xFF00A05A),
-                                                            ][i % 4],
+                                                  SizedBox(height: 12.th),
+                                                  SizedBox(
+                                                    height: 32.th,
+                                                    width: double.infinity,
+                                                    child: tags.isEmpty
+                                                        ? const SizedBox
+                                                            .expand()
+                                                        : ListView.separated(
+                                                            scrollDirection:
+                                                                Axis.horizontal,
+                                                            itemCount:
+                                                                tags.length,
+                                                            separatorBuilder:
+                                                                (_, __) =>
+                                                                    SizedBox(
+                                                              width: 8.tw,
+                                                            ),
+                                                            itemBuilder:
+                                                                (_, index) {
+                                                              final i =
+                                                                  index % 4;
+                                                              return Align(
+                                                                alignment: Alignment
+                                                                    .centerLeft,
+                                                                child:
+                                                                    _tagChip(
+                                                                  tags[index],
+                                                                  const [
+                                                                    Color(
+                                                                        0xFFE1E4FF),
+                                                                    Color(
+                                                                        0xFFFCE6E6),
+                                                                    Color(
+                                                                        0xFFFFF1D8),
+                                                                    Color(
+                                                                        0xFFE1F5EC),
+                                                                  ][i],
+                                                                  const [
+                                                                    Color(
+                                                                        0xFF3F51E8),
+                                                                    Color(
+                                                                        0xFFD32F2F),
+                                                                    Color(
+                                                                        0xFFE08A00),
+                                                                    Color(
+                                                                        0xFF00A05A),
+                                                                  ][i],
+                                                                ),
+                                                              );
+                                                            },
                                                           ),
-                                                      ],
-                                                    ),
-                                                  ],
+                                                  ),
                                                 ],
                                               ),
                                             ),
-                                            SizedBox(height: 6.th),
+                                            SizedBox(height: 12.th),
                                             _glassSectionCard(
                                               title: 'RFQ Info',
-                                              child: LayoutBuilder(
-                                                builder:
-                                                    (context, constraints) {
-                                                  final cellW =
-                                                      (constraints.maxWidth -
-                                                              6.tw) /
-                                                          2;
-                                                  return Wrap(
-                                                    spacing: 6.tw,
-                                                    runSpacing: 6.th,
+                                              child: Column(
+                                                crossAxisAlignment:
+                                                    CrossAxisAlignment.start,
+                                                children: [
+                                                  Row(
+                                                    crossAxisAlignment:
+                                                        CrossAxisAlignment
+                                                            .start,
                                                     children: [
-                                                      SizedBox(
-                                                        width: cellW,
+                                                      Expanded(
                                                         child: _themeDetailCell(
                                                           'W.O No#',
                                                           workOrderNo,
                                                         ),
                                                       ),
-                                                      SizedBox(
-                                                        width: cellW,
+                                                      SizedBox(width: 16.tw),
+                                                      Expanded(
                                                         child: _themeDetailCell(
                                                           'Request Date',
                                                           reqDate,
                                                         ),
                                                       ),
-                                                      SizedBox(
-                                                        width: cellW,
+                                                    ],
+                                                  ),
+                                                  SizedBox(height: 14.th),
+                                                  Row(
+                                                    crossAxisAlignment:
+                                                        CrossAxisAlignment
+                                                            .start,
+                                                    children: [
+                                                      Expanded(
                                                         child: _themeDetailCell(
                                                           'RFQ Amount',
                                                           formattedAmount,
                                                           highlight: true,
                                                         ),
                                                       ),
-                                                      SizedBox(
-                                                        width: cellW,
+                                                      SizedBox(width: 16.tw),
+                                                      Expanded(
                                                         child: _themeDetailCell(
                                                           'Material Type',
                                                           materialType,
@@ -969,14 +1015,14 @@ class _RfqDetailsScreenState extends State<RfqDetailsScreen> {
                                                         ),
                                                       ),
                                                     ],
-                                                  );
-                                                },
+                                                  ),
+                                                ],
                                               ),
                                             ),
-                                            SizedBox(height: 6.th),
+                                            SizedBox(height: 12.th),
                                             _buildSimCommentCard(comment),
                                             if (canViewReport) ...[
-                                              SizedBox(height: 8.th),
+                                              SizedBox(height: 12.th),
                                               Material(
                                                 color: Colors.transparent,
                                                 child: InkWell(
@@ -1037,13 +1083,14 @@ class _RfqDetailsScreenState extends State<RfqDetailsScreen> {
                                     ),
                                   ],
                                 ),
-                                Positioned(
-                                  left: 16.tw,
-                                  right: 16.tw,
-                                  bottom:
-                                      context.systemBottomInset + 8.th,
-                                  child: _floatingApprovalBar(userId),
-                                ),
+                                if (!isRejected)
+                                  Positioned(
+                                    left: 16.tw,
+                                    right: 16.tw,
+                                    bottom:
+                                        context.systemBottomInset + 8.th,
+                                    child: _floatingApprovalBar(userId),
+                                  ),
                               ],
                             ),
                 ),

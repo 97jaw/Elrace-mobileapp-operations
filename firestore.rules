@@ -39,6 +39,12 @@ service cloud.firestore {
         }
       }
 
+      match /tickets/{ticketId} {
+        allow read: if isSignedIn();
+        allow create: if isSignedIn();
+        allow update, delete: if isSignedIn() && request.auth.uid == userId;
+      }
+
       match /todoLists/{listId} {
         allow read: if isSignedIn();
         allow write: if isSignedIn() && request.auth.uid == userId;
@@ -99,6 +105,19 @@ service cloud.firestore {
     // Required for assigned-task queries via collectionGroup.
     match /{path=**}/todos/{todoId} {
       allow read: if isSignedIn();
+    }
+
+    // Assignment FCM queue — clients enqueue, Cloud Functions deliver.
+    match /assignment_push_requests/{requestId} {
+      allow create: if isSignedIn();
+      allow read, update, delete: if false;
+    }
+
+    // Ticket creator lookup for completion FCM (Odoo tickets).
+    match /ticket_creators/{taskId} {
+      allow create, update: if isSignedIn();
+      allow read: if isSignedIn();
+      allow delete: if false;
     }
   }
 }

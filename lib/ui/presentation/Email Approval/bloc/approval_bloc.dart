@@ -85,6 +85,7 @@ class ApprovalBloc extends Bloc<ApprovalEvent, ApprovalState> {
         'error',
         'error_message',
         'warning',
+        'name',
       ];
 
       for (final key in directKeys) {
@@ -94,8 +95,22 @@ class ApprovalBloc extends Bloc<ApprovalEvent, ApprovalState> {
         }
       }
 
+      // Odoo JSON-RPC: error.data.message / error.data.arguments
       if (map.containsKey('data')) {
-        final nested = _extractMessage(map['data']);
+        final data = map['data'];
+        if (data is Map) {
+          final dataMap = data.cast<dynamic, dynamic>();
+          for (final key in ['message', 'arguments', 'debug']) {
+            if (!dataMap.containsKey(key)) continue;
+            final nested = _extractMessage(dataMap[key]);
+            if (nested.isNotEmpty &&
+                nested != 'None' &&
+                !nested.startsWith('Traceback')) {
+              return nested;
+            }
+          }
+        }
+        final nested = _extractMessage(data);
         if (nested.isNotEmpty) return nested;
       }
     }
@@ -225,12 +240,27 @@ class ApprovalBloc extends Bloc<ApprovalEvent, ApprovalState> {
   }
 
   List<String> _resolveApproveActions(String type) {
-    if (_isHrType(type)) {
-      // Backend variants may accept either value.
-      return const ['accept', 'approve'];
-    }
-    // Different models/endpoints may expect one of these values.
-    return const ['approve', 'accept'];
+    // Both HR (`/api/approve_reject_hr_request`) and tier review
+    // (`/api/record/tier_review`) only accept `accept` / `reject`.
+    // Sending `approve` returns "Invalid action" and was overwriting real errors
+    // when used as a fallback retry.
+    return const ['accept'];
+  }
+
+  String _formatUserFailure(String userId, String reason) {
+    final trimmed = userId.trim();
+    if (trimmed.isEmpty) return reason;
+    return 'User $trimmed: $reason';
+  }
+
+  /// Prefer Odoo user id from login payload (uid / odoo_user_id).
+  static String resolveActingUserId() {
+    final data = SharedPref.getLoginData().result?.data;
+    final uid = data?.uid;
+    if (uid != null && uid > 0) return uid.toString();
+    final odooUserId = data?.odoo_user_id;
+    if (odooUserId != null && odooUserId > 0) return odooUserId.toString();
+    return '';
   }
 
   Future<http.Response> _sendApprovalRequest({
@@ -304,7 +334,23 @@ class ApprovalBloc extends Bloc<ApprovalEvent, ApprovalState> {
       debugPrint(
         '🟢 [ApprovalBloc] Approve started -> type=${event.type}, requestId=${event.requestId}, users=${event.userIds}',
       );
-      final List<String> userIds = event.userIds;
+      final List<String> userIds = event.userIds
+          .map((id) => id.trim())
+          .where((id) => id.isNotEmpty)
+          .toList();
+      if (userIds.isEmpty) {
+        final fallback = resolveActingUserId();
+        if (fallback.isNotEmpty) {
+          userIds.add(fallback);
+        }
+      }
+      if (userIds.isEmpty) {
+        emit(ApprovalFailure(
+          'Missing user id. Please sign out and sign in again.',
+          expandedItems: currentExpandedItems,
+        ));
+        return;
+      }
       List<String> successMessages = [];
       List<String> failureMessages = [];
       final actionCandidates = _resolveApproveActions(event.type);
@@ -384,11 +430,11 @@ class ApprovalBloc extends Bloc<ApprovalEvent, ApprovalState> {
           }
 
           if (!userApproved) {
-            failureMessages.add('User $userId: $failureReason');
+            failureMessages.add(_formatUserFailure(userId, failureReason));
           }
         } catch (e) {
           debugPrint('❌ [ApprovalBloc] Approve error for user $userId: $e');
-          failureMessages.add("User $userId: ${e.toString()}");
+          failureMessages.add(_formatUserFailure(userId, e.toString()));
         }
       }
 
@@ -439,7 +485,23 @@ class ApprovalBloc extends Bloc<ApprovalEvent, ApprovalState> {
       debugPrint(
         '🔴 [ApprovalBloc] Reject started -> type=${event.type}, requestId=${event.requestId}, users=${event.userIds}',
       );
-      final List<String> userIds = event.userIds;
+      final List<String> userIds = event.userIds
+          .map((id) => id.trim())
+          .where((id) => id.isNotEmpty)
+          .toList();
+      if (userIds.isEmpty) {
+        final fallback = resolveActingUserId();
+        if (fallback.isNotEmpty) {
+          userIds.add(fallback);
+        }
+      }
+      if (userIds.isEmpty) {
+        emit(ApprovalFailure(
+          'Missing user id. Please sign out and sign in again.',
+          expandedItems: currentExpandedItems,
+        ));
+        return;
+      }
       List<String> successMessages = [];
       List<String> failureMessages = [];
 
@@ -458,7 +520,8 @@ class ApprovalBloc extends Bloc<ApprovalEvent, ApprovalState> {
             debugPrint(
                 '❌ HTTP Error: ${response.statusCode}\n${response.body}');
             failureMessages
-                .add("User $userId: Server error (${response.statusCode})");
+                .add(_formatUserFailure(
+                    userId, 'Server error (${response.statusCode})'));
             continue; // Continue to next user instead of returning
           }
 
@@ -469,7 +532,8 @@ class ApprovalBloc extends Bloc<ApprovalEvent, ApprovalState> {
           } on FormatException {
             debugPrint(
                 '❌ FormatException: Server returned HTML instead of JSON\n${response.body.substring(0, 200)}...');
-            failureMessages.add("User $userId: Invalid server response");
+            failureMessages
+                .add(_formatUserFailure(userId, 'Invalid server response'));
             continue; // Continue to next user
           }
 
@@ -481,11 +545,12 @@ class ApprovalBloc extends Bloc<ApprovalEvent, ApprovalState> {
           if (parsed.isSuccess) {
             successMessages.add(parsed.message);
           } else {
-            failureMessages.add("User $userId: ${parsed.message}");
+            failureMessages
+                .add(_formatUserFailure(userId, parsed.message));
           }
         } catch (e) {
           debugPrint('❌ Error for user $userId: $e');
-          failureMessages.add("User $userId: ${e.toString()}");
+          failureMessages.add(_formatUserFailure(userId, e.toString()));
         }
       }
 

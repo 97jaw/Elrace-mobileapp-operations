@@ -7,6 +7,9 @@ import 'package:el_race/core/services/attendance_status_sync_service.dart';
 import 'package:el_race/core/services/notification_storage_service.dart';
 import 'package:el_race/core/utils/shared_pref.dart';
 import 'package:el_race/ui/chat/chat_screen.dart';
+import 'package:el_race/ui/presentation/tasks/tasks_screen.dart';
+import 'package:el_race/ui/presentation/tasks_dashboard/screens/task_details.dart'
+    as firebase_task_details;
 import 'package:el_race/utils/string_utils.dart';
 import 'package:el_race/utils/urll_utils.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -734,7 +737,76 @@ class FirebaseService {
       return;
     }
 
+    if (_isTaskOrTicketNotificationPayload(payloadData, category)) {
+      _handleTaskNotificationTap(payload, payloadData, category);
+      return;
+    }
+
     print('   - View-only notification; no navigation.');
+  }
+
+  static bool _isTaskOrTicketNotificationPayload(
+    Map<String, dynamic> payloadData,
+    String category,
+  ) {
+    return category == 'task' ||
+        category == 'ticket' ||
+        payloadData.containsKey('task_id') ||
+        payloadData.containsKey('taskId') ||
+        payloadData.containsKey('is_firebase_task');
+  }
+
+  static bool _parseBoolFlag(dynamic value) {
+    if (value is bool) return value;
+    final normalized = value?.toString().trim().toLowerCase() ?? '';
+    return normalized == '1' ||
+        normalized == 'true' ||
+        normalized == 'yes' ||
+        normalized == 'y';
+  }
+
+  static void _handleTaskNotificationTap(
+    String? rawPayload,
+    Map<String, dynamic> payloadData,
+    String category,
+  ) {
+    final navigator = navKey.currentState;
+    if (navigator == null || navKey.currentContext == null || !_isHomeReady) {
+      _pendingChatTapPayload = rawPayload;
+      print('   - Task/ticket tap queued until navigation is ready.');
+      return;
+    }
+
+    final taskId =
+        (payloadData['task_id'] ?? payloadData['taskId'] ?? '').toString();
+    final isFirebase = _parseBoolFlag(payloadData['is_firebase_task']);
+    final isTicket = category == 'ticket' || !isFirebase;
+
+    try {
+      if (isFirebase && taskId.isNotEmpty) {
+        navigator.push(
+          MaterialPageRoute(
+            builder: (_) => firebase_task_details.TaskDetailsScreen(
+              taskId: taskId,
+            ),
+            settings: const RouteSettings(name: '/task-details'),
+          ),
+        );
+        print('   - Opened Firebase task details for $taskId');
+        return;
+      }
+
+      // Odoo tickets / non-firebase tasks → Tickets list
+      navigator.push(
+        MaterialPageRoute(
+          builder: (_) => const TasksScreen(),
+          settings: const RouteSettings(name: '/tickets'),
+        ),
+      );
+      print('   - Opened Tickets screen (taskId=$taskId)');
+    } catch (e) {
+      print('   - Failed to navigate for task/ticket tap: $e');
+    }
   }
 
   static void processPendingNotificationTap({String? forcePayload}) {

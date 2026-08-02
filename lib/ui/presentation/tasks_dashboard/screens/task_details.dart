@@ -1,14 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:dotted_border/dotted_border.dart';
-import 'package:flutter_screenutil/flutter_screenutil.dart';
-import 'package:flutter_svg/flutter_svg.dart';
 import 'package:intl/intl.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:el_race/utils/color_utils.dart';
-import 'package:el_race/ui/presentation/productivity/widgets/productivity_screen_shell.dart';
+import 'package:el_race/ui/presentation/productivity/widgets/productivity_light_shell.dart';
 import 'package:el_race/ui/presentation/todo_list/data/todo_model.dart';
 import 'package:el_race/ui/presentation/todo_list/data/task_member_model.dart';
 import 'package:el_race/ui/presentation/todo_list/services/todo_firebase_service.dart';
@@ -25,6 +21,11 @@ import 'package:el_race/report_module/data/provider/reports_provider.dart';
 import 'package:el_race/report_module/data/models/report_model.dart';
 import 'package:el_race/report_module/presentation/screens/report_detail/report_detail.dart'
     as report_detail;
+import 'package:el_race/ui/presentation/tickets/providers/ticket_firebase_provider.dart';
+import 'package:el_race/ui/presentation/tickets/data/ticket_model.dart';
+import 'package:el_race/ui/presentation/tickets/screens/ticket_details_screen.dart';
+import 'package:el_race/ui/presentation/productivity/widgets/productivity_nav.dart';
+import 'package:el_race/ui/presentation/productivity/theme/productivity_light_theme.dart';
 
 class TaskDetailsScreen extends StatefulWidget {
   static const routeName = '/task-details';
@@ -118,7 +119,7 @@ class _TaskDetailsScreenState extends State<TaskDetailsScreen> {
     if (url != null && url.isNotEmpty) {
       return CircleAvatar(
         radius: size / 2,
-        backgroundColor: Colors.grey[200],
+        backgroundColor: ProductivityLightTheme.iconChip,
         backgroundImage: NetworkImage(url),
         onBackgroundImageError: (_, __) {},
       );
@@ -126,13 +127,13 @@ class _TaskDetailsScreenState extends State<TaskDetailsScreen> {
 
     return CircleAvatar(
       radius: size / 2,
-      backgroundColor: Colors.grey[300],
+      backgroundColor: ProductivityLightTheme.iconChip,
       child: Text(
         initials,
-        style: GoogleFonts.poppins(
+        style: GoogleFonts.roboto(
           fontSize: size >= 40 ? 16 : 12,
-          fontWeight: FontWeight.bold,
-          color: Colors.grey[700],
+          fontWeight: FontWeight.w700,
+          color: ProductivityLightTheme.inkSecondary,
         ),
       ),
     );
@@ -147,7 +148,7 @@ class _TaskDetailsScreenState extends State<TaskDetailsScreen> {
     if (photoUrl != null && photoUrl.isNotEmpty) {
       return CircleAvatar(
         radius: size / 2,
-        backgroundColor: Colors.grey[200],
+        backgroundColor: ProductivityLightTheme.iconChip,
         backgroundImage: NetworkImage(photoUrl),
         onBackgroundImageError: (_, __) {},
       );
@@ -158,7 +159,7 @@ class _TaskDetailsScreenState extends State<TaskDetailsScreen> {
     if (memberUrl != null && memberUrl.isNotEmpty) {
       return CircleAvatar(
         radius: size / 2,
-        backgroundColor: Colors.grey[200],
+        backgroundColor: ProductivityLightTheme.iconChip,
         backgroundImage: NetworkImage(memberUrl),
         onBackgroundImageError: (_, __) {},
       );
@@ -167,13 +168,13 @@ class _TaskDetailsScreenState extends State<TaskDetailsScreen> {
     // Default to initials
     return CircleAvatar(
       radius: size / 2,
-      backgroundColor: Colors.grey[300],
+      backgroundColor: ProductivityLightTheme.iconChip,
       child: Text(
         initials,
-        style: GoogleFonts.poppins(
+        style: GoogleFonts.roboto(
           fontSize: size >= 40 ? 16 : 12,
-          fontWeight: FontWeight.bold,
-          color: Colors.grey[700],
+          fontWeight: FontWeight.w700,
+          color: ProductivityLightTheme.inkSecondary,
         ),
       ),
     );
@@ -301,21 +302,33 @@ class _TaskDetailsScreenState extends State<TaskDetailsScreen> {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: Text('Voice Comment',
-            style: GoogleFonts.poppins(fontWeight: FontWeight.w600)),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(ProductivityLightTheme.boxRadius),
+        ),
+        title: Text(
+          'Voice comment',
+          style: GoogleFonts.roboto(fontWeight: FontWeight.w700),
+        ),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.mic, size: 48, color: Colors.green),
-            SizedBox(height: 12),
+            const Icon(Icons.mic_none_rounded,
+                size: 48, color: Color(0xFF4C8BF5)),
+            const SizedBox(height: 12),
             Text(
               'Recording: ${_formatDuration(_recordingDuration)}',
-              style: GoogleFonts.poppins(fontSize: 14),
+              style: GoogleFonts.roboto(
+                fontSize: 14,
+                color: ProductivityLightTheme.ink,
+              ),
             ),
-            SizedBox(height: 8),
+            const SizedBox(height: 8),
             Text(
               'Send this voice comment?',
-              style: GoogleFonts.poppins(fontSize: 13, color: Colors.grey[600]),
+              style: GoogleFonts.roboto(
+                fontSize: 13,
+                color: ProductivityLightTheme.inkSecondary,
+              ),
             ),
           ],
         ),
@@ -326,17 +339,30 @@ class _TaskDetailsScreenState extends State<TaskDetailsScreen> {
               File(audioPath).deleteSync();
               Navigator.pop(context);
             },
-            child:
-                Text('Cancel', style: GoogleFonts.poppins(color: Colors.grey)),
+            child: Text(
+              'Cancel',
+              style: GoogleFonts.roboto(
+                color: ProductivityLightTheme.inkMuted,
+              ),
+            ),
           ),
           ElevatedButton(
             onPressed: () async {
               Navigator.pop(context);
               await _sendVoiceComment(audioPath);
             },
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.green),
-            child:
-                Text('Send', style: GoogleFonts.poppins(color: Colors.white)),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF4C8BF5),
+              foregroundColor: Colors.white,
+              elevation: 0,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(20),
+              ),
+            ),
+            child: Text(
+              'Send',
+              style: GoogleFonts.roboto(color: Colors.white),
+            ),
           ),
         ],
       ),
@@ -383,9 +409,9 @@ class _TaskDetailsScreenState extends State<TaskDetailsScreen> {
       await _loadComments();
 
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
+        const SnackBar(
             content: Text('Voice comment sent!'),
-            backgroundColor: Colors.green),
+            backgroundColor: Color(0xFF4C8BF5)),
       );
     } catch (e) {
       print('❌ Error sending voice comment: $e');
@@ -545,7 +571,9 @@ class _TaskDetailsScreenState extends State<TaskDetailsScreen> {
                 ? '${member.firstName} marked as complete'
                 : '${member.firstName} marked as incomplete',
           ),
-          backgroundColor: newStatus ? Colors.green : Colors.orange,
+          backgroundColor: newStatus
+              ? ProductivityLightTheme.progressFill
+              : ProductivityLightTheme.accentPending,
           duration: Duration(seconds: 2),
         ),
       );
@@ -601,19 +629,23 @@ class _TaskDetailsScreenState extends State<TaskDetailsScreen> {
   @override
   Widget build(BuildContext context) {
     if (_isLoading) {
-      return ProductivityScreenShell(
-        title: 'Task Details',
-        body: const Center(child: CircularProgressIndicator()),
+      return const ProductivityLightShell(
+        showBack: true,
+        centerTitle: true,
+        title: 'Task details',
+        body: Center(child: CircularProgressIndicator()),
       );
     }
 
     if (_task == null) {
-      return ProductivityScreenShell(
-        title: 'Task Details',
+      return ProductivityLightShell(
+        showBack: true,
+        centerTitle: true,
+        title: 'Task details',
         body: Center(
           child: Text(
             'Task not found',
-            style: GoogleFonts.poppins(fontSize: 16, color: Colors.grey),
+            style: ProductivityLightTheme.cardSubtitle,
           ),
         ),
       );
@@ -621,475 +653,444 @@ class _TaskDetailsScreenState extends State<TaskDetailsScreen> {
 
     final task = _task!;
 
-    return ProductivityScreenShell(
-      title: 'Task Details',
-      body: CustomScrollView(
-        slivers: [
-          SliverPadding(
-            padding: const EdgeInsets.all(20.0),
-            sliver: SliverList(
-              delegate: SliverChildListDelegate([
-                // Header
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    SvgPicture.asset(
-                      "assets/png/Tasks.svg",
-                      height: 24.w,
-                      width: 24.w,
-                    ),
-                    SizedBox(width: 8.w),
-                    Text(
-                      'TASK DETAILS',
-                      style: GoogleFonts.poppins(
-                        fontSize: 22.sp,
-                        fontWeight: FontWeight.w500,
-                        color: appFontColor,
-                      ),
-                      overflow: TextOverflow.visible,
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 20),
-                const SizedBox(height: 20),
-
-                // Task Title
-                Text(
-                  task.title.toUpperCase(),
-                  style: GoogleFonts.poppins(
-                    fontWeight: FontWeight.bold,
-                    fontSize: 16,
-                    color: Colors.black,
-                  ),
-                ),
-                const SizedBox(height: 16),
-
-                // Description Section
-                if (task.description != null && task.description!.isNotEmpty)
-                  _buildBorderedFieldWithLabel(
-                    label: 'Description',
-                    child: Container(
-                      padding: EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        color: Colors.grey[50],
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: Colors.grey[300]!),
-                      ),
-                      child: Text(
-                        task.description ?? '',
-                        style: GoogleFonts.poppins(
-                          fontSize: 13,
-                          color: Colors.grey[600],
-                          height: 1.5,
-                        ),
+    return ProductivityLightShell(
+      showBack: true,
+      centerTitle: true,
+      title: 'Task details',
+      body: Column(
+        children: [
+          Expanded(
+            child: ListView(
+              padding: const EdgeInsets.fromLTRB(20, 8, 20, 16),
+              children: [
+                _buildHeaderSection(task),
+                const SizedBox(height: 12),
+                if (task.description != null &&
+                    task.description!.trim().isNotEmpty) ...[
+                  _sectionCard(
+                    title: 'Description',
+                    child: Text(
+                      task.description!,
+                      style: GoogleFonts.roboto(
+                        fontSize: 14,
+                        height: 1.45,
+                        color: ProductivityLightTheme.inkSecondary,
                       ),
                     ),
                   ),
-                if (task.description != null && task.description!.isNotEmpty)
-                  const SizedBox(height: 20),
-
-                // Dates Section
-                _buildDatesSection(task),
-                const SizedBox(height: 20),
-
-                // Task Department
-                if (task.department != null)
-                  _buildBorderedFieldWithLabel(
-                    label: 'Task\nDepartment',
-                    child: Container(
-                      padding:
-                          EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: Colors.grey[300]!),
-                      ),
-                      child: Text(
-                        task.department ?? '-',
-                        style: GoogleFonts.poppins(
-                          fontSize: 14,
-                          color: Colors.grey[600],
-                        ),
-                      ),
-                    ),
-                  ),
-                if (task.department != null) const SizedBox(height: 20),
-
-                // Linked Report Section
-                if (task.reportId != null && task.reportId!.isNotEmpty)
+                  const SizedBox(height: 12),
+                ],
+                _buildProgressCard(task),
+                if (task.reportId != null && task.reportId!.isNotEmpty) ...[
+                  const SizedBox(height: 12),
                   _buildLinkedReportSection(task.reportId!),
-                if (task.reportId != null && task.reportId!.isNotEmpty)
-                  const SizedBox(height: 20),
-
-                // Task Progress Section
-                Container(
-                  padding: EdgeInsets.all(20),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(30),
-                    border: Border.all(color: Colors.grey[300]!, width: 2),
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        task.title.toUpperCase(),
-                        style: GoogleFonts.poppins(
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.black,
+                ],
+                const SizedBox(height: 12),
+                _buildLinkedTicketsSection(task),
+                const SizedBox(height: 12),
+                _sectionCard(
+                  title: 'Attachments',
+                  child: (task.attachments != null &&
+                          task.attachments!.isNotEmpty)
+                      ? _buildAttachmentsList(task.attachments!)
+                      : Text(
+                          'No attachments',
+                          style: GoogleFonts.roboto(
+                            fontSize: 13,
+                            color: ProductivityLightTheme.inkMuted,
+                          ),
                         ),
-                      ),
-                      SizedBox(height: 12),
-
-                      // Progress Bar
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Stack(
-                            children: [
-                              Container(
-                                height: 8,
-                                decoration: BoxDecoration(
-                                  color: Colors.grey[300],
-                                  borderRadius: BorderRadius.circular(4),
-                                ),
-                              ),
-                              FractionallySizedBox(
-                                widthFactor: task.progress,
-                                child: Container(
-                                  height: 8,
-                                  decoration: BoxDecoration(
-                                    color: Color(0xFF4CAF50),
-                                    borderRadius: BorderRadius.circular(4),
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                          SizedBox(height: 8),
-                          Text(
-                            '${task.progressText} complete',
-                            style: GoogleFonts.poppins(
-                              fontSize: 14,
-                              fontWeight: FontWeight.w600,
-                              color: Colors.black87,
-                            ),
-                          ),
-                        ],
-                      ),
-                      SizedBox(height: 20),
-
-                      // Last Updated Info
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Builder(
-                            builder: (context) {
-                              final raw = task.assignedToName ?? '';
-                              final names = raw
-                                  .split(',')
-                                  .map((e) => e.trim())
-                                  .where((e) => e.isNotEmpty)
-                                  .toList();
-
-                              final displayNames = names.isNotEmpty
-                                  ? names
-                                  : <String>['Unassigned'];
-
-                              return Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: displayNames
-                                    .map(
-                                      (name) => Padding(
-                                        padding:
-                                            const EdgeInsets.only(bottom: 8),
-                                        child: Row(
-                                          children: [
-                                            _buildAvatarForName(name, size: 36),
-                                            const SizedBox(width: 10),
-                                            Expanded(
-                                              child: Text(
-                                                name,
-                                                maxLines: null,
-                                                overflow: TextOverflow.visible,
-                                                style: GoogleFonts.poppins(
-                                                  fontSize: 14,
-                                                  fontWeight: FontWeight.bold,
-                                                  color: Colors.black,
-                                                ),
-                                              ),
-                                            ),
-                                          ],
-                                        ),
-                                      ),
-                                    )
-                                    .toList(),
-                              );
-                            },
-                          ),
-                          SizedBox(height: 8),
-                          Row(
-                            children: [
-                              Expanded(
-                                child: Text(
-                                  'Last updated at',
-                                  maxLines: null,
-                                  overflow: TextOverflow.visible,
-                                  style: GoogleFonts.poppins(
-                                    fontSize: 11,
-                                    color: Colors.grey[600],
-                                  ),
-                                ),
-                              ),
-                              Text(
-                                _formatTime(task.updatedAt),
-                                style: GoogleFonts.poppins(
-                                  fontSize: 11,
-                                  color: Colors.grey[600],
-                                ),
-                              ),
-                            ],
-                          ),
-                          SizedBox(height: 2),
-                          Text(
-                            _formatDate(task.updatedAt),
-                            style: GoogleFonts.poppins(
-                              fontSize: 11,
-                              color: Colors.grey[600],
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
                 ),
-                SizedBox(height: 20),
-
-                // Attachments Section
-                _buildSectionLabel('Attachments'),
-                SizedBox(height: 12),
-                if (task.attachments != null && task.attachments!.isNotEmpty)
-                  _buildAttachmentsList(task.attachments!)
-                else
-                  Text(
-                    'No attachments',
-                    style: GoogleFonts.poppins(
-                      fontSize: 13,
-                      color: Colors.grey[500],
-                    ),
-                  ),
-                const SizedBox(height: 20),
-
-                // Assigned Members
-                _buildSectionLabel('Assigned Members'),
                 const SizedBox(height: 12),
-                if (task.assignedMembers != null &&
-                    task.assignedMembers!.isNotEmpty)
-                  _buildTaskMembersList(task.assignedMembers!, isAssigned: true)
-                else if (task.assignedToName != null &&
-                    task.assignedToName!.isNotEmpty)
-                  _buildMembersList(task.assignedToName!.split(', '))
-                else
-                  Text(
-                    'No members assigned',
-                    style: GoogleFonts.poppins(
-                      fontSize: 13,
-                      color: Colors.grey[500],
-                    ),
-                  ),
-                const SizedBox(height: 20),
-
-                // Following By
-                _buildSectionLabel('Followed UP'),
-                const SizedBox(height: 12),
-                if (task.followedUpBy != null && task.followedUpBy!.isNotEmpty)
-                  _buildTaskMembersList(task.followedUpBy!, isAssigned: false)
-                else if (task.followers != null && task.followers!.isNotEmpty)
-                  _buildMembersList(task.followers!)
-                else
-                  Text(
-                    'No followers',
-                    style: GoogleFonts.poppins(
-                      fontSize: 13,
-                      color: Colors.grey[500],
-                    ),
-                  ),
-                const SizedBox(height: 20),
-
-                // Comments Section
-                _buildSectionLabel('Comments'),
-                const SizedBox(height: 12),
-                if (_comments.isNotEmpty)
-                  ..._comments
-                      .map((comment) => Padding(
-                            padding: const EdgeInsets.only(bottom: 12),
-                            child: _buildCommentItem(comment),
-                          ))
-                      .toList()
-                else
-                  Text(
-                    'No comments yet',
-                    style: GoogleFonts.poppins(
-                      fontSize: 13,
-                      color: Colors.grey[500],
-                    ),
-                  ),
-                const SizedBox(height: 50),
-
-                // Write Comment Field
-                Container(
-                  padding: EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: Colors.grey[200],
-                    borderRadius: BorderRadius.circular(25),
-                  ),
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: TextField(
-                          controller: _commentController,
-                          decoration: InputDecoration(
-                            hintText: 'Write a comment',
-                            hintStyle: GoogleFonts.poppins(
-                              color: Colors.grey[500],
-                              fontSize: 14,
+                _sectionCard(
+                  title: 'Assigned members',
+                  child: (task.assignedMembers != null &&
+                          task.assignedMembers!.isNotEmpty)
+                      ? _buildTaskMembersList(
+                          task.assignedMembers!,
+                          isAssigned: true,
+                        )
+                      : (task.assignedToName != null &&
+                              task.assignedToName!.isNotEmpty)
+                          ? _buildMembersList(
+                              task.assignedToName!.split(', '),
+                            )
+                          : Text(
+                              'No members assigned',
+                              style: GoogleFonts.roboto(
+                                fontSize: 13,
+                                color: ProductivityLightTheme.inkMuted,
+                              ),
                             ),
-                            border: InputBorder.none,
-                          ),
-                          style: GoogleFonts.poppins(
-                            color: Colors.black87,
-                            fontSize: 14,
-                          ),
-                          onSubmitted: (_) => _sendComment(),
-                        ),
-                      ),
-                      // Recording indicator or mic button
-                      if (_isRecording)
-                        Row(
+                ),
+                const SizedBox(height: 12),
+                _sectionCard(
+                  title: 'Followed up',
+                  child: (task.followedUpBy != null &&
+                          task.followedUpBy!.isNotEmpty)
+                      ? _buildTaskMembersList(
+                          task.followedUpBy!,
+                          isAssigned: false,
+                        )
+                      : (task.followers != null && task.followers!.isNotEmpty)
+                          ? _buildMembersList(task.followers!)
+                          : Text(
+                              'No followers',
+                              style: GoogleFonts.roboto(
+                                fontSize: 13,
+                                color: ProductivityLightTheme.inkMuted,
+                              ),
+                            ),
+                ),
+                const SizedBox(height: 12),
+                _sectionCard(
+                  title: 'Comments',
+                  child: _comments.isNotEmpty
+                      ? Column(
                           children: [
-                            // Recording duration
-                            Container(
-                              padding: EdgeInsets.symmetric(
-                                  horizontal: 8, vertical: 4),
-                              decoration: BoxDecoration(
-                                color: Colors.red.withOpacity(0.1),
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                              child: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Icon(Icons.circle,
-                                      size: 8, color: Colors.red),
-                                  SizedBox(width: 4),
-                                  Text(
-                                    _formatDuration(_recordingDuration),
-                                    style: GoogleFonts.poppins(
-                                      fontSize: 12,
-                                      color: Colors.red,
-                                      fontWeight: FontWeight.w500,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                            SizedBox(width: 4),
-                            // Cancel button
-                            GestureDetector(
-                              onTap: _cancelRecording,
-                              child: Container(
-                                padding: EdgeInsets.all(8),
-                                child: Icon(Icons.close,
-                                    size: 24, color: Colors.grey[600]),
-                              ),
-                            ),
-                            // Stop & Send button
-                            GestureDetector(
-                              onTap: _stopRecording,
-                              child: Container(
-                                padding: EdgeInsets.all(8),
-                                decoration: BoxDecoration(
-                                  color: Colors.red,
-                                  shape: BoxShape.circle,
-                                ),
-                                child: Icon(Icons.stop,
-                                    size: 20, color: Colors.white),
-                              ),
-                            ),
+                            for (final comment in _comments) ...[
+                              _buildCommentItem(comment),
+                              const SizedBox(height: 12),
+                            ],
                           ],
                         )
-                      else
-                        GestureDetector(
-                          onTap: _startRecording,
-                          child: Container(
-                            padding: EdgeInsets.all(8),
-                            child: Icon(
-                              Icons.mic_none_rounded,
-                              size: 26,
-                              color: Colors.grey[600],
-                            ),
+                      : Text(
+                          'No comments yet',
+                          style: GoogleFonts.roboto(
+                            fontSize: 13,
+                            color: ProductivityLightTheme.inkMuted,
                           ),
                         ),
-                      SizedBox(width: 4),
-                      if (!_isRecording)
-                        GestureDetector(
-                          onTap: _isSendingComment ? null : _sendComment,
-                          child: Container(
-                            padding: EdgeInsets.all(8),
-                            child: _isSendingComment
-                                ? SizedBox(
-                                    width: 24,
-                                    height: 24,
-                                    child: CircularProgressIndicator(
-                                        strokeWidth: 2),
-                                  )
-                                : SvgPicture.asset(
-                                    'assets/png/send.svg',
-                                    width: 24,
-                                    height: 24,
-                                    color: Colors.grey[600],
-                                  ),
-                          ),
-                        ),
-                    ],
-                  ),
                 ),
-                SizedBox(height: 20),
+                const SizedBox(height: 88),
+              ],
+            ),
+          ),
+          _buildBottomBar(task),
+        ],
+      ),
+    );
+  }
 
-                // Completed Button
-                Center(
-                  child: SizedBox(
-                    width: 180,
-                    height: 45,
-                    child: ElevatedButton(
-                      onPressed:
-                          task.isCompleted ? null : () => _toggleComplete(task),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor:
-                            task.isCompleted ? Colors.grey : Color(0xFF4CAF50),
-                        disabledBackgroundColor: Colors.grey,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(22),
-                        ),
-                        elevation: 2,
-                      ),
-                      child: Text(
-                        task.isCompleted ? 'COMPLETED ✓' : 'MARK COMPLETE',
-                        style: GoogleFonts.poppins(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w600,
-                          color: Colors.white,
-                          letterSpacing: 0.5,
-                        ),
-                      ),
-                    ),
-                  ),
+  Widget _buildHeaderSection(TodoModel task) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.fromLTRB(16, 20, 16, 18),
+      decoration: BoxDecoration(
+        color: ProductivityLightTheme.card,
+        borderRadius: BorderRadius.circular(ProductivityLightTheme.boxRadius),
+        border: Border.all(color: ProductivityLightTheme.border),
+      ),
+      child: Column(
+        children: [
+          Text(
+            task.title,
+            textAlign: TextAlign.center,
+            style: GoogleFonts.roboto(
+              fontWeight: FontWeight.w700,
+              fontSize: 20,
+              color: ProductivityLightTheme.ink,
+              height: 1.25,
+            ),
+          ),
+          const SizedBox(height: 12),
+          Wrap(
+            alignment: WrapAlignment.center,
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              _statusPill(
+                task.isCompleted ? 'Completed' : 'In progress',
+                task.isCompleted
+                    ? ProductivityLightTheme.statusCompletedBg
+                    : ProductivityLightTheme.statusActiveBg,
+              ),
+              if (task.department != null &&
+                  task.department!.trim().isNotEmpty)
+                _statusPill(
+                  task.department!,
+                  ProductivityLightTheme.washBlue,
                 ),
-                SizedBox(height: 30),
-              ]),
+            ],
+          ),
+          const SizedBox(height: 16),
+          Row(
+            children: [
+              Expanded(
+                child: _dateColumn(
+                  label: 'Start date',
+                  value: _formatDate(task.startDate),
+                  accent: ProductivityLightTheme.accentActive,
+                ),
+              ),
+              Container(
+                width: 1,
+                height: 44,
+                color: ProductivityLightTheme.border,
+              ),
+              Expanded(
+                child: _dateColumn(
+                  label: 'End date',
+                  value: _formatDate(task.dueDate),
+                  accent: ProductivityLightTheme.accentEnded,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 14),
+          Text(
+            'Updated ${_formatDate(task.updatedAt)} · ${_formatTime(task.updatedAt)}',
+            textAlign: TextAlign.center,
+            style: GoogleFonts.roboto(
+              fontSize: 12,
+              color: ProductivityLightTheme.inkMuted,
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _statusPill(String label, Color bg) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+      decoration: BoxDecoration(
+        color: bg,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: ProductivityLightTheme.border),
+      ),
+      child: Text(
+        label,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        style: GoogleFonts.roboto(
+          fontSize: 12,
+          fontWeight: FontWeight.w600,
+          color: ProductivityLightTheme.ink,
+        ),
+      ),
+    );
+  }
+
+  Widget _sectionCard({required String title, required Widget child}) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: ProductivityLightTheme.card,
+        borderRadius: BorderRadius.circular(ProductivityLightTheme.boxRadius),
+        border: Border.all(color: ProductivityLightTheme.border),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            title,
+            style: GoogleFonts.roboto(
+              fontSize: 14,
+              fontWeight: FontWeight.w700,
+              color: ProductivityLightTheme.ink,
+            ),
+          ),
+          const SizedBox(height: 10),
+          child,
+        ],
+      ),
+    );
+  }
+
+  Widget _buildProgressCard(TodoModel task) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: ProductivityLightTheme.card,
+        borderRadius: BorderRadius.circular(ProductivityLightTheme.boxRadius),
+        border: Border.all(color: ProductivityLightTheme.border),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Progress',
+            style: GoogleFonts.roboto(
+              fontSize: 14,
+              fontWeight: FontWeight.w700,
+              color: ProductivityLightTheme.ink,
+            ),
+          ),
+          const SizedBox(height: 12),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(6),
+            child: LinearProgressIndicator(
+              value: task.progress.clamp(0.0, 1.0),
+              minHeight: 10,
+              backgroundColor: ProductivityLightTheme.progressTrack,
+              valueColor: const AlwaysStoppedAnimation<Color>(
+                ProductivityLightTheme.progressFill,
+              ),
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            '${task.progressText} complete',
+            style: GoogleFonts.roboto(
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
+              color: ProductivityLightTheme.inkSecondary,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildBottomBar(TodoModel task) {
+    return Material(
+      color: ProductivityLightTheme.card,
+      elevation: 8,
+      shadowColor: Colors.black.withValues(alpha: 0.08),
+      child: SafeArea(
+        top: false,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 10, 16, 10),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                decoration: BoxDecoration(
+                  color: ProductivityLightTheme.iconChip,
+                  borderRadius: BorderRadius.circular(24),
+                  border: Border.all(color: ProductivityLightTheme.border),
+                ),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: TextField(
+                        controller: _commentController,
+                        decoration: InputDecoration(
+                          hintText: 'Write a comment',
+                          hintStyle: GoogleFonts.roboto(
+                            color: ProductivityLightTheme.inkMuted,
+                            fontSize: 14,
+                          ),
+                          border: InputBorder.none,
+                        ),
+                        style: GoogleFonts.roboto(
+                          color: ProductivityLightTheme.ink,
+                          fontSize: 14,
+                        ),
+                        onSubmitted: (_) => _sendComment(),
+                      ),
+                    ),
+                    if (_isRecording)
+                      Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 4,
+                            ),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFFFEBEE),
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                const Icon(
+                                  Icons.circle,
+                                  size: 8,
+                                  color: Color(0xFFE11D48),
+                                ),
+                                const SizedBox(width: 4),
+                                Text(
+                                  _formatDuration(_recordingDuration),
+                                  style: GoogleFonts.roboto(
+                                    fontSize: 12,
+                                    color: const Color(0xFFE11D48),
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          IconButton(
+                            onPressed: _cancelRecording,
+                            icon: const Icon(
+                              Icons.close_rounded,
+                              color: ProductivityLightTheme.inkMuted,
+                            ),
+                          ),
+                          IconButton(
+                            onPressed: _stopRecording,
+                            style: IconButton.styleFrom(
+                              backgroundColor: const Color(0xFFE11D48),
+                              foregroundColor: Colors.white,
+                            ),
+                            icon: const Icon(Icons.stop_rounded, size: 20),
+                          ),
+                        ],
+                      )
+                    else ...[
+                      IconButton(
+                        onPressed: _startRecording,
+                        icon: const Icon(
+                          Icons.mic_none_rounded,
+                          color: ProductivityLightTheme.inkSecondary,
+                        ),
+                      ),
+                      IconButton(
+                        onPressed: _isSendingComment ? null : _sendComment,
+                        icon: _isSendingComment
+                            ? const SizedBox(
+                                width: 20,
+                                height: 20,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                ),
+                              )
+                            : const Icon(
+                                Icons.send_rounded,
+                                color: Color(0xFF4C8BF5),
+                              ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+              const SizedBox(height: 10),
+              SizedBox(
+                width: double.infinity,
+                height: 48,
+                child: ElevatedButton(
+                  onPressed:
+                      task.isCompleted ? null : () => _toggleComplete(task),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: task.isCompleted
+                        ? ProductivityLightTheme.inkMuted
+                        : const Color(0xFF4C8BF5),
+                    disabledBackgroundColor: ProductivityLightTheme.inkSoft,
+                    foregroundColor: Colors.white,
+                    elevation: 0,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(24),
+                    ),
+                  ),
+                  child: Text(
+                    task.isCompleted ? 'Completed' : 'Mark complete',
+                    style: GoogleFonts.roboto(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
@@ -1122,9 +1123,9 @@ class _TaskDetailsScreenState extends State<TaskDetailsScreen> {
         SnackBar(
           content: Text(
             'Task marked as complete!',
-            style: GoogleFonts.poppins(),
+            style: GoogleFonts.roboto(),
           ),
-          backgroundColor: Colors.green,
+          backgroundColor: const Color(0xFF4C8BF5),
         ),
       );
     } catch (e) {
@@ -1138,70 +1139,33 @@ class _TaskDetailsScreenState extends State<TaskDetailsScreen> {
     }
   }
 
-  Widget _buildDatesSection(TodoModel task) {
-    return Container(
-      padding: EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.grey[300]!, width: 1.5),
-      ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceAround,
-        children: [
-          // Start Date
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              Text(
-                'START DATE',
-                style: GoogleFonts.poppins(
-                  fontSize: 12,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.green,
-                ),
-              ),
-              const SizedBox(height: 4),
-              Text(
-                _formatDate(task.startDate),
-                style: GoogleFonts.poppins(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w700,
-                  color: Colors.grey[600],
-                ),
-              ),
-            ],
+  Widget _dateColumn({
+    required String label,
+    required String value,
+    required Color accent,
+  }) {
+    return Column(
+      children: [
+        Text(
+          label,
+          textAlign: TextAlign.center,
+          style: GoogleFonts.roboto(
+            fontSize: 12,
+            fontWeight: FontWeight.w600,
+            color: accent,
           ),
-          Container(
-            width: 1,
-            height: 40,
-            color: Colors.grey[300],
+        ),
+        const SizedBox(height: 6),
+        Text(
+          value,
+          textAlign: TextAlign.center,
+          style: GoogleFonts.roboto(
+            fontSize: 13,
+            fontWeight: FontWeight.w700,
+            color: ProductivityLightTheme.ink,
           ),
-          // End Date
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              Text(
-                'END DATE',
-                style: GoogleFonts.poppins(
-                  fontSize: 12,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.red,
-                ),
-              ),
-              const SizedBox(height: 4),
-              Text(
-                _formatDate(task.dueDate),
-                style: GoogleFonts.poppins(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w700,
-                  color: Colors.grey[600],
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 
@@ -1258,7 +1222,7 @@ class _TaskDetailsScreenState extends State<TaskDetailsScreen> {
                 width: 16,
                 height: 16,
                 decoration: BoxDecoration(
-                  color: Colors.green,
+                  color: ProductivityLightTheme.progressFill,
                   shape: BoxShape.circle,
                   border: Border.all(color: Colors.white, width: 2),
                 ),
@@ -1280,165 +1244,6 @@ class _TaskDetailsScreenState extends State<TaskDetailsScreen> {
     return _buildAvatarForName(trimmed, size: 44);
   }
 
-  Widget _buildTaskMemberRow(TaskMember member, {required bool isAssigned}) {
-    return InkWell(
-      onTap: () => _toggleMemberCompletion(member, isAssigned),
-      borderRadius: BorderRadius.circular(14),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: Colors.grey[200]!, width: 1),
-        ),
-        child: Row(
-          children: [
-            Stack(
-              children: [
-                Container(
-                  width: 42,
-                  height: 42,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    border: Border.all(
-                      color:
-                          member.isCompleted ? Colors.green : Colors.grey[300]!,
-                      width: 2,
-                    ),
-                    color: Colors.grey[200],
-                  ),
-                  child: Center(
-                    child: Text(
-                      member.initials,
-                      style: GoogleFonts.poppins(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w600,
-                        color: Colors.grey[800],
-                      ),
-                    ),
-                  ),
-                ),
-                if (member.isCompleted)
-                  Positioned(
-                    right: 0,
-                    bottom: 0,
-                    child: Container(
-                      padding: const EdgeInsets.all(2),
-                      decoration: const BoxDecoration(
-                        color: Colors.green,
-                        shape: BoxShape.circle,
-                      ),
-                      child: const Icon(Icons.check,
-                          size: 12, color: Colors.white),
-                    ),
-                  ),
-              ],
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    member.name,
-                    style: GoogleFonts.poppins(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w600,
-                      color: Colors.black,
-                    ),
-                    maxLines: null,
-                    overflow: TextOverflow.visible,
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    member.isCompleted ? 'Completed' : 'Pending',
-                    style: GoogleFonts.poppins(
-                      fontSize: 11,
-                      color:
-                          member.isCompleted ? Colors.green : Colors.grey[600],
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(width: 8),
-            Icon(
-              member.isCompleted
-                  ? Icons.check_circle
-                  : Icons.radio_button_unchecked,
-              color: member.isCompleted ? Colors.green : Colors.grey[400],
-              size: 20,
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildMemberRow(String name) {
-    final trimmed = name.trim();
-    final firstName = trimmed.split(' ').first;
-    final parts = trimmed.split(' ').where((p) => p.isNotEmpty).toList();
-    final initials = parts.length >= 2
-        ? '${parts.first[0]}${parts.last[0]}'.toUpperCase()
-        : (trimmed.isNotEmpty ? trimmed[0].toUpperCase() : '');
-
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: Colors.grey[200]!, width: 1),
-      ),
-      child: Row(
-        children: [
-          Container(
-            width: 42,
-            height: 42,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              border: Border.all(color: Colors.grey[300]!, width: 2),
-              color: Colors.grey[200],
-            ),
-            child: Center(
-              child: Text(
-                initials,
-                style: GoogleFonts.poppins(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w600,
-                  color: Colors.grey[800],
-                ),
-              ),
-            ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Text(
-              trimmed,
-              style: GoogleFonts.poppins(
-                fontSize: 13,
-                fontWeight: FontWeight.w600,
-                color: Colors.black,
-              ),
-              maxLines: null,
-              overflow: TextOverflow.visible,
-            ),
-          ),
-          const SizedBox(width: 8),
-          Text(
-            firstName,
-            style: GoogleFonts.poppins(
-              fontSize: 11,
-              color: Colors.grey[600],
-            ),
-            maxLines: null,
-            overflow: TextOverflow.visible,
-          ),
-        ],
-      ),
-    );
-  }
-
   Widget _buildAttachmentsList(List<String> attachments) {
     return Wrap(
       spacing: 8,
@@ -1447,17 +1252,43 @@ class _TaskDetailsScreenState extends State<TaskDetailsScreen> {
           .map((attachment) => InkWell(
                 onTap: () => _openAttachment(attachment),
                 borderRadius: BorderRadius.circular(20),
-                child: Chip(
-                  label: Text(
-                    attachment,
-                    style: GoogleFonts.poppins(fontSize: 12),
-                    overflow: TextOverflow.visible,
+                child: Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: ProductivityLightTheme.iconChip,
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(color: ProductivityLightTheme.border),
                   ),
-                  avatar: Icon(Icons.attach_file, size: 16, color: Colors.blue),
-                  backgroundColor: Colors.blue.withOpacity(0.1),
-                  deleteIcon:
-                      Icon(Icons.open_in_new, size: 16, color: Colors.blue),
-                  onDeleted: () => _openAttachment(attachment),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(
+                        Icons.attach_file_rounded,
+                        size: 16,
+                        color: Color(0xFF4C8BF5),
+                      ),
+                      const SizedBox(width: 6),
+                      ConstrainedBox(
+                        constraints: const BoxConstraints(maxWidth: 180),
+                        child: Text(
+                          attachment,
+                          style: GoogleFonts.roboto(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w500,
+                            color: ProductivityLightTheme.ink,
+                          ),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                      const SizedBox(width: 6),
+                      const Icon(
+                        Icons.open_in_new_rounded,
+                        size: 14,
+                        color: ProductivityLightTheme.inkMuted,
+                      ),
+                    ],
+                  ),
                 ),
               ))
           .toList(),
@@ -1548,88 +1379,128 @@ class _TaskDetailsScreenState extends State<TaskDetailsScreen> {
     }
   }
 
-  Widget _buildSectionLabel(String label) {
-    final parts = label.split('\n');
-
-    if (parts.length > 1) {
-      return Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            parts[0],
-            style: GoogleFonts.poppins(
-              fontSize: 12,
-              fontWeight: FontWeight.w500,
-              color: Colors.grey[600],
-            ),
-          ),
-          Text(
-            parts[1],
-            style: GoogleFonts.poppins(
-              fontSize: 14,
-              fontWeight: FontWeight.bold,
-              color: Colors.black,
-            ),
-          ),
-        ],
-      );
-    } else {
-      return Text(
-        label,
-        style: GoogleFonts.poppins(
-          fontSize: 14,
-          fontWeight: FontWeight.bold,
-          color: Colors.black,
-        ),
-      );
+  Widget _buildLinkedTicketsSection(TodoModel task) {
+    final taskId = task.firebaseId;
+    if (taskId == null || taskId.isEmpty) {
+      return const SizedBox.shrink();
     }
-  }
-
-  Widget _buildBorderedFieldWithLabel(
-      {required String label, required Widget child}) {
-    final parts = label.split('\n');
-
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.grey[300]!, width: 1.5),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          if (parts.length > 1) ...[
-            Text(
-              parts[0],
-              style: GoogleFonts.poppins(
-                fontSize: 12,
-                fontWeight: FontWeight.w500,
-                color: Colors.grey[500],
+    return Consumer<TicketFirebaseProvider>(
+      builder: (context, ticketsProvider, _) {
+        final linked = ticketsProvider.ticketsForTask(taskId);
+        return Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: ProductivityLightTheme.card,
+            borderRadius:
+                BorderRadius.circular(ProductivityLightTheme.boxRadius),
+            border: Border.all(color: ProductivityLightTheme.border),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Row(
+                children: [
+                  Text(
+                    'Tickets (${linked.length})',
+                    style: GoogleFonts.roboto(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w700,
+                      color: ProductivityLightTheme.ink,
+                    ),
+                  ),
+                  const Spacer(),
+                  TextButton(
+                    onPressed: () {
+                      ProductivityNav.goAddTicket(
+                        context,
+                        parentTaskId: taskId,
+                        parentTaskTitle: task.title,
+                      );
+                    },
+                    style: TextButton.styleFrom(
+                      foregroundColor: const Color(0xFF4C8BF5),
+                      textStyle: GoogleFonts.roboto(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    child: const Text('Add ticket'),
+                  ),
+                ],
               ),
-            ),
-            Text(
-              parts[1],
-              style: GoogleFonts.poppins(
-                fontSize: 14,
-                fontWeight: FontWeight.bold,
-                color: Colors.black,
-              ),
-            ),
-          ] else ...[
-            Text(
-              label,
-              style: GoogleFonts.poppins(
-                fontSize: 14,
-                fontWeight: FontWeight.bold,
-                color: Colors.black,
-              ),
-            ),
-          ],
-          const SizedBox(height: 12),
-          child,
-        ],
-      ),
+              if (linked.isEmpty)
+                Text(
+                  'No tickets linked to this task',
+                  style: GoogleFonts.roboto(
+                    fontSize: 13,
+                    color: ProductivityLightTheme.inkMuted,
+                  ),
+                )
+              else
+                ...linked.map(
+                  (t) => InkWell(
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) =>
+                              TicketDetailsScreen(ticketId: t.firebaseId!),
+                        ),
+                      );
+                    },
+                    borderRadius: BorderRadius.circular(12),
+                    child: Container(
+                      margin: const EdgeInsets.only(top: 8),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 12,
+                      ),
+                      decoration: BoxDecoration(
+                        color: ProductivityLightTheme.iconChip,
+                        borderRadius: BorderRadius.circular(12),
+                        border:
+                            Border.all(color: ProductivityLightTheme.border),
+                      ),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  t.title,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: GoogleFonts.roboto(
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.w600,
+                                    color: ProductivityLightTheme.ink,
+                                  ),
+                                ),
+                                const SizedBox(height: 2),
+                                Text(
+                                  '${t.status.label} · ${t.priority.label}',
+                                  style: GoogleFonts.roboto(
+                                    fontSize: 12,
+                                    color: ProductivityLightTheme.inkMuted,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          const Icon(
+                            Icons.chevron_right_rounded,
+                            color: ProductivityLightTheme.inkMuted,
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+            ],
+          ),
+        );
+      },
     );
   }
 
@@ -1641,27 +1512,27 @@ class _TaskDetailsScreenState extends State<TaskDetailsScreen> {
           return Container(
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(16),
-              border:
-                  Border.all(color: Colors.blue.withOpacity(0.3), width: 1.5),
+              color: ProductivityLightTheme.card,
+              borderRadius:
+                  BorderRadius.circular(ProductivityLightTheme.boxRadius),
+              border: Border.all(color: ProductivityLightTheme.border),
             ),
             child: Row(
               children: [
-                SizedBox(
+                const SizedBox(
                   width: 20,
                   height: 20,
                   child: CircularProgressIndicator(
                     strokeWidth: 2,
-                    color: Colors.blue,
+                    color: Color(0xFF4C8BF5),
                   ),
                 ),
                 const SizedBox(width: 12),
                 Text(
                   'Loading linked report...',
-                  style: GoogleFonts.poppins(
+                  style: GoogleFonts.roboto(
                     fontSize: 14,
-                    color: Colors.grey[600],
+                    color: ProductivityLightTheme.inkSecondary,
                   ),
                 ),
               ],
@@ -1674,33 +1545,20 @@ class _TaskDetailsScreenState extends State<TaskDetailsScreen> {
         return Container(
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: Colors.blue.withOpacity(0.3), width: 1.5),
+            color: ProductivityLightTheme.card,
+            borderRadius:
+                BorderRadius.circular(ProductivityLightTheme.boxRadius),
+            border: Border.all(color: ProductivityLightTheme.border),
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Row(
-                children: [
-                  Icon(Icons.link, size: 18, color: Colors.blue[600]),
-                  const SizedBox(width: 8),
-                  Text(
-                    'Linked',
-                    style: GoogleFonts.poppins(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w500,
-                      color: Colors.grey[500],
-                    ),
-                  ),
-                ],
-              ),
               Text(
-                'Report',
-                style: GoogleFonts.poppins(
+                'Linked report',
+                style: GoogleFonts.roboto(
                   fontSize: 14,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.black,
+                  fontWeight: FontWeight.w700,
+                  color: ProductivityLightTheme.ink,
                 ),
               ),
               const SizedBox(height: 12),
@@ -1708,24 +1566,26 @@ class _TaskDetailsScreenState extends State<TaskDetailsScreen> {
                 onTap: report != null ? () => _openLinkedReport(report) : null,
                 borderRadius: BorderRadius.circular(12),
                 child: Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 14,
+                    vertical: 12,
+                  ),
                   decoration: BoxDecoration(
-                    color: Colors.blue.withOpacity(0.05),
+                    color: ProductivityLightTheme.iconChip,
                     borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: Colors.blue.withOpacity(0.2)),
+                    border: Border.all(color: ProductivityLightTheme.border),
                   ),
                   child: Row(
                     children: [
                       Container(
                         padding: const EdgeInsets.all(8),
                         decoration: BoxDecoration(
-                          color: Colors.blue.withOpacity(0.1),
+                          color: ProductivityLightTheme.washBlue,
                           borderRadius: BorderRadius.circular(8),
                         ),
-                        child: Icon(
+                        child: const Icon(
                           Icons.description_outlined,
-                          color: Colors.blue[700],
+                          color: Color(0xFF4C8BF5),
                           size: 20,
                         ),
                       ),
@@ -1736,29 +1596,26 @@ class _TaskDetailsScreenState extends State<TaskDetailsScreen> {
                           children: [
                             Text(
                               report?.name ?? 'Report #$reportId',
-                              style: GoogleFonts.poppins(
+                              style: GoogleFonts.roboto(
                                 fontSize: 14,
                                 fontWeight: FontWeight.w600,
-                                color: Colors.black87,
+                                color: ProductivityLightTheme.ink,
                               ),
-                              maxLines: null,
-                              overflow: TextOverflow.visible,
                             ),
                             if (report != null)
                               Text(
                                 'Created: ${DateFormat('dd MMM yyyy').format(report.createdAt)}',
-                                style: GoogleFonts.poppins(
+                                style: GoogleFonts.roboto(
                                   fontSize: 11,
-                                  color: Colors.grey[500],
+                                  color: ProductivityLightTheme.inkMuted,
                                 ),
                               ),
                           ],
                         ),
                       ),
-                      Icon(
-                        Icons.arrow_forward_ios,
-                        size: 16,
-                        color: Colors.blue[400],
+                      const Icon(
+                        Icons.chevron_right_rounded,
+                        color: ProductivityLightTheme.inkMuted,
                       ),
                     ],
                   ),
@@ -1801,124 +1658,6 @@ class _TaskDetailsScreenState extends State<TaskDetailsScreen> {
     );
   }
 
-  Widget _buildTaskItem({
-    required IconData icon,
-    required Color iconColor,
-    required String title,
-    required bool isCompleted,
-  }) {
-    return Row(
-      children: [
-        Icon(icon, color: iconColor, size: 24),
-        SizedBox(width: 12),
-        Expanded(
-          child: Text(
-            title,
-            style: TextStyle(
-              fontSize: 14,
-              color: Colors.black87,
-              fontWeight: FontWeight.w500,
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildAttachmentIcon(IconData icon, Color color) {
-    return Container(
-      width: 48,
-      height: 48,
-      decoration: BoxDecoration(
-        shape: BoxShape.circle,
-        gradient: LinearGradient(
-          colors: [Color(0xFF8BC6EC), Color(0xFF9599E2)],
-          begin: Alignment.centerLeft,
-          end: Alignment.centerRight,
-        ),
-      ),
-      child: Icon(icon, color: Colors.white, size: 24),
-    );
-  }
-
-  Widget _buildAddButton() {
-    return Column(
-      children: [
-        DottedBorder(
-          borderType: BorderType.Circle,
-          color: Colors.black,
-          strokeWidth: 2,
-          dashPattern: [6, 4],
-          child: Container(
-            width: 40,
-            height: 40,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              color: Colors.white,
-            ),
-            child: Icon(Icons.add, size: 25, color: Colors.black),
-          ),
-        ),
-        const SizedBox(height: 4),
-        Text(
-          'Add',
-          style: GoogleFonts.poppins(
-            fontSize: 10,
-            color: Colors.black,
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildMemberAvatar(String name) {
-    // Get first name only
-    final firstName = name.split(' ').first;
-    // Get initials (first letters of first and last name)
-    final parts = name.trim().split(' ');
-    final initials = parts.length >= 2
-        ? '${parts.first[0]}${parts.last[0]}'.toUpperCase()
-        : (name.isNotEmpty ? name[0].toUpperCase() : '');
-
-    return Column(
-      children: [
-        Container(
-          width: 50,
-          height: 50,
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            border: Border.all(color: Colors.grey[300]!, width: 2),
-            color: Colors.grey[200],
-          ),
-          child: Center(
-            child: Text(
-              initials,
-              style: GoogleFonts.poppins(
-                fontSize: 18,
-                fontWeight: FontWeight.w600,
-                color: Colors.grey[700],
-              ),
-            ),
-          ),
-        ),
-        const SizedBox(height: 4),
-        SizedBox(
-          width: 60,
-          child: Text(
-            firstName,
-            style: GoogleFonts.poppins(
-              fontSize: 10,
-              color: Colors.grey[700],
-            ),
-            textAlign: TextAlign.center,
-            overflow: TextOverflow.visible,
-            maxLines: null,
-          ),
-        ),
-      ],
-    );
-  }
-
   Widget _buildCommentItem(Map<String, dynamic> commentData) {
     final name = commentData['author_name'] as String? ?? 'Unknown';
     final content = commentData['content'] as String? ?? '';
@@ -1937,7 +1676,7 @@ class _TaskDetailsScreenState extends State<TaskDetailsScreen> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         _buildCommentAvatar(displayName, authorPhoto, size: 40),
-        SizedBox(width: 12),
+        const SizedBox(width: 12),
         Expanded(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -1948,40 +1687,40 @@ class _TaskDetailsScreenState extends State<TaskDetailsScreen> {
                   Expanded(
                     child: Text(
                       displayName,
-                      style: TextStyle(
+                      style: GoogleFonts.roboto(
                         fontSize: 14,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.black,
+                        fontWeight: FontWeight.w700,
+                        color: ProductivityLightTheme.ink,
                       ),
-                      overflow: TextOverflow.visible,
                     ),
                   ),
                   Text(
                     time,
-                    style: TextStyle(
+                    style: GoogleFonts.roboto(
                       fontSize: 11,
-                      color: Colors.grey[600],
+                      color: ProductivityLightTheme.inkMuted,
                     ),
-                    textAlign: TextAlign.right,
                   ),
                 ],
               ),
-              SizedBox(height: 4),
+              const SizedBox(height: 6),
               if (isVoice)
-                // Voice comment with play button
                 GestureDetector(
                   onTap: () => _playVoiceComment(commentId, audioUrl),
                   child: Container(
-                    padding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 8,
+                    ),
                     decoration: BoxDecoration(
                       color: isCurrentlyPlaying
-                          ? Colors.green.withOpacity(0.1)
-                          : Colors.grey[100],
+                          ? ProductivityLightTheme.statusActiveBg
+                          : ProductivityLightTheme.iconChip,
                       borderRadius: BorderRadius.circular(20),
                       border: Border.all(
                         color: isCurrentlyPlaying
-                            ? Colors.green
-                            : Colors.grey[300]!,
+                            ? ProductivityLightTheme.progressFill
+                            : ProductivityLightTheme.border,
                       ),
                     ),
                     child: Row(
@@ -1993,38 +1732,40 @@ class _TaskDetailsScreenState extends State<TaskDetailsScreen> {
                               : Icons.play_circle_filled,
                           size: 28,
                           color: isCurrentlyPlaying
-                              ? Colors.green
-                              : Colors.grey[600],
+                              ? ProductivityLightTheme.progressFill
+                              : ProductivityLightTheme.inkSecondary,
                         ),
-                        SizedBox(width: 8),
+                        const SizedBox(width: 8),
                         Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              'Voice Message',
-                              style: GoogleFonts.poppins(
+                              'Voice message',
+                              style: GoogleFonts.roboto(
                                 fontSize: 12,
-                                fontWeight: FontWeight.w500,
-                                color: Colors.black87,
+                                fontWeight: FontWeight.w600,
+                                color: ProductivityLightTheme.ink,
                               ),
                             ),
                             Text(
                               duration,
-                              style: GoogleFonts.poppins(
+                              style: GoogleFonts.roboto(
                                 fontSize: 11,
-                                color: Colors.grey[600],
+                                color: ProductivityLightTheme.inkMuted,
                               ),
                             ),
                           ],
                         ),
                         if (isCurrentlyPlaying) ...[
-                          SizedBox(width: 12),
-                          SizedBox(
+                          const SizedBox(width: 12),
+                          const SizedBox(
                             width: 60,
                             child: LinearProgressIndicator(
-                              backgroundColor: Colors.grey[300],
-                              valueColor:
-                                  AlwaysStoppedAnimation<Color>(Colors.green),
+                              backgroundColor:
+                                  ProductivityLightTheme.progressTrack,
+                              valueColor: AlwaysStoppedAnimation<Color>(
+                                ProductivityLightTheme.progressFill,
+                              ),
                             ),
                           ),
                         ],
@@ -2033,12 +1774,12 @@ class _TaskDetailsScreenState extends State<TaskDetailsScreen> {
                   ),
                 )
               else
-                // Text comment
                 Text(
                   content,
-                  style: TextStyle(
+                  style: GoogleFonts.roboto(
                     fontSize: 13,
-                    color: Colors.black87,
+                    height: 1.4,
+                    color: ProductivityLightTheme.inkSecondary,
                   ),
                 ),
             ],

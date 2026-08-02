@@ -2,9 +2,8 @@ import 'package:el_race/ui/presentation/home_screen/data/widget_model.dart';
 import 'package:el_race/ui/presentation/home_screen/services/widget_service.dart';
 import 'package:el_race/ui/presentation/home_screen/widgets/card_tile.dart';
 import 'package:el_race/ui/presentation/home_screen/widgets/custom_bullet_point.dart';
+import 'package:el_race/ui/presentation/home_screen/widgets/home_productivity_navigation.dart';
 import 'package:el_race/ui/presentation/home_screen/widgets/tilting_card.dart';
-import 'package:el_race/ui/presentation/tasks/tasks_screen.dart';
-import 'package:el_race/utils/Util.dart';
 import 'package:el_race/utils/color_utils.dart';
 import 'package:el_race/utils/orientation_helper.dart';
 import 'package:flutter/material.dart';
@@ -58,7 +57,7 @@ class _AddWidgetDialogState extends State<AddWidgetDialog> {
     // Navigate to the widget screen based on widget id
     switch (widgetModel.id) {
       case 'todo_list':
-        Util.pushPage(const TasksScreen(), context);
+        HomeProductivityNavigation.openTaskManagement(context);
         break;
       // Add other cases as needed
       default:

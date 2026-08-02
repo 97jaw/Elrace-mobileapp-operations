@@ -232,6 +232,7 @@ class PresenceService {
   Future<void> dispose() async {
     _typingTimer?.cancel();
     _connectionSubscription?.cancel();
+    _connectionSubscription = null;
 
     if (_currentTypingChatId != null && _currentUid != null) {
       await _clearTyping(_currentTypingChatId!);
@@ -239,6 +240,11 @@ class PresenceService {
 
     await setOffline();
     _currentUid = null;
+    // Drop RTDB stream caches so logout doesn't keep permission-denied spam
+    // from chat list tiles that are still mounted briefly.
+    _presenceStreamCache.clear();
+    _typingStreamCache.clear();
+    _typingWithNamesStreamCache.clear();
   }
 
   /// Get current user UID
