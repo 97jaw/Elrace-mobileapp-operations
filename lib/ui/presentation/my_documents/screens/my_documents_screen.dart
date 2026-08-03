@@ -24,7 +24,7 @@ import 'package:intl/intl.dart';
 import 'package:dropdown_button2/dropdown_button2.dart';
 
 import '../../../widgets/custom_slider_button.dart';
-import 'attachment_viewer_screen.dart';
+import '../utils/document_attachment_opener.dart';
 import 'family_insurance_request_screen.dart';
 import 'family_documents_tab.dart';
 // Shared documents tab kept in codebase for later placement (hidden from My Documents UI).
@@ -180,127 +180,9 @@ class _MyDocumentsScreenState extends State<MyDocumentsScreen> {
     return int.tryParse(raw?.toString() ?? '');
   }
 
-  Future<Map<String, dynamic>> _fetchAttachmentDetails(
-      {required int attachmentId}) async {
-    final token = SharedPref.getLoginData().result?.token ?? '';
-    final url = Uri.parse('${UrlUtil.baseUrl}get_attachment_details');
-    final headers = {
-      'Content-Type': 'application/json',
-      'Accept': 'application/json',
-      'Authorization': 'Bearer $token',
-    };
-    final body = jsonEncode({
-      'jsonrpc': '2.0',
-      'params': {
-        'attachment_id': attachmentId,
-      },
-    });
-
-    // Backend expects GET (with JSON body) for this endpoint.
-    final request = http.Request('GET', url)
-      ..headers.addAll(headers)
-      ..body = body;
-    final streamed = await request.send();
-    final response = await http.Response.fromStream(streamed);
-
-    dynamic decoded;
-    try {
-      decoded = jsonDecode(response.body);
-    } catch (_) {
-      throw Exception(
-        'Failed to parse attachment details (HTTP ${response.statusCode}). '
-        'Body: ${response.body.substring(0, response.body.length < 400 ? response.body.length : 400)}',
-      );
-    }
-
-    if (response.statusCode != 200) {
-      throw Exception(
-        decoded is Map
-            ? (decoded['error']?.toString() ??
-                decoded['result']?['message']?.toString() ??
-                'Failed to load attachment details (HTTP ${response.statusCode})')
-            : 'Failed to load attachment details (HTTP ${response.statusCode})',
-      );
-    }
-
-    if (decoded is! Map) {
-      throw Exception('Invalid attachment details response');
-    }
-
-    final result = decoded['result'];
-    if (result == null || result['status'] != 'success') {
-      throw Exception(
-        result?['message']?.toString() ??
-            decoded['error']?.toString() ??
-            'Failed to load attachment details',
-      );
-    }
-
-    final data = result['data'];
-    if (data is! Map) {
-      throw Exception('Invalid attachment details response');
-    }
-
-    return Map<String, dynamic>.from(data as Map);
-  }
-
   Future<void> _openDocumentAttachment(Map<String, dynamic> document) async {
-    final attachmentId = _firstAttachmentIdAsInt(document);
-    if (attachmentId == null) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-            content: Text('No attachment available for this document')),
-      );
-      return;
-    }
-
     if (!mounted) return;
-    var loaderVisible = true;
-    void dismissLoader() {
-      if (!loaderVisible) return;
-      loaderVisible = false;
-      if (!mounted) return;
-      Navigator.of(context, rootNavigator: true).pop();
-    }
-
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (_) => const Center(child: CircularProgressIndicator()),
-    );
-
-    try {
-      final details = await _fetchAttachmentDetails(attachmentId: attachmentId);
-      final publicUrl = (details['public_url'] ?? '').toString();
-      final name =
-          (details['attachment_name'] ?? document['name'] ?? 'Attachment')
-              .toString();
-      final type = (details['attachment_type'] ?? '').toString().toLowerCase();
-
-      if (publicUrl.isEmpty) {
-        throw Exception('Attachment URL is empty');
-      }
-
-      dismissLoader();
-      if (!mounted) return;
-
-      await Navigator.of(context).push(
-        MaterialPageRoute(
-          builder: (_) => AttachmentViewerScreen(
-            publicUrl: publicUrl,
-            title: name,
-            attachmentType: type,
-          ),
-        ),
-      );
-    } catch (e) {
-      dismissLoader();
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(e.toString())),
-      );
-    }
+    await DocumentAttachmentOpener.open(context, document);
   }
 
   void _debugPrintBodyPreview(String body, {int maxChars = 4000}) {

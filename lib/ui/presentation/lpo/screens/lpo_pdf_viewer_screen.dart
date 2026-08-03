@@ -52,26 +52,83 @@ class _LpoPdfViewerScreenState extends State<LpoPdfViewerScreen> {
     }
   }
 
+  bool _isPdfBytes(Uint8List bytes) {
+    if (bytes.length < 4) return false;
+    return bytes[0] == 0x25 &&
+        bytes[1] == 0x50 &&
+        bytes[2] == 0x44 &&
+        bytes[3] == 0x46;
+  }
+
+  bool _looksLikeHtmlBytes(Uint8List bytes) {
+    if (bytes.isEmpty) return false;
+    final sampleLength = bytes.length < 64 ? bytes.length : 64;
+    final head = String.fromCharCodes(bytes.sublist(0, sampleLength))
+        .trimLeft()
+        .toLowerCase();
+    return head.startsWith('<!doctype') ||
+        head.startsWith('<html') ||
+        head.startsWith('<head') ||
+        head.startsWith('<body');
+  }
+
+  Future<http.Response> _fetchPdfResponse(String url) async {
+    final uri = Uri.parse(url);
+    final token = SharedPref.getLoginData().result?.token ?? '';
+    final authHeaders = <String, String>{
+      'Accept': 'application/pdf,*/*',
+      if (token.isNotEmpty) 'Authorization': 'Bearer $token',
+    };
+
+    // Prefer unauthenticated for public/report links; retry with Bearer.
+    var response = await http.get(uri, headers: const {'Accept': 'application/pdf,*/*'});
+    if (response.statusCode != 200 && token.isNotEmpty) {
+      response = await http.get(uri, headers: authHeaders);
+    }
+    return response;
+  }
+
   Future<void> _loadPdf() async {
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
     try {
-      final response = await http.get(Uri.parse(widget.pdfUrl));
-      if (response.statusCode == 200) {
-        final empId =
-            SharedPref.getLoginData().result?.data?.emp_id ?? '';
-        final Uint8List watermarked = empId.isNotEmpty
-            ? _addWatermarkToPdf(response.bodyBytes, empId)
-            : response.bodyBytes;
-        setState(() {
-          _pdfBytes = watermarked;
-          _loading = false;
-        });
-      } else {
+      final response = await _fetchPdfResponse(widget.pdfUrl);
+      if (response.statusCode != 200) {
         setState(() {
           _error = 'Failed to load PDF (HTTP ${response.statusCode})';
           _loading = false;
         });
+        return;
       }
+
+      final bytes = response.bodyBytes;
+      final ctype = (response.headers['content-type'] ?? '').toLowerCase();
+      if (bytes.isEmpty ||
+          ctype.contains('text/html') ||
+          ctype.contains('text/plain') ||
+          _looksLikeHtmlBytes(bytes) ||
+          !_isPdfBytes(bytes)) {
+        setState(() {
+          _error =
+              'Server did not return a valid PDF (HTTP ${response.statusCode}). '
+              'Please retry or open from ERP.';
+          _loading = false;
+        });
+        return;
+      }
+
+      final empId = SharedPref.getLoginData().result?.data?.emp_id ?? '';
+      final Uint8List watermarked =
+          empId.isNotEmpty ? _addWatermarkToPdf(bytes, empId) : bytes;
+      if (!mounted) return;
+      setState(() {
+        _pdfBytes = watermarked;
+        _loading = false;
+      });
     } catch (e) {
+      if (!mounted) return;
       setState(() {
         _error = 'Error loading PDF: $e';
         _loading = false;

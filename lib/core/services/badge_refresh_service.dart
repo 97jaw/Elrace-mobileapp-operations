@@ -1,3 +1,4 @@
+import 'package:el_race/core/services/app_icon_badge_service.dart';
 import 'package:el_race/core/services/approval_count_service.dart';
 import 'package:el_race/core/services/notification_storage_service.dart';
 import 'package:flutter/foundation.dart';
@@ -47,6 +48,10 @@ class BadgeRefreshService {
             .timeout(const Duration(seconds: 15), onTimeout: () => 0)
             .then((_) {}),
       ]);
+      // Align springboard badge even when local count did not change
+      // (clears stuck APNs badge:1 from older chat pushes).
+      final local = await NotificationStorageService.getLocalStoredCount();
+      await AppIconBadgeService.setCount(local, force: true);
     } catch (e) {
       debugPrint('BadgeRefreshService.refreshOnResume failed: $e');
     } finally {
