@@ -10,6 +10,7 @@ import 'package:el_race/ui/presentation/my_projects/domain/repositories/project_
 import 'package:el_race/ui/presentation/my_projects/presentation/models/projects_group_hub_filters.dart';
 import 'package:el_race/ui/presentation/my_projects/presentation/models/projects_list_context.dart';
 import 'package:el_race/ui/presentation/my_projects/presentation/utils/projects_group_hub_filter_applier.dart';
+import 'package:el_race/ui/presentation/my_projects/presentation/utils/projects_list_ordering.dart';
 import 'package:el_race/ui/presentation/my_projects/presentation/utils/projects_list_pagination.dart';
 
 class ProjectRepositoryImpl implements ProjectRepository {
@@ -189,6 +190,7 @@ class ProjectRepositoryImpl implements ProjectRepository {
     var entities = page.projects.map(_toEntity).toList(growable: false);
     entities = _applyHubFiltersIfNeeded(entities, hubFilters);
     entities = _applyBucketNameFilter(entities, bucketName, bucketContext);
+    entities = ProjectsListOrdering.sortEntitiesDesc(entities);
 
     return ProjectsPage(
       projects: entities,

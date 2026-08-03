@@ -126,14 +126,33 @@ class ProjectModel extends ProjectEntity {
       json['city_name'] ?? json['location_id'] ?? cityIdRaw,
     );
 
-    final partnerName = OdooFieldParsers.readString(
-      json['partner_name'] ?? json['partner_id'],
+    final partnerIdRaw =
+        json['partner_id'] ?? json['partner'] ?? json['client_id'];
+    final partnerId = OdooFieldParsers.parseMany2oneId(partnerIdRaw);
+    final partnerNameRaw = OdooFieldParsers.readString(
+      json['partner_name'] ??
+          json['client_name'] ??
+          json['customer_name'] ??
+          json['partner'] ??
+          OdooFieldParsers.parseMany2oneName(partnerIdRaw),
     );
+    // Strip accidental id-as-name (bare int partner_id → "12345").
+    final partnerName =
+        (partnerId != null && partnerNameRaw == partnerId.toString())
+            ? ''
+            : partnerNameRaw;
+
+    final projectId = OdooFieldParsers.parseId(
+          json['project_id'] ?? json['id'],
+        ) ??
+        0;
 
     return ProjectModel(
-      projectId: json['project_id'] ?? 0,
-      partnerId: json['partner_id'].toString(),
-      agreementId: json['agreement_id'].toString(),
+      projectId: projectId,
+      partnerId: partnerId?.toString() ?? '',
+      agreementId: OdooFieldParsers.readString(
+        json['agreement_id'] ?? json['agreement'],
+      ),
       woRefNo: json['wo_ref_no'] ?? '',
       name: json['name']?.toString() ?? '',
       woAmount: (json['wo_amount'] as num?)?.toDouble() ?? 0.0,

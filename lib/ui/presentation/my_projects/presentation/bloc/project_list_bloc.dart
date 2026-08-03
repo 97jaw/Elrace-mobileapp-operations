@@ -5,6 +5,7 @@ import 'package:el_race/ui/presentation/my_projects/domain/usecases/get_projects
 import 'package:el_race/ui/presentation/my_projects/domain/usecases/get_projects_usecase.dart';
 import 'package:el_race/ui/presentation/my_projects/presentation/bloc/project_list_event.dart';
 import 'package:el_race/ui/presentation/my_projects/presentation/bloc/project_list_state.dart';
+import 'package:el_race/ui/presentation/my_projects/presentation/utils/projects_list_ordering.dart';
 import 'package:el_race/ui/presentation/my_projects/presentation/utils/projects_list_pagination.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -95,7 +96,8 @@ class ProjectListBloc extends Bloc<ProjectListEvent, ProjectListState> {
     try {
       _serverPaginated = false;
       _serverHasMore = false;
-      _allProjects = await getProjectsUseCase();
+      _allProjects =
+          ProjectsListOrdering.sortEntitiesDesc(await getProjectsUseCase());
       projects = _allProjects;
       _resetClientPagination();
       emit(ProjectListLoaded());
@@ -176,9 +178,12 @@ class ProjectListBloc extends Bloc<ProjectListEvent, ProjectListState> {
       _serverHasMore = page.hasMore;
 
       if (isAppend) {
-        _allProjects = [..._allProjects, ...page.projects];
+        _allProjects = ProjectsListOrdering.sortEntitiesDesc([
+          ..._allProjects,
+          ...page.projects,
+        ]);
       } else {
-        _allProjects = page.projects;
+        _allProjects = ProjectsListOrdering.sortEntitiesDesc(page.projects);
       }
       projects = _allProjects;
       visibleProjects = List<ProjectEntity>.from(_allProjects);
@@ -199,7 +204,7 @@ class ProjectListBloc extends Bloc<ProjectListEvent, ProjectListState> {
     _serverHasMore = false;
     _lastFiltersEvent = null;
     _filtersLoading = false;
-    _allProjects = List<ProjectEntity>.from(event.projects);
+    _allProjects = ProjectsListOrdering.sortEntitiesDesc(event.projects);
     projects = _allProjects;
     _resetClientPagination();
     emit(ProjectListLoaded());

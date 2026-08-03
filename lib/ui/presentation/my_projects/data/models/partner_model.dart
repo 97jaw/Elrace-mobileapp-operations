@@ -1,5 +1,7 @@
 import 'package:el_race/ui/presentation/my_projects/data/models/project_model.dart';
 import 'package:el_race/ui/presentation/my_projects/domain/entities/partner_entity.dart';
+import 'package:el_race/ui/presentation/my_projects/presentation/utils/odoo_field_parsers.dart';
+import 'package:el_race/ui/presentation/my_projects/presentation/utils/projects_list_ordering.dart';
 
 class PartnerModel extends PartnerEntity {
   final List<ProjectModel> projects;
@@ -13,9 +15,28 @@ class PartnerModel extends PartnerEntity {
   });
 
   factory PartnerModel.fromJson(Map<String, dynamic> json) {
+    final partnerIdRaw = json['partner_id'] ?? json['partner'] ?? json['id'];
+    final partnerId = OdooFieldParsers.parseMany2oneId(partnerIdRaw) ?? 0;
+    final partnerName = OdooFieldParsers.readString(
+      json['partner_name'] ??
+          json['client_name'] ??
+          json['name'] ??
+          OdooFieldParsers.parseMany2oneName(partnerIdRaw),
+    );
+
     final projectsList = json['projects'] as List<dynamic>? ?? [];
-    final projects =
-        projectsList.map((project) => ProjectModel.fromJson(project)).toList();
+    final projects = ProjectsListOrdering.sortModelsDesc(
+      projectsList.map((project) {
+        final row = project is Map
+            ? Map<String, dynamic>.from(project)
+            : <String, dynamic>{};
+        row.putIfAbsent('partner_id', () => partnerId);
+        if (partnerName.isNotEmpty && partnerName != partnerId.toString()) {
+          row.putIfAbsent('partner_name', () => partnerName);
+        }
+        return ProjectModel.fromJson(row);
+      }),
+    );
 
     // Fix malformed photo URL from API (erp.elrace.compublic -> erp.elrace.com/public)
     String? iconUrl =
@@ -26,8 +47,8 @@ class PartnerModel extends PartnerEntity {
     }
 
     return PartnerModel(
-      id: json['partner_id'] ?? 0,
-      name: json['partner_name'] ?? '',
+      id: partnerId,
+      name: partnerName,
       icon: iconUrl,
       workOrdersCount: projects.length,
       projects: projects,

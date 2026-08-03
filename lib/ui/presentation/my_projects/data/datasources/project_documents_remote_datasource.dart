@@ -5,6 +5,7 @@ import 'package:el_race/ui/presentation/my_projects/data/models/project_document
 import 'package:el_race/ui/presentation/my_projects/presentation/models/project_document_hub_kind.dart';
 import 'package:el_race/ui/presentation/my_projects/presentation/models/projects_group_hub_filters.dart';
 import 'package:el_race/ui/presentation/my_projects/presentation/utils/projects_api_coordinator.dart';
+import 'package:el_race/ui/presentation/my_projects/presentation/utils/projects_list_ordering.dart';
 import 'package:el_race/utils/urll_utils.dart';
 import 'package:http/http.dart' as http;
 
@@ -107,6 +108,8 @@ class ProjectDocumentsRemoteDataSource {
             'keyword': keyword.trim(),
           'limit': limit,
           'offset': offset,
+          'order': ProjectsListOrdering.apiOrder,
+          'sort': 'desc',
         },
       ),
     );
@@ -114,11 +117,13 @@ class ProjectDocumentsRemoteDataSource {
     final result = decoded['result'] as Map<String, dynamic>?;
     final data = result?['data'] ?? decoded['data'];
     final map = Map<String, dynamic>.from(data as Map);
-    final list = (map['projects'] as List<dynamic>? ?? [])
-        .map((e) => ProjectDocumentFolderProject.fromJson(
-              Map<String, dynamic>.from(e as Map),
-            ))
-        .toList();
+    final list = ProjectsListOrdering.sortDocumentProjectsDesc(
+      (map['projects'] as List<dynamic>? ?? []).map(
+        (e) => ProjectDocumentFolderProject.fromJson(
+          Map<String, dynamic>.from(e as Map),
+        ),
+      ),
+    );
     final pagination = result?['pagination'] as Map<String, dynamic>?;
     final total = pagination?['total'] as int? ?? map['total'] as int? ?? list.length;
     final hasMore = pagination?['has_more'] as bool? ??
@@ -269,6 +274,8 @@ class ProjectDocumentsRemoteDataSource {
             'keyword': keyword.trim(),
           'limit': limit,
           'offset': offset,
+          'order': ProjectsListOrdering.apiOrder,
+          'sort': 'desc',
         },
       ),
     );
@@ -276,11 +283,13 @@ class ProjectDocumentsRemoteDataSource {
     final result = decoded['result'] as Map<String, dynamic>?;
     final data = result?['data'] ?? decoded['data'];
     final map = Map<String, dynamic>.from(data as Map);
-    final list = (map['projects'] as List<dynamic>? ?? [])
-        .map((e) => ProjectDocumentFolderProject.fromJson(
-              Map<String, dynamic>.from(e as Map),
-            ))
-        .toList();
+    final list = ProjectsListOrdering.sortDocumentProjectsDesc(
+      (map['projects'] as List<dynamic>? ?? []).map(
+        (e) => ProjectDocumentFolderProject.fromJson(
+          Map<String, dynamic>.from(e as Map),
+        ),
+      ),
+    );
     final pagination = result?['pagination'] as Map<String, dynamic>?;
     final total = pagination?['total'] as int? ?? map['total'] as int? ?? list.length;
     final hasMore = pagination?['has_more'] as bool? ??

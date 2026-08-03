@@ -1,10 +1,12 @@
 import 'package:el_race/core/utils/responsive_breakpoints.dart';
 import 'dart:convert';
+import 'dart:ui' as ui show TextDirection;
 
 import 'package:el_race/core/utils/shared_pref.dart';
 import 'package:el_race/ui/presentation/Email%20Approval/bloc/approval_bloc.dart';
 import 'package:el_race/ui/presentation/Email%20Approval/theme/approvals_overview_theme.dart';
 import 'package:el_race/ui/presentation/Email%20Approval/utils/approval_display_helpers.dart';
+import 'package:el_race/ui/presentation/Email%20Approval/utils/invoice_approval_display.dart';
 import 'package:el_race/ui/presentation/Email%20Approval/widgets/approval_action_buttons.dart';
 import 'package:el_race/ui/presentation/Email%20Approval/widgets/approval_rejected_banner.dart';
 import 'package:el_race/ui/widgets/contextual_glass_chrome_header.dart';
@@ -41,6 +43,8 @@ class _InvoiceDetailsScreenState extends State<InvoiceDetailsScreen> {
   bool _rejectedLocked = false;
 
   Map<String, dynamic> _formData = const {};
+  /// Filled when form only has project id/[id,name] without embedded wo_ref_no.
+  String _resolvedWoRefNo = '';
 
   bool get _isLocalFakeRequest =>
       widget.requestId == _localFakeInvoiceRequestId;
@@ -59,12 +63,17 @@ class _InvoiceDetailsScreenState extends State<InvoiceDetailsScreen> {
       'advance': '15000',
       'progress': '60000',
       'last_update': '2025-01-28',
+      'write_date': '2025-01-28 14:30:00',
       'retention': '-',
       'invoice_amount': '1000000',
       'completion': '85',
+      'work_done_percent': '85',
+      'work_done_amount': '60000',
+      'x_report_work_done_amount': '60000',
       'advance_percentage': '20%',
       'last_update_percentage': '30%',
       'retention_percentage': '10%',
+      'x_report_retention_amount': '0',
       'comment': '',
       'client_photo_url': '',
       'attachment_ids': ['1'],
@@ -82,6 +91,8 @@ class _InvoiceDetailsScreenState extends State<InvoiceDetailsScreen> {
     }
     if (widget.initialData != null) {
       _formData = Map<String, dynamic>.from(widget.initialData!);
+      // List payload may already include the project link — try early resolve.
+      _resolveWoRefFromLinkedProject();
     }
     _fetchInvoiceDetails();
   }
@@ -89,10 +100,18 @@ class _InvoiceDetailsScreenState extends State<InvoiceDetailsScreen> {
   String _safe(dynamic v, {String fallback = ''}) {
     if (v == null) return fallback;
     if (v == false || v == true) return fallback;
-    final s = v.toString();
+    final s = v.toString().trim();
     if (s.isEmpty) return fallback;
     final lower = s.toLowerCase();
-    if (lower == 'false' || lower == 'true' || lower == 'null') return fallback;
+    // API used to send literal "-" placeholders for missing finance fields.
+    if (lower == 'false' ||
+        lower == 'true' ||
+        lower == 'null' ||
+        lower == '-' ||
+        lower == 'n/a' ||
+        lower == 'none') {
+      return fallback;
+    }
     return s;
   }
 
@@ -131,7 +150,7 @@ class _InvoiceDetailsScreenState extends State<InvoiceDetailsScreen> {
   }
 
   /// Prefer incoming form_view values, but keep list-item values when Odoo
-  /// sends `false` / null for empty relational fields.
+  /// sends `false` / null / "-" for empty fields.
   Map<String, dynamic> _mergeFormView(
     Map<String, dynamic> existing,
     Map<String, dynamic> formView,
@@ -141,12 +160,26 @@ class _InvoiceDetailsScreenState extends State<InvoiceDetailsScreen> {
       if (value == null || value == false) {
         if (_odooDisplay(merged[key]).isNotEmpty) return;
       }
+      final incoming = _odooDisplay(value);
+      if (incoming.isEmpty && _odooDisplay(merged[key]).isNotEmpty) {
+        return;
+      }
       merged[key] = value;
     });
     return merged;
   }
 
+  /// `x_folder_count_project_id` → `project.project.wo_ref_no` (not project name).
+  String _woRefFromFolderProject(dynamic value) {
+    return InvoiceApprovalDisplay.woRefFromProjectLink(value);
+  }
+
   String _pickNestedWoRef(Map<String, dynamic> data) {
+    final fromFolderProject = _woRefFromFolderProject(
+      data['x_folder_count_project_id'],
+    );
+    if (fromFolderProject.isNotEmpty) return fromFolderProject;
+
     final direct = _pick([
       data['wo_ref_no'],
       data['wo_ref'],
@@ -159,6 +192,7 @@ class _InvoiceDetailsScreenState extends State<InvoiceDetailsScreen> {
       data['wo_order_number'],
       data['wo_name'],
       data['wo'],
+      data['w_o'],
       data['wo_no'],
       data['wono'],
       data['wo_no#'],
@@ -327,12 +361,246 @@ class _InvoiceDetailsScreenState extends State<InvoiceDetailsScreen> {
         _isLoading = false;
         _error = '';
       });
+      // form_view often sends x_folder_count_project_id as id or [id, name]
+      // without wo_ref_no — resolve from get_projects.
+      await _resolveWoRefFromLinkedProject();
     } catch (e) {
       if (!mounted) return;
       setState(() {
         _error = e.toString();
         _isLoading = false;
       });
+    }
+  }
+
+  String _deepFindWoRef(dynamic node, {int depth = 0}) {
+    if (depth > 6 || node == null) return '';
+    if (node is Map) {
+      final map = Map<dynamic, dynamic>.from(node);
+      for (final key in const [
+        'wo_ref_no',
+        'wo_ref',
+        'wo_ref_number',
+        'w_o',
+        'work_order_no',
+      ]) {
+        final direct = _safe(map[key]);
+        if (direct.isNotEmpty) return direct;
+      }
+      // Prefer linked project map before scanning everything.
+      for (final key in const [
+        'x_folder_count_project_id',
+        'project',
+        'project_id',
+      ]) {
+        if (!map.containsKey(key)) continue;
+        final nested = _woRefFromFolderProject(map[key]);
+        if (nested.isNotEmpty) return nested;
+        final deep = _deepFindWoRef(map[key], depth: depth + 1);
+        if (deep.isNotEmpty) return deep;
+      }
+      for (final value in map.values) {
+        final deep = _deepFindWoRef(value, depth: depth + 1);
+        if (deep.isNotEmpty) return deep;
+      }
+    } else if (node is List) {
+      for (final entry in node) {
+        final deep = _deepFindWoRef(entry, depth: depth + 1);
+        if (deep.isNotEmpty) return deep;
+      }
+    }
+    return '';
+  }
+
+  List<Map<String, dynamic>> _projectsFromGetProjectsResponse(dynamic decoded) {
+    if (decoded is! Map) return const [];
+    final result = decoded['result'];
+    dynamic data;
+    if (result is Map) {
+      data = result['data'] ?? result['projects'] ?? result['records'];
+      if (data == null && result['result'] is Map) {
+        final inner = result['result'] as Map;
+        data = inner['data'] ?? inner['projects'];
+      }
+    } else if (result is List) {
+      data = result;
+    }
+    if (data is Map) {
+      data = data['data'] ?? data['projects'] ?? data['records'];
+    }
+    if (data is! List) return const [];
+    return data
+        .whereType<Map>()
+        .map((e) => Map<String, dynamic>.from(e))
+        .toList(growable: false);
+  }
+
+  String _woFromProjectRow(Map<String, dynamic> map) {
+    return _safe(
+      map['wo_ref_no'] ??
+          map['wo_ref'] ??
+          map['wo_ref_number'] ??
+          map['w_o'] ??
+          map['wo_no'] ??
+          map['work_order_no'] ??
+          map['work_order'],
+    );
+  }
+
+  Future<String> _queryProjectsForWoRef({
+    required String token,
+    required Map<String, dynamic> params,
+    int? preferProjectId,
+    String preferProjectName = '',
+  }) async {
+    final body = jsonEncode({'jsonrpc': '2.0', 'params': params});
+    final request = http.Request(
+      'GET',
+      Uri.parse('https://erp.elrace.com/api/get_projects'),
+    )
+      ..headers.addAll({
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+        'Authorization': 'Bearer $token',
+      })
+      ..body = body;
+    final response = await http.Response.fromStream(await request.send());
+    debugPrint(
+      'INVOICE W.O get_projects status=${response.statusCode} params=$params',
+    );
+    if (response.statusCode != 200) return '';
+
+    final rows = _projectsFromGetProjectsResponse(jsonDecode(response.body));
+    debugPrint('INVOICE W.O get_projects rows=${rows.length}');
+    if (rows.isEmpty) return '';
+
+    String? byId;
+    String? byName;
+    String? firstWo;
+    final preferName = preferProjectName.trim().toLowerCase();
+
+    for (final map in rows) {
+      final wo = _woFromProjectRow(map);
+      if (wo.isEmpty) continue;
+      firstWo ??= wo;
+
+      final rowIds = <int?>[
+        _parsePositiveInt(map['id']),
+        _parsePositiveInt(map['project_id']),
+        InvoiceApprovalDisplay.projectIdFromLink(map['project_id']),
+      ].whereType<int>();
+      if (preferProjectId != null && rowIds.contains(preferProjectId)) {
+        byId = wo;
+        break;
+      }
+
+      final rowName =
+          _safe(map['name'] ?? map['project_name'] ?? map['display_name'])
+              .toLowerCase();
+      if (preferName.isNotEmpty &&
+          rowName.isNotEmpty &&
+          (rowName == preferName ||
+              rowName.contains(preferName) ||
+              preferName.contains(rowName))) {
+        byName ??= wo;
+      }
+    }
+
+    return byId ?? byName ?? ((rows.length == 1) ? (firstWo ?? '') : '');
+  }
+
+  Future<void> _resolveWoRefFromLinkedProject() async {
+    if (_resolvedWoRefNo.isNotEmpty) return;
+
+    final link = _formData['x_folder_count_project_id'] ??
+        widget.initialData?['x_folder_count_project_id'];
+
+    // 1) Embedded wo_ref_no on the project link / anywhere in form payload.
+    final embedded = _woRefFromFolderProject(link);
+    final deep = embedded.isNotEmpty
+        ? embedded
+        : _deepFindWoRef({
+            ..._formData,
+            if (widget.initialData != null) ...widget.initialData!,
+          });
+    if (deep.isNotEmpty) {
+      if (!mounted) return;
+      setState(() {
+        _resolvedWoRefNo = deep;
+        _formData = {
+          ..._formData,
+          'wo_ref_no': deep,
+        };
+      });
+      return;
+    }
+
+    final projectId = InvoiceApprovalDisplay.projectIdFromLink(link) ??
+        InvoiceApprovalDisplay.projectIdFromLink(_formData['project_id']) ??
+        InvoiceApprovalDisplay.projectIdFromLink(_formData['project']) ??
+        InvoiceApprovalDisplay.projectIdFromLink(
+            widget.initialData?['project_id']);
+
+    final projectName = _pick([
+      InvoiceApprovalDisplay.projectNameFromLink(link),
+      _formData['project_name'],
+      _formData['project_title'],
+      _formData['project'] is Map
+          ? (_formData['project'] as Map)['name']
+          : _formData['project'],
+      widget.initialData?['project_name'],
+      widget.initialData?['project_title'],
+    ]);
+
+    debugPrint(
+      '==== INVOICE W.O resolve ====\n'
+      'x_folder_count_project_id raw=$link\n'
+      'projectId=$projectId name="$projectName"\n'
+      'form keys=${_formData.keys.toList()}',
+    );
+    if (projectId == null && projectName.isEmpty) return;
+
+    final token = SharedPref.getLoginData().result?.token;
+    if (token == null || token.isEmpty) return;
+
+    try {
+      final attempts = <Map<String, dynamic>>[
+        if (projectId != null)
+          {'limit': 20, 'offset': 0, 'project_id': projectId, 'id': projectId},
+        if (projectName.isNotEmpty)
+          {
+            'limit': 20,
+            'offset': 0,
+            'keyword': projectName,
+            'name': projectName,
+            'search_name': projectName,
+          },
+        if (projectId != null)
+          {'limit': 50, 'offset': 0, 'keyword': '$projectId'},
+      ];
+
+      String found = '';
+      for (final params in attempts) {
+        found = await _queryProjectsForWoRef(
+          token: token,
+          params: params,
+          preferProjectId: projectId,
+          preferProjectName: projectName,
+        );
+        if (found.isNotEmpty) break;
+      }
+
+      debugPrint('INVOICE W.O resolved wo_ref_no="$found"');
+      if (found.isEmpty || !mounted) return;
+      setState(() {
+        _resolvedWoRefNo = found;
+        _formData = {
+          ..._formData,
+          'wo_ref_no': found,
+        };
+      });
+    } catch (e) {
+      debugPrint('INVOICE W.O resolve error: $e');
     }
   }
 
@@ -650,9 +918,8 @@ class _InvoiceDetailsScreenState extends State<InvoiceDetailsScreen> {
           ),
           SizedBox(width: 12.tw),
           Expanded(
-            child: Text(
-              _displayOrDash(projectName),
-              softWrap: true,
+            child: _TwoLineSlowSlideText(
+              text: _displayOrDash(projectName),
               style: GoogleFonts.poppins(
                 fontSize: 15.tsp,
                 fontWeight: FontWeight.w700,
@@ -957,6 +1224,12 @@ class _InvoiceDetailsScreenState extends State<InvoiceDetailsScreen> {
         ? Map<String, dynamic>.from(_formData['project_id'] as Map)
         : null;
     final workOrderNo = _pick([
+      // Related project.project on x_folder_count_project_id → wo_ref_no.
+      _resolvedWoRefNo,
+      _woRefFromFolderProject(_formData['x_folder_count_project_id']),
+      _woRefFromFolderProject(widget.initialData?['x_folder_count_project_id']),
+      _woRefFromFolderProject(projectMap?['x_folder_count_project_id']),
+      _woRefFromFolderProject(projectIdMap?['x_folder_count_project_id']),
       projectMap?['wo_ref_no'],
       projectMap?['wo_ref'],
       projectMap?['work_order'],
@@ -973,6 +1246,7 @@ class _InvoiceDetailsScreenState extends State<InvoiceDetailsScreen> {
       _formData['wo_order_number'],
       _formData['wo_name'],
       _formData['wo'],
+      _formData['w_o'],
       _formData['wo_no'],
       _formData['wono'],
       _formData['wo_no#'],
@@ -1004,28 +1278,82 @@ class _InvoiceDetailsScreenState extends State<InvoiceDetailsScreen> {
     ]));
 
     final completionRaw = _pick([
+      _formData['work_done_percent'],
+      _formData['work_done_percentage'],
+      _formData['progress_percent'],
+      _formData['progress_percentage'],
       _formData['completion'],
       _formData['completion_percentage'],
       _formData['completion_percent'],
-    ], fallback: '0');
+      widget.initialData?['work_done_percent'],
+      widget.initialData?['completion'],
+    ], fallback: '');
     final completionPercent = _parsePercent(completionRaw);
 
-    final advance = _formatAmount(_pick([_formData['advance']], fallback: '-'));
-    final progress = _formatAmount(_pick([_formData['progress']], fallback: '-'));
+    // Advance: amount preferred; percentage fallback (x_elrace_customer_invoices).
+    final advanceRaw = _pick([
+      _formData['advance'],
+      _formData['advance_amount'],
+      _formData['advance_deduction'],
+      _formData['advance_payment_amount'],
+      _formData['x_report_advance_amount'],
+      widget.initialData?['advance'],
+      widget.initialData?['advance_amount'],
+    ]);
+    final advance = advanceRaw.isNotEmpty
+        ? _formatAmount(advanceRaw)
+        : _displayOrDash(_pick([
+            _formData['advance_percentage'],
+            _formData['advance_percent'],
+            _formData['x_payment_percent'],
+            widget.initialData?['advance_percentage'],
+          ], fallback: '-'));
+
+    // Progress amount (cumulative work done value on certificate).
+    final progress = _formatAmount(_pick([
+      _formData['progress'],
+      _formData['progress_amount'],
+      _formData['x_report_work_done_amount'],
+      _formData['work_done_amount'],
+      _formData['x_work_done_amount'],
+      _formData['total_work_value'],
+      widget.initialData?['progress'],
+      widget.initialData?['work_done_amount'],
+    ], fallback: '-'));
+
+    // Last update = write_date from form_view.
     final lastUpdate = _formatDate(_pick([
+      _formData['write_date'],
+      widget.initialData?['write_date'],
+      _formData['__last_update'],
       _formData['last_update'],
       _formData['last_update_date'],
       _formData['last_updated'],
       _formData['last_updated_at'],
       _formData['date_last_update'],
-      _formData['__last_update'],
       _formData['updated_at'],
-      _formData['write_date'],
       widget.initialData?['last_update'],
-      widget.initialData?['write_date'],
       widget.initialData?['updated_at'],
     ], fallback: '-'));
-    final retention = _displayOrDash(_pick([_formData['retention']], fallback: '-'));
+
+    // Retention: report/certificate amount preferred.
+    final retentionRaw = _pick([
+      _formData['retention'],
+      _formData['retention_amount'],
+      _formData['retention_deduction'],
+      _formData['x_report_retention_amount'],
+      _formData['retention_fee'],
+      widget.initialData?['retention'],
+      widget.initialData?['retention_amount'],
+    ]);
+    final retention = retentionRaw.isNotEmpty
+        ? _formatAmount(retentionRaw)
+        : _displayOrDash(_pick([
+            _formData['retention_percentage'],
+            _formData['retention_percent'],
+            _formData['x_retention_deduction_percent'],
+            widget.initialData?['retention_percentage'],
+          ], fallback: '-'));
 
     final contractLpo = _pick([
       _formData['lpo_name'],
@@ -1200,5 +1528,205 @@ class _PiePercentPainter extends CustomPainter {
     return oldDelegate.percent != percent ||
         oldDelegate.fillColor != fillColor ||
         oldDelegate.baseColor != baseColor;
+  }
+}
+
+/// Max 2 lines. Line 1 stays fixed; if overflow, only line 2 slides horizontally.
+class _TwoLineSlowSlideText extends StatefulWidget {
+  const _TwoLineSlowSlideText({
+    required this.text,
+    required this.style,
+  });
+
+  final String text;
+  final TextStyle style;
+
+  @override
+  State<_TwoLineSlowSlideText> createState() => _TwoLineSlowSlideTextState();
+}
+
+class _TwoLineSlowSlideTextState extends State<_TwoLineSlowSlideText>
+    with SingleTickerProviderStateMixin {
+  AnimationController? _controller;
+  String _line1 = '';
+  String _line2 = '';
+  double _overflowX = 0;
+  double _lastWidth = 0;
+  String _lastText = '';
+  bool _useStaticTwoLines = true;
+
+  double get _lineHeight {
+    final size = widget.style.fontSize ?? 15;
+    final height = widget.style.height ?? 1.25;
+    return size * height;
+  }
+
+  double get _boxHeight => _lineHeight * 2;
+
+  @override
+  void dispose() {
+    _controller?.dispose();
+    super.dispose();
+  }
+
+  int _endOfFirstLine(TextPainter painter, double maxWidth) {
+    final metrics = painter.computeLineMetrics();
+    if (metrics.isEmpty) return widget.text.length;
+    final line = metrics.first;
+    final pos = painter.getPositionForOffset(
+      Offset(line.left + line.width - 0.001, line.baseline),
+    );
+    var end = pos.offset.clamp(0, widget.text.length);
+    // Prefer breaking after whitespace when possible.
+    if (end > 0 && end < widget.text.length) {
+      final ch = widget.text[end - 1];
+      if (ch != ' ' && ch != '\n') {
+        final space = widget.text.lastIndexOf(' ', end - 1);
+        if (space > 0) end = space + 1;
+      }
+    }
+    return end;
+  }
+
+  void _evaluate(double maxWidth) {
+    if (maxWidth <= 0) return;
+    if (maxWidth == _lastWidth && widget.text == _lastText) return;
+    _lastWidth = maxWidth;
+    _lastText = widget.text;
+
+    _controller?.dispose();
+    _controller = null;
+    _overflowX = 0;
+
+    final text = widget.text.trim();
+    if (text.isEmpty) {
+      _line1 = '';
+      _line2 = '';
+      _useStaticTwoLines = true;
+      if (mounted) setState(() {});
+      return;
+    }
+
+    final wrapped = TextPainter(
+      text: TextSpan(text: text, style: widget.style),
+      textDirection: ui.TextDirection.ltr,
+    )..layout(maxWidth: maxWidth);
+
+    final metrics = wrapped.computeLineMetrics();
+    if (metrics.length <= 2) {
+      // Fits in two lines — no animation.
+      _useStaticTwoLines = true;
+      _line1 = text;
+      _line2 = '';
+      if (mounted) setState(() {});
+      return;
+    }
+
+    // More than 2 lines: freeze line 1, marquee the remainder on line 2.
+    _useStaticTwoLines = false;
+    final end = _endOfFirstLine(wrapped, maxWidth);
+    _line1 = text.substring(0, end).trimRight();
+    _line2 = text.substring(end).trimLeft();
+
+    final line2Painter = TextPainter(
+      text: TextSpan(text: _line2, style: widget.style),
+      textDirection: ui.TextDirection.ltr,
+      maxLines: 1,
+    )..layout();
+    _overflowX =
+        (line2Painter.width - maxWidth).clamp(0.0, double.infinity);
+
+    if (_overflowX > 1) {
+      // ~22px/sec — slow horizontal ping-pong.
+      final seconds = (_overflowX / 22).clamp(4.0, 18.0);
+      _controller = AnimationController(
+        vsync: this,
+        duration: Duration(milliseconds: (seconds * 1000).round()),
+      )..repeat(reverse: true);
+    }
+
+    if (mounted) setState(() {});
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) _evaluate(constraints.maxWidth);
+        });
+
+        if (_useStaticTwoLines || _line2.isEmpty) {
+          return SizedBox(
+            height: _boxHeight,
+            width: constraints.maxWidth,
+            child: Align(
+              alignment: Alignment.centerLeft,
+              child: Text(
+                widget.text,
+                maxLines: 2,
+                softWrap: true,
+                overflow: TextOverflow.ellipsis,
+                style: widget.style,
+              ),
+            ),
+          );
+        }
+
+        return SizedBox(
+          height: _boxHeight,
+          width: constraints.maxWidth,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              SizedBox(
+                height: _lineHeight,
+                width: constraints.maxWidth,
+                child: Text(
+                  _line1,
+                  maxLines: 1,
+                  softWrap: false,
+                  overflow: TextOverflow.clip,
+                  style: widget.style,
+                ),
+              ),
+              SizedBox(
+                height: _lineHeight,
+                width: constraints.maxWidth,
+                child: ClipRect(
+                  child: _overflowX <= 1 || _controller == null
+                      ? Text(
+                          _line2,
+                          maxLines: 1,
+                          softWrap: false,
+                          overflow: TextOverflow.ellipsis,
+                          style: widget.style,
+                        )
+                      : AnimatedBuilder(
+                          animation: _controller!,
+                          builder: (context, child) {
+                            return Transform.translate(
+                              offset: Offset(
+                                -_overflowX * _controller!.value,
+                                0,
+                              ),
+                              child: child,
+                            );
+                          },
+                          child: Text(
+                            _line2,
+                            maxLines: 1,
+                            softWrap: false,
+                            overflow: TextOverflow.visible,
+                            style: widget.style,
+                          ),
+                        ),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
   }
 }

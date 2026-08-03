@@ -82,6 +82,10 @@ class _HrDetailsScreenState extends State<HrDetailsScreen> {
     'passport': 'Passport',
     'leave_encashment': 'Leave Encashment',
     'car_rent': 'Car Rent Request',
+    'death': 'Death Leave',
+    'compensation': 'Compensation Leave',
+    'emergency': 'Emergency Leave',
+    'unpaid': 'Unpaid Leave',
     'generic': 'HR Management',
   };
 
@@ -92,11 +96,23 @@ class _HrDetailsScreenState extends State<HrDetailsScreen> {
     'sick': 'sick',
     'maternity': 'maternity',
     'parental': 'parental',
+    'death': 'death',
+    'death_leave': 'death',
+    'compensation': 'compensation',
+    'compensation_leave': 'compensation',
+    'emergency': 'emergency',
+    'emergency_leave': 'emergency',
+    'unpaid': 'unpaid',
+    'unpaid_leave': 'unpaid',
     'annualleave_short': 'short',
     'annualleave_sick': 'sick',
     'annualleave_annual': 'annual',
     'annualleave_parental': 'parental',
     'annualleave_maternity': 'maternity',
+    'annualleave_death': 'death',
+    'annualleave_compensation': 'compensation',
+    'annualleave_emergency': 'emergency',
+    'annualleave_unpaid': 'unpaid',
     'clearance': 'clearance',
     'temp': 'temporary_permission',
     'effective_date': 'effective_date',
@@ -129,7 +145,30 @@ class _HrDetailsScreenState extends State<HrDetailsScreen> {
   String _safe(dynamic v, {String fallback = ''}) {
     if (v == null) return fallback;
     if (v == false || v == true) return fallback;
-    final s = v.toString();
+    // Odoo leave durations often arrive as int/double (e.g. 3 / 3.0).
+    if (v is num) {
+      if (v == v.roundToDouble()) return v.toInt().toString();
+      return v.toString();
+    }
+    if (v is List && v.isNotEmpty) {
+      if (v.length >= 2) {
+        final name = _safe(v[1]);
+        if (name.isNotEmpty) return name;
+      }
+      return _safe(v.first, fallback: fallback);
+    }
+    if (v is Map) {
+      return _pick([
+        v['requested_duration'],
+        v['duration'],
+        v['number_of_days'],
+        v['days'],
+        v['value'],
+        v['name'],
+        v['display_name'],
+      ], fallback: fallback);
+    }
+    final s = v.toString().trim();
     if (s.isEmpty) return fallback;
     final lower = s.toLowerCase();
     if (lower == 'false' || lower == 'true' || lower == 'null') return fallback;
@@ -142,6 +181,20 @@ class _HrDetailsScreenState extends State<HrDetailsScreen> {
       if (s.isNotEmpty) return s;
     }
     return fallback;
+  }
+
+  static const _durationFieldKeys = [
+    'requested_duration',
+    'duration',
+    'number_of_days',
+    'no_of_days',
+    'days',
+    'leave_days',
+    'number_of_days_display',
+  ];
+
+  String _pickDuration(List<Map<String, dynamic>> maps) {
+    return _pickFromMaps(maps, _durationFieldKeys);
   }
 
   Map<String, dynamic> _asMap(dynamic value) {
@@ -270,6 +323,10 @@ class _HrDetailsScreenState extends State<HrDetailsScreen> {
     if (n.contains('sim')) return 'sim';
     if (n.contains('sick')) return 'sick';
     if (n.contains('short')) return 'short';
+    if (n.contains('death')) return 'death';
+    if (n.contains('compensation')) return 'compensation';
+    if (n.contains('emergency')) return 'emergency';
+    if (n.contains('unpaid')) return 'unpaid';
     if (n.contains('annual')) return 'annual';
     if (n.contains('maternity')) return 'maternity';
     if (n.contains('parental')) return 'parental';
@@ -364,6 +421,29 @@ class _HrDetailsScreenState extends State<HrDetailsScreen> {
           ]),
           const _FieldDef('End Date', ['-']),
           const _FieldDef('Leave Balance', ['-']),
+        ]);
+      case 'death':
+      case 'compensation':
+      case 'emergency':
+      case 'unpaid':
+        return makeItems([
+          ...common,
+          const _FieldDef('Start Date', ['start_date', 'request_date_from']),
+          const _FieldDef('End Date', ['end_date', 'request_date_to']),
+          const _FieldDef('Duration', [
+            'requested_duration',
+            'duration',
+            'number_of_days',
+            'no_of_days',
+            'days',
+            'leave_days',
+          ]),
+          const _FieldDef('Leave Balance', [
+            'leave_balance',
+            'remaining_leave_days',
+            'balance_leave',
+          ]),
+          const _FieldDef('Reason', ['note', 'description'], multiline: true),
         ]);
       case 'annual':
         final annualItems = makeItems([
@@ -1168,6 +1248,11 @@ class _HrDetailsScreenState extends State<HrDetailsScreen> {
     return raw;
   }
 
+  bool _isDurationFieldLabel(String label) {
+    final normalized = label.trim().toLowerCase();
+    return normalized == 'duration' || normalized == 'duration time';
+  }
+
   Widget _simSectionCard({
     required String title,
     required List<_DetailItem> items,
@@ -1216,10 +1301,8 @@ class _HrDetailsScreenState extends State<HrDetailsScreen> {
                         child: _themeDetailCell(
                           item.label,
                           item.value,
-                          highlight: item.highlight ||
-                              item.label == 'Suggested Increment' ||
-                              item.label == 'Suggested By Manager' ||
-                              item.label == 'New Salary',
+                          // Form view: only Duration values use red text.
+                          highlight: _isDurationFieldLabel(item.label),
                         ),
                       ),
                   ],
@@ -1265,7 +1348,7 @@ class _HrDetailsScreenState extends State<HrDetailsScreen> {
               fontSize: 11.tsp,
               fontWeight: FontWeight.w700,
               color: highlight
-                  ? ApprovalsOverviewTheme.invoice
+                  ? ApprovalsOverviewTheme.hr
                   : ApprovalsOverviewTheme.textDark,
             ),
           ),
@@ -1279,7 +1362,6 @@ class _HrDetailsScreenState extends State<HrDetailsScreen> {
     required String secondaryName,
     required String employeeImage,
     required String requestTitle,
-    required String branchName,
   }) {
     return OverviewGlassPanel(
       fillAlpha: 0.88,
@@ -1348,62 +1430,34 @@ class _HrDetailsScreenState extends State<HrDetailsScreen> {
                   ),
                 ],
                 SizedBox(height: 6.th),
-                Row(
-                  children: [
-                    Expanded(
-                      child: Container(
-                        padding: EdgeInsets.symmetric(
-                          horizontal: 8.tw,
-                          vertical: 5.th,
-                        ),
-                        decoration: BoxDecoration(
-                          color: ApprovalsOverviewTheme.screenTintMid
-                              .withValues(alpha: 0.75),
-                          borderRadius: BorderRadius.circular(16.tr),
-                        ),
-                        child: Text(
-                          requestTitle,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          textAlign: TextAlign.center,
-                          style: GoogleFonts.poppins(
-                            fontSize: 10.tsp,
-                            fontWeight: FontWeight.w700,
-                            color: ApprovalsOverviewTheme.textDark,
-                          ),
-                        ),
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: Container(
+                    padding: EdgeInsets.symmetric(
+                      horizontal: 10.tw,
+                      vertical: 5.th,
+                    ),
+                    decoration: BoxDecoration(
+                      // Same teal chip style previously used for city badge.
+                      gradient: const LinearGradient(
+                        colors: [
+                          ApprovalsOverviewTheme.screenMid,
+                          ApprovalsOverviewTheme.screenDeep,
+                        ],
+                      ),
+                      borderRadius: BorderRadius.circular(16.tr),
+                    ),
+                    child: Text(
+                      requestTitle,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: GoogleFonts.poppins(
+                        fontSize: 10.tsp,
+                        fontWeight: FontWeight.w700,
+                        color: Colors.white,
                       ),
                     ),
-                    SizedBox(width: 6.tw),
-                    Expanded(
-                      child: Container(
-                        padding: EdgeInsets.symmetric(
-                          horizontal: 8.tw,
-                          vertical: 5.th,
-                        ),
-                        decoration: BoxDecoration(
-                          gradient: const LinearGradient(
-                            colors: [
-                              ApprovalsOverviewTheme.screenMid,
-                              ApprovalsOverviewTheme.screenDeep,
-                            ],
-                          ),
-                          borderRadius: BorderRadius.circular(16.tr),
-                        ),
-                        child: Text(
-                          branchName,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          textAlign: TextAlign.center,
-                          style: GoogleFonts.poppins(
-                            fontSize: 10.tsp,
-                            fontWeight: FontWeight.w700,
-                            color: Colors.white,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
+                  ),
                 ),
               ],
             ),
@@ -1713,6 +1767,10 @@ class _HrDetailsScreenState extends State<HrDetailsScreen> {
     final isCarRentRequest = caseKey == 'car_rent';
     final isTransferRequest = caseKey == 'transfer';
     final isSickLeaveRequest = caseKey == 'sick';
+    final isDeathLeaveRequest = caseKey == 'death';
+    final isOtherLeaveRequest = caseKey == 'compensation' ||
+        caseKey == 'emergency' ||
+        caseKey == 'unpaid';
     final isClearanceRequest = caseKey == 'clearance';
     final isShortLeaveRequest = caseKey == 'short';
     final isTemporaryPermissionRequest = caseKey == 'temporary_permission';
@@ -1725,25 +1783,9 @@ class _HrDetailsScreenState extends State<HrDetailsScreen> {
     final isCertificateRequest =
         caseKey == 'salary_certificate' || caseKey == 'certificate_request';
     final isLoanRequest = caseKey == 'loan';
-    final isReferenceLayoutRequest = caseKey == 'sim' ||
-        isIncrementRequest ||
-        isAnnualLeaveRequest ||
-        isParentalLeaveRequest ||
-        isMaternityLeaveRequest ||
-        isPromotionRequest ||
-        isCarRentRequest ||
-        isTransferRequest ||
-        isSickLeaveRequest ||
-        isShortLeaveRequest ||
-        isClearanceRequest ||
-        isTemporaryPermissionRequest ||
-        isEffectiveDateRequest ||
-        isJobMissionRequest ||
-        isResignationRequest ||
-        isTerminationRequest ||
-        isLeaveEncashmentRequest ||
-        isCertificateRequest ||
-        isLoanRequest;
+    final isPassportRequest = caseKey == 'passport';
+    // One modern grid layout for every HR request type (incl. Death Leave).
+    final isReferenceLayoutRequest = true;
 
     final userId = ApprovalBloc.resolveActingUserId();
     final rejectionForm = <String, dynamic>{
@@ -1850,11 +1892,7 @@ class _HrDetailsScreenState extends State<HrDetailsScreen> {
         fallback: '-',
       ),
     );
-    final shortLeaveDuration = _pickFromMaps(
-      requestMaps,
-      ['requested_duration', 'duration', 'number_of_days'],
-      fallback: '-',
-    );
+    final shortLeaveDuration = _pickDuration(requestMaps);
     final shortLeaveBalance = _pickFromMaps(
       requestMaps,
       [
@@ -1880,11 +1918,7 @@ class _HrDetailsScreenState extends State<HrDetailsScreen> {
         fallback: '-',
       ),
     );
-    final annualLeaveDuration = _pickFromMaps(
-      requestMaps,
-      ['requested_duration', 'duration', 'number_of_days'],
-      fallback: '-',
-    );
+    final annualLeaveDuration = _pickDuration(requestMaps);
     final annualLeaveBalance = _pickFromMaps(
       requestMaps,
       ['leave_balance', 'remaining_leave_days', 'balance_leave'],
@@ -1914,11 +1948,7 @@ class _HrDetailsScreenState extends State<HrDetailsScreen> {
         fallback: '-',
       ),
     );
-    final parentalLeaveDuration = _pickFromMaps(
-      requestMaps,
-      ['requested_duration', 'duration', 'number_of_days'],
-      fallback: '-',
-    );
+    final parentalLeaveDuration = _pickDuration(requestMaps);
     final promotionEffectiveDate = _formatDateForDisplay(
       _pickFromMaps(
         requestMaps,
@@ -2005,11 +2035,7 @@ class _HrDetailsScreenState extends State<HrDetailsScreen> {
         fallback: '-',
       ),
     );
-    final maternityLeaveDuration = _pickFromMaps(
-      requestMaps,
-      ['requested_duration', 'duration', 'number_of_days'],
-      fallback: '-',
-    );
+    final maternityLeaveDuration = _pickDuration(requestMaps);
     final maternityLeaveAvailableDays = _pickFromMaps(
       requestMaps,
       ['available_days'],
@@ -2128,6 +2154,20 @@ class _HrDetailsScreenState extends State<HrDetailsScreen> {
       ['company_no', 'company_number', 'companyno', 'compnay_no'],
       fallback: '-',
     );
+    final passportNo = _pickFromMaps(
+      requestMaps,
+      ['passport_no', 'passport_number'],
+      fallback: '-',
+    );
+    final passportIssueDate = _formatDateForDisplay(
+      _pickFromMaps(requestMaps, ['issue_date'], fallback: '-'),
+    );
+    final passportExpiryDate = _formatDateForDisplay(
+      _pickFromMaps(requestMaps, ['expiry_date'], fallback: '-'),
+    );
+    final passportReturnDate = _formatDateForDisplay(
+      _pickFromMaps(requestMaps, ['return_date'], fallback: '-'),
+    );
     final certificateType = _pickFromMaps(
       requestMaps,
       ['certificate_type', 'document_type'],
@@ -2202,11 +2242,6 @@ class _HrDetailsScreenState extends State<HrDetailsScreen> {
         ['last_work_date', 'end_date', 'expected_relieving_date'],
         fallback: '-',
       ),
-    );
-    final branchName = _pickFromMaps(
-      employeeMaps,
-      ['city_id', 'city', 'branch'],
-      fallback: '-',
     );
     final comment = _pickFromMaps(
       detailMaps,
@@ -2293,9 +2328,6 @@ class _HrDetailsScreenState extends State<HrDetailsScreen> {
                                         secondaryName: secondaryName,
                                         employeeImage: employeeImage,
                                         requestTitle: requestTitle,
-                                        branchName: branchName.isEmpty
-                                            ? '-'
-                                            : branchName,
                                       ),
                                     ),
                                     SizedBox(height: 6.th),
@@ -2965,20 +2997,82 @@ class _HrDetailsScreenState extends State<HrDetailsScreen> {
                                                                                                                                   lastWorkDate.isEmpty ? '-' : lastWorkDate,
                                                                                                                                 ),
                                                                                                                               ]
-                                                                                                                            : [
-                                                                                                                                _DetailItem(
-                                                                                                                                  'Requested By',
-                                                                                                                                  requestedBy.isEmpty ? '-' : requestedBy,
-                                                                                                                                ),
-                                                                                                                                _DetailItem(
-                                                                                                                                  'Company No.',
-                                                                                                                                  companyNo.isEmpty ? '-' : companyNo,
-                                                                                                                                ),
-                                                                                                                                _DetailItem(
-                                                                                                                                  'Request Date',
-                                                                                                                                  requestDate.isEmpty ? '-' : requestDate,
-                                                                                                                                ),
-                                                                                                                              ],
+                                                                                                                            : (isDeathLeaveRequest ||
+                                                                                                                                    isOtherLeaveRequest)
+                                                                                                                                ? [
+                                                                                                                                    _DetailItem(
+                                                                                                                                      'Requested By',
+                                                                                                                                      requestedBy.isEmpty ? '-' : requestedBy,
+                                                                                                                                    ),
+                                                                                                                                    _DetailItem(
+                                                                                                                                      'Request Date',
+                                                                                                                                      requestDate.isEmpty ? '-' : requestDate,
+                                                                                                                                    ),
+                                                                                                                                    _DetailItem(
+                                                                                                                                      'Start Date',
+                                                                                                                                      annualLeaveStartDate.isEmpty ? '-' : annualLeaveStartDate,
+                                                                                                                                      highlight: true,
+                                                                                                                                    ),
+                                                                                                                                    _DetailItem(
+                                                                                                                                      'End Date',
+                                                                                                                                      annualLeaveEndDate.isEmpty ? '-' : annualLeaveEndDate,
+                                                                                                                                      highlight: true,
+                                                                                                                                    ),
+                                                                                                                                    _DetailItem(
+                                                                                                                                      'Duration',
+                                                                                                                                      annualLeaveDuration.isEmpty ? '-' : annualLeaveDuration,
+                                                                                                                                      highlight: true,
+                                                                                                                                    ),
+                                                                                                                                    _DetailItem(
+                                                                                                                                      'Balance Leave',
+                                                                                                                                      annualLeaveBalance.isEmpty ? '-' : annualLeaveBalance,
+                                                                                                                                      highlight: true,
+                                                                                                                                    ),
+                                                                                                                                  ]
+                                                                                                                                : isPassportRequest
+                                                                                                                                    ? [
+                                                                                                                                        _DetailItem(
+                                                                                                                                          'Requested By',
+                                                                                                                                          requestedBy.isEmpty ? '-' : requestedBy,
+                                                                                                                                        ),
+                                                                                                                                        _DetailItem(
+                                                                                                                                          'Request Date',
+                                                                                                                                          requestDate.isEmpty ? '-' : requestDate,
+                                                                                                                                        ),
+                                                                                                                                        _DetailItem(
+                                                                                                                                          'Passport No',
+                                                                                                                                          passportNo.isEmpty ? '-' : passportNo,
+                                                                                                                                          highlight: true,
+                                                                                                                                        ),
+                                                                                                                                        _DetailItem(
+                                                                                                                                          'Issue Date',
+                                                                                                                                          passportIssueDate.isEmpty ? '-' : passportIssueDate,
+                                                                                                                                        ),
+                                                                                                                                        _DetailItem(
+                                                                                                                                          'Expiry Date',
+                                                                                                                                          passportExpiryDate.isEmpty ? '-' : passportExpiryDate,
+                                                                                                                                          highlight: true,
+                                                                                                                                        ),
+                                                                                                                                        _DetailItem(
+                                                                                                                                          'Return Date',
+                                                                                                                                          passportReturnDate.isEmpty ? '-' : passportReturnDate,
+                                                                                                                                          highlight: true,
+                                                                                                                                        ),
+                                                                                                                                      ]
+                                                                                                                                    : [
+                                                                                                                                        _DetailItem(
+                                                                                                                                          'Requested By',
+                                                                                                                                          requestedBy.isEmpty ? '-' : requestedBy,
+                                                                                                                                        ),
+                                                                                                                                        _DetailItem(
+                                                                                                                                          'Company No.',
+                                                                                                                                          companyNo.isEmpty ? '-' : companyNo,
+                                                                                                                                        ),
+                                                                                                                                        _DetailItem(
+                                                                                                                                          'Request Date',
+                                                                                                                                          requestDate.isEmpty ? '-' : requestDate,
+                                                                                                                                        ),
+                                                                                                                                      ],
                                                   ),
                                                   SizedBox(height: 6.tw),
                                                   _buildSimCommentCard(comment),

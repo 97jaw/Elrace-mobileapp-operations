@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:el_race/core/services/update_service.dart';
 import 'package:el_race/core/app_globals.dart' show appInitCompleter;
+import 'package:el_race/core/session/force_logout_guard.dart';
 import 'package:el_race/core/utils/shared_pref.dart';
 import 'package:el_race/firebase_service.dart';
 import 'package:el_race/ui/presentation/signin/sign_in_screen.dart';
@@ -252,7 +253,7 @@ class _SplashScreenState extends State<SplashScreen> {
     _doNavigate();
   }
 
-  void _doNavigate() {
+  Future<void> _doNavigate() async {
     if (!mounted) return;
     // Proxy for "first frame of HomeScreen/SignInScreen": this is the last
     // point splash_screen.dart controls before handing off navigation, since
@@ -272,6 +273,16 @@ class _SplashScreenState extends State<SplashScreen> {
       Util.fetchHomeScreenData(context);
 
       if (isAuthenticated) {
+        // Admin force-logout: block home until user re-logins.
+        final forced = await ForceLogoutGuard.instance.isForceLoggedOut();
+        if (!mounted) return;
+        if (forced) {
+          await ForceLogoutGuard.instance.presentForcedLogoutFlow(
+            context: context,
+          );
+          return;
+        }
+
         // Check if face registration is in progress or pending
         final isRegistrationInProgress =
             SharedPref().getPreferenceBoolean('isFaceRegistrationInProgress');

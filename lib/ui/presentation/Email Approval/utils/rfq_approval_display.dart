@@ -23,6 +23,22 @@ class RfqApprovalDisplay {
     ], fallback: 'RFQ');
   }
 
+  /// Waiting-list / detail work order number (ERP: w_o).
+  static String workOrderNumber(Map<dynamic, dynamic> item) {
+    return _pickDisplay(item, const [
+      'w_o',
+      'wo_ref_no',
+      'wo_ref',
+      'wo_ref_number',
+      'work_order_no',
+      'work_order_number',
+      'wo_no',
+      'wo',
+      'wo_name',
+      'work_order',
+    ]);
+  }
+
   static String formattedDate(Map<dynamic, dynamic> item) {
     return ApprovalDisplayHelpers.formatFullDateFromItem(item, _dateKeys);
   }
@@ -32,22 +48,55 @@ class RfqApprovalDisplay {
     return raw == 'DRAFT';
   }
 
-  static String _pick(
+  static String _displayValue(dynamic value) {
+    if (value == null || value == false || value == true) return '';
+    if (value is Map) {
+      return _pickDisplay(Map<dynamic, dynamic>.from(value), const [
+        'w_o',
+        'wo_ref_no',
+        'wo_ref',
+        'name',
+        'display_name',
+        'ref',
+      ]);
+    }
+    if (value is List && value.isNotEmpty) {
+      if (value.length >= 2) {
+        final name = value[1]?.toString().trim() ?? '';
+        if (name.isNotEmpty &&
+            name.toLowerCase() != 'null' &&
+            name.toLowerCase() != 'false') {
+          return name;
+        }
+      }
+      return _displayValue(value.first);
+    }
+    final str = value.toString().trim();
+    if (str.isEmpty ||
+        str.toLowerCase() == 'null' ||
+        str.toLowerCase() == 'false') {
+      return '';
+    }
+    return str;
+  }
+
+  static String _pickDisplay(
     Map<dynamic, dynamic> item,
     List<String> keys, {
     String fallback = '',
   }) {
     for (final key in keys) {
-      final value = item[key];
-      if (value == null || value == false || value == true) continue;
-      final str = value.toString().trim();
-      if (str.isEmpty ||
-          str.toLowerCase() == 'null' ||
-          str.toLowerCase() == 'false') {
-        continue;
-      }
-      return str;
+      final str = _displayValue(item[key]);
+      if (str.isNotEmpty) return str;
     }
     return fallback;
+  }
+
+  static String _pick(
+    Map<dynamic, dynamic> item,
+    List<String> keys, {
+    String fallback = '',
+  }) {
+    return _pickDisplay(item, keys, fallback: fallback);
   }
 }
