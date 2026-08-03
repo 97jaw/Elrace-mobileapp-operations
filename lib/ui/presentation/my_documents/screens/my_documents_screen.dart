@@ -1311,9 +1311,14 @@ class _MyDocumentsScreenState extends State<MyDocumentsScreen> {
       return;
     }
     if (action == 'update') {
+      final rawId = item['id'];
+      final documentId = rawId is int
+          ? rawId
+          : int.tryParse(rawId?.toString() ?? '');
       await _showDocumentDialogByType(
         type,
         fixedDocumentType: _documentNameForChange(item),
+        documentId: documentId,
       );
     }
   }
@@ -2245,6 +2250,7 @@ class _MyDocumentsScreenState extends State<MyDocumentsScreen> {
   Future<void> _showDocumentDialogByType(
     DocumentDialogType type, {
     String? fixedDocumentType,
+    int? documentId,
   }) async {
     final result = await showDialog(
       context: context,
@@ -2258,6 +2264,7 @@ class _MyDocumentsScreenState extends State<MyDocumentsScreen> {
           child: DocumentDialog(
             type: type,
             fixedDocumentType: fixedDocumentType,
+            documentId: documentId,
           ),
         );
       },
@@ -2678,10 +2685,18 @@ enum DocumentDialogType {
 }
 
 class DocumentDialog extends StatefulWidget {
-  const DocumentDialog({super.key, required this.type, this.fixedDocumentType});
+  const DocumentDialog({
+    super.key,
+    required this.type,
+    this.fixedDocumentType,
+    this.documentId,
+  });
 
   final DocumentDialogType type;
   final String? fixedDocumentType;
+
+  /// Existing `hr.employee.document` id when updating (not Add New).
+  final int? documentId;
 
   @override
   State<DocumentDialog> createState() => _DocumentDialogState();
@@ -2730,6 +2745,7 @@ class _DocumentDialogState extends State<DocumentDialog> {
   bool get _familyOnly => widget.type == DocumentDialogType.family;
   bool get _hasFixedDocumentType =>
       (widget.fixedDocumentType ?? '').trim().isNotEmpty;
+  bool get _isUpdate => (widget.documentId ?? 0) > 0;
   String get _fixedDocumentType => (widget.fixedDocumentType ?? '').trim();
 
   String get _dialogTitle {
@@ -3517,6 +3533,12 @@ class _DocumentDialogState extends State<DocumentDialog> {
       _showErrorDialog('Please attach a file.');
       return;
     }
+    if (_showIdAndExpiry && _isUpdate && _expiryDate == null) {
+      debugPrint('⛔ Update stopped: expiry date missing');
+      _sliderKey.currentState?.resetSlider();
+      _showErrorDialog('Please select a new expiry date.');
+      return;
+    }
 
     setState(() {
       _isUploading = true;
@@ -3592,9 +3614,15 @@ class _DocumentDialogState extends State<DocumentDialog> {
 
       params['document_type_id'] = documentTypeId;
 
+      final existingDocumentId = widget.documentId;
+      if (existingDocumentId != null && existingDocumentId > 0) {
+        params['document_id'] = existingDocumentId;
+      }
+
       final selectedDate = _expiryDate?.toIso8601String().split('T')[0];
       if (selectedDate != null && selectedDate.isNotEmpty) {
-        params['issue_date'] = selectedDate;
+        // Expiry only — previously both issue_date and expiry_date were set to
+        // the same value, which corrupted issue dates and confused status.
         params['expiry_date'] = selectedDate;
       }
 
