@@ -28,6 +28,8 @@ class ApprovalListAvatar extends StatefulWidget {
 class _ApprovalListAvatarState extends State<ApprovalListAvatar> {
   String _imageData = '';
   bool _loading = false;
+  bool _triedDetail = false;
+  bool _networkFallbackTried = false;
 
   @override
   void initState() {
@@ -41,25 +43,48 @@ class _ApprovalListAvatarState extends State<ApprovalListAvatar> {
     if (oldWidget.item != widget.item ||
         oldWidget.kind != widget.kind ||
         oldWidget.lazyLoadCategory != widget.lazyLoadCategory) {
+      _triedDetail = false;
+      _networkFallbackTried = false;
       _syncFromItem();
     }
   }
 
+  bool _needsDetailPhoto(String candidate) {
+    if (widget.lazyLoadCategory == null) return false;
+    if (candidate.isEmpty) return true;
+    return ApprovalDisplayHelpers.isSyntheticEmployeePublicUrl(candidate);
+  }
+
   void _syncFromItem() {
-    final next = ApprovalDisplayHelpers.pickImageUrl(widget.item, widget.kind);
-    setState(() => _imageData = next);
-    if (_imageData.isEmpty && widget.lazyLoadCategory != null) {
+    final explicit = ApprovalDisplayHelpers.pickImageUrl(
+      widget.item,
+      widget.kind,
+      allowIdFallback: false,
+    );
+    final provisional = explicit.isNotEmpty
+        ? explicit
+        : ApprovalDisplayHelpers.pickImageUrl(
+            widget.item,
+            widget.kind,
+            allowIdFallback: true,
+          );
+
+    setState(() => _imageData = provisional);
+    if (_needsDetailPhoto(provisional)) {
       _loadDetailPhoto();
     }
   }
 
-  Future<void> _loadDetailPhoto() async {
+  Future<void> _loadDetailPhoto({bool force = false}) async {
     if (_loading || widget.lazyLoadCategory == null || !mounted) return;
+    if (_triedDetail && !force) return;
+    _triedDetail = true;
     setState(() => _loading = true);
 
     final resolved = await ApprovalPhotoCache.resolve(
       widget.lazyLoadCategory!,
       widget.item,
+      preferDetailOverSynthetic: true,
     );
 
     if (!mounted) return;
@@ -74,12 +99,14 @@ class _ApprovalListAvatarState extends State<ApprovalListAvatar> {
   @override
   Widget build(BuildContext context) {
     var imageData = _imageData;
-    if (imageData.isEmpty && widget.lazyLoadCategory != null) {
+    if (widget.lazyLoadCategory != null) {
       final cached = ApprovalPhotoCache.cachedPhoto(
         widget.lazyLoadCategory!,
         widget.item,
       );
-      if (cached.isNotEmpty) {
+      if (cached.isNotEmpty &&
+          (imageData.isEmpty ||
+              ApprovalDisplayHelpers.isSyntheticEmployeePublicUrl(imageData))) {
         imageData = cached;
       }
     }
@@ -88,6 +115,13 @@ class _ApprovalListAvatarState extends State<ApprovalListAvatar> {
       imageData: imageData,
       size: widget.size,
       initials: widget.initials,
+      onNetworkError: widget.lazyLoadCategory == null
+          ? null
+          : () {
+              if (_loading || _networkFallbackTried) return;
+              _networkFallbackTried = true;
+              _loadDetailPhoto(force: true);
+            },
     );
   }
 }
