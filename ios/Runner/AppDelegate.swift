@@ -28,7 +28,54 @@ import UserNotifications
 
     application.registerForRemoteNotifications()
     GeneratedPluginRegistrant.register(with: self)
+    setupAppIconBadgeChannel()
     return super.application(application, didFinishLaunchingWithOptions: launchOptions)
+  }
+
+  private var didSetupAppIconBadgeChannel = false
+  private var appIconBadgeChannelRetries = 0
+
+  /// Syncs iOS springboard badge with Dart (clear on open/seen, match bell count).
+  private func setupAppIconBadgeChannel() {
+    if didSetupAppIconBadgeChannel { return }
+    guard let controller = window?.rootViewController as? FlutterViewController else {
+      appIconBadgeChannelRetries += 1
+      if appIconBadgeChannelRetries > 20 { return }
+      DispatchQueue.main.async { [weak self] in
+        self?.setupAppIconBadgeChannel()
+      }
+      return
+    }
+    didSetupAppIconBadgeChannel = true
+
+    let channel = FlutterMethodChannel(
+      name: "ae.elrace.mobile/app_icon_badge",
+      binaryMessenger: controller.binaryMessenger
+    )
+    channel.setMethodCallHandler { call, result in
+      guard call.method == "setBadge" else {
+        result(FlutterMethodNotImplemented)
+        return
+      }
+      let args = call.arguments as? [String: Any]
+      let count = max(0, (args?["count"] as? Int) ?? 0)
+      if #available(iOS 16.0, *) {
+        UNUserNotificationCenter.current().setBadgeCount(count) { error in
+          if let error = error {
+            result(FlutterError(
+              code: "badge",
+              message: error.localizedDescription,
+              details: nil
+            ))
+          } else {
+            result(nil)
+          }
+        }
+      } else {
+        UIApplication.shared.applicationIconBadgeNumber = count
+        result(nil)
+      }
+    }
   }
 
   override func application(

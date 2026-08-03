@@ -164,7 +164,7 @@ exports.onNewChatMessage = onDocumentCreated(
               title: title,
               body: body,
             },
-            badge: 1,
+            badge: 0,
             sound: "default",
             "mutable-content": 1,
             "content-available": 1,

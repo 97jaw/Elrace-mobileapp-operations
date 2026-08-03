@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import 'package:el_race/core/services/app_icon_badge_service.dart';
 import 'package:el_race/core/services/notification_api_service.dart';
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -43,6 +44,18 @@ class NotificationStorageService {
       return prefs.getInt(_unreadCountKey) ?? 0;
     } catch (_) {
       return 0;
+    }
+  }
+
+  static Future<void> _persistBadgeCount(int count) async {
+    final prefs = await SharedPreferences.getInstance();
+    final next = count < 0 ? 0 : count;
+    final previous = prefs.getInt(_unreadCountKey) ?? 0;
+    await prefs.setInt(_unreadCountKey, next);
+    // Keep springboard / launcher badge aligned with the in-app bell.
+    await AppIconBadgeService.setCount(next);
+    if (previous != next) {
+      onCountChanged?.call();
     }
   }
 
@@ -689,8 +702,10 @@ class NotificationStorageService {
       // briefly so a foreground FCM bump is not wiped before Odoo indexes.
       final next = remoteBadge > previous ? remoteBadge : previous;
       if (next != previous) {
-        await prefs.setInt(_unreadCountKey, next);
-        onCountChanged?.call();
+        await _persistBadgeCount(next);
+      } else {
+        // Still sync launcher badge (e.g. clear stuck APNs `badge: 1`).
+        await AppIconBadgeService.setCount(next, force: true);
       }
       return next;
     } catch (e) {
@@ -715,11 +730,7 @@ class NotificationStorageService {
     try {
       final prefs = await SharedPreferences.getInstance();
       final previous = prefs.getInt(_unreadCountKey) ?? 0;
-      final next = previous + by;
-      await prefs.setInt(_unreadCountKey, next);
-      if (previous != next) {
-        onCountChanged?.call();
-      }
+      await _persistBadgeCount(previous + by);
     } catch (_) {}
   }
 
@@ -727,12 +738,7 @@ class NotificationStorageService {
     try {
       final prefs = await SharedPreferences.getInstance();
       final previous = prefs.getInt(_unreadCountKey) ?? 0;
-      final next = previous - by;
-      final clamped = next < 0 ? 0 : next;
-      await prefs.setInt(_unreadCountKey, clamped);
-      if (previous != clamped) {
-        onCountChanged?.call();
-      }
+      await _persistBadgeCount(previous - by);
     } catch (_) {}
   }
 
@@ -855,13 +861,12 @@ class NotificationStorageService {
       }
 
       await prefs.setInt(_badgeUnreadBaselineKey, baseline);
-      await prefs.setInt(_unreadCountKey, 0);
+      await _persistBadgeCount(0);
       await prefs.setString(
         _badgeAckAtKey,
         DateTime.now().toUtc().toIso8601String(),
       );
       // knownIds kept for API compatibility; baseline is the source of truth.
-      onCountChanged?.call();
     } catch (_) {
       // Ignore badge-only failures.
     }
@@ -893,9 +898,8 @@ class NotificationStorageService {
       }
 
       await _saveStoredNotifications(notifications, prefs);
-      // Category clear should also clear the home bell.
-      await prefs.setInt(_unreadCountKey, 0);
-      onCountChanged?.call();
+      // Category clear should also clear the home bell + launcher badge.
+      await _persistBadgeCount(0);
 
       if (idsToSync.isNotEmpty) {
         _syncReadIdsToApiInBackground(idsToSync);
@@ -927,8 +931,7 @@ class NotificationStorageService {
       }
 
       await _saveStoredNotifications(notifications, prefs);
-      await prefs.setInt(_unreadCountKey, 0);
-      onCountChanged?.call();
+      await _persistBadgeCount(0);
 
       Future<void>(() async {
         await NotificationApiService.markAllAsRead();
@@ -1030,8 +1033,7 @@ class NotificationStorageService {
 
       final prefs = await SharedPreferences.getInstance();
       await prefs.remove(_notificationsKey);
-      await prefs.setInt(_unreadCountKey, 0);
-      onCountChanged?.call();
+      await _persistBadgeCount(0);
     } catch (_) {
       // Ignore failures.
     }

@@ -21,6 +21,7 @@ class MainActivity : FlutterFragmentActivity() {
 
     private val BATTERY_CHANNEL = "ae.elrace.mobile/battery_optimization"
     private val SYSTEM_UI_CHANNEL = "ae.elrace.mobile/system_ui"
+    private val APP_ICON_BADGE_CHANNEL = "ae.elrace.mobile/app_icon_badge"
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
@@ -58,6 +59,16 @@ class MainActivity : FlutterFragmentActivity() {
                         hideNavigationBarOnly()
                         result.success(true)
                     }
+                    else -> result.notImplemented()
+                }
+            }
+
+        // Launcher badge channel (parity with iOS). Android badges are OEM-
+        // specific; we acknowledge so Dart does not throw MissingPluginException.
+        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, APP_ICON_BADGE_CHANNEL)
+            .setMethodCallHandler { call, result ->
+                when (call.method) {
+                    "setBadge" -> result.success(null)
                     else -> result.notImplemented()
                 }
             }
