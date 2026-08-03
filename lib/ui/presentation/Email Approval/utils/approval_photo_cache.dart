@@ -59,16 +59,26 @@ abstract final class ApprovalPhotoCache {
 
   static Future<String> resolve(
     ApprovalListCategory category,
-    Map<dynamic, dynamic> item,
-  ) async {
+    Map<dynamic, dynamic> item, {
+    bool preferDetailOverSynthetic = false,
+  }) async {
     final kind = avatarKind(category);
-    final fromItem = ApprovalDisplayHelpers.pickImageUrl(item, kind);
-    if (fromItem.isNotEmpty) {
+    final fromItem = ApprovalDisplayHelpers.pickImageUrl(
+      item,
+      kind,
+      allowIdFallback: false,
+    );
+    if (fromItem.isNotEmpty &&
+        !ApprovalDisplayHelpers.isSyntheticEmployeePublicUrl(fromItem)) {
       return ApprovalDisplayHelpers.normalizeImageUrl(fromItem);
     }
 
     final id = item['id']?.toString().trim() ?? '';
-    if (id.isEmpty) return '';
+    if (id.isEmpty) {
+      return ApprovalDisplayHelpers.normalizeImageUrl(
+        ApprovalDisplayHelpers.pickImageUrl(item, kind, allowIdFallback: true),
+      );
+    }
 
     final key = _cacheKey(category, id);
     final cached = _cache[key];
@@ -83,8 +93,18 @@ abstract final class ApprovalPhotoCache {
       final resolved = await future;
       if (resolved.isNotEmpty) {
         _cache[key] = resolved;
+        return resolved;
       }
-      return resolved;
+      // Detail had no usable photo — fall back to synthetic public URL if any.
+      if (preferDetailOverSynthetic || fromItem.isEmpty) {
+        final fallback = ApprovalDisplayHelpers.pickImageUrl(
+          item,
+          kind,
+          allowIdFallback: true,
+        );
+        return ApprovalDisplayHelpers.normalizeImageUrl(fallback);
+      }
+      return ApprovalDisplayHelpers.normalizeImageUrl(fromItem);
     } finally {
       _inFlight.remove(key);
     }
@@ -106,10 +126,17 @@ abstract final class ApprovalPhotoCache {
         final current = index++;
         final item = items[current];
         final kind = avatarKind(category);
-        if (ApprovalDisplayHelpers.pickImageUrl(item, kind).isNotEmpty) {
+        final explicit = ApprovalDisplayHelpers.pickImageUrl(
+          item,
+          kind,
+          allowIdFallback: false,
+        );
+        // Still fetch when list only has a synthetic /public/employee/image/{id}.
+        if (explicit.isNotEmpty &&
+            !ApprovalDisplayHelpers.isSyntheticEmployeePublicUrl(explicit)) {
           continue;
         }
-        await resolve(category, item);
+        await resolve(category, item, preferDetailOverSynthetic: true);
       }
     }
 
@@ -202,7 +229,19 @@ abstract final class ApprovalPhotoCache {
         final merged = formView is Map
             ? Map<dynamic, dynamic>.from(formView)
             : Map<dynamic, dynamic>.from(map);
-        for (final key in const ['employee_info', 'request_info']) {
+        for (final key in const [
+          'employee_info',
+          'request_info',
+          'employee',
+          'requester',
+        ]) {
+          final nested = map[key] ?? merged[key];
+          if (nested is Map) {
+            merged.addAll(Map<dynamic, dynamic>.from(nested));
+          }
+        }
+        // Many2one employee payload: [id, name] has no photo; Map may.
+        for (final key in const ['employee_id', 'emp_id', 'requester_id']) {
           final nested = map[key] ?? merged[key];
           if (nested is Map) {
             merged.addAll(Map<dynamic, dynamic>.from(nested));

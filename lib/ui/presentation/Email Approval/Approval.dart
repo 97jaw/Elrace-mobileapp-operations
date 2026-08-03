@@ -193,10 +193,52 @@ class _ApprovalsScreenState extends State<ApprovalsScreen> {
         _enrichRfqListItem(map);
       } else if (categoryLabel == 'PETTY CASH') {
         _enrichPettyCashListItem(map);
+      } else if (categoryLabel == 'HR') {
+        _enrichHrListItem(map);
       }
 
       return map;
     }).toList(growable: false);
+  }
+
+  void _enrichHrListItem(Map<String, dynamic> map) {
+    final existing = ApprovalDisplayHelpers.pickImageUrl(
+      map,
+      ApprovalAvatarKind.employee,
+      allowIdFallback: false,
+    );
+    if (existing.isNotEmpty &&
+        !ApprovalDisplayHelpers.isSyntheticEmployeePublicUrl(existing)) {
+      map['emp_image_url'] =
+          ApprovalDisplayHelpers.normalizeImageUrl(existing);
+      return;
+    }
+
+    // Prefer hr.employee DB id (list used to omit this; emp_id is the code).
+    // Provisional only — list avatar still lazy-loads form_view photo.
+    final raw = map['employee_id'] ?? map['requester_id'];
+    int? parsed;
+    if (raw is int) {
+      parsed = raw;
+    } else if (raw is num) {
+      parsed = raw.toInt();
+    } else if (raw is List && raw.isNotEmpty) {
+      parsed = int.tryParse(raw.first.toString());
+    } else {
+      parsed = int.tryParse(raw?.toString() ?? '');
+    }
+    if (parsed != null && parsed > 0) {
+      map['emp_image_url'] =
+          ApprovalDisplayHelpers.employeePublicImageUrl(parsed);
+      return;
+    }
+
+    // Legacy list payloads only had /public/user/image/{userId} — keep as
+    // provisional so avatar still fetches get_hr_request_details.
+    if (existing.isNotEmpty) {
+      map['emp_image_url'] =
+          ApprovalDisplayHelpers.normalizeImageUrl(existing);
+    }
   }
 
   void _enrichInvoiceListItem(Map<String, dynamic> map) {

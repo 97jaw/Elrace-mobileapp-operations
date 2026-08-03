@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:el_race/core/app_globals.dart';
 import 'package:el_race/core/services/attendance_status_sync_service.dart';
 import 'package:el_race/core/services/badge_refresh_service.dart';
+import 'package:el_race/core/session/force_logout_guard.dart';
 import 'package:el_race/core/utils/shared_pref.dart';
 import 'package:el_race/data/services/prayer_audio_service.dart';
 import 'package:el_race/firebase_service.dart';
@@ -29,9 +30,9 @@ import 'package:flutter/widgets.dart';
 ///   any registered tier-2 listener (e.g. prayer-times recompute). Never
 ///   awaited by the UI.
 ///
-/// Deliberately NOT here:
-/// - `refreshRoles` / session refresh — roles come from the login payload
-///   only and refresh on re-login, per product decision (2026-07-20).
+/// Deliberately NOT here (except force-logout gate via session/refresh):
+/// - role refresh merge — roles come from the login payload and refresh on
+///   re-login, per product decision (2026-07-20).
 /// - GPS fetch and the location-services dialog — location is validated on
 ///   demand when the user opens check-in, not on every resume.
 /// - Chat presence — `ChatLifecycleObserver` stays independent because it
@@ -85,14 +86,21 @@ class ResumeCoordinator {
       // Foreground owns azan again — cancel OS schedules; timer plays once.
       unawaited(PrayerAudioService().enterForegroundMode());
       if (SharedPref.isUserAuthenticated()) {
-        unawaited(BadgeRefreshService.refreshOnResume());
-        // Keep Odoo expo_token fresh after long sessions / token rotation.
-        unawaited(FirebaseService.syncFcmTokenToOdoo());
+        unawaited(_runAuthenticatedTier1());
       }
     });
 
     // T2 — background work, never awaited by the UI.
     unawaited(_runTier2AfterDelay());
+  }
+
+  Future<void> _runAuthenticatedTier1() async {
+    // Admin force-logout first — skip resume APIs if session was killed.
+    await ForceLogoutGuard.instance.checkOnForeground();
+    if (!SharedPref.isUserAuthenticated()) return;
+    unawaited(BadgeRefreshService.refreshOnResume());
+    // Keep Odoo expo_token fresh after long sessions / token rotation.
+    unawaited(FirebaseService.syncFcmTokenToOdoo());
   }
 
   Future<void> _runTier2AfterDelay() async {

@@ -140,10 +140,27 @@ abstract final class ApprovalDisplayHelpers {
     if (normalized.endsWith('/false') ||
         normalized.contains('/image/false') ||
         normalized.contains('employee/image/false') ||
+        normalized.contains('user/image/false') ||
         normalized.contains('partner/image/false')) {
       return true;
     }
     return false;
+  }
+
+  /// Provisional list URL — often blank/404 while form_view has the real photo.
+  /// Includes `/public/user/image/{userId}` (HR list historically used this) and
+  /// `/public/employee/image/{empId}` (safe fallback that may still need detail).
+  static bool isSyntheticEmployeePublicUrl(String value) {
+    final trimmed = value.trim();
+    if (trimmed.isEmpty) return false;
+    return RegExp(
+      r'/public/(employee|user)/image/\d+/?$',
+      caseSensitive: false,
+    ).hasMatch(trimmed);
+  }
+
+  static String employeePublicImageUrl(int employeeId) {
+    return '$_erpBaseUrl/public/employee/image/$employeeId';
   }
 
   static String normalizeImageUrl(String raw) {
@@ -179,8 +196,9 @@ abstract final class ApprovalDisplayHelpers {
 
   static String pickImageUrl(
     Map<dynamic, dynamic> item,
-    ApprovalAvatarKind kind,
-  ) {
+    ApprovalAvatarKind kind, {
+    bool allowIdFallback = true,
+  }) {
     final keys = switch (kind) {
       ApprovalAvatarKind.vendor => const [
           'client_photo_url',
@@ -217,10 +235,10 @@ abstract final class ApprovalDisplayHelpers {
       ApprovalAvatarKind.employee =>
         const [
           'employeeImageUrl',
+          'employee_image',
           'reviewer_image',
           'emp_image_url',
           'requester_image',
-          'employee_image',
           'emp_image',
           'image_emp',
           'employee_img',
@@ -234,6 +252,11 @@ abstract final class ApprovalDisplayHelpers {
     for (final key in keys) {
       final candidate = _safeScalar(item[key]);
       if (candidate.isNotEmpty && !isInvalidImageValue(candidate)) {
+        // Do not treat synthetic public URLs as "real" payload photos when we
+        // are deciding whether to lazy-load form_view (they often 404).
+        if (!allowIdFallback && isSyntheticEmployeePublicUrl(candidate)) {
+          continue;
+        }
         return candidate;
       }
     }
@@ -261,6 +284,7 @@ abstract final class ApprovalDisplayHelpers {
           final nestedPhoto = pickImageUrl(
             nested.cast<dynamic, dynamic>(),
             ApprovalAvatarKind.vendor,
+            allowIdFallback: allowIdFallback,
           );
           if (nestedPhoto.isNotEmpty) return nestedPhoto;
         }
@@ -272,14 +296,33 @@ abstract final class ApprovalDisplayHelpers {
 
     if (kind == ApprovalAvatarKind.employee ||
         kind == ApprovalAvatarKind.pettyCashRequester) {
-      final employeeId = _readOdooId(
-        item['employee_id'] ??
-            item['emp_id'] ??
-            item['requester_id'] ??
-            item['user_id'],
-      );
-      if (employeeId != null) {
-        return '$_erpBaseUrl/public/employee/image/$employeeId';
+      for (final nestedKey in const [
+        'employee_info',
+        'employee',
+        'requester',
+        'emp',
+      ]) {
+        final nested = item[nestedKey];
+        if (nested is Map) {
+          final nestedPhoto = pickImageUrl(
+            nested.cast<dynamic, dynamic>(),
+            kind,
+            allowIdFallback: false,
+          );
+          if (nestedPhoto.isNotEmpty) return nestedPhoto;
+        }
+      }
+
+      if (allowIdFallback) {
+        final employeeId = _readOdooId(
+          item['employee_id'] ??
+              item['emp_id'] ??
+              item['requester_id'] ??
+              item['user_id'],
+        );
+        if (employeeId != null) {
+          return employeePublicImageUrl(employeeId);
+        }
       }
     }
 
@@ -359,6 +402,7 @@ abstract final class ApprovalDisplayHelpers {
     required String imageData,
     required double size,
     String? initials,
+    VoidCallback? onNetworkError,
   }) {
     Widget placeholder() {
       if (initials != null && initials.trim().isNotEmpty) {
@@ -412,7 +456,14 @@ abstract final class ApprovalDisplayHelpers {
           width: size,
           height: size,
           headers: headers,
-          errorBuilder: (_, __, ___) => placeholder(),
+          errorBuilder: (_, __, ___) {
+            if (onNetworkError != null) {
+              WidgetsBinding.instance.addPostFrameCallback((_) {
+                onNetworkError();
+              });
+            }
+            return placeholder();
+          },
         ),
       );
     }

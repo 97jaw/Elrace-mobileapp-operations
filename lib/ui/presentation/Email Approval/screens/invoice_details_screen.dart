@@ -63,12 +63,17 @@ class _InvoiceDetailsScreenState extends State<InvoiceDetailsScreen> {
       'advance': '15000',
       'progress': '60000',
       'last_update': '2025-01-28',
+      'write_date': '2025-01-28 14:30:00',
       'retention': '-',
       'invoice_amount': '1000000',
       'completion': '85',
+      'work_done_percent': '85',
+      'work_done_amount': '60000',
+      'x_report_work_done_amount': '60000',
       'advance_percentage': '20%',
       'last_update_percentage': '30%',
       'retention_percentage': '10%',
+      'x_report_retention_amount': '0',
       'comment': '',
       'client_photo_url': '',
       'attachment_ids': ['1'],
@@ -95,10 +100,18 @@ class _InvoiceDetailsScreenState extends State<InvoiceDetailsScreen> {
   String _safe(dynamic v, {String fallback = ''}) {
     if (v == null) return fallback;
     if (v == false || v == true) return fallback;
-    final s = v.toString();
+    final s = v.toString().trim();
     if (s.isEmpty) return fallback;
     final lower = s.toLowerCase();
-    if (lower == 'false' || lower == 'true' || lower == 'null') return fallback;
+    // API used to send literal "-" placeholders for missing finance fields.
+    if (lower == 'false' ||
+        lower == 'true' ||
+        lower == 'null' ||
+        lower == '-' ||
+        lower == 'n/a' ||
+        lower == 'none') {
+      return fallback;
+    }
     return s;
   }
 
@@ -137,7 +150,7 @@ class _InvoiceDetailsScreenState extends State<InvoiceDetailsScreen> {
   }
 
   /// Prefer incoming form_view values, but keep list-item values when Odoo
-  /// sends `false` / null for empty relational fields.
+  /// sends `false` / null / "-" for empty fields.
   Map<String, dynamic> _mergeFormView(
     Map<String, dynamic> existing,
     Map<String, dynamic> formView,
@@ -146,6 +159,10 @@ class _InvoiceDetailsScreenState extends State<InvoiceDetailsScreen> {
     formView.forEach((key, value) {
       if (value == null || value == false) {
         if (_odooDisplay(merged[key]).isNotEmpty) return;
+      }
+      final incoming = _odooDisplay(value);
+      if (incoming.isEmpty && _odooDisplay(merged[key]).isNotEmpty) {
+        return;
       }
       merged[key] = value;
     });
@@ -1261,28 +1278,82 @@ class _InvoiceDetailsScreenState extends State<InvoiceDetailsScreen> {
     ]));
 
     final completionRaw = _pick([
+      _formData['work_done_percent'],
+      _formData['work_done_percentage'],
+      _formData['progress_percent'],
+      _formData['progress_percentage'],
       _formData['completion'],
       _formData['completion_percentage'],
       _formData['completion_percent'],
-    ], fallback: '0');
+      widget.initialData?['work_done_percent'],
+      widget.initialData?['completion'],
+    ], fallback: '');
     final completionPercent = _parsePercent(completionRaw);
 
-    final advance = _formatAmount(_pick([_formData['advance']], fallback: '-'));
-    final progress = _formatAmount(_pick([_formData['progress']], fallback: '-'));
+    // Advance: amount preferred; percentage fallback (x_elrace_customer_invoices).
+    final advanceRaw = _pick([
+      _formData['advance'],
+      _formData['advance_amount'],
+      _formData['advance_deduction'],
+      _formData['advance_payment_amount'],
+      _formData['x_report_advance_amount'],
+      widget.initialData?['advance'],
+      widget.initialData?['advance_amount'],
+    ]);
+    final advance = advanceRaw.isNotEmpty
+        ? _formatAmount(advanceRaw)
+        : _displayOrDash(_pick([
+            _formData['advance_percentage'],
+            _formData['advance_percent'],
+            _formData['x_payment_percent'],
+            widget.initialData?['advance_percentage'],
+          ], fallback: '-'));
+
+    // Progress amount (cumulative work done value on certificate).
+    final progress = _formatAmount(_pick([
+      _formData['progress'],
+      _formData['progress_amount'],
+      _formData['x_report_work_done_amount'],
+      _formData['work_done_amount'],
+      _formData['x_work_done_amount'],
+      _formData['total_work_value'],
+      widget.initialData?['progress'],
+      widget.initialData?['work_done_amount'],
+    ], fallback: '-'));
+
+    // Last update = write_date from form_view.
     final lastUpdate = _formatDate(_pick([
+      _formData['write_date'],
+      widget.initialData?['write_date'],
+      _formData['__last_update'],
       _formData['last_update'],
       _formData['last_update_date'],
       _formData['last_updated'],
       _formData['last_updated_at'],
       _formData['date_last_update'],
-      _formData['__last_update'],
       _formData['updated_at'],
-      _formData['write_date'],
       widget.initialData?['last_update'],
-      widget.initialData?['write_date'],
       widget.initialData?['updated_at'],
     ], fallback: '-'));
-    final retention = _displayOrDash(_pick([_formData['retention']], fallback: '-'));
+
+    // Retention: report/certificate amount preferred.
+    final retentionRaw = _pick([
+      _formData['retention'],
+      _formData['retention_amount'],
+      _formData['retention_deduction'],
+      _formData['x_report_retention_amount'],
+      _formData['retention_fee'],
+      widget.initialData?['retention'],
+      widget.initialData?['retention_amount'],
+    ]);
+    final retention = retentionRaw.isNotEmpty
+        ? _formatAmount(retentionRaw)
+        : _displayOrDash(_pick([
+            _formData['retention_percentage'],
+            _formData['retention_percent'],
+            _formData['x_retention_deduction_percent'],
+            widget.initialData?['retention_percentage'],
+          ], fallback: '-'));
 
     final contractLpo = _pick([
       _formData['lpo_name'],
@@ -1460,7 +1531,7 @@ class _PiePercentPainter extends CustomPainter {
   }
 }
 
-/// Max 2 lines; if text needs more height, slowly slides vertically.
+/// Max 2 lines. Line 1 stays fixed; if overflow, only line 2 slides horizontally.
 class _TwoLineSlowSlideText extends StatefulWidget {
   const _TwoLineSlowSlideText({
     required this.text,
@@ -1477,9 +1548,12 @@ class _TwoLineSlowSlideText extends StatefulWidget {
 class _TwoLineSlowSlideTextState extends State<_TwoLineSlowSlideText>
     with SingleTickerProviderStateMixin {
   AnimationController? _controller;
-  double _overflow = 0;
+  String _line1 = '';
+  String _line2 = '';
+  double _overflowX = 0;
   double _lastWidth = 0;
   String _lastText = '';
+  bool _useStaticTwoLines = true;
 
   double get _lineHeight {
     final size = widget.style.fontSize ?? 15;
@@ -1495,25 +1569,76 @@ class _TwoLineSlowSlideTextState extends State<_TwoLineSlowSlideText>
     super.dispose();
   }
 
+  int _endOfFirstLine(TextPainter painter, double maxWidth) {
+    final metrics = painter.computeLineMetrics();
+    if (metrics.isEmpty) return widget.text.length;
+    final line = metrics.first;
+    final pos = painter.getPositionForOffset(
+      Offset(line.left + line.width - 0.001, line.baseline),
+    );
+    var end = pos.offset.clamp(0, widget.text.length);
+    // Prefer breaking after whitespace when possible.
+    if (end > 0 && end < widget.text.length) {
+      final ch = widget.text[end - 1];
+      if (ch != ' ' && ch != '\n') {
+        final space = widget.text.lastIndexOf(' ', end - 1);
+        if (space > 0) end = space + 1;
+      }
+    }
+    return end;
+  }
+
   void _evaluate(double maxWidth) {
     if (maxWidth <= 0) return;
     if (maxWidth == _lastWidth && widget.text == _lastText) return;
     _lastWidth = maxWidth;
     _lastText = widget.text;
 
-    final painter = TextPainter(
-      text: TextSpan(text: widget.text, style: widget.style),
+    _controller?.dispose();
+    _controller = null;
+    _overflowX = 0;
+
+    final text = widget.text.trim();
+    if (text.isEmpty) {
+      _line1 = '';
+      _line2 = '';
+      _useStaticTwoLines = true;
+      if (mounted) setState(() {});
+      return;
+    }
+
+    final wrapped = TextPainter(
+      text: TextSpan(text: text, style: widget.style),
       textDirection: ui.TextDirection.ltr,
     )..layout(maxWidth: maxWidth);
 
-    final overflow = (painter.height - _boxHeight).clamp(0.0, double.infinity);
-    _controller?.dispose();
-    _controller = null;
-    _overflow = overflow;
+    final metrics = wrapped.computeLineMetrics();
+    if (metrics.length <= 2) {
+      // Fits in two lines — no animation.
+      _useStaticTwoLines = true;
+      _line1 = text;
+      _line2 = '';
+      if (mounted) setState(() {});
+      return;
+    }
 
-    if (overflow > 1) {
-      // ~18px/sec — slow readable vertical slide, ping-pong.
-      final seconds = (overflow / 18).clamp(5.0, 16.0);
+    // More than 2 lines: freeze line 1, marquee the remainder on line 2.
+    _useStaticTwoLines = false;
+    final end = _endOfFirstLine(wrapped, maxWidth);
+    _line1 = text.substring(0, end).trimRight();
+    _line2 = text.substring(end).trimLeft();
+
+    final line2Painter = TextPainter(
+      text: TextSpan(text: _line2, style: widget.style),
+      textDirection: ui.TextDirection.ltr,
+      maxLines: 1,
+    )..layout();
+    _overflowX =
+        (line2Painter.width - maxWidth).clamp(0.0, double.infinity);
+
+    if (_overflowX > 1) {
+      // ~22px/sec — slow horizontal ping-pong.
+      final seconds = (_overflowX / 22).clamp(4.0, 18.0);
       _controller = AnimationController(
         vsync: this,
         duration: Duration(milliseconds: (seconds * 1000).round()),
@@ -1531,13 +1656,7 @@ class _TwoLineSlowSlideTextState extends State<_TwoLineSlowSlideText>
           if (mounted) _evaluate(constraints.maxWidth);
         });
 
-        final text = Text(
-          widget.text,
-          style: widget.style,
-          softWrap: true,
-        );
-
-        if (_overflow <= 1 || _controller == null) {
+        if (_useStaticTwoLines || _line2.isEmpty) {
           return SizedBox(
             height: _boxHeight,
             width: constraints.maxWidth,
@@ -1557,17 +1676,54 @@ class _TwoLineSlowSlideTextState extends State<_TwoLineSlowSlideText>
         return SizedBox(
           height: _boxHeight,
           width: constraints.maxWidth,
-          child: ClipRect(
-            child: AnimatedBuilder(
-              animation: _controller!,
-              builder: (context, child) {
-                return Transform.translate(
-                  offset: Offset(0, -_overflow * _controller!.value),
-                  child: child,
-                );
-              },
-              child: text,
-            ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              SizedBox(
+                height: _lineHeight,
+                width: constraints.maxWidth,
+                child: Text(
+                  _line1,
+                  maxLines: 1,
+                  softWrap: false,
+                  overflow: TextOverflow.clip,
+                  style: widget.style,
+                ),
+              ),
+              SizedBox(
+                height: _lineHeight,
+                width: constraints.maxWidth,
+                child: ClipRect(
+                  child: _overflowX <= 1 || _controller == null
+                      ? Text(
+                          _line2,
+                          maxLines: 1,
+                          softWrap: false,
+                          overflow: TextOverflow.ellipsis,
+                          style: widget.style,
+                        )
+                      : AnimatedBuilder(
+                          animation: _controller!,
+                          builder: (context, child) {
+                            return Transform.translate(
+                              offset: Offset(
+                                -_overflowX * _controller!.value,
+                                0,
+                              ),
+                              child: child,
+                            );
+                          },
+                          child: Text(
+                            _line2,
+                            maxLines: 1,
+                            softWrap: false,
+                            overflow: TextOverflow.visible,
+                            style: widget.style,
+                          ),
+                        ),
+                ),
+              ),
+            ],
           ),
         );
       },

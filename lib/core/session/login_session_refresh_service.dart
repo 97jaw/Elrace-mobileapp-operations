@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:el_race/core/hr_management/providers/hr_management_providers.dart';
+import 'package:el_race/core/session/force_logout_guard.dart';
 import 'package:el_race/core/utils/shared_pref.dart';
 import 'package:el_race/services/api_client.dart';
 import 'package:el_race/utils/di.dart';
@@ -46,7 +47,14 @@ class LoginSessionRefreshService {
       final result = payload['result'];
       if (result is! Map) return false;
 
-      if (result['success'] != true) return false;
+      if (result['success'] != true) {
+        final code = (result['code'] ?? '').toString().trim().toUpperCase();
+        if (code == 'FORCE_LOGOUT' || code == 'SESSION_EXPIRED') {
+          // ignore: unawaited_futures
+          ForceLogoutGuard.instance.presentForcedLogoutFlow();
+        }
+        return false;
+      }
       final data = result['data'];
       if (data is! Map) return false;
 
