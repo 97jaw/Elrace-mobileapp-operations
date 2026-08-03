@@ -105,6 +105,18 @@ abstract final class ProjectsGroupListBuilder {
     return list;
   }
 
+  static bool _isUsableClientName(String? name, int? id) {
+    final n = (name ?? '').trim();
+    if (n.isEmpty) return false;
+    if (id != null && n == id.toString()) return false;
+    if (n.toLowerCase().startsWith('client #') &&
+        id != null &&
+        n == 'Client #$id') {
+      return false;
+    }
+    return true;
+  }
+
   static List<ProjectManagerFilterItem> _byClient(
     List<ProjectModel> projects, {
     bool allowNameFallback = false,
@@ -112,13 +124,19 @@ abstract final class ProjectsGroupListBuilder {
     final nameToId = <String, int>{};
     for (final p in projects) {
       final id = OdooFieldParsers.parseId(p.partnerId);
-      final name = _norm(p.partnerName ?? p.partnerId);
-      if (id != null && id > 0 && name.isNotEmpty) {
+      final name = _norm(p.partnerName);
+      if (id != null &&
+          id > 0 &&
+          _isUsableClientName(p.partnerName, id) &&
+          name.isNotEmpty) {
         nameToId[name] = id;
       }
     }
     for (final p in projects) {
-      final name = _norm(p.partnerName ?? p.partnerId);
+      final name = _norm(p.partnerName);
+      if (!_isUsableClientName(p.partnerName, OdooFieldParsers.parseId(p.partnerId))) {
+        continue;
+      }
       if (name.isEmpty || nameToId.containsKey(name)) continue;
       nameToId[name] = -(name.hashCode.abs() + 1);
     }
@@ -127,8 +145,14 @@ abstract final class ProjectsGroupListBuilder {
 
     for (final p in projects) {
       var id = OdooFieldParsers.parseId(p.partnerId);
-      final name = (p.partnerName ?? p.partnerId).trim();
-      if (name.isEmpty) continue;
+      var name = (p.partnerName ?? '').trim();
+      if (!_isUsableClientName(name, id)) {
+        name = '';
+      }
+      if (name.isEmpty) {
+        if (id == null || id <= 0) continue;
+        name = 'Client #$id';
+      }
 
       if ((id == null || id <= 0) && allowNameFallback) {
         id = nameToId[_norm(name)];
@@ -140,7 +164,16 @@ abstract final class ProjectsGroupListBuilder {
         resolvedId,
         () => _Bucket(id: resolvedId, name: name, photoUrl: p.clientImageUrl),
       );
-      if (bucket.name.isEmpty) bucket.name = name;
+      if (!_isUsableClientName(bucket.name, resolvedId) &&
+          _isUsableClientName(name, resolvedId)) {
+        bucket.name = name;
+      } else if (bucket.name.isEmpty && name.isNotEmpty) {
+        bucket.name = name;
+      }
+      if ((bucket.photoUrl == null || bucket.photoUrl!.isEmpty) &&
+          (p.clientImageUrl != null && p.clientImageUrl!.isNotEmpty)) {
+        bucket.photoUrl = p.clientImageUrl;
+      }
       bucket.count++;
       bucket.touchDate(p.dateStart.isNotEmpty ? p.dateStart : p.date);
     }

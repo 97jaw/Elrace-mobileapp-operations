@@ -9,6 +9,7 @@ import 'package:el_race/ui/presentation/my_projects/data/models/project_expense_
 import 'package:el_race/ui/presentation/my_projects/data/models/project_financial_model.dart';
 import 'package:el_race/ui/presentation/my_projects/data/models/project_model.dart';
 import 'package:el_race/ui/presentation/my_projects/data/models/projects_paged_result.dart';
+import 'package:el_race/ui/presentation/my_projects/presentation/utils/odoo_field_parsers.dart';
 import 'package:el_race/ui/presentation/my_projects/presentation/utils/projects_api_coordinator.dart';
 import 'package:el_race/ui/presentation/my_projects/presentation/utils/projects_list_ordering.dart';
 import 'package:el_race/ui/presentation/my_projects/presentation/utils/projects_list_pagination.dart';
@@ -523,16 +524,35 @@ class ProjectRemoteDataSource implements ProjectRemoteDataSourceImpl {
       final partnerMap = Map<String, dynamic>.from(partnerData);
       final projectsList = partnerMap['projects'];
       if (projectsList is List) {
+        // Inherit partner/agreement labels when nested rows omit them.
+        final parentPartnerId =
+            partnerMap['partner_id'] ?? partnerMap['partner'];
+        final parentPartnerName = partnerMap['partner_name'] ??
+            partnerMap['client_name'] ??
+            OdooFieldParsers.parseMany2oneName(parentPartnerId);
+        final parentAgreement =
+            partnerMap['agreement_id'] ?? partnerMap['agreement'];
+        final parentPhoto =
+            partnerMap['icon'] ?? partnerMap['partner_photo'] ?? partnerMap['photo_url'];
+
         for (final projectJson in projectsList) {
-          if (projectJson is Map<String, dynamic>) {
-            allProjects.add(ProjectModel.fromJson(projectJson));
-          } else if (projectJson is Map) {
-            allProjects.add(
-              ProjectModel.fromJson(Map<String, dynamic>.from(projectJson)),
-            );
+          if (projectJson is! Map) continue;
+          final row = Map<String, dynamic>.from(projectJson);
+          row.putIfAbsent('partner_id', () => parentPartnerId);
+          if (parentPartnerName != null &&
+              parentPartnerName.toString().trim().isNotEmpty) {
+            row.putIfAbsent('partner_name', () => parentPartnerName);
           }
+          if (parentAgreement != null) {
+            row.putIfAbsent('agreement_id', () => parentAgreement);
+          }
+          if (parentPhoto != null) {
+            row.putIfAbsent('client_image', () => parentPhoto);
+          }
+          allProjects.add(ProjectModel.fromJson(row));
         }
-      } else if (partnerMap.containsKey('project_id')) {
+      } else if (partnerMap.containsKey('project_id') ||
+          partnerMap.containsKey('id')) {
         allProjects.add(ProjectModel.fromJson(partnerMap));
       }
     }
@@ -613,6 +633,10 @@ class ProjectRemoteDataSource implements ProjectRemoteDataSourceImpl {
       "offset": offset,
     };
     ProjectsListOrdering.applyApiOrderParams(params);
+    // Partner/agreement drill-down must stay newest-first even if a caller
+    // pre-seeded a conflicting order key.
+    params['order'] = ProjectsListOrdering.apiOrder;
+    params['sort'] = 'desc';
     if (keyword != null && keyword.trim().isNotEmpty) {
       params["keyword"] = keyword.trim();
     }
