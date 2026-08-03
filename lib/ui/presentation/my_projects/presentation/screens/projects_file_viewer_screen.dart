@@ -1,5 +1,4 @@
 import 'package:el_race/core/utils/responsive_breakpoints.dart';
-import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:el_race/core/utils/shared_pref.dart';
@@ -8,7 +7,6 @@ import 'package:el_race/ui/presentation/my_projects/presentation/theme/projects_
 import 'package:el_race/ui/presentation/my_projects/presentation/widgets/project_documents_marquee_title.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:http/http.dart' as http;
 import 'package:share_plus/share_plus.dart';
 import 'package:syncfusion_flutter_pdf/pdf.dart';
 import 'package:syncfusion_flutter_pdfviewer/pdfviewer.dart';
@@ -57,7 +55,10 @@ class _ProjectsFileViewerScreenState extends State<ProjectsFileViewerScreen> {
   void initState() {
     super.initState();
     final seeded = widget.initialBytes;
-    if (seeded != null && seeded.isNotEmpty) {
+    final seedOk = widget.mode == ProjectsFileViewerMode.pdf
+        ? DocumentAttachmentOpener.isPdfBytes(seeded)
+        : DocumentAttachmentOpener.isImageBytes(seeded);
+    if (seedOk && seeded != null && seeded.isNotEmpty) {
       _bytes = widget.mode == ProjectsFileViewerMode.pdf
           ? _maybeWatermark(seeded)
           : seeded;
@@ -71,74 +72,10 @@ class _ProjectsFileViewerScreenState extends State<ProjectsFileViewerScreen> {
     }
   }
 
-  Map<String, String> get _authHeaders {
-    final token = SharedPref.getLoginData().result?.token ?? '';
-    return {
-      'Accept': '*/*',
-      if (token.isNotEmpty) 'Authorization': 'Bearer $token',
-    };
-  }
-
   Uint8List _maybeWatermark(Uint8List pdfBytes) {
     final empId = SharedPref.getLoginData().result?.data?.emp_id ?? '';
     if (empId.isEmpty) return pdfBytes;
     return _addWatermarkToPdf(pdfBytes, empId);
-  }
-
-  Future<http.Response> _getUrl(String url, {required bool preferPublic}) async {
-    final uri = Uri.parse(url);
-    if (preferPublic) {
-      var response = await http.get(uri, headers: const {'Accept': '*/*'});
-      if (response.statusCode != 200) {
-        response = await http.get(uri, headers: _authHeaders);
-      }
-      return response;
-    }
-    var response = await http.get(uri, headers: _authHeaders);
-    if (response.statusCode != 200 && url.contains('/my/public/file/')) {
-      response = await http.get(uri, headers: const {'Accept': '*/*'});
-    }
-    return response;
-  }
-
-  Future<Uint8List?> _loadBytesFromAttachmentApi(int attachmentId) async {
-    final details = await DocumentAttachmentOpener.fetchAttachmentDetails(
-      attachmentId: attachmentId,
-    );
-    final binary = (details['attachment_binary_data'] ?? '').toString().trim();
-    if (binary.isEmpty) return null;
-    try {
-      return base64Decode(binary);
-    } catch (_) {
-      return null;
-    }
-  }
-
-  Future<Uint8List?> _loadBytesFromWebContent(int attachmentId) async {
-    final token = SharedPref.getLoginData().result?.token ?? '';
-    final urls = <String>[
-      if (token.isNotEmpty)
-        'https://erp.elrace.com/web/content/$attachmentId?download=true&access_token=$token',
-      'https://erp.elrace.com/web/content/$attachmentId?download=true',
-      'https://erp.elrace.com/web/content/ir.attachment/$attachmentId/datas?download=true',
-    ];
-    for (final url in urls) {
-      try {
-        final response = await http.get(
-          Uri.parse(url),
-          headers: _authHeaders,
-        );
-        if (response.statusCode == 200 && response.bodyBytes.isNotEmpty) {
-          final ctype = (response.headers['content-type'] ?? '').toLowerCase();
-          // Avoid treating HTML error pages as PDFs.
-          if (ctype.contains('text/html')) continue;
-          return response.bodyBytes;
-        }
-      } catch (_) {
-        // try next
-      }
-    }
-    return null;
   }
 
   Future<void> _loadPdf() async {
@@ -148,51 +85,22 @@ class _ProjectsFileViewerScreenState extends State<ProjectsFileViewerScreen> {
     });
 
     try {
-      Uint8List? bytes;
-      String? lastHttpError;
-
-      // 1) Public / provided URL
-      try {
-        final response = await _getUrl(
-          widget.fileUrl,
-          preferPublic: widget.preferUnauthenticated ||
-              widget.fileUrl.contains('/my/public/file/'),
-        );
-        if (response.statusCode == 200 && response.bodyBytes.isNotEmpty) {
-          final ctype = (response.headers['content-type'] ?? '').toLowerCase();
-          if (!ctype.contains('text/html') && !ctype.contains('text/plain')) {
-            bytes = response.bodyBytes;
-          } else {
-            lastHttpError = 'HTTP ${response.statusCode}';
-          }
-        } else {
-          lastHttpError = 'HTTP ${response.statusCode}';
-        }
-      } catch (e) {
-        lastHttpError = e.toString();
-      }
-
-      // 2) Authenticated API binary fallback
-      final attachmentId = widget.attachmentId;
-      if ((bytes == null || bytes.isEmpty) && attachmentId != null) {
-        try {
-          bytes = await _loadBytesFromAttachmentApi(attachmentId);
-        } catch (_) {
-          // continue
-        }
-      }
-
-      // 3) Odoo /web/content fallback
-      if ((bytes == null || bytes.isEmpty) && attachmentId != null) {
-        bytes = await _loadBytesFromWebContent(attachmentId);
-      }
+      final seeded =
+          DocumentAttachmentOpener.isPdfBytes(widget.initialBytes)
+              ? widget.initialBytes
+              : null;
+      final bytes = await DocumentAttachmentOpener.fetchAttachmentBytes(
+        attachmentId: widget.attachmentId,
+        publicUrl: widget.fileUrl,
+        seededBytes: seeded,
+        requirePreviewable: true,
+      );
 
       if (bytes == null || bytes.isEmpty) {
-        throw Exception(
-          lastHttpError == null
-              ? 'Failed to load file'
-              : 'Failed to load file ($lastHttpError)',
-        );
+        throw Exception('Failed to load file');
+      }
+      if (!DocumentAttachmentOpener.isPdfBytes(bytes)) {
+        throw Exception('Downloaded file is not a valid PDF');
       }
 
       final watermarked = _maybeWatermark(bytes);
@@ -205,7 +113,7 @@ class _ProjectsFileViewerScreenState extends State<ProjectsFileViewerScreen> {
     } catch (e) {
       if (!mounted) return;
       setState(() {
-        _error = e.toString();
+        _error = e.toString().replaceFirst(RegExp(r'^Exception:\s*'), '');
         _loading = false;
       });
     }
@@ -217,27 +125,16 @@ class _ProjectsFileViewerScreenState extends State<ProjectsFileViewerScreen> {
       _error = null;
     });
     try {
-      Uint8List? bytes;
-      try {
-        final response = await _getUrl(
-          widget.fileUrl,
-          preferPublic: widget.preferUnauthenticated ||
-              widget.fileUrl.contains('/my/public/file/'),
-        );
-        if (response.statusCode == 200 && response.bodyBytes.isNotEmpty) {
-          bytes = response.bodyBytes;
-        }
-      } catch (_) {}
-
-      final attachmentId = widget.attachmentId;
-      if ((bytes == null || bytes.isEmpty) && attachmentId != null) {
-        try {
-          bytes = await _loadBytesFromAttachmentApi(attachmentId);
-        } catch (_) {}
-      }
-      if ((bytes == null || bytes.isEmpty) && attachmentId != null) {
-        bytes = await _loadBytesFromWebContent(attachmentId);
-      }
+      final seeded =
+          DocumentAttachmentOpener.isImageBytes(widget.initialBytes)
+              ? widget.initialBytes
+              : null;
+      final bytes = await DocumentAttachmentOpener.fetchAttachmentBytes(
+        attachmentId: widget.attachmentId,
+        publicUrl: widget.fileUrl,
+        seededBytes: seeded,
+        requirePreviewable: true,
+      );
       if (bytes == null || bytes.isEmpty) {
         throw Exception('Failed to load image');
       }
@@ -249,7 +146,7 @@ class _ProjectsFileViewerScreenState extends State<ProjectsFileViewerScreen> {
     } catch (e) {
       if (!mounted) return;
       setState(() {
-        _error = e.toString();
+        _error = e.toString().replaceFirst(RegExp(r'^Exception:\s*'), '');
         _loading = false;
       });
     }

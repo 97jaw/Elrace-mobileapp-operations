@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:el_race/data/models/global_search_item.dart';
 import 'package:el_race/ui/presentation/Email%20Approval/screens/pettycash_details_screen.dart';
@@ -9,6 +11,8 @@ import 'package:el_race/ui/presentation/my_actions/screens/rfq_screen.dart';
 import 'package:el_race/ui/presentation/my_actions/screens/signatures_screen.dart';
 import 'package:el_race/ui/presentation/my_documents/screens/attachment_viewer_screen.dart';
 import 'package:el_race/ui/presentation/my_documents/screens/my_documents_screen.dart';
+import 'package:el_race/ui/presentation/my_documents/utils/document_attachment_opener.dart';
+import 'package:el_race/ui/presentation/my_projects/presentation/utils/project_file_opening.dart';
 import 'package:el_race/ui/presentation/my_notes/screens/my_notes_screen.dart';
 import 'package:el_race/ui/presentation/tasks/task_details_screen.dart';
 import 'package:el_race/ui/presentation/tasks/data/task_model.dart';
@@ -286,14 +290,31 @@ class GlobalSearchNavigationHelper {
             '')
         .toString();
 
+    final attachmentId = DocumentAttachmentOpener.firstAttachmentId(
+          Map<String, dynamic>.from(data),
+        ) ??
+        extractPublicAttachmentId(url);
+
+    if (attachmentId != null) {
+      unawaited(
+        DocumentAttachmentOpener.openById(
+          context,
+          attachmentId: attachmentId,
+          hintName: item.title,
+        ),
+      );
+      return;
+    }
+
     if (url.isNotEmpty) {
       Navigator.push(
         context,
         MaterialPageRoute(
           builder: (_) => AttachmentViewerScreen(
-            publicUrl: url,
+            publicUrl: normalizeProjectFileUrl(url),
             title: item.title,
             attachmentType: data['mimetype']?.toString(),
+            attachmentId: extractPublicAttachmentId(url),
           ),
         ),
       );
