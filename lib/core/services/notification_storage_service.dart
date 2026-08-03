@@ -517,10 +517,17 @@ class NotificationStorageService {
         return;
       }
 
+      final remapped = _remapLpoIssuedNotification(
+        title: title,
+        body: body,
+        category: notificationCategory,
+        data: data,
+      );
+
       notifications.insert(0, {
         'id': id,
-        'title': title,
-        'body': body,
+        'title': remapped.$1,
+        'body': remapped.$2,
         'imageUrl': imageUrl,
         'data': data,
         'category': notificationCategory.isEmpty
@@ -613,7 +620,9 @@ class NotificationStorageService {
           if (normalized.any((api) => _sameContent(api, localNotif))) {
             continue;
           }
-          mergedNotifications.add(Map<String, dynamic>.from(localNotif));
+          mergedNotifications.add(_withLpoIssuedRemap(
+            Map<String, dynamic>.from(localNotif),
+          ));
           if (id.isNotEmpty) seenIds.add(id);
         }
 
@@ -747,6 +756,66 @@ class NotificationStorageService {
     return getBadgeCount();
   }
 
+  /// Maps legacy "LPO Fully Approved" copy to "LPI has been issued" + vendor.
+  static (String, String) _remapLpoIssuedNotification({
+    required String title,
+    required String body,
+    required String category,
+    Map<String, dynamic>? data,
+  }) {
+    final titleLower = title.trim().toLowerCase();
+    final categoryLower = category.trim().toLowerCase();
+    final model = (data?['model'] ?? data?['model_name'] ?? '')
+        .toString()
+        .trim()
+        .toLowerCase();
+    final isLpoContext = categoryLower.contains('lpo') ||
+        categoryLower.contains('purchase') ||
+        model == 'purchase.order' ||
+        titleLower.contains('lpo');
+    final isLegacyFinal = titleLower == 'lpo fully approved' ||
+        titleLower.contains('has been fully approved') ||
+        (titleLower.contains('lpo') && titleLower.contains('fully approved'));
+
+    if (!isLpoContext || !isLegacyFinal) {
+      return (title, body);
+    }
+
+    final vendor = (data?['vendor_name'] ??
+            data?['partner_name'] ??
+            data?['vendor'] ??
+            data?['partner'] ??
+            '')
+        .toString()
+        .trim();
+    return (
+      'LPI has been issued',
+      vendor.isNotEmpty ? vendor : body,
+    );
+  }
+
+  static Map<String, dynamic> _withLpoIssuedRemap(Map<String, dynamic> item) {
+    final dataRaw = item['data'] ?? item['payload'];
+    final data = dataRaw is Map
+        ? Map<String, dynamic>.from(dataRaw)
+        : null;
+    final remapped = _remapLpoIssuedNotification(
+      title: (item['title'] ?? '').toString(),
+      body: (item['body'] ?? '').toString(),
+      category: (item['category'] ?? '').toString(),
+      data: data,
+    );
+    if (remapped.$1 == (item['title'] ?? '').toString() &&
+        remapped.$2 == (item['body'] ?? '').toString()) {
+      return item;
+    }
+    return {
+      ...item,
+      'title': remapped.$1,
+      'body': remapped.$2,
+    };
+  }
+
   static Map<String, dynamic> _normalizeApiNotification(
     Map<String, dynamic> raw,
   ) {
@@ -771,6 +840,18 @@ class NotificationStorageService {
     normalized['title'] =
         (raw['title'] ?? raw['subject'] ?? 'Notification').toString();
     normalized['body'] = (raw['body'] ?? raw['message'] ?? '').toString();
+
+    // LPO final-approval copy: title → "LPI has been issued", body → vendor.
+    final remapped = _remapLpoIssuedNotification(
+      title: normalized['title']?.toString() ?? '',
+      body: normalized['body']?.toString() ?? '',
+      category: normalized['category']?.toString() ??
+          raw['category']?.toString() ??
+          '',
+      data: notificationData is Map ? Map<String, dynamic>.from(notificationData) : null,
+    );
+    normalized['title'] = remapped.$1;
+    normalized['body'] = remapped.$2;
     normalized['imageUrl'] = raw['image_url'] ?? raw['imageUrl'];
     normalized['data'] = notificationData;
     normalized['payload'] = notificationData;
