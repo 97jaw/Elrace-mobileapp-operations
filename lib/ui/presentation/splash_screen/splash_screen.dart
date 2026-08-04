@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:el_race/core/services/update_service.dart';
+import 'package:el_race/core/services/android_play_update_service.dart';
 import 'package:el_race/core/app_globals.dart' show appInitCompleter;
 import 'package:el_race/core/session/force_logout_guard.dart';
 import 'package:el_race/core/utils/shared_pref.dart';
@@ -14,6 +15,7 @@ import 'package:el_race/utils/Util.dart';
 import 'package:el_race/core/services/app_config_service.dart';
 import 'package:el_race/core/security/device_security_service.dart';
 import 'package:provider/provider.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 import 'package:el_race/ui/presentation/qr_survey/providers/qr_survey_data_provider.dart';
 import 'package:video_player/video_player.dart';
 
@@ -25,9 +27,6 @@ class SplashScreen extends StatefulWidget {
 }
 
 class _SplashScreenState extends State<SplashScreen> {
-  // Keep in sync with version in pubspec.yaml.
-  static const String _currentAppVersion = '1.0.10';
-
   bool _isSecurityCheckComplete = false;
   bool _isDeviceSecure = true;
   bool _didScheduleNavigation = false;
@@ -71,9 +70,7 @@ class _SplashScreenState extends State<SplashScreen> {
     // serial chain. Attach a no-op error listener immediately so a failure
     // here doesn't surface as an unhandled zone exception before it's
     // actually awaited (and handled) in _checkForUpdateThenNavigate.
-    _updateCheckFuture = UpdateService.instance
-        .checkForUpdate(_currentAppVersion)
-        .timeout(const Duration(seconds: 10));
+    _updateCheckFuture = _startUpdateCheck();
     _logGateTiming('update-check-start');
     _updateCheckFuture.catchError((_) => const UpdateCheckResult.noUpdate());
 
@@ -100,6 +97,24 @@ class _SplashScreenState extends State<SplashScreen> {
       provider.clearData();
       print('🧹 SplashScreen - Cleared QR data on app start');
     });
+  }
+
+  Future<UpdateCheckResult> _startUpdateCheck() async {
+    try {
+      final packageInfo =
+          await PackageInfo.fromPlatform().timeout(const Duration(seconds: 3));
+      final currentVersion = packageInfo.version.trim().isNotEmpty
+          ? packageInfo.version
+          : '${packageInfo.version}+${packageInfo.buildNumber}';
+      debugPrint(
+          '🚀 SplashScreen: app version for update check=$currentVersion');
+      return UpdateService.instance
+          .checkForUpdate(currentVersion)
+          .timeout(const Duration(seconds: 10));
+    } catch (e) {
+      debugPrint('⚠️ Update check setup error (ignored): $e');
+      return const UpdateCheckResult.noUpdate();
+    }
   }
 
   /// Perform security check before allowing app usage
@@ -229,6 +244,14 @@ class _SplashScreenState extends State<SplashScreen> {
     if (!mounted) return;
 
     try {
+      final playUpdateStarted = await AndroidPlayUpdateService.instance
+          .startImmediateUpdateIfAvailable()
+          .timeout(const Duration(seconds: 5));
+      if (playUpdateStarted) {
+        _logGateTiming('android-play-immediate-update-started');
+        return;
+      }
+
       // Started back in initState, in parallel with init/video/security —
       // this just waits for whatever's left of its own 10s timeout.
       final updateResult = await _updateCheckFuture;
@@ -368,31 +391,8 @@ class _SplashLoadingPlaceholder extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      height: double.infinity,
-      decoration: const BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          colors: [
-            Color(0xFFFFFFFF),
-            Color(0xFFF3F4F6),
-            Color(0xFFE5E7EB),
-          ],
-        ),
-      ),
-      child: const Center(
-        child: SizedBox(
-          width: 36,
-          height: 36,
-          child: CircularProgressIndicator(
-            strokeWidth: 3,
-            color: Color(0xFF9CA3AF),
-            backgroundColor: Color(0xFFE5E7EB),
-          ),
-        ),
-      ),
+    return const SizedBox.expand(
+      child: ColoredBox(color: Colors.black),
     );
   }
 }
