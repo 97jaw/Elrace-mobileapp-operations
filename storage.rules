@@ -1,0 +1,22 @@
+rules_version = '2';
+// Deploy: firebase deploy --only storage
+// Project: elrace-new
+service firebase.storage {
+  match /b/{bucket}/o {
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    // Chat media + Signature docs under the same prefix
+    match /chat_media/{allPaths=**} {
+      allow read: if isSignedIn();
+      allow write: if isSignedIn()
+                   && request.resource.size < 50 * 1024 * 1024
+                   && request.resource.contentType.matches('image/.*|application/pdf|audio/.*|video/.*|application/octet-stream');
+    }
+
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}

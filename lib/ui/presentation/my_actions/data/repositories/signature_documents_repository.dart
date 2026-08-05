@@ -36,10 +36,41 @@ class SignatureDocumentsRepository {
       _firestore.collection('users').doc(uid).collection('signature_documents');
 
   /// Refresh / restore Firebase Auth via chat auth + `/api/firebase/refresh_token`.
-  Future<String> _ensureUid() async {
+  /// Forces a fresh ID token so Storage / Firestore see a valid auth context.
+  Future<String> _ensureUid({bool forceRefresh = false}) async {
+    if (forceRefresh) {
+      // Drop stale Auth session so ensureAuthenticated must re-sign with a
+      // fresh custom token (Storage "unauthorized" after long Documents use).
+      try {
+        await FirebaseAuth.instance.signOut();
+      } catch (_) {}
+    }
+
     final user =
         await FirebaseChatAuthService.instance.ensureAuthenticated();
+    await user.getIdToken(true);
     return user.uid;
+  }
+
+  bool _isAuthDenied(FirebaseException e) =>
+      e.code == 'unauthorized' ||
+      e.code == 'permission-denied' ||
+      e.code == 'unauthenticated';
+
+  /// Run [action] after auth; on Storage/Firestore auth denial, force refresh once and retry.
+  Future<T> _withFirebaseAuthRetry<T>(Future<T> Function() action) async {
+    await _ensureUid();
+    try {
+      return await action();
+    } on FirebaseException catch (e) {
+      if (!_isAuthDenied(e)) rethrow;
+      debugPrint(
+          '⚠️ SignatureDocuments: auth denied (${e.code}), refreshing and retrying…');
+      await _ensureUid(forceRefresh: true);
+      // Brief yield so Auth/Storage clients pick up the new token.
+      await Future<void>.delayed(const Duration(milliseconds: 250));
+      return await action();
+    }
   }
 
   /// Live stream of the current user's documents, newest first.
@@ -76,13 +107,16 @@ class SignatureDocumentsRepository {
     required List<SignZone> signZones,
     int? pageCount,
   }) async {
-    final uid = await _ensureUid();
+    return _withFirebaseAuthRetry(() async {
+      final uid = FirebaseAuth.instance.currentUser?.uid;
+      if (uid == null || uid.isEmpty) {
+        throw Exception('Firebase auth required');
+      }
 
-    final docId = _uuid.v4();
-    final fileName = p.basename(pdfFile.path);
-    final storagePath = _storagePath(uid, docId, 'original_$fileName');
+      final docId = _uuid.v4();
+      final fileName = p.basename(pdfFile.path);
+      final storagePath = _storagePath(uid, docId, 'original_$fileName');
 
-    try {
       final ref = _storage.ref(storagePath);
       final bytes = await pdfFile.readAsBytes();
       await ref.putData(
@@ -108,16 +142,7 @@ class SignatureDocumentsRepository {
 
       await _collection(uid).doc(docId).set(doc.toFirestore());
       return doc;
-    } on FirebaseException catch (e) {
-      if (e.code == 'unauthorized' || e.code == 'permission-denied') {
-        throw Exception(
-          'Firebase Storage denied upload (${e.code}). '
-          'Auth was refreshed; if this persists, Storage rules must allow '
-          'chat_media/signature_docs/{uid}/**. ${e.message ?? ''}',
-        );
-      }
-      rethrow;
-    }
+    });
   }
 
   Future<void> markSelfSigned({
@@ -125,10 +150,13 @@ class SignatureDocumentsRepository {
     required Uint8List signedBytes,
     required String fileName,
   }) async {
-    final uid = await _ensureUid();
+    await _withFirebaseAuthRetry(() async {
+      final uid = FirebaseAuth.instance.currentUser?.uid;
+      if (uid == null || uid.isEmpty) {
+        throw Exception('Firebase auth required');
+      }
 
-    final storagePath = _storagePath(uid, docId, 'signed_$fileName');
-    try {
+      final storagePath = _storagePath(uid, docId, 'signed_$fileName');
       final ref = _storage.ref(storagePath);
       await ref.putData(
         signedBytes,
@@ -146,15 +174,7 @@ class SignatureDocumentsRepository {
         'signed_by': uid,
         'updated_at': FieldValue.serverTimestamp(),
       });
-    } on FirebaseException catch (e) {
-      if (e.code == 'unauthorized' || e.code == 'permission-denied') {
-        throw Exception(
-          'Firebase Storage denied signed upload (${e.code}). '
-          '${e.message ?? ''}',
-        );
-      }
-      rethrow;
-    }
+    });
   }
 
   /// Send a PDF to one or more signees sequentially.
@@ -169,85 +189,84 @@ class SignatureDocumentsRepository {
     required String currentUserName,
     int? pageCount,
   }) async {
-    final uid = await _ensureUid();
     if (recipients.isEmpty) throw Exception('Select at least one signee');
 
-    final signerUids = recipients.map((r) => r.uid).toList();
-    final signerNames = recipients.map((r) => r.name).toList();
-    final first = recipients.first;
-
-    final docId = _uuid.v4();
-
-    late final String chatId;
-    late final Message message;
     try {
-      chatId = await ChatRepository.instance.createOrGetDmChat(
-        otherUid: first.uid,
-        otherName: first.name,
-        currentUserName: currentUserName,
-      );
+      return await _withFirebaseAuthRetry(() async {
+        final uid = FirebaseAuth.instance.currentUser?.uid;
+        if (uid == null || uid.isEmpty) {
+          throw Exception('Firebase auth required');
+        }
 
-      message = await ChatRepository.instance.sendSignableDocument(
-        chatId,
-        pdfFile,
-        signZones: signZones,
-        pageCount: pageCount,
-        signerUids: signerUids,
-        signerNames: signerNames,
-        currentSignerIndex: 0,
-        signatureDocumentId: docId,
-      );
+        final signerUids = recipients.map((r) => r.uid).toList();
+        final signerNames = recipients.map((r) => r.name).toList();
+        final first = recipients.first;
+        final docId = _uuid.v4();
+
+        await FirebaseChatAuthService.instance.ensureAuthenticated();
+
+        final chatId = await ChatRepository.instance.createOrGetDmChat(
+          otherUid: first.uid,
+          otherName: first.name,
+          currentUserName: currentUserName,
+        );
+
+        final message = await ChatRepository.instance.sendSignableDocument(
+          chatId,
+          pdfFile,
+          signZones: signZones,
+          pageCount: pageCount,
+          signerUids: signerUids,
+          signerNames: signerNames,
+          currentSignerIndex: 0,
+          signatureDocumentId: docId,
+        );
+
+        final sendingToSelf = first.uid == uid;
+        final doc = SignatureDocument(
+          id: docId,
+          ownerUid: uid,
+          fileName: message.fileName ?? p.basename(pdfFile.path),
+          fileUrl: message.mediaUrl ?? '',
+          pageCount: pageCount,
+          signZones: signZones,
+          status: sendingToSelf
+              ? SignatureDocumentStatus.pendingSelf
+              : SignatureDocumentStatus.pendingOther,
+          createdAt: DateTime.now(),
+          recipientUid: first.uid,
+          recipientName: recipients.length == 1
+              ? first.name
+              : '${first.name} +${recipients.length - 1}',
+          chatId: chatId,
+          messageId: message.id,
+          stampNeeded: SignatureDocument.zonesNeedStamp(signZones),
+        );
+
+        final payload = doc.toFirestore();
+        payload['signer_uids'] = signerUids;
+        payload['signer_names'] = signerNames;
+        payload['current_signer_index'] = 0;
+
+        await _collection(uid).doc(docId).set(payload);
+        return doc;
+      });
     } on FirebaseException catch (e) {
-      if (e.code == 'permission-denied' || e.code == 'unauthorized') {
+      if (_isAuthDenied(e)) {
         throw Exception(
           'Firebase permission denied while sending via chat '
-          '(${e.code}: ${e.message}). Confirm Chat Firebase auth is active.',
+          '(${e.code}: ${e.message}). Auth was refreshed and retried — '
+          'confirm Storage rules allow chat_media/** and Chat Firebase login works.',
         );
       }
-      rethrow;
-    }
-
-    final sendingToSelf = first.uid == uid;
-    final doc = SignatureDocument(
-      id: docId,
-      ownerUid: uid,
-      fileName: message.fileName ?? p.basename(pdfFile.path),
-      fileUrl: message.mediaUrl ?? '',
-      pageCount: pageCount,
-      signZones: signZones,
-      // Request-to-self is my turn immediately → Needs My Signature.
-      status: sendingToSelf
-          ? SignatureDocumentStatus.pendingSelf
-          : SignatureDocumentStatus.pendingOther,
-      createdAt: DateTime.now(),
-      recipientUid: first.uid,
-      recipientName: recipients.length == 1
-          ? first.name
-          : '${first.name} +${recipients.length - 1}',
-      chatId: chatId,
-      messageId: message.id,
-      stampNeeded: SignatureDocument.zonesNeedStamp(signZones),
-    );
-
-    final payload = doc.toFirestore();
-    payload['signer_uids'] = signerUids;
-    payload['signer_names'] = signerNames;
-    payload['current_signer_index'] = 0;
-
-    try {
-      await _collection(uid).doc(docId).set(payload);
-    } on FirebaseException catch (e) {
       if (e.code == 'permission-denied') {
-        // Chat message already sent — Documents mirror is blocked by rules.
         throw Exception(
-          'Document was sent in chat, but saving to Documents failed: '
-          'Firestore rules for users/{uid}/signature_documents are missing. '
-          'Deploy firestore.rules to Firebase (project elrace-new), then retry.',
+          'Document chat send or Documents save failed (${e.code}). '
+          'Confirm firestore.rules include signature_documents and chats access.',
         );
       }
       rethrow;
     }
-    return doc;
   }
 
   /// Removes the personal library row and, when present, the linked chat

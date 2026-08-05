@@ -180,6 +180,19 @@ class FirebaseService {
         return;
       }
 
+      // Chat messages: ChatNotificationService already shows a local banner
+      // (with active-chat + per-chat mute). Skip FCM local to avoid doubles.
+      final isChatMessage = category == 'chat_message' ||
+          category == 'chat' ||
+          message.data.containsKey('chat_id') ||
+          message.data.containsKey('chatId');
+      if (isChatMessage) {
+        print(
+            '💬 Foreground chat FCM skipped (ChatNotificationService owns UI)');
+        await _saveNotificationToStorage(message);
+        return;
+      }
+
       // Android + iOS: local notification path (mute-aware).
       await _showNotification(message);
 

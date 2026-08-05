@@ -125,24 +125,46 @@ class ChatUser {
 
     return ChatUser(
       uid: doc.id,
-      odooUserId: data['odoo_user_id'] ?? 0,
-      employeeId: data['employee_id'],
-      name: data['name'] ?? '',
+      odooUserId: _asInt(data['odoo_user_id']) ?? 0,
+      employeeId: _asInt(data['employee_id']),
+      name: data['name']?.toString() ?? '',
       email: resolvedEmail,
       roleName: data['role_name']?.toString(),
       jobTitle: resolvedJobTitle,
       phoneNumber: resolvedPhone,
-      roleId: data['role_id'] ?? 0,
-      branchId: data['branch_id'],
-      companyId: data['company_id'] ?? 0,
-      avatarUrl: data['avatar_url'],
-      lastSeenAt: (data['last_seen_at'] as Timestamp?)?.toDate(),
-      lastLoginAt: (data['last_login_at'] as Timestamp?)?.toDate(),
-      createdAt: (data['created_at'] as Timestamp?)?.toDate() ?? DateTime.now(),
-      updatedAt: (data['updated_at'] as Timestamp?)?.toDate() ?? DateTime.now(),
-      searchKeywords: List<String>.from(data['search_keywords'] ?? []),
+      roleId: _asInt(data['role_id']) ?? 0,
+      branchId: _asInt(data['branch_id']),
+      companyId: _asInt(data['company_id']) ?? 0,
+      avatarUrl: data['avatar_url']?.toString(),
+      lastSeenAt: _asDate(data['last_seen_at']),
+      lastLoginAt: _asDate(data['last_login_at']),
+      createdAt: _asDate(data['created_at']) ?? DateTime.now(),
+      updatedAt: _asDate(data['updated_at']) ?? DateTime.now(),
+      searchKeywords: _asStringList(data['search_keywords']),
       xStampUser: _asBool(data['x_stamp_user']),
     );
+  }
+
+  static int? _asInt(dynamic value) {
+    if (value == null || value == false) return null;
+    if (value is int) return value;
+    if (value is num) return value.toInt();
+    return int.tryParse(value.toString().trim());
+  }
+
+  static DateTime? _asDate(dynamic value) {
+    if (value == null) return null;
+    if (value is Timestamp) return value.toDate();
+    if (value is DateTime) return value;
+    return null;
+  }
+
+  static List<String> _asStringList(dynamic value) {
+    if (value is! List) return const [];
+    return value
+        .map((e) => e?.toString().trim() ?? '')
+        .where((e) => e.isNotEmpty)
+        .toList();
   }
 
   static String? _readString(Map<String, dynamic> data, List<String> keys) {

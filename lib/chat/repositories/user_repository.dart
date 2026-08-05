@@ -54,7 +54,16 @@ class UserRepository {
       'search_keywords': keywords,
     };
 
-    final safeAvatar = _normalizeNullableString(session.avatarUrl);
+    final safeEmpId = _normalizeNullableString(session.empId);
+    if (safeEmpId != null) {
+      data['emp_id'] = safeEmpId;
+    }
+
+    // Prefer session avatar; fall back to public employee image URL.
+    final safeAvatar = _normalizeNullableString(session.avatarUrl) ??
+        (session.employeeId != null && session.employeeId! > 0
+            ? 'https://erp.elrace.com/public/employee/image/${session.employeeId}'
+            : null);
     if (safeAvatar != null) {
       data['avatar_url'] = safeAvatar;
     }
@@ -91,6 +100,27 @@ class UserRepository {
       final doc = await docRef.get();
       if (doc.exists) {
         final existing = doc.data() ?? <String, dynamic>{};
+
+        // Never overwrite an existing person name with empty / role-like session name.
+        final sessionName = session.name.trim();
+        final existingName =
+            _normalizeNullableString(existing['name']?.toString());
+        final sessionLooksLikeRole = sessionName.isNotEmpty &&
+            ((session.roleName != null &&
+                    sessionName.toLowerCase() ==
+                        session.roleName!.trim().toLowerCase()) ||
+                (safeJobTitle != null &&
+                    sessionName.toLowerCase() == safeJobTitle.toLowerCase()));
+        if (sessionName.isEmpty ||
+            (sessionLooksLikeRole &&
+                existingName != null &&
+                existingName.toLowerCase() != sessionName.toLowerCase())) {
+          if (existingName != null) {
+            data['name'] = existingName;
+            data['search_keywords'] =
+                ChatUser.buildSearchKeywords(existingName, safeEmail ?? session.email);
+          }
+        }
 
         // Never overwrite existing non-empty contact fields with null/empty values.
         if (!data.containsKey('email')) {
@@ -135,6 +165,17 @@ class UserRepository {
           }
         }
 
+        // Preserve employee_id when session omitted it
+        if (session.employeeId == null || session.employeeId! <= 0) {
+          final existingEmpId = existing['employee_id'];
+          if (existingEmpId is int && existingEmpId > 0) {
+            data['employee_id'] = existingEmpId;
+          } else if (existingEmpId != null) {
+            final parsed = int.tryParse(existingEmpId.toString());
+            if (parsed != null && parsed > 0) data['employee_id'] = parsed;
+          }
+        }
+
         await docRef.update(data);
         print('✅ UserRepository: Updated user ${session.firebaseUid}');
       } else {
@@ -146,7 +187,7 @@ class UserRepository {
       invalidateUserCache(session.firebaseUid);
       // Best-effort: keep peer DM list titles in sync with corrected person name.
       // ignore: unawaited_futures
-      _healDmTitlesForUser(session.firebaseUid, session.name);
+      _healDmTitlesForUser(session.firebaseUid, data['name']?.toString() ?? session.name);
     } catch (e) {
       print('❌ UserRepository: Error upserting user: $e');
       rethrow;
@@ -832,16 +873,9 @@ class UserRepository {
       if (stampUsersOnly) {
         await _ensureCurrentUserStampFlagSynced();
         final stampUsers = await listStampUsers();
-        final filtered = stampUsers.where((user) {
-          final name = user.name.toLowerCase();
-          final email = (user.email ?? '').toLowerCase();
-          final employeeId = user.employeeId?.toString() ?? '';
-          final odooUserId = user.odooUserId.toString();
-          return name.contains(searchTerm) ||
-              email.contains(searchTerm) ||
-              employeeId == searchTerm ||
-              odooUserId == searchTerm;
-        }).toList();
+        final filtered = stampUsers
+            .where((user) => _userMatchesSearch(user, searchTerm))
+            .toList();
         return UserSearchResult(users: filtered, hasMore: false);
       }
 
@@ -855,21 +889,26 @@ class UserRepository {
 
       final snapshot = await queryBuilder.get();
 
-      // Filter client-side by name, email, employee ID, or odoo user ID
-      final allUsers =
-          snapshot.docs.map((doc) => ChatUser.fromFirestore(doc)).where((user) {
-        final name = user.name.toLowerCase();
-        final email = (user.email ?? '').toLowerCase();
-        final employeeId = user.employeeId?.toString() ?? '';
-        final odooUserId = user.odooUserId.toString();
-        return name.contains(searchTerm) ||
-            email.contains(searchTerm) ||
-            employeeId == searchTerm ||
-            odooUserId == searchTerm;
-      }).toList();
+      // Parse per-doc so one bad profile cannot kill the whole search.
+      final allUsers = <ChatUser>[];
+      for (final doc in snapshot.docs) {
+        try {
+          final user = ChatUser.fromFirestore(doc);
+          if (_userMatchesSearch(user, searchTerm)) {
+            allUsers.add(user);
+          }
+        } catch (e) {
+          print('⚠️ UserRepository: skip ${doc.id} in search: $e');
+        }
+      }
 
-      // Sort by name
-      allUsers.sort((a, b) => a.name.compareTo(b.name));
+      // Prefer exact / prefix hits, then alphabetical.
+      allUsers.sort((a, b) {
+        final scoreCmp =
+            _searchScore(b, searchTerm).compareTo(_searchScore(a, searchTerm));
+        if (scoreCmp != 0) return scoreCmp;
+        return a.name.toLowerCase().compareTo(b.name.toLowerCase());
+      });
 
       // Apply limit
       final hasMore = allUsers.length > limit;
@@ -884,6 +923,52 @@ class UserRepository {
       print('❌ UserRepository: Error searching users: $e');
       return UserSearchResult(users: [], hasMore: false, error: e.toString());
     }
+  }
+
+  /// Match name, email, employee DB id, Odoo user id, firebase uid, keywords.
+  bool _userMatchesSearch(ChatUser user, String searchTerm) {
+    final name = user.name.toLowerCase();
+    final email = (user.email ?? '').toLowerCase();
+    final employeeId = user.employeeId?.toString() ?? '';
+    final odooUserId = user.odooUserId > 0 ? user.odooUserId.toString() : '';
+    final uid = user.uid.toLowerCase();
+    final uidNumeric = uid.startsWith('odoo_') ? uid.substring(5) : '';
+
+    if (name.contains(searchTerm) || email.contains(searchTerm)) return true;
+    if (employeeId.isNotEmpty &&
+        (employeeId == searchTerm || employeeId.contains(searchTerm))) {
+      return true;
+    }
+    if (odooUserId.isNotEmpty &&
+        (odooUserId == searchTerm || odooUserId.contains(searchTerm))) {
+      return true;
+    }
+    if (uidNumeric.isNotEmpty && uidNumeric == searchTerm) return true;
+    if (uid == searchTerm || uid.contains(searchTerm)) return true;
+
+    for (final kw in user.searchKeywords) {
+      final k = kw.toLowerCase();
+      if (k == searchTerm ||
+          k.startsWith(searchTerm) ||
+          searchTerm.startsWith(k)) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  int _searchScore(ChatUser user, String searchTerm) {
+    final name = user.name.toLowerCase();
+    final employeeId = user.employeeId?.toString() ?? '';
+    final odooUserId = user.odooUserId > 0 ? user.odooUserId.toString() : '';
+    if (employeeId == searchTerm || odooUserId == searchTerm) return 100;
+    if (name == searchTerm) return 90;
+    if (name.startsWith(searchTerm)) return 80;
+    if (name.contains(searchTerm)) return 70;
+    if (user.searchKeywords.any((k) => k.toLowerCase() == searchTerm)) {
+      return 60;
+    }
+    return 10;
   }
 
   /// Get multiple users by UIDs

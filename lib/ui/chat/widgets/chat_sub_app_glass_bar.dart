@@ -19,7 +19,7 @@ class SubAppGlassAppBar extends StatelessWidget {
   final double logoOpacity;
 
   static const double _barHeight = 50;
-  static const double _pillBadgeInset = 6;
+  static const double _pillBadgeInset = 10;
 
   /// Total height of logo + glass row (incl. status bar inset + pill badge room).
   static double extent(BuildContext context) {

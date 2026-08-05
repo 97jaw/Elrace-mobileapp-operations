@@ -35,6 +35,7 @@ class _ShareDocumentsTabState extends State<ShareDocumentsTab> {
   bool _isLoadingFolderContents = false;
   bool _isCreatingFolder = false;
   bool _isAddingUser = false;
+  bool _isRemovingUser = false;
   bool _isAddingAttachments = false;
   bool _isCreateDialogOpen = false;
   bool _isAddUserDialogOpen = false;
@@ -1013,8 +1014,7 @@ class _ShareDocumentsTabState extends State<ShareDocumentsTab> {
     try {
       final members = await TeamMembersApiService.instance.getTeamMembers();
       final existingIds = _currentAllowedUsers
-          .map((u) => int.tryParse(
-              (u['employee_id'] ?? u['emp_id'] ?? u['id']).toString()))
+          .map(_employeeIdFromUser)
           .whereType<int>()
           .toSet();
 
@@ -1414,6 +1414,152 @@ class _ShareDocumentsTabState extends State<ShareDocumentsTab> {
     }
   }
 
+  int? _employeeIdFromUser(Map<String, dynamic> user) {
+    final raw = user['employee_id'] ?? user['emp_id'];
+    if (raw == null) return null;
+    return int.tryParse(raw.toString());
+  }
+
+  int? _userIdFromUser(Map<String, dynamic> user) {
+    final raw = user['id'] ?? user['user_id'];
+    if (raw == null) return null;
+    return int.tryParse(raw.toString());
+  }
+
+  Future<void> _confirmRemoveUser(Map<String, dynamic> user) async {
+    if (_isRemovingUser || _isAddingUser) return;
+
+    final name = _userNameFrom(user);
+    final confirmed = await showDialog<bool>(
+      context: context,
+      useRootNavigator: true,
+      builder: (ctx) {
+        return AlertDialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(18.tr),
+          ),
+          title: Text(
+            'Remove access',
+            style: GoogleFonts.poppins(
+              fontSize: 16.tsp,
+              fontWeight: FontWeight.w700,
+              color: SharedDocumentsTheme.textPrimary,
+            ),
+          ),
+          content: Text(
+            'Remove $name from this shared folder?',
+            style: GoogleFonts.poppins(
+              fontSize: 13.tsp,
+              color: SharedDocumentsTheme.textSecondary,
+              height: 1.35,
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: Text(
+                'Cancel',
+                style: GoogleFonts.poppins(
+                  fontWeight: FontWeight.w600,
+                  color: SharedDocumentsTheme.textMuted,
+                ),
+              ),
+            ),
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, true),
+              child: Text(
+                'Remove',
+                style: GoogleFonts.poppins(
+                  fontWeight: FontWeight.w700,
+                  color: SharedDocumentsTheme.danger,
+                ),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (confirmed != true || !mounted) return;
+    await _removeUserFromFolder(user);
+  }
+
+  Future<void> _removeUserFromFolder(Map<String, dynamic> user) async {
+    final folder = _activeFolder;
+    final folderId = folder == null ? null : _folderIdFrom(folder);
+    if (folderId == null || !mounted) return;
+
+    final employeeId = _employeeIdFromUser(user);
+    final userId = _userIdFromUser(user);
+    if (employeeId == null && userId == null) {
+      _showSnackMessage('Could not identify this member');
+      return;
+    }
+
+    setState(() {
+      _isRemovingUser = true;
+    });
+
+    try {
+      final token = SharedPref.getLoginData().result?.token ?? '';
+      if (token.isEmpty) {
+        throw Exception('Session expired. Please login again.');
+      }
+
+      final url =
+          Uri.parse('https://erp.elrace.com/api/cloud/folder/remove_user');
+      final headers = {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+        'Authorization': 'Bearer $token',
+      };
+
+      final params = <String, dynamic>{
+        'folder_id': folderId,
+        if (employeeId != null) 'employee_id': employeeId,
+        if (userId != null) 'user_id': userId,
+      };
+
+      final response = await http.post(
+        url,
+        headers: headers,
+        body: jsonEncode({
+          'jsonrpc': '2.0',
+          'params': params,
+        }),
+      );
+      if (response.statusCode != 200) {
+        throw Exception(
+          'Failed to remove user (HTTP ${response.statusCode})',
+        );
+      }
+
+      final decoded = jsonDecode(response.body);
+      final envelope = _extractResultEnvelope(decoded);
+      if (!_isSuccessEnvelope(envelope)) {
+        throw Exception(
+          envelope['message']?.toString() ??
+              (decoded is Map ? decoded['error']?.toString() : null) ??
+              'Failed to remove user',
+        );
+      }
+
+      _showSnackMessage('Access removed');
+      await _fetchSharedFolders(focusFolderId: folderId);
+      if (_selectedFolder != null) {
+        await _openFolder(_selectedFolder!);
+      }
+    } catch (e) {
+      _showSnackMessage(e.toString());
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isRemovingUser = false;
+        });
+      }
+    }
+  }
+
   String _userNameFrom(Map<String, dynamic> user) {
     final raw = (user['name'] ??
             user['employee_name'] ??
@@ -1599,7 +1745,7 @@ class _ShareDocumentsTabState extends State<ShareDocumentsTab> {
     final users = _currentAllowedUsers;
 
     return SizedBox(
-      height: 72.th,
+      height: 78.th,
       child: ListView.separated(
         scrollDirection: Axis.horizontal,
         itemCount: users.length + 1,
@@ -1607,7 +1753,9 @@ class _ShareDocumentsTabState extends State<ShareDocumentsTab> {
         itemBuilder: (context, index) {
           if (index == 0) {
             return InkWell(
-              onTap: _isAddingUser ? null : _showAddUserDialog,
+              onTap: (_isAddingUser || _isRemovingUser)
+                  ? null
+                  : _showAddUserDialog,
               borderRadius: BorderRadius.circular(28.tr),
               child: SizedBox(
                 width: 52.tw,
@@ -1641,21 +1789,62 @@ class _ShareDocumentsTabState extends State<ShareDocumentsTab> {
           final name = _userNameFrom(user);
           final avatarUrl = _userAvatarUrlFrom(user);
 
-          return CircleAvatar(
-            radius: 26.tr,
-            backgroundColor: SharedDocumentsTheme.border,
-            backgroundImage:
-                avatarUrl != null ? NetworkImage(avatarUrl) : null,
-            child: avatarUrl == null
-                ? Text(
-                    _userInitial(name),
-                    style: GoogleFonts.poppins(
-                      fontSize: 14.tsp,
-                      fontWeight: FontWeight.w700,
-                      color: SharedDocumentsTheme.textPrimary,
+          return Tooltip(
+            message: 'Tap to remove $name',
+            child: InkWell(
+              onTap: (_isRemovingUser || _isAddingUser)
+                  ? null
+                  : () => _confirmRemoveUser(user),
+              borderRadius: BorderRadius.circular(28.tr),
+              child: SizedBox(
+                width: 56.tw,
+                height: 62.th,
+                child: Stack(
+                  clipBehavior: Clip.none,
+                  children: [
+                    Positioned(
+                      top: 4.th,
+                      left: 2.tw,
+                      child: CircleAvatar(
+                        radius: 26.tr,
+                        backgroundColor: SharedDocumentsTheme.border,
+                        backgroundImage: avatarUrl != null
+                            ? NetworkImage(avatarUrl)
+                            : null,
+                        child: avatarUrl == null
+                            ? Text(
+                                _userInitial(name),
+                                style: GoogleFonts.poppins(
+                                  fontSize: 14.tsp,
+                                  fontWeight: FontWeight.w700,
+                                  color: SharedDocumentsTheme.textPrimary,
+                                ),
+                              )
+                            : null,
+                      ),
                     ),
-                  )
-                : null,
+                    Positioned(
+                      top: 0,
+                      right: 0,
+                      child: Container(
+                        width: 20.tw,
+                        height: 20.tw,
+                        decoration: BoxDecoration(
+                          color: SharedDocumentsTheme.danger,
+                          shape: BoxShape.circle,
+                          border: Border.all(color: Colors.white, width: 1.5),
+                        ),
+                        child: Icon(
+                          Icons.close_rounded,
+                          size: 12.tsp,
+                          color: Colors.white,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
           );
         },
       ),

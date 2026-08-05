@@ -482,8 +482,7 @@ class InvoiceAndRfqCard extends StatelessWidget {
               if (result == true) {
                 // Invalidate cache so header re-fetches fresh count from API
                 ApprovalCountService.invalidateCache();
-                // Update approval count badge
-                ApprovalCountService.onCountChanged?.call();
+                ApprovalCountService.notifyListeners();
                 // Refresh the list
                 debugPrint(
                     '🔁 [MyApproval][Invoice/RFQ] Triggering onRefresh callback');

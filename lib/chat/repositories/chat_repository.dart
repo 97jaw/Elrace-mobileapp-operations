@@ -9,6 +9,8 @@ import 'package:path/path.dart' as p;
 import 'package:uuid/uuid.dart';
 
 import '../models/models.dart';
+import '../services/chat_notification_service.dart';
+import '../services/firebase_chat_auth_service.dart';
 import '../services/presence_service.dart';
 import 'user_repository.dart';
 
@@ -44,6 +46,13 @@ class ChatRepository {
 
   String? get _currentUid => FirebaseAuth.instance.currentUser?.uid;
 
+  /// Ensure Firebase Auth is ready before Storage / Firestore chat writes.
+  Future<void> _ensureFirebaseAuth() async {
+    final user =
+        await FirebaseChatAuthService.instance.ensureAuthenticated();
+    await user.getIdToken(true);
+  }
+
   // ============== DM Chat Creation ==============
 
   /// Create or get an existing DM chat between two users.
@@ -59,6 +68,7 @@ class ChatRepository {
     int? currentUserBranchId,
     int? currentUserCompanyId,
   }) async {
+    await _ensureFirebaseAuth();
     final currentUid = _currentUid;
     if (currentUid == null) {
       throw Exception('Not authenticated');
@@ -66,6 +76,7 @@ class ChatRepository {
 
     final chatId = Chat.generateDmChatId(currentUid, otherUid);
     final dmPair = Chat.getSortedDmPair(currentUid, otherUid);
+    final isSelfChat = currentUid == otherUid;
 
     try {
       final batch = _firestore.batch();
@@ -76,14 +87,15 @@ class ChatRepository {
           chatRef,
           {
             'type': 'dm',
-            'dm_pair': dmPair,
-            'member_ids': FieldValue.arrayUnion(dmPair),
+            'dm_pair': isSelfChat ? [currentUid, currentUid] : dmPair,
+            'member_ids': FieldValue.arrayUnion(
+                isSelfChat ? [currentUid] : dmPair.toSet().toList()),
             'created_at': FieldValue.serverTimestamp(),
             'updated_at': FieldValue.serverTimestamp(),
           },
           SetOptions(merge: true));
 
-      // Create member documents for both users
+      // Create member documents for both users (one write for self-chat)
       final currentMemberRef = chatRef.collection('members').doc(currentUid);
       batch.set(
           currentMemberRef,
@@ -96,17 +108,19 @@ class ChatRepository {
           },
           SetOptions(merge: true));
 
-      final otherMemberRef = chatRef.collection('members').doc(otherUid);
-      batch.set(
-          otherMemberRef,
-          {
-            'joined_at': FieldValue.serverTimestamp(),
-            'role_id_snapshot': otherRoleId,
-            'branch_id_snapshot': otherBranchId,
-            'company_id_snapshot': otherCompanyId,
-            'muted': false,
-          },
-          SetOptions(merge: true));
+      if (!isSelfChat) {
+        final otherMemberRef = chatRef.collection('members').doc(otherUid);
+        batch.set(
+            otherMemberRef,
+            {
+              'joined_at': FieldValue.serverTimestamp(),
+              'role_id_snapshot': otherRoleId,
+              'branch_id_snapshot': otherBranchId,
+              'company_id_snapshot': otherCompanyId,
+              'muted': false,
+            },
+            SetOptions(merge: true));
+      }
 
       // NOTE: userChats entries are NOT created here.
       // They will be created when the first message is sent
@@ -1154,9 +1168,18 @@ class ChatRepository {
     }
   }
 
+  /// Peer UID for a DM (supports self-chat where both sides are the same uid).
+  String _dmPeerUid(List<String> dmPair, String currentUid) {
+    if (dmPair.isEmpty) return currentUid;
+    if (dmPair.length == 1) return dmPair.first;
+    if (dmPair[0] == dmPair[1]) return currentUid;
+    return dmPair.firstWhere((u) => u != currentUid, orElse: () => currentUid);
+  }
+
   /// Ensure DM chat doc, member entries, and both users' userChats entries exist.
   /// Uses set(merge) everywhere so it's idempotent and works whether docs
   /// exist or not. Individual writes so a failure on one doesn't block others.
+  /// Supports WhatsApp-style self-chat (message yourself).
   Future<void> _ensureDmChatExists(String chatId) async {
     final currentUid = _currentUid;
     if (currentUid == null) return;
@@ -1167,12 +1190,11 @@ class ChatRepository {
       return;
     }
 
-    final otherUid =
-        dmPair.firstWhere((u) => u != currentUid, orElse: () => '');
-    if (otherUid.isEmpty) return;
+    final otherUid = _dmPeerUid(dmPair, currentUid);
+    final isSelfChat = otherUid == currentUid;
 
     print(
-        '🔍 _ensureDmChatExists: chatId=$chatId, currentUid=$currentUid, otherUid=$otherUid');
+        '🔍 _ensureDmChatExists: chatId=$chatId, currentUid=$currentUid, otherUid=$otherUid self=$isSelfChat');
 
     // Check if chat doc already exists — if yes, skip creation steps.
     // Permission error on read is treated as "probably doesn't exist".
@@ -1184,15 +1206,25 @@ class ChatRepository {
       // Permission denied or other error — proceed to create
     }
 
+    final peerUser = await UserRepository.instance.getUser(otherUid);
+    final currentUser = isSelfChat
+        ? peerUser
+        : await UserRepository.instance.getUser(currentUid);
+    final peerName = isSelfChat
+        ? ((peerUser?.name.trim().isNotEmpty == true)
+            ? '${peerUser!.name} (You)'
+            : 'You')
+        : (peerUser?.name ?? 'User');
+    final currentName = currentUser?.name ?? 'User';
+
     if (chatExists) {
       print('✅ _ensureDmChatExists: Chat $chatId already exists');
       // Still ensure the current user's userChats entry exists
       try {
-        final peerUser = await UserRepository.instance.getUser(otherUid);
         await _userChatsCollection(currentUid).doc(chatId).set({
           'type': 'dm',
           'peer_uid': otherUid,
-          'title': peerUser?.name ?? 'User',
+          'title': peerName,
           'updated_at': FieldValue.serverTimestamp(),
           'pinned': false,
           'muted': false,
@@ -1203,19 +1235,14 @@ class ChatRepository {
       return;
     }
 
-    // Fetch user info for titles
-    final peerUser = await UserRepository.instance.getUser(otherUid);
-    final currentUser = await UserRepository.instance.getUser(currentUid);
-    final peerName = peerUser?.name ?? 'User';
-    final currentName = currentUser?.name ?? 'User';
-
     // Step 1: Create/update chat document with member_ids
     print('📝 _ensureDmChatExists: Step 1 — creating chat doc');
+    final memberIds = isSelfChat ? [currentUid] : dmPair.toSet().toList();
     try {
       await _chatsCollection.doc(chatId).set({
         'type': 'dm',
-        'dm_pair': dmPair,
-        'member_ids': FieldValue.arrayUnion(dmPair),
+        'dm_pair': isSelfChat ? [currentUid, currentUid] : dmPair,
+        'member_ids': FieldValue.arrayUnion(memberIds),
         'created_at': FieldValue.serverTimestamp(),
         'updated_at': FieldValue.serverTimestamp(),
       }, SetOptions(merge: true));
@@ -1225,8 +1252,9 @@ class ChatRepository {
       // Don't return — the sendText batch will also try to create the doc
     }
 
-    // Step 2: Create member entries for both users
-    for (final uid in dmPair) {
+    // Step 2: Create member entries (one for self-chat)
+    final memberUids = isSelfChat ? [currentUid] : dmPair.toSet().toList();
+    for (final uid in memberUids) {
       final user = uid == currentUid ? currentUser : peerUser;
       try {
         await _chatsCollection.doc(chatId).collection('members').doc(uid).set({
@@ -1241,7 +1269,7 @@ class ChatRepository {
       }
     }
 
-    // Step 3: Create userChats entries for both users
+    // Step 3: Create userChats entries
     try {
       await _userChatsCollection(currentUid).doc(chatId).set({
         'type': 'dm',
@@ -1255,17 +1283,19 @@ class ChatRepository {
       print('⚠️ _ensureDmChatExists: Own userChats: $e');
     }
 
-    try {
-      await _userChatsCollection(otherUid).doc(chatId).set({
-        'type': 'dm',
-        'peer_uid': currentUid,
-        'title': currentName,
-        'updated_at': FieldValue.serverTimestamp(),
-        'pinned': false,
-        'muted': false,
-      }, SetOptions(merge: true));
-    } catch (e) {
-      print('⚠️ _ensureDmChatExists: Peer userChats: $e');
+    if (!isSelfChat) {
+      try {
+        await _userChatsCollection(otherUid).doc(chatId).set({
+          'type': 'dm',
+          'peer_uid': currentUid,
+          'title': currentName,
+          'updated_at': FieldValue.serverTimestamp(),
+          'pinned': false,
+          'muted': false,
+        }, SetOptions(merge: true));
+      } catch (e) {
+        print('⚠️ _ensureDmChatExists: Peer userChats: $e');
+      }
     }
 
     print('✅ _ensureDmChatExists: Chat $chatId setup complete');
@@ -1273,6 +1303,7 @@ class ChatRepository {
 
   /// Helper: parse DM pair from chat ID.
   /// Returns [uidA, uidB] sorted, or null if parsing fails.
+  /// Self-chat ids look like `dm_{uid}_{uid}`.
   List<String>? _parseDmPair(String chatId, String currentUid) {
     final withoutPrefix = chatId.replaceFirst('dm_', '');
     String otherUid;
@@ -1290,13 +1321,13 @@ class ChatRepository {
   /// Update the other user's userChats entry for a DM.
   /// Creates a FULL entry (not just updated_at) so the chat appears
   /// properly in the other user's chat list with title and peer info.
+  /// No-op for self-chat (own list is already updated on send).
   Future<void> _updateDmPeerTimestamp(String chatId, String currentUid) async {
     try {
       final dmPair = _parseDmPair(chatId, currentUid);
       if (dmPair == null) return;
-      final otherUid =
-          dmPair.firstWhere((uid) => uid != currentUid, orElse: () => '');
-      if (otherUid.isEmpty) return;
+      final otherUid = _dmPeerUid(dmPair, currentUid);
+      if (otherUid == currentUid) return;
 
       // Get current user's name so the other user sees it as the chat title
       final currentUser = await UserRepository.instance.getUser(currentUid);
@@ -1400,6 +1431,7 @@ class ChatRepository {
     int currentSignerIndex = 0,
     String? signatureDocumentId,
   }) async {
+    await _ensureFirebaseAuth();
     final currentUid = _currentUid;
     if (currentUid == null) throw Exception('Not authenticated');
 
@@ -1433,7 +1465,21 @@ class ChatRepository {
         customMetadata: {'uploadedBy': currentUid, 'chatId': chatId},
       );
       final fileBytes = await pdfFile.readAsBytes();
-      await ref.putData(fileBytes, metadata);
+      try {
+        await ref.putData(fileBytes, metadata);
+      } on FirebaseException catch (e) {
+        if (e.code == 'unauthorized' ||
+            e.code == 'permission-denied' ||
+            e.code == 'unauthenticated') {
+          print(
+              '⚠️ ChatRepository: Storage auth denied (${e.code}), refreshing…');
+          await _ensureFirebaseAuth();
+          await Future<void>.delayed(const Duration(milliseconds: 250));
+          await ref.putData(fileBytes, metadata);
+        } else {
+          rethrow;
+        }
+      }
       final mediaUrl = await ref.getDownloadURL();
 
       // Create message with 24-hour expiry for unsigned docs
@@ -2058,6 +2104,9 @@ class ChatRepository {
       );
 
       await batch.commit();
+
+      // Keep in-app listener in sync so mute takes effect immediately.
+      ChatNotificationService.instance.updateMuteStatus(chatId, muted);
     } catch (e) {
       print('❌ ChatRepository: Error toggling mute: $e');
     }
@@ -2193,6 +2242,23 @@ class ChatRepository {
       'member_ids': FieldValue.arrayRemove([uid]),
       'updated_at': FieldValue.serverTimestamp(),
     }, SetOptions(merge: true));
+  }
+
+  /// Remove this chat from the current user's inbox only ("Delete for me").
+  /// Does not delete the shared chat or the peer's list entry.
+  /// A later message may recreate the userChats row (same as WhatsApp-style hide).
+  Future<void> deleteChatForMe(String chatId) async {
+    final currentUid = _currentUid;
+    if (currentUid == null) throw Exception('Not authenticated');
+    if (chatId.trim().isEmpty) throw Exception('chatId is required');
+
+    try {
+      await _userChatsCollection(currentUid).doc(chatId).delete();
+      print('✅ ChatRepository: Deleted chat $chatId for $currentUid');
+    } catch (e) {
+      print('❌ ChatRepository: Error deleting chat for me: $e');
+      rethrow;
+    }
   }
 
   /// Current user leaves a group chat.

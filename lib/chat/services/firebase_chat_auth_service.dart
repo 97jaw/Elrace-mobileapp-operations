@@ -10,6 +10,7 @@ import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../../core/services/notification_storage_service.dart';
 import '../../core/utils/shared_pref.dart';
 import '../../utils/urll_utils.dart';
 import '../models/models.dart';
@@ -395,6 +396,16 @@ class FirebaseChatAuthService {
       await ChatNotificationService.instance.startListening();
       _wireChatNotificationTap();
 
+      // Sync local global chat mute → Firestore for CF background mute.
+      try {
+        final muted = await NotificationStorageService.isChannelMuted(
+            'chat_message');
+        await NotificationStorageService.syncChatNotificationsMutedToFirestore(
+            muted);
+      } catch (e) {
+        print('⚠️ FirebaseChatAuth: mute sync skipped: $e');
+      }
+
       _isSetupComplete = true;
       print('✅ FirebaseChatAuth: Setup complete!');
 
@@ -549,6 +560,7 @@ class FirebaseChatAuthService {
                 ? session.odooUserId
                 : (data.odoo_user_id ?? 0),
             employeeId: session.employeeId ?? data.employee_id,
+            empId: session.empId ?? data.emp_id,
             name: session.name.isNotEmpty
                 ? session.name
                 : (data.emp_name ?? data.name ?? cached.sessionData['name'] ?? '')
@@ -561,9 +573,12 @@ class FirebaseChatAuthService {
             firebaseUid: firebaseUid,
             firebaseCustomToken: session.firebaseCustomToken,
             roleChatId: cached.roleChatId,
-            avatarUrl: session.avatarUrl,
-            jobTitle: session.jobTitle,
-            phoneNumber: session.phoneNumber,
+            avatarUrl: session.avatarUrl ??
+                (data.employee_id != null && data.employee_id! > 0
+                    ? 'https://erp.elrace.com/public/employee/image/${data.employee_id}'
+                    : data.image_url),
+            jobTitle: session.jobTitle ?? data.jobTitle ?? data.job_id,
+            phoneNumber: session.phoneNumber ?? data.phone,
             xStampUser: session.xStampUser || (data.xStampUser == true),
           );
           await UserRepository.instance.upsertUser(healed);

@@ -50,36 +50,26 @@ class _HeaderWidgetState extends State<HeaderWidget> {
     super.initState();
 
     _imageBase64 = _cachedImageBase64;
-    _notificationCount = _cachedNotificationCount;
-    _approvalCount = _cachedApprovalCount;
+    _notificationCount = NotificationStorageService.memoryBadgeCount;
+    _approvalCount = ApprovalCountService.cachedCountOrZero;
+    _cachedNotificationCount = _notificationCount;
+    _cachedApprovalCount = _approvalCount;
 
     _loadUserData();
-    _loadNotificationCount();
-    ApprovalCountService.invalidateCache();
+    _loadNotificationCountLocal();
     _loadApprovalCount();
 
-    // Register callback to update approval count when items are viewed
-    ApprovalViewedService.setOnCountChangedCallback(() {
-      if (mounted) {
-        _loadApprovalCount();
-      }
+    ApprovalViewedService.addListener(this, () {
+      if (mounted) _loadApprovalCount();
     });
 
-    // Register callback for approval count changes (approve/reject actions)
-    ApprovalCountService.onCountChanged = () {
-      if (mounted) {
-        _loadApprovalCount();
-      }
-    };
+    ApprovalCountService.addListener(this, () {
+      if (mounted) _loadApprovalCount();
+    });
 
-    // Register callback for notification count changes
-    // Use fast local count (no API call) to avoid race condition
-    // where the API hasn't indexed the new notification yet.
-    NotificationStorageService.onCountChanged = () {
-      if (mounted) {
-        _loadNotificationCountLocal();
-      }
-    };
+    NotificationStorageService.addCountListener(this, () {
+      if (mounted) _loadNotificationCountLocal();
+    });
 
     // Resume badge refresh: ResumeCoordinator runs one shared server sync,
     // then this callback re-reads the warm local/cached values (no duplicate
@@ -94,10 +84,9 @@ class _HeaderWidgetState extends State<HeaderWidget> {
   @override
   void dispose() {
     BadgeRefreshService.removeListener(this);
-    // Unregister callbacks
-    ApprovalViewedService.setOnCountChangedCallback(null);
-    ApprovalCountService.onCountChanged = null;
-    NotificationStorageService.onCountChanged = null;
+    ApprovalViewedService.removeListener(this);
+    ApprovalCountService.removeListener(this);
+    NotificationStorageService.removeCountListener(this);
     super.dispose();
   }
 

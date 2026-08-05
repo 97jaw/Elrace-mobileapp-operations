@@ -11,7 +11,6 @@ import 'package:el_race/report_module/data/provider/reports_provider.dart';
 import 'package:el_race/ui/presentation/productivity/theme/productivity_light_theme.dart';
 import 'package:el_race/ui/presentation/productivity/widgets/productivity_light_shell.dart';
 import 'package:el_race/ui/presentation/productivity/widgets/productivity_searchable_picker.dart';
-import 'package:el_race/ui/presentation/tasks_dashboard/services/task_options_api_service.dart';
 import 'package:el_race/ui/presentation/tasks_dashboard/services/teams_api_service.dart';
 import 'package:el_race/ui/presentation/todo_list/data/task_member_model.dart';
 import 'package:el_race/ui/presentation/todo_list/data/todo_model.dart';
@@ -43,6 +42,7 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
 
   final _titleController = TextEditingController();
   final _descriptionController = TextEditingController();
+  final _projectController = TextEditingController();
   late final TextEditingController _daysController;
 
   double _daysValue = 5;
@@ -50,10 +50,6 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
 
   DateTime get _endDate =>
       _startDate.add(Duration(days: _daysValue.toInt().clamp(0, 365)));
-
-  List<ProjectOption> _projects = [];
-  ProjectOption? _selectedProject;
-  bool _isLoadingProjects = true;
 
   List<String> _departments = [];
   String? _selectedDepartment;
@@ -111,22 +107,20 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
     _audioRecorder.dispose();
     _titleController.dispose();
     _descriptionController.dispose();
+    _projectController.dispose();
     _daysController.dispose();
     super.dispose();
   }
 
   Future<void> _loadData() async {
     final results = await Future.wait([
-      TaskOptionsApiService.getProjects(),
       TeamsApiService.getUniqueDepartments(),
       TeamMembersApiService.instance.getTeamMembers(forceRefresh: true),
     ]);
     if (!mounted) return;
     setState(() {
-      _projects = results[0] as List<ProjectOption>;
-      _departments = results[1] as List<String>;
-      _allMembers = results[2] as List<TeamMember>;
-      _isLoadingProjects = false;
+      _departments = results[0] as List<String>;
+      _allMembers = results[1] as List<TeamMember>;
       _isLoadingDepartments = false;
       _isLoadingMembers = false;
     });
@@ -296,11 +290,13 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
         attachments = _attachments.map((f) => f.path.split('/').last).toList();
       }
 
+      final projectName = _projectController.text.trim();
       final todo = TodoModel(
         title: title,
         description: _descriptionController.text.trim().isNotEmpty
             ? _descriptionController.text.trim()
             : null,
+        project: projectName.isNotEmpty ? projectName : null,
         department: _selectedDepartment,
         startDate: _startDate,
         dueDate: _endDate,
@@ -391,14 +387,10 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
                 const SizedBox(height: 14),
                 _label('Project'),
                 const SizedBox(height: 8),
-                _selectTile(
-                  loading: _isLoadingProjects,
-                  value: _selectedProject?.name,
-                  placeholder: 'Select project',
-                  onTap: _pickProject,
-                  onClear: _selectedProject == null
-                      ? null
-                      : () => setState(() => _selectedProject = null),
+                _textField(
+                  controller: _projectController,
+                  hint: 'Enter project name',
+                  textInputAction: TextInputAction.next,
                 ),
                 const SizedBox(height: 14),
                 _label('Department'),
@@ -1384,19 +1376,6 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
         ),
       ),
     );
-  }
-
-  Future<void> _pickProject() async {
-    final picked = await ProductivitySearchablePicker.show<ProjectOption>(
-      context,
-      title: 'Select project',
-      items: _projects,
-      labelOf: (p) => p.name,
-      selected: _selectedProject,
-      allowClear: true,
-    );
-    if (!mounted) return;
-    setState(() => _selectedProject = picked);
   }
 
   Future<void> _pickDepartment() async {

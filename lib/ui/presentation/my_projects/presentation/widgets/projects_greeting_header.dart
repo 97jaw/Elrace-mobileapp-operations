@@ -25,16 +25,14 @@ class _ProjectsGreetingHeaderState extends State<ProjectsGreetingHeader> {
   bool _openingNotifications = false;
   String _userName = '';
   String _imageData = '';
-  void Function()? _previousCountCallback;
 
   @override
   void initState() {
     super.initState();
-    _previousCountCallback = NotificationStorageService.onCountChanged;
-    NotificationStorageService.onCountChanged = () {
-      _previousCountCallback?.call();
+    _notificationCount = NotificationStorageService.memoryBadgeCount;
+    NotificationStorageService.addCountListener(this, () {
       _loadNotificationCount();
-    };
+    });
     // Resume badge refresh — shared server sync happens in ResumeCoordinator;
     // this just re-reads the warm local count.
     BadgeRefreshService.addListener(this, () {
@@ -47,9 +45,7 @@ class _ProjectsGreetingHeaderState extends State<ProjectsGreetingHeader> {
   @override
   void dispose() {
     BadgeRefreshService.removeListener(this);
-    if (NotificationStorageService.onCountChanged != null) {
-      NotificationStorageService.onCountChanged = _previousCountCallback;
-    }
+    NotificationStorageService.removeCountListener(this);
     super.dispose();
   }
 

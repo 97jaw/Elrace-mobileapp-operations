@@ -23,6 +23,7 @@ class TodoModel {
   final String? reportId; // Reference to Report
   final int? teamId; // Team/Department ID from ERP
   final String? department; // Department name
+  final String? project; // Free-text project name
   final int sortOrder;
   final DateTime createdAt;
   final DateTime updatedAt;
@@ -48,6 +49,7 @@ class TodoModel {
     this.reportId,
     this.teamId,
     this.department,
+    this.project,
     this.sortOrder = 0,
     required this.createdAt,
     required this.updatedAt,
@@ -105,6 +107,7 @@ class TodoModel {
       reportId: map['report_id'] as String?,
       teamId: map['team_id'] as int?,
       department: map['department'] as String?,
+      project: map['project'] as String?,
       sortOrder: map['sort_order'] as int? ?? 0,
       createdAt: DateTime.parse(map['created_at'] as String),
       updatedAt: DateTime.parse(map['updated_at'] as String),
@@ -150,6 +153,7 @@ class TodoModel {
       reportId: data['report_id'] as String?,
       teamId: data['team_id'] as int?,
       department: data['department'] as String?,
+      project: data['project'] as String?,
       sortOrder: data['sort_order'] as int? ?? 0,
       createdAt: data['created_at'] != null
           ? (data['created_at'] as Timestamp).toDate()
@@ -182,6 +186,7 @@ class TodoModel {
       'report_id': reportId,
       'team_id': teamId,
       'department': department,
+      'project': project,
       'sort_order': sortOrder,
       'created_at': createdAt.toIso8601String(),
       'updated_at': updatedAt.toIso8601String(),
@@ -209,6 +214,7 @@ class TodoModel {
       'report_id': reportId,
       'team_id': teamId,
       'department': department,
+      'project': project,
       'sort_order': sortOrder,
       'created_at': Timestamp.fromDate(createdAt),
       'updated_at': FieldValue.serverTimestamp(),
@@ -236,6 +242,7 @@ class TodoModel {
     String? reportId,
     int? teamId,
     String? department,
+    String? project,
     int? sortOrder,
     DateTime? createdAt,
     DateTime? updatedAt,
@@ -261,6 +268,7 @@ class TodoModel {
       reportId: reportId ?? this.reportId,
       teamId: teamId ?? this.teamId,
       department: department ?? this.department,
+      project: project ?? this.project,
       sortOrder: sortOrder ?? this.sortOrder,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
@@ -290,6 +298,7 @@ class TodoModel {
       reportId: reportId,
       teamId: teamId,
       department: department,
+      project: project,
       sortOrder: sortOrder,
       createdAt: createdAt,
       updatedAt: DateTime.now(),

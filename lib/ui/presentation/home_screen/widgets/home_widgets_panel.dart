@@ -27,15 +27,16 @@ class HomeDraggableWidgetsPanel extends StatefulWidget {
     return 4.h + 4.h + 4.h + 28.h + 2.h + 140.h + 8.h;
   }
 
-  /// Collapsed panel fills from [anchorTop] to above the bottom safe area.
+  /// Collapsed panel fills from [anchorTop] to the physical bottom of the screen.
+  /// (Do not leave a bare silver strip under the panel — that read as a dark
+  /// "shade" over the Timesheet peek.)
   static double collapsedHeightFor(
     BuildContext context,
     double screenHeight,
     double anchorTop,
   ) {
-    final bottomInset = MediaQuery.paddingOf(context).bottom;
     if (anchorTop <= 0) return peekContentHeight(context);
-    return (screenHeight - anchorTop - bottomInset)
+    return (screenHeight - anchorTop)
         .clamp(peekContentHeight(context), screenHeight);
   }
 
@@ -63,12 +64,14 @@ class _HomeDraggableWidgetsPanelState extends State<HomeDraggableWidgetsPanel>
   late final VoidCallback _expandListener;
   final ScrollController _scrollController = ScrollController();
 
-  static const _expandDuration = Duration(milliseconds: 160);
-  static const _collapseDuration = Duration(milliseconds: 140);
+  static const _expandDuration = Duration(milliseconds: 320);
+  static const _collapseDuration = Duration(milliseconds: 280);
   static const _fullExpandThreshold = 0.98;
   static const _mergedThreshold = 0.82;
-  static const _scrollEnableAt = 0.88;
-  static const _scrollDisableBelow = 0.80;
+  /// Scroll only after the panel is effectively full — avoids mid-drag
+  /// physics / gesture swaps that feel like hitching.
+  static const _scrollEnableAt = 0.995;
+  static const _scrollDisableBelow = 0.97;
 
   bool _scrollModeLatched = false;
   bool _scrollCollapseDragActive = false;
@@ -107,7 +110,7 @@ class _HomeDraggableWidgetsPanelState extends State<HomeDraggableWidgetsPanel>
   void _syncScrollModeLatch(double progress) {
     if (!_scrollModeLatched && progress >= _scrollEnableAt) {
       _scrollModeLatched = true;
-      if (_scrollController.hasClients) {
+      if (_scrollController.hasClients && _scrollController.offset > 0.5) {
         _scrollController.jumpTo(0);
       }
     } else if (_scrollModeLatched &&
@@ -132,7 +135,7 @@ class _HomeDraggableWidgetsPanelState extends State<HomeDraggableWidgetsPanel>
     );
     widget.onExtentChanged?.call(minF + (maxF - minF) * progress);
 
-    if ((progress - _lastReportedProgress).abs() >= 0.0015 ||
+    if ((progress - _lastReportedProgress).abs() >= 0.002 ||
         progress == 0 ||
         progress == 1) {
       _lastReportedProgress = progress;
@@ -144,7 +147,7 @@ class _HomeDraggableWidgetsPanelState extends State<HomeDraggableWidgetsPanel>
     _expandController.animateTo(
       target,
       duration: target > _t ? _expandDuration : _collapseDuration,
-      curve: target > _t ? Curves.easeOutCubic : Curves.easeInCubic,
+      curve: target > _t ? Curves.easeOutCubic : Curves.easeOutCubic,
     );
   }
 
@@ -172,13 +175,15 @@ class _HomeDraggableWidgetsPanelState extends State<HomeDraggableWidgetsPanel>
     if (fromScroll) {
       _scrollCollapseDragActive = true;
     }
-    // Slightly higher sensitivity so expand/collapse tracks the finger faster.
-    _expandController.value =
-        (_t - (dy * 1.38) / range).clamp(0.0, 1.0);
+    // 1:1 finger tracking — multiplier >1 made expand/collapse feel jumpy.
+    _expandController.value = (_t - dy / range).clamp(0.0, 1.0);
   }
 
   void _onDragStart(DragStartDetails details) {
     _dragSessionStartT = _t;
+    if (_expandController.isAnimating) {
+      _expandController.stop();
+    }
   }
 
   void _onDragUpdate(DragUpdateDetails details) {
@@ -201,11 +206,11 @@ class _HomeDraggableWidgetsPanelState extends State<HomeDraggableWidgetsPanel>
     _dragSessionStartT = null;
 
     if (velocity != null) {
-      if (velocity < -280) {
+      if (velocity < -420) {
         _expand();
         return;
       }
-      if (velocity > 280) {
+      if (velocity > 420) {
         _collapse();
         return;
       }
@@ -244,6 +249,24 @@ class _HomeDraggableWidgetsPanelState extends State<HomeDraggableWidgetsPanel>
   }
 
   bool _onScrollNotification(ScrollNotification notification) {
+    // Drive panel collapse from overscroll at top (no side-effects in physics).
+    if (_scrollEnabled &&
+        _atScrollTop &&
+        notification is OverscrollNotification &&
+        notification.overscroll < 0) {
+      _applyDragDelta(-notification.overscroll, fromScroll: true);
+      return false;
+    }
+
+    if (notification is ScrollUpdateNotification &&
+        _scrollEnabled &&
+        _atScrollTop &&
+        (notification.scrollDelta ?? 0) < 0 &&
+        notification.metrics.pixels <= notification.metrics.minScrollExtent) {
+      _applyDragDelta(-(notification.scrollDelta ?? 0), fromScroll: true);
+      return false;
+    }
+
     if (notification is ScrollEndNotification) {
       final wasCollapsing = _scrollCollapseDragActive;
       final partial = _t > 0.02 && _t < 0.98;
@@ -306,55 +329,40 @@ class _HomeDraggableWidgetsPanelState extends State<HomeDraggableWidgetsPanel>
         final listContent = _buildListContent(
           t: t,
           headerHandoff: headerHandoff,
-          listChild: listChild ?? const ListViewWidgets(hideFeaturedHeader: true),
+          listChild:
+              listChild ?? const ListViewWidgets(hideFeaturedHeader: true),
         );
 
-        // Peek: no inner scroll — entire section drags to expand.
-        // Expanded: list scrolls with bounce; top overscroll collapses panel.
-        final Widget panelBody;
-        if (_scrollEnabled) {
-          panelBody = NotificationListener<ScrollNotification>(
-            onNotification: _onScrollNotification,
-            child: SingleChildScrollView(
-              controller: _scrollController,
-              physics: HomePanelScrollPhysics(
-                onCollapseDrag: (dy) => _applyDragDelta(dy, fromScroll: true),
-                parent: const BouncingScrollPhysics(
+        // One tree always: same ScrollView. Only physics / drag handlers swap
+        // so expand↔scroll handoff does not rebuild a different subtree.
+        final scrollPhysics = _scrollEnabled
+            ? const HomePanelScrollPhysics(
+                parent: ClampingScrollPhysics(
                   parent: AlwaysScrollableScrollPhysics(),
                 ),
-              ),
+              )
+            : const NeverScrollableScrollPhysics();
+
+        final panelBody = NotificationListener<ScrollNotification>(
+          onNotification: _onScrollNotification,
+          child: GestureDetector(
+            onVerticalDragStart: _scrollEnabled ? null : _onDragStart,
+            onVerticalDragUpdate: _scrollEnabled ? null : _onDragUpdate,
+            onVerticalDragEnd: _scrollEnabled ? null : _onDragEnd,
+            behavior: HitTestBehavior.opaque,
+            child: SingleChildScrollView(
+              controller: _scrollController,
+              physics: scrollPhysics,
               padding: EdgeInsets.only(bottom: bottomInset + 110.h),
-              child: Align(
-                alignment: Alignment.topCenter,
-                child: listContent,
+              child: RepaintBoundary(
+                child: Align(
+                  alignment: Alignment.topCenter,
+                  child: listContent,
+                ),
               ),
             ),
-          );
-        } else {
-          panelBody = LayoutBuilder(
-            builder: (context, constraints) {
-              return GestureDetector(
-                onVerticalDragStart: _onDragStart,
-                onVerticalDragUpdate: _onDragUpdate,
-                onVerticalDragEnd: _onDragEnd,
-                behavior: HitTestBehavior.opaque,
-                child: ClipRect(
-                  child: SizedBox(
-                    height: constraints.maxHeight,
-                    width: constraints.maxWidth,
-                    child: OverflowBox(
-                      alignment: Alignment.topCenter,
-                      minHeight: 0,
-                      maxHeight: double.infinity,
-                      maxWidth: constraints.maxWidth,
-                      child: listContent,
-                    ),
-                  ),
-                ),
-              );
-            },
-          );
-        }
+          ),
+        );
 
         return Positioned(
           top: top,
@@ -367,17 +375,23 @@ class _HomeDraggableWidgetsPanelState extends State<HomeDraggableWidgetsPanel>
             child: Column(
               mainAxisSize: MainAxisSize.max,
               children: [
-                if (merged)
-                  Opacity(
-                    opacity: mergedOpacity,
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        SizedBox(height: statusTop + 4.h),
-                        const HomeGlassAppBar(mergedMode: true),
-                      ],
+                // Keep slot mounted to avoid layout pop when merging.
+                ClipRect(
+                  child: Align(
+                    alignment: Alignment.topCenter,
+                    heightFactor: mergedOpacity,
+                    child: Opacity(
+                      opacity: mergedOpacity,
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          SizedBox(height: statusTop + 4.h),
+                          const HomeGlassAppBar(mergedMode: true),
+                        ],
+                      ),
                     ),
                   ),
+                ),
                 _WidgetsPanelHeader(
                   fullyExpanded: fullyExpanded,
                   panelHeaderOpacity: panelHeaderOpacity,
@@ -412,7 +426,9 @@ class _LinkedWidgetList extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final veilStrength = (1 - ((expandProgress - 0.05) / 0.7)).clamp(0.0, 1.0);
+    // Soft bottom-edge hint only while collapsed — never a full grey veil over cards.
+    final edgeFade =
+        (1 - ((expandProgress - 0.05) / 0.55)).clamp(0.0, 1.0);
 
     return Stack(
       clipBehavior: Clip.hardEdge,
@@ -435,12 +451,12 @@ class _LinkedWidgetList extends StatelessWidget {
             listChild,
           ],
         ),
-        if (veilStrength > 0.02)
+        if (edgeFade > 0.02)
           Positioned(
             left: -16.w,
             right: -16.w,
-            top: 150.h,
             bottom: 0,
+            height: 56.h,
             child: IgnorePointer(
               child: DecoratedBox(
                 decoration: BoxDecoration(
@@ -448,13 +464,9 @@ class _LinkedWidgetList extends StatelessWidget {
                     begin: Alignment.topCenter,
                     end: Alignment.bottomCenter,
                     colors: [
-                      HomeGlassTheme.silverLeft
-                          .withValues(alpha: 0.72 * veilStrength),
-                      HomeGlassTheme.silverLeft
-                          .withValues(alpha: 0.2 * veilStrength),
-                      Colors.transparent,
+                      const Color(0xFFBCC2CB).withValues(alpha: 0),
+                      const Color(0xFFBCC2CB).withValues(alpha: 0.42 * edgeFade),
                     ],
-                    stops: const [0.0, 0.35, 1.0],
                   ),
                 ),
               ),

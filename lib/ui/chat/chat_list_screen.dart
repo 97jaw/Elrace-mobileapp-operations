@@ -98,9 +98,9 @@ class _ChatListScreenState extends State<ChatListScreen> {
 
     try {
       final result = await UserRepository.instance.searchUsers(query: query);
-      final filtered = result.users.where((u) => u.uid != _currentUid).toList();
+      // Include self so users can "Message yourself" (WhatsApp-style).
       if (mounted) {
-        _globalResultsNotifier.value = filtered;
+        _globalResultsNotifier.value = result.users;
         _globalSearchingNotifier.value = false;
       }
     } catch (e) {
@@ -382,24 +382,8 @@ class _ChatListScreenState extends State<ChatListScreen> {
                                         await ChatRepository.instance
                                             .toggleArchive(
                                                 userChat.chatId, true);
-                                        if (context.mounted) {
-                                          ScaffoldMessenger.of(context)
-                                              .showSnackBar(
-                                            SnackBar(
-                                              content:
-                                                  const Text('Chat archived'),
-                                              action: SnackBarAction(
-                                                label: 'Undo',
-                                                onPressed: () {
-                                                  ChatRepository.instance
-                                                      .toggleArchive(
-                                                          userChat.chatId,
-                                                          false);
-                                                },
-                                              ),
-                                            ),
-                                          );
-                                        }
+                                        // No SnackBar — stream removes the row;
+                                        // undo is available via Archived list.
                                         return true;
                                       },
                                       child: _ChatListTile(
@@ -666,8 +650,12 @@ class _ChatListScreenState extends State<ChatListScreen> {
   Future<void> _startChatWithUser(ChatUser user) async {
     if (_currentUid == null) return;
 
-    // Generate chat ID deterministically
+    // Generate chat ID deterministically (supports self-chat / message yourself)
     final chatId = Chat.generateDmChatId(_currentUid!, user.uid);
+    final isSelf = user.uid == _currentUid;
+    final title = isSelf
+        ? (user.name.trim().isNotEmpty ? '${user.name} (You)' : 'You')
+        : user.name;
 
     _localSearchController.clear();
 
@@ -679,7 +667,7 @@ class _ChatListScreenState extends State<ChatListScreen> {
         MaterialPageRoute(
           builder: (context) => ChatScreen(
             chatId: chatId,
-            title: user.name,
+            title: title,
             chatType: ChatType.dm,
             peerUid: user.uid,
           ),
@@ -797,8 +785,15 @@ class _ChatListTileState extends State<_ChatListTile> {
                                       final rawName = snap.data?.name ??
                                           userChat.title ??
                                           'Chat';
-                                      final displayName =
-                                          _limitToTwoWords(rawName);
+                                      final isSelf =
+                                          userChat.peerUid == widget.currentUid;
+                                      final displayName = _limitToTwoWords(
+                                        isSelf
+                                            ? (rawName.trim().isEmpty
+                                                ? 'You'
+                                                : '$rawName (You)')
+                                            : rawName,
+                                      );
                                       return Text(
                                         displayName,
                                         style: theme.textTheme.titleMedium
@@ -1166,8 +1161,30 @@ class _ChatListTileState extends State<_ChatListTile> {
             ],
           ),
         ),
+        const PopupMenuItem<String>(
+          value: 'delete',
+          height: 48,
+          child: Row(
+            children: [
+              Icon(
+                Icons.delete_outline,
+                color: Color(0xFFFF6B6B),
+                size: 22,
+              ),
+              SizedBox(width: 14),
+              Text(
+                'Delete',
+                style: TextStyle(
+                  color: Color(0xFFFF6B6B),
+                  fontSize: 17,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ],
+          ),
+        ),
       ],
-    ).then((value) {
+    ).then((value) async {
       if (value == null) return;
       switch (value) {
         case 'pin':
@@ -1183,13 +1200,62 @@ class _ChatListTileState extends State<_ChatListTile> {
           );
           break;
         case 'archive':
+          ScaffoldMessenger.of(context).clearSnackBars();
           ChatRepository.instance.toggleArchive(
             userChat.chatId,
             !userChat.archived,
           );
           break;
+        case 'delete':
+          await _confirmAndDeleteChat(context);
+          break;
       }
     });
+  }
+
+  Future<void> _confirmAndDeleteChat(BuildContext context) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: const Color(0xFF1F1F1F),
+        title: const Text(
+          'Delete chat?',
+          style: TextStyle(color: ChatGlassTheme.textPrimary),
+        ),
+        content: const Text(
+          'This removes the chat from your list only. Messages stay for other people.',
+          style: TextStyle(color: ChatGlassTheme.textSecondary),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: TextButton.styleFrom(foregroundColor: const Color(0xFFFF6B6B)),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+
+    try {
+      await ChatRepository.instance.deleteChatForMe(userChat.chatId);
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Chat deleted')),
+      );
+    } catch (e) {
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Could not delete chat: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
   }
 
   String _formatTime(DateTime dateTime) {
@@ -1264,18 +1330,30 @@ class _InlineUserTile extends StatelessWidget {
         ],
       ),
       title: Text(
-        user.name,
+        _displayName(user),
         style: ChatGlassTheme.body(weight: FontWeight.w600),
       ),
-      subtitle: user.email != null
-          ? Text(
-              user.email!,
-              style: ChatGlassTheme.muted(fontSize: 13),
-            )
-          : null,
+      subtitle: Text(
+        _isSelf(user)
+            ? 'Message yourself'
+            : (user.email ?? user.jobTitle ?? ''),
+        style: ChatGlassTheme.muted(fontSize: 13),
+      ),
       trailing: const Icon(Icons.message_rounded,
           color: ChatGlassTheme.gold, size: 22),
     );
+  }
+
+  bool _isSelf(ChatUser user) {
+    final me = FirebaseAuth.instance.currentUser?.uid;
+    return me != null && me == user.uid;
+  }
+
+  String _displayName(ChatUser user) {
+    if (!_isSelf(user)) return user.name;
+    final name = user.name.trim();
+    if (name.isEmpty) return 'You';
+    return '$name (You)';
   }
 
   String _getInitials(String name) {

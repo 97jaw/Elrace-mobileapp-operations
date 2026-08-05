@@ -6,7 +6,11 @@
     "shell": "firebase functions:shell",
     "start": "npm run shell",
     "deploy": "firebase deploy --only functions",
-    "logs": "firebase functions:log"
+    "logs": "firebase functions:log",
+    "sync:chat-users": "node scripts/sync_odoo_chat_users.js --dry-run",
+    "sync:chat-users:firestore-audit": "node scripts/sync_odoo_chat_users.js --firestore-audit-only",
+    "sync:chat-users:apply": "node scripts/sync_odoo_chat_users.js --apply",
+    "sync:chat-users:apply-heal": "node scripts/sync_odoo_chat_users.js --apply --heal-dm-titles"
   },
   "engines": {
     "node": "22"

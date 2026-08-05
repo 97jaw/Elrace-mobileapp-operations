@@ -63,8 +63,9 @@ class HomeGlassAppBar extends StatefulWidget {
 
 class _HomeGlassAppBarState extends State<HomeGlassAppBar> {
   String _imageBase64 = '';
-  int _notificationCount = 0;
-  int _approvalCount = 0;
+  // Seed from warm cache so sub-screens (Waiting / Notifications) don't flash 0.
+  int _notificationCount = NotificationStorageService.memoryBadgeCount;
+  int _approvalCount = ApprovalCountService.cachedCountOrZero;
   bool _profileOpening = false;
   Timer? _notificationPollTimer;
 
@@ -72,18 +73,17 @@ class _HomeGlassAppBarState extends State<HomeGlassAppBar> {
   void initState() {
     super.initState();
     _loadUserData();
-    _loadNotificationCount();
-    ApprovalCountService.invalidateCache();
+    _loadNotificationCountLocal();
     _loadApprovalCount();
-    ApprovalViewedService.setOnCountChangedCallback(() {
+    ApprovalViewedService.addListener(this, () {
       if (mounted) _loadApprovalCount();
     });
-    ApprovalCountService.onCountChanged = () {
+    ApprovalCountService.addListener(this, () {
       if (mounted) _loadApprovalCount();
-    };
-    NotificationStorageService.onCountChanged = () {
+    });
+    NotificationStorageService.addCountListener(this, () {
       if (mounted) _loadNotificationCountLocal();
-    };
+    });
     // Resume badge refresh: ResumeCoordinator runs one shared server sync,
     // then this callback re-reads the warm local/cached values (no duplicate
     // API calls per header widget anymore).
@@ -104,9 +104,9 @@ class _HomeGlassAppBarState extends State<HomeGlassAppBar> {
   void dispose() {
     _notificationPollTimer?.cancel();
     BadgeRefreshService.removeListener(this);
-    ApprovalViewedService.setOnCountChangedCallback(null);
-    ApprovalCountService.onCountChanged = null;
-    NotificationStorageService.onCountChanged = null;
+    ApprovalViewedService.removeListener(this);
+    ApprovalCountService.removeListener(this);
+    NotificationStorageService.removeCountListener(this);
     super.dispose();
   }
 
@@ -634,7 +634,8 @@ class _HomeGlassAppBarState extends State<HomeGlassAppBar> {
           )
         : ClipRRect(
         borderRadius: BorderRadius.circular(999),
-        clipBehavior: compact ? Clip.hardEdge : Clip.antiAlias,
+        // Compact sub-app pills must not clip red badges on waiting/bell icons.
+        clipBehavior: Clip.none,
         child: AdaptiveGlassLayer(
           borderRadius: BorderRadius.circular(999),
           sigma: lightSoftPill ? 18 : 25,

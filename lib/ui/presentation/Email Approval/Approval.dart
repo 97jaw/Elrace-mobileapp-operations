@@ -421,15 +421,31 @@ class _ApprovalsScreenState extends State<ApprovalsScreen> {
     }
   }
 
-  /// Keep home badge in sync once all category lists are loaded.
+  /// Keep home/waiting header badge in sync as lists load.
+  void _publishApprovalBadgeCount() {
+    final anyLoaded = _categoryLoaded.values.any((v) => v == true);
+    final cacheTotal = _countCache.hr +
+        _countCache.rfq +
+        _countCache.invoice +
+        _countCache.pettyCash;
+    // Don't stomp a warm home badge with zeros before the first category lands.
+    if (!anyLoaded && cacheTotal <= 0) return;
+
+    final hr =
+        _categoryLoaded['hr'] == true ? hrItems.length : _countCache.hr;
+    final rfq =
+        _categoryLoaded['rfq'] == true ? rfqItems.length : _countCache.rfq;
+    final invoice = _categoryLoaded['invoice'] == true
+        ? invoiceItems.length
+        : _countCache.invoice;
+    final petty = _categoryLoaded['petty_cash'] == true
+        ? pettyCashItems.length
+        : _countCache.pettyCash;
+    ApprovalCountService.updateCachedCount(hr + rfq + invoice + petty);
+  }
+
   void _syncApprovalBadgeCountIfReady() {
-    const keys = ['hr', 'rfq', 'invoice', 'petty_cash'];
-    if (keys.any((k) => _categoryLoaded[k] != true)) return;
-    final total = hrItems.length +
-        rfqItems.length +
-        invoiceItems.length +
-        pettyCashItems.length;
-    ApprovalCountService.updateCachedCount(total);
+    _publishApprovalBadgeCount();
   }
 
   /// Invoice is fetched first; other categories follow immediately after.
@@ -526,9 +542,9 @@ class _ApprovalsScreenState extends State<ApprovalsScreen> {
 
   Future<void> _refreshApprovalsAfterAction() async {
     debugPrint('🔁 [ApprovalsScreen] Refresh requested after approve/reject');
-    // Clear badge cache immediately so home header refetch starts in parallel.
+    // Clear badge cache immediately so headers refetch in parallel.
     ApprovalCountService.invalidateCache();
-    ApprovalCountService.onCountChanged?.call();
+    ApprovalCountService.notifyListeners();
     await _loadAllCategoriesInBackground(force: true);
     if (!mounted) return;
     _syncApprovalBadgeCountIfReady();

@@ -10,8 +10,11 @@ class ChatUserSession {
   /// Odoo user ID - MUST NOT be null
   final int odooUserId;
 
-  /// Employee ID (optional)
+  /// HR employee DB id (`hr.employee.id`) — optional
   final int? employeeId;
+
+  /// Employee badge / code (`hr.employee.emp_id`) — optional string
+  final String? empId;
 
   /// User's display name
   final String name;
@@ -56,6 +59,7 @@ class ChatUserSession {
     required this.backendJwt,
     required this.odooUserId,
     this.employeeId,
+    this.empId,
     required this.name,
     this.email,
     required this.roleId,
@@ -148,6 +152,7 @@ class ChatUserSession {
       roleName = roles.first?.toString();
       print('🔍 Role name from roles list: $roleName');
     }
+    roleName ??= _extractString(data, const ['role_name', 'role']);
 
     // Avatar URL extraction - check multiple locations
     final avatarFromData = data['image_url'] ?? data['avatar_url'];
@@ -160,8 +165,9 @@ class ChatUserSession {
     print('   - In result: ${avatarFromResult ?? "NOT FOUND"}');
     print('   - In root: ${avatarFromRoot ?? "NOT FOUND"}');
 
-    final int? employeeId =
-        _extractInt(data['employee_id']) ?? _extractInt(data['emp_id']);
+    final int? employeeId = _extractInt(data['employee_id']);
+    // emp_id is a badge/code string — never treat it as hr.employee DB id.
+    final String? empId = _extractString(data, const ['emp_id', 'emp_code']);
 
     final rawAvatarUrl = avatarFromData ?? avatarFromResult ?? avatarFromRoot;
     final String? avatarUrl = _extractAvatarUrl(rawAvatarUrl) ??
@@ -172,17 +178,37 @@ class ChatUserSession {
     final int? branchId = _extractInt(data['default_operating_unit_id']) ??
         _extractInt(data['branch_id']);
 
+    final jobTitle = _extractString(data, const [
+      'job_title',
+      'job_position',
+      'designation',
+      'position',
+      'title',
+    ]);
+
+    final empName = _extractString(data, const ['emp_name']);
+    final loginName = _extractString(data, const ['name']);
+    final username = _extractString(data, const ['username']);
+    // Prefer person name; never prefer job title / role as display name.
+    String resolvedName = empName ?? '';
+    if (resolvedName.isEmpty &&
+        loginName != null &&
+        loginName.toLowerCase() != (roleName ?? '').toLowerCase() &&
+        loginName.toLowerCase() != (jobTitle ?? '').toLowerCase()) {
+      resolvedName = loginName;
+    }
+    if (resolvedName.isEmpty) {
+      resolvedName = empName ?? loginName ?? username ?? '';
+    }
+
     return ChatUserSession(
       backendJwt: token,
       odooUserId: odooUserId,
       employeeId: employeeId,
+      empId: empId,
       // Prefer emp_name (person) over name — login model does the same.
       // Backend `name` can be a role/title (e.g. "Project Manager").
-      name: (data['emp_name']?.toString().trim().isNotEmpty == true)
-          ? data['emp_name'].toString().trim()
-          : (data['name']?.toString().trim().isNotEmpty == true)
-              ? data['name'].toString().trim()
-              : (data['username']?.toString() ?? ''),
+      name: resolvedName,
       email: _extractEmail(data),
       roleId: roleId,
       roleName: roleName,
@@ -193,13 +219,7 @@ class ChatUserSession {
       firebaseCustomToken: firebaseToken, // Use the token found at any level
       roleChatId: data['role_chat_id']?.toString(),
       avatarUrl: avatarUrl,
-      jobTitle: _extractString(data, const [
-        'job_title',
-        'job_position',
-        'designation',
-        'position',
-        'title',
-      ]),
+      jobTitle: jobTitle,
       phoneNumber: _extractString(data, const [
         'phone',
         'phone_number',
@@ -315,6 +335,7 @@ class ChatUserSession {
         'backend_jwt': backendJwt,
         'odoo_user_id': odooUserId,
         'employee_id': employeeId,
+        'emp_id': empId,
         'name': name,
         'email': email,
         'role_id': roleId,
@@ -335,6 +356,7 @@ class ChatUserSession {
         backendJwt: json['backend_jwt'] ?? '',
         odooUserId: json['odoo_user_id'] ?? 0,
         employeeId: json['employee_id'],
+        empId: json['emp_id']?.toString(),
         name: json['name'] ?? '',
         email: json['email'],
         roleId: json['role_id'] ?? 0,
