@@ -25,24 +25,21 @@ class _NotificationScreenState extends State<NotificationScreen> {
   bool _clearing = false;
   bool _clearAllVisible = false;
   String? _openSwipeId;
-  void Function()? _previousCountCallback;
 
   @override
   void initState() {
     super.initState();
-    _previousCountCallback = NotificationStorageService.onCountChanged;
-    NotificationStorageService.onCountChanged = () {
-      _previousCountCallback?.call();
+    NotificationStorageService.addCountListener(this, () {
       if (mounted && !_loading) {
         _loadNotifications(showLoader: false);
       }
-    };
+    });
     _bootstrap();
   }
 
   @override
   void dispose() {
-    NotificationStorageService.onCountChanged = _previousCountCallback;
+    NotificationStorageService.removeCountListener(this);
     super.dispose();
   }
 

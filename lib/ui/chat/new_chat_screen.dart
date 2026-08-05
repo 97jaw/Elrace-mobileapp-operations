@@ -119,9 +119,8 @@ class _NewChatScreenState extends State<NewChatScreen> {
     try {
       final result = await UserRepository.instance.searchUsers(query: query);
 
-      // Filter out current user
-      final filteredResults =
-          result.users.where((u) => u.uid != _currentUid).toList();
+      // Include self so users can "Message yourself" (WhatsApp-style).
+      final filteredResults = result.users;
 
       // Filter groups by search query
       final matchingGroups = _availableGroups
@@ -489,11 +488,15 @@ class _NewChatScreenState extends State<NewChatScreen> {
 
       // Navigate to chat screen
       if (mounted) {
+        final isSelf = user.uid == _currentUid;
+        final title = isSelf
+            ? (user.name.trim().isNotEmpty ? '${user.name} (You)' : 'You')
+            : user.name;
         Navigator.of(context).pushReplacement(
           MaterialPageRoute(
             builder: (context) => ChatScreen(
               chatId: chatId,
-              title: user.name,
+              title: title,
               chatType: ChatType.dm,
               peerUid: user.uid,
             ),
@@ -585,30 +588,34 @@ class _UserListTile extends StatelessWidget {
                   ],
                 ),
                 title: Text(
-                  user.name,
+                  _displayName(user),
                   style: ChatGlassTheme.body(weight: FontWeight.w600),
                 ),
                 subtitle: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    if (user.email != null)
-                      Text(user.email!,
-                          style: ChatGlassTheme.muted(fontSize: 13)),
-                    Row(
-                      children: [
-                        Icon(Icons.work_outline,
-                            size: 12,
-                            color: Colors.white.withValues(alpha: 0.7)),
-                        const SizedBox(width: 4),
-                        Text(
-                          'Role: ${user.roleId}',
-                          style: ChatGlassTheme.muted(fontSize: 12),
-                        ),
-                      ],
+                    Text(
+                      _isSelf(user)
+                          ? 'Message yourself'
+                          : (user.email ?? ''),
+                      style: ChatGlassTheme.muted(fontSize: 13),
                     ),
+                    if (!_isSelf(user))
+                      Row(
+                        children: [
+                          Icon(Icons.work_outline,
+                              size: 12,
+                              color: Colors.white.withValues(alpha: 0.7)),
+                          const SizedBox(width: 4),
+                          Text(
+                            'Role: ${user.roleId}',
+                            style: ChatGlassTheme.muted(fontSize: 12),
+                          ),
+                        ],
+                      ),
                   ],
                 ),
-                isThreeLine: true,
+                isThreeLine: !_isSelf(user),
                 trailing: Icon(
                   Icons.message,
                   color: Colors.white.withValues(alpha: 0.9),
@@ -619,6 +626,18 @@ class _UserListTile extends StatelessWidget {
         ),
       ),
     );
+  }
+
+  bool _isSelf(ChatUser user) {
+    final me = FirebaseAuth.instance.currentUser?.uid;
+    return me != null && me == user.uid;
+  }
+
+  String _displayName(ChatUser user) {
+    if (!_isSelf(user)) return user.name;
+    final name = user.name.trim();
+    if (name.isEmpty) return 'You';
+    return '$name (You)';
   }
 
   String _getInitials(String name) {

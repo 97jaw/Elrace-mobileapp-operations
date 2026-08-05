@@ -19,6 +19,11 @@ abstract final class HomeGlassTheme {
   static const Color maroon = Color(0xFF8B1A2B);
   static const Color bottleGreen = Color(0xFF2D6B52);
 
+  /// Very light navy accents for the animated header wash.
+  static const Color headerNavySoft = Color(0xFFD8E2F0);
+  static const Color headerNavyMist = Color(0xFFE8EEF6);
+  static const Color headerNavyHint = Color(0xFFC5D2E6);
+
   static const LinearGradient headerGradient = LinearGradient(
     begin: Alignment.centerLeft,
     end: Alignment.centerRight,
@@ -55,15 +60,16 @@ abstract final class HomeGlassTheme {
     final radius = borderRadius ?? BorderRadius.circular(999);
     return BoxDecoration(
       borderRadius: radius,
-      color: fillColor ?? Colors.white.withValues(alpha: 0.55),
+      // Soft silver-grey frosted fill (matches widgets panel, less chalky white).
+      color: fillColor ?? const Color(0xFFB8BFC9).withValues(alpha: 0.55),
       border: Border.all(
-        color: Colors.white.withValues(alpha: 0.85),
+        color: Colors.white.withValues(alpha: 0.62),
         width: 1,
       ),
       boxShadow: [
         BoxShadow(
-          color: Colors.black.withValues(alpha: 0.06),
-          blurRadius: 20,
+          color: const Color(0xFF0F1A35).withValues(alpha: 0.08),
+          blurRadius: 18,
           offset: const Offset(0, 4),
         ),
       ],
@@ -235,57 +241,19 @@ abstract final class HomeGlassTheme {
     }
   }
 
-  /// Dual strip — matches reference glass card (blur, border, inset highlight).
+  /// Dual strip — same frosted grey theme as the widgets panel.
   static Widget _dualMidSectionShell({
     required EdgeInsetsGeometry padding,
     required Widget child,
   }) {
-    final borderRadius = BorderRadius.circular(22.ur);
-
     return Material(
       color: Colors.transparent,
       elevation: 0,
-      child: Container(
-        decoration: BoxDecoration(
-          borderRadius: borderRadius,
-          border: Border.all(
-            color: Colors.white.withValues(alpha: 0.8),
-            width: 1,
-          ),
-          boxShadow: [
-            BoxShadow(
-              color: const Color(0xFF0F1A35).withValues(alpha: 0.10),
-              blurRadius: 18,
-              offset: const Offset(0, 6),
-            ),
-          ],
-        ),
-        child: ClipRRect(
-          borderRadius: borderRadius,
-          child: AdaptiveGlassLayer(
-            borderRadius: borderRadius,
-            sigma: 25,
-            fallbackColor: Colors.white.withValues(alpha: 0.72),
-            fallbackBorder: Border.all(
-              color: Colors.white.withValues(alpha: 0.8),
-              width: 1,
-            ),
-            child: frostInsetHighlight(
-              radius: borderRadius,
-              child: Material(
-                type: MaterialType.transparency,
-                child: Container(
-                  padding: padding,
-                  decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: 0.55),
-                    borderRadius: borderRadius,
-                  ),
-                  child: child,
-                ),
-              ),
-            ),
-          ),
-        ),
+      child: widgetsStyleSurface(
+        borderRadius: BorderRadius.circular(22.ur),
+        padding: padding,
+        shadowOffset: const Offset(0, 5),
+        child: child,
       ),
     );
   }
@@ -406,25 +374,12 @@ abstract final class HomeGlassTheme {
     EdgeInsetsGeometry? padding,
     Color? fillColor,
   }) {
-    final radius = borderRadius ?? BorderRadius.circular(20.r);
-    return ClipRRect(
-      borderRadius: radius,
-      child: AdaptiveGlassLayer(
-        borderRadius: radius,
-        sigma: 25,
-        fallbackColor: (fillColor ?? Colors.white).withValues(alpha: 0.78),
-        child: frostInsetHighlight(
-          radius: radius,
-          child: Container(
-            padding: padding,
-            decoration: glassDecoration(
-              borderRadius: radius,
-              fillColor: fillColor,
-            ),
-            child: child,
-          ),
-        ),
-      ),
+    // fillColor kept for API compatibility; widgets panel theme is the source.
+    return widgetsStyleSurface(
+      borderRadius: borderRadius ?? BorderRadius.circular(20.r),
+      padding: padding,
+      shadowOffset: const Offset(0, 4),
+      child: child,
     );
   }
 
@@ -448,6 +403,113 @@ abstract final class HomeGlassTheme {
     ],
     stops: [0.0, 0.4, 1.0],
   );
+
+  /// Shared widgets-panel fill layers (base grey + white glass wash).
+  static List<Widget> _widgetsPanelBackdropLayers(BorderRadius borderRadius) {
+    return [
+      const Positioned.fill(
+        child: IgnorePointer(
+          child: DecoratedBox(
+            decoration: BoxDecoration(gradient: widgetsPanelBaseGradient),
+          ),
+        ),
+      ),
+      Positioned.fill(
+        child: IgnorePointer(
+          child: DecoratedBox(
+            decoration: BoxDecoration(
+              color: const Color(0xFFA8AFBA).withValues(alpha: 0.22),
+            ),
+          ),
+        ),
+      ),
+      const Positioned.fill(
+        child: IgnorePointer(
+          child: DecoratedBox(
+            decoration: BoxDecoration(gradient: widgetsPanelGlassWash),
+          ),
+        ),
+      ),
+      Positioned.fill(
+        child: IgnorePointer(
+          child: DecoratedBox(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [
+                  Colors.white.withValues(alpha: 0.22),
+                  Colors.transparent,
+                  Colors.transparent,
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+      Positioned(
+        top: 0,
+        left: 0,
+        right: 0,
+        child: IgnorePointer(
+          child: Container(
+            height: 1,
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.vertical(top: borderRadius.topLeft),
+              gradient: LinearGradient(
+                colors: [
+                  Colors.white.withValues(alpha: 0.95),
+                  Colors.white.withValues(alpha: 0.0),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    ];
+  }
+
+  /// Compact card surface using the same theme as [widgetsPanelShell].
+  static Widget widgetsStyleSurface({
+    required Widget child,
+    required BorderRadius borderRadius,
+    EdgeInsetsGeometry? padding,
+    Offset shadowOffset = const Offset(0, 4),
+  }) {
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        borderRadius: borderRadius,
+        border: Border.all(
+          color: Colors.white,
+          width: 1,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.10),
+            blurRadius: 16,
+            offset: shadowOffset,
+          ),
+        ],
+      ),
+      child: ClipRRect(
+        borderRadius: borderRadius,
+        child: AdaptiveGlassLayer(
+          borderRadius: borderRadius,
+          sigma: 24,
+          fallbackColor: const Color(0xFFBCC2CB).withValues(alpha: 0.92),
+          child: Stack(
+            children: [
+              ..._widgetsPanelBackdropLayers(borderRadius),
+              Padding(
+                padding: padding ?? EdgeInsets.zero,
+                child: child,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
 
   /// Frosted grey panel with white-dominant glass wash for the widgets sheet.
   static Widget widgetsPanelShell({
@@ -483,67 +545,7 @@ abstract final class HomeGlassTheme {
           child: Stack(
             fit: StackFit.expand,
             children: [
-              const DecoratedBox(
-                decoration: BoxDecoration(
-                  gradient: widgetsPanelBaseGradient,
-                ),
-              ),
-              Positioned.fill(
-                child: IgnorePointer(
-                  child: DecoratedBox(
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFA8AFBA).withValues(alpha: 0.22),
-                    ),
-                  ),
-                ),
-              ),
-              Positioned.fill(
-                child: IgnorePointer(
-                  child: DecoratedBox(
-                    decoration: BoxDecoration(
-                      gradient: widgetsPanelGlassWash,
-                    ),
-                  ),
-                ),
-              ),
-              Positioned.fill(
-                child: IgnorePointer(
-                  child: DecoratedBox(
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        begin: Alignment.topCenter,
-                        end: Alignment.bottomCenter,
-                        colors: [
-                          Colors.white.withValues(alpha: 0.22),
-                          Colors.transparent,
-                          Colors.black.withValues(alpha: 0.05),
-                        ],
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-              Positioned(
-                top: 0,
-                left: 0,
-                right: 0,
-                child: IgnorePointer(
-                  child: Container(
-                    height: 1,
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.vertical(
-                        top: borderRadius.topLeft,
-                      ),
-                      gradient: LinearGradient(
-                        colors: [
-                          Colors.white.withValues(alpha: 0.95),
-                          Colors.white.withValues(alpha: 0.0),
-                        ],
-                      ),
-                    ),
-                  ),
-                ),
-              ),
+              ..._widgetsPanelBackdropLayers(borderRadius),
               child,
             ],
           ),
@@ -606,13 +608,40 @@ class _PrayerPatternOverlay extends StatelessWidget {
 }
 
 /// Silver gradient + diagonal line texture for the home screen backdrop.
-class HomeSilverBackground extends StatelessWidget {
+/// Includes a slow-moving very light navy wash across the top header zone.
+class HomeSilverBackground extends StatefulWidget {
   const HomeSilverBackground({super.key, required this.child});
 
   final Widget child;
 
   static const _headerLinesAsset = 'assets/png/header_bg.png';
   static const _accentLinesAsset = 'assets/png/lines.png';
+
+  @override
+  State<HomeSilverBackground> createState() => _HomeSilverBackgroundState();
+}
+
+class _HomeSilverBackgroundState extends State<HomeSilverBackground>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _navyDrift;
+
+  @override
+  void initState() {
+    super.initState();
+    _navyDrift = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 14),
+    );
+    if (!DeviceUiCapability.isLowEnd) {
+      _navyDrift.repeat(reverse: true);
+    }
+  }
+
+  @override
+  void dispose() {
+    _navyDrift.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -625,12 +654,44 @@ class HomeSilverBackground extends StatelessWidget {
             gradient: HomeGlassTheme.headerGradient,
           ),
         ),
+        // Slow-moving very light navy wash over the top header band.
+        Positioned(
+          top: 0,
+          left: 0,
+          right: 0,
+          height: 320.h,
+          child: IgnorePointer(
+            child: AnimatedBuilder(
+              animation: _navyDrift,
+              builder: (context, _) {
+                final t = Curves.easeInOut.transform(_navyDrift.value);
+                final begin = Alignment(-1.2 + t * 0.9, -0.85);
+                final end = Alignment(1.2 - t * 0.9, 0.65);
+                return DecoratedBox(
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: begin,
+                      end: end,
+                      colors: [
+                        HomeGlassTheme.headerNavyMist.withValues(alpha: 0.55),
+                        HomeGlassTheme.headerNavySoft.withValues(alpha: 0.38),
+                        HomeGlassTheme.headerNavyHint.withValues(alpha: 0.22),
+                        Colors.transparent,
+                      ],
+                      stops: const [0.0, 0.28, 0.58, 1.0],
+                    ),
+                  ),
+                );
+              },
+            ),
+          ),
+        ),
         Positioned.fill(
           child: IgnorePointer(
             child: Opacity(
               opacity: 0.95,
               child: Image.asset(
-                _headerLinesAsset,
+                HomeSilverBackground._headerLinesAsset,
                 fit: BoxFit.cover,
                 alignment: Alignment.centerRight,
               ),
@@ -649,8 +710,8 @@ class HomeSilverBackground extends StatelessWidget {
                   begin: Alignment.topCenter,
                   end: Alignment.bottomCenter,
                   colors: [
-                    Colors.white.withValues(alpha: 0.20),
-                    Colors.white.withValues(alpha: 0.08),
+                    Colors.white.withValues(alpha: 0.16),
+                    Colors.white.withValues(alpha: 0.06),
                     Colors.transparent,
                   ],
                 ),
@@ -665,7 +726,7 @@ class HomeSilverBackground extends StatelessWidget {
             child: Opacity(
               opacity: 0.72,
               child: Image.asset(
-                _accentLinesAsset,
+                HomeSilverBackground._accentLinesAsset,
                 width: 240.w,
                 fit: BoxFit.fitWidth,
                 alignment: Alignment.topLeft,
@@ -674,7 +735,7 @@ class HomeSilverBackground extends StatelessWidget {
           ),
         ),
         Positioned.fill(
-          child: HomeNoiseOverlay(child: child),
+          child: HomeNoiseOverlay(child: widget.child),
         ),
       ],
     );

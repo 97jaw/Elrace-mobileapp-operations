@@ -1,7 +1,9 @@
-import 'package:el_race/core/ui/adaptive_glass.dart';
+import 'package:el_race/core/utils/responsive_breakpoints.dart';
 import 'package:el_race/ui/presentation/home_screen/widgets/home_glass_theme.dart';
 import 'package:el_race/ui/presentation/home_screen/widgets/home_my_actions_navigation.dart';
 import 'package:el_race/ui/presentation/my_actions/data/repositories/signature_actions_repository.dart';
+import 'package:el_race/ui/presentation/my_actions/theme/my_actions_module_theme.dart';
+import 'package:el_race/ui/presentation/my_actions/theme/signature_theme.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -11,13 +13,15 @@ class _ActionItem {
     required this.action,
     required this.label,
     required this.iconAsset,
-    required this.tint,
+    required this.badgeColor,
+    required this.iconColor,
   });
 
   final HomeMyAction action;
   final String label;
   final String iconAsset;
-  final Color tint;
+  final Color badgeColor;
+  final Color iconColor;
 }
 
 class MyActionsSection extends StatelessWidget {
@@ -32,6 +36,7 @@ class MyActionsSection extends StatelessWidget {
   });
 
   final bool compact;
+
   /// Tighter layout on main home — sits closer to the widgets panel.
   final bool dense;
   final bool showTitle;
@@ -43,44 +48,66 @@ class MyActionsSection extends StatelessWidget {
   /// When true with [dockMode], dock stretches to parent width (tablet mid).
   final bool expandToWidth;
 
-  static const _items = [
-    _ActionItem(
-      action: HomeMyAction.hr,
-      label: 'HR',
-      iconAsset: 'assets/newapp/newicon/hr.png',
-      tint: Color(0xFFE8F4FC),
-    ),
-    _ActionItem(
-      action: HomeMyAction.rfq,
-      label: 'RFQ',
-      iconAsset: 'assets/newapp/newicon/rfq.png',
-      tint: Color(0xFFF0F4FF),
-    ),
-    _ActionItem(
-      action: HomeMyAction.pettyCash,
-      label: 'Petty Cash',
-      iconAsset: 'assets/newapp/newicon/Cash.png',
-      tint: Color(0xFFFFF8E8),
-    ),
-    _ActionItem(
-      action: HomeMyAction.invoice,
-      label: 'Invoice',
-      iconAsset: 'assets/newapp/newicon/Invoice.png',
-      tint: Color(0xFFFFF5F0),
-    ),
-    _ActionItem(
-      action: HomeMyAction.signature,
-      label: 'Signature',
-      iconAsset: 'assets/png/signarute-frame.png',
-      tint: Color(0xFFF5F0FF),
-    ),
-    _ActionItem(
-      action: HomeMyAction.myRequests,
-      label: 'My Requests',
-      iconAsset: 'assets/newapp/newicon/my_action_my_request.png',
-      tint: Color(0xFFF0F4FF),
-    ),
-  ];
+  /// Same chip size as check-in / prayer dual-strip icons.
+  static double _chipSize(BuildContext context) =>
+      ResponsiveBreakpoints.isTabletScreen ? 48.w : 36.w;
+
+  static double _glyphSize(BuildContext context) =>
+      ResponsiveBreakpoints.isTabletScreen ? 18.w : 15.w;
+
+  static List<_ActionItem> get _items {
+    final hr = MyActionsModuleTheme.of(MyActionsModule.hr);
+    final rfq = MyActionsModuleTheme.of(MyActionsModule.rfq);
+    final petty = MyActionsModuleTheme.of(MyActionsModule.pettyCash);
+    final invoice = MyActionsModuleTheme.of(MyActionsModule.invoice);
+    final requests = MyActionsModuleTheme.of(MyActionsModule.myRequests);
+    // Clean white / soft faded chip fill for every action.
+    const sharedBadge = Color(0xF7FFFFFF);
+    return [
+      _ActionItem(
+        action: HomeMyAction.hr,
+        label: 'HR',
+        iconAsset: hr.iconAsset,
+        badgeColor: sharedBadge,
+        iconColor: hr.primary,
+      ),
+      _ActionItem(
+        action: HomeMyAction.rfq,
+        label: 'RFQ',
+        iconAsset: rfq.iconAsset,
+        badgeColor: sharedBadge,
+        iconColor: rfq.primary,
+      ),
+      _ActionItem(
+        action: HomeMyAction.pettyCash,
+        label: 'Petty Cash',
+        iconAsset: petty.iconAsset,
+        badgeColor: sharedBadge,
+        iconColor: petty.primary,
+      ),
+      _ActionItem(
+        action: HomeMyAction.invoice,
+        label: 'Invoice',
+        iconAsset: invoice.iconAsset,
+        badgeColor: sharedBadge,
+        iconColor: invoice.primary,
+      ),
+      _ActionItem(
+        action: HomeMyAction.signature,
+        label: 'Signature',
+        iconAsset: 'assets/png/signarute-frame.png',
+        badgeColor: sharedBadge,
+        iconColor: SignatureTheme.brown,
+      ),
+      _ActionItem(
+        action: HomeMyAction.myRequests,
+        label: 'My Requests',
+        iconAsset: requests.iconAsset,
+        badgeColor: sharedBadge,
+        iconColor: requests.primary,
+      ),
+    ];
+  }
 
   static double estimatedHeight(
     BuildContext context, {
@@ -89,17 +116,17 @@ class MyActionsSection extends StatelessWidget {
     bool showTitle = true,
     bool inGlass = true,
   }) {
+    final chip = ResponsiveBreakpoints.isTabletScreen ? 48.0 : 36.0;
     if (dense) {
       final glassPad = inGlass ? 16.h : 0.0;
       final titleBlock = showTitle ? 22.h : 0.0;
-      final row = 48.w + 4.h + 18.h;
+      final row = chip.w + 4.h + 18.h;
       return glassPad + titleBlock + row + 2.h + _responsiveDenseTop(context);
     }
     final glassPad = inGlass ? 22.h : 0.0;
     final titleBlock = showTitle ? (compact ? 26.h : 30.h) : 0.0;
-    final tile = compact ? 56.w : 64.w;
     final label = compact ? 22.h : 24.h;
-    final row = tile + 5.h + label;
+    final row = chip.w + 5.h + label;
     return glassPad + titleBlock + row + 4.h;
   }
 
@@ -113,11 +140,12 @@ class MyActionsSection extends StatelessWidget {
       return _buildDock(context);
     }
 
-    final tileSize = dense ? 46.w : (compact ? 54.w : 64.w);
-    final iconSize = dense ? 23.w : (compact ? 27.w : 32.w);
-    final tileWidth = dense ? 62.w : (compact ? 70.w : 76.w);
-    final gap = dense ? 5.w : (compact ? 6.w : 8.w);
-    final labelHeight = dense ? 17.h : (compact ? 21.h : 24.h);
+    final items = _items;
+    final tileSize = _chipSize(context);
+    final iconSize = _glyphSize(context);
+    final tileWidth = dense ? 58.w : (compact ? 64.w : 70.w);
+    final gap = dense ? 6.w : (compact ? 8.w : 10.w);
+    final labelHeight = dense ? 16.h : (compact ? 20.h : 22.h);
     final labelGap = dense ? 4.h : 5.h;
     final iconsRowHeight = tileSize + labelGap + labelHeight;
 
@@ -126,17 +154,18 @@ class MyActionsSection extends StatelessWidget {
         final row = Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            for (var i = 0; i < _items.length; i++) ...[
-              if (_items[i].action == HomeMyAction.signature)
+            for (var i = 0; i < items.length; i++) ...[
+              if (items[i].action == HomeMyAction.signature)
                 StreamBuilder<int>(
                   stream: SignatureActionsRepository.instance
                       .watchNeedsMySignatureCount(),
                   builder: (context, snapshot) {
                     final count = snapshot.data ?? 0;
                     return _MyActionTile(
-                      iconAsset: _items[i].iconAsset,
-                      label: _items[i].label,
-                      tint: _items[i].tint,
+                      iconAsset: items[i].iconAsset,
+                      label: items[i].label,
+                      badgeColor: items[i].badgeColor,
+                      iconColor: items[i].iconColor,
                       tileSize: tileSize,
                       iconSize: iconSize,
                       tileWidth: tileWidth,
@@ -145,15 +174,18 @@ class MyActionsSection extends StatelessWidget {
                       labelMaxLines: dense ? 1 : 2,
                       badgeCount: count,
                       onTap: () => HomeMyActionsNavigation.open(
-                          context, _items[i].action),
+                        context,
+                        items[i].action,
+                      ),
                     );
                   },
                 )
               else
                 _MyActionTile(
-                  iconAsset: _items[i].iconAsset,
-                  label: _items[i].label,
-                  tint: _items[i].tint,
+                  iconAsset: items[i].iconAsset,
+                  label: items[i].label,
+                  badgeColor: items[i].badgeColor,
+                  iconColor: items[i].iconColor,
                   tileSize: tileSize,
                   iconSize: iconSize,
                   tileWidth: tileWidth,
@@ -161,9 +193,9 @@ class MyActionsSection extends StatelessWidget {
                   labelFontSize: dense ? 9.sp : 10.sp,
                   labelMaxLines: dense ? 1 : 2,
                   onTap: () =>
-                      HomeMyActionsNavigation.open(context, _items[i].action),
+                      HomeMyActionsNavigation.open(context, items[i].action),
                 ),
-              if (i != _items.length - 1) SizedBox(width: gap),
+              if (i != items.length - 1) SizedBox(width: gap),
             ],
           ],
         );
@@ -249,21 +281,22 @@ class MyActionsSection extends StatelessWidget {
   }
 
   Widget _buildDock(BuildContext context) {
-    // Crisp raw pixels — no ScreenUtil, no backdrop blur (blur looked soft).
-    const tileSize = 44.0;
-    const iconSize = 26.0;
-    const gap = 6.0;
+    const tileSize = 36.0;
+    const iconSize = 15.0;
+    const gap = 8.0;
     const labelGap = 4.0;
     const labelFontSize = 10.0;
+    final items = _items;
 
     final tiles = <Widget>[
-      for (var i = 0; i < _items.length; i++) ...[
+      for (var i = 0; i < items.length; i++) ...[
         if (expandToWidth)
           Expanded(
             child: _MyActionTile(
-              iconAsset: _items[i].iconAsset,
-              label: _items[i].label,
-              tint: _items[i].tint,
+              iconAsset: items[i].iconAsset,
+              label: items[i].label,
+              badgeColor: items[i].badgeColor,
+              iconColor: items[i].iconColor,
               tileSize: tileSize,
               iconSize: iconSize,
               tileWidth: double.infinity,
@@ -272,14 +305,15 @@ class MyActionsSection extends StatelessWidget {
               labelMaxLines: 1,
               crisp: true,
               onTap: () =>
-                  HomeMyActionsNavigation.open(context, _items[i].action),
+                  HomeMyActionsNavigation.open(context, items[i].action),
             ),
           )
         else
           _MyActionTile(
-            iconAsset: _items[i].iconAsset,
-            label: _items[i].label,
-            tint: _items[i].tint,
+            iconAsset: items[i].iconAsset,
+            label: items[i].label,
+            badgeColor: items[i].badgeColor,
+            iconColor: items[i].iconColor,
             tileSize: tileSize,
             iconSize: iconSize,
             tileWidth: 58,
@@ -288,26 +322,16 @@ class MyActionsSection extends StatelessWidget {
             labelMaxLines: 1,
             crisp: true,
             onTap: () =>
-                HomeMyActionsNavigation.open(context, _items[i].action),
+                HomeMyActionsNavigation.open(context, items[i].action),
           ),
-        if (i != _items.length - 1) const SizedBox(width: gap),
+        if (i != items.length - 1) const SizedBox(width: gap),
       ],
     ];
 
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.94),
-        borderRadius: BorderRadius.circular(22),
-        border: Border.all(color: Colors.white, width: 1.2),
-        boxShadow: [
-          BoxShadow(
-            color: const Color(0xFF1B2A4A).withValues(alpha: 0.08),
-            blurRadius: 12,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
+    return HomeGlassTheme.widgetsStyleSurface(
+      borderRadius: BorderRadius.circular(22),
       padding: const EdgeInsets.fromLTRB(14, 10, 14, 10),
+      shadowOffset: const Offset(0, 4),
       child: expandToWidth
           ? Row(children: tiles)
           : ClipRect(
@@ -328,7 +352,8 @@ class _MyActionTile extends StatelessWidget {
   const _MyActionTile({
     required this.iconAsset,
     required this.label,
-    required this.tint,
+    required this.badgeColor,
+    required this.iconColor,
     required this.tileSize,
     required this.iconSize,
     required this.tileWidth,
@@ -342,7 +367,8 @@ class _MyActionTile extends StatelessWidget {
 
   final String iconAsset;
   final String label;
-  final Color tint;
+  final Color badgeColor;
+  final Color iconColor;
   final double tileSize;
   final double iconSize;
   final double tileWidth;
@@ -351,51 +377,50 @@ class _MyActionTile extends StatelessWidget {
   final int labelMaxLines;
   final VoidCallback onTap;
   final int badgeCount;
-  /// Dock mode: solid tiles, high-quality icons (no backdrop blur).
   final bool crisp;
 
   @override
   Widget build(BuildContext context) {
-    final borderRadius = BorderRadius.circular(crisp ? 14.0 : 16.r);
+    // Match check-in / prayer icon chip radius (10.ur).
+    final chipRadius = BorderRadius.circular(crisp ? 10.0 : 10.ur);
+    final dpr = MediaQuery.devicePixelRatioOf(context);
+    final cachePx = (iconSize * dpr).round().clamp(32, 128);
 
-    final iconTile = Container(
-      width: tileSize,
-      height: tileSize,
+    final iconTile = DecoratedBox(
       decoration: BoxDecoration(
-        borderRadius: borderRadius,
-        color: crisp ? Colors.white : null,
-        border: crisp
-            ? Border.all(color: const Color(0xFFE8ECF2), width: 1)
-            : null,
-        gradient: crisp
-            ? LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: [
-                  tint.withValues(alpha: 0.38),
-                  Colors.white.withValues(alpha: 0.72),
-                  tint.withValues(alpha: 0.14),
-                ],
-              )
-            : null,
-        boxShadow: crisp
-            ? [
-                BoxShadow(
-                  color: const Color(0xFF1B2A4A).withValues(alpha: 0.06),
-                  blurRadius: 6,
-                  offset: const Offset(0, 2),
-                ),
-              ]
-            : null,
+        borderRadius: chipRadius,
+        color: badgeColor,
+        border: Border.all(
+          color: Colors.white.withValues(alpha: 0.95),
+          width: 1,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.06),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
       ),
-      child: Center(
-        child: Image.asset(
-          iconAsset,
-          width: iconSize,
-          height: iconSize,
-          fit: BoxFit.contain,
-          filterQuality: FilterQuality.high,
-          isAntiAlias: true,
+      child: SizedBox(
+        width: tileSize,
+        height: tileSize,
+        child: Padding(
+          // Equal inset from all four sides so the glyph is centered cleanly.
+          padding: EdgeInsets.all((tileSize - iconSize) / 2),
+          child: Image.asset(
+            iconAsset,
+            width: iconSize,
+            height: iconSize,
+            fit: BoxFit.contain,
+            alignment: Alignment.center,
+            filterQuality: FilterQuality.high,
+            isAntiAlias: true,
+            color: iconColor,
+            colorBlendMode: BlendMode.srcIn,
+            cacheWidth: cachePx,
+            cacheHeight: cachePx,
+          ),
         ),
       ),
     );
@@ -436,60 +461,7 @@ class _MyActionTile extends StatelessWidget {
     final body = Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        if (crisp)
-          tileWithBadge(iconTile)
-        else
-          tileWithBadge(
-            ClipRRect(
-              borderRadius: borderRadius,
-              child: AdaptiveGlassLayer(
-                borderRadius: borderRadius,
-                sigma: 10,
-                fallbackColor: Colors.white.withValues(alpha: 0.97),
-                fallbackBorder: Border.all(
-                  color: Colors.white.withValues(alpha: 0.95),
-                  width: 1.2,
-                ),
-                child: Container(
-                  width: tileSize,
-                  height: tileSize,
-                  decoration: BoxDecoration(
-                    borderRadius: borderRadius,
-                    boxShadow: [
-                      BoxShadow(
-                        color: const Color(0xFF1B2A4A).withValues(alpha: 0.05),
-                        blurRadius: 8,
-                        offset: const Offset(0, 3),
-                      ),
-                    ],
-                  ),
-                  child: DecoratedBox(
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                        colors: [
-                          Colors.white.withValues(alpha: 0.55),
-                          tint.withValues(alpha: 0.28),
-                          Colors.white.withValues(alpha: 0.35),
-                        ],
-                      ),
-                      borderRadius: BorderRadius.circular(14.r),
-                    ),
-                    child: Center(
-                      child: Image.asset(
-                        iconAsset,
-                        width: iconSize,
-                        height: iconSize,
-                        fit: BoxFit.contain,
-                        filterQuality: FilterQuality.high,
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-            ),
-          ),
+        tileWithBadge(iconTile),
         SizedBox(height: labelGap),
         Text(
           label,
@@ -509,7 +481,7 @@ class _MyActionTile extends StatelessWidget {
     return Material(
       color: Colors.transparent,
       child: InkWell(
-        borderRadius: borderRadius,
+        borderRadius: chipRadius,
         onTap: onTap,
         child: SizedBox(
           width: tileWidth.isFinite ? tileWidth : null,

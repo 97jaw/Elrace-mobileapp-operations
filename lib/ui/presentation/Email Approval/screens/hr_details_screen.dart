@@ -194,7 +194,17 @@ class _HrDetailsScreenState extends State<HrDetailsScreen> {
   ];
 
   String _pickDuration(List<Map<String, dynamic>> maps) {
-    return _pickFromMaps(maps, _durationFieldKeys);
+    final fromFields = _pickFromMaps(maps, _durationFieldKeys);
+    if (fromFields.isNotEmpty) return fromFields;
+
+    // Fallback when API omitted requested_duration but dates are present.
+    final startRaw = _pickFromMaps(maps, ['start_date', 'request_date_from']);
+    final endRaw = _pickFromMaps(maps, ['end_date', 'request_date_to']);
+    final start = DateTime.tryParse(startRaw.split(' ').first);
+    final end = DateTime.tryParse(endRaw.split(' ').first);
+    if (start == null || end == null) return '';
+    final days = end.difference(start).inDays + 1;
+    return days > 0 ? days.toString() : '';
   }
 
   Map<String, dynamic> _asMap(dynamic value) {
@@ -353,12 +363,19 @@ class _HrDetailsScreenState extends State<HrDetailsScreen> {
     List<_DetailItem> makeItems(List<_FieldDef> defs) {
       final items = <_DetailItem>[];
       for (final def in defs) {
-        final hasLiteralDash = def.keys.contains('-');
-        final value = hasLiteralDash ? '-' : _pickFromMaps(dataMaps, def.keys);
+        // Skip intentional placeholder-only fields (keys: ['-']).
+        if (def.keys.length == 1 && def.keys.first == '-') {
+          continue;
+        }
+        final value = def.keys.contains('requested_duration') ||
+                def.keys.contains('duration') ||
+                def.keys.contains('number_of_days')
+            ? _pickDuration(dataMaps)
+            : _pickFromMaps(dataMaps, def.keys);
         if (def.label == 'Birth Attachment' && !_isValidAttachmentUrl(value)) {
           continue;
         }
-        if (value.isNotEmpty) {
+        if (value.isNotEmpty && value.trim() != '-') {
           items.add(_DetailItem(def.label, value, multiline: def.multiline));
         }
       }
@@ -446,7 +463,7 @@ class _HrDetailsScreenState extends State<HrDetailsScreen> {
           const _FieldDef('Reason', ['note', 'description'], multiline: true),
         ]);
       case 'annual':
-        final annualItems = makeItems([
+        return makeItems([
           ...common,
           const _FieldDef('Start Date', ['start_date', 'request_date_from']),
           const _FieldDef('Duration', [
@@ -454,14 +471,21 @@ class _HrDetailsScreenState extends State<HrDetailsScreen> {
             'duration',
             'number_of_days',
           ]),
-          const _FieldDef('Available Days', ['available_days']),
+          const _FieldDef('Available Days', [
+            'available_days',
+            'allowed_leave_days',
+          ]),
           const _FieldDef('End Date', ['end_date', 'request_date_to']),
           const _FieldDef('Annual/Short Usage', [
             'annual_short_leaves_remaining',
           ]),
+          const _FieldDef('Leave Balance', [
+            'leave_balance',
+            'remaining_leave_days',
+            'balance_leave',
+            'remaing_leave_days',
+          ]),
         ]);
-        annualItems.add(const _DetailItem('Leave Balance', '-'));
-        return annualItems;
       case 'parental':
         return makeItems([
           ...common,
@@ -1926,7 +1950,7 @@ class _HrDetailsScreenState extends State<HrDetailsScreen> {
     );
     final annualLeaveAvailableDays = _pickFromMaps(
       requestMaps,
-      ['available_days'],
+      ['available_days', 'allowed_leave_days'],
       fallback: '-',
     );
     final annualShortUsage = _pickFromMaps(

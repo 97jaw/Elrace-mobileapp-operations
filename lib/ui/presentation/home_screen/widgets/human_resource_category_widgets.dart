@@ -312,107 +312,116 @@ class HrCategoryTimesheetCard extends ConsumerWidget {
                 ],
               ),
             ),
-            child: Stack(
-            children: [
-              Positioned(
-                right: -8.w,
-                bottom: -10.uh,
-                child: Opacity(
-                  opacity: 0.2,
-                  child: Icon(
-                    Icons.construction_rounded,
-                    size: 96.usp,
-                    color: const Color(0xFFD4A82A),
-                  ),
-                ),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(
+                (22.ur - CategoryWidgetGradientBorder.width)
+                    .clamp(0.0, double.infinity),
               ),
-              Padding(
-                padding: EdgeInsets.fromLTRB(14.w, 12.uh, 14.w, 12.uh),
-                child: _tabletScaleDownContent(
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
+              child: Stack(
+                clipBehavior: Clip.hardEdge,
+                children: [
+                  Positioned(
+                    right: 0,
+                    bottom: 0,
+                    child: IgnorePointer(
+                      child: Opacity(
+                        opacity: 0.08,
+                        child: Icon(
+                          Icons.construction_rounded,
+                          size: 64.usp,
+                          color: const Color(0xFFD4A82A),
+                        ),
+                      ),
+                    ),
+                  ),
+                  Padding(
+                    padding: EdgeInsets.fromLTRB(14.w, 12.uh, 14.w, 12.uh),
+                    child: _tabletScaleDownContent(
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  'TIMESHEET',
-                                  style: GoogleFonts.poppins(
-                                    fontSize: 8.usp,
-                                    fontWeight: FontWeight.w700,
-                                    color: const Color(0xFF8A8F9C),
-                                    letterSpacing: 0.55,
-                                  ),
+                          Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      'TIMESHEET',
+                                      style: GoogleFonts.poppins(
+                                        fontSize: 8.usp,
+                                        fontWeight: FontWeight.w700,
+                                        color: const Color(0xFF8A8F9C),
+                                        letterSpacing: 0.55,
+                                      ),
+                                    ),
+                                    SizedBox(height: 2.uh),
+                                    Text(
+                                      data.titleLine,
+                                      style: GoogleFonts.poppins(
+                                        fontSize: 13.usp,
+                                        fontWeight: FontWeight.w700,
+                                        color: const Color(0xFF1A2A4F),
+                                      ),
+                                    ),
+                                  ],
                                 ),
-                                SizedBox(height: 2.uh),
-                                Text(
-                                  data.titleLine,
-                                  style: GoogleFonts.poppins(
-                                    fontSize: 13.usp,
-                                    fontWeight: FontWeight.w700,
-                                    color: const Color(0xFF1A2A4F),
-                                  ),
+                              ),
+                              _HrIconBadge(
+                                icon: Icons.schedule_rounded,
+                                gradient: const [
+                                  Color(0xFFE8C547),
+                                  Color(0xFFD4A82A),
+                                ],
+                              ),
+                            ],
+                          ),
+                          SizedBox(height: 12.uh),
+                          IntrinsicHeight(
+                            child: Row(
+                              children: [
+                                _HrStatColumn(
+                                  label: 'Total Hours',
+                                  value: _formatHours(data.totalHours),
+                                  valueColor: const Color(0xFF1A2A4F),
+                                ),
+                                _HrStatDivider(),
+                                _HrStatColumn(
+                                  label: 'Overtime',
+                                  value: _formatHours(data.overtimeHours),
+                                  valueColor: const Color(0xFFD4A82A),
+                                ),
+                                _HrStatDivider(),
+                                _HrStatColumn(
+                                  label: data.isProjectScope
+                                      ? 'Avg / Worker'
+                                      : 'Avg / Day',
+                                  value: _formatHours(data.avgPerWorker),
+                                  valueColor: const Color(0xFF1A2A4F),
                                 ),
                               ],
                             ),
                           ),
-                          _HrIconBadge(
-                            icon: Icons.schedule_rounded,
-                            gradient: const [
-                              Color(0xFFE8C547),
-                              Color(0xFFD4A82A),
-                            ],
+                          SizedBox(height: 10.uh),
+                          Text(
+                            data.deltaTrendLabel,
+                            style: GoogleFonts.poppins(
+                              fontSize: 10.usp,
+                              fontWeight: FontWeight.w600,
+                              color: data.deltaVsLastWeek >= 0
+                                  ? const Color(0xFF1F9D63)
+                                  : const Color(0xFFE05A4F),
+                            ),
                           ),
                         ],
                       ),
-                      SizedBox(height: 12.uh),
-                      IntrinsicHeight(
-                        child: Row(
-                          children: [
-                            _HrStatColumn(
-                              label: 'Total Hours',
-                              value: _formatHours(data.totalHours),
-                              valueColor: const Color(0xFF1A2A4F),
-                            ),
-                            _HrStatDivider(),
-                            _HrStatColumn(
-                              label: 'Overtime',
-                              value: _formatHours(data.overtimeHours),
-                              valueColor: const Color(0xFFD4A82A),
-                            ),
-                            _HrStatDivider(),
-                            _HrStatColumn(
-                              label: data.isProjectScope
-                                  ? 'Avg / Worker'
-                                  : 'Avg / Day',
-                              value: _formatHours(data.avgPerWorker),
-                              valueColor: const Color(0xFF1A2A4F),
-                            ),
-                          ],
-                        ),
-                      ),
-                      SizedBox(height: 10.uh),
-                      Text(
-                        data.deltaTrendLabel,
-                        style: GoogleFonts.poppins(
-                          fontSize: 10.usp,
-                          fontWeight: FontWeight.w600,
-                          color: data.deltaVsLastWeek >= 0
-                              ? const Color(0xFF1F9D63)
-                              : const Color(0xFFE05A4F),
-                        ),
-                      ),
-                    ],
+                    ),
                   ),
-                ),
+                ],
               ),
-            ],
-          ),
+            ),
           ),
         ),
       ),

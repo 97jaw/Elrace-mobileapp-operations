@@ -805,6 +805,11 @@ class _TaskDetailsScreenState extends State<TaskDetailsScreen> {
                     ? ProductivityLightTheme.statusCompletedBg
                     : ProductivityLightTheme.statusActiveBg,
               ),
+              if (task.project != null && task.project!.trim().isNotEmpty)
+                _statusPill(
+                  task.project!,
+                  ProductivityLightTheme.washBlue,
+                ),
               if (task.department != null &&
                   task.department!.trim().isNotEmpty)
                 _statusPill(

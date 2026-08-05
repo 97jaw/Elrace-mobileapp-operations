@@ -179,21 +179,23 @@ class _TabletHomeHeaderState extends State<_TabletHomeHeader> {
   @override
   void initState() {
     super.initState();
+    _notificationCount = NotificationStorageService.memoryBadgeCount;
+    _approvalCount = ApprovalCountService.cachedCountOrZero;
     _loadUserData();
     _loadCounts();
     _loadCity();
-    NotificationStorageService.onCountChanged = () {
+    NotificationStorageService.addCountListener(this, () {
       if (mounted) _loadNotificationCount();
-    };
-    ApprovalCountService.onCountChanged = () {
+    });
+    ApprovalCountService.addListener(this, () {
       if (mounted) _loadApprovalCount();
-    };
+    });
   }
 
   @override
   void dispose() {
-    NotificationStorageService.onCountChanged = null;
-    ApprovalCountService.onCountChanged = null;
+    NotificationStorageService.removeCountListener(this);
+    ApprovalCountService.removeListener(this);
     super.dispose();
   }
 

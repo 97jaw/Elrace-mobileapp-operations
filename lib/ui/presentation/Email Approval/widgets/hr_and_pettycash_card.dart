@@ -474,7 +474,7 @@ class HrAndPettycashCard extends StatelessWidget {
 
             if (result == true) {
               ApprovalCountService.invalidateCache();
-              ApprovalCountService.onCountChanged?.call();
+              ApprovalCountService.notifyListeners();
               onRefresh?.call();
             }
           },

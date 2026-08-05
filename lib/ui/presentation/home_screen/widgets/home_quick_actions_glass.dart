@@ -95,10 +95,10 @@ class _ActionTile extends StatelessWidget {
                       width: 48.w,
                       height: 48.w,
                       decoration: BoxDecoration(
-                        color: Colors.white.withValues(alpha: 0.82),
+                        color: const Color(0xFFB8BFC9).withValues(alpha: 0.48),
                         borderRadius: BorderRadius.circular(14.r),
                         border: Border.all(
-                          color: Colors.white.withValues(alpha: 0.95),
+                          color: Colors.white.withValues(alpha: 0.50),
                         ),
                         boxShadow: [
                           BoxShadow(
@@ -110,7 +110,15 @@ class _ActionTile extends StatelessWidget {
                       ),
                       child: DecoratedBox(
                         decoration: BoxDecoration(
-                          color: tint.withValues(alpha: 0.35),
+                          gradient: LinearGradient(
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                            colors: [
+                              const Color(0xFFC8CDD5).withValues(alpha: 0.45),
+                              tint.withValues(alpha: 0.28),
+                              Colors.white.withValues(alpha: 0.22),
+                            ],
+                          ),
                           borderRadius: BorderRadius.circular(13.r),
                         ),
                         child: Center(

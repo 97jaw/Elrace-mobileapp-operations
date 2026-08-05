@@ -131,6 +131,14 @@ class ChatNotificationService {
     // Don't notify if this chat is currently active
     if (_activeChatId == userChat.chatId) return;
 
+    // Re-check mute from latest userChats (toggle may have happened after subscribe)
+    try {
+      final latest = await ChatRepository.instance.getUserChat(userChat.chatId);
+      if (latest?.muted == true) return;
+    } catch (_) {
+      if (userChat.muted) return;
+    }
+
     // Don't notify if we already notified for this message
     if (_lastMessageIds[userChat.chatId] == message.id) return;
 
@@ -142,16 +150,23 @@ class ChatNotificationService {
 
     // Get sender name
     String senderName = userChat.title ?? 'Unknown';
+    String? groupTitle;
     if (userChat.type != ChatType.dm) {
       // For group chats, try to get the actual sender name
       final sender = await UserRepository.instance.getUser(message.senderId);
       senderName = sender?.name ?? 'Unknown';
+      groupTitle = userChat.title ?? 'Group';
     }
 
     // Build notification content
     final title = userChat.type == ChatType.dm
         ? senderName
-        : '${userChat.title ?? "Group"} • $senderName';
+        : '${groupTitle ?? "Group"} • $senderName';
+
+    // Tap payload uses clean chat title (not "Group • Sender")
+    final chatTitleForTap = userChat.type == ChatType.dm
+        ? senderName
+        : (userChat.title ?? 'Group');
 
     final body = _getMessagePreview(message);
 
@@ -161,6 +176,7 @@ class ChatNotificationService {
       title: title,
       body: body,
       chatType: userChat.type,
+      chatTitleForTap: chatTitleForTap,
     );
   }
 
@@ -188,6 +204,7 @@ class ChatNotificationService {
     required String title,
     required String body,
     required ChatType chatType,
+    String? chatTitleForTap,
   }) async {
     // التحقق من إعدادات كتم إشعارات الشات
     final isChatMuted =
@@ -225,7 +242,7 @@ class ChatNotificationService {
     final payload = jsonEncode({
       'category': 'chat_message',
       'chat_id': chatId,
-      'chat_title': title,
+      'chat_title': chatTitleForTap ?? title,
       'chat_type': chatType.name,
     });
 
@@ -257,6 +274,7 @@ class ChatNotificationService {
       // Unsubscribe from notifications
       _chatSubscriptions[chatId]?.cancel();
       _chatSubscriptions.remove(chatId);
+      cancelNotificationsForChat(chatId);
     }
     // Will re-subscribe on next chat list update if unmuted
   }

@@ -1,7 +1,9 @@
 import 'dart:convert';
 
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:el_race/core/services/app_icon_badge_service.dart';
 import 'package:el_race/core/services/notification_api_service.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -31,8 +33,31 @@ class NotificationStorageService {
   static DateTime? _lastBadgeSyncFailureLoggedAt;
   static bool _badgeSyncInFlight = false;
 
-  /// Callback to notify when notification count changes.
-  static void Function()? onCountChanged;
+  /// In-memory bell badge (kept in sync with SharedPreferences).
+  static int _memoryBadgeCount = 0;
+
+  /// Instant paint for headers — last known bell count (may be 0 before first load).
+  static int get memoryBadgeCount => _memoryBadgeCount;
+
+  static final Map<Object, VoidCallback> _countListeners = {};
+
+  static void addCountListener(Object key, VoidCallback callback) {
+    _countListeners[key] = callback;
+  }
+
+  static void removeCountListener(Object key) {
+    _countListeners.remove(key);
+  }
+
+  static void _notifyCountListeners() {
+    for (final callback in List.of(_countListeners.values)) {
+      try {
+        callback();
+      } catch (e) {
+        debugPrint('NotificationStorageService count listener failed: $e');
+      }
+    }
+  }
 
   /// Fast badge count from local cache (no API call).
   /// Use this for real-time badge updates (e.g. after a push notification
@@ -41,9 +66,11 @@ class NotificationStorageService {
   static Future<int> getLocalStoredCount() async {
     try {
       final prefs = await SharedPreferences.getInstance();
-      return prefs.getInt(_unreadCountKey) ?? 0;
+      final count = prefs.getInt(_unreadCountKey) ?? 0;
+      _memoryBadgeCount = count;
+      return count;
     } catch (_) {
-      return 0;
+      return _memoryBadgeCount;
     }
   }
 
@@ -52,10 +79,11 @@ class NotificationStorageService {
     final next = count < 0 ? 0 : count;
     final previous = prefs.getInt(_unreadCountKey) ?? 0;
     await prefs.setInt(_unreadCountKey, next);
+    _memoryBadgeCount = next;
     // Keep springboard / launcher badge aligned with the in-app bell.
     await AppIconBadgeService.setCount(next);
     if (previous != next) {
-      onCountChanged?.call();
+      _notifyCountListeners();
     }
   }
 
@@ -364,7 +392,7 @@ class NotificationStorageService {
       );
       print('[MuteSettings][UpdateResponse][$key] $apiResponse');
       await _updateUnreadCount();
-      onCountChanged?.call();
+      _notifyCountListeners();
     } catch (e) {
       await _writeCachedMuteSettings(prefs, previous);
       throw Exception('Unable to update notification preference: $e');
@@ -384,6 +412,30 @@ class NotificationStorageService {
 
     final optimistic = Map<String, bool>.from(previous)..[key] = muted;
     await _writeCachedMuteSettings(prefs, optimistic);
+
+    // Mirror chat global mute to Firestore so Cloud Functions can skip pushes
+    // when the app is backgrounded / killed.
+    if (key == 'chat_message') {
+      // ignore: unawaited_futures
+      syncChatNotificationsMutedToFirestore(muted);
+    }
+  }
+
+  /// Persist global chat mute for CF `onNewChatMessage`.
+  static Future<void> syncChatNotificationsMutedToFirestore(bool muted) async {
+    try {
+      final uid = FirebaseAuth.instance.currentUser?.uid;
+      if (uid == null || uid.isEmpty) return;
+      await FirebaseFirestore.instance.collection('users').doc(uid).set(
+        {
+          'chat_notifications_muted': muted,
+          'updated_at': FieldValue.serverTimestamp(),
+        },
+        SetOptions(merge: true),
+      );
+    } catch (e) {
+      debugPrint('⚠️ sync chat_notifications_muted failed: $e');
+    }
   }
 
   static Future<bool> isChannelMuted(String channel) async {
@@ -1047,7 +1099,7 @@ class NotificationStorageService {
   static Future<void> _updateUnreadCount() async {
     // Deprecated path for mute updates — do not overwrite LinkedIn-style badge
     // with total unread list size.
-    onCountChanged?.call();
+    _notifyCountListeners();
   }
 
   /// Delete a notification from local cache and sync to API.
@@ -1075,7 +1127,7 @@ class NotificationStorageService {
       if (wasUnread) {
         await _decrementBadge();
       } else {
-        onCountChanged?.call();
+        _notifyCountListeners();
       }
     } catch (_) {
       // Ignore failures.

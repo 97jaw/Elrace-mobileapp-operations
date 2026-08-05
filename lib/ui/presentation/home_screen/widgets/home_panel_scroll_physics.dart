@@ -1,32 +1,27 @@
 import 'package:flutter/material.dart';
 
-/// Absorbs downward overscroll at scroll offset 0 so the panel can collapse
-/// without fighting [BouncingScrollPhysics].
+/// Absorbs downward overscroll at the top so the widgets panel can collapse
+/// without fighting bounce rubber-banding.
+///
+/// Does **not** invoke [onCollapseDrag] during [applyBoundaryConditions]
+/// (that can run mid-layout). Callers should drive collapse from
+/// [OverscrollNotification] / [ScrollUpdateNotification] instead; this
+/// physics only clamps the list so overscroll is reported cleanly.
 class HomePanelScrollPhysics extends ScrollPhysics {
-  const HomePanelScrollPhysics({
-    required this.onCollapseDrag,
-    super.parent,
-  });
-
-  final ValueChanged<double> onCollapseDrag;
+  const HomePanelScrollPhysics({super.parent});
 
   @override
   HomePanelScrollPhysics applyTo(ScrollPhysics? ancestor) {
-    return HomePanelScrollPhysics(
-      onCollapseDrag: onCollapseDrag,
-      parent: buildParent(ancestor),
-    );
+    return HomePanelScrollPhysics(parent: buildParent(ancestor));
   }
 
   @override
   double applyBoundaryConditions(ScrollMetrics position, double value) {
+    // At top, block downward scroll into negative offset so overscroll
+    // notifications fire instead of rubber-band fighting the panel drag.
     if (value < position.pixels &&
-        position.pixels <= position.minScrollExtent) {
-      final overflow = position.pixels - value;
-      if (overflow > 0) {
-        onCollapseDrag(overflow);
-        return value - position.pixels;
-      }
+        position.pixels <= position.minScrollExtent + 0.5) {
+      return value - position.pixels;
     }
     return super.applyBoundaryConditions(position, value);
   }
