@@ -65,12 +65,13 @@ class DeviceAuthService {
   Future<bool> authenticate({
     required String reason,
     bool biometricOnly = true,
+    bool stickyAuth = true,
   }) async {
     try {
       final result = await _auth.authenticate(
         localizedReason: reason,
         options: AuthenticationOptions(
-          stickyAuth: true,
+          stickyAuth: stickyAuth,
           biometricOnly: biometricOnly,
           useErrorDialogs: true,
         ),

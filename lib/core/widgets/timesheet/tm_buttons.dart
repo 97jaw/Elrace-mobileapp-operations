@@ -108,26 +108,23 @@ class _TmButtonContent extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Flexible + ellipsis prevents RenderFlex overflow on narrow Android
-    // widths (e.g. Site Report "Multi capture" + "Upload" side by side).
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: [
-        if (icon != null) ...[
-          Icon(icon, size: 18, color: color),
-          const SizedBox(width: 6),
-        ],
-        Flexible(
-          child: Text(
+    return FittedBox(
+      fit: BoxFit.scaleDown,
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (icon != null) ...[
+            Icon(icon, size: 18, color: color),
+            const SizedBox(width: 6),
+          ],
+          Text(
             label,
             maxLines: 1,
             softWrap: false,
-            overflow: TextOverflow.ellipsis,
-            textAlign: TextAlign.center,
             style: TimesheetModuleTypography.button(color: color),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 }

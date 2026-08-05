@@ -63,18 +63,13 @@ class CheckInReminderNotificationService {
       // print('📱 Notification permission: ${notificationStatus.isGranted}');
 
       if (Platform.isAndroid) {
-        // طلب إيقاف تحسين البطارية (مهم جداً لـ Samsung)
+        // فحص حالة تحسين البطارية بدون فتح إعدادات Android تلقائياً.
         // Samsung One UI يوقف الإشعارات المجدولة بسبب "Sleeping apps"
-        await _requestBatteryOptimizationExemption();
+        await _readBatteryOptimizationStatusForDiagnostics();
 
-        // طلب صلاحية الإشعارات الدقيقة (Exact Alarms)
+        // فحص صلاحية الإشعارات الدقيقة (Exact Alarms) بدون فتح شاشة Settings.
         // على Android 12 (API 31) وما فوق
         try {
-          if (await Permission.scheduleExactAlarm.isDenied) {
-            // print('⚠️ Requesting exact alarm permission...');
-            await Permission.scheduleExactAlarm.request();
-          }
-
           final alarmStatus = await Permission.scheduleExactAlarm.status;
           _exactAlarmGranted = alarmStatus.isGranted;
           // print('⏰ Exact alarm permission: $_exactAlarmGranted');
@@ -95,16 +90,15 @@ class CheckInReminderNotificationService {
     }
   }
 
-  /// طلب إيقاف تحسين البطارية - مهم جداً لأجهزة Samsung
+  /// فحص إيقاف تحسين البطارية - مهم جداً لأجهزة Samsung
   /// Samsung One UI يضع التطبيقات في "Sleeping apps" مما يمنع الإشعارات المجدولة
-  Future<void> _requestBatteryOptimizationExemption() async {
+  Future<void> _readBatteryOptimizationStatusForDiagnostics() async {
     try {
       final status = await Permission.ignoreBatteryOptimizations.status;
       // print('🔋 Battery optimization status: ${status.isGranted ? "EXEMPT" : "NOT EXEMPT"}');
 
       if (!status.isGranted) {
-        // print('🔋 Requesting battery optimization exemption (important for Samsung)...');
-        final result = await Permission.ignoreBatteryOptimizations.request();
+        final result = await Permission.ignoreBatteryOptimizations.status;
         // print('🔋 Battery optimization exemption result: ${result.isGranted ? "GRANTED" : "DENIED"}');
 
         if (!result.isGranted) {
@@ -136,7 +130,8 @@ class CheckInReminderNotificationService {
   /// إنشاء قنوات الإشعارات لـ Android
   Future<void> _createNotificationChannels() async {
     // قناة تذكيرات Check In
-    const AndroidNotificationChannel checkInChannel = AndroidNotificationChannel(
+    const AndroidNotificationChannel checkInChannel =
+        AndroidNotificationChannel(
       'check_in_reminder_channel',
       'Check In Reminders',
       description: 'Check-in reminders',
@@ -147,7 +142,8 @@ class CheckInReminderNotificationService {
     );
 
     // قناة تذكيرات Check Out
-    const AndroidNotificationChannel checkOutChannel = AndroidNotificationChannel(
+    const AndroidNotificationChannel checkOutChannel =
+        AndroidNotificationChannel(
       'check_out_reminder_channel',
       'Check Out Reminders',
       description: 'Check-out reminders',
@@ -477,9 +473,8 @@ class CheckInReminderNotificationService {
                 ? 'check_in_reminder_channel'
                 : 'check_out_reminder_channel',
             isCheckIn ? 'Check In Reminders' : 'Check Out Reminders',
-            channelDescription: isCheckIn
-                ? 'Check-in reminders'
-                : 'Check-out reminders',
+            channelDescription:
+                isCheckIn ? 'Check-in reminders' : 'Check-out reminders',
             importance: Importance.max,
             priority: Priority.max,
             category: AndroidNotificationCategory.alarm,
@@ -511,8 +506,7 @@ class CheckInReminderNotificationService {
     final checkOutDisplayTime =
         SharedPref().getPreferenceString('checkOutDisplayTime');
 
-    final hasCheckInEvidence =
-        isCheckedIn ||
+    final hasCheckInEvidence = isCheckedIn ||
         checkInRecordId > 0 ||
         checkInTime > 0 ||
         _isMeaningfulDisplayTime(checkInDisplayTime);

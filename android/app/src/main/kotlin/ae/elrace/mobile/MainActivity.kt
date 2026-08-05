@@ -13,6 +13,11 @@ import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
+import com.google.android.play.core.appupdate.AppUpdateManager
+import com.google.android.play.core.appupdate.AppUpdateManagerFactory
+import com.google.android.play.core.appupdate.AppUpdateOptions
+import com.google.android.play.core.install.model.AppUpdateType
+import com.google.android.play.core.install.model.UpdateAvailability
 import io.flutter.embedding.android.FlutterFragmentActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
@@ -22,6 +27,9 @@ class MainActivity : FlutterFragmentActivity() {
     private val BATTERY_CHANNEL = "ae.elrace.mobile/battery_optimization"
     private val SYSTEM_UI_CHANNEL = "ae.elrace.mobile/system_ui"
     private val APP_ICON_BADGE_CHANNEL = "ae.elrace.mobile/app_icon_badge"
+    private val PLAY_UPDATE_CHANNEL = "ae.elrace.mobile/play_update"
+    private val PLAY_UPDATE_REQUEST_CODE = 6317
+    private lateinit var appUpdateManager: AppUpdateManager
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
@@ -72,11 +80,22 @@ class MainActivity : FlutterFragmentActivity() {
                     else -> result.notImplemented()
                 }
             }
+
+        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, PLAY_UPDATE_CHANNEL)
+            .setMethodCallHandler { call, result ->
+                when (call.method) {
+                    "startImmediateUpdateIfAvailable" -> {
+                        startImmediateUpdateIfAvailable(result)
+                    }
+                    else -> result.notImplemented()
+                }
+            }
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         installSplashScreen()
         super.onCreate(savedInstanceState)
+        appUpdateManager = AppUpdateManagerFactory.create(this)
 
         // Draw app content behind system bars (edge-to-edge)
         // This prevents layout shift/lag when navigation bar appears
@@ -134,6 +153,75 @@ class MainActivity : FlutterFragmentActivity() {
         if (hasFocus) {
             hideNavigationBarOnly()
         }
+    }
+
+    override fun onResume() {
+        super.onResume()
+        resumeImmediateUpdateIfNeeded()
+    }
+
+    private fun startImmediateUpdateIfAvailable(result: MethodChannel.Result) {
+        if (!::appUpdateManager.isInitialized) {
+            appUpdateManager = AppUpdateManagerFactory.create(this)
+        }
+
+        appUpdateManager.appUpdateInfo
+            .addOnSuccessListener { appUpdateInfo ->
+                val updateAvailable =
+                    appUpdateInfo.updateAvailability() == UpdateAvailability.UPDATE_AVAILABLE
+                val immediateAllowed =
+                    appUpdateInfo.isUpdateTypeAllowed(AppUpdateType.IMMEDIATE)
+
+                if (!updateAvailable || !immediateAllowed) {
+                    result.success(false)
+                    return@addOnSuccessListener
+                }
+
+                try {
+                    appUpdateManager.startUpdateFlowForResult(
+                        appUpdateInfo,
+                        this,
+                        AppUpdateOptions.defaultOptions(AppUpdateType.IMMEDIATE),
+                        PLAY_UPDATE_REQUEST_CODE
+                    )
+                    result.success(true)
+                } catch (error: Exception) {
+                    result.error(
+                        "PLAY_UPDATE_START_FAILED",
+                        error.localizedMessage,
+                        null
+                    )
+                }
+            }
+            .addOnFailureListener { error ->
+                result.error(
+                    "PLAY_UPDATE_CHECK_FAILED",
+                    error.localizedMessage,
+                    null
+                )
+            }
+    }
+
+    private fun resumeImmediateUpdateIfNeeded() {
+        if (!::appUpdateManager.isInitialized) return
+
+        appUpdateManager.appUpdateInfo
+            .addOnSuccessListener { appUpdateInfo ->
+                if (appUpdateInfo.updateAvailability() ==
+                    UpdateAvailability.DEVELOPER_TRIGGERED_UPDATE_IN_PROGRESS
+                ) {
+                    try {
+                        appUpdateManager.startUpdateFlowForResult(
+                            appUpdateInfo,
+                            this,
+                            AppUpdateOptions.defaultOptions(AppUpdateType.IMMEDIATE),
+                            PLAY_UPDATE_REQUEST_CODE
+                        )
+                    } catch (_: Exception) {
+                        // If Play cannot resume, Dart/backend force-update gate remains active.
+                    }
+                }
+            }
     }
 
     /**

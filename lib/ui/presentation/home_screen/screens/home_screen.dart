@@ -1,6 +1,10 @@
+import 'dart:async';
+
+import 'package:el_race/core/biometric/device_auth_service.dart';
 import 'package:el_race/core/biometric/unified_biometric_helper.dart';
 import 'package:el_race/ui/presentation/home_screen/bloc/home_bloc.dart';
 import 'package:el_race/ui/presentation/home_screen/bloc/location_bloc/location_bloc.dart';
+import 'package:el_race/ui/presentation/home_screen/screens/biometric_sign_in_gate_screen.dart';
 import 'package:el_race/ui/presentation/home_screen/screens/main_home_content_widget.dart';
 import 'package:el_race/ui/presentation/home_screen/screens/main_screens.dart';
 import 'package:el_race/ui/presentation/home_screen/widgets/home_glass_theme.dart';
@@ -11,7 +15,6 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:get/get.dart';
 import 'package:el_race/core/services/app_config_service.dart';
-import 'package:el_race/ui/presentation/home_screen/screens/biometric_sign_in_gate_screen.dart';
 
 class HomeScreen extends StatelessWidget {
   const HomeScreen({super.key});
@@ -51,10 +54,12 @@ class _HomeScreenState extends State<HomeScreenPage> {
 
   // bool isMuted = false; // default value
   bool isCheckedIn = false;
+
   /// Blocks home UI until biometrics succeed (covers cancel → gate screen).
   bool _isBiometricLocked = false;
-  /// After cancel/miss: show logo + "Sign in with biometric" screen.
+
   bool _showBiometricGateScreen = false;
+
   final _locationBloc = LocationBloc();
 
   // _loadMuteStatus() {
@@ -84,8 +89,8 @@ class _HomeScreenState extends State<HomeScreenPage> {
     // One GPS prime per Home mount (post-login); resumes no longer re-fetch.
     _locationBloc.add(GetCurrentLocationET());
 
-    // After login: authenticate with biometrics only once per app session.
-    // Do not ask again when returning from Contacts or other tabs to Home.
+    // After login: show the dim lock overlay, then start biometrics
+    // automatically after Home has painted.
     if (!AppConfigService.instance.shouldSkipFaceId &&
         !HomeScreenPage._didAuthenticateThisSession &&
         !HomeScreenPage._isAuthenticating) {
@@ -93,14 +98,17 @@ class _HomeScreenState extends State<HomeScreenPage> {
       // cannot slip through in the delay / cancel / retry gaps.
       _isBiometricLocked = true;
       HomeScreenPage._sessionUiLocked = true;
-      _authenticateAfterLogin();
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        unawaited(_authenticateAfterLogin());
+      });
     }
     // List of pages or widgets that you want to display for each navigation ite
   }
 
   /// Authenticate user right after login using device biometrics only.
   /// PIN, passcode, password, and pattern fallback are not allowed.
-  /// On cancel/miss, show [BiometricSignInGateScreen] instead of auto-reprompting.
+  /// On cancel/miss, keep the dim lock overlay visible.
   Future<void> _authenticateAfterLogin({bool fromButton = false}) async {
     if (HomeScreenPage._didAuthenticateThisSession) return;
     if (HomeScreenPage._isAuthenticating && !fromButton) return;
@@ -131,12 +139,7 @@ class _HomeScreenState extends State<HomeScreenPage> {
       return;
     }
 
-    final authenticated = await UnifiedBiometricHelper.authenticate(
-      context: context,
-      title: 'تحقق من الهوية',
-      subtitle: 'يرجى التحقق من هويتك للمتابعة',
-      reason: 'تحقق من هويتك بعد تسجيل الدخول',
-    );
+    final authenticated = await _authenticateWithBiometricTimeout();
 
     if (!mounted) {
       HomeScreenPage._isAuthenticating = false;
@@ -148,11 +151,29 @@ class _HomeScreenState extends State<HomeScreenPage> {
       _setBiometricLocked(false);
       setState(() => _showBiometricGateScreen = false);
     } else {
-      // Cancel / miss → dedicated sign-in screen (session stays logged in).
+      // Cancel / miss keeps the lock overlay visible (session stays logged in).
       _setBiometricLocked(true);
       setState(() => _showBiometricGateScreen = true);
     }
     HomeScreenPage._isAuthenticating = false;
+  }
+
+  Future<bool> _authenticateWithBiometricTimeout() {
+    return UnifiedBiometricHelper.authenticate(
+      context: context,
+      title: 'تحقق من الهوية',
+      subtitle: 'يرجى التحقق من هويتك للمتابعة',
+      reason: 'تحقق من هويتك بعد تسجيل الدخول',
+      stickyAuth: false,
+    ).timeout(
+      const Duration(seconds: 20),
+      onTimeout: () async {
+        debugPrint(
+            'Post-login biometric prompt timed out; keeping lock overlay');
+        await DeviceAuthService.instance.cancelAuthentication();
+        return false;
+      },
+    );
   }
 
   Future<void> _showBiometricRequiredDialog() async {

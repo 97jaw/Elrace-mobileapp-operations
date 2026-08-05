@@ -167,5 +167,7 @@ dependencies {
     implementation("com.google.firebase:firebase-analytics")
     implementation 'com.google.firebase:firebase-crashlytics:18.3.2'
     implementation 'com.google.firebase:firebase-messaging:23.1.0'
+    implementation 'com.google.android.play:app-update:2.1.0'
+    implementation 'com.google.android.play:app-update-ktx:2.1.0'
     // TensorFlow Lite dependencies removed - now handled by tflite_flutter plugin
 }

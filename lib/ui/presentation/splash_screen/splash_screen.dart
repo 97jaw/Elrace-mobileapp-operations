@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:el_race/core/services/update_service.dart';
+import 'package:el_race/core/services/android_play_update_service.dart';
 import 'package:el_race/core/app_globals.dart' show appInitCompleter;
 import 'package:el_race/core/session/force_logout_guard.dart';
 import 'package:el_race/core/utils/shared_pref.dart';
@@ -14,6 +15,7 @@ import 'package:el_race/utils/Util.dart';
 import 'package:el_race/core/services/app_config_service.dart';
 import 'package:el_race/core/security/device_security_service.dart';
 import 'package:provider/provider.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 import 'package:el_race/ui/presentation/qr_survey/providers/qr_survey_data_provider.dart';
 import 'package:video_player/video_player.dart';
 
@@ -25,9 +27,6 @@ class SplashScreen extends StatefulWidget {
 }
 
 class _SplashScreenState extends State<SplashScreen> {
-  // Keep in sync with version in pubspec.yaml.
-  static const String _currentAppVersion = '1.0.10';
-
   bool _isSecurityCheckComplete = false;
   bool _isDeviceSecure = true;
   bool _didScheduleNavigation = false;
@@ -62,7 +61,8 @@ class _SplashScreenState extends State<SplashScreen> {
     // Instrumentation only: log when appInitCompleter resolves, independent
     // of the Future.wait gate in _waitForInitAndNavigate (Completers support
     // multiple listeners, so this does not change existing behavior).
-    appInitCompleter.future.then((_) => _logGateTiming('appInitCompleter-resolved'));
+    appInitCompleter.future
+        .then((_) => _logGateTiming('appInitCompleter-resolved'));
 
     // Phase 2: start the update check now, in parallel with init/video/
     // security, since it has no dependency on any of them. Previously this
@@ -70,9 +70,7 @@ class _SplashScreenState extends State<SplashScreen> {
     // serial chain. Attach a no-op error listener immediately so a failure
     // here doesn't surface as an unhandled zone exception before it's
     // actually awaited (and handled) in _checkForUpdateThenNavigate.
-    _updateCheckFuture = UpdateService.instance
-        .checkForUpdate(_currentAppVersion)
-        .timeout(const Duration(seconds: 10));
+    _updateCheckFuture = _startUpdateCheck();
     _logGateTiming('update-check-start');
     _updateCheckFuture.catchError((_) => const UpdateCheckResult.noUpdate());
 
@@ -101,6 +99,24 @@ class _SplashScreenState extends State<SplashScreen> {
     });
   }
 
+  Future<UpdateCheckResult> _startUpdateCheck() async {
+    try {
+      final packageInfo =
+          await PackageInfo.fromPlatform().timeout(const Duration(seconds: 3));
+      final currentVersion = packageInfo.version.trim().isNotEmpty
+          ? packageInfo.version
+          : '${packageInfo.version}+${packageInfo.buildNumber}';
+      debugPrint(
+          '🚀 SplashScreen: app version for update check=$currentVersion');
+      return UpdateService.instance
+          .checkForUpdate(currentVersion)
+          .timeout(const Duration(seconds: 10));
+    } catch (e) {
+      debugPrint('⚠️ Update check setup error (ignored): $e');
+      return const UpdateCheckResult.noUpdate();
+    }
+  }
+
   /// Perform security check before allowing app usage
   Future<void> _performSecurityCheck() async {
     _logGateTiming('security-check-start');
@@ -108,7 +124,7 @@ class _SplashScreenState extends State<SplashScreen> {
       print('🔒 Starting security check...');
       final result = await DeviceSecurityService.instance
           .performSecurityCheck()
-          .timeout(Duration(seconds: kDebugMode ? 2 : 6));
+          .timeout(const Duration(seconds: kDebugMode ? 2 : 6));
 
       if (mounted) {
         setState(() {
@@ -157,7 +173,6 @@ class _SplashScreenState extends State<SplashScreen> {
 
   /// Wait for init + security in parallel. Splash video is decorative only —
   /// do NOT gate navigation on it (video is ~5s and completion often misses,
-  /// which caused the "Video completion timeout" + stuck-feeling splash after
   /// Jul 20 "Let splash video finish before navigation").
   Future<void> _waitForInitAndNavigate() async {
     debugPrint('🚀 SplashScreen: waiting for bounded startup checks');
@@ -170,16 +185,17 @@ class _SplashScreenState extends State<SplashScreen> {
         },
       ),
       _securityCheckCompleter.future.timeout(
-        Duration(seconds: kDebugMode ? 2 : 6),
+        const Duration(seconds: kDebugMode ? 2 : 6),
         onTimeout: () {
           print('⚠️ Security check timeout in splash – continuing anyway');
         },
       ),
     ]);
-    // Allow a brief beat so the first video frame can paint, then leave.
-    // Never wait for the full clip.
-    await Future<void>.delayed(
-      Duration(milliseconds: kDebugMode ? 300 : 800),
+    await _videoCompletedCompleter.future.timeout(
+      const Duration(seconds: 30),
+      onTimeout: () {
+        print('Video completion timeout in splash - continuing anyway');
+      },
     );
     _logGateTiming('waitForInitAndNavigate-gate-resolved');
 
@@ -228,6 +244,14 @@ class _SplashScreenState extends State<SplashScreen> {
     if (!mounted) return;
 
     try {
+      final playUpdateStarted = await AndroidPlayUpdateService.instance
+          .startImmediateUpdateIfAvailable()
+          .timeout(const Duration(seconds: 5));
+      if (playUpdateStarted) {
+        _logGateTiming('android-play-immediate-update-started');
+        return;
+      }
+
       // Started back in initState, in parallel with init/video/security —
       // this just waits for whatever's left of its own 10s timeout.
       final updateResult = await _updateCheckFuture;
@@ -367,31 +391,8 @@ class _SplashLoadingPlaceholder extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      height: double.infinity,
-      decoration: const BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          colors: [
-            Color(0xFFFFFFFF),
-            Color(0xFFF3F4F6),
-            Color(0xFFE5E7EB),
-          ],
-        ),
-      ),
-      child: const Center(
-        child: SizedBox(
-          width: 36,
-          height: 36,
-          child: CircularProgressIndicator(
-            strokeWidth: 3,
-            color: Color(0xFF9CA3AF),
-            backgroundColor: Color(0xFFE5E7EB),
-          ),
-        ),
-      ),
+    return const SizedBox.expand(
+      child: ColoredBox(color: Colors.black),
     );
   }
 }
