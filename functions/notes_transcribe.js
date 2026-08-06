@@ -1,11 +1,8 @@
 /**
  * My Notes — Whisper transcription when audio is uploaded to Storage.
  *
- * Path: users/{uid}/notes/{noteId}/audio.m4a
+ * Path: chat_media/notes/{uid}/{noteId}/audio.m4a
  * Requires secret: OPENAI_API_KEY
- *   firebase functions:secrets:set OPENAI_API_KEY
- * Deploy:
- *   firebase deploy --only functions:onNotesAudioUploaded --project elrace-new
  */
 const { onObjectFinalized } = require("firebase-functions/v2/storage");
 const { defineSecret } = require("firebase-functions/params");
@@ -18,13 +15,29 @@ const fs = require("fs");
 
 const openaiApiKey = defineSecret("OPENAI_API_KEY");
 
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+/** Wait until the note doc exists (client creates it before upload). */
+async function waitForNoteDoc(noteRef, { attempts = 12, delayMs = 1000 } = {}) {
+  for (let i = 0; i < attempts; i++) {
+    const snap = await noteRef.get();
+    if (snap.exists) return snap;
+    console.log("[NotesTranscribe] Waiting for note doc…", {
+      attempt: i + 1,
+      attempts,
+    });
+    await sleep(delayMs);
+  }
+  return null;
+}
+
 async function handleNotesAudioUpload(event) {
   const object = event.data;
   const filePath = object.name;
   if (!filePath) return;
 
-  // chat_media/notes/{uid}/{noteId}/audio.m4a
-  // (also supports users/{uid}/notes/{noteId}/audio.m4a)
   const match =
     filePath.match(
       /^chat_media\/notes\/([^/]+)\/([^/]+)\/audio\.(m4a|mp3|wav|ogg|webm)$/i,
@@ -40,19 +53,33 @@ async function handleNotesAudioUpload(event) {
   console.log("[NotesTranscribe] Processing", { filePath, userId, noteId });
 
   const db = getFirestore();
-  const noteRef = db.collection("users").doc(userId).collection("notes").doc(noteId);
+  const noteRef = db
+    .collection("users")
+    .doc(userId)
+    .collection("notes")
+    .doc(noteId);
+
+  let tempFile;
 
   try {
+    const existingSnap = await waitForNoteDoc(noteRef);
+    if (!existingSnap) {
+      throw new Error(
+        `Note document not found after wait: users/${userId}/notes/${noteId}`,
+      );
+    }
+
     await noteRef.update({
       "recording.status": "processing",
       updatedAt: FieldValue.serverTimestamp(),
     });
 
     const bucket = getStorage().bucket(object.bucket);
-    const tempFile = path.join(os.tmpdir(), `note_${noteId}_${Date.now()}.m4a`);
+    tempFile = path.join(os.tmpdir(), `note_${noteId}_${Date.now()}.m4a`);
     await bucket.file(filePath).download({ destination: tempFile });
 
-    const languageMeta = (object.metadata && object.metadata.language) || "auto";
+    const languageMeta =
+      (object.metadata && object.metadata.language) || "auto";
     const openai = new OpenAI({ apiKey: openaiApiKey.value() });
 
     const createArgs = {
@@ -70,6 +97,7 @@ async function handleNotesAudioUpload(event) {
     const existing = noteSnap.exists ? noteSnap.data() || {} : {};
     const existingContent =
       typeof existing.content === "string" ? existing.content.trim() : "";
+    const existingRecording = existing.recording || {};
 
     const updates = {
       "recording.transcript": text,
@@ -77,15 +105,15 @@ async function handleNotesAudioUpload(event) {
       "recording.language": languageMeta,
       updatedAt: FieldValue.serverTimestamp(),
     };
+    // Keep audioUrl if already set by the client.
+    if (existingRecording.audioUrl) {
+      updates["recording.audioUrl"] = existingRecording.audioUrl;
+    }
     if (!existingContent) {
       updates.content = text;
     }
 
     await noteRef.update(updates);
-
-    try {
-      fs.unlinkSync(tempFile);
-    } catch (_) {}
 
     console.log("[NotesTranscribe] Done", { noteId, chars: text.length });
   } catch (err) {
@@ -96,12 +124,17 @@ async function handleNotesAudioUpload(event) {
         updatedAt: FieldValue.serverTimestamp(),
       });
     } catch (_) {}
+  } finally {
+    if (tempFile) {
+      try {
+        fs.unlinkSync(tempFile);
+      } catch (_) {}
+    }
   }
 }
 
 exports.onNotesAudioUploaded = onObjectFinalized(
   {
-    // Match existing default-codebase functions (chat/tasks) — not me-central-1
     region: "us-central1",
     secrets: [openaiApiKey],
     memory: "1GiB",

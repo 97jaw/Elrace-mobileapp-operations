@@ -150,18 +150,13 @@ class _AudioRecordingScreenState extends State<AudioRecordingScreen> {
       final noteId = const Uuid().v4();
       final uid = FirebaseAuth.instance.currentUser?.uid ?? '';
       final now = DateTime.now();
-
-      final audioUrl = await _service.uploadAudio(
-        noteId: noteId,
-        audioFile: result.file!,
-        language: _languageCode,
-      );
-
       final title = _titleController.text.trim().isEmpty
           ? 'Audio note ${_formatDuration(Duration(milliseconds: result.durationMs))}'
           : _titleController.text.trim();
 
-      final note = NoteModel(
+      // 1) Create Firestore note FIRST so the transcription CF can update it
+      // when Storage upload finishes (avoids NOT_FOUND race).
+      var note = NoteModel(
         id: noteId,
         ownerId: uid,
         title: title,
@@ -170,7 +165,7 @@ class _AudioRecordingScreenState extends State<AudioRecordingScreen> {
         createdAt: now,
         updatedAt: now,
         recording: RecordingInfo(
-          audioUrl: audioUrl,
+          audioUrl: '',
           durationSeconds: (result.durationMs / 1000).round(),
           language: _languageCode,
           status: TranscriptionStatus.pending,
@@ -178,17 +173,20 @@ class _AudioRecordingScreenState extends State<AudioRecordingScreen> {
       );
 
       if (!mounted) return;
-      context.read<NotesBloc>().add(AddNote(note));
+      final bloc = context.read<NotesBloc>();
+      bloc.add(AddNote(note));
 
-      final next = await context.read<NotesBloc>().stream.firstWhere(
+      final created = await bloc.stream
+          .firstWhere(
             (s) => s is NotesLoaded || s is NoteActionError || s is NotesError,
-          ).timeout(const Duration(seconds: 20));
+          )
+          .timeout(const Duration(seconds: 20));
 
       if (!mounted) return;
-      if (next is NoteActionError || next is NotesError) {
-        final msg = next is NoteActionError
-            ? next.message
-            : (next as NotesError).message;
+      if (created is NoteActionError || created is NotesError) {
+        final msg = created is NoteActionError
+            ? created.message
+            : (created as NotesError).message;
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text(msg), backgroundColor: NotesTheme.charcoal),
         );
@@ -196,8 +194,32 @@ class _AudioRecordingScreenState extends State<AudioRecordingScreen> {
         return;
       }
 
+      // 2) Upload audio (triggers CF). Doc already exists.
+      final audioUrl = await _service.uploadAudio(
+        noteId: noteId,
+        audioFile: result.file!,
+        language: _languageCode,
+      );
+
+      note = note.copyWith(
+        updatedAt: DateTime.now(),
+        recording: note.recording!.copyWith(
+          audioUrl: audioUrl,
+          status: TranscriptionStatus.pending,
+        ),
+      );
+
+      if (!mounted) return;
+      bloc.add(UpdateNote(note));
+
+      await bloc.stream
+          .firstWhere(
+            (s) => s is NotesLoaded || s is NoteActionError || s is NotesError,
+          )
+          .timeout(const Duration(seconds: 20));
+
       debugPrint('✅ AudioRecordingScreen: note saved $noteId');
-      Navigator.of(context).pop();
+      if (mounted) Navigator.of(context).pop();
     } catch (e) {
       debugPrint('❌ AudioRecordingScreen: save failed: $e');
       if (!mounted) return;
