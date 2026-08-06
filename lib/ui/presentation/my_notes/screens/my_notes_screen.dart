@@ -2,6 +2,7 @@ import 'package:el_race/ui/presentation/my_notes/bloc/notes_bloc.dart';
 import 'package:el_race/ui/presentation/my_notes/data/note_model.dart';
 import 'package:el_race/ui/presentation/my_notes/repository/i_notes_repository.dart';
 import 'package:el_race/ui/presentation/my_notes/screens/add_note_screen.dart';
+import 'package:el_race/ui/presentation/my_notes/screens/audio_recording_screen.dart';
 import 'package:el_race/ui/presentation/my_notes/screens/note_detail_screen.dart';
 import 'package:el_race/ui/presentation/my_notes/theme/notes_theme.dart';
 import 'package:el_race/ui/presentation/my_notes/widgets/notes_bottom_nav_bar.dart';
@@ -94,10 +95,13 @@ class _MyNotesViewState extends State<_MyNotesView> {
   }
 
   void _onStartRecording() {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Audio recording coming in Release 2'),
-        backgroundColor: NotesTheme.charcoal,
+    final notesBloc = context.read<NotesBloc>();
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => BlocProvider.value(
+          value: notesBloc,
+          child: const AudioRecordingScreen(),
+        ),
       ),
     );
   }

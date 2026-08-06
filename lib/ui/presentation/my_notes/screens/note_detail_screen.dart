@@ -2,6 +2,7 @@ import 'package:el_race/ui/presentation/my_notes/bloc/notes_bloc.dart';
 import 'package:el_race/ui/presentation/my_notes/data/note_model.dart';
 import 'package:el_race/ui/presentation/my_notes/screens/add_note_screen.dart';
 import 'package:el_race/ui/presentation/my_notes/theme/notes_theme.dart';
+import 'package:el_race/ui/presentation/my_notes/widgets/notes_audio_player_widget.dart';
 import 'package:el_race/ui/presentation/my_notes/widgets/notes_glass_card.dart';
 import 'package:el_race/ui/presentation/my_notes/widgets/notes_royal_bronze_background.dart';
 import 'package:el_race/utils/safe_insets.dart';
@@ -149,7 +150,18 @@ class _NoteDetailViewState extends State<_NoteDetailView> {
               children: [
                 _buildHeader(),
                 Expanded(
-                  child: SingleChildScrollView(
+                  child: BlocListener<NotesBloc, NotesState>(
+                    listener: (context, state) {
+                      if (state is NotesLoaded) {
+                        for (final n in state.notes) {
+                          if (n.id == _note.id) {
+                            setState(() => _note = n);
+                            break;
+                          }
+                        }
+                      }
+                    },
+                    child: SingleChildScrollView(
                     physics: const BouncingScrollPhysics(),
                     padding: EdgeInsets.fromLTRB(20.w, 0, 20.w, bottomPad + 20.h),
                     child: Column(
@@ -159,8 +171,17 @@ class _NoteDetailViewState extends State<_NoteDetailView> {
                         _buildMetadata(formattedDate),
                         SizedBox(height: 20.h),
                         _buildTitle(),
+                        if (_note.recording != null) ...[
+                          SizedBox(height: 16.h),
+                          _buildAudioSection(),
+                        ],
                         SizedBox(height: 16.h),
                         _buildContent(),
+                        if (_note.recording?.transcript != null &&
+                            _note.recording!.transcript!.isNotEmpty) ...[
+                          SizedBox(height: 16.h),
+                          _buildTranscriptSection(),
+                        ],
                         if (_note.tags.isNotEmpty) ...[
                           SizedBox(height: 20.h),
                           _buildTags(),
@@ -169,6 +190,7 @@ class _NoteDetailViewState extends State<_NoteDetailView> {
                         _buildQuickActions(),
                       ],
                     ),
+                  ),
                   ),
                 ),
               ],
@@ -335,6 +357,10 @@ class _NoteDetailViewState extends State<_NoteDetailView> {
   }
 
   Widget _buildContent() {
+    if (_note.content.isEmpty && _note.recording != null) {
+      return const SizedBox.shrink();
+    }
+
     if (_note.content.isEmpty) {
       return NotesGlassCard(
         padding: EdgeInsets.all(20.w),
@@ -361,6 +387,84 @@ class _NoteDetailViewState extends State<_NoteDetailView> {
           height: 1.7,
         ),
       ),
+    );
+  }
+
+  Widget _buildAudioSection() {
+    final recording = _note.recording!;
+    String statusLabel;
+    switch (recording.status) {
+      case TranscriptionStatus.pending:
+      case TranscriptionStatus.processing:
+        statusLabel = 'Transcription in progress…';
+      case TranscriptionStatus.done:
+        statusLabel = 'Transcription ready';
+      case TranscriptionStatus.error:
+        statusLabel = 'Transcription failed';
+    }
+
+    return NotesGlassCard(
+      padding: EdgeInsets.all(16.w),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.mic_none_rounded, color: NotesTheme.bronze, size: 18.sp),
+              SizedBox(width: 8.w),
+              Text(
+                'Audio',
+                style: GoogleFonts.poppins(
+                  fontSize: 14.sp,
+                  fontWeight: FontWeight.w600,
+                  color: NotesTheme.textPrimary,
+                ),
+              ),
+              const Spacer(),
+              Text(
+                statusLabel,
+                style: GoogleFonts.poppins(
+                  fontSize: 11.sp,
+                  color: NotesTheme.textPrimary.withValues(alpha: 0.45),
+                ),
+              ),
+            ],
+          ),
+          SizedBox(height: 8.h),
+          NotesAudioPlayerWidget(
+            audioUrl: recording.audioUrl,
+            durationSeconds: recording.durationSeconds,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildTranscriptSection() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Transcript',
+          style: GoogleFonts.poppins(
+            fontSize: 14.sp,
+            fontWeight: FontWeight.w600,
+            color: NotesTheme.textPrimary.withValues(alpha: 0.7),
+          ),
+        ),
+        SizedBox(height: 8.h),
+        NotesGlassCard(
+          padding: EdgeInsets.all(16.w),
+          child: Text(
+            _note.recording!.transcript!,
+            style: GoogleFonts.poppins(
+              fontSize: 14.sp,
+              color: NotesTheme.textPrimary.withValues(alpha: 0.9),
+              height: 1.6,
+            ),
+          ),
+        ),
+      ],
     );
   }
 

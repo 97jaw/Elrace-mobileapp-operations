@@ -15,6 +15,10 @@ const db = getFirestore();
 const messaging = getMessaging();
 const storage = getStorage();
 
+// My Notes — Whisper transcription on audio upload
+const { onNotesAudioUploaded } = require("./notes_transcribe");
+exports.onNotesAudioUploaded = onNotesAudioUploaded;
+
 /** AWS Rekognition region for timesheet face mocks (liveness callables live in functions-liveness/). */
 const AWS_REKOGNITION_REGION = "ap-south-1";
 
