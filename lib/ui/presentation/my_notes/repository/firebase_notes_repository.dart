@@ -125,11 +125,17 @@ class FirebaseNotesRepository implements INotesRepository {
       await _ensureSignedIn();
       final noteWithOwner = note.copyWith(
         ownerId: _userId,
-        createdAt: DateTime.now(),
+        createdAt: note.createdAt,
         updatedAt: DateTime.now(),
       );
+      debugPrint(
+        '📝 FirebaseNotesRepository: saving note '
+        'id=${noteWithOwner.id} uid=$_userId path=users/$_userId/notes',
+      );
       await _notesCollection.doc(note.id).set(noteWithOwner.toFirestore());
+      debugPrint('✅ FirebaseNotesRepository: note saved successfully');
     } catch (e) {
+      debugPrint('❌ FirebaseNotesRepository: addNote failed: $e');
       throw Exception('Failed to add note: $e');
     }
   }

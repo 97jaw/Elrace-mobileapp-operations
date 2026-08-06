@@ -167,14 +167,6 @@ class _MyNotesViewState extends State<_MyNotesView> {
                               duration: const Duration(seconds: 5),
                             ),
                           );
-                        } else if (state is NoteActionSuccess &&
-                            state.message != null) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(
-                              content: Text(state.message!),
-                              backgroundColor: NotesTheme.charcoal,
-                            ),
-                          );
                         }
                       },
                       builder: (context, state) {
@@ -236,10 +228,6 @@ class _MyNotesViewState extends State<_MyNotesView> {
     }
     if (state is NoteActionError && state.previousState != null) {
       return state.previousState!;
-    }
-    if (state is NoteActionSuccess) {
-      // Stream will refresh; keep last loaded view if available.
-      return state;
     }
     return state;
   }

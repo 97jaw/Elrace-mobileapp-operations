@@ -146,15 +146,22 @@ class NotesBloc extends Bloc<NotesEvent, NotesState> {
     final previousState = state is NotesLoaded ? state as NotesLoaded : null;
 
     try {
-      emit(NoteActionLoading(previousState: previousState));
-      await notesRepository.addNote(event.note);
-      emit(const NoteActionSuccess(message: 'Note created'));
-
-      if (_notesSubscription == null) {
-        add(FetchNotes(filter: _currentFilter));
+      if (previousState != null) {
+        emit(NoteActionLoading(previousState: previousState));
       }
+      await notesRepository.addNote(event.note);
+
+      // Optimistic local update so the list never blanks while waiting for stream.
+      _allNotes = [
+        event.note,
+        ..._allNotes.where((n) => n.id != event.note.id),
+      ];
+      emit(_buildLoaded());
     } catch (e) {
       emit(NoteActionError(e.toString(), previousState: previousState));
+      if (previousState != null) {
+        emit(previousState);
+      }
     }
   }
 
@@ -165,15 +172,22 @@ class NotesBloc extends Bloc<NotesEvent, NotesState> {
     final previousState = state is NotesLoaded ? state as NotesLoaded : null;
 
     try {
-      emit(NoteActionLoading(previousState: previousState));
-      await notesRepository.updateNote(event.note);
-      emit(const NoteActionSuccess(message: 'Note updated'));
-
-      if (_notesSubscription == null) {
-        add(FetchNotes(filter: _currentFilter));
+      if (previousState != null) {
+        emit(NoteActionLoading(previousState: previousState));
       }
+      await notesRepository.updateNote(event.note);
+
+      _allNotes = _allNotes
+          .map((n) => n.id == event.note.id ? event.note : n)
+          .toList();
+      // Keep newest-first order.
+      _allNotes.sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
+      emit(_buildLoaded());
     } catch (e) {
       emit(NoteActionError(e.toString(), previousState: previousState));
+      if (previousState != null) {
+        emit(previousState);
+      }
     }
   }
 
@@ -184,15 +198,18 @@ class NotesBloc extends Bloc<NotesEvent, NotesState> {
     final previousState = state is NotesLoaded ? state as NotesLoaded : null;
 
     try {
-      emit(NoteActionLoading(previousState: previousState));
-      await notesRepository.deleteNote(event.noteId);
-      emit(const NoteActionSuccess(message: 'Note deleted'));
-
-      if (_notesSubscription == null) {
-        add(FetchNotes(filter: _currentFilter));
+      if (previousState != null) {
+        emit(NoteActionLoading(previousState: previousState));
       }
+      await notesRepository.deleteNote(event.noteId);
+
+      _allNotes = _allNotes.where((n) => n.id != event.noteId).toList();
+      emit(_buildLoaded());
     } catch (e) {
       emit(NoteActionError(e.toString(), previousState: previousState));
+      if (previousState != null) {
+        emit(previousState);
+      }
     }
   }
 

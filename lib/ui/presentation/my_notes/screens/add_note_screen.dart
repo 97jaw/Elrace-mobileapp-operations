@@ -165,7 +165,7 @@ class _AddNoteScreenState extends State<AddNoteScreen> {
     await NotesCacheService.instance.clearCurrentDraft();
   }
 
-  void _saveNote() {
+  Future<void> _saveNote() async {
     final title = _titleController.text.trim();
     final content = _contentController.text.trim();
 
@@ -195,14 +195,42 @@ class _AddNoteScreenState extends State<AddNoteScreen> {
       updatedAt: now,
     );
 
+    final bloc = context.read<NotesBloc>();
     if (_isEditing) {
-      context.read<NotesBloc>().add(UpdateNote(note));
+      bloc.add(UpdateNote(note));
     } else {
-      context.read<NotesBloc>().add(AddNote(note));
-      _clearDraftOnSave();
+      bloc.add(AddNote(note));
+      await _clearDraftOnSave();
     }
 
-    Navigator.of(context).pop();
+    // Wait until save finishes so the list is updated before we pop.
+    try {
+      final next = await bloc.stream.firstWhere(
+        (s) => s is NotesLoaded || s is NoteActionError || s is NotesError,
+      ).timeout(const Duration(seconds: 15));
+
+      if (!mounted) return;
+
+      if (next is NoteActionError || next is NotesError) {
+        final message = next is NoteActionError
+            ? next.message
+            : (next as NotesError).message;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(message),
+            backgroundColor: NotesTheme.charcoal,
+            duration: const Duration(seconds: 5),
+          ),
+        );
+        return;
+      }
+    } catch (_) {
+      // Timeout / no emission — still pop; optimistic update may have applied.
+    }
+
+    if (mounted) {
+      Navigator.of(context).pop();
+    }
   }
 
   void _addTag() {
