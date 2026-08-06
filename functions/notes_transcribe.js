@@ -101,7 +101,8 @@ async function handleNotesAudioUpload(event) {
 
 exports.onNotesAudioUploaded = onObjectFinalized(
   {
-    region: "me-central-1",
+    // Match existing default-codebase functions (chat/tasks) — not me-central-1
+    region: "us-central1",
     secrets: [openaiApiKey],
     memory: "1GiB",
     timeoutSeconds: 300,
