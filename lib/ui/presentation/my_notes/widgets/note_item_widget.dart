@@ -4,6 +4,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 import '../data/note_model.dart';
 
+/// Legacy note item widget - prefer using NotesListSection with _NotesListRow instead.
 class NoteItemWidget extends StatelessWidget {
   final NoteModel note;
   final VoidCallback? onTap;
@@ -29,22 +30,46 @@ class NoteItemWidget extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  note.title,
-                  style: GoogleFonts.poppins(
-                    fontSize: 18.sp,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.black,
-                  ),
-                  maxLines: null,
-                  overflow: TextOverflow.visible,
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        note.title,
+                        style: GoogleFonts.poppins(
+                          fontSize: 18.sp,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.black,
+                        ),
+                        maxLines: null,
+                        overflow: TextOverflow.visible,
+                      ),
+                    ),
+                    if (note.isImportant)
+                      Padding(
+                        padding: const EdgeInsets.only(left: 8),
+                        child: Icon(
+                          Icons.star,
+                          color: Colors.amber,
+                          size: 20.sp,
+                        ),
+                      ),
+                    if (note.isTodo)
+                      Padding(
+                        padding: const EdgeInsets.only(left: 4),
+                        child: Icon(
+                          Icons.check_circle_outline,
+                          color: Colors.green,
+                          size: 20.sp,
+                        ),
+                      ),
+                  ],
                 ),
                 const SizedBox(height: 8),
                 Row(
                   children: [
                     Text(
-                      DateFormat('MMM dd, yyyy').format(note.date),
-                      style:  GoogleFonts.poppins(
+                      DateFormat('MMM dd, yyyy').format(note.updatedAt),
+                      style: GoogleFonts.poppins(
                         fontSize: 13.sp,
                         color: const Color(0xff313131),
                         fontWeight: FontWeight.bold,
@@ -53,14 +78,14 @@ class NoteItemWidget extends StatelessWidget {
                     const SizedBox(width: 4),
                     Expanded(
                       child: Text(
-                        note.description,
-                        style:  GoogleFonts.poppins(
+                        note.content,
+                        style: GoogleFonts.poppins(
                           fontSize: 13.sp,
                           color: const Color(0xff313131),
                           fontWeight: FontWeight.bold,
                         ),
-                        maxLines: null,
-                        overflow: TextOverflow.visible,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                       ),
                     ),
                   ],
@@ -77,4 +102,4 @@ class NoteItemWidget extends StatelessWidget {
       ],
     );
   }
-} 
+}

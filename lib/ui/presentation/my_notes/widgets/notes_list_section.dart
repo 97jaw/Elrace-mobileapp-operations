@@ -1,52 +1,30 @@
+import 'package:el_race/ui/presentation/my_notes/data/note_model.dart';
 import 'package:el_race/ui/presentation/my_notes/theme/notes_theme.dart';
 import 'package:el_race/ui/presentation/my_notes/widgets/notes_glass_card.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:google_fonts/google_fonts.dart';
 
-class NotesListItemData {
-  const NotesListItemData({
-    required this.title,
-    required this.subtitle,
-    required this.icon,
-  });
-
-  final String title;
-  final String subtitle;
-  final IconData icon;
-}
-
-/// "All Notes" header + list of created-note rows (placeholder data for now).
 class NotesListSection extends StatelessWidget {
   const NotesListSection({
     super.key,
-    this.items = const [
-      NotesListItemData(
-        title: 'Site review',
-        subtitle: 'Updated 2h ago',
-        icon: Icons.sticky_note_2_outlined,
-      ),
-      NotesListItemData(
-        title: 'Meeting notes',
-        subtitle: 'Yesterday · Audio',
-        icon: Icons.mic_none_rounded,
-      ),
-      NotesListItemData(
-        title: 'Inspection photos',
-        subtitle: '3 days ago · Images',
-        icon: Icons.image_outlined,
-      ),
-    ],
+    this.notes = const [],
     this.onViewAll,
     this.onNoteTap,
+    this.maxItems = 5,
+    this.title = 'All Notes',
   });
 
-  final List<NotesListItemData> items;
+  final List<NoteModel> notes;
   final VoidCallback? onViewAll;
-  final ValueChanged<NotesListItemData>? onNoteTap;
+  final ValueChanged<NoteModel>? onNoteTap;
+  final int maxItems;
+  final String title;
 
   @override
   Widget build(BuildContext context) {
+    final displayNotes = notes.take(maxItems).toList();
+
     return Padding(
       padding: EdgeInsets.symmetric(horizontal: 20.w),
       child: Column(
@@ -56,7 +34,7 @@ class NotesListSection extends StatelessWidget {
             children: [
               Expanded(
                 child: Text(
-                  'All Notes',
+                  title,
                   style: GoogleFonts.poppins(
                     fontSize: 18.sp,
                     fontWeight: FontWeight.w700,
@@ -65,34 +43,35 @@ class NotesListSection extends StatelessWidget {
                   ),
                 ),
               ),
-              GestureDetector(
-                onTap: onViewAll,
-                behavior: HitTestBehavior.opaque,
-                child: Padding(
-                  padding: EdgeInsets.symmetric(vertical: 4.h, horizontal: 2.w),
-                  child: Text(
-                    'View all',
-                    style: GoogleFonts.poppins(
-                      fontSize: 13.sp,
-                      fontWeight: FontWeight.w500,
-                      color: NotesTheme.textPrimary.withValues(alpha: 0.45),
-                      height: 1.2,
+              if (notes.length > maxItems)
+                GestureDetector(
+                  onTap: onViewAll,
+                  behavior: HitTestBehavior.opaque,
+                  child: Padding(
+                    padding: EdgeInsets.symmetric(vertical: 4.h, horizontal: 2.w),
+                    child: Text(
+                      'View all',
+                      style: GoogleFonts.poppins(
+                        fontSize: 13.sp,
+                        fontWeight: FontWeight.w500,
+                        color: NotesTheme.textPrimary.withValues(alpha: 0.45),
+                        height: 1.2,
+                      ),
                     ),
                   ),
                 ),
-              ),
             ],
           ),
           SizedBox(height: 14.h),
-          ...List.generate(items.length, (index) {
-            final item = items[index];
+          ...List.generate(displayNotes.length, (index) {
+            final note = displayNotes[index];
             return Padding(
               padding: EdgeInsets.only(
-                bottom: index == items.length - 1 ? 0 : 10.h,
+                bottom: index == displayNotes.length - 1 ? 0 : 10.h,
               ),
               child: _NotesListRow(
-                item: item,
-                onTap: onNoteTap == null ? null : () => onNoteTap!(item),
+                note: note,
+                onTap: onNoteTap == null ? null : () => onNoteTap!(note),
               ),
             );
           }),
@@ -104,12 +83,36 @@ class NotesListSection extends StatelessWidget {
 
 class _NotesListRow extends StatelessWidget {
   const _NotesListRow({
-    required this.item,
+    required this.note,
     this.onTap,
   });
 
-  final NotesListItemData item;
+  final NoteModel note;
   final VoidCallback? onTap;
+
+  IconData get _noteIcon {
+    switch (note.noteType) {
+      case NoteType.audio:
+        return Icons.mic_none_rounded;
+      case NoteType.image:
+        return Icons.image_outlined;
+      case NoteType.text:
+      default:
+        return Icons.sticky_note_2_outlined;
+    }
+  }
+
+  Color get _iconAccentColor {
+    switch (note.noteType) {
+      case NoteType.audio:
+        return NotesTheme.bronze;
+      case NoteType.image:
+        return const Color(0xFF7CB9E8);
+      case NoteType.text:
+      default:
+        return NotesTheme.textPrimary;
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -125,15 +128,15 @@ class _NotesListRow extends StatelessWidget {
             alignment: Alignment.center,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
-              color: NotesTheme.textPrimary.withValues(alpha: 0.12),
+              color: _iconAccentColor.withValues(alpha: 0.12),
               border: Border.all(
-                color: NotesTheme.textPrimary.withValues(alpha: 0.14),
+                color: _iconAccentColor.withValues(alpha: 0.20),
               ),
             ),
             child: Icon(
-              item.icon,
+              _noteIcon,
               size: 22.sp,
-              color: NotesTheme.textPrimary.withValues(alpha: 0.92),
+              color: _iconAccentColor.withValues(alpha: 0.92),
             ),
           ),
           SizedBox(width: 12.w),
@@ -141,20 +144,44 @@ class _NotesListRow extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  item.title,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: GoogleFonts.poppins(
-                    fontSize: 14.sp,
-                    fontWeight: FontWeight.w700,
-                    color: NotesTheme.textPrimary,
-                    height: 1.2,
-                  ),
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        note.title,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: GoogleFonts.poppins(
+                          fontSize: 14.sp,
+                          fontWeight: FontWeight.w700,
+                          color: NotesTheme.textPrimary,
+                          height: 1.2,
+                        ),
+                      ),
+                    ),
+                    if (note.isImportant)
+                      Padding(
+                        padding: EdgeInsets.only(left: 6.w),
+                        child: Icon(
+                          Icons.star_rounded,
+                          size: 16.sp,
+                          color: NotesTheme.bronze,
+                        ),
+                      ),
+                    if (note.isTodo)
+                      Padding(
+                        padding: EdgeInsets.only(left: 4.w),
+                        child: Icon(
+                          Icons.check_circle_outline,
+                          size: 16.sp,
+                          color: const Color(0xFF4CAF50),
+                        ),
+                      ),
+                  ],
                 ),
                 SizedBox(height: 2.h),
                 Text(
-                  item.subtitle,
+                  note.subtitle,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: GoogleFonts.poppins(
@@ -164,6 +191,33 @@ class _NotesListRow extends StatelessWidget {
                     height: 1.2,
                   ),
                 ),
+                if (note.tags.isNotEmpty) ...[
+                  SizedBox(height: 6.h),
+                  Wrap(
+                    spacing: 4.w,
+                    runSpacing: 4.h,
+                    children: note.tags.take(3).map((tag) {
+                      return Container(
+                        padding: EdgeInsets.symmetric(
+                          horizontal: 6.w,
+                          vertical: 2.h,
+                        ),
+                        decoration: BoxDecoration(
+                          color: NotesTheme.bronze.withValues(alpha: 0.15),
+                          borderRadius: BorderRadius.circular(6.r),
+                        ),
+                        child: Text(
+                          tag,
+                          style: GoogleFonts.poppins(
+                            fontSize: 9.sp,
+                            fontWeight: FontWeight.w500,
+                            color: NotesTheme.bronze,
+                          ),
+                        ),
+                      );
+                    }).toList(),
+                  ),
+                ],
               ],
             ),
           ),
