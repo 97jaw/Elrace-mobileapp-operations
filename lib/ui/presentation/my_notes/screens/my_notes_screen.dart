@@ -1,6 +1,5 @@
 import 'package:el_race/ui/presentation/my_notes/bloc/notes_bloc.dart';
 import 'package:el_race/ui/presentation/my_notes/data/note_model.dart';
-import 'package:el_race/ui/presentation/my_notes/repository/firebase_notes_repository.dart';
 import 'package:el_race/ui/presentation/my_notes/repository/i_notes_repository.dart';
 import 'package:el_race/ui/presentation/my_notes/screens/add_note_screen.dart';
 import 'package:el_race/ui/presentation/my_notes/screens/note_detail_screen.dart';
@@ -18,17 +17,28 @@ import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 
-class MyNotesScreen extends StatelessWidget {
+/// Uses the app-level [NotesBloc] from [MultiBlocProvider] so list + add/edit
+/// always share the same Firebase-backed instance.
+class MyNotesScreen extends StatefulWidget {
   const MyNotesScreen({super.key});
 
   @override
+  State<MyNotesScreen> createState() => _MyNotesScreenState();
+}
+
+class _MyNotesScreenState extends State<MyNotesScreen> {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      context.read<NotesBloc>().add(const WatchNotes());
+    });
+  }
+
+  @override
   Widget build(BuildContext context) {
-    return BlocProvider(
-      create: (context) => NotesBloc(
-        notesRepository: FirebaseNotesRepository(),
-      )..add(const WatchNotes()),
-      child: const _MyNotesView(),
-    );
+    return const _MyNotesView();
   }
 }
 
@@ -70,10 +80,13 @@ class _MyNotesViewState extends State<_MyNotesView> {
   }
 
   void _onNewTextNote() {
+    // Capture bloc from this route BEFORE push — builder context is a sibling
+    // route and would otherwise resolve a different / wrong provider lookup.
+    final notesBloc = context.read<NotesBloc>();
     Navigator.of(context).push(
       MaterialPageRoute(
-        builder: (context) => BlocProvider.value(
-          value: context.read<NotesBloc>(),
+        builder: (_) => BlocProvider.value(
+          value: notesBloc,
           child: const AddNoteScreen(),
         ),
       ),
@@ -99,10 +112,11 @@ class _MyNotesViewState extends State<_MyNotesView> {
   }
 
   void _onNoteTap(NoteModel note) {
+    final notesBloc = context.read<NotesBloc>();
     Navigator.of(context).push(
       MaterialPageRoute(
-        builder: (context) => BlocProvider.value(
-          value: this.context.read<NotesBloc>(),
+        builder: (_) => BlocProvider.value(
+          value: notesBloc,
           child: NoteDetailScreen(note: note),
         ),
       ),
@@ -116,6 +130,16 @@ class _MyNotesViewState extends State<_MyNotesView> {
         backgroundColor: NotesTheme.charcoal,
       ),
     );
+  }
+
+  NotesState _resolveDisplayState(NotesState state) {
+    if (state is NoteActionLoading && state.previousState != null) {
+      return state.previousState!;
+    }
+    if (state is NoteActionError && state.previousState != null) {
+      return state.previousState!;
+    }
+    return state;
   }
 
   @override
@@ -222,16 +246,6 @@ class _MyNotesViewState extends State<_MyNotesView> {
     );
   }
 
-  NotesState _resolveDisplayState(NotesState state) {
-    if (state is NoteActionLoading && state.previousState != null) {
-      return state.previousState!;
-    }
-    if (state is NoteActionError && state.previousState != null) {
-      return state.previousState!;
-    }
-    return state;
-  }
-
   Widget _buildFilterChips(NotesState state) {
     int selectedIndex = 0;
     int totalCount = 0;
@@ -249,9 +263,18 @@ class _MyNotesViewState extends State<_MyNotesView> {
       selectedIndex: selectedIndex,
       onSelected: _onFilterSelected,
       options: [
-        NotesFilterOption(label: 'All', count: totalCount > 0 ? totalCount : null),
-        NotesFilterOption(label: 'Important', count: importantCount > 0 ? importantCount : null),
-        NotesFilterOption(label: 'To-do', count: todoCount > 0 ? todoCount : null),
+        NotesFilterOption(
+          label: 'All',
+          count: totalCount > 0 ? totalCount : null,
+        ),
+        NotesFilterOption(
+          label: 'Important',
+          count: importantCount > 0 ? importantCount : null,
+        ),
+        NotesFilterOption(
+          label: 'To-do',
+          count: todoCount > 0 ? todoCount : null,
+        ),
       ],
     );
   }
@@ -318,7 +341,6 @@ class _MyNotesViewState extends State<_MyNotesView> {
       );
     }
 
-    // NoteActionSuccess / transient states — show empty placeholder, not spinner.
     return _buildEmptyState(NotesFilter.all);
   }
 
@@ -330,13 +352,10 @@ class _MyNotesViewState extends State<_MyNotesView> {
       case NotesFilter.important:
         message = 'No important notes yet';
         icon = Icons.star_outline;
-        break;
       case NotesFilter.todo:
         message = 'No to-do notes yet';
         icon = Icons.check_circle_outline;
-        break;
       case NotesFilter.all:
-      default:
         message = 'No notes yet\nTap above to create your first note';
         icon = Icons.note_add_outlined;
     }

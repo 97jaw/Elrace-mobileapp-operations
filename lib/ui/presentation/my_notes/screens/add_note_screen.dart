@@ -166,6 +166,7 @@ class _AddNoteScreenState extends State<AddNoteScreen> {
   }
 
   Future<void> _saveNote() async {
+    debugPrint('📝 AddNoteScreen: _saveNote tapped');
     final title = _titleController.text.trim();
     final content = _contentController.text.trim();
 
@@ -196,6 +197,10 @@ class _AddNoteScreenState extends State<AddNoteScreen> {
     );
 
     final bloc = context.read<NotesBloc>();
+    debugPrint(
+      '📝 AddNoteScreen: dispatching ${_isEditing ? 'UpdateNote' : 'AddNote'} '
+      'to bloc=${bloc.hashCode}',
+    );
     if (_isEditing) {
       bloc.add(UpdateNote(note));
     } else {
@@ -205,9 +210,11 @@ class _AddNoteScreenState extends State<AddNoteScreen> {
 
     // Wait until save finishes so the list is updated before we pop.
     try {
-      final next = await bloc.stream.firstWhere(
-        (s) => s is NotesLoaded || s is NoteActionError || s is NotesError,
-      ).timeout(const Duration(seconds: 15));
+      final next = await bloc.stream
+          .firstWhere(
+            (s) => s is NotesLoaded || s is NoteActionError || s is NotesError,
+          )
+          .timeout(const Duration(seconds: 15));
 
       if (!mounted) return;
 
@@ -215,6 +222,7 @@ class _AddNoteScreenState extends State<AddNoteScreen> {
         final message = next is NoteActionError
             ? next.message
             : (next as NotesError).message;
+        debugPrint('❌ AddNoteScreen: save failed: $message');
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(message),
@@ -224,8 +232,11 @@ class _AddNoteScreenState extends State<AddNoteScreen> {
         );
         return;
       }
-    } catch (_) {
-      // Timeout / no emission — still pop; optimistic update may have applied.
+      debugPrint(
+        '✅ AddNoteScreen: save OK, notes=${(next as NotesLoaded).notes.length}',
+      );
+    } catch (e) {
+      debugPrint('⚠️ AddNoteScreen: wait for save timed out/error: $e');
     }
 
     if (mounted) {

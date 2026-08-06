@@ -3,8 +3,8 @@ import 'package:el_race/ui/presentation/home_screen/bloc/home_bloc.dart';
 import 'package:el_race/ui/presentation/landing_screen/bloc/checkin_in_bloc/check_in_bloc.dart';
 import 'package:el_race/ui/presentation/landing_screen/bloc/checkin_out_bloc/check_out_bloc.dart';
 import 'package:el_race/ui/presentation/my_notes/bloc/notes_bloc.dart';
+import 'package:el_race/ui/presentation/my_notes/repository/firebase_notes_repository.dart';
 import 'package:el_race/ui/presentation/my_notes/repository/i_notes_repository.dart';
-import 'package:el_race/ui/presentation/my_notes/repository/notes_repository.dart';
 import 'package:el_race/ui/presentation/media/bloc/media_bloc.dart';
 import 'package:el_race/ui/presentation/media/repository/i_media_repository.dart';
 import 'package:el_race/ui/presentation/media/repository/media_repository.dart';
@@ -76,7 +76,9 @@ Future<void> initDI() async {
 
     // Temporarily comment out problematic dependencies for iOS simulator
     // sl.registerLazySingleton<ProjectRepository>(() => ProjectRepositoryImpl(sl()));
-    _registerLazySingletonIfNeeded<INotesRepository>(() => NotesRepository());
+    _registerLazySingletonIfNeeded<INotesRepository>(
+      () => FirebaseNotesRepository(),
+    );
     _registerLazySingletonIfNeeded<IMediaRepository>(() => MediaRepository());
 
     // Data sources

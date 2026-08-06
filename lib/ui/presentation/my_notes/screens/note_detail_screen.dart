@@ -45,10 +45,11 @@ class _NoteDetailViewState extends State<_NoteDetailView> {
   }
 
   void _editNote() {
+    final notesBloc = context.read<NotesBloc>();
     Navigator.of(context).push(
       MaterialPageRoute(
-        builder: (context) => BlocProvider.value(
-          value: context.read<NotesBloc>(),
+        builder: (_) => BlocProvider.value(
+          value: notesBloc,
           child: AddNoteScreen(existingNote: _note),
         ),
       ),
