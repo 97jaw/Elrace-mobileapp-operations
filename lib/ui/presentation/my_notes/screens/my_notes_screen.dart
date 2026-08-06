@@ -145,8 +145,40 @@ class _MyNotesViewState extends State<_MyNotesView> {
               Expanded(
                 child: Stack(
                   children: [
-                    BlocBuilder<NotesBloc, NotesState>(
+                    BlocConsumer<NotesBloc, NotesState>(
+                      listener: (context, state) {
+                        if (state is NotesError) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text(
+                                state.message.contains('permission-denied')
+                                    ? 'Notes access denied. Deploy Firestore rules for /users/{uid}/notes.'
+                                    : state.message,
+                              ),
+                              backgroundColor: NotesTheme.charcoal,
+                              duration: const Duration(seconds: 5),
+                            ),
+                          );
+                        } else if (state is NoteActionError) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text(state.message),
+                              backgroundColor: NotesTheme.charcoal,
+                              duration: const Duration(seconds: 5),
+                            ),
+                          );
+                        } else if (state is NoteActionSuccess &&
+                            state.message != null) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text(state.message!),
+                              backgroundColor: NotesTheme.charcoal,
+                            ),
+                          );
+                        }
+                      },
                       builder: (context, state) {
+                        final displayState = _resolveDisplayState(state);
                         return SingleChildScrollView(
                           physics: const BouncingScrollPhysics(),
                           padding: EdgeInsets.fromLTRB(
@@ -160,7 +192,7 @@ class _MyNotesViewState extends State<_MyNotesView> {
                             children: [
                               const NotesPageHeading(),
                               SizedBox(height: 16.h),
-                              _buildFilterChips(state),
+                              _buildFilterChips(displayState),
                               SizedBox(height: 20.h),
                               Padding(
                                 padding: EdgeInsets.symmetric(horizontal: 20.w),
@@ -171,7 +203,7 @@ class _MyNotesViewState extends State<_MyNotesView> {
                                 ),
                               ),
                               SizedBox(height: 28.h),
-                              _buildNotesSection(state),
+                              _buildNotesSection(displayState),
                             ],
                           ),
                         );
@@ -196,6 +228,20 @@ class _MyNotesViewState extends State<_MyNotesView> {
         ),
       ),
     );
+  }
+
+  NotesState _resolveDisplayState(NotesState state) {
+    if (state is NoteActionLoading && state.previousState != null) {
+      return state.previousState!;
+    }
+    if (state is NoteActionError && state.previousState != null) {
+      return state.previousState!;
+    }
+    if (state is NoteActionSuccess) {
+      // Stream will refresh; keep last loaded view if available.
+      return state;
+    }
+    return state;
   }
 
   Widget _buildFilterChips(NotesState state) {
@@ -247,7 +293,10 @@ class _MyNotesViewState extends State<_MyNotesView> {
               ),
               SizedBox(height: 12.h),
               Text(
-                'Failed to load notes',
+                state.message.contains('permission-denied')
+                    ? 'Permission denied.\nDeploy Firestore notes rules, then Retry.'
+                    : 'Failed to load notes',
+                textAlign: TextAlign.center,
                 style: TextStyle(
                   color: NotesTheme.textPrimary.withValues(alpha: 0.7),
                   fontSize: 14.sp,
@@ -281,7 +330,8 @@ class _MyNotesViewState extends State<_MyNotesView> {
       );
     }
 
-    return const SizedBox.shrink();
+    // NoteActionSuccess / transient states — show empty placeholder, not spinner.
+    return _buildEmptyState(NotesFilter.all);
   }
 
   Widget _buildEmptyState(NotesFilter filter) {

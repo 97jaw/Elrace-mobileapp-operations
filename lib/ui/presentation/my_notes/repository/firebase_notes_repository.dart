@@ -1,5 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:el_race/core/utils/shared_pref.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/foundation.dart';
 
 import '../data/note_model.dart';
 import 'i_notes_repository.dart';
@@ -14,65 +16,101 @@ class FirebaseNotesRepository implements INotesRepository {
   })  : _firestore = firestore ?? FirebaseFirestore.instance,
         _auth = auth ?? FirebaseAuth.instance;
 
+  /// Prefer live Firebase Auth UID; fall back to login payload firebase_uid.
+  String? get _currentUid {
+    final firebaseUid = _auth.currentUser?.uid;
+    if (firebaseUid != null) return firebaseUid;
+    return SharedPref.getLoginData().result?.data?.firebase_uid;
+  }
+
   String get _userId {
-    final uid = _auth.currentUser?.uid;
-    if (uid == null) {
+    final uid = _currentUid;
+    if (uid == null || uid.isEmpty) {
       throw Exception('User not authenticated. Please sign in first.');
     }
     return uid;
   }
 
+  /// Same pattern as TodoFirebaseService — custom token may not be hydrated yet.
+  Future<void> _ensureSignedIn() async {
+    if (_auth.currentUser != null) return;
+
+    final loginData = SharedPref.getLoginData();
+    final customToken = loginData.result?.data?.firebase_custom_token;
+    if (customToken != null &&
+        customToken.isNotEmpty &&
+        customToken != 'false') {
+      try {
+        await _auth.signInWithCustomToken(customToken);
+        debugPrint('✅ FirebaseNotesRepository: Signed in with custom token');
+      } catch (e) {
+        debugPrint(
+          '⚠️ FirebaseNotesRepository: Could not sign in with custom token: $e',
+        );
+      }
+    }
+
+    if (_auth.currentUser == null) {
+      throw Exception(
+        'Firebase Auth not signed in. Open Chat once after login, then retry Notes.',
+      );
+    }
+  }
+
   CollectionReference<Map<String, dynamic>> get _notesCollection =>
       _firestore.collection('users').doc(_userId).collection('notes');
 
-  Query<Map<String, dynamic>> _applyFilter(
-    Query<Map<String, dynamic>> query,
+  /// Client-side filter so we avoid composite index requirements for R1.
+  List<NoteModel> _applyClientFilter(
+    List<NoteModel> notes,
     NotesFilter filter,
   ) {
     switch (filter) {
       case NotesFilter.important:
-        return query.where('isImportant', isEqualTo: true);
+        return notes.where((n) => n.isImportant).toList();
       case NotesFilter.todo:
-        return query.where('isTodo', isEqualTo: true);
+        return notes.where((n) => n.isTodo).toList();
       case NotesFilter.all:
-      default:
-        return query;
+        return notes;
     }
   }
 
   @override
-  Future<List<NoteModel>> getNotes({NotesFilter filter = NotesFilter.all}) async {
+  Future<List<NoteModel>> getNotes({
+    NotesFilter filter = NotesFilter.all,
+  }) async {
     try {
-      Query<Map<String, dynamic>> query = _notesCollection
-          .orderBy('updatedAt', descending: true);
-      
-      query = _applyFilter(query, filter);
-      
-      final snapshot = await query.get();
-      return snapshot.docs.map((doc) => NoteModel.fromFirestore(doc)).toList();
+      await _ensureSignedIn();
+      final snapshot = await _notesCollection
+          .orderBy('updatedAt', descending: true)
+          .get();
+      final notes =
+          snapshot.docs.map((doc) => NoteModel.fromFirestore(doc)).toList();
+      return _applyClientFilter(notes, filter);
     } catch (e) {
       throw Exception('Failed to fetch notes: $e');
     }
   }
 
   @override
-  Stream<List<NoteModel>> watchNotes({NotesFilter filter = NotesFilter.all}) {
-    try {
-      Query<Map<String, dynamic>> query = _notesCollection
-          .orderBy('updatedAt', descending: true);
-      
-      query = _applyFilter(query, filter);
-      
-      return query.snapshots().map((snapshot) =>
-          snapshot.docs.map((doc) => NoteModel.fromFirestore(doc)).toList());
-    } catch (e) {
-      throw Exception('Failed to watch notes: $e');
-    }
+  Stream<List<NoteModel>> watchNotes({
+    NotesFilter filter = NotesFilter.all,
+  }) async* {
+    await _ensureSignedIn();
+    yield* _notesCollection
+        .orderBy('updatedAt', descending: true)
+        .snapshots()
+        .map((snapshot) {
+      final notes =
+          snapshot.docs.map((doc) => NoteModel.fromFirestore(doc)).toList();
+      return _applyClientFilter(notes, filter);
+    });
   }
 
   @override
   Future<NoteModel?> getNoteById(String noteId) async {
     try {
+      await _ensureSignedIn();
       final doc = await _notesCollection.doc(noteId).get();
       if (!doc.exists) return null;
       return NoteModel.fromFirestore(doc);
@@ -84,6 +122,7 @@ class FirebaseNotesRepository implements INotesRepository {
   @override
   Future<void> addNote(NoteModel note) async {
     try {
+      await _ensureSignedIn();
       final noteWithOwner = note.copyWith(
         ownerId: _userId,
         createdAt: DateTime.now(),
@@ -98,6 +137,7 @@ class FirebaseNotesRepository implements INotesRepository {
   @override
   Future<void> updateNote(NoteModel note) async {
     try {
+      await _ensureSignedIn();
       final updatedNote = note.copyWith(updatedAt: DateTime.now());
       await _notesCollection.doc(note.id).update(updatedNote.toFirestore());
     } catch (e) {
@@ -108,6 +148,7 @@ class FirebaseNotesRepository implements INotesRepository {
   @override
   Future<void> deleteNote(String noteId) async {
     try {
+      await _ensureSignedIn();
       await _notesCollection.doc(noteId).delete();
     } catch (e) {
       throw Exception('Failed to delete note: $e');
@@ -117,11 +158,8 @@ class FirebaseNotesRepository implements INotesRepository {
   @override
   Future<int> getNotesCount({NotesFilter filter = NotesFilter.all}) async {
     try {
-      Query<Map<String, dynamic>> query = _notesCollection;
-      query = _applyFilter(query, filter);
-      
-      final snapshot = await query.count().get();
-      return snapshot.count ?? 0;
+      final notes = await getNotes(filter: filter);
+      return notes.length;
     } catch (e) {
       throw Exception('Failed to get notes count: $e');
     }
@@ -130,6 +168,7 @@ class FirebaseNotesRepository implements INotesRepository {
   @override
   Future<void> toggleImportant(String noteId, bool isImportant) async {
     try {
+      await _ensureSignedIn();
       await _notesCollection.doc(noteId).update({
         'isImportant': isImportant,
         'updatedAt': Timestamp.now(),
@@ -142,6 +181,7 @@ class FirebaseNotesRepository implements INotesRepository {
   @override
   Future<void> toggleTodo(String noteId, bool isTodo) async {
     try {
+      await _ensureSignedIn();
       await _notesCollection.doc(noteId).update({
         'isTodo': isTodo,
         'updatedAt': Timestamp.now(),
@@ -157,6 +197,7 @@ class FirebaseNotesRepository implements INotesRepository {
     bool isDone,
   ) async {
     try {
+      await _ensureSignedIn();
       final doc = await _notesCollection.doc(noteId).get();
       if (!doc.exists) throw Exception('Note not found');
 
@@ -179,6 +220,7 @@ class FirebaseNotesRepository implements INotesRepository {
 
   Future<void> addTagToNote(String noteId, String tag) async {
     try {
+      await _ensureSignedIn();
       await _notesCollection.doc(noteId).update({
         'tags': FieldValue.arrayUnion([tag]),
         'updatedAt': Timestamp.now(),
@@ -190,6 +232,7 @@ class FirebaseNotesRepository implements INotesRepository {
 
   Future<void> removeTagFromNote(String noteId, String tag) async {
     try {
+      await _ensureSignedIn();
       await _notesCollection.doc(noteId).update({
         'tags': FieldValue.arrayRemove([tag]),
         'updatedAt': Timestamp.now(),
@@ -203,7 +246,7 @@ class FirebaseNotesRepository implements INotesRepository {
     try {
       final allNotes = await getNotes();
       final lowerQuery = query.toLowerCase();
-      
+
       return allNotes.where((note) {
         return note.title.toLowerCase().contains(lowerQuery) ||
             note.content.toLowerCase().contains(lowerQuery) ||

@@ -43,6 +43,14 @@ final class NotesUpdated extends NotesEvent {
   List<Object?> get props => [notes];
 }
 
+final class NotesWatchFailed extends NotesEvent {
+  final String message;
+  const NotesWatchFailed(this.message);
+
+  @override
+  List<Object?> get props => [message];
+}
+
 final class AddNote extends NotesEvent {
   final NoteModel note;
   const AddNote(this.note);

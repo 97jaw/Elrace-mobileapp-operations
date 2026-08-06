@@ -54,6 +54,11 @@ service cloud.firestore {
       match /signature_documents/{docId} {
         allow read, write: if isSignedIn() && request.auth.uid == userId;
       }
+
+      // My Notes — personal notes (text / audio / image). Owner-only.
+      match /notes/{noteId} {
+        allow read, write: if isSignedIn() && request.auth.uid == userId;
+      }
     }
 
     match /chats/{chatId} {
