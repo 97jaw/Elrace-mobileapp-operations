@@ -8,7 +8,8 @@ import 'package:el_race/core/utils/shared_pref.dart';
 import 'package:el_race/firebase_service.dart';
 import 'package:el_race/ui/presentation/signin/sign_in_screen.dart';
 import 'package:el_race/ui/widgets/update_dialog.dart';
-import 'package:flutter/foundation.dart' show kDebugMode;
+import 'package:flutter/foundation.dart'
+    show TargetPlatform, defaultTargetPlatform, kDebugMode;
 import 'package:flutter/material.dart';
 import 'package:el_race/ui/presentation/home_screen/screens/home_screen.dart';
 import 'package:el_race/utils/Util.dart';
@@ -27,6 +28,9 @@ class SplashScreen extends StatefulWidget {
 }
 
 class _SplashScreenState extends State<SplashScreen> {
+  static const String _splashVideoAsset = 'assets/mp4/splash.mp4';
+  static const Duration _videoInitTimeout = Duration(seconds: 8);
+
   bool _isSecurityCheckComplete = false;
   bool _isDeviceSecure = true;
   bool _didScheduleNavigation = false;
@@ -75,8 +79,13 @@ class _SplashScreenState extends State<SplashScreen> {
     _updateCheckFuture.catchError((_) => const UpdateCheckResult.noUpdate());
 
     // Initialize video player (uses hardware decoder, not main thread)
-    _videoController = VideoPlayerController.asset('assets/mp4/splash.mp4')
-      ..initialize().then((_) {
+    _videoController = VideoPlayerController.asset(
+      _splashVideoAsset,
+      videoPlayerOptions: VideoPlayerOptions(mixWithOthers: true),
+      viewType: defaultTargetPlatform == TargetPlatform.android
+          ? VideoViewType.platformView
+          : VideoViewType.textureView,
+    )..initialize().timeout(_videoInitTimeout).then((_) {
         _logGateTiming('video-ready');
         if (mounted) {
           setState(() => _isVideoReady = true);
