@@ -177,13 +177,13 @@ class _RfqListScreenState extends State<RfqListScreen>
   Future<void> _openItem(RfqItem item) async {
     // RFQ supporting docs preview (attachment_lpo_ids) — not LPO print.
     try {
-      final url = await _repo.fetchRfqReportUrl(item.id);
+      final preview = await _repo.fetchRfqReportPreview(item.id);
       if (!mounted) return;
       Navigator.push(
         context,
         MaterialPageRoute(
           builder: (_) => LpoPdfViewerScreen(
-            pdfUrl: url,
+            pdfUrls: preview.pdfUrls,
             title: item.name,
           ),
         ),

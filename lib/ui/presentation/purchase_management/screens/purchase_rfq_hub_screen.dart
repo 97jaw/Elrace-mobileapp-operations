@@ -184,12 +184,15 @@ class _PurchaseRfqHubScreenState extends ConsumerState<PurchaseRfqHubScreen> {
 
   Future<void> _openRfq(RfqItem item) async {
     try {
-      final url = await _repo.fetchRfqReportUrl(item.id);
+      final preview = await _repo.fetchRfqReportPreview(item.id);
       if (!mounted) return;
       Navigator.push(
         context,
         MaterialPageRoute(
-          builder: (_) => LpoPdfViewerScreen(pdfUrl: url, title: item.name),
+          builder: (_) => LpoPdfViewerScreen(
+            pdfUrls: preview.pdfUrls,
+            title: item.name,
+          ),
         ),
       );
     } on RfqNoAttachmentException catch (e) {

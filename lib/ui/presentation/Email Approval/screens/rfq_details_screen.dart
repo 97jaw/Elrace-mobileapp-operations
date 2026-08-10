@@ -349,11 +349,24 @@ class _RfqDetailsScreenState extends State<RfqDetailsScreen> {
       final decoded = jsonDecode(response.body) as Map<String, dynamic>;
       final result = decoded['result'] as Map?;
       final status = result?['status']?.toString();
-      final pdfUrl = result?['report_url']?.toString() ?? '';
+
+      final pdfUrls = <String>[];
+      final rawAttachments = result?['attachments'];
+      if (rawAttachments is List) {
+        for (final item in rawAttachments) {
+          if (item is! Map) continue;
+          final url = item['url']?.toString().trim() ?? '';
+          if (url.isNotEmpty) pdfUrls.add(url);
+        }
+      }
+      final reportUrl = result?['report_url']?.toString().trim() ?? '';
+      if (pdfUrls.isEmpty && reportUrl.isNotEmpty) {
+        pdfUrls.add(reportUrl);
+      }
 
       if (status == 'error' ||
           result?['code']?.toString() == 'NO_ATTACHMENT' ||
-          pdfUrl.isEmpty) {
+          pdfUrls.isEmpty) {
         final error = decoded['error'] as Map?;
         final errorData = error?['data'] as Map?;
         Fluttertoast.showToast(
@@ -374,7 +387,7 @@ class _RfqDetailsScreenState extends State<RfqDetailsScreen> {
       Navigator.of(context).push(
         MaterialPageRoute(
           builder: (_) => LpoPdfViewerScreen(
-            pdfUrl: pdfUrl,
+            pdfUrls: pdfUrls,
             title: _pick([
               _formData['request_no'],
               _formData['rfq_no_code'],

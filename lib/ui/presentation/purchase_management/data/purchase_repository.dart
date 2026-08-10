@@ -276,10 +276,11 @@ class PurchaseRepository {
     return result?['report_url']?.toString();
   }
 
-  /// RFQ supporting docs preview (`attachment_lpo_ids` merged).
-  /// Does not use LPO `/po/report_url`.
+  /// RFQ supporting docs preview (`attachment_lpo_ids`).
+  /// Prefers per-file public URLs so the app can Syncfusion-merge (server
+  /// PyPDF2 merges often render as 1 page in the mobile viewer).
   /// Throws [RfqNoAttachmentException] when there are no PDF attachments.
-  Future<String> fetchRfqReportUrl(int rfqId) async {
+  Future<RfqReportPreview> fetchRfqReportPreview(int rfqId) async {
     final result = await _post('/rfq/report_url', {'rfq_id': rfqId});
     if (result == null) {
       throw Exception('Failed to load RFQ attachments');
@@ -293,11 +294,31 @@ class PurchaseRepository {
         message.isNotEmpty ? message : 'No attachment to show',
       );
     }
-    final url = result['report_url']?.toString() ?? '';
-    if (url.isEmpty) {
+
+    final urls = <String>[];
+    final rawAttachments = result['attachments'];
+    if (rawAttachments is List) {
+      for (final item in rawAttachments) {
+        if (item is! Map) continue;
+        final url = item['url']?.toString().trim() ?? '';
+        if (url.isNotEmpty) urls.add(url);
+      }
+    }
+
+    final reportUrl = result['report_url']?.toString().trim() ?? '';
+    if (urls.isEmpty && reportUrl.isNotEmpty) {
+      urls.add(reportUrl);
+    }
+    if (urls.isEmpty) {
       throw RfqNoAttachmentException('No attachment to show');
     }
-    return url;
+    return RfqReportPreview(pdfUrls: urls, reportUrl: reportUrl);
+  }
+
+  /// Backward-compatible single URL (may be a server merge).
+  Future<String> fetchRfqReportUrl(int rfqId) async {
+    final preview = await fetchRfqReportPreview(rfqId);
+    return preview.pdfUrls.first;
   }
 
   Future<({List<InvoiceReceivingItem> items, bool hasMore})>
@@ -536,6 +557,16 @@ class PurchaseRepository {
         await _post('/invoice/report_url', {'invoice_id': invoiceId});
     return result?['report_url']?.toString();
   }
+}
+
+class RfqReportPreview {
+  const RfqReportPreview({
+    required this.pdfUrls,
+    this.reportUrl = '',
+  });
+
+  final List<String> pdfUrls;
+  final String reportUrl;
 }
 
 class RfqNoAttachmentException implements Exception {
