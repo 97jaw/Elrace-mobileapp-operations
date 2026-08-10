@@ -50,13 +50,50 @@ service cloud.firestore {
         allow write: if isSignedIn() && request.auth.uid == userId;
       }
 
-      // Signature -> Documents tab personal library (self-signed + sent-for-signature copies)
+      // Signature -> Documents tab personal library (self-signed + sent-for-signature copies).
+      // Owner full access. Current recipient may sync status after signing
+      // (chat client updates users/{owner}/signature_documents/{id}).
       match /signature_documents/{docId} {
-        allow read, write: if isSignedIn() && request.auth.uid == userId;
+        allow read: if isSignedIn() && (
+          request.auth.uid == userId ||
+          (resource != null &&
+           resource.data.recipient_uid == request.auth.uid)
+        );
+        allow create, delete: if isSignedIn() && request.auth.uid == userId;
+        allow update: if isSignedIn() && (
+          request.auth.uid == userId ||
+          (
+            resource.data.recipient_uid == request.auth.uid &&
+            request.resource.data.diff(resource.data).affectedKeys()
+              .hasOnly([
+                'status',
+                'signed_pdf_url',
+                'file_url',
+                'signed_at',
+                'signed_by',
+                'recipient_uid',
+                'recipient_name',
+                'current_signer_index',
+                'updated_at'
+              ])
+          )
+        );
       }
 
-      // My Notes — personal notes (text / audio / image). Owner-only.
+      // My Notes — personal notes (text / audio / image).
+      // Owner full access; sharedWithUids get view-only read.
       match /notes/{noteId} {
+        allow read: if isSignedIn() && (
+          request.auth.uid == userId ||
+          (resource.data.sharedWithUids != null &&
+           request.auth.uid in resource.data.sharedWithUids)
+        );
+        allow create, delete: if isSignedIn() && request.auth.uid == userId;
+        allow update: if isSignedIn() && request.auth.uid == userId;
+      }
+
+      // Inbox pointers for notes shared with this user (view-only listing).
+      match /shared_note_refs/{noteId} {
         allow read, write: if isSignedIn() && request.auth.uid == userId;
       }
     }

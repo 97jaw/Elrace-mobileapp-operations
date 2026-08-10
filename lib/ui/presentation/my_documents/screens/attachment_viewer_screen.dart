@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:el_race/ui/presentation/my_documents/utils/document_attachment_opener.dart';
@@ -5,6 +6,8 @@ import 'package:el_race/ui/presentation/my_projects/presentation/utils/project_f
 import 'package:el_race/ui/presentation/productivity/widgets/productivity_screen_shell.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_pdfview/flutter_pdfview.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:share_plus/share_plus.dart';
 import 'package:syncfusion_flutter_pdfviewer/pdfviewer.dart';
 
 /// In-app attachment viewer used by My Documents, Petty Cash, and search.
@@ -160,6 +163,50 @@ class _AttachmentViewerScreenState extends State<AttachmentViewerScreen> {
     }
   }
 
+  Future<void> _shareAttachment() async {
+    final bytes = _bytes;
+    if (bytes == null || bytes.isEmpty) return;
+
+    final safeName = widget.title.trim().isEmpty ? 'document' : widget.title.trim();
+    String fileName = safeName;
+    String mime = 'application/octet-stream';
+
+    switch (_kind) {
+      case _ViewerKind.pdf:
+        if (!fileName.toLowerCase().endsWith('.pdf')) {
+          fileName = '$fileName.pdf';
+        }
+        mime = 'application/pdf';
+      case _ViewerKind.image:
+        final lower = fileName.toLowerCase();
+        if (!lower.endsWith('.png') &&
+            !lower.endsWith('.jpg') &&
+            !lower.endsWith('.jpeg') &&
+            !lower.endsWith('.webp') &&
+            !lower.endsWith('.gif')) {
+          fileName = '$fileName.jpg';
+        }
+        mime = 'image/jpeg';
+      case _ViewerKind.unsupported:
+        break;
+    }
+
+    final dir = await getTemporaryDirectory();
+    final file = File('${dir.path}/$fileName');
+    await file.writeAsBytes(bytes, flush: true);
+    if (!mounted) return;
+
+    final renderObject = context.findRenderObject();
+    final shareOrigin = renderObject is RenderBox
+        ? (renderObject.localToGlobal(Offset.zero) & renderObject.size)
+        : const Rect.fromLTWH(1, 1, 1, 1);
+
+    await Share.shareXFiles(
+      [XFile(file.path, mimeType: mime, name: fileName)],
+      sharePositionOrigin: shareOrigin,
+    );
+  }
+
   Widget _buildPdfViewer(Uint8List bytes) {
     if (_useLegacyPdfView) {
       return PDFView(
@@ -268,10 +315,18 @@ class _AttachmentViewerScreenState extends State<AttachmentViewerScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final canShare = !_loading && _bytes != null && _bytes!.isNotEmpty && _error == null;
     return ProductivityScreenShell(
       title: widget.title.isEmpty ? 'Attachment' : widget.title,
       showBack: true,
       onBack: _goBack,
+      titleTrailing: canShare
+          ? IconButton(
+              tooltip: 'Share',
+              onPressed: _shareAttachment,
+              icon: const Icon(Icons.ios_share_rounded),
+            )
+          : null,
       body: _buildBody(),
     );
   }

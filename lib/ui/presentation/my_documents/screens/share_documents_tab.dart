@@ -274,6 +274,11 @@ class _ShareDocumentsTabState extends State<ShareDocumentsTab> {
         throw Exception('Invalid shared folders response format');
       }
 
+      final previousById = <String, Map<String, dynamic>>{
+        for (final f in _folders)
+          _folderIdFrom(f).toString(): Map<String, dynamic>.from(f),
+      };
+
       final folders = _toMapList(rawData)
           .map((folder) {
             final mapped = Map<String, dynamic>.from(folder);
@@ -281,6 +286,22 @@ class _ShareDocumentsTabState extends State<ShareDocumentsTab> {
             mapped['name'] = _folderNameFrom(folder);
             mapped['allowed_users'] = _toMapList(folder['allowed_users']);
             mapped['activities'] = _toMapList(folder['activities']);
+
+            // Preserve known file counts when list API returns 0 / omits them.
+            final idKey = mapped['id']?.toString() ?? '';
+            final prev = previousById[idKey];
+            final listCount = _folderFileCount(mapped);
+            if (listCount <= 0 && prev != null) {
+              final prevCount = _folderFileCount(prev);
+              if (prevCount > 0) {
+                mapped['file_count'] = prevCount;
+                mapped['attachment_count'] = prevCount;
+                if (_toMapList(mapped['attachments']).isEmpty &&
+                    _toMapList(prev['attachments']).isNotEmpty) {
+                  mapped['attachments'] = prev['attachments'];
+                }
+              }
+            }
             return mapped;
           })
           .where((folder) => folder['id'] != null)
@@ -550,11 +571,14 @@ class _ShareDocumentsTabState extends State<ShareDocumentsTab> {
       );
       if (selectedIndex >= 0) {
         final detailsUsers = _toMapList(detailedFolder['allowed_users']);
+        final count = extracted.length;
         _folders[selectedIndex] = {
           ..._folders[selectedIndex],
           // Never overwrite list avatars with an empty details payload.
           if (detailsUsers.isNotEmpty) 'allowed_users': detailsUsers,
           'attachments': _toMapList(detailedFolder['attachments']),
+          'file_count': count,
+          'attachment_count': count,
         };
       }
 
@@ -1591,11 +1615,21 @@ class _ShareDocumentsTabState extends State<ShareDocumentsTab> {
   }
 
   int _folderFileCount(Map<String, dynamic> folder) {
-    final attachments = _toMapList(folder['attachments']);
-    if (attachments.isNotEmpty) return attachments.length;
+    // Align with _extractAttachments candidate keys.
+    for (final key in const [
+      'attachments',
+      'files',
+      'documents',
+      'folder_attachments',
+    ]) {
+      final list = _toMapList(folder[key]);
+      if (list.isNotEmpty) return list.length;
+    }
     final raw = folder['file_count'] ??
         folder['attachment_count'] ??
-        folder['files_count'];
+        folder['files_count'] ??
+        folder['total_files'] ??
+        folder['document_count'];
     if (raw is int) return raw;
     return int.tryParse(raw?.toString() ?? '') ?? 0;
   }

@@ -3,15 +3,14 @@
  *
  * Path: chat_media/notes/{uid}/{noteId}/audio.m4a
  * Requires secret: OPENAI_API_KEY
+ *
+ * On-demand only: skips unless the note requested transcription
+ * (recording.status === 'pending' or transcribeRequested / AI mode that needs it).
  */
 const { onObjectFinalized } = require("firebase-functions/v2/storage");
 const { defineSecret } = require("firebase-functions/params");
 const { getFirestore, FieldValue } = require("firebase-admin/firestore");
-const { getStorage } = require("firebase-admin/storage");
-const OpenAI = require("openai");
-const os = require("os");
-const path = require("path");
-const fs = require("fs");
+const { transcribeNoteRecording } = require("./notes_whisper");
 
 const openaiApiKey = defineSecret("OPENAI_API_KEY");
 
@@ -31,6 +30,21 @@ async function waitForNoteDoc(noteRef, { attempts = 12, delayMs = 1000 } = {}) {
     await sleep(delayMs);
   }
   return null;
+}
+
+function shouldTranscribeOnUpload(data) {
+  const recording = (data && data.recording) || {};
+  const status = recording.status || "idle";
+  const requested = recording.transcribeRequested === true;
+  const aiMode = data.aiMode || "none";
+  // Whisper ONLY when the user explicitly asked to transcribe — never for
+  // summarize / bullets / save-only.
+  if (requested) return true;
+  if (status === "pending" && aiMode === "transcribe") return true;
+  if (aiMode === "transcribe" && status !== "done" && status !== "error") {
+    return true;
+  }
+  return false;
 }
 
 async function handleNotesAudioUpload(event) {
@@ -59,8 +73,6 @@ async function handleNotesAudioUpload(event) {
     .collection("notes")
     .doc(noteId);
 
-  let tempFile;
-
   try {
     const existingSnap = await waitForNoteDoc(noteRef);
     if (!existingSnap) {
@@ -69,53 +81,38 @@ async function handleNotesAudioUpload(event) {
       );
     }
 
-    await noteRef.update({
-      "recording.status": "processing",
-      updatedAt: FieldValue.serverTimestamp(),
-    });
-
-    const bucket = getStorage().bucket(object.bucket);
-    tempFile = path.join(os.tmpdir(), `note_${noteId}_${Date.now()}.m4a`);
-    await bucket.file(filePath).download({ destination: tempFile });
+    const existing = existingSnap.data() || {};
+    if (!shouldTranscribeOnUpload(existing)) {
+      console.log("[NotesTranscribe] Skip — transcription not requested", {
+        noteId,
+        status: (existing.recording && existing.recording.status) || "idle",
+        aiMode: existing.aiMode || "none",
+      });
+      // Ensure idle status so UI does not show a spinner.
+      const recStatus =
+        (existing.recording && existing.recording.status) || "idle";
+      if (recStatus === "pending" || recStatus === "processing") {
+        await noteRef.update({
+          "recording.status": "idle",
+          updatedAt: FieldValue.serverTimestamp(),
+        });
+      }
+      return;
+    }
 
     const languageMeta =
       (object.metadata && object.metadata.language) || "auto";
-    const openai = new OpenAI({ apiKey: openaiApiKey.value() });
 
-    const createArgs = {
-      file: fs.createReadStream(tempFile),
-      model: "whisper-1",
-    };
-    if (languageMeta === "en" || languageMeta === "ar") {
-      createArgs.language = languageMeta;
-    }
-
-    const transcription = await openai.audio.transcriptions.create(createArgs);
-    const text = (transcription.text || "").trim();
-
-    const noteSnap = await noteRef.get();
-    const existing = noteSnap.exists ? noteSnap.data() || {} : {};
-    const existingContent =
-      typeof existing.content === "string" ? existing.content.trim() : "";
-    const existingRecording = existing.recording || {};
-
-    const updates = {
-      "recording.transcript": text,
-      "recording.status": "done",
-      "recording.language": languageMeta,
-      updatedAt: FieldValue.serverTimestamp(),
-    };
-    // Keep audioUrl if already set by the client.
-    if (existingRecording.audioUrl) {
-      updates["recording.audioUrl"] = existingRecording.audioUrl;
-    }
-    if (!existingContent) {
-      updates.content = text;
-    }
-
-    await noteRef.update(updates);
+    const text = await transcribeNoteRecording({
+      noteRef,
+      apiKey: openaiApiKey.value(),
+      storagePath: filePath,
+      bucketName: object.bucket,
+      languageMeta,
+    });
 
     console.log("[NotesTranscribe] Done", { noteId, chars: text.length });
+    // No auto summarize/bullets here — those are separate on-demand AI actions.
   } catch (err) {
     console.error("[NotesTranscribe] Failed", err);
     try {
@@ -124,12 +121,6 @@ async function handleNotesAudioUpload(event) {
         updatedAt: FieldValue.serverTimestamp(),
       });
     } catch (_) {}
-  } finally {
-    if (tempFile) {
-      try {
-        fs.unlinkSync(tempFile);
-      } catch (_) {}
-    }
   }
 }
 

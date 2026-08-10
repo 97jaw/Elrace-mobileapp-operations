@@ -219,6 +219,11 @@ class SignatureDocumentsTabState extends State<SignatureDocumentsTab> {
         doc.status == SignatureDocumentStatus.expired) {
       return doc.status;
     }
+    // Chat message is source of truth when signing finished but personal
+    // library copy was not synced (permission-denied on owner path).
+    if (action?.message.signStatus == SignStatus.signed) {
+      return SignatureDocumentStatus.signed;
+    }
     if (action != null) {
       return switch (action.bucket) {
         SignatureItemBucket.needsSignature =>

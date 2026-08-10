@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
@@ -24,6 +26,7 @@ class SignatureActionsRepository {
 
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   final Map<String, String> _peerNameCache = {};
+  final Set<String> _healAttempted = {};
 
   /// Count of documents currently waiting on the logged-in user to sign.
   /// Used by the My Actions Signature badge.
@@ -110,6 +113,25 @@ class SignatureActionsRepository {
               chatLinkedDocIds.add(linked);
               personal = personalById[linked];
             }
+
+            // Heal stale personal pending_* when chat is already signed.
+            if (item.isSender &&
+                item.message.signStatus == SignStatus.signed &&
+                personal != null &&
+                personal.status != SignatureDocumentStatus.signed &&
+                personal.status != SignatureDocumentStatus.expired &&
+                !_healAttempted.contains(personal.id)) {
+              _healAttempted.add(personal.id);
+              unawaited(
+                SignatureDocumentsRepository.instance.healSignedFromChat(
+                  docId: personal.id,
+                  signedPdfUrl: item.message.signedPdfUrl ??
+                      item.message.mediaUrl,
+                  signedBy: item.message.signedBy,
+                ),
+              );
+            }
+
             enrichedChat.add(personal == null
                 ? item
                 : SignatureActionItem(

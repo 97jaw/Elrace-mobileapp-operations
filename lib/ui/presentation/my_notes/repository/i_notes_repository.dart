@@ -9,6 +9,9 @@ abstract class INotesRepository {
 
   Future<NoteModel?> getNoteById(String noteId);
 
+  /// Live updates for a single note (transcript / AI results).
+  Stream<NoteModel?> watchNoteById(String noteId);
+
   Future<void> addNote(NoteModel note);
 
   Future<void> updateNote(NoteModel note);

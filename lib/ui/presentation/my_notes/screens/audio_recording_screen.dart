@@ -2,8 +2,10 @@ import 'dart:async';
 
 import 'package:el_race/ui/presentation/my_notes/bloc/notes_bloc.dart';
 import 'package:el_race/ui/presentation/my_notes/data/note_model.dart';
+import 'package:el_race/ui/presentation/my_notes/screens/note_detail_screen.dart';
 import 'package:el_race/ui/presentation/my_notes/services/notes_audio_recording_service.dart';
 import 'package:el_race/ui/presentation/my_notes/theme/notes_theme.dart';
+import 'package:el_race/ui/presentation/my_notes/widgets/notes_ai_mode_sheet.dart';
 import 'package:el_race/ui/presentation/my_notes/widgets/notes_glass_card.dart';
 import 'package:el_race/ui/presentation/my_notes/widgets/notes_royal_bronze_background.dart';
 import 'package:el_race/utils/safe_insets.dart';
@@ -73,9 +75,9 @@ class _AudioRecordingScreenState extends State<AudioRecordingScreen> {
       if (!ok) {
         if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
+          SnackBar(
             content: Text('Microphone permission is required'),
-            backgroundColor: NotesTheme.charcoal,
+            backgroundColor: NotesTheme.surface,
           ),
         );
         return;
@@ -127,8 +129,13 @@ class _AudioRecordingScreenState extends State<AudioRecordingScreen> {
       _tickTimer?.cancel();
       await _ampSub?.cancel();
 
+      if (!mounted) return;
+      setState(() {
+        _isRecording = false;
+        _isPaused = false;
+      });
+
       if (result == null || !result.isValid || result.file == null) {
-        if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
@@ -136,14 +143,16 @@ class _AudioRecordingScreenState extends State<AudioRecordingScreen> {
                   ? 'Recording too short — try again'
                   : 'Could not save recording',
             ),
-            backgroundColor: NotesTheme.charcoal,
+            backgroundColor: NotesTheme.surface,
           ),
         );
-        setState(() {
-          _isRecording = false;
-          _isPaused = false;
-          _isSaving = false;
-        });
+        setState(() => _isSaving = false);
+        return;
+      }
+
+      final choice = await showNotesAiModeSheet(context);
+      if (choice == null || !mounted) {
+        setState(() => _isSaving = false);
         return;
       }
 
@@ -154,8 +163,11 @@ class _AudioRecordingScreenState extends State<AudioRecordingScreen> {
           ? 'Audio note ${_formatDuration(Duration(milliseconds: result.durationMs))}'
           : _titleController.text.trim();
 
-      // 1) Create Firestore note FIRST so the transcription CF can update it
-      // when Storage upload finishes (avoids NOT_FOUND race).
+      final needsAi = choice.mode == NoteAiMode.summarize ||
+          choice.mode == NoteAiMode.bullets;
+      // Whisper only when user picks Transcribe — never for summarize/bullets.
+      final wantsTranscript = choice.mode == NoteAiMode.transcribe;
+
       var note = NoteModel(
         id: noteId,
         ownerId: uid,
@@ -164,11 +176,15 @@ class _AudioRecordingScreenState extends State<AudioRecordingScreen> {
         noteType: NoteType.audio,
         createdAt: now,
         updatedAt: now,
+        aiMode: choice.mode,
+        aiStatus: needsAi ? NoteAiStatus.pending : NoteAiStatus.none,
         recording: RecordingInfo(
           audioUrl: '',
           durationSeconds: (result.durationMs / 1000).round(),
           language: _languageCode,
-          status: TranscriptionStatus.pending,
+          status: wantsTranscript
+              ? TranscriptionStatus.pending
+              : TranscriptionStatus.idle,
         ),
       );
 
@@ -188,24 +204,27 @@ class _AudioRecordingScreenState extends State<AudioRecordingScreen> {
             ? created.message
             : (created as NotesError).message;
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(msg), backgroundColor: NotesTheme.charcoal),
+          SnackBar(content: Text(msg), backgroundColor: NotesTheme.surface),
         );
         setState(() => _isSaving = false);
         return;
       }
 
-      // 2) Upload audio (triggers CF). Doc already exists.
       final audioUrl = await _service.uploadAudio(
         noteId: noteId,
         audioFile: result.file!,
         language: _languageCode,
       );
+      final storagePath = 'chat_media/notes/$uid/$noteId/audio.m4a';
 
       note = note.copyWith(
         updatedAt: DateTime.now(),
         recording: note.recording!.copyWith(
           audioUrl: audioUrl,
-          status: TranscriptionStatus.pending,
+          storagePath: storagePath,
+          status: wantsTranscript
+              ? TranscriptionStatus.pending
+              : TranscriptionStatus.idle,
         ),
       );
 
@@ -219,14 +238,24 @@ class _AudioRecordingScreenState extends State<AudioRecordingScreen> {
           .timeout(const Duration(seconds: 20));
 
       debugPrint('✅ AudioRecordingScreen: note saved $noteId');
-      if (mounted) Navigator.of(context).pop();
+      // Stay in the note — don't dump the user back to My Notes home while
+      // transcription / summarize / bullets are still running.
+      if (!mounted) return;
+      Navigator.of(context).pushReplacement(
+        MaterialPageRoute(
+          builder: (_) => BlocProvider.value(
+            value: bloc,
+            child: NoteDetailScreen(note: note),
+          ),
+        ),
+      );
     } catch (e) {
       debugPrint('❌ AudioRecordingScreen: save failed: $e');
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('Failed to save audio note: $e'),
-          backgroundColor: NotesTheme.charcoal,
+          backgroundColor: NotesTheme.surface,
         ),
       );
       setState(() {
@@ -242,10 +271,7 @@ class _AudioRecordingScreenState extends State<AudioRecordingScreen> {
     final bottomPad = context.systemBottomInset;
 
     return AnnotatedRegion<SystemUiOverlayStyle>(
-      value: SystemUiOverlayStyle.light.copyWith(
-        statusBarColor: Colors.transparent,
-        systemNavigationBarColor: NotesTheme.pureBlack,
-      ),
+      value: NotesTheme.systemOverlay,
       child: NotesRoyalBronzeBackground(
         child: Scaffold(
           backgroundColor: Colors.transparent,
@@ -256,7 +282,8 @@ class _AudioRecordingScreenState extends State<AudioRecordingScreen> {
                 _buildHeader(),
                 Expanded(
                   child: SingleChildScrollView(
-                    padding: EdgeInsets.fromLTRB(20.w, 8.h, 20.w, bottomPad + 24.h),
+                    padding:
+                        EdgeInsets.fromLTRB(20.w, 8.h, 20.w, bottomPad + 24.h),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
@@ -265,7 +292,8 @@ class _AudioRecordingScreenState extends State<AudioRecordingScreen> {
                           style: GoogleFonts.poppins(
                             fontSize: 13.sp,
                             fontWeight: FontWeight.w600,
-                            color: NotesTheme.textPrimary.withValues(alpha: 0.7),
+                            color:
+                                NotesTheme.textPrimary.withValues(alpha: 0.7),
                           ),
                         ),
                         SizedBox(height: 10.h),
@@ -281,21 +309,25 @@ class _AudioRecordingScreenState extends State<AudioRecordingScreen> {
                           decoration: InputDecoration(
                             hintText: 'Optional title',
                             hintStyle: GoogleFonts.poppins(
-                              color: NotesTheme.textPrimary.withValues(alpha: 0.35),
+                              color: NotesTheme.textPrimary
+                                  .withValues(alpha: 0.35),
                             ),
                             filled: true,
                             fillColor: NotesTheme.glassFill,
                             border: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(14.r),
-                              borderSide: BorderSide(color: NotesTheme.glassBorder),
+                              borderSide:
+                                  BorderSide(color: NotesTheme.glassBorder),
                             ),
                             enabledBorder: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(14.r),
-                              borderSide: BorderSide(color: NotesTheme.glassBorder),
+                              borderSide:
+                                  BorderSide(color: NotesTheme.glassBorder),
                             ),
                             focusedBorder: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(14.r),
-                              borderSide: const BorderSide(color: NotesTheme.bronze),
+                              borderSide:
+                                  const BorderSide(color: NotesTheme.bronze),
                             ),
                           ),
                         ),
@@ -339,11 +371,12 @@ class _AudioRecordingScreenState extends State<AudioRecordingScreen> {
                         ),
                         SizedBox(height: 16.h),
                         Text(
-                          'After save, transcription runs in the background (EN / AR).',
+                          'After you stop, choose Save only or request transcript / AI.',
                           textAlign: TextAlign.center,
                           style: GoogleFonts.poppins(
                             fontSize: 11.sp,
-                            color: NotesTheme.textPrimary.withValues(alpha: 0.4),
+                            color:
+                                NotesTheme.textPrimary.withValues(alpha: 0.4),
                           ),
                         ),
                       ],
@@ -468,7 +501,8 @@ class _AudioRecordingScreenState extends State<AudioRecordingScreen> {
         if (_isRecording)
           IconButton(
             onPressed: _isSaving ? null : _cancel,
-            icon: Icon(Icons.delete_outline, color: NotesTheme.textPrimary, size: 28.sp),
+            icon: Icon(Icons.delete_outline,
+                color: NotesTheme.textPrimary, size: 28.sp),
           ),
         SizedBox(width: 12.w),
         GestureDetector(
@@ -514,7 +548,8 @@ class _AudioRecordingScreenState extends State<AudioRecordingScreen> {
                       color: NotesTheme.bronze,
                     ),
                   )
-                : Icon(Icons.check_circle, color: NotesTheme.bronze, size: 32.sp),
+                : Icon(Icons.check_circle,
+                    color: NotesTheme.bronze, size: 32.sp),
           )
         else
           SizedBox(width: 48.w),

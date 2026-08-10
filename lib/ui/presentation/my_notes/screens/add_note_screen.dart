@@ -1,9 +1,17 @@
 import 'dart:async';
+import 'dart:io';
 
 import 'package:el_race/ui/presentation/my_notes/bloc/notes_bloc.dart';
 import 'package:el_race/ui/presentation/my_notes/data/note_model.dart';
+import 'package:el_race/ui/presentation/my_notes/repository/firebase_notes_repository.dart';
+import 'package:el_race/ui/presentation/my_notes/services/notes_ai_service.dart';
+import 'package:el_race/ui/presentation/my_notes/services/notes_audio_recording_service.dart';
 import 'package:el_race/ui/presentation/my_notes/services/notes_cache_service.dart';
+import 'package:el_race/ui/presentation/my_notes/services/notes_image_service.dart';
 import 'package:el_race/ui/presentation/my_notes/theme/notes_theme.dart';
+import 'package:el_race/ui/presentation/my_notes/widgets/notes_audio_player_widget.dart';
+import 'package:el_race/ui/presentation/my_notes/widgets/notes_composer_ai_sheet.dart';
+import 'package:el_race/ui/presentation/my_notes/widgets/notes_format_sheet.dart';
 import 'package:el_race/ui/presentation/my_notes/widgets/notes_glass_card.dart';
 import 'package:el_race/ui/presentation/my_notes/widgets/notes_royal_bronze_background.dart';
 import 'package:el_race/utils/safe_insets.dart';
@@ -13,9 +21,11 @@ import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
 import 'package:uuid/uuid.dart';
 
+/// iPhone Notes–style composer: title + body, format, photo, audio, AI.
 class AddNoteScreen extends StatefulWidget {
   final NoteModel? existingNote;
 
@@ -34,34 +44,72 @@ class _AddNoteScreenState extends State<AddNoteScreen> {
   final FocusNode _titleFocusNode = FocusNode();
   final FocusNode _contentFocusNode = FocusNode();
 
-  bool _isImportant = false;
-  bool _isTodo = false;
-  List<String> _tags = [];
-  final TextEditingController _tagController = TextEditingController();
+  final NotesImageService _imageService = NotesImageService();
+  final NotesAudioRecordingService _audioService = NotesAudioRecordingService();
+  final NotesAiService _aiService = NotesAiService();
+  final FirebaseNotesRepository _notesRepo = FirebaseNotesRepository();
 
+  late final String _noteId;
+  late final DateTime _createdAt;
+  bool _persisted = false;
+  bool _saving = false;
+  bool _aiBusy = false;
+
+  /// Remote images already on the note (edit) + freshly uploaded.
+  List<ImageAttachment> _images = [];
+  /// Local picks not yet uploaded.
+  final List<XFile> _pendingImages = [];
+  RecordingInfo? _recording;
+
+  NoteAiMode _aiMode = NoteAiMode.none;
+  NoteAiStatus _aiStatus = NoteAiStatus.none;
+  String? _aiSummary;
+  String? _aiBulletPoints;
+  String? _translatedText;
+  String? _translatedLanguage;
+  List<ActionItem> _actionItems = const [];
+
+  StreamSubscription<NoteModel?>? _liveSub;
   Timer? _autoSaveTimer;
   bool _draftRestored = false;
 
   bool get _isEditing => widget.existingNote != null;
+
   bool get _hasContent =>
       _titleController.text.trim().isNotEmpty ||
-      _contentController.text.trim().isNotEmpty;
+      _contentController.text.trim().isNotEmpty ||
+      _images.isNotEmpty ||
+      _pendingImages.isNotEmpty ||
+      _recording != null;
 
   @override
   void initState() {
     super.initState();
     if (_isEditing) {
-      _titleController.text = widget.existingNote!.title;
-      _contentController.text = widget.existingNote!.content;
-      _isImportant = widget.existingNote!.isImportant;
-      _isTodo = widget.existingNote!.isTodo;
-      _tags = List.from(widget.existingNote!.tags);
+      final n = widget.existingNote!;
+      _noteId = n.id;
+      _createdAt = n.createdAt;
+      _persisted = true;
+      _titleController.text = n.title;
+      _contentController.text = n.content;
+      _images = List.from(n.images);
+      _recording = n.recording;
+      _aiMode = n.aiMode;
+      _aiStatus = n.aiStatus;
+      _aiSummary = n.aiSummary;
+      _aiBulletPoints = n.aiBulletPoints;
+      _translatedText = n.translatedText;
+      _translatedLanguage = n.translatedLanguage;
+      _actionItems = List.from(n.actionItems);
+      _ensureLiveWatch();
     } else {
+      _noteId = const Uuid().v4();
+      _createdAt = DateTime.now();
       _restoreDraft();
     }
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!_isEditing) {
-        _titleFocusNode.requestFocus();
+      if (!_isEditing && mounted) {
+        _contentFocusNode.requestFocus();
       }
     });
     _startAutoSave();
@@ -70,17 +118,58 @@ class _AddNoteScreenState extends State<AddNoteScreen> {
   @override
   void dispose() {
     _autoSaveTimer?.cancel();
+    _liveSub?.cancel();
     _titleController.dispose();
     _contentController.dispose();
     _titleFocusNode.dispose();
     _contentFocusNode.dispose();
-    _tagController.dispose();
+    _audioService.dispose();
     super.dispose();
+  }
+
+  void _ensureLiveWatch() {
+    if (_liveSub != null) return;
+    _liveSub = _notesRepo.watchNoteById(_noteId).listen((live) {
+      if (!mounted || live == null) return;
+      setState(() {
+        // Pull server AI / transcript without clobbering in-progress typing.
+        _aiMode = live.aiMode;
+        _aiStatus = live.aiStatus;
+        _aiSummary = live.aiSummary;
+        _aiBulletPoints = live.aiBulletPoints;
+        _translatedText = live.translatedText;
+        _translatedLanguage = live.translatedLanguage;
+        _actionItems = List.from(live.actionItems);
+        if (live.images.isNotEmpty) {
+          _images = List.from(live.images);
+        }
+        final liveRec = live.recording;
+        if (liveRec != null) {
+          final local = _recording;
+          final liveHasTranscript =
+              liveRec.transcript?.trim().isNotEmpty ?? false;
+          final localEmpty = local == null ||
+              local.transcript == null ||
+              local.transcript!.trim().isEmpty;
+          if (localEmpty || liveHasTranscript || liveRec.audioUrl.isNotEmpty) {
+            _recording = liveRec;
+          }
+        }
+        if (_aiStatus == NoteAiStatus.done ||
+            _aiStatus == NoteAiStatus.error ||
+            (_aiSummary?.isNotEmpty ?? false) ||
+            (_aiBulletPoints?.isNotEmpty ?? false)) {
+          _aiBusy = false;
+        }
+      });
+    }, onError: (e) {
+      debugPrint('AddNoteScreen live watch error: $e');
+    });
   }
 
   void _startAutoSave() {
     _autoSaveTimer = Timer.periodic(const Duration(seconds: 30), (_) {
-      if (_hasContent && !_isEditing) {
+      if (_hasContent && !_isEditing && !_persisted) {
         _saveDraft();
       }
     });
@@ -90,9 +179,6 @@ class _AddNoteScreenState extends State<AddNoteScreen> {
     await NotesCacheService.instance.saveCurrentDraft(
       title: _titleController.text,
       content: _contentController.text,
-      isImportant: _isImportant,
-      isTodo: _isTodo,
-      tags: _tags,
     );
   }
 
@@ -101,214 +187,403 @@ class _AddNoteScreenState extends State<AddNoteScreen> {
     _draftRestored = true;
 
     final draft = await NotesCacheService.instance.getCurrentDraft();
-    if (draft != null && mounted) {
-      final title = draft['title'] as String? ?? '';
-      final content = draft['content'] as String? ?? '';
+    if (draft == null || !mounted) return;
+    final title = draft['title'] as String? ?? '';
+    final content = draft['content'] as String? ?? '';
+    if (title.isEmpty && content.isEmpty) return;
 
-      if (title.isNotEmpty || content.isNotEmpty) {
-        final shouldRestore = await showDialog<bool>(
-          context: context,
-          builder: (context) => AlertDialog(
-            backgroundColor: NotesTheme.charcoal,
-            title: Text(
-              'Restore draft?',
-              style: GoogleFonts.poppins(
-                color: NotesTheme.textPrimary,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-            content: Text(
-              'You have an unsaved draft. Would you like to restore it?',
-              style: GoogleFonts.poppins(
-                color: NotesTheme.textPrimary.withValues(alpha: 0.7),
-              ),
-            ),
-            actions: [
-              TextButton(
-                onPressed: () {
-                  NotesCacheService.instance.clearCurrentDraft();
-                  Navigator.of(context).pop(false);
-                },
-                child: Text(
-                  'Discard',
-                  style: GoogleFonts.poppins(color: NotesTheme.textPrimary),
-                ),
-              ),
-              TextButton(
-                onPressed: () => Navigator.of(context).pop(true),
-                style: TextButton.styleFrom(
-                  backgroundColor: NotesTheme.bronze.withValues(alpha: 0.2),
-                ),
-                child: Text(
-                  'Restore',
-                  style: GoogleFonts.poppins(color: NotesTheme.bronze),
-                ),
-              ),
-            ],
+    final shouldRestore = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: NotesTheme.surface,
+        title: Text(
+          'Restore draft?',
+          style: GoogleFonts.poppins(
+            color: NotesTheme.textPrimary,
+            fontWeight: FontWeight.w600,
           ),
-        );
+        ),
+        content: Text(
+          'You have an unsaved draft. Would you like to restore it?',
+          style: GoogleFonts.poppins(
+            color: NotesTheme.textPrimary.withValues(alpha: 0.7),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () {
+              NotesCacheService.instance.clearCurrentDraft();
+              Navigator.of(context).pop(false);
+            },
+            child: Text(
+              'Discard',
+              style: GoogleFonts.poppins(color: NotesTheme.textPrimary),
+            ),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: Text(
+              'Restore',
+              style: GoogleFonts.poppins(color: NotesTheme.bronze),
+            ),
+          ),
+        ],
+      ),
+    );
 
-        if (shouldRestore == true && mounted) {
-          setState(() {
-            _titleController.text = title;
-            _contentController.text = content;
-            _isImportant = draft['isImportant'] as bool? ?? false;
-            _isTodo = draft['isTodo'] as bool? ?? false;
-            _tags = List<String>.from(draft['tags'] as List? ?? []);
-          });
-        }
-      }
+    if (shouldRestore == true && mounted) {
+      setState(() {
+        _titleController.text = title;
+        _contentController.text = content;
+      });
     }
   }
 
-  Future<void> _clearDraftOnSave() async {
-    await NotesCacheService.instance.clearCurrentDraft();
-  }
-
-  Future<void> _saveNote() async {
-    debugPrint('📝 AddNoteScreen: _saveNote tapped');
+  NoteModel _buildNoteModel({
+    List<ImageAttachment>? images,
+    RecordingInfo? recording,
+  }) {
     final title = _titleController.text.trim();
     final content = _contentController.text.trim();
+    final existing = widget.existingNote;
+    return NoteModel(
+      id: _noteId,
+      ownerId: FirebaseAuth.instance.currentUser?.uid ??
+          existing?.ownerId ??
+          '',
+      title: title.isEmpty ? 'Untitled' : title,
+      content: content,
+      noteType: NoteType.text,
+      // Preserve legacy flags/tags when editing; never set from this UI.
+      tags: existing?.tags ?? const [],
+      isImportant: existing?.isImportant ?? false,
+      isTodo: existing?.isTodo ?? false,
+      createdAt: _createdAt,
+      updatedAt: DateTime.now(),
+      images: images ?? _images,
+      recording: recording ?? _recording,
+      aiMode: _aiMode,
+      aiStatus: _aiStatus,
+      aiSummary: _aiSummary,
+      aiBulletPoints: _aiBulletPoints,
+      translatedText: _translatedText,
+      translatedLanguage: _translatedLanguage,
+      actionItems: _actionItems,
+      sharedWithUids: existing?.sharedWithUids ?? const [],
+      sharedWith: existing?.sharedWith ?? const [],
+      aiContext: existing?.aiContext,
+    );
+  }
 
-    if (title.isEmpty && content.isEmpty) {
+  Future<bool> _persistNote({
+    bool popAfter = false,
+    bool allowEmpty = false,
+  }) async {
+    if (_saving && !allowEmpty) return false;
+    if (!allowEmpty && !_hasContent) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: const Text('Add a title, text, photo, or audio'),
+            backgroundColor: NotesTheme.surface,
+          ),
+        );
+      }
+      return false;
+    }
+
+    setState(() => _saving = true);
+    try {
+      // Upload pending photos first.
+      if (_pendingImages.isNotEmpty) {
+        final uploaded = await _imageService.uploadFiles(
+          noteId: _noteId,
+          files: List.from(_pendingImages),
+        );
+        _images = [..._images, ...uploaded];
+        _pendingImages.clear();
+      }
+
+      final note = _buildNoteModel();
+      if (!mounted) return false;
+      final bloc = context.read<NotesBloc>();
+      if (_persisted || _isEditing) {
+        bloc.add(UpdateNote(note));
+      } else {
+        bloc.add(AddNote(note));
+        await NotesCacheService.instance.clearCurrentDraft();
+      }
+
+      final next = await bloc.stream
+          .firstWhere(
+            (s) => s is NotesLoaded || s is NoteActionError || s is NotesError,
+          )
+          .timeout(const Duration(seconds: 20));
+
+      if (!mounted) return false;
+      if (next is NoteActionError || next is NotesError) {
+        final message = next is NoteActionError
+            ? next.message
+            : (next as NotesError).message;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(message),
+            backgroundColor: NotesTheme.surface,
+          ),
+        );
+        return false;
+      }
+
+      _persisted = true;
+      _ensureLiveWatch();
+      if (popAfter && mounted) {
+        Navigator.of(context).pop();
+      } else if (mounted) {
+        setState(() {});
+      }
+      return true;
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Save failed: $e'),
+            backgroundColor: NotesTheme.surface,
+          ),
+        );
+      }
+      return false;
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
+  }
+
+  Future<void> _onDone() async {
+    await _persistNote(popAfter: true);
+  }
+
+  Future<bool> _onWillPop() async {
+    if (!_hasContent || _persisted) return true;
+    final shouldDiscard = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: NotesTheme.surface,
+        title: Text(
+          'Discard note?',
+          style: GoogleFonts.poppins(
+            color: NotesTheme.textPrimary,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+        content: Text(
+          'You have unsaved changes.',
+          style: GoogleFonts.poppins(
+            color: NotesTheme.textPrimary.withValues(alpha: 0.7),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: Text(
+              'Keep editing',
+              style: GoogleFonts.poppins(color: NotesTheme.textPrimary),
+            ),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: Text(
+              'Discard',
+              style: GoogleFonts.poppins(color: NotesTheme.bronze),
+            ),
+          ),
+        ],
+      ),
+    );
+    if (shouldDiscard == true) {
+      await NotesCacheService.instance.clearCurrentDraft();
+    }
+    return shouldDiscard ?? false;
+  }
+
+  Future<void> _attachPhoto() async {
+    final source = await showModalBottomSheet<String>(
+      context: context,
+      backgroundColor: NotesTheme.surface,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20.r)),
+      ),
+      builder: (ctx) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              leading: const Icon(Icons.photo_library_outlined,
+                  color: NotesTheme.bronze),
+              title: Text('Photo library',
+                  style: GoogleFonts.poppins(color: NotesTheme.textPrimary)),
+              onTap: () => Navigator.pop(ctx, 'gallery'),
+            ),
+            ListTile(
+              leading: const Icon(Icons.camera_alt_outlined,
+                  color: NotesTheme.bronze),
+              title: Text('Camera',
+                  style: GoogleFonts.poppins(color: NotesTheme.textPrimary)),
+              onTap: () => Navigator.pop(ctx, 'camera'),
+            ),
+          ],
+        ),
+      ),
+    );
+    if (source == null) return;
+    final picked = await _imageService.pickImages(fromCamera: source == 'camera');
+    if (picked.isEmpty || !mounted) return;
+    setState(() => _pendingImages.addAll(picked));
+  }
+
+  Future<void> _attachAudio() async {
+    final result = await showModalBottomSheet<NotesAudioRecordingResult>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: NotesTheme.surface,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20.r)),
+      ),
+      builder: (ctx) => _InlineAudioRecorderSheet(service: _audioService),
+    );
+    if (result == null || !mounted) return;
+    if (!result.isValid || result.file == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Please add a title or content'),
-          backgroundColor: NotesTheme.charcoal,
+        SnackBar(
+          content: const Text('Recording too short'),
+          backgroundColor: NotesTheme.surface,
         ),
       );
       return;
     }
 
-    final now = DateTime.now();
-    final userId = FirebaseAuth.instance.currentUser?.uid ?? '';
-
-    final note = NoteModel(
-      id: _isEditing ? widget.existingNote!.id : const Uuid().v4(),
-      ownerId: userId,
-      title: title.isEmpty ? 'Untitled' : title,
-      content: content,
-      noteType: NoteType.text,
-      tags: _tags,
-      isImportant: _isImportant,
-      isTodo: _isTodo,
-      createdAt: _isEditing ? widget.existingNote!.createdAt : now,
-      updatedAt: now,
-    );
-
-    final bloc = context.read<NotesBloc>();
-    debugPrint(
-      '📝 AddNoteScreen: dispatching ${_isEditing ? 'UpdateNote' : 'AddNote'} '
-      'to bloc=${bloc.hashCode}',
-    );
-    if (_isEditing) {
-      bloc.add(UpdateNote(note));
-    } else {
-      bloc.add(AddNote(note));
-      await _clearDraftOnSave();
-    }
-
-    // Wait until save finishes so the list is updated before we pop.
     try {
-      final next = await bloc.stream
-          .firstWhere(
-            (s) => s is NotesLoaded || s is NoteActionError || s is NotesError,
-          )
-          .timeout(const Duration(seconds: 15));
+      // Persist note shell first so Storage path + Whisper can find it.
+      if (!_persisted) {
+        final ok = await _persistNote(popAfter: false, allowEmpty: true);
+        if (!ok) return;
+      }
 
+      setState(() => _saving = true);
+      final audioUrl = await _audioService.uploadAudio(
+        noteId: _noteId,
+        audioFile: result.file!,
+        language: 'auto',
+      );
       if (!mounted) return;
-
-      if (next is NoteActionError || next is NotesError) {
-        final message = next is NoteActionError
-            ? next.message
-            : (next as NotesError).message;
-        debugPrint('❌ AddNoteScreen: save failed: $message');
+      final recording = RecordingInfo(
+        audioUrl: audioUrl,
+        durationSeconds: (result.durationMs / 1000).round(),
+        language: 'auto',
+        status: TranscriptionStatus.idle,
+        storagePath: 'chat_media/notes/${FirebaseAuth.instance.currentUser?.uid ?? ''}/$_noteId/audio.m4a',
+      );
+      _recording = recording;
+      setState(() => _saving = false);
+      await _persistNote(popAfter: false);
+    } catch (e) {
+      if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(message),
-            backgroundColor: NotesTheme.charcoal,
-            duration: const Duration(seconds: 5),
+            content: Text('Audio attach failed: $e'),
+            backgroundColor: NotesTheme.surface,
           ),
         );
-        return;
       }
-      debugPrint(
-        '✅ AddNoteScreen: save OK, notes=${(next as NotesLoaded).notes.length}',
-      );
-    } catch (e) {
-      debugPrint('⚠️ AddNoteScreen: wait for save timed out/error: $e');
-    }
-
-    if (mounted) {
-      Navigator.of(context).pop();
+    } finally {
+      if (mounted) setState(() => _saving = false);
     }
   }
 
-  void _addTag() {
-    final tag = _tagController.text.trim();
-    if (tag.isNotEmpty && !_tags.contains(tag)) {
-      setState(() {
-        _tags.add(tag);
-        _tagController.clear();
-      });
-    }
-  }
-
-  void _removeTag(String tag) {
-    setState(() {
-      _tags.remove(tag);
-    });
-  }
-
-  Future<bool> _onWillPop() async {
-    if (_hasContent && !_isEditing) {
-      final shouldDiscard = await showDialog<bool>(
-        context: context,
-        builder: (context) => AlertDialog(
-          backgroundColor: NotesTheme.charcoal,
-          title: Text(
-            'Discard note?',
-            style: GoogleFonts.poppins(
-              color: NotesTheme.textPrimary,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-          content: Text(
-            'You have unsaved changes. Are you sure you want to discard them?',
-            style: GoogleFonts.poppins(
-              color: NotesTheme.textPrimary.withValues(alpha: 0.7),
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(false),
-              child: Text(
-                'Keep editing',
-                style: GoogleFonts.poppins(color: NotesTheme.textPrimary),
-              ),
-            ),
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(true),
-              style: TextButton.styleFrom(
-                backgroundColor: NotesTheme.bronze.withValues(alpha: 0.2),
-              ),
-              child: Text(
-                'Discard',
-                style: GoogleFonts.poppins(color: NotesTheme.bronze),
-              ),
-            ),
-          ],
+  Future<void> _runAi(String mode, {String? lang}) async {
+    if (!_hasContent) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Text('Add content before running AI'),
+          backgroundColor: NotesTheme.surface,
         ),
       );
-      return shouldDiscard ?? false;
+      return;
     }
-    return true;
+    setState(() => _aiBusy = true);
+    try {
+      final ok = await _persistNote(popAfter: false);
+      if (!ok || !mounted) return;
+      _ensureLiveWatch();
+
+      if (mode == 'summarize' || mode == 'bullets' || mode == 'transcribe') {
+        final aiMode = mode == 'bullets'
+            ? NoteAiMode.bullets
+            : mode == 'summarize'
+                ? NoteAiMode.summarize
+                : NoteAiMode.transcribe;
+        setState(() {
+          _aiMode = aiMode;
+          _aiStatus = NoteAiStatus.pending;
+          // Only mark recording pending when explicitly transcribing.
+          if (mode == 'transcribe' &&
+              _recording != null &&
+              (_recording!.transcript == null ||
+                  _recording!.transcript!.trim().isEmpty)) {
+            _recording = _recording!.copyWith(
+              status: TranscriptionStatus.pending,
+            );
+          }
+        });
+        final note = _buildNoteModel().copyWith(
+          aiMode: aiMode,
+          aiStatus: NoteAiStatus.pending,
+        );
+        context.read<NotesBloc>().add(UpdateNote(note));
+      }
+
+      await _aiService.processNoteAi(
+        noteId: _noteId,
+        mode: mode,
+        targetLanguage: lang,
+      );
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('AI $mode started — results appear below'),
+          backgroundColor: NotesTheme.surface,
+        ),
+      );
+      // Keep _aiBusy true until live watch sees done/error/result.
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _aiBusy = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('AI failed: $e'),
+          backgroundColor: NotesTheme.surface,
+        ),
+      );
+    }
+  }
+
+  void _removePendingImage(int index) {
+    setState(() => _pendingImages.removeAt(index));
+  }
+
+  void _removeRemoteImage(String id) {
+    setState(() => _images.removeWhere((e) => e.id == id));
+  }
+
+  void _removeRecording() {
+    setState(() => _recording = null);
   }
 
   @override
   Widget build(BuildContext context) {
     final bottomPad = context.systemBottomInset;
-    final currentDateTime = DateFormat('EEEE, MMM dd • hh:mm a').format(DateTime.now());
+    final keyboard = MediaQuery.viewInsetsOf(context).bottom;
+    final dateLabel = DateFormat('EEEE, MMM dd · hh:mm a').format(
+      _isEditing ? widget.existingNote!.updatedAt : DateTime.now(),
+    );
 
     return PopScope(
       canPop: false,
@@ -320,69 +595,308 @@ class _AddNoteScreenState extends State<AddNoteScreen> {
         }
       },
       child: AnnotatedRegion<SystemUiOverlayStyle>(
-        value: SystemUiOverlayStyle.light.copyWith(
-          statusBarColor: Colors.transparent,
-          systemNavigationBarColor: NotesTheme.pureBlack,
-          systemNavigationBarIconBrightness: Brightness.light,
-        ),
+        value: NotesTheme.systemOverlay,
         child: NotesRoyalBronzeBackground(
+          // Keep toolbar glued above the keyboard (don't double-inset).
           child: Scaffold(
             backgroundColor: Colors.transparent,
+            resizeToAvoidBottomInset: false,
             body: SafeArea(
               bottom: false,
               child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   _buildHeader(),
                   Expanded(
-                    child: SingleChildScrollView(
-                      physics: const BouncingScrollPhysics(),
-                      padding: EdgeInsets.fromLTRB(20.w, 0, 20.w, bottomPad + 100.h),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          SizedBox(height: 8.h),
-                          Text(
-                            currentDateTime,
-                            style: GoogleFonts.poppins(
-                              fontSize: 12.sp,
-                              color: NotesTheme.textPrimary.withValues(alpha: 0.5),
-                              fontWeight: FontWeight.w500,
+                    child: GestureDetector(
+                      onTap: () => _contentFocusNode.requestFocus(),
+                      behavior: HitTestBehavior.translucent,
+                      child: SingleChildScrollView(
+                        physics: const BouncingScrollPhysics(),
+                        padding: EdgeInsets.fromLTRB(20.w, 0, 20.w, 16.h),
+                        keyboardDismissBehavior:
+                            ScrollViewKeyboardDismissBehavior.onDrag,
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              dateLabel,
+                              style: GoogleFonts.poppins(
+                                fontSize: 12.sp,
+                                color: NotesTheme.textPrimary
+                                    .withValues(alpha: 0.45),
+                                fontWeight: FontWeight.w500,
+                              ),
                             ),
-                          ),
-                          SizedBox(height: 16.h),
-                          _buildTitleField(),
-                          SizedBox(height: 12.h),
-                          _buildContentField(),
-                          SizedBox(height: 20.h),
-                          _buildOptionsSection(),
-                          SizedBox(height: 16.h),
-                          _buildTagsSection(),
-                        ],
+                            SizedBox(height: 8.h),
+                            _buildTitleField(),
+                            SizedBox(height: 4.h),
+                            _buildContentField(),
+                            if (_images.isNotEmpty ||
+                                _pendingImages.isNotEmpty) ...[
+                              SizedBox(height: 16.h),
+                              _buildPhotoStrip(),
+                            ],
+                            if (_recording != null &&
+                                _recording!.audioUrl.isNotEmpty) ...[
+                              SizedBox(height: 16.h),
+                              _buildAudioChip(),
+                              if ((_recording!.transcript?.trim().isNotEmpty ??
+                                      false) ||
+                                  _recording!.status ==
+                                      TranscriptionStatus.pending ||
+                                  _recording!.status ==
+                                      TranscriptionStatus.processing ||
+                                  _recording!.status ==
+                                      TranscriptionStatus.error) ...[
+                                SizedBox(height: 12.h),
+                                _buildComposerTranscript(),
+                              ] else if (_recording!.status ==
+                                  TranscriptionStatus.idle) ...[
+                                SizedBox(height: 8.h),
+                                Text(
+                                  'Audio saved. Use AI → Transcribe when you want speech-to-text.',
+                                  style: GoogleFonts.poppins(
+                                    fontSize: 12.sp,
+                                    color: NotesTheme.textPrimary
+                                        .withValues(alpha: 0.45),
+                                  ),
+                                ),
+                              ],
+                            ],
+                            if (_shouldShowComposerAi) ...[
+                              SizedBox(height: 16.h),
+                              _buildComposerAiResults(),
+                            ],
+                            if (_translatedText != null &&
+                                _translatedText!.trim().isNotEmpty) ...[
+                              SizedBox(height: 16.h),
+                              _buildComposerTranslation(),
+                            ],
+                            if (_saving || _aiBusy) ...[
+                              SizedBox(height: 16.h),
+                              Row(
+                                children: [
+                                  SizedBox(
+                                    width: 16.w,
+                                    height: 16.w,
+                                    child: const CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                      color: NotesTheme.bronze,
+                                    ),
+                                  ),
+                                  SizedBox(width: 10.w),
+                                  Text(
+                                    _aiBusy
+                                        ? 'AI working… results appear below'
+                                        : 'Saving…',
+                                    style: GoogleFonts.poppins(
+                                      fontSize: 12.sp,
+                                      color: NotesTheme.textPrimary
+                                          .withValues(alpha: 0.55),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ],
+                            // Extra space so last lines aren't under toolbar.
+                            SizedBox(height: 24.h),
+                          ],
+                        ),
                       ),
                     ),
                   ),
+                  _buildAccessoryBar(bottomPad, keyboard),
                 ],
               ),
             ),
-            floatingActionButton: _buildSaveButton(),
-            floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
           ),
         ),
       ),
     );
   }
 
+  bool get _shouldShowComposerAi {
+    if (_aiSummary?.trim().isNotEmpty == true) return true;
+    if (_aiBulletPoints?.trim().isNotEmpty == true) return true;
+    if (_aiBusy) return true;
+    return _aiStatus == NoteAiStatus.pending ||
+        _aiStatus == NoteAiStatus.processing ||
+        _aiStatus == NoteAiStatus.error ||
+        _aiStatus == NoteAiStatus.done;
+  }
+
+  Widget _buildComposerTranscript() {
+    final recording = _recording!;
+    final transcript = recording.transcript?.trim() ?? '';
+    final isPending = transcript.isEmpty &&
+        (recording.status == TranscriptionStatus.pending ||
+            recording.status == TranscriptionStatus.processing);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Transcript',
+          style: GoogleFonts.poppins(
+            fontSize: 13.sp,
+            fontWeight: FontWeight.w600,
+            color: NotesTheme.textPrimary.withValues(alpha: 0.65),
+          ),
+        ),
+        SizedBox(height: 8.h),
+        NotesGlassCard(
+          padding: EdgeInsets.all(14.w),
+          child: transcript.isNotEmpty
+              ? Text(
+                  transcript,
+                  style: GoogleFonts.poppins(
+                    fontSize: 14.sp,
+                    color: NotesTheme.textPrimary.withValues(alpha: 0.9),
+                    height: 1.55,
+                  ),
+                )
+              : Row(
+                  children: [
+                    if (isPending)
+                      SizedBox(
+                        width: 16.w,
+                        height: 16.w,
+                        child: const CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: NotesTheme.bronze,
+                        ),
+                      ),
+                    if (isPending) SizedBox(width: 10.w),
+                    Expanded(
+                      child: Text(
+                        isPending
+                            ? 'Transcribing audio…'
+                            : recording.status == TranscriptionStatus.error
+                                ? 'Transcription failed'
+                                : 'No transcript yet',
+                        style: GoogleFonts.poppins(
+                          fontSize: 13.sp,
+                          color: NotesTheme.textPrimary.withValues(alpha: 0.5),
+                          fontStyle: FontStyle.italic,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildComposerAiResults() {
+    final body = (_aiMode == NoteAiMode.bullets
+            ? _aiBulletPoints
+            : _aiSummary) ??
+        _aiBulletPoints ??
+        _aiSummary ??
+        '';
+    final hasBody = body.trim().isNotEmpty;
+    final isBusy = !hasBody &&
+        (_aiBusy ||
+            _aiStatus == NoteAiStatus.pending ||
+            _aiStatus == NoteAiStatus.processing);
+    final title = _aiMode == NoteAiMode.bullets ||
+            (_aiBulletPoints?.isNotEmpty ?? false)
+        ? 'Bullet points'
+        : 'Summary';
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          title,
+          style: GoogleFonts.poppins(
+            fontSize: 13.sp,
+            fontWeight: FontWeight.w600,
+            color: NotesTheme.textPrimary.withValues(alpha: 0.65),
+          ),
+        ),
+        SizedBox(height: 8.h),
+        NotesGlassCard(
+          padding: EdgeInsets.all(14.w),
+          child: hasBody
+              ? Text(
+                  body,
+                  style: GoogleFonts.poppins(
+                    fontSize: 14.sp,
+                    color: NotesTheme.textPrimary.withValues(alpha: 0.9),
+                    height: 1.55,
+                  ),
+                )
+              : Row(
+                  children: [
+                    if (isBusy)
+                      SizedBox(
+                        width: 16.w,
+                        height: 16.w,
+                        child: const CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: NotesTheme.bronze,
+                        ),
+                      ),
+                    if (isBusy) SizedBox(width: 10.w),
+                    Expanded(
+                      child: Text(
+                        _aiStatus == NoteAiStatus.error
+                            ? 'AI failed — try again from the AI menu'
+                            : 'Generating…',
+                        style: GoogleFonts.poppins(
+                          fontSize: 13.sp,
+                          color: NotesTheme.textPrimary.withValues(alpha: 0.5),
+                          fontStyle: FontStyle.italic,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildComposerTranslation() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Translation (${_translatedLanguage ?? ''})',
+          style: GoogleFonts.poppins(
+            fontSize: 13.sp,
+            fontWeight: FontWeight.w600,
+            color: NotesTheme.textPrimary.withValues(alpha: 0.65),
+          ),
+        ),
+        SizedBox(height: 8.h),
+        NotesGlassCard(
+          padding: EdgeInsets.all(14.w),
+          child: Text(
+            _translatedText!,
+            style: GoogleFonts.poppins(
+              fontSize: 14.sp,
+              color: NotesTheme.textPrimary.withValues(alpha: 0.9),
+              height: 1.55,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
   Widget _buildHeader() {
     return Padding(
-      padding: EdgeInsets.symmetric(horizontal: 8.w, vertical: 8.h),
+      padding: EdgeInsets.symmetric(horizontal: 4.w, vertical: 4.h),
       child: Row(
         children: [
           IconButton(
             onPressed: () async {
               final shouldPop = await _onWillPop();
-              if (shouldPop && mounted) {
-                Navigator.of(context).pop();
-              }
+              if (shouldPop && mounted) Navigator.of(context).pop();
             },
             icon: Icon(
               Icons.arrow_back_rounded,
@@ -390,70 +904,18 @@ class _AddNoteScreenState extends State<AddNoteScreen> {
               size: 24.sp,
             ),
           ),
-          Expanded(
+          const Spacer(),
+          TextButton(
+            onPressed: _saving ? null : _onDone,
             child: Text(
-              _isEditing ? 'Edit Note' : 'New Note',
+              'Done',
               style: GoogleFonts.poppins(
-                fontSize: 18.sp,
+                fontSize: 16.sp,
                 fontWeight: FontWeight.w600,
-                color: NotesTheme.textPrimary,
+                color: NotesTheme.bronze,
               ),
             ),
           ),
-          if (_isEditing)
-            IconButton(
-              onPressed: () {
-                showDialog(
-                  context: context,
-                  builder: (context) => AlertDialog(
-                    backgroundColor: NotesTheme.charcoal,
-                    title: Text(
-                      'Delete note?',
-                      style: GoogleFonts.poppins(
-                        color: NotesTheme.textPrimary,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                    content: Text(
-                      'This action cannot be undone.',
-                      style: GoogleFonts.poppins(
-                        color: NotesTheme.textPrimary.withValues(alpha: 0.7),
-                      ),
-                    ),
-                    actions: [
-                      TextButton(
-                        onPressed: () => Navigator.of(context).pop(),
-                        child: Text(
-                          'Cancel',
-                          style: GoogleFonts.poppins(color: NotesTheme.textPrimary),
-                        ),
-                      ),
-                      TextButton(
-                        onPressed: () {
-                          Navigator.of(context).pop();
-                          context.read<NotesBloc>().add(
-                                DeleteNote(widget.existingNote!.id),
-                              );
-                          Navigator.of(this.context).pop();
-                        },
-                        style: TextButton.styleFrom(
-                          backgroundColor: Colors.red.withValues(alpha: 0.2),
-                        ),
-                        child: Text(
-                          'Delete',
-                          style: GoogleFonts.poppins(color: Colors.red),
-                        ),
-                      ),
-                    ],
-                  ),
-                );
-              },
-              icon: Icon(
-                Icons.delete_outline_rounded,
-                color: NotesTheme.textPrimary.withValues(alpha: 0.7),
-                size: 24.sp,
-              ),
-            ),
         ],
       ),
     );
@@ -464,19 +926,19 @@ class _AddNoteScreenState extends State<AddNoteScreen> {
       controller: _titleController,
       focusNode: _titleFocusNode,
       style: GoogleFonts.poppins(
-        fontSize: 24.sp,
+        fontSize: 26.sp,
         fontWeight: FontWeight.w700,
         color: NotesTheme.textPrimary,
         height: 1.2,
       ),
       decoration: InputDecoration(
         border: InputBorder.none,
+        isDense: true,
         hintText: 'Title',
         hintStyle: GoogleFonts.poppins(
-          fontSize: 24.sp,
+          fontSize: 26.sp,
           fontWeight: FontWeight.w700,
-          color: NotesTheme.textPrimary.withValues(alpha: 0.3),
-          height: 1.2,
+          color: NotesTheme.textPrimary.withValues(alpha: 0.28),
         ),
       ),
       textInputAction: TextInputAction.next,
@@ -486,266 +948,228 @@ class _AddNoteScreenState extends State<AddNoteScreen> {
   }
 
   Widget _buildContentField() {
-    return NotesGlassCard(
-      padding: EdgeInsets.all(16.w),
-      child: TextField(
-        controller: _contentController,
-        focusNode: _contentFocusNode,
-        maxLines: null,
-        minLines: 8,
-        style: GoogleFonts.poppins(
-          fontSize: 15.sp,
-          color: NotesTheme.textPrimary,
-          height: 1.6,
+    return TextField(
+      controller: _contentController,
+      focusNode: _contentFocusNode,
+      maxLines: null,
+      minLines: 6,
+      keyboardType: TextInputType.multiline,
+      textCapitalization: TextCapitalization.sentences,
+      style: GoogleFonts.poppins(
+        fontSize: 16.sp,
+        color: NotesTheme.textPrimary,
+        height: 1.55,
+      ),
+      decoration: InputDecoration(
+        border: InputBorder.none,
+        isDense: true,
+        contentPadding: EdgeInsets.zero,
+        hintText: 'Start writing…',
+        hintStyle: GoogleFonts.poppins(
+          fontSize: 16.sp,
+          color: NotesTheme.textPrimary.withValues(alpha: 0.28),
+          height: 1.55,
         ),
-        decoration: InputDecoration(
-          border: InputBorder.none,
-          hintText: 'Start writing your note...',
-          hintStyle: GoogleFonts.poppins(
-            fontSize: 15.sp,
-            color: NotesTheme.textPrimary.withValues(alpha: 0.3),
-            height: 1.6,
-          ),
-        ),
-        onChanged: (_) => setState(() {}),
+      ),
+      onChanged: (_) => setState(() {}),
+    );
+  }
+
+  Widget _buildPhotoStrip() {
+    final total = _images.length + _pendingImages.length;
+    return SizedBox(
+      height: 96.h,
+      child: ListView.separated(
+        scrollDirection: Axis.horizontal,
+        itemCount: total,
+        separatorBuilder: (_, __) => SizedBox(width: 10.w),
+        itemBuilder: (context, i) {
+          if (i < _images.length) {
+            final img = _images[i];
+            return _thumb(
+              networkUrl: img.imageUrl,
+              onRemove: () => _removeRemoteImage(img.id),
+            );
+          }
+          final pending = _pendingImages[i - _images.length];
+          return _thumb(
+            filePath: pending.path,
+            onRemove: () => _removePendingImage(i - _images.length),
+          );
+        },
       ),
     );
   }
 
-  Widget _buildOptionsSection() {
-    return Row(
+  Widget _thumb({
+    String? networkUrl,
+    String? filePath,
+    required VoidCallback onRemove,
+  }) {
+    return Stack(
+      clipBehavior: Clip.none,
       children: [
-        Expanded(
-          child: _buildOptionChip(
-            icon: Icons.star_rounded,
-            label: 'Important',
-            isSelected: _isImportant,
-            selectedColor: NotesTheme.bronze,
-            onTap: () => setState(() => _isImportant = !_isImportant),
-          ),
+        ClipRRect(
+          borderRadius: BorderRadius.circular(12.r),
+          child: filePath != null
+              ? Image.file(
+                  File(filePath),
+                  width: 96.w,
+                  height: 96.w,
+                  fit: BoxFit.cover,
+                )
+              : Image.network(
+                  networkUrl!,
+                  width: 96.w,
+                  height: 96.w,
+                  fit: BoxFit.cover,
+                ),
         ),
-        SizedBox(width: 12.w),
-        Expanded(
-          child: _buildOptionChip(
-            icon: Icons.check_circle_outline,
-            label: 'To-do',
-            isSelected: _isTodo,
-            selectedColor: const Color(0xFF4CAF50),
-            onTap: () => setState(() => _isTodo = !_isTodo),
+        Positioned(
+          top: -6,
+          right: -6,
+          child: GestureDetector(
+            onTap: onRemove,
+            child: Container(
+              padding: EdgeInsets.all(4.w),
+              decoration: BoxDecoration(
+                color: NotesTheme.charcoal,
+                shape: BoxShape.circle,
+                border: Border.all(color: NotesTheme.bronze.withValues(alpha: 0.4)),
+              ),
+              child: Icon(Icons.close, size: 14.sp, color: NotesTheme.textPrimary),
+            ),
           ),
         ),
       ],
     );
   }
 
-  Widget _buildOptionChip({
-    required IconData icon,
-    required String label,
-    required bool isSelected,
-    required Color selectedColor,
-    required VoidCallback onTap,
-  }) {
-    return GestureDetector(
-      onTap: onTap,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
-        padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 12.h),
-        decoration: BoxDecoration(
-          color: isSelected
-              ? selectedColor.withValues(alpha: 0.15)
-              : NotesTheme.glassFill,
-          borderRadius: BorderRadius.circular(12.r),
-          border: Border.all(
-            color: isSelected
-                ? selectedColor.withValues(alpha: 0.5)
-                : NotesTheme.glassBorder,
-          ),
-        ),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
+  Widget _buildAudioChip() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Row(
           children: [
-            Icon(
-              icon,
-              size: 20.sp,
-              color: isSelected
-                  ? selectedColor
-                  : NotesTheme.textPrimary.withValues(alpha: 0.5),
-            ),
-            SizedBox(width: 8.w),
             Text(
-              label,
+              'Audio',
               style: GoogleFonts.poppins(
                 fontSize: 13.sp,
-                fontWeight: FontWeight.w500,
-                color: isSelected
-                    ? selectedColor
-                    : NotesTheme.textPrimary.withValues(alpha: 0.5),
+                fontWeight: FontWeight.w600,
+                color: NotesTheme.textPrimary.withValues(alpha: 0.6),
+              ),
+            ),
+            const Spacer(),
+            TextButton(
+              onPressed: _removeRecording,
+              child: Text(
+                'Remove',
+                style: GoogleFonts.poppins(
+                  fontSize: 12.sp,
+                  color: Colors.redAccent,
+                ),
               ),
             ),
           ],
         ),
-      ),
-    );
-  }
-
-  Widget _buildTagsSection() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          'Tags',
-          style: GoogleFonts.poppins(
-            fontSize: 14.sp,
-            fontWeight: FontWeight.w600,
-            color: NotesTheme.textPrimary.withValues(alpha: 0.7),
-          ),
-        ),
-        SizedBox(height: 8.h),
-        Wrap(
-          spacing: 8.w,
-          runSpacing: 8.h,
-          children: [
-            ..._tags.map((tag) => _buildTagChip(tag)),
-            _buildAddTagChip(),
-          ],
+        NotesAudioPlayerWidget(
+          audioUrl: _recording!.audioUrl,
+          durationSeconds: _recording!.durationSeconds,
         ),
       ],
     );
   }
 
-  Widget _buildTagChip(String tag) {
-    return Container(
-      padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 6.h),
-      decoration: BoxDecoration(
-        color: NotesTheme.bronze.withValues(alpha: 0.15),
-        borderRadius: BorderRadius.circular(20.r),
-        border: Border.all(
-          color: NotesTheme.bronze.withValues(alpha: 0.3),
-        ),
+  Widget _buildAccessoryBar(double bottomPad, double keyboard) {
+    // Keyboard inset only — Scaffold does not resize (see build).
+    final padBottom = (keyboard > 0 ? keyboard : bottomPad) + 8.h;
+    return Material(
+      color: NotesTheme.surface.withValues(
+        alpha: NotesTheme.isLight ? 0.98 : 0.94,
       ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Text(
-            tag,
-            style: GoogleFonts.poppins(
-              fontSize: 12.sp,
-              fontWeight: FontWeight.w500,
-              color: NotesTheme.bronze,
-            ),
-          ),
-          SizedBox(width: 4.w),
-          GestureDetector(
-            onTap: () => _removeTag(tag),
-            child: Icon(
-              Icons.close,
-              size: 14.sp,
-              color: NotesTheme.bronze,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildAddTagChip() {
-    return GestureDetector(
-      onTap: () {
-        showModalBottomSheet(
-          context: context,
-          backgroundColor: NotesTheme.charcoal,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.vertical(top: Radius.circular(20.r)),
-          ),
-          builder: (context) => Padding(
-            padding: EdgeInsets.all(20.w),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                TextField(
-                  controller: _tagController,
-                  autofocus: true,
-                  style: GoogleFonts.poppins(
-                    color: NotesTheme.textPrimary,
-                  ),
-                  decoration: InputDecoration(
-                    hintText: 'Enter tag name',
-                    hintStyle: GoogleFonts.poppins(
-                      color: NotesTheme.textPrimary.withValues(alpha: 0.5),
-                    ),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12.r),
-                      borderSide: BorderSide(color: NotesTheme.glassBorder),
-                    ),
-                    enabledBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12.r),
-                      borderSide: BorderSide(color: NotesTheme.glassBorder),
-                    ),
-                    focusedBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12.r),
-                      borderSide: const BorderSide(color: NotesTheme.bronze),
-                    ),
-                  ),
-                  onSubmitted: (_) {
-                    _addTag();
-                    Navigator.of(context).pop();
-                  },
-                ),
-                SizedBox(height: 16.h),
-                SizedBox(
-                  width: double.infinity,
-                  child: FilledButton(
-                    onPressed: () {
-                      _addTag();
-                      Navigator.of(context).pop();
-                    },
-                    style: FilledButton.styleFrom(
-                      backgroundColor: NotesTheme.bronze,
-                      padding: EdgeInsets.symmetric(vertical: 14.h),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12.r),
-                      ),
-                    ),
-                    child: Text(
-                      'Add Tag',
-                      style: GoogleFonts.poppins(
-                        fontWeight: FontWeight.w600,
-                        color: NotesTheme.pureBlack,
-                      ),
-                    ),
-                  ),
-                ),
-                SizedBox(height: MediaQuery.of(context).viewInsets.bottom),
-              ],
-            ),
-          ),
-        );
-      },
       child: Container(
-        padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 6.h),
+        padding: EdgeInsets.fromLTRB(8.w, 6.h, 8.w, padBottom),
         decoration: BoxDecoration(
-          color: NotesTheme.glassFill,
-          borderRadius: BorderRadius.circular(20.r),
-          border: Border.all(
-            color: NotesTheme.glassBorder,
-            style: BorderStyle.solid,
+          border: Border(
+            top: BorderSide(color: NotesTheme.glassBorder),
           ),
         ),
         child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+          children: [
+            _AccessoryBtn(
+              icon: Icons.text_format_rounded,
+              label: 'Aa',
+              onTap: () => showNotesFormatSheet(
+                context,
+                contentController: _contentController,
+              ),
+            ),
+            _AccessoryBtn(
+              icon: Icons.photo_outlined,
+              label: 'Photo',
+              onTap: _saving ? null : _attachPhoto,
+            ),
+            _AccessoryBtn(
+              icon: Icons.mic_none_rounded,
+              label: 'Audio',
+              onTap: _saving ? null : _attachAudio,
+            ),
+            _AccessoryBtn(
+              icon: Icons.auto_awesome,
+              label: 'AI',
+              onTap: _saving || _aiBusy
+                  ? null
+                  : () => showNotesComposerAiSheet(
+                        context,
+                        onRun: _runAi,
+                      ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _AccessoryBtn extends StatelessWidget {
+  const _AccessoryBtn({
+    required this.icon,
+    required this.label,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final String label;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final enabled = onTap != null;
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(12.r),
+      child: Padding(
+        padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 8.h),
+        child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             Icon(
-              Icons.add,
-              size: 14.sp,
-              color: NotesTheme.textPrimary.withValues(alpha: 0.5),
+              icon,
+              size: 22.sp,
+              color: enabled
+                  ? NotesTheme.bronze
+                  : NotesTheme.textPrimary.withValues(alpha: 0.3),
             ),
-            SizedBox(width: 4.w),
+            SizedBox(height: 2.h),
             Text(
-              'Add tag',
+              label,
               style: GoogleFonts.poppins(
-                fontSize: 12.sp,
+                fontSize: 10.sp,
                 fontWeight: FontWeight.w500,
-                color: NotesTheme.textPrimary.withValues(alpha: 0.5),
+                color: enabled
+                    ? NotesTheme.textPrimary.withValues(alpha: 0.65)
+                    : NotesTheme.textPrimary.withValues(alpha: 0.3),
               ),
             ),
           ],
@@ -753,36 +1177,146 @@ class _AddNoteScreenState extends State<AddNoteScreen> {
       ),
     );
   }
+}
 
-  Widget _buildSaveButton() {
-    final hasContent = _hasContent;
+/// Compact in-sheet recorder for attaching audio to a text note.
+class _InlineAudioRecorderSheet extends StatefulWidget {
+  const _InlineAudioRecorderSheet({required this.service});
 
+  final NotesAudioRecordingService service;
+
+  @override
+  State<_InlineAudioRecorderSheet> createState() =>
+      _InlineAudioRecorderSheetState();
+}
+
+class _InlineAudioRecorderSheetState extends State<_InlineAudioRecorderSheet> {
+  bool _recording = false;
+  bool _busy = false;
+  Timer? _tick;
+  Duration _elapsed = Duration.zero;
+
+  @override
+  void dispose() {
+    _tick?.cancel();
+    super.dispose();
+  }
+
+  Future<void> _toggle() async {
+    if (_busy) return;
+    if (!_recording) {
+      setState(() => _busy = true);
+      final ok = await widget.service.startRecording();
+      if (!mounted) return;
+      setState(() {
+        _busy = false;
+        _recording = ok;
+        _elapsed = Duration.zero;
+      });
+      if (ok) {
+        _tick = Timer.periodic(const Duration(seconds: 1), (_) {
+          if (!mounted) return;
+          setState(() => _elapsed = widget.service.elapsed);
+        });
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: const Text('Microphone permission required'),
+            backgroundColor: NotesTheme.surface,
+          ),
+        );
+      }
+      return;
+    }
+
+    setState(() => _busy = true);
+    _tick?.cancel();
+    final result = await widget.service.stopRecording();
+    if (!mounted) return;
+    setState(() {
+      _busy = false;
+      _recording = false;
+    });
+    if (result != null) {
+      Navigator.pop(context, result);
+    }
+  }
+
+  Future<void> _cancel() async {
+    _tick?.cancel();
+    if (_recording) await widget.service.cancelRecording();
+    if (mounted) Navigator.pop(context);
+  }
+
+  String get _timeLabel {
+    final m = _elapsed.inMinutes.remainder(60).toString().padLeft(2, '0');
+    final s = _elapsed.inSeconds.remainder(60).toString().padLeft(2, '0');
+    return '$m:$s';
+  }
+
+  @override
+  Widget build(BuildContext context) {
     return Padding(
-      padding: EdgeInsets.symmetric(horizontal: 20.w),
-      child: SizedBox(
-        width: double.infinity,
-        child: FilledButton(
-          onPressed: hasContent ? _saveNote : null,
-          style: FilledButton.styleFrom(
-            backgroundColor:
-                hasContent ? NotesTheme.bronze : NotesTheme.charcoal,
-            disabledBackgroundColor: NotesTheme.charcoal,
-            padding: EdgeInsets.symmetric(vertical: 16.h),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(16.r),
-            ),
-          ),
-          child: Text(
-            _isEditing ? 'Update Note' : 'Save Note',
+      padding: EdgeInsets.fromLTRB(20.w, 16.h, 20.w, 32.h),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            'Attach audio',
             style: GoogleFonts.poppins(
-              fontSize: 15.sp,
+              fontSize: 16.sp,
               fontWeight: FontWeight.w600,
-              color: hasContent
-                  ? NotesTheme.pureBlack
-                  : NotesTheme.textPrimary.withValues(alpha: 0.3),
+              color: NotesTheme.textPrimary,
             ),
           ),
-        ),
+          SizedBox(height: 8.h),
+          Text(
+            _recording ? _timeLabel : 'Tap to record',
+            style: GoogleFonts.poppins(
+              fontSize: 28.sp,
+              fontWeight: FontWeight.w600,
+              color: NotesTheme.bronze,
+            ),
+          ),
+          SizedBox(height: 20.h),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              TextButton(
+                onPressed: _cancel,
+                child: Text(
+                  'Cancel',
+                  style: GoogleFonts.poppins(color: NotesTheme.textPrimary),
+                ),
+              ),
+              SizedBox(width: 24.w),
+              GestureDetector(
+                onTap: _toggle,
+                child: Container(
+                  width: 72.w,
+                  height: 72.w,
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: _recording
+                        ? Colors.redAccent
+                        : NotesTheme.bronze,
+                  ),
+                  child: _busy
+                      ? const CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: Colors.white,
+                        )
+                      : Icon(
+                          _recording ? Icons.stop_rounded : Icons.mic_rounded,
+                          color: NotesTheme.pureBlack,
+                          size: 32.sp,
+                        ),
+                ),
+              ),
+            ],
+          ),
+        ],
       ),
     );
   }

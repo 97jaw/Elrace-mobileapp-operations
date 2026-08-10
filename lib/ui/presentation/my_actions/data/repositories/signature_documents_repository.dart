@@ -177,6 +177,37 @@ class SignatureDocumentsRepository {
     });
   }
 
+  /// Owner-side heal when chat message is already signed but personal library
+  /// copy is still pending (sync from signer failed previously).
+  Future<void> healSignedFromChat({
+    required String docId,
+    required String? signedPdfUrl,
+    required String? signedBy,
+  }) async {
+    try {
+      final uid = FirebaseAuth.instance.currentUser?.uid;
+      if (uid == null || uid.isEmpty) return;
+      final ref = _collection(uid).doc(docId);
+      final snap = await ref.get();
+      if (!snap.exists) return;
+      final status = snap.data()?['status']?.toString() ?? '';
+      if (status == 'signed' || status == 'expired') return;
+      await ref.set({
+        'status': 'signed',
+        if (signedPdfUrl != null && signedPdfUrl.isNotEmpty) ...{
+          'signed_pdf_url': signedPdfUrl,
+          'file_url': signedPdfUrl,
+        },
+        if (signedBy != null && signedBy.isNotEmpty) 'signed_by': signedBy,
+        'signed_at': FieldValue.serverTimestamp(),
+        'updated_at': FieldValue.serverTimestamp(),
+      }, SetOptions(merge: true));
+      debugPrint('✅ SignatureDocuments: healed $docId → signed');
+    } catch (e) {
+      debugPrint('⚠️ SignatureDocuments: healSignedFromChat failed: $e');
+    }
+  }
+
   /// Send a PDF to one or more signees sequentially.
   ///
   /// Only the first signee receives a chat `signable_doc` immediately

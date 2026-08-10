@@ -12,6 +12,7 @@ class NotesListSection extends StatelessWidget {
     this.onViewAll,
     this.onNoteTap,
     this.maxItems = 5,
+    this.showAll = false,
     this.title = 'All Notes',
   });
 
@@ -19,11 +20,13 @@ class NotesListSection extends StatelessWidget {
   final VoidCallback? onViewAll;
   final ValueChanged<NoteModel>? onNoteTap;
   final int maxItems;
+  final bool showAll;
   final String title;
 
   @override
   Widget build(BuildContext context) {
-    final displayNotes = notes.take(maxItems).toList();
+    final displayNotes = showAll ? notes : notes.take(maxItems).toList();
+    final canViewAll = !showAll && notes.length > maxItems;
 
     return Padding(
       padding: EdgeInsets.symmetric(horizontal: 20.w),
@@ -43,7 +46,7 @@ class NotesListSection extends StatelessWidget {
                   ),
                 ),
               ),
-              if (notes.length > maxItems)
+              if (canViewAll)
                 GestureDetector(
                   onTap: onViewAll,
                   behavior: HitTestBehavior.opaque,
@@ -97,7 +100,6 @@ class _NotesListRow extends StatelessWidget {
       case NoteType.image:
         return Icons.image_outlined;
       case NoteType.text:
-      default:
         return Icons.sticky_note_2_outlined;
     }
   }
@@ -109,7 +111,6 @@ class _NotesListRow extends StatelessWidget {
       case NoteType.image:
         return const Color(0xFF7CB9E8);
       case NoteType.text:
-      default:
         return NotesTheme.textPrimary;
     }
   }

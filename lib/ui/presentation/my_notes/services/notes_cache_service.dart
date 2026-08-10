@@ -45,9 +45,6 @@ class NotesCacheService {
   Future<void> saveCurrentDraft({
     required String title,
     required String content,
-    required bool isImportant,
-    required bool isTodo,
-    required List<String> tags,
   }) async {
     if (!_isInitialized) await initialize();
     if (_draftsBox == null) return;
@@ -56,9 +53,6 @@ class NotesCacheService {
       final draftData = {
         'title': title,
         'content': content,
-        'isImportant': isImportant,
-        'isTodo': isTodo,
-        'tags': tags,
         'savedAt': DateTime.now().toIso8601String(),
       };
       await _draftsBox!.put(_currentDraftKey, jsonEncode(draftData));

@@ -4,7 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:google_fonts/google_fonts.dart';
 
-/// 2-column capture grid: tall audio (left) + text note / image notes (right).
+/// 2-column capture grid: tall audio (left) + text note / templates (right).
 class NotesCaptureGrid extends StatelessWidget {
   const NotesCaptureGrid({
     super.key,
@@ -46,9 +46,9 @@ class NotesCaptureGrid extends StatelessWidget {
                 SizedBox(height: gap),
                 Expanded(
                   child: _ActionTileCard(
-                    icon: Icons.image_outlined,
-                    titleLine1: 'Image',
-                    titleLine2: 'notes',
+                    icon: Icons.dashboard_customize_outlined,
+                    titleLine1: 'Templates',
+                    titleLine2: 'soon',
                     onTap: onImageNotes,
                   ),
                 ),

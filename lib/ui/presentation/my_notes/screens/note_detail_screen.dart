@@ -1,10 +1,17 @@
+import 'dart:async';
+
 import 'package:el_race/ui/presentation/my_notes/bloc/notes_bloc.dart';
 import 'package:el_race/ui/presentation/my_notes/data/note_model.dart';
+import 'package:el_race/ui/presentation/my_notes/repository/firebase_notes_repository.dart';
 import 'package:el_race/ui/presentation/my_notes/screens/add_note_screen.dart';
+import 'package:el_race/ui/presentation/my_notes/services/notes_ai_service.dart';
 import 'package:el_race/ui/presentation/my_notes/theme/notes_theme.dart';
+import 'package:el_race/ui/presentation/my_notes/widgets/notes_ai_actions_section.dart';
 import 'package:el_race/ui/presentation/my_notes/widgets/notes_audio_player_widget.dart';
+import 'package:el_race/ui/presentation/my_notes/widgets/notes_checklist_content.dart';
 import 'package:el_race/ui/presentation/my_notes/widgets/notes_glass_card.dart';
 import 'package:el_race/ui/presentation/my_notes/widgets/notes_royal_bronze_background.dart';
+import 'package:el_race/ui/presentation/my_notes/widgets/notes_share_sheet.dart';
 import 'package:el_race/utils/safe_insets.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -15,22 +22,25 @@ import 'package:intl/intl.dart';
 
 class NoteDetailScreen extends StatelessWidget {
   final NoteModel note;
+  final bool readOnly;
 
   const NoteDetailScreen({
     super.key,
     required this.note,
+    this.readOnly = false,
   });
 
   @override
   Widget build(BuildContext context) {
-    return _NoteDetailView(note: note);
+    return _NoteDetailView(note: note, readOnly: readOnly);
   }
 }
 
 class _NoteDetailView extends StatefulWidget {
   final NoteModel note;
+  final bool readOnly;
 
-  const _NoteDetailView({required this.note});
+  const _NoteDetailView({required this.note, required this.readOnly});
 
   @override
   State<_NoteDetailView> createState() => _NoteDetailViewState();
@@ -38,11 +48,71 @@ class _NoteDetailView extends StatefulWidget {
 
 class _NoteDetailViewState extends State<_NoteDetailView> {
   late NoteModel _note;
+  final NotesAiService _aiService = NotesAiService();
+  final FirebaseNotesRepository _repo = FirebaseNotesRepository();
+  bool _aiCallInFlight = false;
+  StreamSubscription<NoteModel?>? _noteSub;
 
   @override
   void initState() {
     super.initState();
     _note = widget.note;
+    _subscribeToNote();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _maybeTriggerAi());
+  }
+
+  void _subscribeToNote() {
+    if (widget.readOnly) {
+      // Shared notes: still listen on owner path via getShared if needed later.
+      // Owner path watch works for owner; for shared, message may be elsewhere.
+    }
+    _noteSub?.cancel();
+    _noteSub = _repo.watchNoteById(_note.id).listen((live) {
+      if (!mounted || live == null) return;
+      final prev = _note;
+      setState(() => _note = live);
+      // When transcript lands, kick AI if still pending.
+      final transcriptJustReady =
+          (prev.recording?.transcript?.trim().isEmpty ?? true) &&
+              (live.recording?.transcript?.trim().isNotEmpty ?? false);
+      if (transcriptJustReady || live.needsAiProcessing) {
+        _maybeTriggerAi();
+      }
+    }, onError: (e) {
+      debugPrint('NoteDetail live watch error: $e');
+    });
+  }
+
+  @override
+  void dispose() {
+    _noteSub?.cancel();
+    super.dispose();
+  }
+
+  Future<void> _maybeTriggerAi() async {
+    if (widget.readOnly || _aiCallInFlight) return;
+    final transcriptDone =
+        _note.recording?.status == TranscriptionStatus.done &&
+            (_note.recording?.transcript?.trim().isNotEmpty ?? false);
+    final textReady = _note.content.trim().isNotEmpty;
+    final needs = _note.needsAiProcessing &&
+        (_note.aiMode == NoteAiMode.summarize ||
+            _note.aiMode == NoteAiMode.bullets);
+    if (!needs) return;
+    if (_note.recording != null && !transcriptDone) return;
+    if (_note.recording == null && !textReady) return;
+
+    _aiCallInFlight = true;
+    try {
+      await _aiService.processNoteAi(
+        noteId: _note.id,
+        mode: _note.aiMode.name,
+      );
+    } catch (e) {
+      debugPrint('Notes AI trigger failed: $e');
+    } finally {
+      _aiCallInFlight = false;
+    }
   }
 
   void _editNote() {
@@ -57,29 +127,22 @@ class _NoteDetailViewState extends State<_NoteDetailView> {
     );
   }
 
-  void _toggleImportant() {
-    context.read<NotesBloc>().add(
-          ToggleNoteImportant(_note.id, !_note.isImportant),
-        );
-    setState(() {
-      _note = _note.copyWith(isImportant: !_note.isImportant);
-    });
-  }
-
-  void _toggleTodo() {
-    context.read<NotesBloc>().add(
-          ToggleNoteTodo(_note.id, !_note.isTodo),
-        );
-    setState(() {
-      _note = _note.copyWith(isTodo: !_note.isTodo);
-    });
+  void _onChecklistChanged(String nextContent) {
+    final updated = _note.copyWith(
+      content: nextContent,
+      updatedAt: DateTime.now(),
+    );
+    setState(() => _note = updated);
+    if (!widget.readOnly) {
+      context.read<NotesBloc>().add(UpdateNote(updated));
+    }
   }
 
   void _deleteNote() {
     showDialog(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        backgroundColor: NotesTheme.charcoal,
+        backgroundColor: NotesTheme.surface,
         title: Text(
           'Delete note?',
           style: GoogleFonts.poppins(
@@ -120,27 +183,21 @@ class _NoteDetailViewState extends State<_NoteDetailView> {
     );
   }
 
-  void _shareNote() {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Share to chat coming soon'),
-        backgroundColor: NotesTheme.charcoal,
-      ),
-    );
+  Future<void> _shareNote() async {
+    final updated = await showNotesShareSheet(context, note: _note);
+    if (updated != null && mounted) {
+      setState(() => _note = updated);
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     final bottomPad = context.systemBottomInset;
-    final formattedDate = DateFormat('EEEE, MMM dd, yyyy • hh:mm a')
-        .format(_note.updatedAt);
+    final formattedDate =
+        DateFormat('EEEE, MMM dd, yyyy • hh:mm a').format(_note.updatedAt);
 
     return AnnotatedRegion<SystemUiOverlayStyle>(
-      value: SystemUiOverlayStyle.light.copyWith(
-        statusBarColor: Colors.transparent,
-        systemNavigationBarColor: NotesTheme.pureBlack,
-        systemNavigationBarIconBrightness: Brightness.light,
-      ),
+      value: NotesTheme.systemOverlay,
       child: NotesRoyalBronzeBackground(
         child: Scaffold(
           backgroundColor: Colors.transparent,
@@ -156,41 +213,60 @@ class _NoteDetailViewState extends State<_NoteDetailView> {
                         for (final n in state.notes) {
                           if (n.id == _note.id) {
                             setState(() => _note = n);
+                            _maybeTriggerAi();
                             break;
                           }
                         }
                       }
                     },
                     child: SingleChildScrollView(
-                    physics: const BouncingScrollPhysics(),
-                    padding: EdgeInsets.fromLTRB(20.w, 0, 20.w, bottomPad + 20.h),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        SizedBox(height: 8.h),
-                        _buildMetadata(formattedDate),
-                        SizedBox(height: 20.h),
-                        _buildTitle(),
-                        if (_note.recording != null) ...[
-                          SizedBox(height: 16.h),
-                          _buildAudioSection(),
-                        ],
-                        SizedBox(height: 16.h),
-                        _buildContent(),
-                        if (_note.recording?.transcript != null &&
-                            _note.recording!.transcript!.isNotEmpty) ...[
-                          SizedBox(height: 16.h),
-                          _buildTranscriptSection(),
-                        ],
-                        if (_note.tags.isNotEmpty) ...[
+                      physics: const BouncingScrollPhysics(),
+                      padding:
+                          EdgeInsets.fromLTRB(20.w, 0, 20.w, bottomPad + 20.h),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          SizedBox(height: 8.h),
+                          _buildMetadata(formattedDate),
                           SizedBox(height: 20.h),
-                          _buildTags(),
+                          _buildTitle(),
+                          if (_note.images.isNotEmpty) ...[
+                            SizedBox(height: 16.h),
+                            _buildImages(),
+                          ],
+                          if (_note.content.trim().isNotEmpty) ...[
+                            SizedBox(height: 16.h),
+                            _buildContent(),
+                          ],
+                          if (_note.recording != null) ...[
+                            SizedBox(height: 16.h),
+                            _buildAudioSection(),
+                            SizedBox(height: 16.h),
+                            _buildTranscriptSection(),
+                          ],
+                          if (_shouldShowAiSection) ...[
+                            SizedBox(height: 16.h),
+                            _buildAiResultSection(),
+                          ],
+                          if (_note.translatedText != null &&
+                              _note.translatedText!.isNotEmpty) ...[
+                            SizedBox(height: 16.h),
+                            _buildTranslatedSection(),
+                          ],
+                          if (_note.actionItems.isNotEmpty) ...[
+                            SizedBox(height: 16.h),
+                            _buildActionItems(),
+                          ],
+                          if (!widget.readOnly) ...[
+                            SizedBox(height: 20.h),
+                            NotesAiActionsSection(
+                              note: _note,
+                              onUpdated: (n) => setState(() => _note = n),
+                            ),
+                          ],
                         ],
-                        SizedBox(height: 24.h),
-                        _buildQuickActions(),
-                      ],
+                      ),
                     ),
-                  ),
                   ),
                 ),
               ],
@@ -199,6 +275,17 @@ class _NoteDetailViewState extends State<_NoteDetailView> {
         ),
       ),
     );
+  }
+
+  bool get _shouldShowAiSection {
+    if (_note.aiMode == NoteAiMode.summarize ||
+        _note.aiMode == NoteAiMode.bullets) {
+      return true;
+    }
+    return (_note.aiSummary?.isNotEmpty ?? false) ||
+        (_note.aiBulletPoints?.isNotEmpty ?? false) ||
+        _note.aiStatus == NoteAiStatus.processing ||
+        _note.aiStatus == NoteAiStatus.pending;
   }
 
   Widget _buildHeader() {
@@ -214,51 +301,65 @@ class _NoteDetailViewState extends State<_NoteDetailView> {
               size: 24.sp,
             ),
           ),
-          const Spacer(),
-          IconButton(
-            onPressed: _editNote,
-            icon: Icon(
-              Icons.edit_outlined,
-              color: NotesTheme.textPrimary,
-              size: 22.sp,
-            ),
-          ),
-          IconButton(
-            onPressed: _shareNote,
-            icon: Icon(
-              Icons.share_outlined,
-              color: NotesTheme.textPrimary,
-              size: 22.sp,
-            ),
-          ),
-          PopupMenuButton<String>(
-            icon: Icon(
-              Icons.more_vert,
-              color: NotesTheme.textPrimary,
-              size: 22.sp,
-            ),
-            color: NotesTheme.charcoal,
-            itemBuilder: (context) => [
-              PopupMenuItem(
-                value: 'delete',
-                child: Row(
-                  children: [
-                    const Icon(Icons.delete_outline, color: Colors.red, size: 20),
-                    SizedBox(width: 8.w),
-                    Text(
-                      'Delete',
-                      style: GoogleFonts.poppins(color: Colors.red),
-                    ),
-                  ],
+          if (widget.readOnly)
+            Padding(
+              padding: EdgeInsets.only(left: 4.w),
+              child: Text(
+                'Shared · View only',
+                style: GoogleFonts.poppins(
+                  fontSize: 12.sp,
+                  color: NotesTheme.bronze,
                 ),
               ),
-            ],
-            onSelected: (value) {
-              if (value == 'delete') {
-                _deleteNote();
-              }
-            },
-          ),
+            ),
+          const Spacer(),
+          if (!widget.readOnly) ...[
+            IconButton(
+              onPressed: _editNote,
+              icon: Icon(
+                Icons.edit_outlined,
+                color: NotesTheme.textPrimary,
+                size: 22.sp,
+              ),
+            ),
+            IconButton(
+              onPressed: _shareNote,
+              icon: Icon(
+                Icons.share_outlined,
+                color: NotesTheme.textPrimary,
+                size: 22.sp,
+              ),
+            ),
+            PopupMenuButton<String>(
+              icon: Icon(
+                Icons.more_vert,
+                color: NotesTheme.textPrimary,
+                size: 22.sp,
+              ),
+              color: NotesTheme.charcoal,
+              itemBuilder: (context) => [
+                PopupMenuItem(
+                  value: 'delete',
+                  child: Row(
+                    children: [
+                      const Icon(Icons.delete_outline,
+                          color: Colors.red, size: 20),
+                      SizedBox(width: 8.w),
+                      Text(
+                        'Delete',
+                        style: GoogleFonts.poppins(color: Colors.red),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+              onSelected: (value) {
+                if (value == 'delete') {
+                  _deleteNote();
+                }
+              },
+            ),
+          ],
         ],
       ),
     );
@@ -302,7 +403,6 @@ class _NoteDetailViewState extends State<_NoteDetailView> {
       case NoteType.image:
         return Icons.image_outlined;
       case NoteType.text:
-      default:
         return Icons.sticky_note_2_outlined;
     }
   }
@@ -312,55 +412,25 @@ class _NoteDetailViewState extends State<_NoteDetailView> {
       case NoteType.audio:
         return 'Audio Note';
       case NoteType.image:
-        return 'Image Note';
+        return 'Scan Note';
       case NoteType.text:
-      default:
         return 'Text Note';
     }
   }
 
   Widget _buildTitle() {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Expanded(
-          child: Text(
-            _note.title,
-            style: GoogleFonts.poppins(
-              fontSize: 26.sp,
-              fontWeight: FontWeight.w700,
-              color: NotesTheme.textPrimary,
-              height: 1.2,
-            ),
-          ),
-        ),
-        if (_note.isImportant)
-          Padding(
-            padding: EdgeInsets.only(left: 8.w, top: 4.h),
-            child: Icon(
-              Icons.star_rounded,
-              size: 24.sp,
-              color: NotesTheme.bronze,
-            ),
-          ),
-        if (_note.isTodo)
-          Padding(
-            padding: EdgeInsets.only(left: 4.w, top: 4.h),
-            child: Icon(
-              Icons.check_circle_outline,
-              size: 24.sp,
-              color: const Color(0xFF4CAF50),
-            ),
-          ),
-      ],
+    return Text(
+      _note.title,
+      style: GoogleFonts.poppins(
+        fontSize: 26.sp,
+        fontWeight: FontWeight.w700,
+        color: NotesTheme.textPrimary,
+        height: 1.2,
+      ),
     );
   }
 
   Widget _buildContent() {
-    if (_note.content.isEmpty && _note.recording != null) {
-      return const SizedBox.shrink();
-    }
-
     if (_note.content.isEmpty) {
       return NotesGlassCard(
         padding: EdgeInsets.all(20.w),
@@ -379,28 +449,70 @@ class _NoteDetailViewState extends State<_NoteDetailView> {
 
     return NotesGlassCard(
       padding: EdgeInsets.all(20.w),
-      child: Text(
-        _note.content,
-        style: GoogleFonts.poppins(
-          fontSize: 15.sp,
-          color: NotesTheme.textPrimary.withValues(alpha: 0.9),
-          height: 1.7,
-        ),
+      child: NotesChecklistContent(
+        content: _note.content,
+        readOnly: widget.readOnly,
+        onContentChanged: _onChecklistChanged,
+      ),
+    );
+  }
+
+  Widget _buildImages() {
+    return SizedBox(
+      height: 140.h,
+      child: ListView.separated(
+        scrollDirection: Axis.horizontal,
+        itemCount: _note.images.length,
+        separatorBuilder: (_, __) => SizedBox(width: 10.w),
+        itemBuilder: (context, i) {
+          final img = _note.images[i];
+          return ClipRRect(
+            borderRadius: BorderRadius.circular(12.r),
+            child: Image.network(
+              img.imageUrl,
+              width: 140.w,
+              height: 140.h,
+              fit: BoxFit.cover,
+              errorBuilder: (_, __, ___) => Container(
+                width: 140.w,
+                height: 140.h,
+                color: NotesTheme.glassFill,
+                child: Icon(Icons.broken_image_outlined,
+                    color: NotesTheme.textPrimary.withValues(alpha: 0.4)),
+              ),
+            ),
+          );
+        },
       ),
     );
   }
 
   Widget _buildAudioSection() {
     final recording = _note.recording!;
-    String statusLabel;
-    switch (recording.status) {
-      case TranscriptionStatus.pending:
-      case TranscriptionStatus.processing:
-        statusLabel = 'Transcription in progress…';
-      case TranscriptionStatus.done:
-        statusLabel = 'Transcription ready';
-      case TranscriptionStatus.error:
-        statusLabel = 'Transcription failed';
+    if (recording.audioUrl.isEmpty) {
+      return NotesGlassCard(
+        padding: EdgeInsets.all(16.w),
+        child: Row(
+          children: [
+            SizedBox(
+              width: 18.w,
+              height: 18.w,
+              child: const CircularProgressIndicator(
+                strokeWidth: 2,
+                color: NotesTheme.bronze,
+              ),
+            ),
+            SizedBox(width: 10.w),
+            Text(
+              'Uploading audio…',
+              style: GoogleFonts.poppins(
+                fontSize: 13.sp,
+                color: NotesTheme.textPrimary.withValues(alpha: 0.5),
+              ),
+            ),
+          ],
+        ),
+      );
     }
 
     return NotesGlassCard(
@@ -410,7 +522,8 @@ class _NoteDetailViewState extends State<_NoteDetailView> {
         children: [
           Row(
             children: [
-              Icon(Icons.mic_none_rounded, color: NotesTheme.bronze, size: 18.sp),
+              Icon(Icons.mic_none_rounded,
+                  color: NotesTheme.bronze, size: 18.sp),
               SizedBox(width: 8.w),
               Text(
                 'Audio',
@@ -418,14 +531,6 @@ class _NoteDetailViewState extends State<_NoteDetailView> {
                   fontSize: 14.sp,
                   fontWeight: FontWeight.w600,
                   color: NotesTheme.textPrimary,
-                ),
-              ),
-              const Spacer(),
-              Text(
-                statusLabel,
-                style: GoogleFonts.poppins(
-                  fontSize: 11.sp,
-                  color: NotesTheme.textPrimary.withValues(alpha: 0.45),
                 ),
               ),
             ],
@@ -441,6 +546,18 @@ class _NoteDetailViewState extends State<_NoteDetailView> {
   }
 
   Widget _buildTranscriptSection() {
+    final recording = _note.recording!;
+    final transcript = recording.transcript?.trim() ?? '';
+    final isPending = transcript.isEmpty &&
+        (recording.status == TranscriptionStatus.pending ||
+            recording.status == TranscriptionStatus.processing);
+    final isError = recording.status == TranscriptionStatus.error;
+    final isIdle = recording.status == TranscriptionStatus.idle ||
+        (transcript.isEmpty &&
+            recording.status != TranscriptionStatus.pending &&
+            recording.status != TranscriptionStatus.processing &&
+            recording.status != TranscriptionStatus.error);
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -455,8 +572,138 @@ class _NoteDetailViewState extends State<_NoteDetailView> {
         SizedBox(height: 8.h),
         NotesGlassCard(
           padding: EdgeInsets.all(16.w),
+          child: transcript.isNotEmpty
+              ? Text(
+                  transcript,
+                  style: GoogleFonts.poppins(
+                    fontSize: 14.sp,
+                    color: NotesTheme.textPrimary.withValues(alpha: 0.9),
+                    height: 1.6,
+                  ),
+                )
+              : Row(
+                  children: [
+                    if (isPending)
+                      SizedBox(
+                        width: 16.w,
+                        height: 16.w,
+                        child: const CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: NotesTheme.bronze,
+                        ),
+                      ),
+                    if (isPending) SizedBox(width: 10.w),
+                    Expanded(
+                      child: Text(
+                        isError
+                            ? 'Transcription failed. Try again from AI tools.'
+                            : isPending
+                                ? 'Transcribing audio…'
+                                : isIdle
+                                    ? 'No transcript yet. Use AI tools → Transcribe when you want one.'
+                                    : 'No transcript yet.',
+                        style: GoogleFonts.poppins(
+                          fontSize: 13.sp,
+                          color: NotesTheme.textPrimary.withValues(alpha: 0.5),
+                          fontStyle: FontStyle.italic,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildAiResultSection() {
+    final body = (_note.aiMode == NoteAiMode.bullets
+            ? _note.aiBulletPoints
+            : _note.aiSummary) ??
+        _note.aiBulletPoints ??
+        _note.aiSummary ??
+        '';
+    final hasBody = body.trim().isNotEmpty;
+    final isBusy = !hasBody &&
+        (_note.aiStatus == NoteAiStatus.pending ||
+            _note.aiStatus == NoteAiStatus.processing);
+    final isError = !hasBody && _note.aiStatus == NoteAiStatus.error;
+    final title = _note.aiMode == NoteAiMode.bullets ||
+            (_note.aiBulletPoints?.isNotEmpty ?? false)
+        ? 'Bullet points'
+        : 'Summary';
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          title,
+          style: GoogleFonts.poppins(
+            fontSize: 14.sp,
+            fontWeight: FontWeight.w600,
+            color: NotesTheme.textPrimary.withValues(alpha: 0.7),
+          ),
+        ),
+        SizedBox(height: 8.h),
+        NotesGlassCard(
+          padding: EdgeInsets.all(16.w),
+          child: hasBody
+              ? Text(
+                  body,
+                  style: GoogleFonts.poppins(
+                    fontSize: 14.sp,
+                    color: NotesTheme.textPrimary.withValues(alpha: 0.9),
+                    height: 1.6,
+                  ),
+                )
+              : Row(
+                  children: [
+                    if (isBusy)
+                      SizedBox(
+                        width: 16.w,
+                        height: 16.w,
+                        child: const CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: NotesTheme.bronze,
+                        ),
+                      ),
+                    if (isBusy) SizedBox(width: 10.w),
+                    Expanded(
+                      child: Text(
+                        isError
+                            ? 'AI processing failed. Use AI actions to retry.'
+                            : 'Generating…',
+                        style: GoogleFonts.poppins(
+                          fontSize: 13.sp,
+                          color: NotesTheme.textPrimary.withValues(alpha: 0.5),
+                          fontStyle: FontStyle.italic,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildTranslatedSection() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Translation (${_note.translatedLanguage ?? ''})',
+          style: GoogleFonts.poppins(
+            fontSize: 14.sp,
+            fontWeight: FontWeight.w600,
+            color: NotesTheme.textPrimary.withValues(alpha: 0.7),
+          ),
+        ),
+        SizedBox(height: 8.h),
+        NotesGlassCard(
+          padding: EdgeInsets.all(16.w),
           child: Text(
-            _note.recording!.transcript!,
+            _note.translatedText!,
             style: GoogleFonts.poppins(
               fontSize: 14.sp,
               color: NotesTheme.textPrimary.withValues(alpha: 0.9),
@@ -468,12 +715,12 @@ class _NoteDetailViewState extends State<_NoteDetailView> {
     );
   }
 
-  Widget _buildTags() {
+  Widget _buildActionItems() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          'Tags',
+          'Action items',
           style: GoogleFonts.poppins(
             fontSize: 14.sp,
             fontWeight: FontWeight.w600,
@@ -481,113 +728,42 @@ class _NoteDetailViewState extends State<_NoteDetailView> {
           ),
         ),
         SizedBox(height: 8.h),
-        Wrap(
-          spacing: 8.w,
-          runSpacing: 8.h,
-          children: _note.tags.map((tag) {
-            return Container(
-              padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 6.h),
-              decoration: BoxDecoration(
-                color: NotesTheme.bronze.withValues(alpha: 0.15),
-                borderRadius: BorderRadius.circular(20.r),
-                border: Border.all(
-                  color: NotesTheme.bronze.withValues(alpha: 0.3),
+        NotesGlassCard(
+          padding: EdgeInsets.symmetric(vertical: 8.h),
+          child: Column(
+            children: _note.actionItems.map((item) {
+              return CheckboxListTile(
+                value: item.isDone,
+                onChanged: widget.readOnly
+                    ? null
+                    : (v) {
+                        final updated = _note.actionItems.map((a) {
+                          if (a.id == item.id) {
+                            return a.copyWith(isDone: v ?? false);
+                          }
+                          return a;
+                        }).toList();
+                        final next = _note.copyWith(actionItems: updated);
+                        setState(() => _note = next);
+                        context.read<NotesBloc>().add(UpdateNote(next));
+                      },
+                activeColor: NotesTheme.bronze,
+                title: Text(
+                  item.description,
+                  style: GoogleFonts.poppins(
+                    fontSize: 13.sp,
+                    color: NotesTheme.textPrimary,
+                    decoration:
+                        item.isDone ? TextDecoration.lineThrough : null,
+                  ),
                 ),
-              ),
-              child: Text(
-                tag,
-                style: GoogleFonts.poppins(
-                  fontSize: 12.sp,
-                  fontWeight: FontWeight.w500,
-                  color: NotesTheme.bronze,
-                ),
-              ),
-            );
-          }).toList(),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildQuickActions() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          'Quick Actions',
-          style: GoogleFonts.poppins(
-            fontSize: 14.sp,
-            fontWeight: FontWeight.w600,
-            color: NotesTheme.textPrimary.withValues(alpha: 0.7),
+                controlAffinity: ListTileControlAffinity.leading,
+                dense: true,
+              );
+            }).toList(),
           ),
         ),
-        SizedBox(height: 12.h),
-        Row(
-          children: [
-            Expanded(
-              child: _buildActionButton(
-                icon: Icons.star_rounded,
-                label: _note.isImportant ? 'Unstar' : 'Star',
-                isActive: _note.isImportant,
-                activeColor: NotesTheme.bronze,
-                onTap: _toggleImportant,
-              ),
-            ),
-            SizedBox(width: 12.w),
-            Expanded(
-              child: _buildActionButton(
-                icon: Icons.check_circle_outline,
-                label: _note.isTodo ? 'Remove To-do' : 'Add To-do',
-                isActive: _note.isTodo,
-                activeColor: const Color(0xFF4CAF50),
-                onTap: _toggleTodo,
-              ),
-            ),
-          ],
-        ),
       ],
-    );
-  }
-
-  Widget _buildActionButton({
-    required IconData icon,
-    required String label,
-    required bool isActive,
-    required Color activeColor,
-    required VoidCallback onTap,
-  }) {
-    return GestureDetector(
-      onTap: onTap,
-      child: NotesGlassCard(
-        padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 14.h),
-        borderRadius: BorderRadius.circular(14.r),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(
-              icon,
-              size: 20.sp,
-              color: isActive
-                  ? activeColor
-                  : NotesTheme.textPrimary.withValues(alpha: 0.5),
-            ),
-            SizedBox(width: 8.w),
-            Flexible(
-              child: Text(
-                label,
-                style: GoogleFonts.poppins(
-                  fontSize: 12.sp,
-                  fontWeight: FontWeight.w500,
-                  color: isActive
-                      ? activeColor
-                      : NotesTheme.textPrimary.withValues(alpha: 0.5),
-                ),
-                overflow: TextOverflow.ellipsis,
-              ),
-            ),
-          ],
-        ),
-      ),
     );
   }
 }

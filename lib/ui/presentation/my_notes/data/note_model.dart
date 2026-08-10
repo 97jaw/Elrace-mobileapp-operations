@@ -2,7 +2,78 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 
 enum NoteType { text, audio, image }
 
-enum TranscriptionStatus { pending, processing, done, error }
+enum TranscriptionStatus { idle, pending, processing, done, error }
+
+enum NoteAiMode { none, transcribe, summarize, bullets }
+
+enum NoteAiStatus { none, pending, processing, done, error }
+
+class NoteSharedMember {
+  final String uid;
+  final int? employeeId;
+  final String name;
+  final String? avatarUrl;
+
+  const NoteSharedMember({
+    required this.uid,
+    this.employeeId,
+    required this.name,
+    this.avatarUrl,
+  });
+
+  factory NoteSharedMember.fromJson(Map<String, dynamic> json) {
+    return NoteSharedMember(
+      uid: json['uid']?.toString() ?? '',
+      employeeId: json['employeeId'] is int
+          ? json['employeeId'] as int
+          : int.tryParse('${json['employeeId'] ?? ''}'),
+      name: json['name']?.toString() ?? '',
+      avatarUrl: json['avatarUrl']?.toString(),
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'uid': uid,
+      if (employeeId != null) 'employeeId': employeeId,
+      'name': name,
+      if (avatarUrl != null) 'avatarUrl': avatarUrl,
+    };
+  }
+}
+
+class SharedNoteRef {
+  final String noteId;
+  final String ownerId;
+  final String title;
+  final DateTime sharedAt;
+
+  const SharedNoteRef({
+    required this.noteId,
+    required this.ownerId,
+    required this.title,
+    required this.sharedAt,
+  });
+
+  factory SharedNoteRef.fromFirestore(DocumentSnapshot doc) {
+    final data = doc.data() as Map<String, dynamic>? ?? {};
+    return SharedNoteRef(
+      noteId: data['noteId']?.toString() ?? doc.id,
+      ownerId: data['ownerId']?.toString() ?? '',
+      title: data['title']?.toString() ?? 'Shared note',
+      sharedAt: NoteModel._parseDateTime(data['sharedAt']) ?? DateTime.now(),
+    );
+  }
+
+  Map<String, dynamic> toFirestore() {
+    return {
+      'noteId': noteId,
+      'ownerId': ownerId,
+      'title': title,
+      'sharedAt': Timestamp.fromDate(sharedAt),
+    };
+  }
+}
 
 class NoteModel {
   final String id;
@@ -15,10 +86,18 @@ class NoteModel {
   final bool isTodo;
   final DateTime createdAt;
   final DateTime updatedAt;
+  final NoteAiMode aiMode;
+  final String? aiContext;
+  final NoteAiStatus aiStatus;
   final String? aiSummary;
+  final String? aiBulletPoints;
+  final String? translatedText;
+  final String? translatedLanguage;
   final List<ActionItem> actionItems;
   final RecordingInfo? recording;
   final List<ImageAttachment> images;
+  final List<String> sharedWithUids;
+  final List<NoteSharedMember> sharedWith;
 
   const NoteModel({
     required this.id,
@@ -31,10 +110,18 @@ class NoteModel {
     this.isTodo = false,
     required this.createdAt,
     required this.updatedAt,
+    this.aiMode = NoteAiMode.none,
+    this.aiContext,
+    this.aiStatus = NoteAiStatus.none,
     this.aiSummary,
+    this.aiBulletPoints,
+    this.translatedText,
+    this.translatedLanguage,
     this.actionItems = const [],
     this.recording,
     this.images = const [],
+    this.sharedWithUids = const [],
+    this.sharedWith = const [],
   });
 
   factory NoteModel.fromJson(Map<String, dynamic> json) {
@@ -52,7 +139,19 @@ class NoteModel {
       isTodo: json['isTodo'] ?? false,
       createdAt: _parseDateTime(json['createdAt']) ?? DateTime.now(),
       updatedAt: _parseDateTime(json['updatedAt']) ?? DateTime.now(),
-      aiSummary: json['aiSummary'],
+      aiMode: NoteAiMode.values.firstWhere(
+        (e) => e.name == json['aiMode'],
+        orElse: () => NoteAiMode.none,
+      ),
+      aiContext: json['aiContext']?.toString(),
+      aiStatus: NoteAiStatus.values.firstWhere(
+        (e) => e.name == json['aiStatus'],
+        orElse: () => NoteAiStatus.none,
+      ),
+      aiSummary: json['aiSummary']?.toString(),
+      aiBulletPoints: json['aiBulletPoints']?.toString(),
+      translatedText: json['translatedText']?.toString(),
+      translatedLanguage: json['translatedLanguage']?.toString(),
       actionItems: (json['actionItems'] as List<dynamic>?)
               ?.map((e) => ActionItem.fromJson(e as Map<String, dynamic>))
               .toList() ??
@@ -62,6 +161,11 @@ class NoteModel {
           : null,
       images: (json['images'] as List<dynamic>?)
               ?.map((e) => ImageAttachment.fromJson(e as Map<String, dynamic>))
+              .toList() ??
+          [],
+      sharedWithUids: List<String>.from(json['sharedWithUids'] ?? []),
+      sharedWith: (json['sharedWith'] as List<dynamic>?)
+              ?.map((e) => NoteSharedMember.fromJson(e as Map<String, dynamic>))
               .toList() ??
           [],
     );
@@ -87,10 +191,18 @@ class NoteModel {
       'isTodo': isTodo,
       'createdAt': createdAt.toIso8601String(),
       'updatedAt': updatedAt.toIso8601String(),
+      'aiMode': aiMode.name,
+      if (aiContext != null) 'aiContext': aiContext,
+      'aiStatus': aiStatus.name,
       if (aiSummary != null) 'aiSummary': aiSummary,
+      if (aiBulletPoints != null) 'aiBulletPoints': aiBulletPoints,
+      if (translatedText != null) 'translatedText': translatedText,
+      if (translatedLanguage != null) 'translatedLanguage': translatedLanguage,
       'actionItems': actionItems.map((e) => e.toJson()).toList(),
       if (recording != null) 'recording': recording!.toJson(),
       'images': images.map((e) => e.toJson()).toList(),
+      'sharedWithUids': sharedWithUids,
+      'sharedWith': sharedWith.map((e) => e.toJson()).toList(),
     };
   }
 
@@ -105,10 +217,18 @@ class NoteModel {
       'isTodo': isTodo,
       'createdAt': Timestamp.fromDate(createdAt),
       'updatedAt': Timestamp.fromDate(updatedAt),
+      'aiMode': aiMode.name,
+      if (aiContext != null) 'aiContext': aiContext,
+      'aiStatus': aiStatus.name,
       if (aiSummary != null) 'aiSummary': aiSummary,
+      if (aiBulletPoints != null) 'aiBulletPoints': aiBulletPoints,
+      if (translatedText != null) 'translatedText': translatedText,
+      if (translatedLanguage != null) 'translatedLanguage': translatedLanguage,
       'actionItems': actionItems.map((e) => e.toJson()).toList(),
       if (recording != null) 'recording': recording!.toJson(),
       'images': images.map((e) => e.toJson()).toList(),
+      'sharedWithUids': sharedWithUids,
+      'sharedWith': sharedWith.map((e) => e.toJson()).toList(),
     };
   }
 
@@ -123,10 +243,18 @@ class NoteModel {
     bool? isTodo,
     DateTime? createdAt,
     DateTime? updatedAt,
+    NoteAiMode? aiMode,
+    String? aiContext,
+    NoteAiStatus? aiStatus,
     String? aiSummary,
+    String? aiBulletPoints,
+    String? translatedText,
+    String? translatedLanguage,
     List<ActionItem>? actionItems,
     RecordingInfo? recording,
     List<ImageAttachment>? images,
+    List<String>? sharedWithUids,
+    List<NoteSharedMember>? sharedWith,
   }) {
     return NoteModel(
       id: id ?? this.id,
@@ -139,10 +267,18 @@ class NoteModel {
       isTodo: isTodo ?? this.isTodo,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
+      aiMode: aiMode ?? this.aiMode,
+      aiContext: aiContext ?? this.aiContext,
+      aiStatus: aiStatus ?? this.aiStatus,
       aiSummary: aiSummary ?? this.aiSummary,
+      aiBulletPoints: aiBulletPoints ?? this.aiBulletPoints,
+      translatedText: translatedText ?? this.translatedText,
+      translatedLanguage: translatedLanguage ?? this.translatedLanguage,
       actionItems: actionItems ?? this.actionItems,
       recording: recording ?? this.recording,
       images: images ?? this.images,
+      sharedWithUids: sharedWithUids ?? this.sharedWithUids,
+      sharedWith: sharedWith ?? this.sharedWith,
     );
   }
 
@@ -167,6 +303,10 @@ class NoteModel {
   String get subtitle {
     switch (noteType) {
       case NoteType.audio:
+        final hasAudio = recording?.audioUrl.isNotEmpty == true;
+        if (!hasAudio) {
+          return '$displayDate · Transcript saved';
+        }
         final duration = recording?.durationSeconds ?? 0;
         final minutes = duration ~/ 60;
         final seconds = duration % 60;
@@ -174,10 +314,13 @@ class NoteModel {
       case NoteType.image:
         return '$displayDate · ${images.length} image${images.length != 1 ? 's' : ''}';
       case NoteType.text:
-      default:
         return displayDate;
     }
   }
+
+  bool get needsAiProcessing =>
+      (aiMode == NoteAiMode.summarize || aiMode == NoteAiMode.bullets) &&
+      (aiStatus == NoteAiStatus.pending || aiStatus == NoteAiStatus.none);
 }
 
 class ActionItem {
@@ -234,13 +377,15 @@ class RecordingInfo {
   final String language;
   final String? transcript;
   final TranscriptionStatus status;
+  final String? storagePath;
 
   const RecordingInfo({
     required this.audioUrl,
     required this.durationSeconds,
     this.language = 'en',
     this.transcript,
-    this.status = TranscriptionStatus.pending,
+    this.status = TranscriptionStatus.idle,
+    this.storagePath,
   });
 
   factory RecordingInfo.fromJson(Map<String, dynamic> json) {
@@ -251,8 +396,9 @@ class RecordingInfo {
       transcript: json['transcript'],
       status: TranscriptionStatus.values.firstWhere(
         (e) => e.name == json['status'],
-        orElse: () => TranscriptionStatus.pending,
+        orElse: () => TranscriptionStatus.idle,
       ),
+      storagePath: json['storagePath']?.toString(),
     );
   }
 
@@ -263,6 +409,7 @@ class RecordingInfo {
       'language': language,
       if (transcript != null) 'transcript': transcript,
       'status': status.name,
+      if (storagePath != null) 'storagePath': storagePath,
     };
   }
 
@@ -272,6 +419,7 @@ class RecordingInfo {
     String? language,
     String? transcript,
     TranscriptionStatus? status,
+    String? storagePath,
   }) {
     return RecordingInfo(
       audioUrl: audioUrl ?? this.audioUrl,
@@ -279,6 +427,7 @@ class RecordingInfo {
       language: language ?? this.language,
       transcript: transcript ?? this.transcript,
       status: status ?? this.status,
+      storagePath: storagePath ?? this.storagePath,
     );
   }
 }

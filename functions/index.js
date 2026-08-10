@@ -19,6 +19,22 @@ const storage = getStorage();
 const { onNotesAudioUploaded } = require("./notes_transcribe");
 exports.onNotesAudioUploaded = onNotesAudioUploaded;
 
+// My Notes — GPT summarize / bullets / actions / tags / translate
+const { processNoteAi } = require("./notes_ai");
+exports.processNoteAi = processNoteAi;
+
+// Delete audio older than 24h (notes / chat / task voice)
+const { cleanupExpiredAudio } = require("./audio_vacuum");
+exports.cleanupExpiredAudio = cleanupExpiredAudio;
+
+// Signature docs — sync personal library + notify requester when signing completes
+const { onSignableDocumentUpdated } = require("./sign_document_sync");
+exports.onSignableDocumentUpdated = onSignableDocumentUpdated;
+
+// My Notes — notify recipient when a note is shared with them
+const { onNoteShared } = require("./notes_share_notify");
+exports.onNoteShared = onNoteShared;
+
 /** AWS Rekognition region for timesheet face mocks (liveness callables live in functions-liveness/). */
 const AWS_REKOGNITION_REGION = "ap-south-1";
 

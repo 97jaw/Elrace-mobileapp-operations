@@ -1,85 +1,161 @@
 import 'package:el_race/core/ui/adaptive_glass.dart';
 import 'package:el_race/ui/presentation/my_notes/theme/notes_theme.dart';
+import 'package:el_race/ui/presentation/my_notes/theme/notes_theme_controller.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 
 enum NotesBottomNavTab {
   home,
-  documents,
-  chat,
-  profile,
+  list,
+  shared,
 }
 
-/// Floating pill bottom bar for My Notes (UI shell; taps stubbed for now).
+/// Floating pill bottom bar: Home · List · FAB create · Shared · Theme.
 class NotesBottomNavBar extends StatelessWidget {
   const NotesBottomNavBar({
     super.key,
     required this.selected,
     required this.onSelected,
+    required this.onCreateTap,
   });
 
   final NotesBottomNavTab selected;
   final ValueChanged<NotesBottomNavTab> onSelected;
+  final VoidCallback onCreateTap;
 
   @override
   Widget build(BuildContext context) {
-    final radius = BorderRadius.circular(999);
+    // Rebuild the whole bar (not only the icon) when Dark/Light flips.
+    return ListenableBuilder(
+      listenable: NotesThemeController.instance,
+      builder: (context, _) {
+        final radius = BorderRadius.circular(999);
 
-    return AdaptiveGlassLayer(
-      borderRadius: radius,
-      sigma: 18,
-      fallbackColor: NotesTheme.charcoal.withValues(alpha: 0.92),
-      fallbackBorder: Border.all(
-        color: NotesTheme.bronze.withValues(alpha: 0.28),
-      ),
-      child: Container(
-        padding: EdgeInsets.symmetric(horizontal: 14.w, vertical: 10.h),
-        decoration: BoxDecoration(
+        return AdaptiveGlassLayer(
           borderRadius: radius,
-          border: Border.all(
+          sigma: 18,
+          fallbackColor: NotesTheme.isLight
+              ? NotesTheme.surface.withValues(alpha: 0.95)
+              : NotesTheme.charcoal.withValues(alpha: 0.92),
+          fallbackBorder: Border.all(
             color: NotesTheme.bronze.withValues(alpha: 0.28),
           ),
-          gradient: LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [
-              NotesTheme.charcoal.withValues(alpha: 0.72),
-              NotesTheme.pureBlack.withValues(alpha: 0.78),
-              NotesTheme.bronze.withValues(alpha: 0.18),
-            ],
+          child: Container(
+            padding: EdgeInsets.symmetric(horizontal: 10.w, vertical: 8.h),
+            decoration: BoxDecoration(
+              borderRadius: radius,
+              border: Border.all(
+                color: NotesTheme.bronze.withValues(alpha: 0.28),
+              ),
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: NotesTheme.isLight
+                    ? [
+                        NotesTheme.surface.withValues(alpha: 0.95),
+                        NotesTheme.charcoal.withValues(alpha: 0.55),
+                        NotesTheme.bronze.withValues(alpha: 0.12),
+                      ]
+                    : [
+                        NotesTheme.charcoal.withValues(alpha: 0.72),
+                        NotesTheme.pureBlack.withValues(alpha: 0.78),
+                        NotesTheme.bronze.withValues(alpha: 0.18),
+                      ],
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black
+                      .withValues(alpha: NotesTheme.isLight ? 0.12 : 0.45),
+                  blurRadius: 24,
+                  offset: const Offset(0, 10),
+                ),
+              ],
+            ),
+            child: Row(
+              children: [
+                Expanded(
+                  child: _NavItem(
+                    icon: Icons.home_rounded,
+                    selected: selected == NotesBottomNavTab.home,
+                    onTap: () => onSelected(NotesBottomNavTab.home),
+                  ),
+                ),
+                Expanded(
+                  child: _NavItem(
+                    icon: Icons.notes_rounded,
+                    selected: selected == NotesBottomNavTab.list,
+                    onTap: () => onSelected(NotesBottomNavTab.list),
+                  ),
+                ),
+                Expanded(child: _CreateFab(onTap: onCreateTap)),
+                Expanded(
+                  child: _NavItem(
+                    icon: Icons.person_outline_rounded,
+                    selected: selected == NotesBottomNavTab.shared,
+                    onTap: () => onSelected(NotesBottomNavTab.shared),
+                  ),
+                ),
+                Expanded(
+                  child: _NavItem(
+                    icon: NotesTheme.isLight
+                        ? Icons.dark_mode_outlined
+                        : Icons.light_mode_outlined,
+                    selected: false,
+                    onTap: () => NotesThemeController.instance.toggle(),
+                  ),
+                ),
+              ],
+            ),
           ),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.45),
-              blurRadius: 24,
-              offset: const Offset(0, 10),
+        );
+      },
+    );
+  }
+}
+
+class _CreateFab extends StatelessWidget {
+  const _CreateFab({required this.onTap});
+
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: onTap,
+          customBorder: const CircleBorder(),
+          child: Container(
+            width: 54.w,
+            height: 54.w,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [
+                  NotesTheme.bronze,
+                  NotesTheme.bronze.withValues(alpha: 0.75),
+                ],
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: NotesTheme.bronze.withValues(alpha: 0.4),
+                  blurRadius: 14,
+                  offset: const Offset(0, 5),
+                ),
+              ],
             ),
-          ],
-        ),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-          children: [
-            _NavItem(
-              icon: Icons.home_rounded,
-              selected: selected == NotesBottomNavTab.home,
-              onTap: () => onSelected(NotesBottomNavTab.home),
+            child: Icon(
+              Icons.add_rounded,
+              size: 28.sp,
+              color: NotesTheme.isLight
+                  ? const Color(0xFF2C3E50)
+                  : NotesTheme.pureBlack,
             ),
-            _NavItem(
-              icon: Icons.description_outlined,
-              selected: selected == NotesBottomNavTab.documents,
-              onTap: () => onSelected(NotesBottomNavTab.documents),
-            ),
-            _NavItem(
-              icon: Icons.chat_bubble_outline_rounded,
-              selected: selected == NotesBottomNavTab.chat,
-              onTap: () => onSelected(NotesBottomNavTab.chat),
-            ),
-            _NavItem(
-              icon: Icons.person_outline_rounded,
-              selected: selected == NotesBottomNavTab.profile,
-              onTap: () => onSelected(NotesBottomNavTab.profile),
-            ),
-          ],
+          ),
         ),
       ),
     );
@@ -107,8 +183,8 @@ class _NavItem extends StatelessWidget {
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 200),
           curve: Curves.easeOut,
-          width: 48.w,
-          height: 48.w,
+          width: 44.w,
+          height: 44.w,
           alignment: Alignment.center,
           decoration: BoxDecoration(
             shape: BoxShape.circle,
@@ -145,7 +221,9 @@ class _NavItem extends StatelessWidget {
             icon,
             size: 22.sp,
             color: selected
-                ? NotesTheme.pureBlack
+                ? (NotesTheme.isLight
+                    ? const Color(0xFF2C3E50)
+                    : NotesTheme.pureBlack)
                 : NotesTheme.textPrimary.withValues(alpha: 0.55),
           ),
         ),

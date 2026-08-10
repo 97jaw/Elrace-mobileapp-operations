@@ -296,6 +296,14 @@ class SignatureActionItem {
   }
 
   SignatureItemBucket get bucket {
+    // Live chat message wins over a stale personal library copy.
+    // (Signer B often cannot write users/{A}/signature_documents — personal
+    // can remain pending_other after the chat message is already signed.)
+    if (message.signStatus == SignStatus.signed) {
+      return SignatureItemBucket.completed;
+    }
+    if (isExpired) return SignatureItemBucket.expired;
+
     final personal = personalDoc;
     if (personal != null) {
       switch (personal.status) {
@@ -315,10 +323,6 @@ class SignatureActionItem {
           return SignatureItemBucket.waitingForOthers;
       }
     }
-    if (message.signStatus == SignStatus.signed) {
-      return SignatureItemBucket.completed;
-    }
-    if (isExpired) return SignatureItemBucket.expired;
     // My turn wins even when I am also the sender (request-to-self).
     if (isMyTurnToSign) return SignatureItemBucket.needsSignature;
     if (isSender) return SignatureItemBucket.waitingForOthers;

@@ -120,6 +120,15 @@ class FirebaseNotesRepository implements INotesRepository {
   }
 
   @override
+  Stream<NoteModel?> watchNoteById(String noteId) async* {
+    await _ensureSignedIn();
+    yield* _notesCollection.doc(noteId).snapshots().map((doc) {
+      if (!doc.exists) return null;
+      return NoteModel.fromFirestore(doc);
+    });
+  }
+
+  @override
   Future<void> addNote(NoteModel note) async {
     try {
       await _ensureSignedIn();
@@ -144,11 +153,83 @@ class FirebaseNotesRepository implements INotesRepository {
   Future<void> updateNote(NoteModel note) async {
     try {
       await _ensureSignedIn();
-      final updatedNote = note.copyWith(updatedAt: DateTime.now());
-      await _notesCollection.doc(note.id).update(updatedNote.toFirestore());
+      final ref = _notesCollection.doc(note.id);
+      final existingSnap = await ref.get();
+      var toSave = note.copyWith(updatedAt: DateTime.now());
+
+      // Don't let a stale client snapshot wipe Whisper transcript / AI results.
+      if (existingSnap.exists) {
+        final server = NoteModel.fromFirestore(existingSnap);
+        toSave = _mergePreservingServerAi(client: toSave, server: server);
+      }
+
+      await ref.update(toSave.toFirestore());
     } catch (e) {
+      debugPrint('❌ FirebaseNotesRepository: updateNote failed: $e');
       throw Exception('Failed to update note: $e');
     }
+  }
+
+  /// Prefer server recording transcript / AI outputs when the client is stale.
+  NoteModel _mergePreservingServerAi({
+    required NoteModel client,
+    required NoteModel server,
+  }) {
+    var merged = client;
+
+    final cRec = client.recording;
+    final sRec = server.recording;
+    if (cRec != null && sRec != null) {
+      final clientTranscriptEmpty =
+          cRec.transcript == null || cRec.transcript!.trim().isEmpty;
+      final serverHasTranscript = sRec.transcript?.trim().isNotEmpty ?? false;
+      final serverFurther =
+          sRec.status == TranscriptionStatus.done ||
+          sRec.status == TranscriptionStatus.processing ||
+          serverHasTranscript;
+
+      if (clientTranscriptEmpty && serverFurther) {
+        merged = merged.copyWith(
+          recording: sRec.copyWith(
+            audioUrl:
+                cRec.audioUrl.isNotEmpty ? cRec.audioUrl : sRec.audioUrl,
+            storagePath: cRec.storagePath ?? sRec.storagePath,
+            durationSeconds: cRec.durationSeconds > 0
+                ? cRec.durationSeconds
+                : sRec.durationSeconds,
+          ),
+        );
+      }
+    } else if (cRec == null && sRec != null) {
+      merged = merged.copyWith(recording: sRec);
+    }
+
+    if ((client.aiSummary == null || client.aiSummary!.isEmpty) &&
+        (server.aiSummary?.isNotEmpty ?? false)) {
+      merged = merged.copyWith(aiSummary: server.aiSummary);
+    }
+    if ((client.aiBulletPoints == null || client.aiBulletPoints!.isEmpty) &&
+        (server.aiBulletPoints?.isNotEmpty ?? false)) {
+      merged = merged.copyWith(aiBulletPoints: server.aiBulletPoints);
+    }
+    if ((client.translatedText == null || client.translatedText!.isEmpty) &&
+        (server.translatedText?.isNotEmpty ?? false)) {
+      merged = merged.copyWith(
+        translatedText: server.translatedText,
+        translatedLanguage: server.translatedLanguage,
+      );
+    }
+    if (client.actionItems.isEmpty && server.actionItems.isNotEmpty) {
+      merged = merged.copyWith(actionItems: server.actionItems);
+    }
+    // Don't regress AI status done → pending from a stale client write.
+    if (server.aiStatus == NoteAiStatus.done &&
+        (client.aiStatus == NoteAiStatus.pending ||
+            client.aiStatus == NoteAiStatus.none)) {
+      merged = merged.copyWith(aiStatus: NoteAiStatus.done);
+    }
+
+    return merged;
   }
 
   @override
@@ -246,6 +327,106 @@ class FirebaseNotesRepository implements INotesRepository {
     } catch (e) {
       throw Exception('Failed to remove tag: $e');
     }
+  }
+
+  CollectionReference<Map<String, dynamic>> get _sharedRefsCollection =>
+      _firestore.collection('users').doc(_userId).collection('shared_note_refs');
+
+  Future<List<SharedNoteRef>> getSharedWithMe() async {
+    await _ensureSignedIn();
+    final snap = await _sharedRefsCollection
+        .orderBy('sharedAt', descending: true)
+        .get();
+    return snap.docs.map(SharedNoteRef.fromFirestore).toList();
+  }
+
+  Stream<List<SharedNoteRef>> watchSharedWithMe() async* {
+    await _ensureSignedIn();
+    yield* _sharedRefsCollection
+        .orderBy('sharedAt', descending: true)
+        .snapshots()
+        .map((s) => s.docs.map(SharedNoteRef.fromFirestore).toList());
+  }
+
+  Future<NoteModel?> getSharedNote({
+    required String ownerId,
+    required String noteId,
+  }) async {
+    await _ensureSignedIn();
+    final doc = await _firestore
+        .collection('users')
+        .doc(ownerId)
+        .collection('notes')
+        .doc(noteId)
+        .get();
+    if (!doc.exists) return null;
+    return NoteModel.fromFirestore(doc);
+  }
+
+  Future<NoteModel> shareNoteWith({
+    required String noteId,
+    required NoteSharedMember member,
+  }) async {
+    await _ensureSignedIn();
+    final doc = await _notesCollection.doc(noteId).get();
+    if (!doc.exists) throw Exception('Note not found');
+    final note = NoteModel.fromFirestore(doc);
+
+    final uids = {...note.sharedWithUids, member.uid}.toList();
+    final members = [
+      ...note.sharedWith.where((m) => m.uid != member.uid),
+      member,
+    ];
+
+    await _notesCollection.doc(noteId).update({
+      'sharedWithUids': uids,
+      'sharedWith': members.map((e) => e.toJson()).toList(),
+      'updatedAt': Timestamp.now(),
+    });
+
+    await _firestore
+        .collection('users')
+        .doc(member.uid)
+        .collection('shared_note_refs')
+        .doc(noteId)
+        .set(
+          SharedNoteRef(
+            noteId: noteId,
+            ownerId: _userId,
+            title: note.title,
+            sharedAt: DateTime.now(),
+          ).toFirestore(),
+        );
+
+    return note.copyWith(sharedWithUids: uids, sharedWith: members);
+  }
+
+  Future<NoteModel> unshareNoteWith({
+    required String noteId,
+    required String uid,
+  }) async {
+    await _ensureSignedIn();
+    final doc = await _notesCollection.doc(noteId).get();
+    if (!doc.exists) throw Exception('Note not found');
+    final note = NoteModel.fromFirestore(doc);
+
+    final uids = note.sharedWithUids.where((u) => u != uid).toList();
+    final members = note.sharedWith.where((m) => m.uid != uid).toList();
+
+    await _notesCollection.doc(noteId).update({
+      'sharedWithUids': uids,
+      'sharedWith': members.map((e) => e.toJson()).toList(),
+      'updatedAt': Timestamp.now(),
+    });
+
+    await _firestore
+        .collection('users')
+        .doc(uid)
+        .collection('shared_note_refs')
+        .doc(noteId)
+        .delete();
+
+    return note.copyWith(sharedWithUids: uids, sharedWith: members);
   }
 
   Future<List<NoteModel>> searchNotes(String query) async {

@@ -31,7 +31,9 @@ class NotesGlassCard extends StatelessWidget {
         child: AdaptiveGlassLayer(
           borderRadius: radius,
           sigma: 14,
-          fallbackColor: NotesTheme.charcoal.withValues(alpha: 0.55),
+          fallbackColor: NotesTheme.isLight
+              ? NotesTheme.surface.withValues(alpha: 0.92)
+              : NotesTheme.charcoal.withValues(alpha: 0.55),
           fallbackBorder: NotesTheme.glassBoxBorder,
           child: DecoratedBox(
             decoration: BoxDecoration(

@@ -1,10 +1,11 @@
 import 'package:el_race/ui/presentation/my_notes/theme/notes_theme.dart';
+import 'package:el_race/ui/presentation/my_notes/theme/notes_theme_controller.dart';
 import 'package:flutter/material.dart';
 
-/// Pure black canvas with a very slow, subtle Royal Bronze gradient wash.
+/// Canvas with a slow Royal Bronze gradient wash (dark or light).
 ///
-/// Shades: [#2C3E50] ↔ [#B08D57]. Animation is low-opacity so the screen
-/// stays mostly black while the bronze/charcoal drift gently.
+/// Listens to [NotesThemeController] so the whole notes subtree rebuilds
+/// when Dark/Light toggles.
 class NotesRoyalBronzeBackground extends StatefulWidget {
   const NotesRoyalBronzeBackground({
     super.key,
@@ -20,7 +21,6 @@ class NotesRoyalBronzeBackground extends StatefulWidget {
 
 class _NotesRoyalBronzeBackgroundState extends State<NotesRoyalBronzeBackground>
     with SingleTickerProviderStateMixin {
-  /// One full drift cycle (~22s each way) — intentionally slow / minor.
   static const _duration = Duration(seconds: 22);
 
   late final AnimationController _controller;
@@ -28,12 +28,19 @@ class _NotesRoyalBronzeBackgroundState extends State<NotesRoyalBronzeBackground>
   @override
   void initState() {
     super.initState();
+    NotesThemeController.instance.ensureLoaded();
+    NotesThemeController.instance.addListener(_onThemeChanged);
     _controller = AnimationController(vsync: this, duration: _duration)
       ..repeat(reverse: true);
   }
 
+  void _onThemeChanged() {
+    if (mounted) setState(() {});
+  }
+
   @override
   void dispose() {
+    NotesThemeController.instance.removeListener(_onThemeChanged);
     _controller.dispose();
     super.dispose();
   }
@@ -41,10 +48,10 @@ class _NotesRoyalBronzeBackgroundState extends State<NotesRoyalBronzeBackground>
   @override
   Widget build(BuildContext context) {
     return ColoredBox(
-      color: NotesTheme.pureBlack,
+      color: NotesTheme.canvas,
       child: AnimatedBuilder(
         animation: _controller,
-        builder: (context, child) {
+        builder: (context, _) {
           final t = Curves.easeInOut.transform(_controller.value);
 
           final top = Color.lerp(
@@ -75,17 +82,20 @@ class _NotesRoyalBronzeBackgroundState extends State<NotesRoyalBronzeBackground>
                 begin: begin,
                 end: end,
                 colors: [
-                  top.withValues(alpha: 0.42),
-                  NotesTheme.pureBlack.withValues(alpha: 0.92),
-                  bottom.withValues(alpha: 0.34),
+                  top.withValues(alpha: NotesTheme.washAlphaTop),
+                  NotesTheme.canvas.withValues(alpha: NotesTheme.washAlphaMid),
+                  bottom.withValues(alpha: NotesTheme.washAlphaBottom),
                 ],
                 stops: const [0.0, 0.48, 1.0],
               ),
             ),
-            child: child,
+            // Force notes subtree rebuild when brightness flips.
+            child: KeyedSubtree(
+              key: ValueKey(NotesThemeController.instance.brightness),
+              child: widget.child,
+            ),
           );
         },
-        child: widget.child,
       ),
     );
   }

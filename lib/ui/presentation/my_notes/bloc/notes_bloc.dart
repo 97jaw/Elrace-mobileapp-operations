@@ -87,6 +87,15 @@ class NotesBloc extends Bloc<NotesEvent, NotesState> {
     Emitter<NotesState> emit,
   ) async {
     try {
+      // Idempotent: home widget and My Notes screen both dispatch WatchNotes.
+      if (_notesSubscription != null) {
+        _currentFilter = event.filter;
+        if (_allNotes.isNotEmpty || state is NotesLoaded) {
+          emit(_buildLoaded(filter: event.filter));
+        }
+        return;
+      }
+
       emit(NotesLoading());
       _currentFilter = event.filter;
 

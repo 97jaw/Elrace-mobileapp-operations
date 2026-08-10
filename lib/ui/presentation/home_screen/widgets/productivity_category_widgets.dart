@@ -1,12 +1,13 @@
 import 'package:el_race/core/utils/responsive_breakpoints.dart';
-import 'package:el_race/ui/presentation/home_screen/providers/home_notes_widget_provider.dart';
 import 'package:el_race/ui/presentation/home_screen/providers/home_shared_documents_widget_provider.dart';
 import 'package:el_race/ui/presentation/home_screen/widgets/category_widget_gradient_border.dart';
 import 'package:el_race/ui/presentation/home_screen/widgets/home_productivity_navigation.dart';
+import 'package:el_race/ui/presentation/my_notes/bloc/notes_bloc.dart';
 import 'package:el_race/ui/presentation/my_notes/screens/my_notes_screen.dart';
 import 'package:el_race/ui/presentation/todo_list/providers/todo_firebase_provider.dart';
 import 'package:el_race/utils/custom_navigate.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart' hide Consumer;
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -268,7 +269,7 @@ class ProductivityCategorySharedDocumentsCard extends ConsumerWidget {
   }
 }
 
-class ProductivityCategoryNotesCard extends ConsumerWidget {
+class ProductivityCategoryNotesCard extends StatefulWidget {
   const ProductivityCategoryNotesCard({
     super.key,
     this.tabletCompact = false,
@@ -277,85 +278,112 @@ class ProductivityCategoryNotesCard extends ConsumerWidget {
   final bool tabletCompact;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final data = ref.watch(homeNotesWidgetProvider);
+  State<ProductivityCategoryNotesCard> createState() =>
+      _ProductivityCategoryNotesCardState();
+}
 
-    return _ProductivityHalfCardShell(
-      height: null,
-      onTap: () => Navigator.push(
-        context,
-        SlideRightPageRoute(child: const MyNotesScreen()),
-      ),
-      gradient: const RadialGradient(
-        center: Alignment.center,
-        radius: 1.1,
-        colors: [
-          Color(0xFFFFD8B8),
-          Color(0xFFF5C5A8),
-          Color(0xFFE8B398),
-          Color(0xFFC8957D),
-        ],
-      ),
-      iconBadge: const _GlassIconBadge(
-        icon: Icons.edit_note_rounded,
-        iconColor: Color(0xFF4A2F1F),
-        background: Color(0x554A2F1F),
-      ),
-      pattern: CustomPaint(painter: _NotebookLinesPainter()),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            'Quick capture',
-            style: GoogleFonts.poppins(
-              fontSize: 7.5.usp,
-              fontWeight: FontWeight.w600,
-              color: const Color(0xFF6B3F2A),
-              letterSpacing: 0.35,
-            ),
+class _ProductivityCategoryNotesCardState
+    extends State<ProductivityCategoryNotesCard> {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      try {
+        context.read<NotesBloc>().add(const WatchNotes());
+      } catch (_) {
+        // NotesBloc may be unavailable in rare bootstrap races.
+      }
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return BlocBuilder<NotesBloc, NotesState>(
+      builder: (context, state) {
+        final loaded = state is NotesLoaded
+            ? state
+            : (state is NoteActionLoading && state.previousState is NotesLoaded)
+                ? state.previousState as NotesLoaded
+                : (state is NoteActionError && state.previousState is NotesLoaded)
+                    ? state.previousState as NotesLoaded
+                    : null;
+
+        final count = loaded?.totalCount ?? 0;
+        final latestTitle = (loaded != null && loaded.notes.isNotEmpty)
+            ? loaded.notes.first.title
+            : 'No notes yet';
+
+        return _ProductivityHalfCardShell(
+          height: null,
+          onTap: () => Navigator.push(
+            context,
+            SlideRightPageRoute(child: const MyNotesScreen()),
           ),
-          SizedBox(height: 2.uh),
-          Text(
-            'Notes',
-            style: GoogleFonts.poppins(
-              fontSize: 13.usp,
-              fontWeight: FontWeight.w700,
-              color: const Color(0xFF4A2F1F),
-              height: 1.1,
-            ),
+          gradient: const RadialGradient(
+            center: Alignment.center,
+            radius: 1.1,
+            colors: [
+              Color(0xFFFFD8B8),
+              Color(0xFFF5C5A8),
+              Color(0xFFE8B398),
+              Color(0xFFC8957D),
+            ],
           ),
-          const SizedBox(height: 8),
-          Text(
-            '${data.totalCount}',
-            style: GoogleFonts.poppins(
-              fontSize: 30.usp,
-              fontWeight: FontWeight.w800,
-              color: const Color(0xFF4A2F1F),
-              height: 1,
-            ),
+          iconBadge: const _GlassIconBadge(
+            icon: Icons.edit_note_rounded,
+            iconColor: Color(0xFF4A2F1F),
+            background: Color(0x554A2F1F),
           ),
-          SizedBox(height: 4.uh),
-          GestureDetector(
-            onTap: data.lastNoteId != null
-                ? () => Navigator.push(
-                      context,
-                      SlideRightPageRoute(child: const MyNotesScreen()),
-                    )
-                : null,
-            child: Text(
-              data.trendLabel,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: GoogleFonts.poppins(
-                fontSize: 10.usp,
-                fontWeight: FontWeight.w600,
-                color: const Color(0xFF6B3F2A),
+          pattern: CustomPaint(painter: _NotebookLinesPainter()),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Quick capture',
+                style: GoogleFonts.poppins(
+                  fontSize: 7.5.usp,
+                  fontWeight: FontWeight.w600,
+                  color: const Color(0xFF6B3F2A),
+                  letterSpacing: 0.35,
+                ),
               ),
-            ),
+              SizedBox(height: 2.uh),
+              Text(
+                'Notes',
+                style: GoogleFonts.poppins(
+                  fontSize: 13.usp,
+                  fontWeight: FontWeight.w700,
+                  color: const Color(0xFF4A2F1F),
+                  height: 1.1,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                '$count',
+                style: GoogleFonts.poppins(
+                  fontSize: 30.usp,
+                  fontWeight: FontWeight.w800,
+                  color: const Color(0xFF4A2F1F),
+                  height: 1,
+                ),
+              ),
+              SizedBox(height: 4.uh),
+              Text(
+                latestTitle,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: GoogleFonts.poppins(
+                  fontSize: 10.usp,
+                  fontWeight: FontWeight.w600,
+                  color: const Color(0xFF6B3F2A),
+                ),
+              ),
+            ],
           ),
-        ],
-      ),
+        );
+      },
     );
   }
 }
