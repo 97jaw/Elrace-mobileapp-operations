@@ -1686,6 +1686,7 @@ class _ShareDocumentsTabState extends State<ShareDocumentsTab> {
 
   /// Count from folder payload only (no cache) — used while merging list API.
   int _folderFileCountFromPayload(Map<String, dynamic> folder) {
+    var fromLists = 0;
     for (final key in const [
       'attachments',
       'files',
@@ -1693,16 +1694,19 @@ class _ShareDocumentsTabState extends State<ShareDocumentsTab> {
       'folder_attachments',
     ]) {
       final list = _toMapList(folder[key]);
-      if (list.isNotEmpty) return list.length;
+      if (list.length > fromLists) fromLists = list.length;
     }
-    return _readPositiveInt(
+    final scalar = _readPositiveInt(
           folder['file_count'] ??
               folder['attachment_count'] ??
               folder['files_count'] ??
               folder['total_files'] ??
-              folder['document_count'],
+              folder['document_count'] ??
+              folder['total_count'],
         ) ??
         0;
+    // Prefer API scalar totals over a paginated attachment page length.
+    return scalar > fromLists ? scalar : fromLists;
   }
 
   int _folderFileCount(Map<String, dynamic> folder) {
