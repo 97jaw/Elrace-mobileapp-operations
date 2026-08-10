@@ -44,6 +44,9 @@ class _ShareDocumentsTabState extends State<ShareDocumentsTab> {
 
   List<Map<String, dynamic>> _folders = <Map<String, dynamic>>[];
 
+  /// Survives list-API refreshes that omit / zero `file_count`.
+  final Map<String, int> _knownFileCounts = <String, int>{};
+
   Map<String, dynamic>? _selectedFolder;
   List<_SharedAttachment> _selectedFolderAttachments = const [];
 
@@ -287,19 +290,24 @@ class _ShareDocumentsTabState extends State<ShareDocumentsTab> {
             mapped['allowed_users'] = _toMapList(folder['allowed_users']);
             mapped['activities'] = _toMapList(folder['activities']);
 
-            // Preserve known file counts when list API returns 0 / omits them.
             final idKey = mapped['id']?.toString() ?? '';
             final prev = previousById[idKey];
-            final listCount = _folderFileCount(mapped);
-            if (listCount <= 0 && prev != null) {
-              final prevCount = _folderFileCount(prev);
-              if (prevCount > 0) {
-                mapped['file_count'] = prevCount;
-                mapped['attachment_count'] = prevCount;
-                if (_toMapList(mapped['attachments']).isEmpty &&
-                    _toMapList(prev['attachments']).isNotEmpty) {
-                  mapped['attachments'] = prev['attachments'];
-                }
+            final listCount = _folderFileCountFromPayload(mapped);
+            final prevCount = prev == null ? 0 : _folderFileCountFromPayload(prev);
+            final cached = _knownFileCounts[idKey] ?? 0;
+
+            // Prefer any positive signal; never let a stale API zero wipe a
+            // count we already learned from opening the folder.
+            final best = [listCount, prevCount, cached]
+                .fold<int>(0, (a, b) => a > b ? a : b);
+            if (best > 0) {
+              mapped['file_count'] = best;
+              mapped['attachment_count'] = best;
+              _rememberFileCount(idKey, best);
+              if (_toMapList(mapped['attachments']).isEmpty &&
+                  prev != null &&
+                  _toMapList(prev['attachments']).isNotEmpty) {
+                mapped['attachments'] = prev['attachments'];
               }
             }
             return mapped;
@@ -518,6 +526,24 @@ class _ShareDocumentsTabState extends State<ShareDocumentsTab> {
       'activities': _toMapList(envelope['activities']),
     };
 
+    final attachmentsLen =
+        _toMapList(detailedFolder['attachments']).length;
+    final totalHint = _readPositiveInt(
+          envelope['total'] ??
+              envelope['total_count'] ??
+              envelope['attachment_count'] ??
+              envelope['file_count'] ??
+              folderPayload['file_count'] ??
+              folderPayload['attachment_count'] ??
+              folderPayload['total_files'] ??
+              folderPayload['document_count'],
+        ) ??
+        attachmentsLen;
+    if (totalHint > 0) {
+      detailedFolder['file_count'] = totalHint;
+      detailedFolder['attachment_count'] = totalHint;
+    }
+
     debugPrint(
       '[SharedDocuments] Folder details loaded: '
       'attachments=${_toMapList(detailedFolder['attachments']).length}, '
@@ -560,8 +586,17 @@ class _ShareDocumentsTabState extends State<ShareDocumentsTab> {
       );
 
       final extracted = _extractAttachments(detailedFolder);
+      final detailsCount = _folderFileCountFromPayload(detailedFolder);
+      final count = detailsCount > extracted.length
+          ? detailsCount
+          : extracted.length;
+
       setState(() {
-        _selectedFolder = detailedFolder;
+        _selectedFolder = {
+          ...detailedFolder,
+          'file_count': count,
+          'attachment_count': count,
+        };
         _selectedFolderAttachments = extracted;
         _folderOpenError = null;
       });
@@ -571,15 +606,19 @@ class _ShareDocumentsTabState extends State<ShareDocumentsTab> {
       );
       if (selectedIndex >= 0) {
         final detailsUsers = _toMapList(detailedFolder['allowed_users']);
-        final count = extracted.length;
+        final previousCount = _folderFileCount(_folders[selectedIndex]);
+        final stableCount = count > previousCount ? count : previousCount;
+        _rememberFileCount(folderId, stableCount);
         _folders[selectedIndex] = {
           ..._folders[selectedIndex],
           // Never overwrite list avatars with an empty details payload.
           if (detailsUsers.isNotEmpty) 'allowed_users': detailsUsers,
           'attachments': _toMapList(detailedFolder['attachments']),
-          'file_count': count,
-          'attachment_count': count,
+          'file_count': stableCount,
+          'attachment_count': stableCount,
         };
+      } else {
+        _rememberFileCount(folderId, count);
       }
 
       debugPrint(
@@ -614,8 +653,9 @@ class _ShareDocumentsTabState extends State<ShareDocumentsTab> {
     });
     _notifyDrill();
     _notifyChromeTrailing();
-    // Keep folder-list avatars fresh after member changes inside a folder.
-    _fetchSharedFolders();
+    // Do not refetch list on back — shared_folders often returns file_count=0
+    // and was wiping counters learned while inside the folder. Member changes
+    // already refresh via their own success paths.
   }
 
   Future<void> _openAttachment(_SharedAttachment attachment) async {
@@ -1017,6 +1057,20 @@ class _ShareDocumentsTabState extends State<ShareDocumentsTab> {
             ? 'Attachment uploaded successfully'
             : '${picked.length} attachments uploaded successfully',
       );
+      // Optimistic bump so folder tiles stay correct even if details are paged.
+      final current = _folderFileCount(folder);
+      _rememberFileCount(folderId, current + picked.length);
+      final idx = _folders.indexWhere(
+        (f) => _folderIdFrom(f).toString() == folderId.toString(),
+      );
+      if (idx >= 0) {
+        final next = current + picked.length;
+        _folders[idx] = {
+          ..._folders[idx],
+          'file_count': next,
+          'attachment_count': next,
+        };
+      }
       await _openFolder(folder);
     } catch (e) {
       _showSnackMessage(e.toString());
@@ -1614,8 +1668,24 @@ class _ShareDocumentsTabState extends State<ShareDocumentsTab> {
     return trimmed.substring(0, 1).toUpperCase();
   }
 
-  int _folderFileCount(Map<String, dynamic> folder) {
-    // Align with _extractAttachments candidate keys.
+  int? _readPositiveInt(dynamic raw) {
+    if (raw == null) return null;
+    final value = raw is int ? raw : int.tryParse(raw.toString());
+    if (value == null || value <= 0) return null;
+    return value;
+  }
+
+  void _rememberFileCount(dynamic folderId, int count) {
+    if (folderId == null || count <= 0) return;
+    final key = folderId.toString();
+    final existing = _knownFileCounts[key] ?? 0;
+    if (count >= existing) {
+      _knownFileCounts[key] = count;
+    }
+  }
+
+  /// Count from folder payload only (no cache) — used while merging list API.
+  int _folderFileCountFromPayload(Map<String, dynamic> folder) {
     for (final key in const [
       'attachments',
       'files',
@@ -1625,13 +1695,25 @@ class _ShareDocumentsTabState extends State<ShareDocumentsTab> {
       final list = _toMapList(folder[key]);
       if (list.isNotEmpty) return list.length;
     }
-    final raw = folder['file_count'] ??
-        folder['attachment_count'] ??
-        folder['files_count'] ??
-        folder['total_files'] ??
-        folder['document_count'];
-    if (raw is int) return raw;
-    return int.tryParse(raw?.toString() ?? '') ?? 0;
+    return _readPositiveInt(
+          folder['file_count'] ??
+              folder['attachment_count'] ??
+              folder['files_count'] ??
+              folder['total_files'] ??
+              folder['document_count'],
+        ) ??
+        0;
+  }
+
+  int _folderFileCount(Map<String, dynamic> folder) {
+    final idKey = _folderIdFrom(folder)?.toString();
+    final cached = idKey == null ? 0 : (_knownFileCounts[idKey] ?? 0);
+    final fromPayload = _folderFileCountFromPayload(folder);
+    if (cached > fromPayload) return cached;
+    if (fromPayload > 0 && idKey != null) {
+      _rememberFileCount(idKey, fromPayload);
+    }
+    return fromPayload > cached ? fromPayload : cached;
   }
 
   Widget _buildEmptyState({
