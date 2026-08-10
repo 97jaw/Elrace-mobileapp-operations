@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
 
@@ -70,10 +71,47 @@ class _LpoPdfViewerScreenState extends State<LpoPdfViewerScreen> {
 
   bool _isPdfBytes(Uint8List bytes) {
     if (bytes.length < 4) return false;
-    return bytes[0] == 0x25 &&
-        bytes[1] == 0x50 &&
-        bytes[2] == 0x44 &&
-        bytes[3] == 0x46;
+    // Allow leading BOM / whitespace before %PDF.
+    var i = 0;
+    while (i < bytes.length &&
+        (bytes[i] == 0x00 ||
+            bytes[i] == 0x09 ||
+            bytes[i] == 0x0A ||
+            bytes[i] == 0x0D ||
+            bytes[i] == 0x20 ||
+            bytes[i] == 0xEF ||
+            bytes[i] == 0xBB ||
+            bytes[i] == 0xBF)) {
+      i++;
+    }
+    if (i + 4 > bytes.length) return false;
+    return bytes[i] == 0x25 &&
+        bytes[i + 1] == 0x50 &&
+        bytes[i + 2] == 0x44 &&
+        bytes[i + 3] == 0x46;
+  }
+
+  bool _isBase64Pdf(Uint8List bytes) {
+    if (bytes.length < 8) return false;
+    final head = String.fromCharCodes(
+      bytes.sublist(0, bytes.length < 32 ? bytes.length : 32),
+    ).trimLeft();
+    return head.startsWith('JVBERi0');
+  }
+
+  Uint8List _coercePdfBytes(Uint8List bytes) {
+    if (_isPdfBytes(bytes)) return bytes;
+    if (_isBase64Pdf(bytes)) {
+      try {
+        final cleaned = String.fromCharCodes(bytes)
+            .replaceAll(RegExp(r'\s+'), '');
+        final decoded = base64Decode(cleaned);
+        if (_isPdfBytes(decoded)) return decoded;
+      } catch (e) {
+        debugPrint('PDF base64 decode failed: $e');
+      }
+    }
+    return bytes;
   }
 
   bool _looksLikeHtmlBytes(Uint8List bytes) {
@@ -106,17 +144,41 @@ class _LpoPdfViewerScreenState extends State<LpoPdfViewerScreen> {
 
   Future<Uint8List?> _downloadPdfBytes(String url) async {
     final response = await _fetchPdfResponse(url);
-    if (response.statusCode != 200) return null;
-    final bytes = response.bodyBytes;
-    final ctype = (response.headers['content-type'] ?? '').toLowerCase();
-    if (bytes.isEmpty ||
-        ctype.contains('text/html') ||
-        ctype.contains('text/plain') ||
-        _looksLikeHtmlBytes(bytes) ||
-        !_isPdfBytes(bytes)) {
+    if (response.statusCode != 200) {
+      debugPrint('PDF download HTTP ${response.statusCode} for $url');
       return null;
     }
-    return bytes;
+    var bytes = response.bodyBytes;
+    if (bytes.isEmpty) {
+      debugPrint('PDF download empty body for $url');
+      return null;
+    }
+
+    // Odoo sometimes serves base64 text with Content-Type: application/pdf.
+    bytes = _coercePdfBytes(bytes);
+
+    final ctype = (response.headers['content-type'] ?? '').toLowerCase();
+    final looksHtml = _looksLikeHtmlBytes(bytes);
+    final isPdf = _isPdfBytes(bytes);
+
+    // Trust real PDF magic bytes even if Content-Type is wrong/missing.
+    if (isPdf) return bytes;
+
+    if (looksHtml ||
+        ctype.contains('text/html') ||
+        (ctype.contains('text/plain') && !isPdf)) {
+      debugPrint(
+        'PDF download rejected for $url '
+        '(ctype=$ctype, len=${bytes.length}, html=$looksHtml, pdf=$isPdf)',
+      );
+      return null;
+    }
+
+    debugPrint(
+      'PDF download rejected for $url '
+      '(ctype=$ctype, len=${bytes.length}, head=${bytes.take(8).toList()})',
+    );
+    return null;
   }
 
   /// Merge PDFs with Syncfusion so the viewer can paginate all files.
