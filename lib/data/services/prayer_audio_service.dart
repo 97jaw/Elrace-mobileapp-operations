@@ -32,6 +32,12 @@ class PrayerAudioService {
     _currentPrayerTimes = prayerTimes;
     await _notificationService.initialize();
 
+    // Cold-start from an azan notification: OS already played sound.
+    // Mark that slot before the first in-app check so we don't double-play.
+    final launchPayload =
+        await _notificationService.getLaunchNotificationPayload();
+    await acknowledgeOsPrayerFromPayload(launchPayload);
+
     // App is in foreground: own azan via timer/AudioPlayer only.
     await enterForegroundMode();
     // debugPrint('🕌 PrayerAudioService: Initialized successfully');
@@ -39,11 +45,74 @@ class PrayerAudioService {
 
   /// Foreground: cancel all pending OS azan notifications, run poll timer.
   Future<void> enterForegroundMode() async {
+    final wasBackground = !_foregroundActive;
     _foregroundActive = true;
     try {
       await _notificationService.cancelAllPendingAdhan();
     } catch (_) {}
+
+    // Returning from background: OS scheduled notification already owned azan.
+    // Credit the current prayer window so the in-app player does not replay
+    // when the user taps the notification (or opens the app shortly after).
+    if (wasBackground) {
+      await _creditOsForCurrentPrayerWindow();
+    }
+
     await _startChecking();
+  }
+
+  /// Mark a prayer from a local-notification payload (`prayer:name:ms`) as
+  /// already handled. Used on tap / cold-start so AudioPlayer never replays.
+  static Future<void> acknowledgeOsPrayerFromPayload(String? payload) async {
+    if (payload == null || !payload.startsWith('prayer:')) return;
+    final parts = payload.split(':');
+    if (parts.length < 3) return;
+
+    final prayerName = parts[1].trim().toLowerCase();
+    final ms = int.tryParse(parts[2]);
+    if (prayerName.isEmpty || ms == null) return;
+
+    final prayerTime = DateTime.fromMillisecondsSinceEpoch(ms);
+    final playedKey = _playedKeyFor(prayerName, prayerTime);
+    await HiveService.markPrayerPlayed(playedKey);
+
+    final self = PrayerAudioService();
+    self._lastPlayedTime = prayerTime;
+    // If a race already started in-app audio, stop it — OS sound was enough.
+    if (self._isPlaying) {
+      await self.stopAdhan();
+    }
+  }
+
+  /// Day-stable dedupe key (matches foreground timer + OS handoff).
+  static String _playedKeyFor(String prayerName, DateTime prayerTime) {
+    final normalized = prayerName.trim().toLowerCase();
+    final dayKey =
+        '${prayerTime.year}${prayerTime.month.toString().padLeft(2, '0')}${prayerTime.day.toString().padLeft(2, '0')}';
+    return 'played_${normalized}_$dayKey';
+  }
+
+  Future<void> _creditOsForCurrentPrayerWindow() async {
+    if (_currentPrayerTimes == null) return;
+
+    final now = DateTime.now();
+    final prayers = <MapEntry<String, DateTime>>[
+      MapEntry('fajr', _currentPrayerTimes!.fajr),
+      MapEntry('dhuhr', _currentPrayerTimes!.dhuhr),
+      MapEntry('asr', _currentPrayerTimes!.asr),
+      MapEntry('maghrib', _currentPrayerTimes!.maghrib),
+      MapEntry('isha', _currentPrayerTimes!.isha),
+    ];
+
+    for (final entry in prayers) {
+      final diff = now.difference(entry.value);
+      if (diff.inSeconds >= 0 && diff.inMinutes < 5) {
+        await HiveService.markPrayerPlayed(
+          _playedKeyFor(entry.key, entry.value),
+        );
+        _lastPlayedTime = entry.value;
+      }
+    }
   }
 
   /// Background: stop timer so we never double-fire with OS notifications.
@@ -144,9 +213,7 @@ class PrayerAudioService {
 
         if (timeDiff.inSeconds >= 0 && timeDiff.inMinutes < 5) {
           // Day-based key so local vs API second drift still dedupes.
-          final dayKey =
-              '${prayerTime.year}${prayerTime.month.toString().padLeft(2, '0')}${prayerTime.day.toString().padLeft(2, '0')}';
-          final playedKey = 'played_${normalizedPrayerName}_$dayKey';
+          final playedKey = _playedKeyFor(normalizedPrayerName, prayerTime);
           final alreadyPlayed = await HiveService.hasPlayedPrayer(playedKey);
 
           if (alreadyPlayed) {

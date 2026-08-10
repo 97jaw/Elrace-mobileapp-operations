@@ -111,10 +111,12 @@ Future<bool> _handlePrayerTask(
     final parsedMs = rawMs is int ? rawMs : int.tryParse('$rawMs');
 
     if (prayerName != null && parsedMs != null) {
-      // فقط نعلّم الصلاة كـ "تم تشغيلها" لمنع التكرار.
-      // الإشعار المجدول (zonedSchedule) يتولى الصوت والإشعار بشكل مستقل.
-      // لا نشغل صوت أو إشعار من WorkManager لتفادي التكرار.
-      final playedKey = 'played_${prayerName}_$parsedMs';
+      // Mark with the same day-stable key used by PrayerAudioService so
+      // foreground checks honor WorkManager / OS handoff.
+      final prayerTime = DateTime.fromMillisecondsSinceEpoch(parsedMs);
+      final dayKey =
+          '${prayerTime.year}${prayerTime.month.toString().padLeft(2, '0')}${prayerTime.day.toString().padLeft(2, '0')}';
+      final playedKey = 'played_${prayerName.toLowerCase()}_$dayKey';
       await HiveService.markPrayerPlayed(playedKey);
     }
 

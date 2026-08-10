@@ -169,6 +169,18 @@ class PrayerNotificationService {
     await _notificationsPlugin.cancel(id);
   }
 
+  /// Payload from a cold-start notification tap, if any.
+  Future<String?> getLaunchNotificationPayload() async {
+    try {
+      final details =
+          await _notificationsPlugin.getNotificationAppLaunchDetails();
+      if (details?.didNotificationLaunchApp != true) return null;
+      return details!.notificationResponse?.payload;
+    } catch (_) {
+      return null;
+    }
+  }
+
   /// إلغاء جميع إشعارات الأذان المعلقة (يُستدعى عند كتم صوت الأذان).
   Future<void> cancelAllPendingAdhan() async {
     await initialize();

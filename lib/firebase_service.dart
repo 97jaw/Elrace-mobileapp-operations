@@ -6,6 +6,7 @@ import 'package:el_race/core/app_globals.dart';
 import 'package:el_race/core/services/attendance_status_sync_service.dart';
 import 'package:el_race/core/services/notification_storage_service.dart';
 import 'package:el_race/core/utils/shared_pref.dart';
+import 'package:el_race/data/services/prayer_audio_service.dart';
 import 'package:el_race/ui/chat/chat_screen.dart';
 import 'package:el_race/ui/presentation/tasks/tasks_screen.dart';
 import 'package:el_race/ui/presentation/tasks_dashboard/screens/task_details.dart'
@@ -738,6 +739,13 @@ class FirebaseService {
   static void _handleNotificationTap(String? payload) {
     print('\n🔔 [HANDLE TAP] Notification tapped');
     print('   - Payload: $payload');
+
+    // Azan local notification: OS already played sound — never replay in-app.
+    if (payload != null && payload.startsWith('prayer:')) {
+      unawaited(PrayerAudioService.acknowledgeOsPrayerFromPayload(payload));
+      print('   - Prayer/azan tap acknowledged (no in-app replay).');
+      return;
+    }
 
     final payloadData = _parseNotificationPayload(payload);
     final category = (payloadData['category'] ?? payloadData['type'] ?? '')
