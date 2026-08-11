@@ -35,6 +35,10 @@ exports.onSignableDocumentUpdated = onSignableDocumentUpdated;
 const { onNoteShared } = require("./notes_share_notify");
 exports.onNoteShared = onNoteShared;
 
+// Circular / Announcement — Odoo Publish → Firestore job → batch FCM
+const { onOdooAnnouncementPushJob } = require("./odoo_announcement_push");
+exports.onOdooAnnouncementPushJob = onOdooAnnouncementPushJob;
+
 /** AWS Rekognition region for timesheet face mocks (liveness callables live in functions-liveness/). */
 const AWS_REKOGNITION_REGION = "ap-south-1";
 
