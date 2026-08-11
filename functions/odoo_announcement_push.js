@@ -101,7 +101,8 @@ async function sendFcmBatches(messaging, tokens, title, body, dataPayload) {
 exports.onOdooAnnouncementPushJob = onDocumentCreated(
   {
     document: "odoo_push_jobs/{jobId}",
-    region: "me-central-1",
+    // Match existing Functions (notes/sign). me-central-1 returns 403 on this project.
+    region: "us-central1",
     secrets: [pushServiceToken],
     maxInstances: 1,
     timeoutSeconds: 300,
