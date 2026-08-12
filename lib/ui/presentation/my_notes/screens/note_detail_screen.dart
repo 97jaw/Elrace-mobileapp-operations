@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:ui' as ui show TextDirection;
 
 import 'package:el_race/ui/presentation/my_notes/bloc/notes_bloc.dart';
 import 'package:el_race/ui/presentation/my_notes/data/note_model.dart';
@@ -579,8 +580,8 @@ class _NoteDetailViewState extends State<_NoteDetailView> {
                     language: recording.language,
                     transcript: transcript,
                   )
-                      ? TextDirection.rtl
-                      : TextDirection.ltr,
+                      ? ui.TextDirection.rtl
+                      : ui.TextDirection.ltr,
                   style: GoogleFonts.poppins(
                     fontSize: 14.sp,
                     color: NotesTheme.textPrimary.withValues(alpha: 0.9),
