@@ -279,14 +279,126 @@ class _NoteDetailViewState extends State<_NoteDetailView> {
   }
 
   bool get _shouldShowAiSection {
-    if (_note.aiMode == NoteAiMode.summarize ||
-        _note.aiMode == NoteAiMode.bullets) {
-      return true;
-    }
-    return (_note.aiSummary?.isNotEmpty ?? false) ||
-        (_note.aiBulletPoints?.isNotEmpty ?? false) ||
+    return (_note.aiSummary?.trim().isNotEmpty ?? false) ||
+        (_note.aiBulletPoints?.trim().isNotEmpty ?? false) ||
         _note.aiStatus == NoteAiStatus.processing ||
-        _note.aiStatus == NoteAiStatus.pending;
+        _note.aiStatus == NoteAiStatus.pending ||
+        _note.aiStatus == NoteAiStatus.error;
+  }
+
+  Widget _buildAiResultSection() {
+    final summary = _note.aiSummary?.trim() ?? '';
+    final bullets = _note.aiBulletPoints?.trim() ?? '';
+    final busy = _note.aiStatus == NoteAiStatus.pending ||
+        _note.aiStatus == NoteAiStatus.processing;
+    final error = _note.aiStatus == NoteAiStatus.error;
+    final waitingSummary =
+        busy && _note.aiMode == NoteAiMode.summarize && summary.isEmpty;
+    final waitingBullets =
+        busy && _note.aiMode == NoteAiMode.bullets && bullets.isEmpty;
+
+    final blocks = <Widget>[];
+
+    if (summary.isNotEmpty) {
+      blocks.add(_aiTextBlock(title: 'Summary', body: summary));
+    } else if (waitingSummary) {
+      blocks.add(_aiPendingBlock(title: 'Summary', isError: false));
+    }
+
+    if (bullets.isNotEmpty || waitingBullets) {
+      if (blocks.isNotEmpty) blocks.add(SizedBox(height: 16.h));
+      if (bullets.isNotEmpty) {
+        blocks.add(_aiTextBlock(title: 'Bullet points', body: bullets));
+      } else {
+        blocks.add(_aiPendingBlock(title: 'Bullet points', isError: false));
+      }
+    }
+
+    if (error && summary.isEmpty && bullets.isEmpty && !busy) {
+      blocks.add(
+        _aiPendingBlock(title: 'AI results', isError: true),
+      );
+    }
+
+    if (blocks.isEmpty) return const SizedBox.shrink();
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: blocks,
+    );
+  }
+
+  Widget _aiTextBlock({required String title, required String body}) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          title,
+          style: GoogleFonts.poppins(
+            fontSize: 14.sp,
+            fontWeight: FontWeight.w600,
+            color: NotesTheme.textPrimary.withValues(alpha: 0.7),
+          ),
+        ),
+        SizedBox(height: 8.h),
+        NotesGlassCard(
+          padding: EdgeInsets.all(16.w),
+          child: Text(
+            body,
+            style: GoogleFonts.poppins(
+              fontSize: 14.sp,
+              color: NotesTheme.textPrimary.withValues(alpha: 0.9),
+              height: 1.6,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _aiPendingBlock({required String title, required bool isError}) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          title,
+          style: GoogleFonts.poppins(
+            fontSize: 14.sp,
+            fontWeight: FontWeight.w600,
+            color: NotesTheme.textPrimary.withValues(alpha: 0.7),
+          ),
+        ),
+        SizedBox(height: 8.h),
+        NotesGlassCard(
+          padding: EdgeInsets.all(16.w),
+          child: Row(
+            children: [
+              if (!isError)
+                SizedBox(
+                  width: 16.w,
+                  height: 16.w,
+                  child: const CircularProgressIndicator(
+                    strokeWidth: 2,
+                    color: NotesTheme.bronze,
+                  ),
+                ),
+              if (!isError) SizedBox(width: 10.w),
+              Expanded(
+                child: Text(
+                  isError
+                      ? 'AI processing failed. Use AI actions to retry.'
+                      : 'Generating…',
+                  style: GoogleFonts.poppins(
+                    fontSize: 13.sp,
+                    color: NotesTheme.textPrimary.withValues(alpha: 0.5),
+                    fontStyle: FontStyle.italic,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
   }
 
   Widget _buildHeader() {
@@ -609,77 +721,6 @@ class _NoteDetailViewState extends State<_NoteDetailView> {
                                 : isIdle
                                     ? 'Transcript unavailable'
                                     : 'No transcript yet.',
-                        style: GoogleFonts.poppins(
-                          fontSize: 13.sp,
-                          color: NotesTheme.textPrimary.withValues(alpha: 0.5),
-                          fontStyle: FontStyle.italic,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildAiResultSection() {
-    final body = (_note.aiMode == NoteAiMode.bullets
-            ? _note.aiBulletPoints
-            : _note.aiSummary) ??
-        _note.aiBulletPoints ??
-        _note.aiSummary ??
-        '';
-    final hasBody = body.trim().isNotEmpty;
-    final isBusy = !hasBody &&
-        (_note.aiStatus == NoteAiStatus.pending ||
-            _note.aiStatus == NoteAiStatus.processing);
-    final isError = !hasBody && _note.aiStatus == NoteAiStatus.error;
-    final title = _note.aiMode == NoteAiMode.bullets ||
-            (_note.aiBulletPoints?.isNotEmpty ?? false)
-        ? 'Bullet points'
-        : 'Summary';
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          title,
-          style: GoogleFonts.poppins(
-            fontSize: 14.sp,
-            fontWeight: FontWeight.w600,
-            color: NotesTheme.textPrimary.withValues(alpha: 0.7),
-          ),
-        ),
-        SizedBox(height: 8.h),
-        NotesGlassCard(
-          padding: EdgeInsets.all(16.w),
-          child: hasBody
-              ? Text(
-                  body,
-                  style: GoogleFonts.poppins(
-                    fontSize: 14.sp,
-                    color: NotesTheme.textPrimary.withValues(alpha: 0.9),
-                    height: 1.6,
-                  ),
-                )
-              : Row(
-                  children: [
-                    if (isBusy)
-                      SizedBox(
-                        width: 16.w,
-                        height: 16.w,
-                        child: const CircularProgressIndicator(
-                          strokeWidth: 2,
-                          color: NotesTheme.bronze,
-                        ),
-                      ),
-                    if (isBusy) SizedBox(width: 10.w),
-                    Expanded(
-                      child: Text(
-                        isError
-                            ? 'AI processing failed. Use AI actions to retry.'
-                            : 'Generating…',
                         style: GoogleFonts.poppins(
                           fontSize: 13.sp,
                           color: NotesTheme.textPrimary.withValues(alpha: 0.5),

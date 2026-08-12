@@ -37,18 +37,26 @@ async function waitForTranscript(noteRef, { attempts = 8, delayMs = 1500 } = {})
   return null;
 }
 
-function sourceTextFromNote(data) {
+function sourceTextFromNote(data, mode) {
   const transcript =
     data.recording && typeof data.recording.transcript === "string"
       ? data.recording.transcript.trim()
       : "";
-  if (transcript) return transcript;
+  const summary =
+    typeof data.aiSummary === "string" ? data.aiSummary.trim() : "";
   const content = typeof data.content === "string" ? data.content.trim() : "";
+
+  // Build on summary when present (bullets / actions under the summary).
+  if ((mode === "bullets" || mode === "actions") && summary) {
+    return summary;
+  }
+  if (transcript) return transcript;
+  if (summary) return summary;
   return content;
 }
 
 async function ensureTranscriptIfNeeded({ noteRef, data, apiKey, mode }) {
-  let sourceText = sourceTextFromNote(data);
+  let sourceText = sourceTextFromNote(data, mode);
   if (sourceText) return sourceText;
 
   // Summarize / bullets / etc. never start Whisper — upload CF owns that.
@@ -77,7 +85,7 @@ async function ensureTranscriptIfNeeded({ noteRef, data, apiKey, mode }) {
   }
 
   if (status === "done") {
-    return sourceTextFromNote((await noteRef.get()).data() || {}) || "";
+    return sourceTextFromNote((await noteRef.get()).data() || {}, mode) || "";
   }
 
   return transcribeNoteRecording({
@@ -101,7 +109,7 @@ async function runGpt({ openai, mode, sourceText, targetLanguage }) {
       break;
     case "bullets":
       system =
-        "You are a professional note-taking assistant. Extract prioritized bullet points from the note. One idea per line, each starting with '- '. Prefer actions, decisions, blockers, owners, and dates when present. Do not invent facts. Match the language of the source text (English or Arabic).";
+        "You are a professional note-taking assistant. Extract prioritized bullet points from the note (or from the provided summary). One idea per line, each starting with '- '. Prefer actions, decisions, blockers, owners, and dates when present. Do not invent facts. Match the language of the source text (English or Arabic).";
       break;
     case "actions":
       system =
@@ -158,7 +166,7 @@ async function runNoteAiOnDoc({
     throw new Error("Note not found");
   }
   const data = snap.data() || {};
-  let sourceText = sourceOverride || sourceTextFromNote(data);
+  let sourceText = sourceOverride || sourceTextFromNote(data, mode);
   if (!sourceText) {
     throw new Error("No transcript or content to process");
   }
@@ -199,7 +207,7 @@ async function runNoteAiOnDoc({
       updates.aiMode = "bullets";
     } else if (mode === "actions") {
       const arr = parseJsonArray(result) || [];
-      updates.actionItems = arr.map((item, i) => ({
+      const fresh = arr.map((item, i) => ({
         id: crypto.randomUUID ? crypto.randomUUID() : `ai_${Date.now()}_${i}`,
         description:
           typeof item === "string"
@@ -207,6 +215,8 @@ async function runNoteAiOnDoc({
             : item.description || item.text || String(item),
         isDone: false,
       }));
+      const existing = Array.isArray(data.actionItems) ? data.actionItems : [];
+      updates.actionItems = [...existing, ...fresh];
     } else if (mode === "tags") {
       const arr = parseJsonArray(result) || [];
       const tags = arr

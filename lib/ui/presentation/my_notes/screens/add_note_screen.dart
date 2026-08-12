@@ -775,22 +775,52 @@ class _AddNoteScreenState extends State<AddNoteScreen> {
   }
 
   Widget _buildComposerAiResults() {
-    final body = (_aiMode == NoteAiMode.bullets
-            ? _aiBulletPoints
-            : _aiSummary) ??
-        _aiBulletPoints ??
-        _aiSummary ??
-        '';
-    final hasBody = body.trim().isNotEmpty;
-    final isBusy = !hasBody &&
-        (_aiBusy ||
-            _aiStatus == NoteAiStatus.pending ||
-            _aiStatus == NoteAiStatus.processing);
-    final title = _aiMode == NoteAiMode.bullets ||
-            (_aiBulletPoints?.isNotEmpty ?? false)
-        ? 'Bullet points'
-        : 'Summary';
+    final summary = _aiSummary?.trim() ?? '';
+    final bullets = _aiBulletPoints?.trim() ?? '';
+    final busy = _aiBusy ||
+        _aiStatus == NoteAiStatus.pending ||
+        _aiStatus == NoteAiStatus.processing;
+    final waitingSummary =
+        busy && _aiMode == NoteAiMode.summarize && summary.isEmpty;
+    final waitingBullets =
+        busy && _aiMode == NoteAiMode.bullets && bullets.isEmpty;
 
+    final blocks = <Widget>[];
+
+    if (summary.isNotEmpty) {
+      blocks.add(_composerAiTextBlock(title: 'Summary', body: summary));
+    } else if (waitingSummary) {
+      blocks.add(_composerAiPendingBlock(title: 'Summary', isError: false));
+    }
+
+    if (bullets.isNotEmpty || waitingBullets) {
+      if (blocks.isNotEmpty) blocks.add(SizedBox(height: 12.h));
+      if (bullets.isNotEmpty) {
+        blocks.add(_composerAiTextBlock(title: 'Bullet points', body: bullets));
+      } else {
+        blocks.add(
+          _composerAiPendingBlock(title: 'Bullet points', isError: false),
+        );
+      }
+    }
+
+    if (_aiStatus == NoteAiStatus.error &&
+        summary.isEmpty &&
+        bullets.isEmpty &&
+        !busy) {
+      blocks.add(
+        _composerAiPendingBlock(title: 'AI results', isError: true),
+      );
+    }
+
+    if (blocks.isEmpty) return const SizedBox.shrink();
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: blocks,
+    );
+  }
+
+  Widget _composerAiTextBlock({required String title, required String body}) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -805,41 +835,63 @@ class _AddNoteScreenState extends State<AddNoteScreen> {
         SizedBox(height: 8.h),
         NotesGlassCard(
           padding: EdgeInsets.all(14.w),
-          child: hasBody
-              ? Text(
-                  body,
-                  style: GoogleFonts.poppins(
-                    fontSize: 14.sp,
-                    color: NotesTheme.textPrimary.withValues(alpha: 0.9),
-                    height: 1.55,
+          child: Text(
+            body,
+            style: GoogleFonts.poppins(
+              fontSize: 14.sp,
+              color: NotesTheme.textPrimary.withValues(alpha: 0.9),
+              height: 1.55,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _composerAiPendingBlock({
+    required String title,
+    required bool isError,
+  }) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          title,
+          style: GoogleFonts.poppins(
+            fontSize: 13.sp,
+            fontWeight: FontWeight.w600,
+            color: NotesTheme.textPrimary.withValues(alpha: 0.65),
+          ),
+        ),
+        SizedBox(height: 8.h),
+        NotesGlassCard(
+          padding: EdgeInsets.all(14.w),
+          child: Row(
+            children: [
+              if (!isError)
+                SizedBox(
+                  width: 16.w,
+                  height: 16.w,
+                  child: const CircularProgressIndicator(
+                    strokeWidth: 2,
+                    color: NotesTheme.bronze,
                   ),
-                )
-              : Row(
-                  children: [
-                    if (isBusy)
-                      SizedBox(
-                        width: 16.w,
-                        height: 16.w,
-                        child: const CircularProgressIndicator(
-                          strokeWidth: 2,
-                          color: NotesTheme.bronze,
-                        ),
-                      ),
-                    if (isBusy) SizedBox(width: 10.w),
-                    Expanded(
-                      child: Text(
-                        _aiStatus == NoteAiStatus.error
-                            ? 'AI failed — try again from the AI menu'
-                            : 'Generating…',
-                        style: GoogleFonts.poppins(
-                          fontSize: 13.sp,
-                          color: NotesTheme.textPrimary.withValues(alpha: 0.5),
-                          fontStyle: FontStyle.italic,
-                        ),
-                      ),
-                    ),
-                  ],
                 ),
+              if (!isError) SizedBox(width: 10.w),
+              Expanded(
+                child: Text(
+                  isError
+                      ? 'AI failed — try again from the AI menu'
+                      : 'Generating…',
+                  style: GoogleFonts.poppins(
+                    fontSize: 13.sp,
+                    color: NotesTheme.textPrimary.withValues(alpha: 0.5),
+                    fontStyle: FontStyle.italic,
+                  ),
+                ),
+              ),
+            ],
+          ),
         ),
       ],
     );
