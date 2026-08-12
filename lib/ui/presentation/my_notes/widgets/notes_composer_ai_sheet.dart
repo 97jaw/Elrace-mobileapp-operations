@@ -43,7 +43,7 @@ Future<void> showNotesComposerAiSheet(
               ),
               SizedBox(height: 4.h),
               Text(
-                'Transcribe only when you tap Transcribe. Summarize / bullets use existing text or transcript — they never start Whisper.',
+                'Transcript runs automatically after audio upload. Summarize / bullets use the transcript or note text.',
                 style: GoogleFonts.poppins(
                   fontSize: 12.sp,
                   color: NotesTheme.textPrimary.withValues(alpha: 0.5),
@@ -54,14 +54,6 @@ Future<void> showNotesComposerAiSheet(
                 spacing: 8.w,
                 runSpacing: 8.h,
                 children: [
-                  _AiChip(
-                    label: 'Transcribe',
-                    icon: Icons.mic_none_rounded,
-                    onTap: () {
-                      Navigator.pop(ctx);
-                      onRun('transcribe');
-                    },
-                  ),
                   _AiChip(
                     label: 'Summarize',
                     icon: Icons.summarize_outlined,

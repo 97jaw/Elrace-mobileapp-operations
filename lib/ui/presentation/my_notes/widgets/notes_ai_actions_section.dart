@@ -120,8 +120,6 @@ class _NotesAiActionsSectionState extends State<NotesAiActionsSection> {
                 spacing: 8.w,
                 runSpacing: 8.h,
                 children: [
-                  _chip('Transcribe', Icons.mic_none_rounded,
-                      () => _run('transcribe')),
                   _chip('Summarize', Icons.summarize_outlined,
                       () => _summarizeOrBullets(NoteAiMode.summarize)),
                   _chip('Bullets', Icons.format_list_bulleted,

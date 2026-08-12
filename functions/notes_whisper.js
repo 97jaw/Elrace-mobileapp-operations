@@ -1,6 +1,6 @@
 /**
  * Shared Whisper helper for My Notes audio.
- * Used by Storage upload hook (only when requested) and processNoteAi on-demand.
+ * Used by Storage upload hook (auto-transcribe) and legacy processNoteAi fallback.
  */
 const { FieldValue } = require("firebase-admin/firestore");
 const { getStorage } = require("firebase-admin/storage");

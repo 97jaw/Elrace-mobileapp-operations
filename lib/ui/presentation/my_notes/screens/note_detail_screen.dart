@@ -575,6 +575,12 @@ class _NoteDetailViewState extends State<_NoteDetailView> {
           child: transcript.isNotEmpty
               ? Text(
                   transcript,
+                  textDirection: noteTranscriptLooksArabic(
+                    language: recording.language,
+                    transcript: transcript,
+                  )
+                      ? TextDirection.rtl
+                      : TextDirection.ltr,
                   style: GoogleFonts.poppins(
                     fontSize: 14.sp,
                     color: NotesTheme.textPrimary.withValues(alpha: 0.9),
@@ -596,11 +602,11 @@ class _NoteDetailViewState extends State<_NoteDetailView> {
                     Expanded(
                       child: Text(
                         isError
-                            ? 'Transcription failed. Try again from AI tools.'
+                            ? 'Transcription failed. Re-upload audio to try again.'
                             : isPending
                                 ? 'Transcribing audio…'
                                 : isIdle
-                                    ? 'No transcript yet. Use AI tools → Transcribe when you want one.'
+                                    ? 'Transcript unavailable'
                                     : 'No transcript yet.',
                         style: GoogleFonts.poppins(
                           fontSize: 13.sp,

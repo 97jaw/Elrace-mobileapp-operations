@@ -165,8 +165,6 @@ class _AudioRecordingScreenState extends State<AudioRecordingScreen> {
 
       final needsAi = choice.mode == NoteAiMode.summarize ||
           choice.mode == NoteAiMode.bullets;
-      // Whisper only when user picks Transcribe — never for summarize/bullets.
-      final wantsTranscript = choice.mode == NoteAiMode.transcribe;
 
       var note = NoteModel(
         id: noteId,
@@ -182,9 +180,7 @@ class _AudioRecordingScreenState extends State<AudioRecordingScreen> {
           audioUrl: '',
           durationSeconds: (result.durationMs / 1000).round(),
           language: _languageCode,
-          status: wantsTranscript
-              ? TranscriptionStatus.pending
-              : TranscriptionStatus.idle,
+          status: TranscriptionStatus.pending,
         ),
       );
 
@@ -222,9 +218,7 @@ class _AudioRecordingScreenState extends State<AudioRecordingScreen> {
         recording: note.recording!.copyWith(
           audioUrl: audioUrl,
           storagePath: storagePath,
-          status: wantsTranscript
-              ? TranscriptionStatus.pending
-              : TranscriptionStatus.idle,
+          status: TranscriptionStatus.pending,
         ),
       );
 
@@ -371,7 +365,7 @@ class _AudioRecordingScreenState extends State<AudioRecordingScreen> {
                         ),
                         SizedBox(height: 16.h),
                         Text(
-                          'After you stop, choose Save only or request transcript / AI.',
+                          'After you stop, transcript starts automatically. Optionally request a summary.',
                           textAlign: TextAlign.center,
                           style: GoogleFonts.poppins(
                             fontSize: 11.sp,
@@ -461,7 +455,7 @@ class _AudioRecordingScreenState extends State<AudioRecordingScreen> {
       children: [
         chip('EN', _NotesAudioLanguage.en),
         SizedBox(width: 8.w),
-        chip('AR', _NotesAudioLanguage.ar),
+        chip('Arabic (forced)', _NotesAudioLanguage.ar),
         SizedBox(width: 8.w),
         chip('Auto', _NotesAudioLanguage.auto),
       ],

@@ -254,11 +254,14 @@ class NotesAudioRecordingResult {
   final File? file;
   final int durationMs;
   final bool isTooShort;
+  /// Whisper language hint: `en` | `ar` | `auto`.
+  final String language;
 
   const NotesAudioRecordingResult({
     required this.file,
     required this.durationMs,
     required this.isTooShort,
+    this.language = 'auto',
   });
 
   bool get isValid => file != null && !isTooShort;
@@ -268,5 +271,19 @@ class NotesAudioRecordingResult {
     final minutes = seconds ~/ 60;
     final remaining = seconds % 60;
     return '${minutes.toString().padLeft(2, '0')}:${remaining.toString().padLeft(2, '0')}';
+  }
+
+  NotesAudioRecordingResult copyWith({
+    File? file,
+    int? durationMs,
+    bool? isTooShort,
+    String? language,
+  }) {
+    return NotesAudioRecordingResult(
+      file: file ?? this.file,
+      durationMs: durationMs ?? this.durationMs,
+      isTooShort: isTooShort ?? this.isTooShort,
+      language: language ?? this.language,
+    );
   }
 }

@@ -468,17 +468,18 @@ class _AddNoteScreenState extends State<AddNoteScreen> {
       }
 
       setState(() => _saving = true);
+      final language = (result.language).trim().isEmpty ? 'auto' : result.language;
       final audioUrl = await _audioService.uploadAudio(
         noteId: _noteId,
         audioFile: result.file!,
-        language: 'auto',
+        language: language,
       );
       if (!mounted) return;
       final recording = RecordingInfo(
         audioUrl: audioUrl,
         durationSeconds: (result.durationMs / 1000).round(),
-        language: 'auto',
-        status: TranscriptionStatus.idle,
+        language: language,
+        status: TranscriptionStatus.pending,
         storagePath: 'chat_media/notes/${FirebaseAuth.instance.currentUser?.uid ?? ''}/$_noteId/audio.m4a',
       );
       _recording = recording;
@@ -514,24 +515,12 @@ class _AddNoteScreenState extends State<AddNoteScreen> {
       if (!ok || !mounted) return;
       _ensureLiveWatch();
 
-      if (mode == 'summarize' || mode == 'bullets' || mode == 'transcribe') {
-        final aiMode = mode == 'bullets'
-            ? NoteAiMode.bullets
-            : mode == 'summarize'
-                ? NoteAiMode.summarize
-                : NoteAiMode.transcribe;
+      if (mode == 'summarize' || mode == 'bullets') {
+        final aiMode =
+            mode == 'bullets' ? NoteAiMode.bullets : NoteAiMode.summarize;
         setState(() {
           _aiMode = aiMode;
           _aiStatus = NoteAiStatus.pending;
-          // Only mark recording pending when explicitly transcribing.
-          if (mode == 'transcribe' &&
-              _recording != null &&
-              (_recording!.transcript == null ||
-                  _recording!.transcript!.trim().isEmpty)) {
-            _recording = _recording!.copyWith(
-              status: TranscriptionStatus.pending,
-            );
-          }
         });
         final note = _buildNoteModel().copyWith(
           aiMode: aiMode,
@@ -637,7 +626,7 @@ class _AddNoteScreenState extends State<AddNoteScreen> {
                               SizedBox(height: 16.h),
                               _buildPhotoStrip(),
                             ],
-                            if (_recording != null &&
+                              if (_recording != null &&
                                 _recording!.audioUrl.isNotEmpty) ...[
                               SizedBox(height: 16.h),
                               _buildAudioChip(),
@@ -651,17 +640,6 @@ class _AddNoteScreenState extends State<AddNoteScreen> {
                                       TranscriptionStatus.error) ...[
                                 SizedBox(height: 12.h),
                                 _buildComposerTranscript(),
-                              ] else if (_recording!.status ==
-                                  TranscriptionStatus.idle) ...[
-                                SizedBox(height: 8.h),
-                                Text(
-                                  'Audio saved. Use AI → Transcribe when you want speech-to-text.',
-                                  style: GoogleFonts.poppins(
-                                    fontSize: 12.sp,
-                                    color: NotesTheme.textPrimary
-                                        .withValues(alpha: 0.45),
-                                  ),
-                                ),
                               ],
                             ],
                             if (_shouldShowComposerAi) ...[
@@ -750,6 +728,12 @@ class _AddNoteScreenState extends State<AddNoteScreen> {
           child: transcript.isNotEmpty
               ? Text(
                   transcript,
+                  textDirection: noteTranscriptLooksArabic(
+                    language: recording.language,
+                    transcript: transcript,
+                  )
+                      ? TextDirection.rtl
+                      : TextDirection.ltr,
                   style: GoogleFonts.poppins(
                     fontSize: 14.sp,
                     color: NotesTheme.textPrimary.withValues(alpha: 0.9),
@@ -1195,6 +1179,7 @@ class _InlineAudioRecorderSheetState extends State<_InlineAudioRecorderSheet> {
   bool _busy = false;
   Timer? _tick;
   Duration _elapsed = Duration.zero;
+  String _language = 'auto';
 
   @override
   void dispose() {
@@ -1238,7 +1223,7 @@ class _InlineAudioRecorderSheetState extends State<_InlineAudioRecorderSheet> {
       _recording = false;
     });
     if (result != null) {
-      Navigator.pop(context, result);
+      Navigator.pop(context, result.copyWith(language: _language));
     }
   }
 
@@ -1252,6 +1237,37 @@ class _InlineAudioRecorderSheetState extends State<_InlineAudioRecorderSheet> {
     final m = _elapsed.inMinutes.remainder(60).toString().padLeft(2, '0');
     final s = _elapsed.inSeconds.remainder(60).toString().padLeft(2, '0');
     return '$m:$s';
+  }
+
+  Widget _langChip(String label, String value) {
+    final selected = _language == value;
+    return GestureDetector(
+      onTap: _recording || _busy
+          ? null
+          : () => setState(() => _language = value),
+      child: Container(
+        padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 8.h),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(999),
+          color: selected
+              ? NotesTheme.bronze.withValues(alpha: 0.2)
+              : NotesTheme.glassFill,
+          border: Border.all(
+            color: selected ? NotesTheme.bronze : NotesTheme.glassBorder,
+          ),
+        ),
+        child: Text(
+          label,
+          style: GoogleFonts.poppins(
+            fontSize: 12.sp,
+            fontWeight: FontWeight.w600,
+            color: selected
+                ? NotesTheme.bronze
+                : NotesTheme.textPrimary.withValues(alpha: 0.55),
+          ),
+        ),
+      ),
+    );
   }
 
   @override
@@ -1269,11 +1285,25 @@ class _InlineAudioRecorderSheetState extends State<_InlineAudioRecorderSheet> {
               color: NotesTheme.textPrimary,
             ),
           ),
+          SizedBox(height: 12.h),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              _langChip('EN', 'en'),
+              SizedBox(width: 8.w),
+              _langChip('Arabic (forced)', 'ar'),
+              SizedBox(width: 8.w),
+              _langChip('Auto', 'auto'),
+            ],
+          ),
           SizedBox(height: 8.h),
           Text(
-            _recording ? _timeLabel : 'Tap to record',
+            _recording
+                ? _timeLabel
+                : 'Tap to record — transcript starts after upload',
+            textAlign: TextAlign.center,
             style: GoogleFonts.poppins(
-              fontSize: 28.sp,
+              fontSize: _recording ? 28.sp : 13.sp,
               fontWeight: FontWeight.w600,
               color: NotesTheme.bronze,
             ),

@@ -10,7 +10,7 @@ class NotesAiModeChoice {
   const NotesAiModeChoice({required this.mode});
 }
 
-/// Post-recording chooser. Transcription is optional (Save only = no Whisper).
+/// Post-recording chooser. Transcript always runs on upload; pick optional AI.
 Future<NotesAiModeChoice?> showNotesAiModeSheet(BuildContext context) {
   return showModalBottomSheet<NotesAiModeChoice>(
     context: context,
@@ -68,7 +68,7 @@ class _NotesAiModeSheetBodyState extends State<_NotesAiModeSheetBody> {
           ),
           SizedBox(height: 6.h),
           Text(
-            'Transcription is on demand — only runs if you choose it.',
+            'Speech-to-text starts automatically after upload. Optionally request a summary.',
             style: GoogleFonts.poppins(
               fontSize: 12.sp,
               color: NotesTheme.textPrimary.withValues(alpha: 0.55),
@@ -78,28 +78,21 @@ class _NotesAiModeSheetBodyState extends State<_NotesAiModeSheetBody> {
           _option(
             NoteAiMode.none,
             'Save only',
-            'Keep the audio — no transcript yet',
+            'Keep the audio — transcript runs in the background',
             Icons.save_alt_rounded,
-          ),
-          SizedBox(height: 8.h),
-          _option(
-            NoteAiMode.transcribe,
-            'Transcribe',
-            'Speech-to-text now',
-            Icons.mic_none_rounded,
           ),
           SizedBox(height: 8.h),
           _option(
             NoteAiMode.summarize,
             'Summarize',
-            'Needs a transcript or text first — does not auto-transcribe',
+            'Runs after auto-transcript is ready',
             Icons.summarize_outlined,
           ),
           SizedBox(height: 8.h),
           _option(
             NoteAiMode.bullets,
             'Bullet points',
-            'Needs a transcript or text first — does not auto-transcribe',
+            'Runs after auto-transcript is ready',
             Icons.format_list_bulleted_rounded,
           ),
           SizedBox(height: 18.h),

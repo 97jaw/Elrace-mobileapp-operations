@@ -1,6 +1,7 @@
 /**
- * My Notes — GPT processing (summarize, bullets, actions, tags, translate)
- * + on-demand Whisper for audio (mode: transcribe / summarize / bullets…).
+ * My Notes — GPT processing (summarize, bullets, actions, tags, translate).
+ * Whisper runs on Storage upload (auto). Callable mode "transcribe" only waits
+ * for / returns an existing transcript (backward compatible).
  * Callable: processNoteAi
  * Also exported: runNoteAiOnDoc for Whisper post-hook.
  */
@@ -50,12 +51,21 @@ async function ensureTranscriptIfNeeded({ noteRef, data, apiKey, mode }) {
   let sourceText = sourceTextFromNote(data);
   if (sourceText) return sourceText;
 
-  // Whisper runs ONLY for explicit "transcribe" — never as a side effect
-  // of summarize / bullets / other AI modes.
+  // Summarize / bullets / etc. never start Whisper — upload CF owns that.
   if (mode !== "transcribe") {
+    // If upload CF is still running, wait briefly so summarize can proceed.
+    if (data.recording) {
+      const status = (data.recording && data.recording.status) || "idle";
+      if (status === "pending" || status === "processing") {
+        const waited = await waitForTranscript(noteRef);
+        if (waited && waited.transcript) return waited.transcript;
+      }
+    }
     return "";
   }
 
+  // Legacy mode "transcribe": wait for auto-upload Whisper; do not start a
+  // second job unless nothing is in flight and audio exists.
   if (!data.recording) {
     return "";
   }
@@ -64,6 +74,10 @@ async function ensureTranscriptIfNeeded({ noteRef, data, apiKey, mode }) {
   if (status === "pending" || status === "processing") {
     const waited = await waitForTranscript(noteRef);
     if (waited && waited.transcript) return waited.transcript;
+  }
+
+  if (status === "done") {
+    return sourceTextFromNote((await noteRef.get()).data() || {}) || "";
   }
 
   return transcribeNoteRecording({
@@ -277,14 +291,14 @@ const processNoteAi = onCall(
     if (!sourceText && mode === "transcribe") {
       throw new HttpsError(
         "failed-precondition",
-        "No audio available to transcribe",
+        "No transcript yet — wait for auto-transcription after upload",
       );
     }
     if (!sourceText && mode !== "transcribe") {
       throw new HttpsError(
         "failed-precondition",
         data.recording
-          ? "Transcribe the audio first (AI → Transcribe), then try again"
+          ? "Wait for auto-transcription to finish, then try again"
           : "No content or transcript available",
       );
     }
