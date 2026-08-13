@@ -61,18 +61,18 @@ class _InvoicePrintMenuButtonState extends State<InvoicePrintMenuButton> {
   Future<void> _openSupportingDocuments() async {
     setState(() => _busy = true);
     try {
-      final urls =
-          await _repo.fetchInvoiceSupportingDocumentPdfUrls(widget.invoiceId);
+      final parts =
+          await _repo.fetchInvoiceSupportingDocumentPdfBytes(widget.invoiceId);
       if (!mounted) return;
-      if (urls.isEmpty) {
-        _toast('No supporting document to show.');
+      if (parts.isEmpty) {
+        _toast('No supporting PDF document to show.');
         return;
       }
       await Navigator.push(
         context,
         MaterialPageRoute(
           builder: (_) => LpoPdfViewerScreen(
-            pdfUrls: urls,
+            pdfByteParts: parts,
             title: widget.title ?? 'Supporting Documents',
           ),
         ),

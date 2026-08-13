@@ -12,19 +12,21 @@ import 'package:share_plus/share_plus.dart';
 import 'package:syncfusion_flutter_pdf/pdf.dart';
 import 'package:syncfusion_flutter_pdfviewer/pdfviewer.dart';
 
-/// In-app PDF viewer. Supports one URL or many (RFQ multi-attachment).
+/// In-app PDF viewer. Supports one URL, many URLs, or preloaded byte parts.
 ///
 /// Multiple files are merged with Syncfusion before display/watermark.
 /// Server-side PyPDF2 merges often appear as "Page 0 of 1" in this viewer.
 class LpoPdfViewerScreen extends StatefulWidget {
   final String? pdfUrl;
   final List<String>? pdfUrls;
+  final List<Uint8List>? pdfByteParts;
   final String? title;
 
   const LpoPdfViewerScreen({
     super.key,
     this.pdfUrl,
     this.pdfUrls,
+    this.pdfByteParts,
     this.title,
   });
 
@@ -93,9 +95,12 @@ class _LpoPdfViewerScreenState extends State<LpoPdfViewerScreen> {
 
   bool _isBase64Pdf(Uint8List bytes) {
     if (bytes.length < 8) return false;
-    final head = String.fromCharCodes(
-      bytes.sublist(0, bytes.length < 32 ? bytes.length : 32),
-    ).trimLeft();
+    final head = utf8
+        .decode(
+          bytes.sublist(0, bytes.length < 32 ? bytes.length : 32),
+          allowMalformed: true,
+        )
+        .trimLeft();
     return head.startsWith('JVBERi0');
   }
 
@@ -103,7 +108,8 @@ class _LpoPdfViewerScreenState extends State<LpoPdfViewerScreen> {
     if (_isPdfBytes(bytes)) return bytes;
     if (_isBase64Pdf(bytes)) {
       try {
-        final cleaned = String.fromCharCodes(bytes)
+        final cleaned = utf8
+            .decode(bytes, allowMalformed: true)
             .replaceAll(RegExp(r'\s+'), '');
         final decoded = base64Decode(cleaned);
         if (_isPdfBytes(decoded)) return decoded;
@@ -117,7 +123,8 @@ class _LpoPdfViewerScreenState extends State<LpoPdfViewerScreen> {
   bool _looksLikeHtmlBytes(Uint8List bytes) {
     if (bytes.isEmpty) return false;
     final sampleLength = bytes.length < 64 ? bytes.length : 64;
-    final head = String.fromCharCodes(bytes.sublist(0, sampleLength))
+    final head = utf8
+        .decode(bytes.sublist(0, sampleLength), allowMalformed: true)
         .trimLeft()
         .toLowerCase();
     return head.startsWith('<!doctype') ||
@@ -232,19 +239,29 @@ class _LpoPdfViewerScreenState extends State<LpoPdfViewerScreen> {
       _error = null;
     });
     try {
-      final urls = _resolvedUrls;
-      if (urls.isEmpty) {
-        setState(() {
-          _error = 'No PDF URL provided';
-          _loading = false;
-        });
-        return;
-      }
-
+      final preloaded = widget.pdfByteParts
+              ?.where((b) => b.isNotEmpty)
+              .toList() ??
+          const <Uint8List>[];
       final parts = <Uint8List>[];
-      for (final url in urls) {
-        final bytes = await _downloadPdfBytes(url);
-        if (bytes != null) parts.add(bytes);
+      if (preloaded.isNotEmpty) {
+        for (final bytes in preloaded) {
+          final coerced = _coercePdfBytes(bytes);
+          if (_isPdfBytes(coerced)) parts.add(coerced);
+        }
+      } else {
+        final urls = _resolvedUrls;
+        if (urls.isEmpty) {
+          setState(() {
+            _error = 'No PDF URL provided';
+            _loading = false;
+          });
+          return;
+        }
+        for (final url in urls) {
+          final bytes = await _downloadPdfBytes(url);
+          if (bytes != null) parts.add(bytes);
+        }
       }
 
       if (parts.isEmpty) {
