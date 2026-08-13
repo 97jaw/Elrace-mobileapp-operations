@@ -15,7 +15,8 @@ final purchaseOverviewProvider =
   ref.watch(purchaseDevRoleOverrideProvider);
   final repo = ref.read(purchaseRepositoryProvider);
   final testRole = ref.read(purchaseDevRoleOverrideProvider);
-  return repo.fetchOverview(testRole: testRole);
+  // Always bypass client/server stale empty snapshots when opening the hub.
+  return repo.fetchOverview(testRole: testRole, refresh: true);
 });
 
 /// Login-cache access, upgraded from live `/purchase/overview` when management

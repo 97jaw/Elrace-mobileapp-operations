@@ -10,6 +10,7 @@ import 'package:http/http.dart' as http;
 class PurchaseRepository {
   static const _base = 'https://erp.elrace.com/api';
   static const _timeout = Duration(seconds: 15);
+  static const _overviewTimeout = Duration(seconds: 45);
   static const _overviewClientCacheTtl = Duration(seconds: 90);
 
   PurchaseOverview? _cachedOverview;
@@ -42,8 +43,9 @@ class PurchaseRepository {
 
   Future<Map<String, dynamic>?> _post(
     String path,
-    Map<String, dynamic> params,
-  ) async {
+    Map<String, dynamic> params, {
+    Duration? timeout,
+  }) async {
     final url = Uri.parse('$_base$path');
     final body = _body(params);
     ApiLogger.logRequest(
@@ -56,7 +58,7 @@ class PurchaseRepository {
     try {
       final response = await http
           .post(url, headers: _headers, body: body)
-          .timeout(_timeout);
+          .timeout(timeout ?? _timeout);
       final duration = DateTime.now().difference(start);
       final data = jsonDecode(response.body) as Map<String, dynamic>;
       ApiLogger.logResponse(
@@ -66,8 +68,16 @@ class PurchaseRepository {
         duration: duration,
       );
       if (response.statusCode != 200) return null;
+      final rpcError = data['error'];
+      if (rpcError != null) {
+        if (kDebugMode) {
+          debugPrint('purchase API RPC error on $path: $rpcError');
+        }
+        return null;
+      }
       final result = data['result'];
       if (result is Map<String, dynamic>) return result;
+      if (result is Map) return Map<String, dynamic>.from(result);
       return null;
     } catch (e, st) {
       ApiLogger.logError(endpoint: url.toString(), error: e, stackTrace: st);
@@ -131,17 +141,24 @@ class PurchaseRepository {
     bool refresh = false,
     bool mobile = true,
   }) async {
-    if (mobile &&
-        !refresh &&
+    if (refresh) {
+      _cachedOverview = null;
+      _cachedOverviewAt = null;
+      _cachedOverviewRole = null;
+    } else if (mobile &&
         _cachedOverview != null &&
         _cachedOverviewAt != null &&
         _cachedOverviewRole == testRole &&
         DateTime.now().difference(_cachedOverviewAt!) <
             _overviewClientCacheTtl) {
-      if (kDebugMode) {
-        debugPrint('purchase/overview client cache hit');
+      // Never keep serving an unauthorized/zero snapshot after a failed call.
+      if (_cachedOverview!.isAuthorized &&
+          _cachedOverview!.scope != 'none') {
+        if (kDebugMode) {
+          debugPrint('purchase/overview client cache hit');
+        }
+        return _cachedOverview!;
       }
-      return _cachedOverview!;
     }
 
     final result = await _post(
@@ -150,19 +167,19 @@ class PurchaseRepository {
         if (mobile) 'mobile': true,
         if (refresh) 'refresh': true,
       }, testRole),
+      timeout: _overviewTimeout,
     );
     final payload = _unwrap(result);
     if (payload == null) return PurchaseOverview.unauthorized();
     final overview = PurchaseOverview.fromJson(payload);
-    if (mobile) {
+    if (mobile && overview.isAuthorized && overview.scope != 'none') {
       _cachedOverview = overview;
       _cachedOverviewAt = DateTime.now();
       _cachedOverviewRole = testRole;
     }
 
-    if (kDebugMode && result?['meta'] is Map) {
-      final perf = (result!['meta'] as Map)['perf'];
-      if (perf != null) debugPrint('purchase/overview perf: $perf');
+    if (kDebugMode && result?['perf'] != null) {
+      debugPrint('purchase/overview perf: ${result!['perf']}');
     }
     return overview;
   }
@@ -476,12 +493,16 @@ class PurchaseRepository {
     int limit = 5,
     bool refresh = false,
   }) async {
-    if (!refresh &&
-        _cachedDraftPreview != null &&
+    if (refresh) {
+      _cachedDraftPreview = null;
+      _cachedDraftPreviewAt = null;
+      _cachedDraftPreviewRole = null;
+    } else if (_cachedDraftPreview != null &&
         _cachedDraftPreviewAt != null &&
         _cachedDraftPreviewRole == testRole &&
         DateTime.now().difference(_cachedDraftPreviewAt!) <
-            _overviewClientCacheTtl) {
+            _overviewClientCacheTtl &&
+        _cachedDraftPreview!.totalCount > 0) {
       return _cachedDraftPreview!;
     }
 
@@ -491,12 +512,15 @@ class PurchaseRepository {
         'limit': limit,
         if (refresh) 'refresh': true,
       }, testRole),
+      timeout: _overviewTimeout,
     );
     final payload = _unwrap(result);
     final preview = DraftInvoicesPreview.fromJson(payload);
-    _cachedDraftPreview = preview;
-    _cachedDraftPreviewAt = DateTime.now();
-    _cachedDraftPreviewRole = testRole;
+    if (preview.totalCount > 0 || preview.items.isNotEmpty) {
+      _cachedDraftPreview = preview;
+      _cachedDraftPreviewAt = DateTime.now();
+      _cachedDraftPreviewRole = testRole;
+    }
     return preview;
   }
 
@@ -555,7 +579,43 @@ class PurchaseRepository {
   Future<String?> fetchInvoiceReportUrl(int invoiceId) async {
     final result =
         await _post('/invoice/report_url', {'invoice_id': invoiceId});
-    return result?['report_url']?.toString();
+    if (result == null) return null;
+    final nested = result['data'];
+    if (nested is Map && nested['report_url'] != null) {
+      final url = nested['report_url']?.toString().trim() ?? '';
+      if (url.isNotEmpty) return url;
+    }
+    final url = result['report_url']?.toString().trim() ?? '';
+    return url.isEmpty ? null : url;
+  }
+
+  /// PDF URLs for invoice supporting documents (merged in-app via Syncfusion).
+  Future<List<String>> fetchInvoiceSupportingDocumentPdfUrls(
+    int invoiceId,
+  ) async {
+    final result = await _post(
+      '/invoice/supporting_documents',
+      {'invoice_id': invoiceId},
+    );
+    final payload = _unwrap(result) ?? result;
+    if (payload == null) return const [];
+
+    final raw = payload['supporting_documents'];
+    if (raw is! List) return const [];
+
+    final urls = <String>[];
+    for (final item in raw) {
+      if (item is! Map) continue;
+      final map = Map<String, dynamic>.from(item);
+      final mimetype = (map['mimetype'] ?? '').toString().toLowerCase();
+      final isPdf = map['is_pdf'] == true || mimetype.contains('pdf');
+      if (!isPdf) continue;
+      final url = (map['file_url'] ?? map['download_url'] ?? '')
+          .toString()
+          .trim();
+      if (url.isNotEmpty) urls.add(url);
+    }
+    return urls;
   }
 }
 
