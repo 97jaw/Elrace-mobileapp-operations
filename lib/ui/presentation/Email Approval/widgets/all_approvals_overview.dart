@@ -44,6 +44,7 @@ class AllApprovalsOverview extends StatefulWidget {
     this.onDelayedRecordTap,
     this.onCategoryRecordTap,
     this.onHrManagementTestCasesTap,
+    this.onInvoicePrintTestTap,
   });
 
   final int invoiceCount;
@@ -82,6 +83,7 @@ class AllApprovalsOverview extends StatefulWidget {
     String categoryKey,
   )? onCategoryRecordTap;
   final VoidCallback? onHrManagementTestCasesTap;
+  final VoidCallback? onInvoicePrintTestTap;
 
   @override
   State<AllApprovalsOverview> createState() => _AllApprovalsOverviewState();
@@ -284,6 +286,12 @@ class _AllApprovalsOverviewState extends State<AllApprovalsOverview> {
                   SizedBox(height: 10.th),
                   _HrManagementTestCasesCard(
                     onTap: widget.onHrManagementTestCasesTap!,
+                  ),
+                ],
+                if (widget.onInvoicePrintTestTap != null) ...[
+                  SizedBox(height: 10.th),
+                  _InvoicePrintTestCard(
+                    onTap: widget.onInvoicePrintTestTap!,
                   ),
                 ],
               ],
@@ -1225,6 +1233,37 @@ class _HrManagementTestCasesCard extends StatelessWidget {
           Expanded(
             child: Text(
               'HR Management Test Cases',
+              style: GoogleFonts.poppins(
+                fontSize: 12.tsp,
+                fontWeight: FontWeight.w600,
+                color: ApprovalsOverviewTheme.textDark,
+              ),
+            ),
+          ),
+          const OverviewArrowButton(size: 24),
+        ],
+      ),
+    );
+  }
+}
+
+class _InvoicePrintTestCard extends StatelessWidget {
+  const _InvoicePrintTestCard({required this.onTap});
+
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return OverviewGlassPanel(
+      fillAlpha: 0.8,
+      blurSigma: 4,
+      padding: EdgeInsets.symmetric(horizontal: 14.tw, vertical: 11.th),
+      onTap: onTap,
+      child: Row(
+        children: [
+          Expanded(
+            child: Text(
+              'Invoice Form (Print Test)',
               style: GoogleFonts.poppins(
                 fontSize: 12.tsp,
                 fontWeight: FontWeight.w600,

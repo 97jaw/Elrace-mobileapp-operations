@@ -22,6 +22,9 @@ import 'package:intl/intl.dart';
 import 'dart:math' as math;
 
 class InvoiceDetailsScreen extends StatefulWidget {
+  /// Debug-only waiting-invoice form when no live approval is available.
+  static const String localFakeInvoiceRequestId = 'LOCAL_FAKE_INVOICE_001';
+
   final String requestId;
   final String type;
   final Map<String, dynamic>? initialData;
@@ -38,7 +41,6 @@ class InvoiceDetailsScreen extends StatefulWidget {
 }
 
 class _InvoiceDetailsScreenState extends State<InvoiceDetailsScreen> {
-  static const String _localFakeInvoiceRequestId = 'LOCAL_FAKE_INVOICE_001';
   bool _isLoading = true;
   String _error = '';
   bool _rejectedLocked = false;
@@ -48,7 +50,7 @@ class _InvoiceDetailsScreenState extends State<InvoiceDetailsScreen> {
   String _resolvedWoRefNo = '';
 
   bool get _isLocalFakeRequest =>
-      widget.requestId == _localFakeInvoiceRequestId;
+      widget.requestId == InvoiceDetailsScreen.localFakeInvoiceRequestId;
 
   Map<String, dynamic> _buildLocalFakeInvoiceData() {
     return {
@@ -86,6 +88,13 @@ class _InvoiceDetailsScreenState extends State<InvoiceDetailsScreen> {
     super.initState();
     if (_isLocalFakeRequest) {
       final fake = _buildLocalFakeInvoiceData();
+      if (widget.initialData != null) {
+        final id = widget.initialData!['invoice_id'] ?? widget.initialData!['id'];
+        if (id != null && int.tryParse(id.toString()) != null) {
+          fake['invoice_id'] = int.parse(id.toString());
+          fake['id'] = int.parse(id.toString());
+        }
+      }
       _formData = fake;
       _isLoading = false;
       return;
