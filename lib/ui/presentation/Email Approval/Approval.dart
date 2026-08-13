@@ -389,12 +389,14 @@ class _ApprovalsScreenState extends State<ApprovalsScreen> {
             rfqItems = _normalizeCategoryItems(items, categoryLabel: 'RFQ');
             _countCache.rfq = rfqItems.length;
           case 'invoice':
-            invoiceItems =
+            var normalizedInvoices =
                 _normalizeCategoryItems(items, categoryLabel: 'INVOICE');
             if (kDebugMode) {
               // Ensure at least one row so Print / Supporting Document can be tested.
-              invoiceItems = _ensureDebugWaitingInvoice(invoiceItems);
+              normalizedInvoices =
+                  _ensureDebugWaitingInvoice(normalizedInvoices);
             }
+            invoiceItems = normalizedInvoices;
             _countCache.invoice = invoiceItems.length;
           case 'petty_cash':
             pettyCashItems =
