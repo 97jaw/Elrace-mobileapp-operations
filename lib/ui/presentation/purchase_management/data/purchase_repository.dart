@@ -89,7 +89,7 @@ class PurchaseRepository {
     }
   }
 
-  /// Strip huge base64 blobs before logging (content API).
+  /// Strip huge base64 blobs and U+FFFD before logging.
   dynamic _sanitizeLogPayload(dynamic value) {
     if (value is Map) {
       return value.map((key, child) {
@@ -101,6 +101,9 @@ class PurchaseRepository {
     }
     if (value is List) {
       return value.map(_sanitizeLogPayload).toList();
+    }
+    if (value is String && value.contains('\uFFFD')) {
+      return value.replaceAll('\uFFFD', '?');
     }
     return value;
   }
