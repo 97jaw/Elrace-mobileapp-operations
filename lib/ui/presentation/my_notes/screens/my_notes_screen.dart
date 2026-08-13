@@ -2,10 +2,10 @@ import 'package:el_race/ui/presentation/my_notes/bloc/notes_bloc.dart';
 import 'package:el_race/ui/presentation/my_notes/data/note_model.dart';
 import 'package:el_race/ui/presentation/my_notes/screens/add_note_screen.dart';
 import 'package:el_race/ui/presentation/my_notes/screens/note_detail_screen.dart';
+import 'package:el_race/ui/presentation/my_notes/screens/notes_all_list_screen.dart';
 import 'package:el_race/ui/presentation/my_notes/screens/notes_templates_stub_screen.dart';
 import 'package:el_race/ui/presentation/my_notes/theme/notes_theme.dart';
 import 'package:el_race/ui/presentation/my_notes/theme/notes_theme_controller.dart';
-import 'package:el_race/ui/presentation/my_notes/widgets/notes_bottom_nav_bar.dart';
 import 'package:el_race/ui/presentation/my_notes/widgets/notes_capture_grid.dart';
 import 'package:el_race/ui/presentation/my_notes/widgets/notes_list_section.dart';
 import 'package:el_race/ui/presentation/my_notes/widgets/notes_page_heading.dart';
@@ -50,8 +50,6 @@ class _MyNotesView extends StatefulWidget {
 }
 
 class _MyNotesViewState extends State<_MyNotesView> {
-  bool _showAllNotes = false;
-
   @override
   void initState() {
     super.initState();
@@ -113,18 +111,18 @@ class _MyNotesViewState extends State<_MyNotesView> {
     );
   }
 
-  void _onViewAllNotes() {
-    setState(() => _showAllNotes = true);
-  }
-
-  void _onSearchQueryChanged(String query) {
-    final bloc = context.read<NotesBloc>();
-    final trimmed = query.trim();
-    if (trimmed.isEmpty) {
-      bloc.add(const ClearSearch());
-    } else {
-      bloc.add(SearchNotes(trimmed));
-    }
+  Future<void> _onViewAllNotes() async {
+    final notesBloc = context.read<NotesBloc>();
+    await Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => BlocProvider.value(
+          value: notesBloc,
+          child: const NotesAllListScreen(),
+        ),
+      ),
+    );
+    if (!mounted) return;
+    notesBloc.add(const ClearSearch());
   }
 
   NotesState _resolveDisplayState(NotesState state) {
@@ -158,46 +156,34 @@ class _MyNotesViewState extends State<_MyNotesView> {
                 titleColor: NotesTheme.textPrimary,
               ),
               Expanded(
-                child: Stack(
-                  children: [
-                    BlocConsumer<NotesBloc, NotesState>(
-                      listener: (context, state) {
-                        if (state is NotesError) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(
-                              content: Text(
-                                state.message.contains('permission-denied')
-                                    ? 'Notes access denied. Deploy Firestore rules for /users/{uid}/notes.'
-                                    : state.message,
-                              ),
-                              backgroundColor: NotesTheme.surface,
-                              duration: const Duration(seconds: 5),
-                            ),
-                          );
-                        } else if (state is NoteActionError) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(
-                              content: Text(state.message),
-                              backgroundColor: NotesTheme.surface,
-                              duration: const Duration(seconds: 5),
-                            ),
-                          );
-                        }
-                      },
-                      builder: (context, state) {
-                        final displayState = _resolveDisplayState(state);
-                        return _buildHome(displayState, bottomPad);
-                      },
-                    ),
-                    Positioned(
-                      left: 20.w,
-                      right: 20.w,
-                      bottom: bottomPad + 12.h,
-                      child: NotesFloatingSearchBar(
-                        onQueryChanged: _onSearchQueryChanged,
-                      ),
-                    ),
-                  ],
+                child: BlocConsumer<NotesBloc, NotesState>(
+                  listener: (context, state) {
+                    if (state is NotesError) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text(
+                            state.message.contains('permission-denied')
+                                ? 'Notes access denied. Deploy Firestore rules for /users/{uid}/notes.'
+                                : state.message,
+                          ),
+                          backgroundColor: NotesTheme.surface,
+                          duration: const Duration(seconds: 5),
+                        ),
+                      );
+                    } else if (state is NoteActionError) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text(state.message),
+                          backgroundColor: NotesTheme.surface,
+                          duration: const Duration(seconds: 5),
+                        ),
+                      );
+                    }
+                  },
+                  builder: (context, state) {
+                    final displayState = _resolveDisplayState(state);
+                    return _buildHome(displayState, bottomPad);
+                  },
                 ),
               ),
             ],
@@ -210,7 +196,7 @@ class _MyNotesViewState extends State<_MyNotesView> {
   Widget _buildHome(NotesState displayState, double bottomPad) {
     return SingleChildScrollView(
       physics: const BouncingScrollPhysics(),
-      padding: EdgeInsets.fromLTRB(0, 8.h, 0, bottomPad + 80.h),
+      padding: EdgeInsets.fromLTRB(0, 8.h, 0, bottomPad + 24.h),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -283,18 +269,15 @@ class _MyNotesViewState extends State<_MyNotesView> {
 
     if (state is NotesLoaded) {
       if (state.notes.isEmpty) {
-        return _buildEmptyState(isSearching: state.isSearching);
+        return _buildEmptyState();
       }
 
-      final showAll = _showAllNotes || state.isSearching;
       return NotesListSection(
         notes: state.notes,
-        title: state.isSearching
-            ? 'Search results'
-            : (showAll ? 'All Notes' : 'Recent'),
-        showAll: showAll,
+        title: 'Recent',
+        showAll: false,
         maxItems: 5,
-        onViewAll: showAll ? null : _onViewAllNotes,
+        onViewAll: _onViewAllNotes,
         onNoteTap: _onNoteTap,
       );
     }
@@ -302,22 +285,20 @@ class _MyNotesViewState extends State<_MyNotesView> {
     return _buildEmptyState();
   }
 
-  Widget _buildEmptyState({bool isSearching = false}) {
+  Widget _buildEmptyState() {
     return Padding(
       padding: EdgeInsets.symmetric(horizontal: 20.w, vertical: 40.h),
       child: Center(
         child: Column(
           children: [
             Icon(
-              isSearching ? Icons.search_off_rounded : Icons.note_add_outlined,
+              Icons.note_add_outlined,
               size: 56.sp,
               color: NotesTheme.textPrimary.withValues(alpha: 0.3),
             ),
             SizedBox(height: 16.h),
             Text(
-              isSearching
-                  ? 'No notes match your search'
-                  : 'No notes yet\nTap Create your note to get started',
+              'No notes yet\nTap Create your note to get started',
               textAlign: TextAlign.center,
               style: TextStyle(
                 color: NotesTheme.textPrimary.withValues(alpha: 0.5),

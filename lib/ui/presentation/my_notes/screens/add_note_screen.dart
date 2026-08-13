@@ -10,12 +10,16 @@ import 'package:el_race/ui/presentation/my_notes/services/notes_audio_recording_
 import 'package:el_race/ui/presentation/my_notes/services/notes_cache_service.dart';
 import 'package:el_race/ui/presentation/my_notes/services/notes_image_service.dart';
 import 'package:el_race/ui/presentation/my_notes/theme/notes_theme.dart';
+import 'package:el_race/ui/presentation/my_notes/utils/notes_markdown_format.dart';
 import 'package:el_race/ui/presentation/my_notes/widgets/notes_audio_player_widget.dart';
 import 'package:el_race/ui/presentation/my_notes/widgets/notes_composer_ai_sheet.dart';
+import 'package:el_race/ui/presentation/my_notes/widgets/notes_composer_toolbar.dart';
 import 'package:el_race/ui/presentation/my_notes/widgets/notes_format_sheet.dart';
 import 'package:el_race/ui/presentation/my_notes/widgets/notes_glass_card.dart';
 import 'package:el_race/ui/presentation/my_notes/widgets/notes_royal_bronze_background.dart';
 import 'package:el_race/utils/safe_insets.dart';
+import 'package:cunning_document_scanner/cunning_document_scanner.dart';
+import 'package:file_picker/file_picker.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -74,6 +78,9 @@ class _AddNoteScreenState extends State<AddNoteScreen> {
   Timer? _autoSaveTimer;
   bool _draftRestored = false;
 
+  TextAlign _contentAlign = TextAlign.start;
+  ui.TextDirection _contentDirection = ui.TextDirection.ltr;
+
   bool get _isEditing => widget.existingNote != null;
 
   bool get _hasContent =>
@@ -110,7 +117,7 @@ class _AddNoteScreenState extends State<AddNoteScreen> {
     }
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!_isEditing && mounted) {
-        _contentFocusNode.requestFocus();
+        _titleFocusNode.requestFocus();
       }
     });
     _startAutoSave();
@@ -405,39 +412,184 @@ class _AddNoteScreenState extends State<AddNoteScreen> {
     return shouldDiscard ?? false;
   }
 
-  Future<void> _attachPhoto() async {
-    final source = await showModalBottomSheet<String>(
+  Future<void> _attachPhotoLibrary() async {
+    final picked = await _imageService.pickImages(fromCamera: false);
+    if (picked.isEmpty || !mounted) return;
+    setState(() => _pendingImages.addAll(picked));
+  }
+
+  Future<void> _attachTakePhoto() async {
+    final picked = await _imageService.pickImages(fromCamera: true);
+    if (picked.isEmpty || !mounted) return;
+    setState(() => _pendingImages.addAll(picked));
+  }
+
+  Future<void> _attachVideo() async {
+    try {
+      final picker = ImagePicker();
+      final video = await picker.pickVideo(source: ImageSource.camera);
+      if (!mounted) return;
+      if (video == null) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Text('Video attachments coming soon'),
+          backgroundColor: NotesTheme.surface,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Could not open camera: $e'),
+          backgroundColor: NotesTheme.surface,
+        ),
+      );
+    }
+  }
+
+  Future<void> _attachFile() async {
+    try {
+      final result = await FilePicker.pickFiles(
+        allowMultiple: true,
+        type: FileType.any,
+      );
+      if (result == null || !mounted) return;
+      final images = <XFile>[];
+      var skipped = 0;
+      for (final f in result.files) {
+        final path = f.path;
+        if (path == null || path.isEmpty) {
+          skipped++;
+          continue;
+        }
+        final lower = (f.extension ?? path).toLowerCase();
+        final isImage = lower.endsWith('jpg') ||
+            lower.endsWith('jpeg') ||
+            lower.endsWith('png') ||
+            lower.endsWith('gif') ||
+            lower.endsWith('webp') ||
+            lower.endsWith('heic');
+        if (isImage) {
+          images.add(XFile(path));
+        } else {
+          skipped++;
+        }
+      }
+      if (images.isNotEmpty) {
+        setState(() => _pendingImages.addAll(images));
+      }
+      if (skipped > 0 && mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              images.isEmpty
+                  ? 'File attachments coming soon'
+                  : 'Added ${images.length} image(s). Other file types coming soon.',
+            ),
+            backgroundColor: NotesTheme.surface,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Attach failed: $e'),
+          backgroundColor: NotesTheme.surface,
+        ),
+      );
+    }
+  }
+
+  Future<void> _scanDocument() async {
+    try {
+      final pictures = await CunningDocumentScanner.getPictures(
+        noOfPages: 20,
+        isGalleryImportAllowed: true,
+      );
+      if (!mounted) return;
+      if (pictures == null || pictures.isEmpty) return;
+      setState(() {
+        _pendingImages.addAll(pictures.map((p) => XFile(p)));
+      });
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Scan failed: $e'),
+          backgroundColor: NotesTheme.surface,
+        ),
+      );
+    }
+  }
+
+  Future<void> _insertLink() async {
+    final labelCtrl = TextEditingController();
+    final urlCtrl = TextEditingController(text: 'https://');
+    final ok = await showDialog<bool>(
       context: context,
-      backgroundColor: NotesTheme.surface,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20.r)),
-      ),
-      builder: (ctx) => SafeArea(
-        child: Column(
+      builder: (ctx) => AlertDialog(
+        backgroundColor: NotesTheme.surface,
+        title: Text(
+          'Add link',
+          style: GoogleFonts.poppins(
+            fontWeight: FontWeight.w700,
+            color: NotesTheme.textPrimary,
+          ),
+        ),
+        content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            ListTile(
-              leading: const Icon(Icons.photo_library_outlined,
-                  color: NotesTheme.bronze),
-              title: Text('Photo library',
-                  style: GoogleFonts.poppins(color: NotesTheme.textPrimary)),
-              onTap: () => Navigator.pop(ctx, 'gallery'),
+            TextField(
+              controller: labelCtrl,
+              decoration: InputDecoration(
+                labelText: 'Title',
+                labelStyle: GoogleFonts.poppins(color: NotesTheme.textPrimary),
+              ),
+              style: GoogleFonts.poppins(color: NotesTheme.textPrimary),
             ),
-            ListTile(
-              leading: const Icon(Icons.camera_alt_outlined,
-                  color: NotesTheme.bronze),
-              title: Text('Camera',
-                  style: GoogleFonts.poppins(color: NotesTheme.textPrimary)),
-              onTap: () => Navigator.pop(ctx, 'camera'),
+            SizedBox(height: 8.h),
+            TextField(
+              controller: urlCtrl,
+              decoration: InputDecoration(
+                labelText: 'URL',
+                labelStyle: GoogleFonts.poppins(color: NotesTheme.textPrimary),
+              ),
+              style: GoogleFonts.poppins(color: NotesTheme.textPrimary),
+              keyboardType: TextInputType.url,
             ),
           ],
         ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: Text('Cancel',
+                style: GoogleFonts.poppins(color: NotesTheme.textPrimary)),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: Text('Insert',
+                style: GoogleFonts.poppins(color: NotesTheme.bronze)),
+          ),
+        ],
       ),
     );
-    if (source == null) return;
-    final picked = await _imageService.pickImages(fromCamera: source == 'camera');
-    if (picked.isEmpty || !mounted) return;
-    setState(() => _pendingImages.addAll(picked));
+    if (ok != true || !mounted) {
+      labelCtrl.dispose();
+      urlCtrl.dispose();
+      return;
+    }
+    NotesMarkdownFormat.insertLink(
+      _contentController,
+      label: labelCtrl.text,
+      url: urlCtrl.text,
+    );
+    labelCtrl.dispose();
+    urlCtrl.dispose();
+    setState(() {});
+    _contentFocusNode.requestFocus();
   }
 
   Future<void> _attachAudio() async {
@@ -992,6 +1144,8 @@ class _AddNoteScreenState extends State<AddNoteScreen> {
       minLines: 6,
       keyboardType: TextInputType.multiline,
       textCapitalization: TextCapitalization.sentences,
+      textAlign: _contentAlign,
+      textDirection: _contentDirection,
       style: GoogleFonts.poppins(
         fontSize: 16.sp,
         color: NotesTheme.textPrimary,
@@ -1118,100 +1272,58 @@ class _AddNoteScreenState extends State<AddNoteScreen> {
   }
 
   Widget _buildAccessoryBar(double bottomPad, double keyboard) {
-    // Keyboard inset only — Scaffold does not resize (see build).
     final padBottom = (keyboard > 0 ? keyboard : bottomPad) + 8.h;
-    return Material(
-      color: NotesTheme.surface.withValues(
-        alpha: NotesTheme.isLight ? 0.98 : 0.94,
+    final bulletsOn = NotesMarkdownFormat.isBulletLine(_contentController);
+    final markerOn = NotesMarkdownFormat.isHighlightActive(_contentController);
+    final busy = _saving || _aiBusy;
+
+    return NotesComposerToolbar(
+      bottomPadding: padBottom,
+      bulletSelected: bulletsOn,
+      markerSelected: markerOn,
+      enabled: !_saving,
+      onFormat: () => showNotesFormatSheet(
+        context,
+        contentController: _contentController,
+        textAlign: _contentAlign,
+        textDirection: _contentDirection,
+        onTextAlignChanged: (align) => setState(() => _contentAlign = align),
+        onTextDirectionChanged: (dir) =>
+            setState(() => _contentDirection = dir),
       ),
-      child: Container(
-        padding: EdgeInsets.fromLTRB(8.w, 6.h, 8.w, padBottom),
-        decoration: BoxDecoration(
-          border: Border(
-            top: BorderSide(color: NotesTheme.glassBorder),
-          ),
-        ),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-          children: [
-            _AccessoryBtn(
-              icon: Icons.text_format_rounded,
-              label: 'Aa',
-              onTap: () => showNotesFormatSheet(
+      onBold: () {
+        NotesMarkdownFormat.bold(_contentController);
+        setState(() {});
+      },
+      onItalic: () {
+        NotesMarkdownFormat.italic(_contentController);
+        setState(() {});
+      },
+      onUnderline: () {
+        NotesMarkdownFormat.underline(_contentController);
+        setState(() {});
+      },
+      onToggleBullet: () {
+        NotesMarkdownFormat.toggleBullet(_contentController);
+        setState(() {});
+      },
+      onMarker: () {
+        NotesMarkdownFormat.highlight(_contentController);
+        setState(() {});
+      },
+      onLink: _insertLink,
+      onAttachFile: busy ? null : _attachFile,
+      onScan: busy ? null : _scanDocument,
+      onPhotoLibrary: busy ? null : _attachPhotoLibrary,
+      onTakePhoto: busy ? null : _attachTakePhoto,
+      onVideo: busy ? null : _attachVideo,
+      onAudio: busy ? null : _attachAudio,
+      onAi: busy
+          ? null
+          : () => showNotesComposerAiSheet(
                 context,
-                contentController: _contentController,
+                onRun: _runAi,
               ),
-            ),
-            _AccessoryBtn(
-              icon: Icons.photo_outlined,
-              label: 'Photo',
-              onTap: _saving ? null : _attachPhoto,
-            ),
-            _AccessoryBtn(
-              icon: Icons.mic_none_rounded,
-              label: 'Audio',
-              onTap: _saving ? null : _attachAudio,
-            ),
-            _AccessoryBtn(
-              icon: Icons.auto_awesome,
-              label: 'AI',
-              onTap: _saving || _aiBusy
-                  ? null
-                  : () => showNotesComposerAiSheet(
-                        context,
-                        onRun: _runAi,
-                      ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _AccessoryBtn extends StatelessWidget {
-  const _AccessoryBtn({
-    required this.icon,
-    required this.label,
-    required this.onTap,
-  });
-
-  final IconData icon;
-  final String label;
-  final VoidCallback? onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final enabled = onTap != null;
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(12.r),
-      child: Padding(
-        padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 8.h),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              icon,
-              size: 22.sp,
-              color: enabled
-                  ? NotesTheme.bronze
-                  : NotesTheme.textPrimary.withValues(alpha: 0.3),
-            ),
-            SizedBox(height: 2.h),
-            Text(
-              label,
-              style: GoogleFonts.poppins(
-                fontSize: 10.sp,
-                fontWeight: FontWeight.w500,
-                color: enabled
-                    ? NotesTheme.textPrimary.withValues(alpha: 0.65)
-                    : NotesTheme.textPrimary.withValues(alpha: 0.3),
-              ),
-            ),
-          ],
-        ),
-      ),
     );
   }
 }
