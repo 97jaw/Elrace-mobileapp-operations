@@ -1,5 +1,6 @@
 import 'package:el_race/ui/presentation/my_notes/theme/notes_theme.dart';
 import 'package:el_race/ui/presentation/my_notes/utils/notes_markdown_format.dart';
+import 'package:el_race/ui/presentation/my_notes/utils/notes_styled_text_controller.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -58,13 +59,23 @@ class NotesChecklistContent extends StatelessWidget {
 
     return Padding(
       padding: EdgeInsets.only(bottom: 4.h),
-      child: Text(
-        line,
-        style: GoogleFonts.poppins(
-          fontSize: 15.sp,
-          color: NotesTheme.textPrimary.withValues(alpha: 0.9),
-          height: 1.7,
-        ),
+      child: _styledText(line),
+    );
+  }
+
+  Widget _styledText(String raw, {TextDecoration? extraDecoration}) {
+    final parsed = NotesStyleCodec.decode(raw);
+    final base = GoogleFonts.poppins(
+      fontSize: 15.sp,
+      color: NotesTheme.textPrimary.withValues(alpha: 0.9),
+      height: 1.7,
+      decoration: extraDecoration,
+    );
+    return Text.rich(
+      NotesStyleCodec.buildTextSpan(
+        text: parsed.text,
+        styles: parsed.styles,
+        style: base,
       ),
     );
   }
@@ -101,15 +112,10 @@ class NotesChecklistContent extends StatelessWidget {
             ),
             SizedBox(width: 8.w),
             Expanded(
-              child: Text(
+              child: _styledText(
                 text.isEmpty ? ' ' : text,
-                style: GoogleFonts.poppins(
-                  fontSize: 15.sp,
-                  color: NotesTheme.textPrimary.withValues(alpha: 0.9),
-                  height: 1.5,
-                  decoration:
-                      checked ? TextDecoration.lineThrough : null,
-                ),
+                extraDecoration:
+                    checked ? TextDecoration.lineThrough : null,
               ),
             ),
           ],

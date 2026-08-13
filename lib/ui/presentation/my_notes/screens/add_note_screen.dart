@@ -11,6 +11,7 @@ import 'package:el_race/ui/presentation/my_notes/services/notes_cache_service.da
 import 'package:el_race/ui/presentation/my_notes/services/notes_image_service.dart';
 import 'package:el_race/ui/presentation/my_notes/theme/notes_theme.dart';
 import 'package:el_race/ui/presentation/my_notes/utils/notes_markdown_format.dart';
+import 'package:el_race/ui/presentation/my_notes/utils/notes_styled_text_controller.dart';
 import 'package:el_race/ui/presentation/my_notes/widgets/notes_audio_player_widget.dart';
 import 'package:el_race/ui/presentation/my_notes/widgets/notes_composer_ai_sheet.dart';
 import 'package:el_race/ui/presentation/my_notes/widgets/notes_composer_toolbar.dart';
@@ -45,7 +46,8 @@ class AddNoteScreen extends StatefulWidget {
 
 class _AddNoteScreenState extends State<AddNoteScreen> {
   final TextEditingController _titleController = TextEditingController();
-  final TextEditingController _contentController = TextEditingController();
+  final NotesStyledTextController _contentController =
+      NotesStyledTextController();
   final FocusNode _titleFocusNode = FocusNode();
   final FocusNode _contentFocusNode = FocusNode();
 
@@ -99,7 +101,7 @@ class _AddNoteScreenState extends State<AddNoteScreen> {
       _createdAt = n.createdAt;
       _persisted = true;
       _titleController.text = n.title;
-      _contentController.text = n.content;
+      _contentController.loadFromStorage(n.content);
       _images = List.from(n.images);
       _recording = n.recording;
       _aiMode = n.aiMode;
@@ -193,7 +195,7 @@ class _AddNoteScreenState extends State<AddNoteScreen> {
   Future<void> _saveDraft() async {
     await NotesCacheService.instance.saveCurrentDraft(
       title: _titleController.text,
-      content: _contentController.text,
+      content: _contentController.toStorage(),
     );
   }
 
@@ -249,7 +251,7 @@ class _AddNoteScreenState extends State<AddNoteScreen> {
     if (shouldRestore == true && mounted) {
       setState(() {
         _titleController.text = title;
-        _contentController.text = content;
+        _contentController.loadFromStorage(content);
       });
     }
   }
@@ -259,7 +261,7 @@ class _AddNoteScreenState extends State<AddNoteScreen> {
     RecordingInfo? recording,
   }) {
     final title = _titleController.text.trim();
-    final content = _contentController.text.trim();
+    final content = _contentController.toStorage().trim();
     final existing = widget.existingNote;
     return NoteModel(
       id: _noteId,

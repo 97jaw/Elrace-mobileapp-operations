@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:el_race/ui/presentation/my_notes/utils/notes_styled_text_controller.dart';
 
 /// Light Markdown helpers for the iPhone-like notes composer.
 abstract final class NotesMarkdownFormat {
@@ -89,20 +90,45 @@ abstract final class NotesMarkdownFormat {
     wrapSelection(controller, left: left, right: right);
   }
 
-  static void bold(TextEditingController c) =>
-      toggleWrap(c, left: '**', right: '**');
+  static void bold(TextEditingController c) {
+    if (c is NotesStyledTextController) {
+      c.toggleBold();
+      return;
+    }
+    toggleWrap(c, left: '**', right: '**');
+  }
 
-  static void italic(TextEditingController c) =>
-      toggleWrap(c, left: '*', right: '*');
+  static void italic(TextEditingController c) {
+    if (c is NotesStyledTextController) {
+      c.toggleItalic();
+      return;
+    }
+    toggleWrap(c, left: '*', right: '*');
+  }
 
-  static void underline(TextEditingController c) =>
-      toggleWrap(c, left: '<u>', right: '</u>');
+  static void underline(TextEditingController c) {
+    if (c is NotesStyledTextController) {
+      c.toggleUnderline();
+      return;
+    }
+    toggleWrap(c, left: '<u>', right: '</u>');
+  }
 
-  static void strikethrough(TextEditingController c) =>
-      toggleWrap(c, left: '~~', right: '~~');
+  static void strikethrough(TextEditingController c) {
+    if (c is NotesStyledTextController) {
+      c.toggleStrikethrough();
+      return;
+    }
+    toggleWrap(c, left: '~~', right: '~~');
+  }
 
-  static void highlight(TextEditingController c) =>
-      toggleWrap(c, left: '==', right: '==');
+  static void highlight(TextEditingController c) {
+    if (c is NotesStyledTextController) {
+      c.toggleHighlight();
+      return;
+    }
+    toggleWrap(c, left: '==', right: '==');
+  }
 
   static void insertLink(
     TextEditingController controller, {
@@ -180,20 +206,30 @@ abstract final class NotesMarkdownFormat {
     return RegExp(r'^\d+\.\s').hasMatch(currentLine(controller));
   }
 
-  static bool isBoldActive(TextEditingController c) =>
-      isWrapActive(c, left: '**', right: '**');
+  static bool isBoldActive(TextEditingController c) {
+    if (c is NotesStyledTextController) return c.boldActive;
+    return isWrapActive(c, left: '**', right: '**');
+  }
 
-  static bool isItalicActive(TextEditingController c) =>
-      isWrapActive(c, left: '*', right: '*', skipIdentical: '**');
+  static bool isItalicActive(TextEditingController c) {
+    if (c is NotesStyledTextController) return c.italicActive;
+    return isWrapActive(c, left: '*', right: '*', skipIdentical: '**');
+  }
 
-  static bool isUnderlineActive(TextEditingController c) =>
-      isWrapActive(c, left: '<u>', right: '</u>');
+  static bool isUnderlineActive(TextEditingController c) {
+    if (c is NotesStyledTextController) return c.underlineActive;
+    return isWrapActive(c, left: '<u>', right: '</u>');
+  }
 
-  static bool isStrikethroughActive(TextEditingController c) =>
-      isWrapActive(c, left: '~~', right: '~~');
+  static bool isStrikethroughActive(TextEditingController c) {
+    if (c is NotesStyledTextController) return c.strikethroughActive;
+    return isWrapActive(c, left: '~~', right: '~~');
+  }
 
-  static bool isHighlightActive(TextEditingController c) =>
-      isWrapActive(c, left: '==', right: '==');
+  static bool isHighlightActive(TextEditingController c) {
+    if (c is NotesStyledTextController) return c.highlightActive;
+    return isWrapActive(c, left: '==', right: '==');
+  }
 
   /// True when selection/caret is inside (or wrapped by) [left]/[right] markers.
   ///
