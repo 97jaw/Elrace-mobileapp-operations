@@ -4,6 +4,7 @@ import 'package:el_race/ui/presentation/purchase_management/data/purchase_models
 import 'package:el_race/ui/presentation/purchase_management/providers/purchase_providers.dart';
 import 'package:el_race/ui/presentation/purchase_management/theme/purchase_theme.dart';
 import 'package:el_race/ui/presentation/purchase_management/utils/purchase_number_format.dart';
+import 'package:el_race/ui/presentation/purchase_management/widgets/invoice_print_menu_button.dart';
 import 'package:el_race/ui/presentation/purchase_management/widgets/purchase_draft_invoice_row.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -60,12 +61,31 @@ class PurchaseInvoiceDetailSheet extends ConsumerWidget {
                 child: Column(
                   children: [
                     SizedBox(height: 10.th),
-                    Container(
-                      width: 40.tw,
-                      height: 4.th,
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFD0D2D6),
-                        borderRadius: BorderRadius.circular(2.tr),
+                    Padding(
+                      padding: EdgeInsets.symmetric(horizontal: 12.tw),
+                      child: SizedBox(
+                        height: 34.th,
+                        child: Stack(
+                          alignment: Alignment.center,
+                          children: [
+                            Container(
+                              width: 40.tw,
+                              height: 4.th,
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFD0D2D6),
+                                borderRadius: BorderRadius.circular(2.tr),
+                              ),
+                            ),
+                            Align(
+                              alignment: Alignment.centerRight,
+                              child: InvoicePrintMenuButton(
+                                invoiceId: invoiceId,
+                                title: detailAsync.asData?.value?.invoiceId ??
+                                    preview?.invoiceId,
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
                     ),
                     Expanded(
