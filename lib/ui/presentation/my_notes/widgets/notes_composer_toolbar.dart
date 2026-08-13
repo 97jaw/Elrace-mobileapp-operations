@@ -21,6 +21,9 @@ class NotesComposerToolbar extends StatelessWidget {
     required this.onVideo,
     required this.onAudio,
     required this.onAi,
+    this.boldSelected = false,
+    this.italicSelected = false,
+    this.underlineSelected = false,
     this.bulletSelected = false,
     this.markerSelected = false,
     this.enabled = true,
@@ -41,6 +44,9 @@ class NotesComposerToolbar extends StatelessWidget {
   final VoidCallback? onVideo;
   final VoidCallback? onAudio;
   final VoidCallback? onAi;
+  final bool boldSelected;
+  final bool italicSelected;
+  final bool underlineSelected;
   final bool bulletSelected;
   final bool markerSelected;
   final bool enabled;
@@ -75,30 +81,44 @@ class NotesComposerToolbar extends StatelessWidget {
             padding: EdgeInsets.symmetric(horizontal: 8.w),
             children: [
               NotesComposerToolbarIcon(
-                icon: Icons.text_format_rounded,
-                tooltip: 'Format',
-                onTap: enabled ? onFormat : null,
+                icon: Icons.auto_awesome,
+                tooltip: 'AI',
+                onTap: enabled ? onAi : null,
               ),
               NotesComposerToolbarIcon(
-                icon: Icons.format_bold,
-                tooltip: 'Bold',
-                onTap: enabled ? onBold : null,
+                icon: Icons.mic_none_rounded,
+                tooltip: 'Audio',
+                onTap: enabled ? onAudio : null,
               ),
               NotesComposerToolbarIcon(
-                icon: Icons.format_italic,
-                tooltip: 'Italic',
-                onTap: enabled ? onItalic : null,
+                icon: Icons.videocam_outlined,
+                tooltip: 'Video',
+                onTap: enabled ? onVideo : null,
               ),
               NotesComposerToolbarIcon(
-                icon: Icons.format_underline,
-                tooltip: 'Underline',
-                onTap: enabled ? onUnderline : null,
+                icon: Icons.photo_camera_outlined,
+                tooltip: 'Take photo',
+                onTap: enabled ? onTakePhoto : null,
               ),
               NotesComposerToolbarIcon(
-                icon: Icons.format_list_bulleted,
-                tooltip: 'Bullets',
-                selected: bulletSelected,
-                onTap: enabled ? onToggleBullet : null,
+                icon: Icons.photo_library_outlined,
+                tooltip: 'Photo library',
+                onTap: enabled ? onPhotoLibrary : null,
+              ),
+              NotesComposerToolbarIcon(
+                icon: Icons.document_scanner_outlined,
+                tooltip: 'Scan document',
+                onTap: enabled ? onScan : null,
+              ),
+              NotesComposerToolbarIcon(
+                icon: Icons.attach_file_rounded,
+                tooltip: 'Attach file',
+                onTap: enabled ? onAttachFile : null,
+              ),
+              NotesComposerToolbarIcon(
+                icon: Icons.link_rounded,
+                tooltip: 'Link',
+                onTap: enabled ? onLink : null,
               ),
               NotesComposerToolbarIcon(
                 icon: Icons.highlight_alt_rounded,
@@ -107,44 +127,33 @@ class NotesComposerToolbar extends StatelessWidget {
                 onTap: enabled ? onMarker : null,
               ),
               NotesComposerToolbarIcon(
-                icon: Icons.link_rounded,
-                tooltip: 'Link',
-                onTap: enabled ? onLink : null,
+                icon: Icons.format_list_bulleted,
+                tooltip: 'Bullets',
+                selected: bulletSelected,
+                onTap: enabled ? onToggleBullet : null,
               ),
               NotesComposerToolbarIcon(
-                icon: Icons.attach_file_rounded,
-                tooltip: 'Attach file',
-                onTap: enabled ? onAttachFile : null,
+                icon: Icons.format_underline,
+                tooltip: 'Underline',
+                selected: underlineSelected,
+                onTap: enabled ? onUnderline : null,
               ),
               NotesComposerToolbarIcon(
-                icon: Icons.document_scanner_outlined,
-                tooltip: 'Scan document',
-                onTap: enabled ? onScan : null,
+                icon: Icons.format_italic,
+                tooltip: 'Italic',
+                selected: italicSelected,
+                onTap: enabled ? onItalic : null,
               ),
               NotesComposerToolbarIcon(
-                icon: Icons.photo_library_outlined,
-                tooltip: 'Photo library',
-                onTap: enabled ? onPhotoLibrary : null,
+                icon: Icons.format_bold,
+                tooltip: 'Bold',
+                selected: boldSelected,
+                onTap: enabled ? onBold : null,
               ),
               NotesComposerToolbarIcon(
-                icon: Icons.photo_camera_outlined,
-                tooltip: 'Take photo',
-                onTap: enabled ? onTakePhoto : null,
-              ),
-              NotesComposerToolbarIcon(
-                icon: Icons.videocam_outlined,
-                tooltip: 'Video',
-                onTap: enabled ? onVideo : null,
-              ),
-              NotesComposerToolbarIcon(
-                icon: Icons.mic_none_rounded,
-                tooltip: 'Audio',
-                onTap: enabled ? onAudio : null,
-              ),
-              NotesComposerToolbarIcon(
-                icon: Icons.auto_awesome,
-                tooltip: 'AI',
-                onTap: enabled ? onAi : null,
+                icon: Icons.text_format_rounded,
+                tooltip: 'Format',
+                onTap: enabled ? onFormat : null,
               ),
             ],
           ),

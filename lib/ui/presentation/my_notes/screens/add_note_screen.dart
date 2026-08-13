@@ -120,13 +120,20 @@ class _AddNoteScreenState extends State<AddNoteScreen> {
         _titleFocusNode.requestFocus();
       }
     });
+    _contentController.addListener(_onContentControllerChanged);
     _startAutoSave();
+  }
+
+  void _onContentControllerChanged() {
+    if (!mounted) return;
+    setState(() {});
   }
 
   @override
   void dispose() {
     _autoSaveTimer?.cancel();
     _liveSub?.cancel();
+    _contentController.removeListener(_onContentControllerChanged);
     _titleController.dispose();
     _contentController.dispose();
     _titleFocusNode.dispose();
@@ -1275,10 +1282,16 @@ class _AddNoteScreenState extends State<AddNoteScreen> {
     final padBottom = (keyboard > 0 ? keyboard : bottomPad) + 8.h;
     final bulletsOn = NotesMarkdownFormat.isBulletLine(_contentController);
     final markerOn = NotesMarkdownFormat.isHighlightActive(_contentController);
+    final boldOn = NotesMarkdownFormat.isBoldActive(_contentController);
+    final italicOn = NotesMarkdownFormat.isItalicActive(_contentController);
+    final underlineOn = NotesMarkdownFormat.isUnderlineActive(_contentController);
     final busy = _saving || _aiBusy;
 
     return NotesComposerToolbar(
       bottomPadding: padBottom,
+      boldSelected: boldOn,
+      italicSelected: italicOn,
+      underlineSelected: underlineOn,
       bulletSelected: bulletsOn,
       markerSelected: markerOn,
       enabled: !_saving,
