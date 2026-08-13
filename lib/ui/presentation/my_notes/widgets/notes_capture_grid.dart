@@ -4,17 +4,17 @@ import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:google_fonts/google_fonts.dart';
 
-/// 2-column capture grid: tall audio (left) + text note / templates (right).
+/// 2-column capture grid: tall create-note (left) + scan / templates (right).
 class NotesCaptureGrid extends StatelessWidget {
   const NotesCaptureGrid({
     super.key,
-    this.onStartRecording,
-    this.onNewTextNote,
+    this.onCreateNote,
+    this.onScanNotes,
     this.onImageNotes,
   });
 
-  final VoidCallback? onStartRecording;
-  final VoidCallback? onNewTextNote;
+  final VoidCallback? onCreateNote;
+  final VoidCallback? onScanNotes;
   final VoidCallback? onImageNotes;
 
   @override
@@ -28,7 +28,7 @@ class NotesCaptureGrid extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Expanded(
-            child: _AudioCaptureCard(onStartRecording: onStartRecording),
+            child: _CreateNoteCard(onCreateNote: onCreateNote),
           ),
           SizedBox(width: gap),
           Expanded(
@@ -36,11 +36,10 @@ class NotesCaptureGrid extends StatelessWidget {
               children: [
                 Expanded(
                   child: _ActionTileCard(
-                    icon: Icons.edit_note_rounded,
-                    titleLine1: 'New text',
-                    titleLine2: 'note',
-                    showNewBadge: true,
-                    onTap: onNewTextNote,
+                    icon: Icons.document_scanner_outlined,
+                    titleLine1: 'Scan notes',
+                    titleLine2: 'image to text',
+                    onTap: onScanNotes,
                   ),
                 ),
                 SizedBox(height: gap),
@@ -136,34 +135,34 @@ class _NotesStackedTitle extends StatelessWidget {
   }
 }
 
-class _AudioCaptureCard extends StatelessWidget {
-  const _AudioCaptureCard({this.onStartRecording});
+class _CreateNoteCard extends StatelessWidget {
+  const _CreateNoteCard({this.onCreateNote});
 
-  final VoidCallback? onStartRecording;
+  final VoidCallback? onCreateNote;
 
   @override
   Widget build(BuildContext context) {
     return NotesGlassCard(
-      onTap: onStartRecording,
+      onTap: onCreateNote,
       padding: EdgeInsets.fromLTRB(16.w, 16.h, 16.w, 16.h),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const _NotesCornerIcon(
-            icon: Icons.mic_none_rounded,
+            icon: Icons.note_add_rounded,
             size: 54,
             iconSize: 28,
           ),
           const Spacer(),
           const _NotesStackedTitle(
-            line1: 'Capture Your',
-            line2: 'Audio Note Here',
+            line1: 'Create Your',
+            line2: 'Note Here',
             line1Size: 20,
             line2Size: 14,
           ),
           SizedBox(height: 6.h),
           Text(
-            'Begin Audio Note',
+            'Summarize your notes',
             style: GoogleFonts.poppins(
               fontSize: 12.sp,
               fontWeight: FontWeight.w500,
@@ -175,7 +174,7 @@ class _AudioCaptureCard extends StatelessWidget {
           SizedBox(
             width: double.infinity,
             child: FilledButton(
-              onPressed: onStartRecording,
+              onPressed: onCreateNote,
               style: FilledButton.styleFrom(
                 backgroundColor: NotesTheme.bronze.withValues(alpha: 0.92),
                 foregroundColor: NotesTheme.pureBlack,
@@ -186,7 +185,7 @@ class _AudioCaptureCard extends StatelessWidget {
                 ),
               ),
               child: Text(
-                'Start recording',
+                'Create your note',
                 style: GoogleFonts.poppins(
                   fontSize: 12.sp,
                   fontWeight: FontWeight.w600,
@@ -206,83 +205,46 @@ class _ActionTileCard extends StatelessWidget {
     required this.titleLine1,
     required this.titleLine2,
     this.onTap,
-    this.showNewBadge = false,
   });
 
   final IconData icon;
   final String titleLine1;
   final String titleLine2;
   final VoidCallback? onTap;
-  final bool showNewBadge;
 
   @override
   Widget build(BuildContext context) {
-    return Stack(
-      clipBehavior: Clip.none,
-      children: [
-        Positioned.fill(
-          child: NotesGlassCard(
-            onTap: onTap,
-            padding: EdgeInsets.fromLTRB(14.w, 12.h, 12.w, 12.h),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    _NotesCornerIcon(
-                      icon: icon,
-                      size: 44,
-                      iconSize: 24,
-                    ),
-                    const Spacer(),
-                    Icon(
-                      Icons.chevron_right_rounded,
-                      size: 22.sp,
-                      color: NotesTheme.textPrimary.withValues(alpha: 0.45),
-                    ),
-                  ],
-                ),
-                const Spacer(),
-                _NotesStackedTitle(
-                  line1: titleLine1,
-                  line2: titleLine2,
-                  line1Size: 16,
-                  line2Size: 12,
-                ),
-              ],
-            ),
-          ),
-        ),
-        if (showNewBadge)
-          Positioned(
-            top: -4.h,
-            right: 8.w,
-            child: Container(
-              padding: EdgeInsets.symmetric(horizontal: 8.w, vertical: 3.h),
-              decoration: BoxDecoration(
-                color: NotesTheme.bronze,
-                borderRadius: BorderRadius.circular(999),
-                boxShadow: [
-                  BoxShadow(
-                    color: NotesTheme.bronze.withValues(alpha: 0.35),
-                    blurRadius: 8,
-                    offset: const Offset(0, 2),
-                  ),
-                ],
+    return NotesGlassCard(
+      onTap: onTap,
+      padding: EdgeInsets.fromLTRB(14.w, 12.h, 12.w, 12.h),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _NotesCornerIcon(
+                icon: icon,
+                size: 44,
+                iconSize: 24,
               ),
-              child: Text(
-                'New',
-                style: GoogleFonts.poppins(
-                  fontSize: 9.sp,
-                  fontWeight: FontWeight.w700,
-                  color: NotesTheme.pureBlack,
-                  height: 1,
-                ),
+              const Spacer(),
+              Icon(
+                Icons.chevron_right_rounded,
+                size: 22.sp,
+                color: NotesTheme.textPrimary.withValues(alpha: 0.45),
               ),
-            ),
+            ],
           ),
-      ],
+          const Spacer(),
+          _NotesStackedTitle(
+            line1: titleLine1,
+            line2: titleLine2,
+            line1Size: 16,
+            line2Size: 12,
+          ),
+        ],
+      ),
     );
   }
 }
