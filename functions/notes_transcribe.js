@@ -4,8 +4,7 @@
  * Path: chat_media/notes/{uid}/{noteId}/audio.m4a
  * Requires secret: OPENAI_API_KEY
  *
- * On-demand only: skips unless the note requested transcription
- * (recording.status === 'pending' or transcribeRequested / AI mode that needs it).
+ * Always transcribes on upload unless a transcript is already done.
  */
 const { onObjectFinalized } = require("firebase-functions/v2/storage");
 const { defineSecret, defineString } = require("firebase-functions/params");
@@ -22,7 +21,7 @@ function sleep(ms) {
 }
 
 /** Wait until the note doc exists (client creates it before upload). */
-async function waitForNoteDoc(noteRef, { attempts = 12, delayMs = 1000 } = {}) {
+async function waitForNoteDoc(noteRef, { attempts = 16, delayMs = 400 } = {}) {
   for (let i = 0; i < attempts; i++) {
     const snap = await noteRef.get();
     if (snap.exists) return snap;
@@ -35,19 +34,15 @@ async function waitForNoteDoc(noteRef, { attempts = 12, delayMs = 1000 } = {}) {
   return null;
 }
 
+/** Transcribe every new upload unless transcript already exists / done. */
 function shouldTranscribeOnUpload(data) {
   const recording = (data && data.recording) || {};
   const status = recording.status || "idle";
-  const requested = recording.transcribeRequested === true;
-  const aiMode = data.aiMode || "none";
-  // Whisper ONLY when the user explicitly asked to transcribe — never for
-  // summarize / bullets / save-only.
-  if (requested) return true;
-  if (status === "pending" && aiMode === "transcribe") return true;
-  if (aiMode === "transcribe" && status !== "done" && status !== "error") {
-    return true;
-  }
-  return false;
+  const transcript =
+    typeof recording.transcript === "string" ? recording.transcript.trim() : "";
+  if (transcript) return false;
+  if (status === "done") return false;
+  return true;
 }
 
 async function handleNotesAudioUpload(event) {
@@ -86,25 +81,17 @@ async function handleNotesAudioUpload(event) {
 
     const existing = existingSnap.data() || {};
     if (!shouldTranscribeOnUpload(existing)) {
-      console.log("[NotesTranscribe] Skip — transcription not requested", {
+      console.log("[NotesTranscribe] Skip — transcript already present", {
         noteId,
         status: (existing.recording && existing.recording.status) || "idle",
-        aiMode: existing.aiMode || "none",
       });
-      // Ensure idle status so UI does not show a spinner.
-      const recStatus =
-        (existing.recording && existing.recording.status) || "idle";
-      if (recStatus === "pending" || recStatus === "processing") {
-        await noteRef.update({
-          "recording.status": "idle",
-          updatedAt: FieldValue.serverTimestamp(),
-        });
-      }
       return;
     }
 
     const languageMeta =
-      (object.metadata && object.metadata.language) || "auto";
+      (object.metadata && object.metadata.language) ||
+      (existing.recording && existing.recording.language) ||
+      "auto";
 
     const text = await transcribeNoteRecording({
       noteRef,

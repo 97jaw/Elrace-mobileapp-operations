@@ -8,6 +8,14 @@ enum NoteAiMode { none, transcribe, summarize, bullets }
 
 enum NoteAiStatus { none, pending, processing, done, error }
 
+/// True when transcript should render RTL (forced AR or Arabic script).
+bool noteTranscriptLooksArabic({String? language, String? transcript}) {
+  if ((language ?? '').trim().toLowerCase() == 'ar') return true;
+  final text = (transcript ?? '').trim();
+  if (text.isEmpty) return false;
+  return RegExp(r'[\u0600-\u06FF]').hasMatch(text);
+}
+
 class NoteSharedMember {
   final String uid;
   final int? employeeId;
