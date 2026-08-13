@@ -63,9 +63,27 @@ class _NotesFormatSheetBodyState extends State<_NotesFormatSheetBody> {
     _direction = widget.initialDirection;
     _headingLevel =
         NotesMarkdownFormat.currentHeadingLevel(widget.contentController);
+    widget.contentController.addListener(_onControllerChanged);
   }
 
-  void _refresh() => setState(() {});
+  @override
+  void dispose() {
+    widget.contentController.removeListener(_onControllerChanged);
+    super.dispose();
+  }
+
+  void _onControllerChanged() {
+    if (!mounted) return;
+    setState(() {
+      _headingLevel =
+          NotesMarkdownFormat.currentHeadingLevel(widget.contentController);
+    });
+  }
+
+  void _refresh() => setState(() {
+        _headingLevel =
+            NotesMarkdownFormat.currentHeadingLevel(widget.contentController);
+      });
 
   @override
   Widget build(BuildContext context) {
@@ -160,7 +178,8 @@ class _NotesFormatSheetBodyState extends State<_NotesFormatSheetBody> {
                 _SegGroup(
                   children: [
                     _SegIcon(
-                      selected: false,
+                      selected: NotesMarkdownFormat.isBoldActive(
+                          widget.contentController),
                       onTap: () {
                         NotesMarkdownFormat.bold(widget.contentController);
                         _refresh();
@@ -175,7 +194,8 @@ class _NotesFormatSheetBodyState extends State<_NotesFormatSheetBody> {
                       ),
                     ),
                     _SegIcon(
-                      selected: false,
+                      selected: NotesMarkdownFormat.isItalicActive(
+                          widget.contentController),
                       onTap: () {
                         NotesMarkdownFormat.italic(widget.contentController);
                         _refresh();
@@ -191,7 +211,8 @@ class _NotesFormatSheetBodyState extends State<_NotesFormatSheetBody> {
                       ),
                     ),
                     _SegIcon(
-                      selected: false,
+                      selected: NotesMarkdownFormat.isUnderlineActive(
+                          widget.contentController),
                       onTap: () {
                         NotesMarkdownFormat.underline(widget.contentController);
                         _refresh();
@@ -207,7 +228,8 @@ class _NotesFormatSheetBodyState extends State<_NotesFormatSheetBody> {
                       ),
                     ),
                     _SegIcon(
-                      selected: false,
+                      selected: NotesMarkdownFormat.isStrikethroughActive(
+                          widget.contentController),
                       onTap: () {
                         NotesMarkdownFormat.strikethrough(
                             widget.contentController);
@@ -229,6 +251,8 @@ class _NotesFormatSheetBodyState extends State<_NotesFormatSheetBody> {
                 _RoundIcon(
                   icon: Icons.edit_rounded,
                   color: NotesTheme.bronze,
+                  selected: NotesMarkdownFormat.isHighlightActive(
+                      widget.contentController),
                   onTap: () {
                     NotesMarkdownFormat.highlight(widget.contentController);
                     _refresh();
@@ -238,6 +262,8 @@ class _NotesFormatSheetBodyState extends State<_NotesFormatSheetBody> {
                 _RoundIcon(
                   icon: Icons.circle,
                   color: NotesTheme.bronze,
+                  selected: NotesMarkdownFormat.isHighlightActive(
+                      widget.contentController),
                   onTap: () {
                     NotesMarkdownFormat.highlight(widget.contentController);
                     _refresh();
@@ -266,7 +292,8 @@ class _NotesFormatSheetBodyState extends State<_NotesFormatSheetBody> {
                       ),
                     ),
                     _SegIcon(
-                      selected: false,
+                      selected: NotesMarkdownFormat.isChecklistLine(
+                          widget.contentController),
                       onTap: () {
                         NotesMarkdownFormat.checklist(
                             widget.contentController);
@@ -279,7 +306,8 @@ class _NotesFormatSheetBodyState extends State<_NotesFormatSheetBody> {
                       ),
                     ),
                     _SegIcon(
-                      selected: false,
+                      selected: NotesMarkdownFormat.isNumberedLine(
+                          widget.contentController),
                       onTap: () {
                         NotesMarkdownFormat.numberedList(
                             widget.contentController);
@@ -483,16 +511,21 @@ class _RoundIcon extends StatelessWidget {
     required this.icon,
     required this.color,
     required this.onTap,
+    this.selected = false,
   });
 
   final IconData icon;
   final Color color;
   final VoidCallback onTap;
+  final bool selected;
 
   @override
   Widget build(BuildContext context) {
+    final activeColor = NotesTheme.isLight
+        ? const Color(0xFF2C3E50)
+        : NotesTheme.pureBlack;
     return Material(
-      color: NotesTheme.glassFill,
+      color: selected ? NotesTheme.bronze : NotesTheme.glassFill,
       shape: const CircleBorder(),
       child: InkWell(
         customBorder: const CircleBorder(),
@@ -503,9 +536,15 @@ class _RoundIcon extends StatelessWidget {
           alignment: Alignment.center,
           decoration: BoxDecoration(
             shape: BoxShape.circle,
-            border: Border.all(color: NotesTheme.glassBorder),
+            border: Border.all(
+              color: selected ? NotesTheme.bronze : NotesTheme.glassBorder,
+            ),
           ),
-          child: Icon(icon, size: 18.sp, color: color),
+          child: Icon(
+            icon,
+            size: 18.sp,
+            color: selected ? activeColor : color,
+          ),
         ),
       ),
     );

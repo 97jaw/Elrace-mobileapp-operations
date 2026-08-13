@@ -133,10 +133,8 @@ abstract final class NotesMarkdownFormat {
   static void toggleBullet(TextEditingController controller) {
     final text = controller.text;
     final sel = controller.selection;
-    final cursor = sel.baseOffset.clamp(0, text.length);
-    final lineStart = text.lastIndexOf('\n', cursor - 1) + 1;
-    var lineEnd = text.indexOf('\n', cursor);
-    if (lineEnd < 0) lineEnd = text.length;
+    final cursor = sel.isValid ? sel.baseOffset.clamp(0, text.length) : 0;
+    final (lineStart, lineEnd) = _currentLineBounds(text, cursor);
 
     final line = text.substring(lineStart, lineEnd);
     if (line.startsWith('- [ ] ') || line.startsWith('- [x] ') || line.startsWith('- [X] ')) {
@@ -167,27 +165,134 @@ abstract final class NotesMarkdownFormat {
     _prefixCurrentLine(controller, '- ');
   }
 
-  /// True when the current line is a bullet (or checklist).
+  /// True when the current line is a plain bullet (not checklist).
   static bool isBulletLine(TextEditingController controller) {
     final line = currentLine(controller);
+    if (isChecklistLine(controller)) return false;
     return line.startsWith('- ');
   }
 
-  /// True when selection or surrounding text is highlighted with ==.
-  static bool isHighlightActive(TextEditingController controller) {
+  static bool isChecklistLine(TextEditingController controller) {
+    return RegExp(r'^-\s\[[ xX]\]\s').hasMatch(currentLine(controller));
+  }
+
+  static bool isNumberedLine(TextEditingController controller) {
+    return RegExp(r'^\d+\.\s').hasMatch(currentLine(controller));
+  }
+
+  static bool isBoldActive(TextEditingController c) =>
+      isWrapActive(c, left: '**', right: '**');
+
+  static bool isItalicActive(TextEditingController c) =>
+      isWrapActive(c, left: '*', right: '*', skipIdentical: '**');
+
+  static bool isUnderlineActive(TextEditingController c) =>
+      isWrapActive(c, left: '<u>', right: '</u>');
+
+  static bool isStrikethroughActive(TextEditingController c) =>
+      isWrapActive(c, left: '~~', right: '~~');
+
+  static bool isHighlightActive(TextEditingController c) =>
+      isWrapActive(c, left: '==', right: '==');
+
+  /// True when selection/caret is inside (or wrapped by) [left]/[right] markers.
+  ///
+  /// [skipIdentical] ignores delimiter runs that belong to a longer marker
+  /// (e.g. skip `**` when detecting single `*` italic).
+  static bool isWrapActive(
+    TextEditingController controller, {
+    required String left,
+    required String right,
+    String? skipIdentical,
+  }) {
     final text = controller.text;
     final sel = controller.selection;
+    if (!sel.isValid || text.isEmpty) return false;
     final start = sel.start.clamp(0, text.length);
     final end = sel.end.clamp(0, text.length);
+
     if (start < end) {
       final selected = text.substring(start, end);
-      if (selected.startsWith('==') && selected.endsWith('==')) return true;
-      if (start >= 2 &&
-          end + 2 <= text.length &&
-          text.substring(start - 2, start) == '==' &&
-          text.substring(end, end + 2) == '==') {
+      if (selected.startsWith(left) &&
+          selected.endsWith(right) &&
+          selected.length >= left.length + right.length) {
         return true;
       }
+      if (start >= left.length &&
+          end + right.length <= text.length &&
+          text.substring(start - left.length, start) == left &&
+          text.substring(end, end + right.length) == right) {
+        return true;
+      }
+    }
+
+    // Collapsed caret sitting between empty markers: **|**
+    if (start == end &&
+        start >= left.length &&
+        start + right.length <= text.length &&
+        text.substring(start - left.length, start) == left &&
+        text.substring(start, start + right.length) == right) {
+      return true;
+    }
+
+    return _isRangeInsideWrap(
+      text,
+      start,
+      end,
+      left,
+      right,
+      skipIdentical: skipIdentical,
+    );
+  }
+
+  static bool _isRangeInsideWrap(
+    String text,
+    int rangeStart,
+    int rangeEnd,
+    String left,
+    String right, {
+    String? skipIdentical,
+  }) {
+    if (left == right) {
+      final marks = <int>[];
+      var i = 0;
+      while (i < text.length) {
+        if (skipIdentical != null && text.startsWith(skipIdentical, i)) {
+          i += skipIdentical.length;
+          continue;
+        }
+        if (text.startsWith(left, i)) {
+          marks.add(i);
+          i += left.length;
+          continue;
+        }
+        i++;
+      }
+      for (var p = 0; p + 1 < marks.length; p += 2) {
+        final open = marks[p];
+        final close = marks[p + 1];
+        final contentStart = open + left.length;
+        if (rangeStart >= contentStart && rangeEnd <= close) {
+          return true;
+        }
+      }
+      return false;
+    }
+
+    // Asymmetric markers, e.g. <u>...</u>
+    var i = 0;
+    while (i < text.length) {
+      if (text.startsWith(left, i)) {
+        final contentStart = i + left.length;
+        final closeAt = text.indexOf(right, contentStart);
+        if (closeAt < 0) break;
+        if (rangeStart >= contentStart && rangeEnd <= closeAt) {
+          return true;
+        }
+        i = closeAt + right.length;
+        continue;
+      }
+      i++;
     }
     return false;
   }
@@ -212,10 +317,8 @@ abstract final class NotesMarkdownFormat {
   static void headingLevel(TextEditingController controller, int level) {
     final text = controller.text;
     final sel = controller.selection;
-    final cursor = sel.baseOffset.clamp(0, text.length);
-    final lineStart = text.lastIndexOf('\n', cursor - 1) + 1;
-    var lineEnd = text.indexOf('\n', cursor);
-    if (lineEnd < 0) lineEnd = text.length;
+    final cursor = sel.isValid ? sel.baseOffset.clamp(0, text.length) : 0;
+    final (lineStart, lineEnd) = _currentLineBounds(text, cursor);
 
     var line = text.substring(lineStart, lineEnd);
     // Strip existing heading / leading bullets for clean restyle.
@@ -249,11 +352,17 @@ abstract final class NotesMarkdownFormat {
   static String currentLine(TextEditingController controller) {
     final text = controller.text;
     final sel = controller.selection;
-    final cursor = sel.baseOffset.clamp(0, text.length);
-    final lineStart = text.lastIndexOf('\n', cursor - 1) + 1;
-    var lineEnd = text.indexOf('\n', cursor);
-    if (lineEnd < 0) lineEnd = text.length;
+    final cursor = sel.isValid ? sel.baseOffset.clamp(0, text.length) : 0;
+    final (lineStart, lineEnd) = _currentLineBounds(text, cursor);
     return text.substring(lineStart, lineEnd);
+  }
+
+  static (int, int) _currentLineBounds(String text, int cursor) {
+    final c = cursor.clamp(0, text.length);
+    final lineStart = c == 0 ? 0 : text.lastIndexOf('\n', c - 1) + 1;
+    var lineEnd = text.indexOf('\n', c);
+    if (lineEnd < 0) lineEnd = text.length;
+    return (lineStart, lineEnd);
   }
 
   static void _prefixCurrentLine(
@@ -262,10 +371,8 @@ abstract final class NotesMarkdownFormat {
   ) {
     final text = controller.text;
     final sel = controller.selection;
-    final cursor = sel.baseOffset.clamp(0, text.length);
-    final lineStart = text.lastIndexOf('\n', cursor - 1) + 1;
-    var lineEnd = text.indexOf('\n', cursor);
-    if (lineEnd < 0) lineEnd = text.length;
+    final cursor = sel.isValid ? sel.baseOffset.clamp(0, text.length) : 0;
+    final (lineStart, lineEnd) = _currentLineBounds(text, cursor);
 
     final line = text.substring(lineStart, lineEnd);
     if (line.startsWith(prefix)) return;
