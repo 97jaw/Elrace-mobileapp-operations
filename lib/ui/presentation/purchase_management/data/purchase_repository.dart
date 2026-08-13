@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:typed_data';
 
 import 'package:el_race/core/purchase/purchase_dev_role_provider.dart';
 import 'package:el_race/core/utils/shared_pref.dart';
@@ -60,11 +61,14 @@ class PurchaseRepository {
           .post(url, headers: _headers, body: body)
           .timeout(timeout ?? _timeout);
       final duration = DateTime.now().difference(start);
-      final data = jsonDecode(response.body) as Map<String, dynamic>;
+      // Decode as UTF-8 with malformation tolerance so bad attachment names
+      // (e.g. WhatsApp Scan…) never crash the isolate via response.body.
+      final rawText = utf8.decode(response.bodyBytes, allowMalformed: true);
+      final data = jsonDecode(rawText) as Map<String, dynamic>;
       ApiLogger.logResponse(
         endpoint: url.toString(),
         statusCode: response.statusCode,
-        responseBody: data,
+        responseBody: _sanitizeLogPayload(data),
         duration: duration,
       );
       if (response.statusCode != 200) return null;
@@ -83,6 +87,22 @@ class PurchaseRepository {
       ApiLogger.logError(endpoint: url.toString(), error: e, stackTrace: st);
       rethrow;
     }
+  }
+
+  /// Strip huge base64 blobs before logging (content API).
+  dynamic _sanitizeLogPayload(dynamic value) {
+    if (value is Map) {
+      return value.map((key, child) {
+        if (key == 'file_data' && child is String && child.length > 120) {
+          return MapEntry(key, '<base64 ${child.length} chars>');
+        }
+        return MapEntry(key, _sanitizeLogPayload(child));
+      });
+    }
+    if (value is List) {
+      return value.map(_sanitizeLogPayload).toList();
+    }
+    return value;
   }
 
   Map<String, dynamic>? _unwrap(Map<String, dynamic>? result) {
@@ -589,7 +609,101 @@ class PurchaseRepository {
     return url.isEmpty ? null : url;
   }
 
-  /// PDF URLs for invoice supporting documents (merged in-app via Syncfusion).
+  /// PDF bytes for invoice supporting documents via content API (base64).
+  /// Prefer this over public `/my/public/file/...` URLs — those often return
+  /// empty bodies when attachment metadata shows `file_size: 0`.
+  Future<List<Uint8List>> fetchInvoiceSupportingDocumentPdfBytes(
+    int invoiceId,
+  ) async {
+    final result = await _post(
+      '/invoice/supporting_documents',
+      {'invoice_id': invoiceId},
+      timeout: _overviewTimeout,
+    );
+    final payload = _unwrap(result) ?? result;
+    if (payload == null) return const [];
+
+    final raw = payload['supporting_documents'];
+    if (raw is! List) return const [];
+
+    final pdfIds = <int>[];
+    for (final item in raw) {
+      if (item is! Map) continue;
+      final map = Map<String, dynamic>.from(item);
+      final mimetype = (map['mimetype'] ?? '').toString().toLowerCase();
+      final isPdf = map['is_pdf'] == true || mimetype.contains('pdf');
+      if (!isPdf) continue;
+      final id = _parseMetaInt(map['attachment_id'] ?? map['id']);
+      if (id > 0) pdfIds.add(id);
+    }
+    if (pdfIds.isEmpty) return const [];
+
+    final parts = <Uint8List>[];
+    for (final attachmentId in pdfIds) {
+      try {
+        final bytes = await _fetchSupportingDocumentBytes(
+          invoiceId: invoiceId,
+          attachmentId: attachmentId,
+        );
+        if (bytes != null && bytes.length >= 4) parts.add(bytes);
+      } catch (e) {
+        if (kDebugMode) {
+          debugPrint(
+            'supporting doc $attachmentId failed: $e',
+          );
+        }
+      }
+    }
+    return parts;
+  }
+
+  Future<Uint8List?> _fetchSupportingDocumentBytes({
+    required int invoiceId,
+    required int attachmentId,
+  }) async {
+    final result = await _post(
+      '/invoice/supporting_documents/content',
+      {
+        'invoice_id': invoiceId,
+        'attachment_id': attachmentId,
+      },
+      timeout: _overviewTimeout,
+    );
+    final payload = _unwrap(result) ?? result;
+    if (payload == null) return null;
+
+    final encoded = payload['file_data']?.toString().trim() ?? '';
+    if (encoded.isEmpty) return null;
+
+    var clean = encoded;
+    if (clean.startsWith('data:') && clean.contains(',')) {
+      clean = clean.split(',').last;
+    }
+    clean = clean.replaceAll(RegExp(r'\s+'), '');
+    try {
+      final decoded = base64Decode(clean);
+      if (decoded.length >= 4 &&
+          decoded[0] == 0x25 &&
+          decoded[1] == 0x50 &&
+          decoded[2] == 0x44 &&
+          decoded[3] == 0x46) {
+        return decoded;
+      }
+      // Some stores wrap PDF as base64-of-base64 or UTF-8 text "%PDF".
+      final asText = utf8.decode(decoded, allowMalformed: true).trim();
+      if (asText.startsWith('%PDF')) {
+        return Uint8List.fromList(utf8.encode(asText));
+      }
+      if (asText.startsWith('JVBERi0')) {
+        return base64Decode(asText.replaceAll(RegExp(r'\s+'), ''));
+      }
+      return null;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// PDF URLs for invoice supporting documents (legacy / fallback).
   Future<List<String>> fetchInvoiceSupportingDocumentPdfUrls(
     int invoiceId,
   ) async {

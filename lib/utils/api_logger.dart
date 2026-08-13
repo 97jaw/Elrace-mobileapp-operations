@@ -1,6 +1,8 @@
 import 'dart:convert';
 import 'dart:developer' as developer;
 
+import 'package:flutter/foundation.dart';
+
 /// Utility class for logging API requests and responses
 class ApiLogger {
   static const bool _isEnabled = true;
@@ -50,7 +52,8 @@ class ApiLogger {
     log.writeln('╚═══════════════════════════════════════════════════════════');
 
     developer.log(log.toString(), name: 'API');
-    print(log.toString());
+    // Avoid print() crashes on unpaired UTF-16 from bad API filenames.
+    debugPrint(log.toString());
   }
 
   /// Log API Response
@@ -85,13 +88,13 @@ class ApiLogger {
         log.writeln('║   $line');
       });
     } catch (e) {
-      log.writeln('║   $responseBody');
+      log.writeln('║   <unprintable response body>');
     }
 
     log.writeln('╚═══════════════════════════════════════════════════════════');
 
     developer.log(log.toString(), name: 'API');
-    print(log.toString());
+    debugPrint(log.toString());
   }
 
   /// Log API Error
@@ -123,7 +126,7 @@ class ApiLogger {
 
     developer.log(log.toString(),
         name: 'API', error: error, stackTrace: stackTrace);
-    print(log.toString());
+    debugPrint(log.toString());
   }
 
   /// Format JSON string with indentation
@@ -155,6 +158,6 @@ class ApiLogger {
   static void log(String message) {
     if (!_isEnabled) return;
     developer.log(message, name: 'API');
-    print('🔹 $message');
+    debugPrint('🔹 $message');
   }
 }
