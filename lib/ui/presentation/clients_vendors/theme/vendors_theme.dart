@@ -22,6 +22,9 @@ class VendorsTheme {
   static const iconPurchases = Color(0xFF4C8DA8);
   static const iconPaid = Color(0xFF4EA2B4);
   static const iconPayables = Color(0xFF384A4F);
+  static const iconActive = Color(0xFF3D9A6A);
+  static const iconExpiring = Color(0xFFD69E2E);
+  static const iconContracts = Color(0xFF4C8DA8);
 
   static const electricBorder = Color(0xFF4EA2B4);
 

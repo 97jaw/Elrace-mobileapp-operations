@@ -34,7 +34,7 @@
       "ios": {
         "default": {
           "projectId": "elrace-new",
-          "appId": "1:392748487890:ios:58ff0286e360256a0f490b",
+          "appId": "1:392748487890:ios:09d22392947544630f490b",
           "uploadDebugSymbols": true,
           "fileOutput": "ios/Runner/GoogleService-Info.plist"
         }
@@ -43,7 +43,7 @@
         "lib/firebase_options.dart": {
           "projectId": "elrace-new",
           "configurations": {
-            "ios": "1:392748487890:ios:58ff0286e360256a0f490b"
+            "ios": "1:392748487890:ios:09d22392947544630f490b"
           }
         }
       }
