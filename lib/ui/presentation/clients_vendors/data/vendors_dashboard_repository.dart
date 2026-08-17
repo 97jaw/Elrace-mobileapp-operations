@@ -318,6 +318,106 @@ class VendorsDashboardData {
   }
 }
 
+class VendorsAgreementsSummary {
+  const VendorsAgreementsSummary({
+    required this.isAuthorized,
+    required this.totalCount,
+    required this.activeCount,
+    required this.expiring90Count,
+    required this.totalValueFormatted,
+  });
+
+  final bool isAuthorized;
+  final int totalCount;
+  final int activeCount;
+  final int expiring90Count;
+  final String totalValueFormatted;
+
+  factory VendorsAgreementsSummary.empty() => const VendorsAgreementsSummary(
+        isAuthorized: false,
+        totalCount: 0,
+        activeCount: 0,
+        expiring90Count: 0,
+        totalValueFormatted: 'AED 0',
+      );
+
+  factory VendorsAgreementsSummary.fromJson(Map<String, dynamic> json) {
+    return VendorsAgreementsSummary(
+      isAuthorized: json['is_authorized'] == true,
+      totalCount: (json['total_count'] as num?)?.toInt() ?? 0,
+      activeCount: (json['active_count'] as num?)?.toInt() ?? 0,
+      expiring90Count: (json['expiring_90_count'] as num?)?.toInt() ?? 0,
+      totalValueFormatted:
+          (json['total_value_formatted'] as String?) ?? 'AED 0',
+    );
+  }
+}
+
+class VendorsAgreementRow {
+  const VendorsAgreementRow({
+    required this.id,
+    required this.number,
+    required this.startDate,
+    required this.endDate,
+    required this.valueFormatted,
+  });
+
+  final int id;
+  final String number;
+  final String startDate;
+  final String endDate;
+  final String valueFormatted;
+
+  factory VendorsAgreementRow.fromJson(Map<String, dynamic> json) {
+    return VendorsAgreementRow(
+      id: (json['id'] as num?)?.toInt() ?? 0,
+      number: (json['number'] as String?)?.trim().isNotEmpty == true
+          ? (json['number'] as String).trim()
+          : ((json['name'] as String?)?.trim() ?? ''),
+      startDate: (json['start_date'] as String?)?.trim() ?? '',
+      endDate: (json['end_date'] as String?)?.trim() ?? '',
+      valueFormatted: (json['value_formatted'] as String?) ?? 'AED 0',
+    );
+  }
+}
+
+class VendorsAgreementsPage {
+  const VendorsAgreementsPage({
+    required this.items,
+    required this.total,
+    required this.hasMore,
+    required this.offset,
+    required this.limit,
+  });
+
+  final List<VendorsAgreementRow> items;
+  final int total;
+  final bool hasMore;
+  final int offset;
+  final int limit;
+
+  factory VendorsAgreementsPage.fromJson(Map<String, dynamic> json) {
+    final raw = json['items'];
+    return VendorsAgreementsPage(
+      items: raw is List
+          ? raw
+              .whereType<Map>()
+              .map(
+                (e) => VendorsAgreementRow.fromJson(
+                  Map<String, dynamic>.from(e),
+                ),
+              )
+              .where((e) => e.id > 0)
+              .toList()
+          : const [],
+      total: (json['total'] as num?)?.toInt() ?? 0,
+      hasMore: json['has_more'] == true,
+      offset: (json['offset'] as num?)?.toInt() ?? 0,
+      limit: (json['limit'] as num?)?.toInt() ?? 40,
+    );
+  }
+}
+
 class VendorsDashboardRepository {
   static const _base = 'https://erp.elrace.com/api';
   static const _timeout = Duration(seconds: 15);
@@ -368,6 +468,42 @@ class VendorsDashboardRepository {
       );
     }
     return VendorsPartnerOptionsPage.fromJson(data);
+  }
+
+  Future<VendorsAgreementsSummary> fetchAgreementsSummary({
+    int? partnerId,
+  }) async {
+    final result = await _post('/vendors/agreements/summary', {
+      if (partnerId != null && partnerId > 0) 'partner_id': partnerId,
+    });
+    final data = _unwrap(result);
+    if (data == null) return VendorsAgreementsSummary.empty();
+    return VendorsAgreementsSummary.fromJson(data);
+  }
+
+  Future<VendorsAgreementsPage> fetchAgreements({
+    int? partnerId,
+    String keyword = '',
+    int offset = 0,
+    int limit = 40,
+  }) async {
+    final result = await _post('/vendors/agreements', {
+      if (partnerId != null && partnerId > 0) 'partner_id': partnerId,
+      if (keyword.trim().isNotEmpty) 'keyword': keyword.trim(),
+      'offset': offset,
+      'limit': limit,
+    });
+    final data = _unwrap(result);
+    if (data == null) {
+      return const VendorsAgreementsPage(
+        items: [],
+        total: 0,
+        hasMore: false,
+        offset: 0,
+        limit: 40,
+      );
+    }
+    return VendorsAgreementsPage.fromJson(data);
   }
 
   Map<String, dynamic>? _unwrap(Map<String, dynamic>? result) {
