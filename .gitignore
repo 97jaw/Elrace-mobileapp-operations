@@ -39,6 +39,8 @@ functions/.env*
 functions/node_modules/
 functions-liveness/.env*
 functions-liveness/node_modules/
+functions-assignment/.env*
+functions-assignment/node_modules/
 
 # Secrets — never commit
 *.jks

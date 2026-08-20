@@ -119,6 +119,9 @@ class _VendorsDashboardBodyState extends State<_VendorsDashboardBody> {
   VendorsDashboardData? _data;
   bool _loading = true;
   String? _error;
+  int _sectionTab = 0;
+  VendorsAgreementsSummary? _agreementsSummary;
+  bool _agreementsLoading = false;
 
   static const _monthNames = <String>[
     'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
@@ -161,6 +164,43 @@ class _VendorsDashboardBodyState extends State<_VendorsDashboardBody> {
     super.initState();
     _year = DateTime.now().year;
     _load();
+  }
+
+  Future<void> _loadAgreementsSummary() async {
+    setState(() => _agreementsLoading = true);
+    try {
+      final summary = await _repo.fetchAgreementsSummary(partnerId: _partnerId);
+      if (!mounted) return;
+      setState(() {
+        _agreementsSummary = summary;
+        _agreementsLoading = false;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _agreementsLoading = false;
+        _agreementsSummary ??= VendorsAgreementsSummary.empty();
+      });
+    }
+  }
+
+  void _onSectionTabChanged(int index) {
+    if (index == _sectionTab) return;
+    setState(() => _sectionTab = index);
+    if (index == 1 && _agreementsSummary == null && !_agreementsLoading) {
+      _loadAgreementsSummary();
+    }
+  }
+
+  Future<void> _openAgreementsSheet() async {
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => _AgreementsSheet(
+        partnerId: _partnerId,
+      ),
+    );
   }
 
   Future<void> _load() async {
@@ -219,8 +259,12 @@ class _VendorsDashboardBodyState extends State<_VendorsDashboardBody> {
     setState(() {
       _partnerId = result.partnerId;
       _vendorLabel = result.label;
+      _agreementsSummary = null;
     });
     _load();
+    if (_sectionTab == 1) {
+      unawaited(_loadAgreementsSummary());
+    }
   }
 
   @override
@@ -358,20 +402,32 @@ class _VendorsDashboardBodyState extends State<_VendorsDashboardBody> {
             ),
           ),
           const SizedBox(height: 18),
-          _PurchasesTrendCard(
-            months: months,
-            year: _year,
-            highlightMonth: _month,
-            peakAnnotation: data.peakAnnotation,
-            loading: _loading,
+          _VendorsSectionTabs(
+            selectedIndex: _sectionTab,
+            onChanged: _onSectionTabChanged,
           ),
-          const SizedBox(height: 18),
-          _AgingBreakdownCard(
-            buckets: data.aging.isNotEmpty
-                ? data.aging
-                : VendorsDashboardAgingBucket.empty(),
-            loading: _loading,
-          ),
+          const SizedBox(height: 14),
+          if (_sectionTab == 0) ...[
+            _PurchasesTrendCard(
+              months: months,
+              year: _year,
+              highlightMonth: _month,
+              peakAnnotation: data.peakAnnotation,
+              loading: _loading,
+            ),
+            const SizedBox(height: 18),
+            _AgingBreakdownCard(
+              buckets: data.aging.isNotEmpty
+                  ? data.aging
+                  : VendorsDashboardAgingBucket.empty(),
+              loading: _loading,
+            ),
+          ] else
+            _ContractSummaryCard(
+              summary: _agreementsSummary ?? VendorsAgreementsSummary.empty(),
+              loading: _agreementsLoading && _agreementsSummary == null,
+              onViewAll: _openAgreementsSheet,
+            ),
         ],
       ),
     );
@@ -539,6 +595,656 @@ class _GlassDropdown<T> extends StatelessWidget {
           ),
           items: items,
           onChanged: onChanged,
+        ),
+      ),
+    );
+  }
+}
+
+class _VendorsSectionTabs extends StatelessWidget {
+  const _VendorsSectionTabs({
+    required this.selectedIndex,
+    required this.onChanged,
+  });
+
+  final int selectedIndex;
+  final ValueChanged<int> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(4),
+      decoration: BoxDecoration(
+        color: Colors.black.withValues(alpha: 0.22),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.12)),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: _VendorsSectionTab(
+              label: 'Bills Overview',
+              selected: selectedIndex == 0,
+              onTap: () => onChanged(0),
+            ),
+          ),
+          Expanded(
+            child: _VendorsSectionTab(
+              label: 'Agreements',
+              selected: selectedIndex == 1,
+              onTap: () => onChanged(1),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _VendorsSectionTab extends StatelessWidget {
+  const _VendorsSectionTab({
+    required this.label,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(12),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 180),
+          padding: const EdgeInsets.symmetric(vertical: 10),
+          decoration: BoxDecoration(
+            color: selected
+                ? VendorsTheme.kpiGradientTop.withValues(alpha: 0.92)
+                : Colors.transparent,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+              color: selected
+                  ? VendorsTheme.electricBorder.withValues(alpha: 0.85)
+                  : Colors.transparent,
+            ),
+          ),
+          child: Text(
+            label,
+            textAlign: TextAlign.center,
+            style: GoogleFonts.poppins(
+              fontSize: 12.5,
+              fontWeight: FontWeight.w700,
+              color: selected ? VendorsTheme.iconPaid : Colors.white70,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _ContractSummaryCard extends StatelessWidget {
+  const _ContractSummaryCard({
+    required this.summary,
+    required this.loading,
+    required this.onViewAll,
+  });
+
+  final VendorsAgreementsSummary summary;
+  final bool loading;
+  final VoidCallback onViewAll;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(18),
+        gradient: const LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            VendorsTheme.kpiGradientTop,
+            VendorsTheme.kpiGradientBottom,
+          ],
+        ),
+        border: Border.all(
+          color: Colors.white.withValues(alpha: 0.35),
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.18),
+            blurRadius: 16,
+            offset: const Offset(0, 8),
+          ),
+        ],
+      ),
+      child: Stack(
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 12),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Text(
+                  'Contract Summary',
+                  style: GoogleFonts.poppins(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w700,
+                    color: VendorsTheme.kpiTitle,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                _ContractSummaryRow(
+                  icon: Icons.view_in_ar_rounded,
+                  iconColor: VendorsTheme.iconContracts,
+                  label: 'Total Contracts',
+                  value: '${summary.totalCount}',
+                ),
+                _ContractSummaryRow(
+                  icon: Icons.check_circle_rounded,
+                  iconColor: VendorsTheme.iconActive,
+                  label: 'Active Contracts',
+                  value: '${summary.activeCount}',
+                  valueColor: VendorsTheme.iconActive,
+                ),
+                _ContractSummaryRow(
+                  icon: Icons.schedule_rounded,
+                  iconColor: VendorsTheme.iconExpiring,
+                  label: 'Contracts Expiring in 90 Days',
+                  value: '${summary.expiring90Count}',
+                  valueColor: VendorsTheme.iconExpiring,
+                ),
+                _ContractSummaryRow(
+                  icon: Icons.assignment_rounded,
+                  iconColor: const Color(0xFF6B5B95),
+                  label: 'Total Contract Value',
+                  value:
+                      '${_VendorsDashboardBodyState._kmOnly(summary.totalValueFormatted)} AED',
+                  stackedValue: true,
+                  showDivider: false,
+                ),
+                const SizedBox(height: 6),
+                Center(
+                  child: TextButton(
+                    onPressed: onViewAll,
+                    child: Text(
+                      'View all contracts',
+                      style: GoogleFonts.poppins(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                        color: VendorsTheme.iconPaid,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          if (loading)
+            Positioned.fill(
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.28),
+                  borderRadius: BorderRadius.circular(18),
+                ),
+                child: const Center(
+                  child: SizedBox(
+                    width: 22,
+                    height: 22,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: VendorsTheme.kpiTitle,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ContractSummaryRow extends StatelessWidget {
+  const _ContractSummaryRow({
+    required this.icon,
+    required this.iconColor,
+    required this.label,
+    required this.value,
+    this.valueColor,
+    this.stackedValue = false,
+    this.showDivider = true,
+  });
+
+  final IconData icon;
+  final Color iconColor;
+  final String label;
+  final String value;
+  final Color? valueColor;
+  final bool stackedValue;
+  final bool showDivider;
+
+  @override
+  Widget build(BuildContext context) {
+    final valueStyle = GoogleFonts.poppins(
+      fontSize: stackedValue ? 16 : 15,
+      fontWeight: FontWeight.w700,
+      color: valueColor ?? VendorsTheme.kpiValue,
+    );
+    return Column(
+      children: [
+        Padding(
+          padding: const EdgeInsets.symmetric(vertical: 10),
+          child: Row(
+            crossAxisAlignment: stackedValue
+                ? CrossAxisAlignment.start
+                : CrossAxisAlignment.center,
+            children: [
+              Container(
+                width: 36,
+                height: 36,
+                decoration: BoxDecoration(
+                  color: iconColor.withValues(alpha: 0.16),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Icon(icon, color: iconColor, size: 20),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: stackedValue
+                    ? Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            label,
+                            style: GoogleFonts.poppins(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w500,
+                              color: VendorsTheme.kpiTitle,
+                            ),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(value, style: valueStyle),
+                        ],
+                      )
+                    : Text(
+                        label,
+                        style: GoogleFonts.poppins(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w500,
+                          color: VendorsTheme.kpiTitle,
+                        ),
+                      ),
+              ),
+              if (!stackedValue) Text(value, style: valueStyle),
+            ],
+          ),
+        ),
+        if (showDivider)
+          Divider(
+            height: 1,
+            thickness: 1,
+            color: VendorsTheme.kpiTitle.withValues(alpha: 0.12),
+          ),
+      ],
+    );
+  }
+}
+
+class _AgreementsSheet extends StatefulWidget {
+  const _AgreementsSheet({this.partnerId});
+
+  final int? partnerId;
+
+  @override
+  State<_AgreementsSheet> createState() => _AgreementsSheetState();
+}
+
+class _AgreementsSheetState extends State<_AgreementsSheet> {
+  static const _pageSize = 40;
+
+  final _repo = VendorsDashboardRepository();
+  final _search = TextEditingController();
+  Timer? _debounce;
+
+  List<VendorsAgreementRow> _items = const [];
+  String _query = '';
+  bool _loading = true;
+  bool _loadingMore = false;
+  bool _hasMore = true;
+  String? _error;
+  int _requestGen = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _load(reset: true);
+  }
+
+  @override
+  void dispose() {
+    _debounce?.cancel();
+    _search.dispose();
+    super.dispose();
+  }
+
+  void _onSearchChanged(String value) {
+    _debounce?.cancel();
+    _debounce = Timer(const Duration(milliseconds: 350), () {
+      if (!mounted) return;
+      _query = value;
+      _load(reset: true);
+    });
+  }
+
+  bool _onScrollNotification(ScrollNotification n) {
+    if (n.metrics.pixels < n.metrics.maxScrollExtent - 120) return false;
+    if (_loading || _loadingMore || !_hasMore) return false;
+    _load(reset: false);
+    return false;
+  }
+
+  Future<void> _load({required bool reset}) async {
+    final gen = ++_requestGen;
+    if (reset) {
+      setState(() {
+        _loading = true;
+        _error = null;
+        _hasMore = true;
+      });
+    } else {
+      if (!_hasMore || _loadingMore) return;
+      setState(() => _loadingMore = true);
+    }
+
+    final offset = reset ? 0 : _items.length;
+    try {
+      final page = await _repo.fetchAgreements(
+        partnerId: widget.partnerId,
+        keyword: _query,
+        offset: offset,
+        limit: _pageSize,
+      );
+      if (!mounted || gen != _requestGen) return;
+      setState(() {
+        _items = reset ? page.items : [..._items, ...page.items];
+        _hasMore = page.hasMore;
+        _loading = false;
+        _loadingMore = false;
+        _error = null;
+      });
+    } catch (_) {
+      if (!mounted || gen != _requestGen) return;
+      setState(() {
+        _loading = false;
+        _loadingMore = false;
+        if (reset) {
+          _items = const [];
+          _error = 'Could not load contracts.';
+        }
+      });
+    }
+  }
+
+  String _fmtDate(String raw) {
+    final parsed = DateTime.tryParse(raw);
+    if (parsed == null) return raw.isEmpty ? '—' : raw;
+    const months = [
+      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+    ];
+    return '${parsed.day.toString().padLeft(2, '0')} ${months[parsed.month - 1]} ${parsed.year}';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final q = _query.trim();
+    final showEmpty = !_loading && _items.isEmpty;
+    final showFooter = _loadingMore || (_hasMore && _items.isNotEmpty);
+
+    return DraggableScrollableSheet(
+      initialChildSize: 0.78,
+      minChildSize: 0.45,
+      maxChildSize: 0.94,
+      builder: (context, scrollController) {
+        return Container(
+          decoration: const BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: [
+                VendorsTheme.deepLight,
+                VendorsTheme.deepDark,
+              ],
+            ),
+            borderRadius: BorderRadius.vertical(top: Radius.circular(22)),
+          ),
+          child: Column(
+            children: [
+              const SizedBox(height: 10),
+              Container(
+                width: 42,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.35),
+                  borderRadius: BorderRadius.circular(99),
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(18, 16, 18, 10),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Text(
+                      'Contracts',
+                      style: GoogleFonts.poppins(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w700,
+                        color: Colors.white,
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    TextField(
+                      controller: _search,
+                      onChanged: _onSearchChanged,
+                      style: GoogleFonts.poppins(
+                        fontSize: 13,
+                        color: Colors.white,
+                      ),
+                      cursorColor: VendorsTheme.glowBright,
+                      decoration: InputDecoration(
+                        hintText: 'Search contracts…',
+                        hintStyle: GoogleFonts.poppins(
+                          fontSize: 13,
+                          color: Colors.white54,
+                        ),
+                        prefixIcon: Icon(
+                          Icons.search_rounded,
+                          color: Colors.white.withValues(alpha: 0.7),
+                        ),
+                        filled: true,
+                        fillColor: Colors.white.withValues(alpha: 0.10),
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 14,
+                          vertical: 12,
+                        ),
+                        enabledBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(14),
+                          borderSide: BorderSide(
+                            color: Colors.white.withValues(alpha: 0.22),
+                          ),
+                        ),
+                        focusedBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(14),
+                          borderSide: const BorderSide(
+                            color: VendorsTheme.glowBright,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Expanded(
+                child: _loading && _items.isEmpty
+                    ? const Center(
+                        child: CircularProgressIndicator(
+                          color: Colors.white70,
+                          strokeWidth: 2.5,
+                        ),
+                      )
+                    : NotificationListener<ScrollNotification>(
+                        onNotification: _onScrollNotification,
+                        child: ListView.builder(
+                          controller: scrollController,
+                          padding: const EdgeInsets.fromLTRB(12, 0, 12, 24),
+                          itemCount: _items.length +
+                              (showEmpty ? 1 : 0) +
+                              (showFooter ? 1 : 0),
+                          itemBuilder: (context, index) {
+                            if (index < _items.length) {
+                              final row = _items[index];
+                              return _AgreementListTile(
+                                number: row.number.isEmpty
+                                    ? 'Contract #${row.id}'
+                                    : row.number,
+                                start: _fmtDate(row.startDate),
+                                end: _fmtDate(row.endDate),
+                                value:
+                                    '${_VendorsDashboardBodyState._kmOnly(row.valueFormatted)} AED',
+                                onTap: () {},
+                              );
+                            }
+                            if (showEmpty) {
+                              return Padding(
+                                padding: const EdgeInsets.all(24),
+                                child: Text(
+                                  _error ??
+                                      (q.isEmpty
+                                          ? 'No contracts found.'
+                                          : 'No contracts match your search.'),
+                                  textAlign: TextAlign.center,
+                                  style: GoogleFonts.poppins(
+                                    fontSize: 13,
+                                    color: Colors.white70,
+                                  ),
+                                ),
+                              );
+                            }
+                            return const Padding(
+                              padding: EdgeInsets.symmetric(vertical: 16),
+                              child: Center(
+                                child: SizedBox(
+                                  width: 20,
+                                  height: 20,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                    color: Colors.white70,
+                                  ),
+                                ),
+                              ),
+                            );
+                          },
+                        ),
+                      ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _AgreementListTile extends StatelessWidget {
+  const _AgreementListTile({
+    required this.number,
+    required this.start,
+    required this.end,
+    required this.value,
+    required this.onTap,
+  });
+
+  final String number;
+  final String start;
+  final String end;
+  final String value;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(16),
+          child: Container(
+            padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.08),
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(
+                color: Colors.white.withValues(alpha: 0.14),
+              ),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  number,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: GoogleFonts.poppins(
+                    fontSize: 13.5,
+                    fontWeight: FontWeight.w700,
+                    color: Colors.white,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        'Start  $start',
+                        style: GoogleFonts.poppins(
+                          fontSize: 11.5,
+                          fontWeight: FontWeight.w500,
+                          color: Colors.white70,
+                        ),
+                      ),
+                    ),
+                    Expanded(
+                      child: Text(
+                        'End  $end',
+                        textAlign: TextAlign.right,
+                        style: GoogleFonts.poppins(
+                          fontSize: 11.5,
+                          fontWeight: FontWeight.w500,
+                          color: Colors.white70,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  value,
+                  style: GoogleFonts.poppins(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w700,
+                    color: VendorsTheme.glowBright,
+                  ),
+                ),
+              ],
+            ),
+          ),
         ),
       ),
     );

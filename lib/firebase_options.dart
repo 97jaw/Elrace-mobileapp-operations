@@ -61,21 +61,21 @@ class DefaultFirebaseOptions {
 
   static const FirebaseOptions ios = FirebaseOptions(
     apiKey: 'AIzaSyB25Efv4tymQSJdgo8DWGNnNgOPO8X2mzw',
-    appId: '1:392748487890:ios:58ff0286e360256a0f490b',
+    appId: '1:392748487890:ios:09d22392947544630f490b',
     messagingSenderId: '392748487890',
     projectId: 'elrace-new',
     databaseURL: 'https://elrace-new-default-rtdb.firebaseio.com',
     storageBucket: 'elrace-new.firebasestorage.app',
-    iosBundleId: 'ae.elrace.connect',
+    iosBundleId: 'com.elRace.elRace',
   );
   static const FirebaseOptions macos = FirebaseOptions(
     apiKey: 'AIzaSyB25Efv4tymQSJdgo8DWGNnNgOPO8X2mzw',
-    appId: '1:392748487890:ios:58ff0286e360256a0f490b',
+    appId: '1:392748487890:ios:09d22392947544630f490b',
     messagingSenderId: '392748487890',
     projectId: 'elrace-new',
     storageBucket: 'elrace-new.firebasestorage.app',
     databaseURL: 'https://elrace-new-default-rtdb.firebaseio.com',
-    iosBundleId: 'ae.elrace.connect',
+    iosBundleId: 'com.elRace.elRace',
   );
 
   static const FirebaseOptions windows = FirebaseOptions(
