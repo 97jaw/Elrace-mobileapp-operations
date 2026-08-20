@@ -1,4 +1,6 @@
 import 'dart:async';
+
+import 'package:dio/dio.dart';
 import 'package:el_race/core/constants/colors.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
@@ -26,6 +28,7 @@ class _QrScannerScreenState extends State<QrScannerScreen>
   bool _isCheckingCameraPermission = true;
   bool _hasCameraPermission = false;
   bool _isCameraPermissionPermanentlyDenied = false;
+  CancelToken? _approvalCancelToken;
 
   // ── Zoom ──────────────────────────────────────────────────────────
   double _currentZoom = 1.0;
@@ -71,6 +74,7 @@ class _QrScannerScreenState extends State<QrScannerScreen>
     _scanLineController.dispose();
     _pulseController.dispose();
     _zoomLabelTimer?.cancel();
+    _approvalCancelToken?.cancel('QR scanner closed.');
     cameraController.dispose();
     super.dispose();
   }
@@ -162,11 +166,17 @@ class _QrScannerScreenState extends State<QrScannerScreen>
     );
 
     try {
-      final result = await _qrLoginService.loginWithQrCode(qrCode);
+      _approvalCancelToken?.cancel('A newer QR approval started.');
+      final cancelToken = CancelToken();
+      _approvalCancelToken = cancelToken;
+      final result = await _qrLoginService.loginWithQrCode(
+        qrCode,
+        cancelToken: cancelToken,
+      );
       if (mounted) {
         if (result['success'] == true) {
           Fluttertoast.showToast(
-            msg: "Signed in successfully!",
+            msg: "Approved. Continue on the Hub.",
             toastLength: Toast.LENGTH_LONG,
             gravity: ToastGravity.CENTER,
             backgroundColor: Colors.green,
@@ -174,7 +184,7 @@ class _QrScannerScreenState extends State<QrScannerScreen>
             fontSize: 16.0,
           );
           Navigator.pop(context, true);
-        } else {
+        } else if (result['code'] != 'CANCELLED') {
           Fluttertoast.showToast(
             msg: result['message'] ?? 'Sign-in failed',
             toastLength: Toast.LENGTH_LONG,
@@ -188,7 +198,7 @@ class _QrScannerScreenState extends State<QrScannerScreen>
         }
       }
     } catch (e) {
-      if (mounted) {
+      if (mounted && !(e is DioException && CancelToken.isCancel(e))) {
         Fluttertoast.showToast(
           msg: "Error: ${e.toString()}",
           toastLength: Toast.LENGTH_LONG,

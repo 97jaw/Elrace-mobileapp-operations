@@ -19,6 +19,7 @@ class UrlUtil {
   static const String getContentsApi = 'get_contents';
   static const String getContentsGroupedApi = 'get_contents/grouped';
   static const String firebaseRefreshToken = 'firebase/refresh_token';
+  static const String hubQrLogin = 'hub/qr-login';
 
   /// Current user's stamp binaries only (not on login / not session refresh).
   static const String myStamps = 'users/my_stamps';
