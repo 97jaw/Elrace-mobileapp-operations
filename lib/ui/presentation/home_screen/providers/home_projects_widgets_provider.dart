@@ -1,3 +1,4 @@
+import 'package:el_race/core/home/home_widget_visibility.dart';
 import 'package:el_race/core/utils/shared_pref.dart';
 import 'package:el_race/ui/presentation/home_screen/providers/home_widget_api_client.dart';
 import 'package:el_race/ui/presentation/home_screen/providers/home_widget_session_cache.dart';
@@ -31,18 +32,24 @@ class HomeMyProjectsWidgetNotifier extends Notifier<MyProjectsWidgetRecord> {
 
   MyProjectsWidgetRecord _instant() {
     return _myProjectsFromLogin() ??
-        HomeWidgetSessionCache.myProjectsRaw?.let(MyProjectsWidgetRecord.fromMap) ??
+        HomeWidgetSessionCache.myProjectsRaw
+            ?.let(MyProjectsWidgetRecord.fromMap) ??
         MyProjectsWidgetRecord.empty();
   }
 
   Future<void> _refresh() async {
+    // Always target this endpoint — a prior failed warm of *other* widgets
+    // must not leave My Projects stuck on empty keepAlive state.
     await HomeWidgetApiClient.refreshIfStale(
-      force: !HomeWidgetSessionCache.isFresh,
+      force: HomeWidgetSessionCache.myProjectsRaw == null,
+      onlyCodes: const {HomeWidgetCode.myProjects},
     );
+
     final raw = HomeWidgetSessionCache.myProjectsRaw;
     var record = raw != null
         ? MyProjectsWidgetRecord.fromMap(raw)
-        : state;
+        : _myProjectsFromLogin() ?? state;
+
     if (record.topProjects.isEmpty) {
       record = await _enrichTopProjects(record);
     }
@@ -70,7 +77,8 @@ class HomeMyProjectsWidgetNotifier extends Notifier<MyProjectsWidgetRecord> {
           )
           .toList(growable: false);
 
-      final total = record.totalActive > 0 ? record.totalActive : projects.length;
+      final total =
+          record.totalActive > 0 ? record.totalActive : projects.length;
       return MyProjectsWidgetRecord(
         totalActive: total,
         dueThisWeekCount: record.dueThisWeekCount,
@@ -102,10 +110,16 @@ class HomeSiteManagementWidgetNotifier
 
   Future<void> _refresh() async {
     await HomeWidgetApiClient.refreshIfStale(
-      force: !HomeWidgetSessionCache.isFresh,
+      force: HomeWidgetSessionCache.siteManagementRaw == null,
+      onlyCodes: const {HomeWidgetCode.siteManagement},
     );
     final raw = HomeWidgetSessionCache.siteManagementRaw;
-    if (raw != null) state = SiteManagementWidgetRecord.fromMap(raw);
+    if (raw != null) {
+      state = SiteManagementWidgetRecord.fromMap(raw);
+    } else {
+      final fromLogin = _siteFromLogin();
+      if (fromLogin != null) state = fromLogin;
+    }
   }
 }
 
@@ -120,16 +134,23 @@ class HomeMyReportsWidgetNotifier extends Notifier<MyReportsWidgetRecord> {
 
   MyReportsWidgetRecord _instant() {
     return _reportsFromLogin() ??
-        HomeWidgetSessionCache.myReportsRaw?.let(MyReportsWidgetRecord.fromMap) ??
+        HomeWidgetSessionCache.myReportsRaw
+            ?.let(MyReportsWidgetRecord.fromMap) ??
         MyReportsWidgetRecord.empty();
   }
 
   Future<void> _refresh() async {
     await HomeWidgetApiClient.refreshIfStale(
-      force: !HomeWidgetSessionCache.isFresh,
+      force: HomeWidgetSessionCache.myReportsRaw == null,
+      onlyCodes: const {HomeWidgetCode.myReports},
     );
     final raw = HomeWidgetSessionCache.myReportsRaw;
-    if (raw != null) state = MyReportsWidgetRecord.fromMap(raw);
+    if (raw != null) {
+      state = MyReportsWidgetRecord.fromMap(raw);
+    } else {
+      final fromLogin = _reportsFromLogin();
+      if (fromLogin != null) state = fromLogin;
+    }
   }
 }
 

@@ -23,6 +23,7 @@
 		ELA1B0032AECB46A00862901 /* amplifyconfiguration.json in Resources */ = {isa = PBXBuildFile; fileRef = ELA1B0042AECB46A00862901 /* amplifyconfiguration.json */; };
 		ELA1B0052AECB46A00862901 /* Amplify in Frameworks */ = {isa = PBXBuildFile; productRef = ELA1B0072AECB46A00862901 /* Amplify */; };
 		ELA1B0062AECB46A00862901 /* AWSCognitoAuthPlugin in Frameworks */ = {isa = PBXBuildFile; productRef = ELA1B0082AECB46A00862901 /* AWSCognitoAuthPlugin */; };
+		ELIPSTR0BUILDFILE0000004 /* InfoPlist.strings in Resources */ = {isa = PBXBuildFile; fileRef = ELIPSTR0VARIANTGRP000003 /* InfoPlist.strings */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -77,6 +78,7 @@
 		E313D1A903785003D7430EFB /* Pods-Runner.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-Runner.debug.xcconfig"; path = "Target Support Files/Pods-Runner/Pods-Runner.debug.xcconfig"; sourceTree = "<group>"; };
 		ECCF8000CACE7612596E1A03 /* Pods_RunnerTests.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = Pods_RunnerTests.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		ELA1B0022AECB46A00862901 /* AmplifyLivenessBootstrap.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = AmplifyLivenessBootstrap.swift; sourceTree = "<group>"; };
+		ELIPSTR0EN0FILEREF000001 /* en */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.strings; name = en; path = en.lproj/InfoPlist.strings; sourceTree = "<group>"; };
 		ELA1B0042AECB46A00862901 /* amplifyconfiguration.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = amplifyconfiguration.json; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
@@ -163,6 +165,7 @@
 				97C146FD1CF9000F007C117D /* Assets.xcassets */,
 				97C146FF1CF9000F007C117D /* LaunchScreen.storyboard */,
 				97C147021CF9000F007C117D /* Info.plist */,
+				ELIPSTR0VARIANTGRP000003 /* InfoPlist.strings */,
 				1498D2321E8E86230040F4C2 /* GeneratedPluginRegistrant.h */,
 				1498D2331E8E89220040F4C2 /* GeneratedPluginRegistrant.m */,
 				74858FAE1ED2DC5600515810 /* AppDelegate.swift */,
@@ -300,6 +303,7 @@
 				97C146FC1CF9000F007C117D /* Main.storyboard in Resources */,
 				AA0ATHAN0MP3BUILDFILE01 /* athan.mp3 in Resources */,
 				ELA1B0032AECB46A00862901 /* amplifyconfiguration.json in Resources */,
+				ELIPSTR0BUILDFILE0000004 /* InfoPlist.strings in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -494,6 +498,14 @@
 				97C147001CF9000F007C117D /* Base */,
 			);
 			name = LaunchScreen.storyboard;
+			sourceTree = "<group>";
+		};
+		ELIPSTR0VARIANTGRP000003 /* InfoPlist.strings */ = {
+			isa = PBXVariantGroup;
+			children = (
+				ELIPSTR0EN0FILEREF000001 /* en */,
+			);
+			name = InfoPlist.strings;
 			sourceTree = "<group>";
 		};
 /* End PBXVariantGroup section */

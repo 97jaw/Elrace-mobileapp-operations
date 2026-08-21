@@ -42,5 +42,18 @@ void main() {
       expect(v.isVisible(HomeWidgetCode.clients), isTrue);
       expect(v.isVisible(HomeWidgetCode.vendors), isFalse);
     });
+
+    test('disabled my projects stays hidden (role template removed)', () {
+      final v = HomeWidgetVisibility(
+        WidgetsData(
+          myProjectsWidget: WidgetInfo(isDisabled: true),
+          siteManagementWidget: WidgetInfo(isDisabled: false),
+          myReportsWidget: WidgetInfo(isDisabled: false),
+        ),
+      );
+      expect(v.isVisible(HomeWidgetCode.myProjects), isFalse);
+      expect(v.isVisible(HomeWidgetCode.siteManagement), isTrue);
+      expect(v.hasVisibleProjects, isTrue);
+    });
   });
 }

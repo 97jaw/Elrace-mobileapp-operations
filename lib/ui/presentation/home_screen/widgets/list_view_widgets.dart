@@ -1,3 +1,4 @@
+import 'package:el_race/core/drawing_studio/drawing_studio_access.dart';
 import 'package:el_race/core/home/home_widget_visibility.dart';
 import 'package:el_race/core/utils/shared_pref.dart';
 import 'package:el_race/core/hr_management/routing/hr_route_names.dart';
@@ -1029,6 +1030,14 @@ class _ListViewWidgetsState extends State<ListViewWidgets> {
         children.addAll([
           _fullWidthCard(
             ProjectsCategoryMyProjectsCard(tabletCompact: tabletCompact),
+          ),
+          SizedBox(height: _isTabletPane ? 10 : 10.h),
+        ]);
+      }
+      if (DrawingStudioAccess.canShowWidget()) {
+        children.addAll([
+          _fullWidthCard(
+            ProjectsCategoryAiDrawingStudioCard(tabletCompact: tabletCompact),
           ),
           SizedBox(height: _isTabletPane ? 10 : 10.h),
         ]);

@@ -42,6 +42,15 @@ import '../ui/presentation/hr_management/employees_profile_screen.dart';
 import '../ui/presentation/hr_management/company_documents_screen.dart';
 import '../core/hr_management/routing/hr_route_names.dart';
 import '../core/timesheet/routing/timesheet_route_names.dart';
+import '../core/drawing_studio/drawing_studio_route_names.dart';
+import '../core/drawing_studio/drawing_studio_project.dart';
+import '../ui/presentation/drawing_studio/screens/drawing_studio_authorize_screen.dart';
+import '../ui/presentation/drawing_studio/screens/drawing_studio_ai_creation_screen.dart';
+import '../ui/presentation/drawing_studio/screens/drawing_studio_form_screen.dart';
+import '../ui/presentation/drawing_studio/screens/drawing_studio_generation_status_screen.dart';
+import '../ui/presentation/drawing_studio/screens/drawing_studio_placeholder_screen.dart';
+import '../ui/presentation/drawing_studio/screens/drawing_studio_project_detail_screen.dart';
+import '../ui/presentation/drawing_studio/screens/drawing_studio_projects_list_screen.dart';
 import '../core/widgets/hr_management/hr_module_widgets_sandbox.dart';
 import '../core/widgets/timesheet/timesheet_widgets_sandbox.dart';
 import '../ui/presentation/timesheet/foreman/attendance/at1_capture_mode_sheet.dart';
@@ -415,6 +424,72 @@ class OnGeneratedRoutes {
       case TimesheetRouteNames.widgetSandbox:
         return CupertinoPageRoute(
           builder: (_) => const TimesheetWidgetsSandbox(),
+        );
+      case DrawingStudioRouteNames.authorize:
+        return CupertinoPageRoute(
+          builder: (_) => const DrawingStudioAuthorizeScreen(),
+        );
+      case DrawingStudioRouteNames.form:
+        return CupertinoPageRoute(
+          builder: (_) => const DrawingStudioFormScreen(),
+        );
+      case DrawingStudioRouteNames.aiCreation:
+        return CupertinoPageRoute(
+          builder: (_) => const DrawingStudioAiCreationScreen(),
+        );
+      case DrawingStudioRouteNames.imageUpload:
+        return CupertinoPageRoute(
+          builder: (_) => const DrawingStudioPlaceholderScreen(
+            title: '2D / Image upload',
+            subtitle: 'Coming soon — use the hub Coming soon dialog instead.',
+          ),
+        );
+      case DrawingStudioRouteNames.generationStatus:
+        final args = settings.arguments;
+        String projectId = '';
+        String? title;
+        DrawingStudioProgress? initialProgress;
+        if (args is Map) {
+          projectId = args['project_id']?.toString() ?? '';
+          title = args['title']?.toString();
+          final rawProgress = args['progress'];
+          if (rawProgress is DrawingStudioProgress) {
+            initialProgress = rawProgress;
+          } else if (rawProgress is Map) {
+            initialProgress = DrawingStudioProgress.tryParse(rawProgress);
+          }
+        }
+        if (projectId.isEmpty) {
+          return CupertinoPageRoute(
+            builder: (_) => const DrawingStudioPlaceholderScreen(
+              title: 'Generation',
+              subtitle: 'Missing project id.',
+            ),
+          );
+        }
+        return CupertinoPageRoute(
+          builder: (_) => DrawingStudioGenerationStatusScreen(
+            projectId: projectId,
+            title: title,
+            initialProgress: initialProgress,
+          ),
+        );
+      case DrawingStudioRouteNames.projectsList:
+        return CupertinoPageRoute(
+          builder: (_) => const DrawingStudioProjectsListScreen(),
+        );
+      case DrawingStudioRouteNames.projectDetail:
+        final project = settings.arguments;
+        if (project is! DrawingStudioProject) {
+          return CupertinoPageRoute(
+            builder: (_) => const DrawingStudioPlaceholderScreen(
+              title: 'Project',
+              subtitle: 'Missing project details.',
+            ),
+          );
+        }
+        return CupertinoPageRoute(
+          builder: (_) => DrawingStudioProjectDetailScreen(project: project),
         );
     }
     return MaterialPageRoute(

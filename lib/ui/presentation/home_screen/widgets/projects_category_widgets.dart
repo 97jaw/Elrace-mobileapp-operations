@@ -1,3 +1,4 @@
+import 'package:el_race/core/drawing_studio/drawing_studio_route_names.dart';
 import 'package:el_race/core/timesheet/routing/timesheet_route_names.dart';
 import 'package:el_race/core/utils/responsive_breakpoints.dart';
 import 'package:el_race/ui/presentation/home_screen/providers/home_projects_widgets_provider.dart';
@@ -119,6 +120,87 @@ class ProjectsCategoryMyProjectsCard extends ConsumerWidget {
               ),
             ],
           ],
+        ],
+      ),
+    );
+  }
+}
+
+/// Full-width Projects category entry for AI Drawing Studio (management only).
+class ProjectsCategoryAiDrawingStudioCard extends StatelessWidget {
+  const ProjectsCategoryAiDrawingStudioCard({
+    super.key,
+    this.tabletCompact = false,
+  });
+
+  final bool tabletCompact;
+
+  @override
+  Widget build(BuildContext context) {
+    return _ProjectsFullCardShell(
+      onTap: () => Navigator.of(context).pushNamed(
+        DrawingStudioRouteNames.authorize,
+      ),
+      gradient: const LinearGradient(
+        begin: Alignment.centerLeft,
+        end: Alignment.centerRight,
+        colors: [
+          Color(0xFF1A2A4F),
+          Color(0xFF243B6B),
+          Color(0xFF3E7BFA),
+          Color(0xFF6FA0FF),
+        ],
+      ),
+      iconBadge: const _ProjectsIconBadge(
+        icon: Icons.brush_rounded,
+        gradient: [Color(0xFF3E7BFA), Color(0xFF1A2A4F)],
+      ),
+      pattern: Stack(
+        clipBehavior: Clip.hardEdge,
+        children: [
+          Positioned(
+            right: -28.w,
+            bottom: -36.uh,
+            child: Icon(
+              Icons.architecture_rounded,
+              size: 140.usp,
+              color: Colors.white.withValues(alpha: 0.10),
+            ),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            'CREATIVE TOOLS',
+            style: GoogleFonts.poppins(
+              fontSize: 7.5.usp,
+              fontWeight: FontWeight.w600,
+              color: Colors.white.withValues(alpha: 0.72),
+              letterSpacing: 0.6,
+            ),
+          ),
+          SizedBox(height: 4.uh),
+          Text(
+            'AI Drawing Studio',
+            style: GoogleFonts.poppins(
+              fontSize: 16.usp,
+              fontWeight: FontWeight.w700,
+              color: Colors.white,
+              height: 1.15,
+            ),
+          ),
+          SizedBox(height: 8.uh),
+          Text(
+            'Authorize with Cognito to open the studio',
+            style: GoogleFonts.poppins(
+              fontSize: 11.usp,
+              fontWeight: FontWeight.w500,
+              color: Colors.white.withValues(alpha: 0.82),
+            ),
+          ),
         ],
       ),
     );

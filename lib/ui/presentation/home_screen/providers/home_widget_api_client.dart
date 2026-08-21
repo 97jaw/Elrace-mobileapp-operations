@@ -13,7 +13,10 @@ class HomeWidgetApiClient {
   static const _base = 'https://erp.elrace.com/api';
   static const _timeout = Duration(seconds: 8);
 
-  static Future<void>? _inFlight;
+  /// In-flight requests keyed by endpoint path. Keyed per endpoint rather than
+  /// globally so a caller narrowing to one widget cannot define the fetch scope
+  /// for every other widget that races it on home build.
+  static final Map<String, Future<void>> _inFlightByPath = {};
 
   // Endpoints that the home UI actually consumes. Removed (never read by UI):
   // sub_contractors (merged into vendors), task_management
@@ -36,90 +39,113 @@ class HomeWidgetApiClient {
     _WidgetFetch(HomeWidgetCode.media, 'media'),
   ];
 
-  /// Fetches home category widgets in one parallel round-trip (deduped).
+  /// Fetches home category widgets in parallel, deduped per endpoint.
   ///
   /// Only widgets visible per login prefs are fetched; pass [onlyCodes] to
-  /// narrow further.
+  /// narrow further. Narrowing affects only the caller's own endpoints —
+  /// concurrent callers each still get the widgets they asked for.
   static Future<void> refreshIfStale({
     bool force = false,
     Set<HomeWidgetCode>? onlyCodes,
   }) async {
-    if (!force && HomeWidgetSessionCache.isFresh) return;
-
-    if (_inFlight != null) {
-      await _inFlight;
-      return;
-    }
-
-    _inFlight = _fetchAll(onlyCodes: onlyCodes).whenComplete(() => _inFlight = null);
-    await _inFlight;
-  }
-
-  static Future<void> _fetchAll({Set<HomeWidgetCode>? onlyCodes}) async {
     final token = SharedPref.getLoginDataOrNull()?.result?.token;
     if (token == null || token.isEmpty) return;
 
     // Hidden widgets are never fetched, even when callers don't narrow.
     final visibility = HomeWidgetVisibility.fromLoginPref();
-    final targets = _fetchOrder.where((entry) {
+    final pending = <Future<void>>[];
+
+    for (final entry in _fetchOrder) {
       final code = entry.code;
-      if (code == null) return true;
-      if (!visibility.isVisible(code)) return false;
-      if (onlyCodes == null) return true;
-      return onlyCodes.contains(code);
-    }).toList();
+      if (code != null) {
+        if (!visibility.isVisible(code)) continue;
+        if (onlyCodes != null && !onlyCodes.contains(code)) continue;
+      }
 
-    if (targets.isEmpty) return;
+      final path = entry.path;
 
-    final results = await Future.wait(
-      targets.map((entry) => _post('$_base/widgets/${entry.path}/data', token)),
-    );
+      // Join an identical request already running instead of issuing a second.
+      final inFlight = _inFlightByPath[path];
+      if (inFlight != null) {
+        pending.add(inFlight);
+        continue;
+      }
 
-    for (var i = 0; i < targets.length; i++) {
-      _applyResult(targets[i].path, results[i]);
+      if (!force && HomeWidgetSessionCache.isPathFresh(path)) continue;
+
+      final future = _fetchOne(path, token)
+          .whenComplete(() => _inFlightByPath.remove(path));
+      _inFlightByPath[path] = future;
+      pending.add(future);
     }
 
-    if (results.any((r) => r != null)) {
-      HomeWidgetSessionCache.markFetched();
-    }
+    if (pending.isEmpty) return;
+    await Future.wait(pending);
+  }
+
+  /// Marks the endpoint fresh only when data actually arrived, so a timeout
+  /// cannot lock an empty widget out of retrying for the whole TTL.
+  static Future<void> _fetchOne(String path, String token) async {
+    final raw = await _post('$_base/widgets/$path/data', token);
+    if (raw == null) return;
+    _applyResult(path, raw);
+    HomeWidgetSessionCache.markPathFetched(path);
   }
 
   static void _applyResult(String path, Map<String, dynamic>? raw) {
+    if (raw == null) return;
     switch (path) {
       case 'attendance':
-        if (raw != null) HomeWidgetSessionCache.attendanceRaw = raw;
+        HomeWidgetSessionCache.attendanceRaw = raw;
+        return;
       case 'hrms':
-        if (raw != null) HomeWidgetSessionCache.hrmsRaw = raw;
+        HomeWidgetSessionCache.hrmsRaw = raw;
+        return;
       case 'timesheet':
-        if (raw != null) HomeWidgetSessionCache.timesheetRaw = raw;
+        HomeWidgetSessionCache.timesheetRaw = raw;
+        return;
       case 'my_projects':
-        if (raw != null) HomeWidgetSessionCache.myProjectsRaw = raw;
+        HomeWidgetSessionCache.myProjectsRaw = raw;
+        return;
       case 'site_management':
-        if (raw != null) HomeWidgetSessionCache.siteManagementRaw = raw;
+        HomeWidgetSessionCache.siteManagementRaw = raw;
+        return;
       case 'my_reports':
-        if (raw != null) HomeWidgetSessionCache.myReportsRaw = raw;
+        HomeWidgetSessionCache.myReportsRaw = raw;
+        return;
       case 'clients':
-        if (raw != null) HomeWidgetSessionCache.clientsRaw = raw;
+        HomeWidgetSessionCache.clientsRaw = raw;
+        return;
       case 'vendors':
-        if (raw != null) HomeWidgetSessionCache.vendorsRaw = raw;
+        HomeWidgetSessionCache.vendorsRaw = raw;
+        return;
       case 'lpo':
-        if (raw != null) HomeWidgetSessionCache.lpoRaw = raw;
+        HomeWidgetSessionCache.lpoRaw = raw;
+        return;
       case 'notes':
-        if (raw != null) HomeWidgetSessionCache.notesRaw = raw;
+        HomeWidgetSessionCache.notesRaw = raw;
+        return;
       case 'task_management':
-        if (raw != null) HomeWidgetSessionCache.taskManagementRaw = raw;
+        HomeWidgetSessionCache.taskManagementRaw = raw;
+        return;
       case 'tickets':
-        if (raw != null) HomeWidgetSessionCache.ticketsRaw = raw;
+        HomeWidgetSessionCache.ticketsRaw = raw;
+        return;
       case 'shared_documents':
-        if (raw != null) HomeWidgetSessionCache.sharedDocumentsRaw = raw;
+        HomeWidgetSessionCache.sharedDocumentsRaw = raw;
+        return;
       case 'petty_cash':
-        if (raw != null) HomeWidgetSessionCache.pettyCashRaw = raw;
+        HomeWidgetSessionCache.pettyCashRaw = raw;
+        return;
       case 'my_documents':
-        if (raw != null) HomeWidgetSessionCache.myDocumentsRaw = raw;
+        HomeWidgetSessionCache.myDocumentsRaw = raw;
+        return;
       case 'media':
-        if (raw != null) HomeWidgetSessionCache.mediaRaw = raw;
+        HomeWidgetSessionCache.mediaRaw = raw;
+        return;
       case 'prayer_times':
-        if (raw != null) HomeWidgetSessionCache.prayerTimesRaw = raw;
+        HomeWidgetSessionCache.prayerTimesRaw = raw;
+        return;
     }
   }
 
