@@ -288,7 +288,7 @@ void main() async {
   try {
     delegate = await LocalizationDelegate.create(
       fallbackLocale: 'en',
-      supportedLocales: ['en', 'ar'],
+      supportedLocales: ['en'],
       basePath: 'assets/i18n',
     ).timeout(const Duration(seconds: 10));
   } catch (error, stackTrace) {
@@ -297,10 +297,6 @@ void main() async {
     runApp(_StartupErrorApp(error: error));
     return;
   }
-  if (SharedPref().isArabic()) {
-    await delegate.changeLocale(const Locale('ar'));
-  }
-
   // Allow runtime Google Fonts fetch so missing font files don't crash app startup.
   // TODO: Set back to false only after bundling all used font TTFs in assets.
   GoogleFonts.config.allowRuntimeFetching = true;
@@ -1001,10 +997,8 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
                   GlobalWidgetsLocalizations.delegate,
                   GlobalCupertinoLocalizations.delegate,
                 ],
-                supportedLocales: localizationDelegate.supportedLocales,
-                locale: SharedPref().isArabic()
-                    ? localizationDelegate.supportedLocales.last
-                    : localizationDelegate.supportedLocales.first,
+                supportedLocales: const [Locale('en')],
+                locale: const Locale('en'),
                 onGenerateRoute: onGeneratedRoutes.generatedRoutes,
                 home: const SplashScreen(),
               ),

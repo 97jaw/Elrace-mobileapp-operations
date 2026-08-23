@@ -153,6 +153,21 @@ class Data {
   /// Odoo `res.users.x_sign_english` binary (base64) — alternate stamp image.
   final String? xSignEnglish;
 
+  /// AI Drawing Studio — Cognito email from Odoo (`x_cognito_email`). Never password.
+  final String? xCognitoEmail;
+
+  /// Cognito User Pool ID from Odoo system params (`user-pool-id`).
+  final String? userPoolId;
+
+  /// Cognito App Client ID from Odoo system params (`pool-client-id`).
+  final String? poolClientId;
+
+  /// Cognito region (e.g. `eu-north-1`).
+  final String? cognitoRegion;
+
+  /// True when Cognito email + pool IDs are set on the login payload.
+  final bool? drawingStudioEnabled;
+
   Data({
     this.uid,
     this.isSystem,
@@ -216,6 +231,11 @@ class Data {
     this.xStampUser,
     this.xSignature,
     this.xSignEnglish,
+    this.xCognitoEmail,
+    this.userPoolId,
+    this.poolClientId,
+    this.cognitoRegion,
+    this.drawingStudioEnabled,
   });
 
   factory Data.fromJson(Map<String, dynamic> json) => Data(
@@ -345,7 +365,11 @@ class Data {
                 : null),
         defaultWidgets: json["default_widgets"] == null
             ? null
-            : DefaultWidgets.fromJson(json["default_widgets"]),
+            : (json["default_widgets"] is Map
+                ? DefaultWidgets.fromJson(
+                    Map<String, dynamic>.from(json["default_widgets"] as Map),
+                  )
+                : null),
         default_operating_unit_id: json["default_operating_unit_id"],
         isHrManager: _parseBoolLoose(json["is_hr_manager"]),
         isManagement: _parseBoolLoose(json["is_management"]),
@@ -365,6 +389,11 @@ class Data {
         xStampUser: _parseBoolLoose(json["x_stamp_user"]),
         xSignature: _stringOrNull(json["x_signature"]),
         xSignEnglish: _stringOrNull(json["x_sign_english"]),
+        xCognitoEmail: _stringOrNull(json["x_cognito_email"]),
+        userPoolId: _stringOrNull(json["user_pool_id"]),
+        poolClientId: _stringOrNull(json["pool_client_id"]),
+        cognitoRegion: _stringOrNull(json["cognito_region"]),
+        drawingStudioEnabled: _parseBoolLoose(json["drawing_studio_enabled"]),
       );
 
   Map<String, dynamic> toJson() => {
@@ -447,6 +476,11 @@ class Data {
         "x_stamp_user": xStampUser,
         "x_signature": xSignature,
         "x_sign_english": xSignEnglish,
+        "x_cognito_email": xCognitoEmail,
+        "user_pool_id": userPoolId,
+        "pool_client_id": poolClientId,
+        "cognito_region": cognitoRegion,
+        "drawing_studio_enabled": drawingStudioEnabled,
       };
 
   static Map<String, bool>? _parseStringBoolMap(dynamic raw) {
@@ -639,10 +673,17 @@ class DefaultWidgets {
   factory DefaultWidgets.fromJson(Map<String, dynamic> json) => DefaultWidgets(
         status: json["status"]?.toString(),
         message: json["message"]?.toString(),
-        data: json["data"] == null
-            ? null
-            : WidgetsData.fromJson(json["data"] as Map<String, dynamic>),
+        data: _parseWidgetsData(json["data"]),
       );
+
+  static WidgetsData? _parseWidgetsData(dynamic raw) {
+    if (raw is! Map) return null;
+    try {
+      return WidgetsData.fromJson(Map<String, dynamic>.from(raw));
+    } catch (_) {
+      return null;
+    }
+  }
 
   Map<String, dynamic> toJson() => {
         "status": status,
@@ -697,84 +738,37 @@ class WidgetsData {
   });
 
   factory WidgetsData.fromJson(Map<String, dynamic> json) => WidgetsData(
-        attendanceWidget: json["attendance_widget"] == null
-            ? null
-            : WidgetInfo.fromJson(
-                json["attendance_widget"] as Map<String, dynamic>),
-        checkinWidget: json["checkin_widget"] == null
-            ? null
-            : WidgetInfo.fromJson(
-                json["checkin_widget"] as Map<String, dynamic>),
-        myRequestWidget: json["my_request_widget"] == null
-            ? null
-            : WidgetInfo.fromJson(
-                json["my_request_widget"] as Map<String, dynamic>),
-        myDocumentsWidget: json["my_documents_widget"] == null
-            ? null
-            : WidgetInfo.fromJson(
-                json["my_documents_widget"] as Map<String, dynamic>),
-        myProjectsWidget: json["my_projects_widget"] == null
-            ? null
-            : WidgetInfo.fromJson(
-                json["my_projects_widget"] as Map<String, dynamic>),
-        mediaWidget: json["media_widget"] == null
-            ? null
-            : WidgetInfo.fromJson(json["media_widget"] as Map<String, dynamic>),
-        myReportsWidget: json["my_reports_widget"] == null
-            ? null
-            : WidgetInfo.fromJson(
-                json["my_reports_widget"] as Map<String, dynamic>),
-        timesheetWidget: json["timesheet_widget"] == null
-            ? null
-            : WidgetInfo.fromJson(
-                json["timesheet_widget"] as Map<String, dynamic>),
-        hrmsWidget: json["hrms_widget"] == null
-            ? null
-            : WidgetInfo.fromJson(json["hrms_widget"] as Map<String, dynamic>),
-        siteManagementWidget: json["site_management_widget"] == null
-            ? null
-            : WidgetInfo.fromJson(
-                json["site_management_widget"] as Map<String, dynamic>),
-        myNotesWidget: json["my_notes_widget"] == null
-            ? null
-            : WidgetInfo.fromJson(
-                json["my_notes_widget"] as Map<String, dynamic>),
-        lpoWidget: json["lpo_widget"] == null
-            ? null
-            : WidgetInfo.fromJson(json["lpo_widget"] as Map<String, dynamic>),
-        taskManagementWidget: json["taskmanagement_widget"] == null
-            ? null
-            : WidgetInfo.fromJson(
-                json["taskmanagement_widget"] as Map<String, dynamic>),
-        ticketsWidget: json["tickets_widget"] == null
-            ? null
-            : WidgetInfo.fromJson(
-                json["tickets_widget"] as Map<String, dynamic>),
-        sharedDocumentsWidget: json["shared_documents_widget"] == null
-            ? null
-            : WidgetInfo.fromJson(
-                json["shared_documents_widget"] as Map<String, dynamic>),
-        pettyCashWidget: json["petty_cash_widget"] == null
-            ? null
-            : WidgetInfo.fromJson(
-                json["petty_cash_widget"] as Map<String, dynamic>),
-        prayerTimesWidget: json["prayer_times_widget"] == null
-            ? null
-            : WidgetInfo.fromJson(
-                json["prayer_times_widget"] as Map<String, dynamic>),
-        clientsWidget: json["clients_widget"] == null
-            ? null
-            : WidgetInfo.fromJson(
-                json["clients_widget"] as Map<String, dynamic>),
-        vendorsWidget: json["vendors_widget"] == null
-            ? null
-            : WidgetInfo.fromJson(
-                json["vendors_widget"] as Map<String, dynamic>),
-        subContractorsWidget: json["sub_contractors_widget"] == null
-            ? null
-            : WidgetInfo.fromJson(
-                json["sub_contractors_widget"] as Map<String, dynamic>),
+        attendanceWidget: _parseWidgetInfo(json["attendance_widget"]),
+        checkinWidget: _parseWidgetInfo(json["checkin_widget"]),
+        myRequestWidget: _parseWidgetInfo(json["my_request_widget"]),
+        myDocumentsWidget: _parseWidgetInfo(json["my_documents_widget"]),
+        myProjectsWidget: _parseWidgetInfo(json["my_projects_widget"]),
+        mediaWidget: _parseWidgetInfo(json["media_widget"]),
+        myReportsWidget: _parseWidgetInfo(json["my_reports_widget"]),
+        timesheetWidget: _parseWidgetInfo(json["timesheet_widget"]),
+        hrmsWidget: _parseWidgetInfo(json["hrms_widget"]),
+        siteManagementWidget: _parseWidgetInfo(json["site_management_widget"]),
+        myNotesWidget: _parseWidgetInfo(json["my_notes_widget"]),
+        lpoWidget: _parseWidgetInfo(json["lpo_widget"]),
+        taskManagementWidget: _parseWidgetInfo(json["taskmanagement_widget"]),
+        ticketsWidget: _parseWidgetInfo(json["tickets_widget"]),
+        sharedDocumentsWidget:
+            _parseWidgetInfo(json["shared_documents_widget"]),
+        pettyCashWidget: _parseWidgetInfo(json["petty_cash_widget"]),
+        prayerTimesWidget: _parseWidgetInfo(json["prayer_times_widget"]),
+        clientsWidget: _parseWidgetInfo(json["clients_widget"]),
+        vendorsWidget: _parseWidgetInfo(json["vendors_widget"]),
+        subContractorsWidget: _parseWidgetInfo(json["sub_contractors_widget"]),
       );
+
+  static WidgetInfo? _parseWidgetInfo(dynamic raw) {
+    if (raw is! Map) return null;
+    try {
+      return WidgetInfo.fromJson(Map<String, dynamic>.from(raw));
+    } catch (_) {
+      return null;
+    }
+  }
 
   Map<String, dynamic> toJson() => {
         "attendance_widget": attendanceWidget?.toJson(),

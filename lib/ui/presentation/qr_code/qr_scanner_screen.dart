@@ -26,6 +26,11 @@ class _QrScannerScreenState extends State<QrScannerScreen>
   bool _isCheckingCameraPermission = true;
   bool _hasCameraPermission = false;
   bool _isCameraPermissionPermanentlyDenied = false;
+  bool _ignoreDetections = false;
+  String? _lastAttemptedCode;
+  DateTime? _lastAttemptAt;
+  Timer? _ignoreTimer;
+  static const _sameCodeCooldown = Duration(seconds: 45);
 
   // ── Zoom ──────────────────────────────────────────────────────────
   double _currentZoom = 1.0;
@@ -68,9 +73,10 @@ class _QrScannerScreenState extends State<QrScannerScreen>
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
+    _zoomLabelTimer?.cancel();
+    _ignoreTimer?.cancel();
     _scanLineController.dispose();
     _pulseController.dispose();
-    _zoomLabelTimer?.cancel();
     cameraController.dispose();
     super.dispose();
   }
@@ -137,7 +143,7 @@ class _QrScannerScreenState extends State<QrScannerScreen>
 
   // ── QR detection ─────────────────────────────────────────────────
   void _onDetect(BarcodeCapture capture) {
-    if (_isProcessing) return;
+    if (_isProcessing || _ignoreDetections) return;
     for (final barcode in capture.barcodes) {
       final code = barcode.rawValue?.trim();
       if (code != null && code.isNotEmpty) {
@@ -147,13 +153,47 @@ class _QrScannerScreenState extends State<QrScannerScreen>
     }
   }
 
+  void _pauseDetectionsBriefly([Duration duration = const Duration(seconds: 2)]) {
+    _ignoreTimer?.cancel();
+    _ignoreDetections = true;
+    _ignoreTimer = Timer(duration, () {
+      if (mounted) {
+        setState(() => _ignoreDetections = false);
+      } else {
+        _ignoreDetections = false;
+      }
+    });
+  }
+
   Future<void> _handleQrScan(String qrCode) async {
-    if (_isProcessing) return;
+    if (_isProcessing || _ignoreDetections) return;
+
+    final challenge = _qrLoginService.extractCodeFromQr(qrCode);
+    if (challenge.isEmpty) return;
+
+    final now = DateTime.now();
+    if (_lastAttemptedCode == challenge &&
+        _lastAttemptAt != null &&
+        now.difference(_lastAttemptAt!) < _sameCodeCooldown) {
+      Fluttertoast.showToast(
+        msg: 'Already tried this QR. Refresh Hub QR or wait a moment.',
+        toastLength: Toast.LENGTH_SHORT,
+        gravity: ToastGravity.CENTER,
+        backgroundColor: Colors.orange,
+        textColor: Colors.white,
+      );
+      _pauseDetectionsBriefly(const Duration(seconds: 3));
+      return;
+    }
+
     setState(() => _isProcessing = true);
     _scanLineController.stop();
+    _lastAttemptedCode = challenge;
+    _lastAttemptAt = now;
+    _pauseDetectionsBriefly(const Duration(seconds: 5));
 
     Fluttertoast.showToast(
-      msg: "Signing in...",
+      msg: 'Signing in...',
       toastLength: Toast.LENGTH_SHORT,
       gravity: ToastGravity.CENTER,
       backgroundColor: CustomColors.blue,
@@ -163,42 +203,45 @@ class _QrScannerScreenState extends State<QrScannerScreen>
 
     try {
       final result = await _qrLoginService.loginWithQrCode(qrCode);
-      if (mounted) {
-        if (result['success'] == true) {
-          Fluttertoast.showToast(
-            msg: "Signed in successfully!",
-            toastLength: Toast.LENGTH_LONG,
-            gravity: ToastGravity.CENTER,
-            backgroundColor: Colors.green,
-            textColor: Colors.white,
-            fontSize: 16.0,
-          );
-          Navigator.pop(context, true);
-        } else {
-          Fluttertoast.showToast(
-            msg: result['message'] ?? 'Sign-in failed',
-            toastLength: Toast.LENGTH_LONG,
-            gravity: ToastGravity.CENTER,
-            backgroundColor: Colors.red,
-            textColor: Colors.white,
-            fontSize: 16.0,
-          );
-          setState(() => _isProcessing = false);
-          _scanLineController.repeat(reverse: true);
-        }
-      }
-    } catch (e) {
-      if (mounted) {
+      if (!mounted) return;
+
+      if (result['success'] == true) {
         Fluttertoast.showToast(
-          msg: "Error: ${e.toString()}",
+          msg: 'Signed in successfully!',
           toastLength: Toast.LENGTH_LONG,
           gravity: ToastGravity.CENTER,
-          backgroundColor: Colors.red,
+          backgroundColor: Colors.green,
           textColor: Colors.white,
           fontSize: 16.0,
         );
+        Navigator.pop(context, true);
+        return;
+      }
+
+      final message = result['message']?.toString() ?? 'Sign-in failed';
+      Fluttertoast.showToast(
+        msg: message,
+        toastLength: Toast.LENGTH_LONG,
+        gravity: ToastGravity.CENTER,
+        backgroundColor: Colors.red,
+        textColor: Colors.white,
+        fontSize: 16.0,
+      );
+    } catch (e) {
+      if (!mounted) return;
+      Fluttertoast.showToast(
+        msg: 'Sign-in failed. Please try again.',
+        toastLength: Toast.LENGTH_LONG,
+        gravity: ToastGravity.CENTER,
+        backgroundColor: Colors.red,
+        textColor: Colors.white,
+        fontSize: 16.0,
+      );
+    } finally {
+      if (mounted) {
         setState(() => _isProcessing = false);
         _scanLineController.repeat(reverse: true);
+        _pauseDetectionsBriefly(const Duration(seconds: 3));
       }
     }
   }
@@ -373,7 +416,7 @@ class _QrScannerScreenState extends State<QrScannerScreen>
                             ),
                             SizedBox(height: 14.h),
                             Text(
-                              'Verifying...',
+                              'Signing in...',
                               style: TextStyle(
                                 color: Colors.white,
                                 fontSize: 14.sp,

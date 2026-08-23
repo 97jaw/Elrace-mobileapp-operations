@@ -1,0 +1,17 @@
+/* Permission prompts — English (must stay in sync with ar.lproj and Info.plist). */
+
+"NSCameraUsageDescription" = "The camera is used to scan QR codes, take profile and report photos, scan documents, and for face recognition during attendance check-in.";
+
+"NSFaceIDUsageDescription" = "Face ID is used to securely check you into your workplace without typing a password.";
+
+"NSLocationAlwaysAndWhenInUseUsageDescription" = "We use your location to verify your attendance and ensure you are at the correct work location when checking in.";
+
+"NSLocationAlwaysUsageDescription" = "Your location is used to confirm your attendance by recording your current position, even if the app is running in the background.";
+
+"NSLocationWhenInUseUsageDescription" = "Your location is used to confirm your attendance by recording the location where you check in.";
+
+"NSMicrophoneUsageDescription" = "The microphone is used for voice messages and audio recording in the chat feature.";
+
+"NSPhotoLibraryUsageDescription" = "Access to your photo library allows you to choose a profile picture for your account.";
+
+"NSSpeechRecognitionUsageDescription" = "Speech recognition may be used by voice assistant features that support timesheet face attendance prompts and related workplace voice feedback.";

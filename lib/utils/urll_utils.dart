@@ -25,4 +25,7 @@ class UrlUtil {
 
   /// Persist FCM device token on res.users.expo_token (backend push target).
   static const String saveExpoToken = 'save_expo_token';
+
+  /// Authenticated Hub QR login relay (mobile → Odoo → Hub).
+  static const String hubQrLoginApi = 'hub/qr-login';
 }

@@ -23,9 +23,26 @@ class HomeWidgetSessionCache {
 
   static const ttl = Duration(minutes: 5);
 
+  /// Per-endpoint fetch times. A widget whose endpoint failed or was never
+  /// requested must stay stale so the next caller retries it, even when a
+  /// sibling endpoint succeeded in the same round.
+  static final Map<String, DateTime> _fetchedAtByPath = {};
+
   static bool get isFresh {
     if (fetchedAt == null) return false;
     return DateTime.now().difference(fetchedAt!) < ttl;
+  }
+
+  static bool isPathFresh(String path) {
+    final at = _fetchedAtByPath[path];
+    if (at == null) return false;
+    return DateTime.now().difference(at) < ttl;
+  }
+
+  static void markPathFetched(String path) {
+    final now = DateTime.now();
+    _fetchedAtByPath[path] = now;
+    fetchedAt = now;
   }
 
   static void markFetched() {
@@ -124,5 +141,6 @@ class HomeWidgetSessionCache {
     mediaRaw = null;
     prayerTimesRaw = null;
     fetchedAt = null;
+    _fetchedAtByPath.clear();
   }
 }

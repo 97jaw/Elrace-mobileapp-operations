@@ -84,17 +84,21 @@ class SharedPref {
   }
 
   /// Set the app language code in SharedPreferences.
+  ///
+  /// The app ships English only, so any other code is coerced to `en`. Older
+  /// builds exposed an Arabic toggle, and a stored `ar` value would otherwise
+  /// survive an upgrade and render an Arabic UI the app no longer localizes.
   Future<void> setAppLanguage(String languageCode) async {
-    await sharedPreferences.setString('app_language', languageCode);
+    await sharedPreferences.setString('app_language', 'en');
   }
 
   /// Get the app language code from SharedPreferences.
   String getAppLanguage() {
-    return sharedPreferences.getString('app_language') ?? '';
+    return 'en';
   }
 
   bool isArabic() {
-    return getAppLanguage() == 'ar';
+    return false;
   }
 
   ////[helper_functions]
@@ -188,6 +192,72 @@ class SharedPref {
       for (final entry in roleData.entries) {
         data[entry.key] = entry.value;
       }
+
+      await sharedPreferences.setString('loginResponse', jsonEncode(decoded));
+      return true;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  /// Merge `/api/widgets/config` `is_disabled` flags into cached
+  /// `result.data.default_widgets.data` without dropping `record_to_show`.
+  ///
+  /// Needed after bundle/app upgrades: the restored login session can carry
+  /// stale visibility flags until the next full re-login.
+  static Future<bool> mergeDefaultWidgetDisabledFlags(
+    Map<String, dynamic> widgetFlags,
+  ) async {
+    if (widgetFlags.isEmpty) return false;
+
+    final loginJson = sharedPreferences.getString('loginResponse') ??
+        sharedPreferences.getString('LOGIN_RESPONSE');
+    if (loginJson == null || loginJson.isEmpty) return false;
+
+    try {
+      final decoded = jsonDecode(loginJson);
+      if (decoded is! Map<String, dynamic>) return false;
+
+      final result = decoded['result'];
+      if (result is! Map<String, dynamic>) return false;
+
+      final data = result['data'];
+      if (data is! Map<String, dynamic>) return false;
+
+      final defaultWidgets = data['default_widgets'];
+      final defaultWidgetsMap = defaultWidgets is Map
+          ? Map<String, dynamic>.from(defaultWidgets)
+          : <String, dynamic>{'status': 'success', 'message': 'merged'};
+
+      final existingData = defaultWidgetsMap['data'];
+      final widgetsData = existingData is Map
+          ? Map<String, dynamic>.from(existingData)
+          : <String, dynamic>{};
+
+      for (final entry in widgetFlags.entries) {
+        final key = entry.key;
+        final flag = entry.value;
+        if (flag is! Map) continue;
+
+        final incoming = Map<String, dynamic>.from(flag);
+        final existing = widgetsData[key];
+        if (existing is Map) {
+          final merged = Map<String, dynamic>.from(existing);
+          if (incoming.containsKey('is_disabled')) {
+            merged['is_disabled'] = incoming['is_disabled'];
+          }
+          if (incoming.containsKey('widget_number') &&
+              merged['widget_number'] == null) {
+            merged['widget_number'] = incoming['widget_number'];
+          }
+          widgetsData[key] = merged;
+        } else {
+          widgetsData[key] = incoming;
+        }
+      }
+
+      defaultWidgetsMap['data'] = widgetsData;
+      data['default_widgets'] = defaultWidgetsMap;
 
       await sharedPreferences.setString('loginResponse', jsonEncode(decoded));
       return true;

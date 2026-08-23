@@ -1,86 +1,97 @@
 import 'dart:convert';
+
 import 'package:dio/dio.dart';
 import 'package:el_race/core/utils/shared_pref.dart';
+import 'package:el_race/utils/urll_utils.dart';
+import 'package:flutter/foundation.dart';
 
+/// Hub QR login via authenticated Odoo relay.
+///
+/// Mobile sends only the scanned challenge. Odoo derives `odoo_id` from the
+/// JWT session and signs the Hub request server-side.
 class QrLoginService {
-  final Dio _dio = Dio();
-  static const String baseUrl = 'https://rcc.sawatech.ae/api/auth';
+  final Dio _dio = Dio(
+    BaseOptions(
+      connectTimeout: const Duration(seconds: 15),
+      receiveTimeout: const Duration(seconds: 30),
+    ),
+  );
 
-  int? _asInt(dynamic value) {
-    if (value == null) return null;
-    if (value is int) return value;
-    return int.tryParse(value.toString());
-  }
-
-  int? _resolveUserId(dynamic data) {
-    if (data == null) return null;
-    final map = data as dynamic;
-    return _asInt(map.odoo_user_id) ?? _asInt(map.uid) ?? _asInt(map.user_id);
-  }
+  /// Public so the scanner can cooldown on the real challenge, not raw pixels.
+  String extractCodeFromQr(String qrRaw) => _extractCodeFromQr(qrRaw);
 
   String _extractCodeFromQr(String qrRaw) {
-    final raw = qrRaw.trim();
+    var raw = qrRaw.trim();
+    if (raw.isEmpty) return '';
 
-    // JSON payload support: {"code":"..."} and common variants.
+    // JSON payload: {"code":"..."} and common variants.
     try {
       final qrJson = jsonDecode(raw);
       if (qrJson is Map) {
-        for (final key in ['code', 'qr_code', 'token', 'login_code']) {
-          final value = qrJson[key];
-          final parsed = value?.toString().trim();
+        for (final key in ['code', 'qr_code', 'login_code', 'challenge']) {
+          final parsed = qrJson[key]?.toString().trim();
           if (parsed != null && parsed.isNotEmpty) {
             return parsed;
           }
         }
+        // Prefer explicit token only when no code-like key exists.
+        final token = qrJson['token']?.toString().trim();
+        if (token != null && token.isNotEmpty) {
+          return token;
+        }
       }
     } catch (_) {
-      // Not JSON, continue with URL/text parsing.
+      // Not JSON.
     }
 
     final uri = Uri.tryParse(raw);
-    if (uri != null && (uri.hasScheme || uri.host.isNotEmpty)) {
-      for (final key in ['code', 'qr', 'token', 'login_code']) {
+    if (uri != null && uri.hasScheme && (uri.scheme == 'http' ||
+        uri.scheme == 'https' ||
+        uri.scheme == 'elrace' ||
+        uri.scheme.startsWith('odoo'))) {
+      for (final key in ['code', 'qr', 'token', 'login_code', 'challenge']) {
         final q = uri.queryParameters[key]?.trim();
         if (q != null && q.isNotEmpty) {
           return q;
         }
       }
-
       if (uri.pathSegments.isNotEmpty) {
         final last = uri.pathSegments.last.trim();
         if (last.isNotEmpty &&
-            !last.contains('.php') &&
-            !last.contains('.html')) {
+            !last.contains('.') &&
+            last.toLowerCase() != 'login' &&
+            last.toLowerCase() != 'signin' &&
+            last.toLowerCase() != 'auth') {
           return last;
         }
       }
     }
 
-    // Fallback: plain text scanned content.
+    // Plain challenge string from Hub QR.
     return raw;
   }
 
-  /// Login to website using QR code
-  /// Similar to WhatsApp Web login
+  String _friendlyMessage(String? raw) {
+    final message = (raw ?? '').trim();
+    if (message.isEmpty) return 'Sign-in failed. Please try again.';
+    final lower = message.toLowerCase();
+    if (lower.contains('too many')) {
+      return 'Too many attempts. Wait about a minute, refresh the Hub QR, then scan once.';
+    }
+    if (lower.contains('not found') ||
+        lower.contains('could not found') ||
+        lower.contains('expired') ||
+        lower.contains('invalid')) {
+      return 'This QR is invalid or expired. Refresh the Hub QR, then scan once.';
+    }
+    return message;
+  }
+
+  /// Approve Hub web login using the scanned QR challenge.
   Future<Map<String, dynamic>> loginWithQrCode(String qrCode) async {
     try {
-      print('\n🟢 ========== QR LOGIN SERVICE ==========');
-      // Get odoo_id from current user session
-      final loginData = SharedPref.getLoginData();
-      print('📦 Login Data Retrieved:');
-      print('   - Has Result: ${loginData.result != null}');
-      print('   - Has Data: ${loginData.result?.data != null}');
-
-      final odooId = _resolveUserId(loginData.result?.data);
-      print('🆔 User IDs Available:');
-      print('   - resolved_user_id: $odooId');
-      print('   - uid: ${loginData.result?.data?.uid}');
-      print('   - emp_id: ${loginData.result?.data?.emp_id}');
-      print('   - emp_profile_id: ${loginData.result?.data?.emp_profile_id}');
-
-      if (odooId == null) {
-        print('❌ QR Login: No odoo_user_id found in session');
-        print('🟢 ========================================\n');
+      final token = SharedPref.getLoginDataOrNull()?.result?.token?.trim() ?? '';
+      if (token.isEmpty) {
         return {
           'success': false,
           'message': 'User session not found. Please login again.',
@@ -88,69 +99,91 @@ class QrLoginService {
       }
 
       final actualCode = _extractCodeFromQr(qrCode);
-      final encodedCode = Uri.encodeComponent(actualCode);
+      if (actualCode.isEmpty) {
+        return {
+          'success': false,
+          'message': 'Invalid QR code.',
+        };
+      }
 
-      print('\n📡 API Request Details:');
-      print('   - Original QR: $qrCode');
-      print('   - Actual Code to Send: $actualCode');
-      print('   - Encoded Code to Send: $encodedCode');
-      print('   - Odoo ID: $odooId');
-      print('   - Code Length: ${actualCode.length}');
+      if (kDebugMode) {
+        debugPrint(
+          'QR login: challenge_len=${actualCode.length} '
+          'prefix=${actualCode.substring(0, actualCode.length.clamp(0, 8))}…',
+        );
+      }
 
-      final url = '$baseUrl/login-with-code/$encodedCode';
-      print('\n🌐 Making HTTP Request:');
-      print('   - Method: POST');
-      print('   - URL: $url');
-      print('   - Body: {"odoo_id": $odooId}');
-      print(
-          '   - Headers: {"Content-Type": "application/json", "Accept": "application/json"}');
-
+      final url = '${UrlUtil.baseUrl}${UrlUtil.hubQrLoginApi}';
       final response = await _dio.post(
         url,
-        data: {'odoo_id': odooId},
+        data: {
+          'jsonrpc': '2.0',
+          'method': 'call',
+          'params': {'code': actualCode},
+        },
         options: Options(
           headers: {
             'Content-Type': 'application/json',
             'Accept': 'application/json',
+            'Authorization': 'Bearer $token',
           },
-          validateStatus: (status) => true, // Accept all status codes
+          validateStatus: (status) => true,
         ),
       );
 
-      print('\n📥 HTTP Response Received:');
-      print('   - Status Code: ${response.statusCode}');
-      print('   - Status Message: ${response.statusMessage}');
-      print('   - Headers: ${response.headers}');
-      print('   - Data Type: ${response.data.runtimeType}');
-      print('   - Data: ${response.data}');
+      final payload = response.data;
+      if (kDebugMode) {
+        debugPrint('QR login HTTP ${response.statusCode}: $payload');
+      }
 
-      if (response.statusCode == 200 || response.statusCode == 201) {
-        print('\n✅ SUCCESS: Status ${response.statusCode}');
-        print('🟢 ========================================\n');
-        return {
-          'success': true,
-          'message': 'Login successful',
-          'data': response.data,
-        };
-      } else {
-        print('\n⚠️ FAILED: Status ${response.statusCode}');
-        print('   - Error Message: ${response.data?['message']}');
-        print('🟢 ========================================\n');
+      if (payload is Map && payload['error'] != null) {
+        final err = payload['error'];
+        final message = err is Map
+            ? (err['data'] is Map
+                ? (err['data']['message']?.toString() ??
+                    err['message']?.toString())
+                : err['message']?.toString())
+            : err.toString();
         return {
           'success': false,
-          'message': response.data?['message'] ?? 'Login failed',
-          'data': response.data,
+          'message': _friendlyMessage(message),
+          'data': payload,
         };
       }
-    } catch (e, stackTrace) {
-      print('\n❌ EXCEPTION CAUGHT:');
-      print('   - Error: $e');
-      print('   - Type: ${e.runtimeType}');
-      print('   - Stack Trace: $stackTrace');
-      print('🟢 ========================================\n');
+
+      final result = payload is Map ? (payload['result'] ?? payload) : null;
+      if (result is Map) {
+        final status = '${result['status'] ?? ''}'.toLowerCase();
+        final ok = result['success'] == true ||
+            status == 'success' ||
+            status == 'ok' ||
+            status == 'true';
+        if (ok) {
+          return {
+            'success': true,
+            'message': result['message']?.toString() ?? 'Login successful',
+            'data': result['data'] ?? result,
+            'code': actualCode,
+          };
+        }
+        return {
+          'success': false,
+          'message': _friendlyMessage(result['message']?.toString()),
+          'data': result['data'] ?? result,
+          'code': actualCode,
+        };
+      }
+
       return {
         'success': false,
-        'message': 'Connection error: ${e.toString()}',
+        'message': 'Sign-in failed. Please try again.',
+        'data': payload,
+        'code': actualCode,
+      };
+    } catch (e) {
+      return {
+        'success': false,
+        'message': 'Connection error. Check network and try again.',
       };
     }
   }

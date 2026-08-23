@@ -1,5 +1,7 @@
+import 'package:el_race/core/drawing_studio/drawing_studio_access.dart';
 import 'package:el_race/core/utils/shared_pref.dart';
 import 'package:el_race/ui/presentation/signin/data/model.dart';
+import 'package:flutter/foundation.dart';
 
 /// v7 home dashboard widget codes — align with login `default_widgets` keys.
 enum HomeWidgetCode {
@@ -24,7 +26,11 @@ enum HomeWidgetCode {
 
 /// Resolves visibility from login `default_widgets.*.is_disabled`.
 ///
-/// Backend: `is_disabled: true` → hidden on home.
+/// Source of truth (same as backup/pre-bundle-id-migration):
+/// Odoo login / `/api/widgets/config` → `is_disabled` from Effective Widgets
+/// (custom override if set, else role template). No Management bypass —
+/// removing a widget from the role template must hide it after re-login or
+/// config refresh.
 class HomeWidgetVisibility {
   const HomeWidgetVisibility(this._data);
 
@@ -68,10 +74,11 @@ class HomeWidgetVisibility {
   bool get hasVisibleProjects =>
       isVisible(HomeWidgetCode.myProjects) ||
       isVisible(HomeWidgetCode.siteManagement) ||
-      isVisible(HomeWidgetCode.myReports);
+      isVisible(HomeWidgetCode.myReports) ||
+      DrawingStudioAccess.canShowWidget();
 
   /// Clients & Vendors — prefer login `is_disabled`; fall back to management
-  /// role until backend keys are present on older sessions.
+  /// only when those keys were never present on older sessions.
   bool get hasVisibleClientsVendors {
     final configured = _data?.clientsWidget != null ||
         _data?.vendorsWidget != null ||
@@ -135,10 +142,28 @@ class HomeWidgetVisibility {
   }
 
   bool _isManagementFallback() {
+    try {
+      final data = SharedPref.getLoginData().result?.data;
+      if (data == null) return false;
+      if (data.isManagement == true) return true;
+      final caps = data.roleCapabilities;
+      return caps != null && caps['x_is_management'] == true;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  /// Debug: print the exact login flags the home screen is reading.
+  static void debugDumpLoginFlags() {
     final data = SharedPref.getLoginData().result?.data;
-    if (data == null) return false;
-    if (data.isManagement == true) return true;
-    final caps = data.roleCapabilities;
-    return caps != null && caps['x_is_management'] == true;
+    final widgets = data?.defaultWidgets?.data;
+    debugPrint(
+      'HOME WIDGETS source=login.default_widgets.is_disabled '
+      'is_management=${data?.isManagement} '
+      'my_projects.is_disabled=${widgets?.myProjectsWidget?.isDisabled} '
+      'site.is_disabled=${widgets?.siteManagementWidget?.isDisabled} '
+      'clients.is_disabled=${widgets?.clientsWidget?.isDisabled} '
+      'vendors.is_disabled=${widgets?.vendorsWidget?.isDisabled}',
+    );
   }
 }
