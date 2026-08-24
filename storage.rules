@@ -1,5 +1,5 @@
 rules_version = '2';
-// Deploy: firebase deploy --only storage
+// Deploy: firebase deploy --only storage --project elrace-new
 // Project: elrace-new
 service firebase.storage {
   match /b/{bucket}/o {
@@ -7,12 +7,24 @@ service firebase.storage {
       return request.auth != null;
     }
 
-    // Chat media + Signature docs under the same prefix
-    match /chat_media/{allPaths=**} {
-      allow read: if isSignedIn();
+    function isChatMember(chatId) {
+      return firestore.exists(/databases/(default)/documents/chats/$(chatId))
+        && request.auth.uid in firestore.get(/databases/(default)/documents/chats/$(chatId)).data.member_ids;
+    }
+
+    function validChatMediaWrite() {
+      return request.resource.size < 50 * 1024 * 1024
+        && request.resource.contentType.matches(
+          'image/.*|application/pdf|audio/.*|video/.*|application/octet-stream'
+        );
+    }
+
+    // Canonical chat media path only: chat_media/{chatId}/{messageId}/{fileName}
+    match /chat_media/{chatId}/{messageId}/{fileName} {
+      allow read: if isSignedIn() && isChatMember(chatId);
       allow write: if isSignedIn()
-                   && request.resource.size < 50 * 1024 * 1024
-                   && request.resource.contentType.matches('image/.*|application/pdf|audio/.*|video/.*|application/octet-stream');
+                   && isChatMember(chatId)
+                   && validChatMediaWrite();
     }
 
     // My Notes audio / images — owner only
@@ -24,6 +36,7 @@ service firebase.storage {
                    && request.resource.contentType.matches('audio/.*|image/.*|application/octet-stream');
     }
 
+    // Deny malformed chat_media paths and everything else
     match /{allPaths=**} {
       allow read, write: if false;
     }
