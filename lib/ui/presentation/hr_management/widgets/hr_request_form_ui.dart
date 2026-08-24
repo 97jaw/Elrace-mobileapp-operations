@@ -1,12 +1,13 @@
 import 'package:el_race/core/hr_management/network/hr_api_client.dart';
-import 'package:el_race/ui/widgets/header_widget.dart';
+import 'package:el_race/core/widgets/hr_management/hr_module_glass_header.dart';
+import 'package:el_race/ui/navigation/home_navigation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:fluttertoast/fluttertoast.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 
-/// Shared look matching [RequestLeavePageNew] (HeaderWidget + white card).
+/// Shared look for HR request create forms (glass header + white card).
 abstract final class HrRequestFormUi {
   static const Color primary = Color(0xFF151544);
   static const Color accentGrey = Color(0xFF5E5E5E);
@@ -275,7 +276,7 @@ abstract final class HrRequestFormUi {
   }
 }
 
-/// Page chrome matching sick / annual leave request screens.
+/// Page chrome: glassy company logo header + white form card.
 class HrLegacyRequestFormShell extends StatelessWidget {
   const HrLegacyRequestFormShell({
     super.key,
@@ -298,59 +299,68 @@ class HrLegacyRequestFormShell extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: HrRequestFormUi.pageBg,
-      appBar: const HeaderWidget(),
-      body: SafeArea(
-        child: Column(
-          children: [
-            Padding(
-              padding: EdgeInsets.symmetric(vertical: 16.h),
-              child: Text(title.toUpperCase(), style: HrRequestFormUi.titleStyle()),
-            ),
-            Expanded(
-              child: Container(
-                margin: EdgeInsets.symmetric(horizontal: 20.w),
-                padding: EdgeInsets.all(20.w),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(24.r),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withAlpha(13),
-                      blurRadius: 10,
-                      offset: const Offset(0, 4),
-                    ),
-                  ],
-                ),
-                child: Form(
-                  key: formKey,
-                  child: SingleChildScrollView(
-                    keyboardDismissBehavior:
-                        ScrollViewKeyboardDismissBehavior.onDrag,
-                    padding: EdgeInsets.only(
-                      bottom: MediaQuery.of(context).viewInsets.bottom,
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        ...children,
-                        SizedBox(height: 24.h),
-                        if (onSaveDraft != null) ...[
-                          HrRequestFormUi.secondaryButton(onPressed: onSaveDraft!),
-                          SizedBox(height: 10.h),
+      body: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          HrModuleGlassHeader(
+            title: title,
+            accentTint: HrModuleHeaderTints.requests,
+            onBack: () => HomeNavigation.handleSystemBack(context),
+          ),
+          Expanded(
+            child: SafeArea(
+              top: false,
+              child: Column(
+                children: [
+                  Expanded(
+                    child: Container(
+                      margin: EdgeInsets.fromLTRB(20.w, 12.h, 20.w, 0),
+                      padding: EdgeInsets.all(20.w),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(24.r),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withAlpha(13),
+                            blurRadius: 10,
+                            offset: const Offset(0, 4),
+                          ),
                         ],
-                        HrRequestFormUi.submitButton(
-                          onPressed: onSubmit,
-                          loading: submitting,
+                      ),
+                      child: Form(
+                        key: formKey,
+                        child: SingleChildScrollView(
+                          keyboardDismissBehavior:
+                              ScrollViewKeyboardDismissBehavior.onDrag,
+                          padding: EdgeInsets.only(
+                            bottom: MediaQuery.of(context).viewInsets.bottom,
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              ...children,
+                              SizedBox(height: 24.h),
+                              if (onSaveDraft != null) ...[
+                                HrRequestFormUi.secondaryButton(
+                                    onPressed: onSaveDraft!),
+                                SizedBox(height: 10.h),
+                              ],
+                              HrRequestFormUi.submitButton(
+                                onPressed: onSubmit,
+                                loading: submitting,
+                              ),
+                            ],
+                          ),
                         ),
-                      ],
+                      ),
                     ),
                   ),
-                ),
+                  SizedBox(height: 20.h),
+                ],
               ),
             ),
-            SizedBox(height: 20.h),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
