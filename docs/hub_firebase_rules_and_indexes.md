@@ -58,46 +58,52 @@ No composite index file is required today.
 
 | Path | Read | Write | Hub note |
 |------|------|-------|----------|
-| `chats/{chatId}` | Members, role chats, legacy | Members / role join | OK for list metadata |
-| `chats/{chatId}/messages/{messageId}` | Any signed-in user | Any signed-in user | **Too open for production** |
-| `chats/{chatId}/members/{memberId}` | Any signed-in user | Any signed-in user | **Too open for production** |
-| `userChats/{userId}/**` | Owner only | Any signed-in user can create/update | Intentional for DM inbox sync |
-| `users/{userId}` | Any signed-in user | Owner only | Profile reads are open |
+| `chats/{chatId}` | **Members / dm_pair only** | Create: valid id+type+self in members; Update: members or role self-join | Hardened |
+| `chats/{chatId}/messages/{messageId}` | **Members only** | Create: member + `sender_id == auth.uid`; Update: sender immutable; signing by current signer only | Hardened |
+| `chats/{chatId}/members/{memberId}` | **Members only** | Self, existing members, or DM peer bootstrap | Hardened |
+| `userChats/{userId}/chats/{chatId}` | Owner only | Owner **or** chat member (DM inbox sync) | Hardened |
+| `users/{userId}` | Any signed-in user | Owner only | Unchanged |
 
 ### Storage — chat media (`storage.rules`)
 
 | Path | Read | Write |
 |------|------|-------|
-| `chat_media/**` | Any signed-in user | Any signed-in user + size/type limits |
-
-**Gap:** no chat-membership check on Storage yet.
+| `chat_media/{chatId}/{messageId}/{fileName}` | **Chat members only** | **Members only** + size/type limits |
+| Other `chat_media/**` shapes | Denied | Denied |
 
 ### RTDB — recommended (`database.rules.json`)
 
 | Path | Read | Write |
 |------|------|-------|
-| `presence/{uid}` | Any signed-in | Own uid only |
-| `typing/{chatId}/{uid}` | Any signed-in | Own uid only |
+| `presence/{uid}` | Any signed-in | Own uid only; payload `{ online: bool, lastChanged: number }` |
+| `typing/{chatId}/{uid}` | Any signed-in | Own uid only; boolean `true` or delete |
 
-Deploy this file before Hub production if Console rules differ.
+## Emulator rule tests
 
----
+```bash
+cd Elrace-mobileapp-operations
+npm --prefix firebase/rules-tests install
+firebase emulators:exec --project elrace-new --only firestore,database,storage \
+  "npm --prefix firebase/rules-tests test"
+```
+
+Covers Hub Phase 2 mandatory denials: non-member message R/W, unrelated role-chat read, sender spoofing, arbitrary member/admin insert, unrelated `userChats` write, invalid chat id/type, immutable sender mutation, unauthorized signing, invalid presence/typing, non-member media, malformed media paths.
 
 ## Pre-production hardening checklist (mobile owner)
 
 Before enabling Hub Chat in production, mobile/Firebase owner will review:
 
-- [ ] Only chat **members** can read `chats/{chatId}/messages`
-- [ ] Only chat **members** can create messages
-- [ ] `sender_id` must equal `request.auth.uid` on message create
-- [ ] Members subcollection updates limited to legitimate participants
-- [ ] `userChats` cross-user writes limited to valid chat participants (keep DM inbox behavior)
-- [ ] RTDB: user can write only own `presence/{uid}` and `typing/{chatId}/{uid}`
-- [ ] Storage: `chat_media` requires chat membership (or equivalent)
-- [ ] Signable-document field updates remain limited to authorized signer
+- [x] Only chat **members** can read `chats/{chatId}/messages`
+- [x] Only chat **members** can create messages
+- [x] `sender_id` must equal `request.auth.uid` on message create
+- [x] Members subcollection updates limited to legitimate participants
+- [x] `userChats` cross-user writes limited to valid chat participants (keep DM inbox behavior)
+- [x] RTDB: user can write only own `presence/{uid}` and `typing/{chatId}/{uid}` with valid payloads
+- [x] Storage: `chat_media` requires chat membership + canonical path
+- [x] Signable-document field updates remain limited to authorized signer
 - [ ] **Mobile regression** after any rule change (DM, role, support, project, media, signing)
+- [ ] Staging deploy only + reversible rollback confirmation
 
-Hub team: verify compatibility against your adapter; **do not deploy** shared rules yourselves.
 
 ---
 
@@ -127,9 +133,10 @@ Compare Console vs repo before deploy:
 ## What Hub should assume today
 
 1. Use the **same paths** as mobile (see `docs/hub_chat_firebase_sync.md`).
-2. Rules are **permissive** for authenticated users on messages/members/media — feature-flag Hub Chat off until hardening passes.
+2. Rules are **hardened** for membership, sender integrity, signing, RTDB payloads, and Storage paths — Hub Chat feature flag stays **OFF** until staging gate + Hub re-run pass.
 3. No extra composite Firestore indexes are needed for baseline chat.
-4. RTDB rules file is now versioned in repo; owner should deploy if Console differs.
+4. RTDB rules file is versioned in repo; owner deploys to staging only with rollback ready.
+5. Emulator suite: `firebase/rules-tests` (see commands above).
 
 ---
 

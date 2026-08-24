@@ -36,6 +36,7 @@ desktop.ini
 
 # Node / Firebase functions
 functions/.env*
+firebase/rules-tests/node_modules/
 functions/node_modules/
 functions-liveness/.env*
 functions-liveness/node_modules/
