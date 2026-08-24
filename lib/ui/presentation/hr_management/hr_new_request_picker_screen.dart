@@ -11,7 +11,6 @@ import 'package:el_race/ui/presentation/my_request/RequestLeavePageNew.dart';
 import 'package:el_race/ui/presentation/my_request/RequestPermission.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_screenutil/flutter_screenutil.dart';
 
 /// E2 — New request type picker (SRD §3.2): frequent grid + “More” groups.
 class HrNewRequestPickerScreen extends StatelessWidget {
@@ -145,7 +144,7 @@ class HrNewRequestPickerScreen extends StatelessWidget {
                 ),
                 children: [
                   _SectionCard(
-                    title: 'Asset',
+                    title: 'Employment & pay',
                     child: GridView.count(
                       shrinkWrap: true,
                       physics: const NeverScrollableScrollPhysics(),
@@ -155,25 +154,60 @@ class HrNewRequestPickerScreen extends StatelessWidget {
                       childAspectRatio: HrModuleLayout.tileAspectRatio,
                       children: [
                         _RequestTypeTile(
-                          label: 'Car rent',
-                          icon: Icons.directions_car_outlined,
-                          iconColor: HrModuleColors.secondary,
-                          onTap: () => Navigator.of(context)
-                              .pushNamed(HrRouteNames.carRentRequest),
-                        ),
-                        _RequestTypeTile(
-                          label: 'SIM',
-                          icon: Icons.sim_card_outlined,
-                          iconColor: HrModuleColors.primary,
-                          onTap: () => Navigator.of(context)
-                              .pushNamed(HrRouteNames.simRequest),
-                        ),
-                        _RequestTypeTile(
                           label: 'Car allowance',
                           icon: Icons.local_gas_station_outlined,
                           iconColor: const Color(0xFF5D4037),
                           onTap: () => Navigator.of(context)
                               .pushNamed(HrRouteNames.carAllowanceRequest),
+                        ),
+                        _RequestTypeTile(
+                          label: 'Increment',
+                          icon: Icons.trending_up_outlined,
+                          iconColor: const Color(0xFF2E7D32),
+                          onTap: () => Navigator.of(context)
+                              .pushNamed(HrRouteNames.incrementRequest),
+                        ),
+                        _RequestTypeTile(
+                          label: 'Promotion',
+                          icon: Icons.workspace_premium_outlined,
+                          iconColor: const Color(0xFF6A1B9A),
+                          onTap: () => Navigator.of(context)
+                              .pushNamed(HrRouteNames.promotionRequest),
+                        ),
+                        _RequestTypeTile(
+                          label: 'Resignation',
+                          icon: Icons.logout_outlined,
+                          iconColor: HrModuleColors.warning,
+                          onTap: () => Navigator.of(context)
+                              .pushNamed(HrRouteNames.resignationRequest),
+                        ),
+                        _RequestTypeTile(
+                          label: 'Termination',
+                          icon: Icons.person_off_outlined,
+                          iconColor: HrModuleColors.danger,
+                          onTap: () => Navigator.of(context)
+                              .pushNamed(HrRouteNames.terminationRequest),
+                        ),
+                        _RequestTypeTile(
+                          label: 'Certificate',
+                          icon: Icons.badge_outlined,
+                          iconColor: const Color(0xFF1565C0),
+                          onTap: () => Navigator.of(context)
+                              .pushNamed(HrRouteNames.certificateRequest),
+                        ),
+                        _RequestTypeTile(
+                          label: 'Loan',
+                          icon: Icons.account_balance_wallet_outlined,
+                          iconColor: const Color(0xFF00897B),
+                          onTap: () => Navigator.of(context)
+                              .pushNamed(HrRouteNames.loanRequest),
+                        ),
+                        _RequestTypeTile(
+                          label: 'Encashment',
+                          icon: Icons.payments_outlined,
+                          iconColor: const Color(0xFFEF6C00),
+                          onTap: () => Navigator.of(context)
+                              .pushNamed(HrRouteNames.encashmentRequest),
                         ),
                       ],
                     ),

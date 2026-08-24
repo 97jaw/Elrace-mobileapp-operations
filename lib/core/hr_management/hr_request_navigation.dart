@@ -47,7 +47,8 @@ String _typeHint(String type, {required bool managerContext}) {
   if (t.contains('transfer')) return 'transfer';
   if (t.contains('passport')) return 'passport';
   if (t.contains('encashment')) return 'leave_encashment';
-  if (t.contains('car rent') || t.contains('car rent')) return 'car_rent';
+  if (t.contains('car allowance')) return 'car_allowance';
+  if (t.contains('car rent')) return 'car_rent';
   if (t.contains('sim')) return 'sim';
   return managerContext ? 'hr' : 'generic';
 }
