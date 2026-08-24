@@ -25,5 +25,12 @@ abstract final class HrRouteNames {
   static const String simRequest = '/hr_management/asset/sim';
   static const String carRentRequest = '/hr_management/asset/car_rent';
   static const String carAllowanceRequest = '/hr_management/asset/car_allowance';
+  static const String incrementRequest = '/hr_management/request/increment';
+  static const String terminationRequest = '/hr_management/request/termination';
+  static const String promotionRequest = '/hr_management/request/promotion';
+  static const String resignationRequest = '/hr_management/request/resignation';
+  static const String encashmentRequest = '/hr_management/request/encashment';
+  static const String certificateRequest = '/hr_management/request/certificate';
+  static const String loanRequest = '/hr_management/request/loan';
   static const String widgetSandbox = '/hr_management/dev/widgets';
 }

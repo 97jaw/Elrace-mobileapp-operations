@@ -16,6 +16,13 @@ abstract final class HrRequestTypeCatalog {
     'Short Leave',
     'Annual Leave',
     'Job Mission',
+    'Salary Increment',
+    'Termination',
+    'Promotion',
+    'Resignation',
+    'Leave Encashment',
+    'Certificate',
+    'Loan',
   ];
 
   /// Union of catalog + any types already present in loaded records.

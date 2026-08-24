@@ -327,6 +327,50 @@ class HrApiClient {
     );
   }
 
+  /// Remaining HR types (increment, resignation, …) — not leave/JM/TEMP.
+  Future<HrApiEnvelope<Map<String, dynamic>>> submitHrRequest({
+    required String code,
+    required Map<String, dynamic> fields,
+    String? description,
+  }) async {
+    if (useMock) {
+      await Future<void>.delayed(const Duration(milliseconds: 200));
+      return HrApiEnvelope<Map<String, dynamic>>(
+        success: true,
+        data: {
+          'reference': 'REQ/MOCK/${code.toUpperCase()}',
+          'request_id': 1,
+          'code': code,
+        },
+        error: null,
+        uiStatus: 'PENDING',
+      );
+    }
+    return _postMap('/api/hr/submit_request', {
+      'code': code,
+      'fields': fields,
+      if (description != null && description.trim().isNotEmpty)
+        'description': description.trim(),
+    });
+  }
+
+  Future<HrApiEnvelope<Map<String, dynamic>>> fetchRequestFormMeta({
+    required String code,
+  }) async {
+    if (useMock) {
+      await Future<void>.delayed(const Duration(milliseconds: 80));
+      return HrApiEnvelope<Map<String, dynamic>>(
+        success: true,
+        data: {
+          'code': code,
+          'options': <String, dynamic>{},
+          'readonly': <String, dynamic>{},
+        },
+      );
+    }
+    return _postMap('/api/hr/request_form_meta', {'code': code});
+  }
+
   Future<HrApiEnvelope<List<Map<String, dynamic>>>> _postList(
     String path,
     Map<String, dynamic> params,
