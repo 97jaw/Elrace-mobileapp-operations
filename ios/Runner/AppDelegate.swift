@@ -28,12 +28,18 @@ import UserNotifications
 
     application.registerForRemoteNotifications()
     GeneratedPluginRegistrant.register(with: self)
+    let launched =
+        super.application(application, didFinishLaunchingWithOptions: launchOptions)
+    // Channels need the FlutterViewController; register after super so the window exists.
     setupAppIconBadgeChannel()
-    return super.application(application, didFinishLaunchingWithOptions: launchOptions)
+    setupVpnDetectionChannel()
+    return launched
   }
 
   private var didSetupAppIconBadgeChannel = false
+  private var didSetupVpnDetectionChannel = false
   private var appIconBadgeChannelRetries = 0
+  private var vpnDetectionChannelRetries = 0
 
   /// Syncs iOS springboard badge with Dart (clear on open/seen, match bell count).
   private func setupAppIconBadgeChannel() {
@@ -76,6 +82,54 @@ import UserNotifications
         result(nil)
       }
     }
+  }
+
+  /// VPN detection for Flutter security checks (App Store–safe, no Network Extension entitlement).
+  /// Uses CFNetworkCopySystemProxySettings `__SCOPED__` — only active VPN tunnels appear there
+  /// (avoids false positives from system utun interfaces used by iCloud / push).
+  private func setupVpnDetectionChannel() {
+    if didSetupVpnDetectionChannel { return }
+    guard let controller = window?.rootViewController as? FlutterViewController else {
+      vpnDetectionChannelRetries += 1
+      if vpnDetectionChannelRetries > 20 { return }
+      DispatchQueue.main.async { [weak self] in
+        self?.setupVpnDetectionChannel()
+      }
+      return
+    }
+    didSetupVpnDetectionChannel = true
+
+    let channel = FlutterMethodChannel(
+      name: "ae.elrace.mobile/vpn_detection",
+      binaryMessenger: controller.binaryMessenger
+    )
+    channel.setMethodCallHandler { [weak self] call, result in
+      guard call.method == "isVpnActive" else {
+        result(FlutterMethodNotImplemented)
+        return
+      }
+      result(self?.isVpnActive() ?? false)
+    }
+  }
+
+  private func isVpnActive() -> Bool {
+    // Copy rule: caller owns the returned CFDictionary.
+    guard let cfSettings = CFNetworkCopySystemProxySettings() else {
+      return false
+    }
+    let proxySettings = cfSettings.takeRetainedValue() as NSDictionary
+    guard let scoped = proxySettings["__SCOPED__"] as? [String: Any] else {
+      return false
+    }
+
+    let vpnMarkers = ["tap", "tun", "ppp", "ipsec", "utun", "wg", "vpn"]
+    for key in scoped.keys {
+      let name = String(describing: key).lowercased()
+      if vpnMarkers.contains(where: { name.contains($0) }) {
+        return true
+      }
+    }
+    return false
   }
 
   override func application(

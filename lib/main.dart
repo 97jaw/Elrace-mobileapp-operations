@@ -769,7 +769,14 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
         if (inactiveFor >= _inactiveTimeout) {
           // ignore: unawaited_futures
           _recheckSecurityAfterTimeout(inactiveFor);
+        } else {
+          // Short resume: still re-check VPN and show popup immediately.
+          // ignore: unawaited_futures
+          _recheckVpnOnResume();
         }
+      } else if (!_isRestartingFromTimeout) {
+        // ignore: unawaited_futures
+        _recheckVpnOnResume();
       }
 
       // Tiered resume work (prayer foreground handover, badge refresh,
@@ -791,6 +798,27 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
         // ignore: unawaited_futures
         PrayerAudioService().enterBackgroundMode();
       }
+    }
+  }
+
+  /// Quick VPN re-check when returning to the app (Android + iOS).
+  /// Shows the blocking VPN popup without restarting splash.
+  Future<void> _recheckVpnOnResume() async {
+    if (!(Platform.isAndroid || Platform.isIOS)) return;
+    if (AppConfigService.instance.shouldSkipVpnCheck) return;
+    try {
+      final vpnActive =
+          await DeviceSecurityService.instance.isVpnBlockingActive();
+      if (!vpnActive) return;
+      final ctx = navKey.currentContext;
+      if (ctx == null || !ctx.mounted) return;
+      debugPrint('🔒 Resume VPN check: VPN active — showing block dialog');
+      await DeviceSecurityService.showSecurityBlockDialog(
+        ctx,
+        SecurityCheckResult.vpnOnly(),
+      );
+    } catch (e) {
+      debugPrint('🔒 Resume VPN check error (fail-open): $e');
     }
   }
 
@@ -821,6 +849,15 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
           .timeout(const Duration(seconds: 6));
       if (result.isSecure) {
         debugPrint('⏱️ Silent security re-check passed — continuing without splash restart');
+        return;
+      }
+      // Prefer an in-place block dialog (esp. VPN) over tearing down to splash.
+      final ctx = navKey.currentContext;
+      if (ctx != null && ctx.mounted) {
+        debugPrint(
+          '⏱️ Silent security re-check FAILED — showing security dialog',
+        );
+        await DeviceSecurityService.showSecurityBlockDialog(ctx, result);
         return;
       }
       debugPrint('⏱️ Silent security re-check FAILED — restarting from splash');

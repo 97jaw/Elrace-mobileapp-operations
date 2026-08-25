@@ -418,6 +418,77 @@ class VendorsAgreementsPage {
   }
 }
 
+class VendorsAgreementAttachmentRow {
+  const VendorsAgreementAttachmentRow({
+    required this.id,
+    required this.name,
+    required this.attachmentTypeLabel,
+    required this.mimetype,
+  });
+
+  /// `ir.attachment` id used by [DocumentAttachmentOpener].
+  final int id;
+  final String name;
+  final String attachmentTypeLabel;
+  final String mimetype;
+
+  factory VendorsAgreementAttachmentRow.fromJson(Map<String, dynamic> json) {
+    return VendorsAgreementAttachmentRow(
+      id: (json['id'] as num?)?.toInt() ?? 0,
+      name: (json['name'] as String?)?.trim().isNotEmpty == true
+          ? (json['name'] as String).trim()
+          : 'File',
+      attachmentTypeLabel:
+          (json['attachment_type_label'] as String?)?.trim().isNotEmpty == true
+              ? (json['attachment_type_label'] as String).trim()
+              : ((json['attachment_type'] as String?)?.trim() ?? ''),
+      mimetype: (json['mimetype'] as String?)?.trim() ?? '',
+    );
+  }
+}
+
+class VendorsAgreementAttachmentsPage {
+  const VendorsAgreementAttachmentsPage({
+    required this.agreementId,
+    required this.agreementName,
+    required this.items,
+    required this.total,
+  });
+
+  final int agreementId;
+  final String agreementName;
+  final List<VendorsAgreementAttachmentRow> items;
+  final int total;
+
+  factory VendorsAgreementAttachmentsPage.empty({int agreementId = 0}) =>
+      VendorsAgreementAttachmentsPage(
+        agreementId: agreementId,
+        agreementName: '',
+        items: const [],
+        total: 0,
+      );
+
+  factory VendorsAgreementAttachmentsPage.fromJson(Map<String, dynamic> json) {
+    final raw = json['items'];
+    return VendorsAgreementAttachmentsPage(
+      agreementId: (json['agreement_id'] as num?)?.toInt() ?? 0,
+      agreementName: (json['agreement_name'] as String?)?.trim() ?? '',
+      items: raw is List
+          ? raw
+              .whereType<Map>()
+              .map(
+                (e) => VendorsAgreementAttachmentRow.fromJson(
+                  Map<String, dynamic>.from(e),
+                ),
+              )
+              .where((e) => e.id > 0)
+              .toList()
+          : const [],
+      total: (json['total'] as num?)?.toInt() ?? 0,
+    );
+  }
+}
+
 class VendorsDashboardRepository {
   static const _base = 'https://erp.elrace.com/api';
   static const _timeout = Duration(seconds: 15);
@@ -504,6 +575,22 @@ class VendorsDashboardRepository {
       );
     }
     return VendorsAgreementsPage.fromJson(data);
+  }
+
+  Future<VendorsAgreementAttachmentsPage> fetchAgreementAttachments({
+    required int agreementId,
+  }) async {
+    if (agreementId <= 0) {
+      return VendorsAgreementAttachmentsPage.empty();
+    }
+    final result = await _post('/vendors/agreements/attachments', {
+      'agreement_id': agreementId,
+    });
+    final data = _unwrap(result);
+    if (data == null) {
+      return VendorsAgreementAttachmentsPage.empty(agreementId: agreementId);
+    }
+    return VendorsAgreementAttachmentsPage.fromJson(data);
   }
 
   Map<String, dynamic>? _unwrap(Map<String, dynamic>? result) {
