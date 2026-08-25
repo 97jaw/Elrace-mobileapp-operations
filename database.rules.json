@@ -4,6 +4,7 @@
       "$uid": {
         ".read": "auth != null",
         ".write": "auth != null && auth.uid == $uid",
+        ".validate": "newData.hasChildren(['online', 'lastChanged'])",
         "online": {
           ".validate": "newData.isBoolean()"
         },
@@ -19,7 +20,7 @@
       "$chatId": {
         "$uid": {
           ".read": "auth != null",
-          ".write": "auth != null && auth.uid == $uid && ((!newData.exists()) || newData.isBoolean())"
+          ".write": "auth != null && auth.uid == $uid && ((!newData.exists()) || newData.isBoolean() && newData.val() === true)"
         }
       }
     },
