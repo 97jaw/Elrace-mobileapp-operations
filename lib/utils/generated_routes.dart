@@ -36,14 +36,15 @@ import '../ui/presentation/recruitment/r1_recruitment_landing_screen.dart';
 import '../ui/presentation/performance/performance_evaluation_module_screen.dart';
 import '../ui/presentation/payslip/payslip_module_screen.dart';
 import '../ui/presentation/hr_management/hr_requests_module_screen.dart';
-import '../ui/presentation/hr_management/hr_asset_under_planning_screen.dart';
 import '../ui/presentation/hr_management/hr_car_allowance_request_screen.dart';
+import '../ui/presentation/hr_management/hr_car_rent_request_screen.dart';
 import '../ui/presentation/hr_management/hr_certificate_request_screen.dart';
 import '../ui/presentation/hr_management/hr_encashment_request_screen.dart';
 import '../ui/presentation/hr_management/hr_increment_request_screen.dart';
 import '../ui/presentation/hr_management/hr_loan_request_screen.dart';
 import '../ui/presentation/hr_management/hr_promotion_request_screen.dart';
 import '../ui/presentation/hr_management/hr_resignation_request_screen.dart';
+import '../ui/presentation/hr_management/hr_sim_card_request_screen.dart';
 import '../ui/presentation/hr_management/hr_termination_request_screen.dart';
 import '../ui/presentation/hr_management/hr_circular_announcements_screen.dart';
 import '../ui/presentation/hr_management/employees_profile_screen.dart';
@@ -173,11 +174,11 @@ class OnGeneratedRoutes {
             builder: (_) => const HrRequestsModuleScreen());
       case HrRouteNames.simRequest:
         return CupertinoPageRoute(
-          builder: (_) => const HrAssetUnderPlanningScreen(title: 'SIM Card Request'),
+          builder: (_) => const HrSimCardRequestScreen(),
         );
       case HrRouteNames.carRentRequest:
         return CupertinoPageRoute(
-          builder: (_) => const HrAssetUnderPlanningScreen(title: 'Car Rent Request'),
+          builder: (_) => const HrCarRentRequestScreen(),
         );
       case HrRouteNames.carAllowanceRequest:
         return CupertinoPageRoute(

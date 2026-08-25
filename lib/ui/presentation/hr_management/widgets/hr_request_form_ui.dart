@@ -1,6 +1,7 @@
 import 'package:el_race/core/hr_management/network/hr_api_client.dart';
 import 'package:el_race/core/widgets/hr_management/hr_module_glass_header.dart';
 import 'package:el_race/ui/navigation/home_navigation.dart';
+import 'package:el_race/ui/presentation/hr_management/widgets/hr_searchable_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:fluttertoast/fluttertoast.dart';
@@ -61,45 +62,71 @@ abstract final class HrRequestFormUi {
     );
   }
 
-  /// Overflow-safe dropdown (fixes RenderFlex yellow/black stripe).
+  /// Draggable searchable picker field (replaces native dropdowns).
   static Widget dropdown<T>({
     required T? value,
     required List<DropdownMenuItem<T>> items,
     required ValueChanged<T?> onChanged,
     required String hint,
     String? Function(T?)? validator,
+    String? sheetTitle,
   }) {
-    return DropdownButtonFormField<T>(
-      value: value,
-      isExpanded: true,
-      items: items
-          .map(
-            (item) => DropdownMenuItem<T>(
-              value: item.value,
-              child: DefaultTextStyle.merge(
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                child: item.child,
-              ),
-            ),
-          )
-          .toList(),
-      selectedItemBuilder: (context) => items
-          .map(
-            (item) => Align(
-              alignment: Alignment.centerLeft,
-              child: DefaultTextStyle.merge(
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                child: item.child,
-              ),
-            ),
-          )
-          .toList(),
-      onChanged: onChanged,
+    final options = items
+        .where((item) => item.value != null)
+        .map((item) => item.value as T)
+        .toList();
+
+    String labelOf(T v) {
+      for (final item in items) {
+        if (item.value == v) {
+          final child = item.child;
+          if (child is Text) return child.data ?? v.toString();
+          return v.toString();
+        }
+      }
+      return v.toString();
+    }
+
+    return FormField<T>(
+      initialValue: value,
       validator: validator,
-      decoration: fieldDecoration(hint),
-      icon: Icon(Icons.keyboard_arrow_down, color: Colors.grey[600]),
+      builder: (state) {
+        final current = value ?? state.value;
+        final display = current == null ? null : labelOf(current);
+        return InkWell(
+          onTap: () async {
+            if (options.isEmpty) return;
+            final picked = await HrSearchablePicker.show<T>(
+              state.context,
+              title: sheetTitle ?? hint,
+              items: options,
+              labelOf: labelOf,
+              selected: current,
+            );
+            if (picked == null) return;
+            state.didChange(picked);
+            onChanged(picked);
+          },
+          borderRadius: BorderRadius.circular(12.r),
+          child: InputDecorator(
+            decoration: fieldDecoration(hint).copyWith(
+              errorText: state.errorText,
+              suffixIcon: Icon(
+                Icons.keyboard_arrow_down,
+                color: Colors.grey[600],
+              ),
+            ),
+            child: Text(
+              display ?? hint,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: valueStyle().copyWith(
+                color: display == null ? Colors.grey : primary,
+              ),
+            ),
+          ),
+        );
+      },
     );
   }
 
@@ -253,6 +280,15 @@ abstract final class HrRequestFormUi {
     );
   }
 
+  static Future<void> _toast(String msg) {
+    return Fluttertoast.showToast(
+      msg: msg,
+      toastLength: Toast.LENGTH_LONG,
+      timeInSecForIosWeb: 4,
+      gravity: ToastGravity.BOTTOM,
+    );
+  }
+
   static Future<bool> submit({
     required HrApiClient api,
     required String code,
@@ -266,12 +302,12 @@ abstract final class HrRequestFormUi {
     );
     if (env.success) {
       final refNo = env.data?['reference']?.toString() ?? '';
-      Fluttertoast.showToast(
-        msg: refNo.isEmpty ? 'Request submitted' : 'Request submitted — $refNo',
+      await _toast(
+        refNo.isEmpty ? 'Request submitted' : 'Request submitted — $refNo',
       );
       return true;
     }
-    Fluttertoast.showToast(msg: env.error ?? 'Submit failed');
+    await _toast(env.error ?? 'Submit failed');
     return false;
   }
 }

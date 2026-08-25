@@ -365,10 +365,19 @@ class HrApiClient {
           'code': code,
           'options': <String, dynamic>{},
           'readonly': <String, dynamic>{},
+          'eligibility': {
+            'eligible_sim_card_request': false,
+            'eligible_car_rent_request': false,
+          },
         },
       );
     }
     return _postMap('/api/hr/request_form_meta', {'code': code});
+  }
+
+  /// Contract eligibility for New request picker (SIM / Car rent tiles).
+  Future<HrApiEnvelope<Map<String, dynamic>>> fetchPickerCapabilities() {
+    return fetchRequestFormMeta(code: 'PICKER');
   }
 
   Future<HrApiEnvelope<List<Map<String, dynamic>>>> _postList(
