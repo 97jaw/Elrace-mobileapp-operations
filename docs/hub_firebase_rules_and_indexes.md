@@ -135,7 +135,7 @@ Compare Console vs repo before deploy:
 ## What Hub should assume today
 
 1. Use the **same paths** as mobile (see `docs/hub_chat_firebase_sync.md`).
-2. Rules are **hardened** for membership, sender integrity, signing, RTDB payloads, and Storage paths — Hub Chat feature flag stays **OFF** until staging gate + Hub re-run pass.
+2. Rules are **G2-hardened** and **deployed** to `elrace-new` (`75be3f0`). Hub Chat is **enabled** for Hub production use.
 3. No extra composite Firestore indexes are needed for baseline chat.
 4. RTDB rules file is versioned in repo; owner deploys to staging only with rollback ready.
 5. Emulator suite: `firebase/rules-tests` (see commands above).

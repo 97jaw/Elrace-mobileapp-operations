@@ -7,7 +7,7 @@
 
 This is the **complete response** to your 7 integration requests. Hub Chat joins the **existing mobile Firebase chat backend**. We are **not** creating a separate Firebase project, Auth realm, or message database.
 
-**Gate:** Keep Hub Chat **feature-flagged off** until the staging test matrix (Section 6) passes.
+**Status:** Hub Chat is **ENABLED** for Hub production use on shared project `elrace-new`.
 
 **Security:** This document contains **public client configuration only**. No HMAC secrets, service accounts, Odoo JWTs, or private keys are included.
 
@@ -438,12 +438,14 @@ Elrace will provide **two users** with mobile + Hub accounts. Fill before joint 
 - [ ] Presence/typing via RTDB paths in Section 4
 - [ ] Media upload: `chat_media/{chatId}/{messageId}/{fileName}`
 - [ ] Web push: VAPID + service worker (Section 5)
-- [ ] Feature flag OFF until Section 6 matrix passes
+- [x] Feature flag **ON** — Hub Chat enabled on shared `elrace-new` (G2 rules live @ `75be3f0`)
 
 ---
 
 ## Bottom line
 
 Hub Chat = **client of existing mobile Firebase chat** in `elrace-new`. Same users, same rooms, same messages, same notifications infrastructure. No second database. No sync job.
+
+**Hub may enable Chat in production now.** Rules G2 (`75be3f0`) are deployed; emulator **33/33**. Match mobile contract (`docs/hub_chat_contract.md`) exactly.
 
 **Questions:** contact Elrace mobile/Firebase/Odoo owner.

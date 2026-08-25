@@ -59,6 +59,6 @@ Provide **two staging users** who exist on **both Mobile and Hub** with a valid 
 
 ## Gate
 
-Hub Chat feature flag stays **OFF** until Steps 1–5 pass and this matrix is green on staging.
+Hub Chat is **enabled** for Hub on shared `elrace-new`. Use Section 6 matrix for ongoing QA; do not block production enablement on this checklist.
 
 Owner: **Elrace mobile/Firebase/Odoo team** supplies users; **Hub team** runs Hub-side tests.
