@@ -7,6 +7,7 @@ import 'package:el_race/core/theme/hr_module_colors.dart';
 import 'package:el_race/core/theme/hr_module_layout.dart';
 import 'package:el_race/core/theme/hr_module_typography.dart';
 import 'package:el_race/core/utils/shared_pref.dart';
+import 'package:el_race/ui/presentation/hr_management/widgets/hr_request_form_ui.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -135,10 +136,18 @@ class _HrSimCardRequestScreenState extends ConsumerState<HrSimCardRequestScreen>
     if (env.success) {
       final refNo = env.data?['reference']?.toString() ?? 'HR/SIM/2026/????';
       await SharedPref().removePreference(HrSimCardRequestScreen.draftKey);
-      Fluttertoast.showToast(msg: 'Request submitted — Ref: $refNo');
+      Fluttertoast.showToast(
+        msg: 'Request submitted — Ref: $refNo',
+        toastLength: Toast.LENGTH_LONG,
+        timeInSecForIosWeb: 4,
+      );
       Navigator.of(context).pop();
     } else {
-      Fluttertoast.showToast(msg: env.error ?? 'Submit failed');
+      Fluttertoast.showToast(
+        msg: env.error ?? 'Submit failed',
+        toastLength: Toast.LENGTH_LONG,
+        timeInSecForIosWeb: 4,
+      );
     }
   }
 
@@ -177,25 +186,27 @@ class _HrSimCardRequestScreenState extends ConsumerState<HrSimCardRequestScreen>
             ),
             SizedBox(height: 16.th),
             Text('Request Reason *', style: HrModuleTypography.caption().copyWith(fontSize: 12.tsp)),
-            DropdownButtonFormField<String>(
+            HrRequestFormUi.dropdown<String>(
               value: _reason,
+              hint: 'Select reason',
+              sheetTitle: 'Request reason',
               items: _reasons
                   .map((e) => DropdownMenuItem(value: e, child: Text(e)))
                   .toList(),
               onChanged: (v) => setState(() => _reason = v),
               validator: (v) => v == null || v.isEmpty ? 'Required' : null,
-              decoration: _fieldDecoration('Select reason'),
             ),
             SizedBox(height: HrModuleLayout.formFieldSpacingV.th),
             Text('Plan Type *', style: HrModuleTypography.caption().copyWith(fontSize: 12.tsp)),
-            DropdownButtonFormField<String>(
+            HrRequestFormUi.dropdown<String>(
               value: _planType,
+              hint: 'Select plan',
+              sheetTitle: 'Plan type',
               items: _plans
                   .map((e) => DropdownMenuItem(value: e, child: Text(e)))
                   .toList(),
               onChanged: (v) => setState(() => _planType = v),
               validator: (v) => v == null || v.isEmpty ? 'Required' : null,
-              decoration: _fieldDecoration('Select plan'),
             ),
             SizedBox(height: HrModuleLayout.formFieldSpacingV.th),
             Text('Required By Date *', style: HrModuleTypography.caption().copyWith(fontSize: 12.tsp)),

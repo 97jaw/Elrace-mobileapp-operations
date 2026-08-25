@@ -7,6 +7,7 @@ import 'package:el_race/core/theme/hr_module_colors.dart';
 import 'package:el_race/core/theme/hr_module_layout.dart';
 import 'package:el_race/core/theme/hr_module_typography.dart';
 import 'package:el_race/core/utils/shared_pref.dart';
+import 'package:el_race/ui/presentation/hr_management/widgets/hr_request_form_ui.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -169,10 +170,18 @@ class _HrCarRentRequestScreenState extends ConsumerState<HrCarRentRequestScreen>
     if (env.success) {
       final refNo = env.data?['reference']?.toString() ?? '';
       await SharedPref().removePreference(HrCarRentRequestScreen.draftKey);
-      Fluttertoast.showToast(msg: 'Request submitted — Ref: $refNo');
+      Fluttertoast.showToast(
+        msg: 'Request submitted — Ref: $refNo',
+        toastLength: Toast.LENGTH_LONG,
+        timeInSecForIosWeb: 4,
+      );
       Navigator.of(context).pop();
     } else {
-      Fluttertoast.showToast(msg: env.error ?? 'Submit failed');
+      Fluttertoast.showToast(
+        msg: env.error ?? 'Submit failed',
+        toastLength: Toast.LENGTH_LONG,
+        timeInSecForIosWeb: 4,
+      );
     }
   }
 
@@ -212,14 +221,15 @@ class _HrCarRentRequestScreenState extends ConsumerState<HrCarRentRequestScreen>
             ),
             SizedBox(height: 16.th),
             Text('Purpose *', style: HrModuleTypography.caption().copyWith(fontSize: 12.tsp)),
-            DropdownButtonFormField<String>(
+            HrRequestFormUi.dropdown<String>(
               value: _purpose,
+              hint: 'Select purpose',
+              sheetTitle: 'Purpose',
               items: _purposes
                   .map((e) => DropdownMenuItem(value: e, child: Text(e)))
                   .toList(),
               onChanged: (v) => setState(() => _purpose = v),
               validator: (v) => v == null ? 'Required' : null,
-              decoration: _decoration('Select purpose'),
             ),
             SizedBox(height: HrModuleLayout.formFieldSpacingV.th),
             Row(
@@ -270,13 +280,14 @@ class _HrCarRentRequestScreenState extends ConsumerState<HrCarRentRequestScreen>
             ),
             SizedBox(height: HrModuleLayout.formFieldSpacingV.th),
             Text('Vehicle Type', style: HrModuleTypography.caption().copyWith(fontSize: 12.tsp)),
-            DropdownButtonFormField<String>(
+            HrRequestFormUi.dropdown<String>(
               value: _vehicle,
+              hint: 'Any',
+              sheetTitle: 'Vehicle type',
               items: _vehicles
                   .map((e) => DropdownMenuItem(value: e, child: Text(e)))
                   .toList(),
               onChanged: (v) => setState(() => _vehicle = v),
-              decoration: _decoration('Any'),
             ),
             SizedBox(height: HrModuleLayout.formFieldSpacingV.th),
             Text('Estimated Distance (km)', style: HrModuleTypography.caption().copyWith(fontSize: 12.tsp)),
