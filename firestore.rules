@@ -22,6 +22,10 @@ service cloud.firestore {
       return get(chatPath(chatId)).data;
     }
 
+    function memberPath(chatId, memberId) {
+      return /databases/$(database)/documents/chats/$(chatId)/members/$(memberId);
+    }
+
     function isMemberOfChat(chatId) {
       return chatExists(chatId)
         && chatData(chatId).member_ids is list
@@ -38,46 +42,88 @@ service cloud.firestore {
         && uid() in resource.data.dm_pair;
     }
 
+    function isChatAdmin(chatId) {
+      return exists(memberPath(chatId, uid()))
+        && get(memberPath(chatId, uid())).data.is_admin == true;
+    }
+
     function validChatType(data) {
       return data.type in ['dm', 'role', 'group', 'support'];
     }
 
-    function validChatIdForType(chatId, data) {
-      return (data.type == 'dm' && chatId.matches('dm_.+'))
-        || (data.type == 'role' && chatId.matches('role_.+'))
-        || (data.type == 'support' && chatId.matches('support_.+'))
-        || (data.type == 'group' && chatId.matches('project_.+'));
+    function validMessageType(t) {
+      return t in ['text', 'image', 'file', 'audio', 'video', 'signable_doc'];
     }
 
-    function selfInMemberIds(data) {
-      return data.member_ids is list && uid() in data.member_ids;
+    function authRoleId() {
+      return request.auth.token.role_id;
     }
 
-    function validDmCreate(chatId, data) {
-      return data.type == 'dm'
-        && data.dm_pair is list
-        && data.dm_pair.size() >= 1
-        && data.dm_pair.size() <= 2
-        && uid() in data.dm_pair
-        && selfInMemberIds(data)
+    function authBranchId() {
+      return request.auth.token.branch_id;
+    }
+
+    function roleClaimMatchesChat(data) {
+      return authRoleId() != null
+        && data.role_id != null
+        && authRoleId() == data.role_id
         && (
-          chatId.matches('dm_' + uid() + '_.*')
-          || chatId.matches('dm_.*_' + uid())
+          !('branch_id' in data)
+          || data.branch_id == null
+          || authBranchId() == data.branch_id
         );
     }
 
-    function validRoleOrGroupOrSupportCreate(data) {
-      return data.type in ['role', 'group', 'support']
-        && selfInMemberIds(data);
+    // Deterministic DM id: dm_{minUid}_{maxUid} with sorted dm_pair.
+    function validDeterministicDmCreate(chatId, data) {
+      return data.type == 'dm'
+        && data.dm_pair is list
+        && data.dm_pair.size() == 2
+        && data.dm_pair[0] is string
+        && data.dm_pair[1] is string
+        && data.dm_pair[0] <= data.dm_pair[1]
+        && chatId == 'dm_' + data.dm_pair[0] + '_' + data.dm_pair[1]
+        && uid() in data.dm_pair
+        && data.member_ids is list
+        && uid() in data.member_ids
+        && data.member_ids.hasOnly(data.dm_pair);
+    }
+
+    function validRoleCreate(chatId, data) {
+      return data.type == 'role'
+        && chatId.matches('role_.+')
+        && data.member_ids is list
+        && uid() in data.member_ids
+        && roleClaimMatchesChat(data);
+    }
+
+    function validGroupCreate(chatId, data) {
+      return data.type == 'group'
+        && chatId.matches('project_.+')
+        && data.member_ids is list
+        && uid() in data.member_ids;
+    }
+
+    function validSupportCreate(chatId, data) {
+      return data.type == 'support'
+        && chatId.matches('support_.+')
+        && data.member_ids is list
+        && uid() in data.member_ids
+        && data.support_user_uid is string
+        && (
+          uid() == data.support_user_uid
+          || roleClaimMatchesChat(data)
+        );
     }
 
     function canCreateChat(chatId) {
       return isSignedIn()
         && validChatType(request.resource.data)
-        && validChatIdForType(chatId, request.resource.data)
         && (
-          validDmCreate(chatId, request.resource.data)
-          || validRoleOrGroupOrSupportCreate(request.resource.data)
+          validDeterministicDmCreate(chatId, request.resource.data)
+          || validRoleCreate(chatId, request.resource.data)
+          || validGroupCreate(chatId, request.resource.data)
+          || validSupportCreate(chatId, request.resource.data)
         );
     }
 
@@ -88,63 +134,115 @@ service cloud.firestore {
       );
     }
 
-    // Role join: existing members, dm pair, or joining a role chat as self.
-    function canUpdateChat() {
-      return isSignedIn() && (
-        isMemberFromChatResource()
-        || isInDmPairFromResource()
-        || (
-          resource.data.type == 'role'
-          && request.resource.data.type == 'role'
-          && selfInMemberIds(request.resource.data)
-        )
-      );
-    }
-
-    function isDmChatIdWithSelf(chatId) {
-      return chatId.matches('dm_.+')
+    // type / member_ids / dm_pair are immutable after create, except proven
+    // role self-add (token role matches) or group admin membership edits.
+    function chatCoreImmutable() {
+      return request.resource.data.type == resource.data.type
         && (
-          chatId.matches('dm_' + uid() + '_.*')
-          || chatId.matches('dm_.*_' + uid())
+          !('dm_pair' in resource.data)
+          || request.resource.data.dm_pair == resource.data.dm_pair
         );
     }
 
-    function canWriteMemberDoc(chatId, memberId) {
-      return isSignedIn() && (
-        (
-          memberId == uid()
+    function memberIdsUnchanged() {
+      return request.resource.data.member_ids == resource.data.member_ids;
+    }
+
+    function onlyAddedSelfToMemberIds() {
+      return resource.data.member_ids is list
+        && request.resource.data.member_ids is list
+        && !(uid() in resource.data.member_ids)
+        && uid() in request.resource.data.member_ids
+        && request.resource.data.member_ids.hasAll(resource.data.member_ids)
+        && request.resource.data.member_ids.size()
+          == resource.data.member_ids.size() + 1;
+    }
+
+    function provenRoleSelfJoinUpdate() {
+      return resource.data.type == 'role'
+        && chatCoreImmutable()
+        && onlyAddedSelfToMemberIds()
+        && roleClaimMatchesChat(resource.data);
+    }
+
+    function groupAdminMemberIdsUpdate(chatId) {
+      return resource.data.type == 'group'
+        && chatCoreImmutable()
+        && isChatAdmin(chatId)
+        && request.resource.data.member_ids is list;
+    }
+
+    function canUpdateChat(chatId) {
+      return isSignedIn()
+        && chatCoreImmutable()
+        && (
+          (isMemberFromChatResource() && memberIdsUnchanged())
+          || (isInDmPairFromResource() && memberIdsUnchanged())
+          || provenRoleSelfJoinUpdate()
+          || groupAdminMemberIdsUpdate(chatId)
+        );
+    }
+
+    function isDmPeerOfChat(chatId) {
+      return chatExists(chatId)
+        && chatData(chatId).type == 'dm'
+        && chatData(chatId).dm_pair is list
+        && uid() in chatData(chatId).dm_pair;
+    }
+
+    function targetIsDmPeer(chatId, memberId) {
+      return chatExists(chatId)
+        && chatData(chatId).type == 'dm'
+        && chatData(chatId).dm_pair is list
+        && memberId in chatData(chatId).dm_pair;
+    }
+
+    function notElevatingAdmin() {
+      return !('is_admin' in request.resource.data)
+        || request.resource.data.is_admin == false
+        || (
+          resource != null
+          && resource.data.is_admin == true
+        );
+    }
+
+    function canWriteOwnMemberDoc(chatId) {
+      return isMemberOfChat(chatId)
+        || isDmPeerOfChat(chatId)
+        || (
+          chatExists(chatId)
+          && chatData(chatId).type == 'role'
+          && roleClaimMatchesChat(chatData(chatId))
+        )
+        || (
+          chatExists(chatId)
+          && chatData(chatId).type == 'support'
           && (
-            isMemberOfChat(chatId)
-            || (
-              chatExists(chatId)
-              && chatData(chatId).type in ['role', 'group', 'support']
-            )
-            || isDmChatIdWithSelf(chatId)
-            || chatId.matches('role_.+')
-            || chatId.matches('support_.+')
-            || chatId.matches('project_.+')
-          )
-          && (
-            !('is_admin' in request.resource.data)
-            || request.resource.data.is_admin == false
+            uid() == chatData(chatId).support_user_uid
+            || roleClaimMatchesChat(chatData(chatId))
             || isMemberOfChat(chatId)
           )
         )
         || (
-          memberId != uid()
+          chatExists(chatId)
+          && chatData(chatId).type == 'group'
           && isMemberOfChat(chatId)
-          && (
-            !('is_admin' in request.resource.data)
-            || request.resource.data.is_admin == false
-          )
+        );
+    }
+
+    function canWriteMemberDoc(chatId, memberId) {
+      return isSignedIn() && notElevatingAdmin() && (
+        (memberId == uid() && canWriteOwnMemberDoc(chatId))
+        || (
+          memberId != uid()
+          && isDmPeerOfChat(chatId)
+          && targetIsDmPeer(chatId, memberId)
         )
         || (
           memberId != uid()
-          && isDmChatIdWithSelf(chatId)
-          && (
-            !('is_admin' in request.resource.data)
-            || request.resource.data.is_admin == false
-          )
+          && chatExists(chatId)
+          && chatData(chatId).type == 'group'
+          && isChatAdmin(chatId)
         )
       );
     }
@@ -152,20 +250,72 @@ service cloud.firestore {
     function canDeleteMemberDoc(chatId, memberId) {
       return isSignedIn() && (
         memberId == uid()
-        || isMemberOfChat(chatId)
+        || (
+          chatExists(chatId)
+          && chatData(chatId).type == 'group'
+          && isChatAdmin(chatId)
+        )
       );
     }
 
-    function senderUnchanged() {
-      return request.resource.data.sender_id == resource.data.sender_id;
+    function messageCreateKeysAllowed() {
+      return request.resource.data.keys().hasOnly([
+        'sender_id',
+        'type',
+        'text',
+        'created_at',
+        'client_msg_id',
+        'status',
+        'media_url',
+        'media_path',
+        'file_name',
+        'file_size',
+        'mime_type',
+        'duration_ms',
+        'thumb_url',
+        'reply_to',
+        'sign_zones',
+        'sign_status',
+        'signed_pdf_url',
+        'signed_at',
+        'signed_by',
+        'signer_uids',
+        'signer_names',
+        'current_signer_index',
+        'current_signer_uid',
+        'expires_at',
+        'signature_document_id',
+        'updated_at'
+      ]);
+    }
+
+    function createdAtIsFresh() {
+      return request.resource.data.created_at is timestamp
+        && request.resource.data.created_at
+          <= request.time + duration.value(1, 'm')
+        && request.resource.data.created_at
+          >= request.time - duration.value(5, 'm');
     }
 
     function isMessageCreateValid() {
       return request.resource.data.sender_id == uid()
-        && request.resource.data.keys().hasAll(['sender_id', 'type', 'created_at']);
+        && request.resource.data.keys().hasAll(['sender_id', 'type', 'created_at'])
+        && validMessageType(request.resource.data.type)
+        && messageCreateKeysAllowed()
+        && createdAtIsFresh();
     }
 
-    // Signing transitions: only current signer (or listed signer) may touch sign fields.
+    function messageImmutableFieldsUnchanged() {
+      return request.resource.data.sender_id == resource.data.sender_id
+        && request.resource.data.type == resource.data.type
+        && request.resource.data.created_at == resource.data.created_at
+        && (
+          !('client_msg_id' in resource.data)
+          || !('client_msg_id' in request.resource.data)
+          || request.resource.data.client_msg_id == resource.data.client_msg_id
+        );
+    }
+
     function signingKeysOnly() {
       return request.resource.data.diff(resource.data).affectedKeys()
         .hasOnly([
@@ -193,34 +343,74 @@ service cloud.firestore {
         ]);
     }
 
+    function validSignStatusTransition() {
+      return !request.resource.data.diff(resource.data).affectedKeys()
+          .hasAny(['sign_status'])
+        || (
+          resource.data.sign_status == 'pending'
+          && request.resource.data.sign_status in ['pending', 'signed']
+        );
+    }
+
     function isAuthorizedSignerUpdate() {
       return signingKeysOnly()
+        && validSignStatusTransition()
+        && resource.data.current_signer_uid == uid()
         && (
-          resource.data.current_signer_uid == uid()
-          || (
-            resource.data.keys().hasAny(['signer_uids'])
-            && resource.data.signer_uids is list
-            && uid() in resource.data.signer_uids
-          )
-        )
-        && (
-          !('signed_by' in request.resource.data)
+          !('signed_by' in request.resource.data.diff(resource.data).affectedKeys())
           || request.resource.data.signed_by == uid()
         );
     }
 
     function isOwnMessageNonSenderEdit() {
       return resource.data.sender_id == uid()
-        && senderUnchanged()
-        && !touchesSigningFields();
+        && !touchesSigningFields()
+        && request.resource.data.diff(resource.data).affectedKeys()
+          .hasOnly(['text', 'status', 'updated_at', 'media_url', 'media_path']);
     }
 
     function canUpdateMessage(chatId) {
       return isMemberOfChat(chatId)
-        && senderUnchanged()
+        && messageImmutableFieldsUnchanged()
         && (
           isAuthorizedSignerUpdate()
           || isOwnMessageNonSenderEdit()
+        );
+    }
+
+    function peerUserChatAllowedKeys() {
+      return [
+        'type',
+        'title',
+        'updated_at',
+        'peer_uid',
+        'role_id',
+        'branch_id',
+        'company_id',
+        'support_user_uid',
+        'support_group_title',
+        'pinned',
+        'muted',
+        'archived',
+        'has_messages'
+      ];
+    }
+
+    function peerUserChatKeysOk() {
+      return request.resource.data.keys()
+        .hasOnly(peerUserChatAllowedKeys());
+    }
+
+    function peerUserChatUpdateKeysOk() {
+      return request.resource.data.diff(resource.data).affectedKeys()
+        .hasOnly(peerUserChatAllowedKeys());
+    }
+
+    function canPeerWriteUserChat(chatId) {
+      return isMemberOfChat(chatId)
+        && (
+          (resource == null && peerUserChatKeysOk())
+          || (resource != null && peerUserChatUpdateKeysOk())
         );
     }
 
@@ -312,7 +502,7 @@ service cloud.firestore {
     match /chats/{chatId} {
       allow create: if canCreateChat(chatId);
       allow read: if canReadChat();
-      allow update: if canUpdateChat();
+      allow update: if canUpdateChat(chatId);
       allow delete: if false;
 
       match /messages/{messageId} {
@@ -331,12 +521,16 @@ service cloud.firestore {
       }
     }
 
-    // Inbox index — owner full access; other chat members may sync timestamps.
+    // Inbox index — owner full access; peers may sync allowlisted fields only.
     match /userChats/{userId}/chats/{chatId} {
       allow read: if isSignedIn() && uid() == userId;
-      allow create, update: if isSignedIn() && (
+      allow create: if isSignedIn() && (
         uid() == userId
-        || isMemberOfChat(chatId)
+        || canPeerWriteUserChat(chatId)
+      );
+      allow update: if isSignedIn() && (
+        uid() == userId
+        || canPeerWriteUserChat(chatId)
       );
       allow delete: if isSignedIn() && uid() == userId;
     }

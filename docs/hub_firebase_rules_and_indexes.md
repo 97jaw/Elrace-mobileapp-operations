@@ -58,10 +58,10 @@ No composite index file is required today.
 
 | Path | Read | Write | Hub note |
 |------|------|-------|----------|
-| `chats/{chatId}` | **Members / dm_pair only** | Create: valid id+type+self in members; Update: members or role self-join | Hardened |
-| `chats/{chatId}/messages/{messageId}` | **Members only** | Create: member + `sender_id == auth.uid`; Update: sender immutable; signing by current signer only | Hardened |
-| `chats/{chatId}/members/{memberId}` | **Members only** | Self, existing members, or DM peer bootstrap | Hardened |
-| `userChats/{userId}/chats/{chatId}` | Owner only | Owner **or** chat member (DM inbox sync) | Hardened |
+| `chats/{chatId}` | **Members / dm_pair only** | Create: deterministic id+type+self; Update: members (immutable type/dm_pair/member_ids except proven role self-add / group admin) | G2 hardened |
+| `chats/{chatId}/messages/{messageId}` | **Members only** | Create: member + sender + allowed type/keys + fresh `created_at`; Update: immutable type/created_at/client_msg_id; signing pending→pending/signed by current signer | G2 hardened |
+| `chats/{chatId}/members/{memberId}` | **Members only** | Self / DM peer bootstrap / proven role claim / group admin; delete self or group admin only | G2 hardened |
+| `userChats/{userId}/chats/{chatId}` | Owner only | Owner **or** chat member with allowlisted peer fields only | G2 hardened |
 | `users/{userId}` | Any signed-in user | Owner only | Unchanged |
 
 ### Storage — chat media (`storage.rules`)
@@ -87,7 +87,9 @@ firebase emulators:exec --project elrace-new --only firestore,database,storage \
   "npm --prefix firebase/rules-tests test"
 ```
 
-Covers Hub Phase 2 mandatory denials: non-member message R/W, unrelated role-chat read, sender spoofing, arbitrary member/admin insert, unrelated `userChats` write, invalid chat id/type, immutable sender mutation, unauthorized signing, invalid presence/typing, non-member media, malformed media paths.
+Covers Hub Phase 2 + **G2** denials: non-member message R/W, unrelated role-chat read, sender spoofing, foreign member add/delete, unproven role self-join, peer `userChats` field allowlist, deterministic DM ids, immutable chat `type`/`member_ids`/`dm_pair`, message type/keys/timestamps, immutable message fields, signing transitions, presence `lastChanged` required, typing `true` or delete, Storage path/membership.
+
+`npm audit` on `firebase/rules-tests` is clean via lockfile overrides for Mocha transitive deps.
 
 ## Pre-production hardening checklist (mobile owner)
 
