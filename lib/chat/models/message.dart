@@ -34,13 +34,14 @@ enum MessageType {
   }
 }
 
-/// Message status (client-side only for now)
+/// Message status (client-side + Firestore `status` field).
 enum MessageStatus {
   sending,
   sent,
   delivered,
   read,
-  failed;
+  failed,
+  deleted;
 
   static MessageStatus fromString(String value) {
     switch (value) {
@@ -54,6 +55,8 @@ enum MessageStatus {
         return MessageStatus.read;
       case 'failed':
         return MessageStatus.failed;
+      case 'deleted':
+        return MessageStatus.deleted;
       default:
         return MessageStatus.sent;
     }
@@ -363,8 +366,12 @@ class Message {
     return map;
   }
 
+  /// Soft-deleted for everyone (`status == deleted`).
+  bool get isDeleted => status == MessageStatus.deleted;
+
   /// Get preview text for last_message in chat
   String getPreviewText() {
+    if (isDeleted) return 'This message was deleted';
     switch (type) {
       case MessageType.text:
         return text ?? '';

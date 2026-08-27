@@ -1930,16 +1930,35 @@ class ChatRepository {
 
   // ============== Read Receipts ==============
 
-  /// Mark a chat as read (update last_read_at in userChats)
+  /// Mark a chat as read for Hub read receipts + local unread badges.
+  ///
+  /// Writes server timestamps to:
+  /// - `chats/{chatId}/members/{uid}` → `last_delivered_at`, `last_read_at`
+  /// - `userChats/{uid}/chats/{chatId}` → `last_read_at` (inbox unread)
   Future<void> markChatRead(String chatId) async {
     final currentUid = _currentUid;
     if (currentUid == null) return;
+
+    final serverNow = FieldValue.serverTimestamp();
+
+    try {
+      await _chatsCollection
+          .doc(chatId)
+          .collection('members')
+          .doc(currentUid)
+          .set({
+        'last_delivered_at': serverNow,
+        'last_read_at': serverNow,
+      }, SetOptions(merge: true));
+    } catch (e) {
+      print('❌ ChatRepository: Error updating member read receipts: $e');
+    }
 
     try {
       // Use update() so we don't accidentally create a userChats doc
       // for a chat where no messages have been sent yet.
       await _userChatsCollection(currentUid).doc(chatId).update({
-        'last_read_at': FieldValue.serverTimestamp(),
+        'last_read_at': serverNow,
       });
     } catch (e) {
       // Ignore "not-found" — the doc doesn't exist yet (no messages sent)

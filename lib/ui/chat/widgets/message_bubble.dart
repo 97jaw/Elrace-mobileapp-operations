@@ -79,7 +79,73 @@ class MessageBubble extends StatelessWidget {
     );
   }
 
+  Widget _buildBubble(BuildContext context) {
+    final textColor =
+        isMe ? Colors.white : ChatSurfaceTheme.receivedText;
+
+    final bubbleRadius = BorderRadius.only(
+      topLeft: const Radius.circular(16),
+      topRight: const Radius.circular(16),
+      bottomLeft: Radius.circular(isMe ? 16 : 6),
+      bottomRight: Radius.circular(isMe ? 6 : 16),
+    );
+
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 320),
+      curve: Curves.easeOutCubic,
+      decoration: BoxDecoration(
+        borderRadius: bubbleRadius,
+        border: isHighlighted
+            ? Border.all(
+                color: ChatSurfaceTheme.accentGold.withValues(alpha: 0.70),
+                width: 1.4,
+              )
+            : null,
+        boxShadow: [
+          if (isHighlighted)
+            BoxShadow(
+              color: ChatSurfaceTheme.accentGold.withValues(alpha: 0.16),
+              blurRadius: 8,
+              spreadRadius: 0,
+              offset: const Offset(0, 0),
+            ),
+        ],
+      ),
+      child: Container(
+        decoration: BoxDecoration(
+          gradient: isMe
+              ? ChatSurfaceTheme.sentMessageGradient
+              : ChatSurfaceTheme.receivedMessageGradient,
+          borderRadius: bubbleRadius,
+          border: Border.all(
+            color: isMe
+                ? ChatSurfaceTheme.sentBubbleBorder
+                : ChatSurfaceTheme.receivedBubbleBorder,
+            width: 1,
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: isMe ? 0.25 : 0.15),
+              blurRadius: 6,
+              offset: const Offset(0, 2),
+            ),
+          ],
+        ),
+        constraints: BoxConstraints(
+          maxWidth: MediaQuery.of(context).size.width * 0.75,
+        ),
+        child: ClipRRect(
+          borderRadius: bubbleRadius,
+          child: message.isDeleted
+              ? _DeletedContent(textColor: textColor)
+              : _buildContent(context, textColor),
+        ),
+      ),
+    );
+  }
+
   void _showMessageActions(BuildContext context) {
+    if (message.isDeleted) return;
     HapticFeedback.mediumImpact();
 
     final RenderBox box = context.findRenderObject() as RenderBox;
@@ -162,69 +228,6 @@ class MessageBubble extends StatelessWidget {
     );
   }
 
-  Widget _buildBubble(BuildContext context) {
-    final textColor =
-        isMe ? Colors.white : ChatSurfaceTheme.receivedText;
-
-    final bubbleRadius = BorderRadius.only(
-      topLeft: const Radius.circular(16),
-      topRight: const Radius.circular(16),
-      bottomLeft: Radius.circular(isMe ? 16 : 6),
-      bottomRight: Radius.circular(isMe ? 6 : 16),
-    );
-
-    return AnimatedContainer(
-      duration: const Duration(milliseconds: 320),
-      curve: Curves.easeOutCubic,
-      decoration: BoxDecoration(
-        borderRadius: bubbleRadius,
-        border: isHighlighted
-            ? Border.all(
-                color: ChatSurfaceTheme.accentGold.withValues(alpha: 0.70),
-                width: 1.4,
-              )
-            : null,
-        boxShadow: [
-          if (isHighlighted)
-            BoxShadow(
-              color: ChatSurfaceTheme.accentGold.withValues(alpha: 0.16),
-              blurRadius: 8,
-              spreadRadius: 0,
-              offset: const Offset(0, 0),
-            ),
-        ],
-      ),
-      child: Container(
-        decoration: BoxDecoration(
-          gradient: isMe
-              ? ChatSurfaceTheme.sentMessageGradient
-              : ChatSurfaceTheme.receivedMessageGradient,
-          borderRadius: bubbleRadius,
-          border: Border.all(
-            color: isMe
-                ? ChatSurfaceTheme.sentBubbleBorder
-                : ChatSurfaceTheme.receivedBubbleBorder,
-            width: 1,
-          ),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: isMe ? 0.25 : 0.15),
-              blurRadius: 6,
-              offset: const Offset(0, 2),
-            ),
-          ],
-        ),
-        constraints: BoxConstraints(
-          maxWidth: MediaQuery.of(context).size.width * 0.75,
-        ),
-        child: ClipRRect(
-          borderRadius: bubbleRadius,
-          child: _buildContent(context, textColor),
-        ),
-      ),
-    );
-  }
-
   Widget _buildContent(BuildContext context, Color textColor) {
     Widget content;
     switch (message.type) {
@@ -263,6 +266,18 @@ class MessageBubble extends StatelessWidget {
   }
 
   Widget _buildStatus(BuildContext context) {
+    if (message.isDeleted) {
+      return Padding(
+        padding: const EdgeInsets.only(top: 2, left: 4, right: 4),
+        child: Text(
+          _formatTime(message.createdAt),
+          style: TextStyle(
+            fontSize: 11,
+            color: Colors.grey[500],
+          ),
+        ),
+      );
+    }
     return Padding(
       padding: const EdgeInsets.only(top: 2, left: 4, right: 4),
       child: Row(
@@ -321,12 +336,49 @@ class MessageBubble extends StatelessWidget {
           size: 14,
           color: ChatGlassTheme.gold,
         );
+      case MessageStatus.deleted:
+        return const SizedBox.shrink();
     }
   }
 
   String _formatTime(DateTime time) {
     final local = time.toLocal();
     return '${local.hour.toString().padLeft(2, '0')}:${local.minute.toString().padLeft(2, '0')}';
+  }
+}
+
+class _DeletedContent extends StatelessWidget {
+  final Color textColor;
+
+  const _DeletedContent({required this.textColor});
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            Icons.not_interested,
+            size: 16,
+            color: textColor.withValues(alpha: 0.75),
+          ),
+          const SizedBox(width: 8),
+          Flexible(
+            child: Text(
+              'This message was deleted',
+              style: TextStyle(
+                color: textColor.withValues(alpha: 0.85),
+                fontSize: 14,
+                fontStyle: FontStyle.italic,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 }
 

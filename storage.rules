@@ -7,9 +7,40 @@ service firebase.storage {
       return request.auth != null;
     }
 
+    function chatPath(chatId) {
+      return /databases/(default)/documents/chats/$(chatId);
+    }
+
+    function memberDocPath(chatId) {
+      return /databases/(default)/documents/chats/$(chatId)/members/$(request.auth.uid);
+    }
+
+    function messagePath(chatId, messageId) {
+      return /databases/(default)/documents/chats/$(chatId)/messages/$(messageId);
+    }
+
+    function chatData(chatId) {
+      return firestore.get(chatPath(chatId)).data;
+    }
+
+    // Align with Firestore membership: member_ids, members/{uid}, or dm_pair.
+    // Hub/mobile sometimes have members/{uid} before member_ids is fully synced.
     function isChatMember(chatId) {
-      return firestore.exists(/databases/(default)/documents/chats/$(chatId))
-        && request.auth.uid in firestore.get(/databases/(default)/documents/chats/$(chatId)).data.member_ids;
+      return isSignedIn()
+        && firestore.exists(chatPath(chatId))
+        && (
+          (
+            chatData(chatId).keys().hasAny(['member_ids'])
+            && chatData(chatId).member_ids is list
+            && request.auth.uid in chatData(chatId).member_ids
+          )
+          || firestore.exists(memberDocPath(chatId))
+          || (
+            chatData(chatId).keys().hasAny(['dm_pair'])
+            && chatData(chatId).dm_pair is list
+            && request.auth.uid in chatData(chatId).dm_pair
+          )
+        );
     }
 
     function validChatMediaWrite() {
@@ -19,12 +50,19 @@ service firebase.storage {
         );
     }
 
+    // Sender may delete Storage object tied to their message (delete-for-everyone).
+    function canDeleteOwnMessageMedia(chatId, messageId) {
+      return isChatMember(chatId)
+        && firestore.exists(messagePath(chatId, messageId))
+        && firestore.get(messagePath(chatId, messageId)).data.sender_id
+          == request.auth.uid;
+    }
+
     // Canonical chat media path only: chat_media/{chatId}/{messageId}/{fileName}
     match /chat_media/{chatId}/{messageId}/{fileName} {
-      allow read: if isSignedIn() && isChatMember(chatId);
-      allow write: if isSignedIn()
-                   && isChatMember(chatId)
-                   && validChatMediaWrite();
+      allow read: if isChatMember(chatId);
+      allow create, update: if isChatMember(chatId) && validChatMediaWrite();
+      allow delete: if canDeleteOwnMessageMedia(chatId, messageId);
     }
 
     // My Notes audio / images — owner only

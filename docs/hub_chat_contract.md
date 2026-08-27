@@ -113,13 +113,14 @@ Common fields Hub should read/write consistently:
 - `joined_at`, `muted`
 - `role_id_snapshot`, `branch_id_snapshot`, `company_id_snapshot`
 - `is_support_user` (bool — external user in support chat)
+- `last_delivered_at`, `last_read_at` — Hub read receipts (server timestamps; self only)
 
 ### `userChats/{uid}/chats/{chatId}`
 - `type`, `title`, `updated_at`
 - `peer_uid` (DM)
 - `role_id`, `branch_id`, `company_id` (role/group)
 - `support_user_uid`, `support_group_title` (support)
-- `last_read_at` — read receipt watermark
+- `last_read_at` — inbox unread watermark (mobile still updates this)
 - `pinned`, `muted`, `archived`, `has_messages`
 
 ### `chats/{chatId}/messages/{messageId}`
@@ -133,10 +134,17 @@ Core fields (all snake_case):
 | `media_url`, `media_path`, `file_name`, `file_size`, `mime_type` | Media |
 | `duration_ms`, `thumb_url` | Audio/video |
 | `reply_to` | `{ message_id, sender_id, text, type }` |
-| `created_at`, `client_msg_id`, `status` | `status` stored as `sent` |
+| `created_at`, `client_msg_id`, `status` | `sent` / `deleted` (delete-for-everyone) |
+| `deleted_at` | Server timestamp when soft-deleted |
 | `sign_zones`, `sign_status`, `signed_pdf_url`, `signed_at`, `signed_by` | Signable docs |
 | `signer_uids`, `signer_names`, `current_signer_index`, `current_signer_uid` | Multi-signee |
 | `expires_at`, `signature_document_id` | Signable doc lifecycle |
+
+**Mark read (mobile):** merge `FieldValue.serverTimestamp()` into
+`chats/{chatId}/members/{uid}` fields `last_delivered_at` + `last_read_at`.
+
+**Deleted messages:** clients render `status == "deleted"` as “This message was deleted”
+without original text/media.
 
 ---
 

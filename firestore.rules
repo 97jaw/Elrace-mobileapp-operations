@@ -231,7 +231,10 @@ service cloud.firestore {
     }
 
     function canWriteMemberDoc(chatId, memberId) {
-      return isSignedIn() && notElevatingAdmin() && (
+      return isSignedIn()
+        && notElevatingAdmin()
+        && receiptFieldsNotForged(memberId)
+        && (
         (memberId == uid() && canWriteOwnMemberDoc(chatId))
         || (
           memberId != uid()
@@ -243,6 +246,28 @@ service cloud.firestore {
           && chatExists(chatId)
           && chatData(chatId).type == 'group'
           && isChatAdmin(chatId)
+        )
+      );
+    }
+
+    // Only the member themselves may set receipt watermarks, and only as
+    // server timestamps (FieldValue.serverTimestamp() == request.time).
+    function receiptFieldsNotForged(memberId) {
+      let data = request.resource.data;
+      let changingReceipts = resource == null
+        ? data.keys().hasAny(['last_read_at', 'last_delivered_at'])
+        : request.resource.data.diff(resource.data).affectedKeys()
+            .hasAny(['last_read_at', 'last_delivered_at']);
+
+      return !changingReceipts || (
+        memberId == uid()
+        && (
+          !('last_read_at' in data)
+          || data.last_read_at == request.time
+        )
+        && (
+          !('last_delivered_at' in data)
+          || data.last_delivered_at == request.time
         )
       );
     }
@@ -365,8 +390,61 @@ service cloud.firestore {
     function isOwnMessageNonSenderEdit() {
       return resource.data.sender_id == uid()
         && !touchesSigningFields()
+        && (
+          !('status' in request.resource.data)
+          || request.resource.data.status != 'deleted'
+        )
         && request.resource.data.diff(resource.data).affectedKeys()
           .hasOnly(['text', 'status', 'updated_at', 'media_url', 'media_path']);
+    }
+
+    // Soft-delete for everyone: sender only, within 10 minutes of created_at.
+    // Clears body/media so clients render “This message was deleted”.
+    function isSoftDeleteUpdate() {
+      return resource.data.sender_id == uid()
+        && resource.data.created_at is timestamp
+        && request.time <= resource.data.created_at + duration.value(10, 'm')
+        && (
+          !('status' in resource.data)
+          || resource.data.status != 'deleted'
+        )
+        && request.resource.data.status == 'deleted'
+        && !touchesSigningFields()
+        && request.resource.data.diff(resource.data).affectedKeys()
+          .hasOnly([
+            'status',
+            'text',
+            'media_url',
+            'media_path',
+            'thumb_url',
+            'file_name',
+            'file_size',
+            'mime_type',
+            'duration_ms',
+            'updated_at',
+            'deleted_at'
+          ])
+        && (
+          !('text' in request.resource.data)
+          || request.resource.data.text == null
+          || request.resource.data.text == ''
+        )
+        && (
+          !('media_url' in request.resource.data)
+          || request.resource.data.media_url == null
+        )
+        && (
+          !('media_path' in request.resource.data)
+          || request.resource.data.media_path == null
+        )
+        && (
+          !('thumb_url' in request.resource.data)
+          || request.resource.data.thumb_url == null
+        )
+        && (
+          !('deleted_at' in request.resource.data)
+          || request.resource.data.deleted_at == request.time
+        );
     }
 
     function canUpdateMessage(chatId) {
@@ -374,6 +452,7 @@ service cloud.firestore {
         && messageImmutableFieldsUnchanged()
         && (
           isAuthorizedSignerUpdate()
+          || isSoftDeleteUpdate()
           || isOwnMessageNonSenderEdit()
         );
     }

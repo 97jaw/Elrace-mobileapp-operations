@@ -59,8 +59,8 @@ No composite index file is required today.
 | Path | Read | Write | Hub note |
 |------|------|-------|----------|
 | `chats/{chatId}` | **Members / dm_pair only** | Create: deterministic id+type+self; Update: members (immutable type/dm_pair/member_ids except proven role self-add / group admin) | G2 hardened |
-| `chats/{chatId}/messages/{messageId}` | **Members only** | Create: member + sender + allowed type/keys + fresh `created_at`; Update: immutable type/created_at/client_msg_id; signing pending→pending/signed by current signer | G2 hardened |
-| `chats/{chatId}/members/{memberId}` | **Members only** | Self / DM peer bootstrap / proven role claim / group admin; delete self or group admin only | G2 hardened |
+| `chats/{chatId}/messages/{messageId}` | **Members only** | Create: member + sender + allowed type/keys + fresh `created_at`; Update: immutable type/created_at/client_msg_id; **soft-delete** (`status=deleted`) sender-only within **10 minutes** (clears text/media); signing pending→pending/signed by current signer | G2 + Hub receipts/delete |
+| `chats/{chatId}/members/{memberId}` | **Members only** | Self / DM peer bootstrap / proven role claim / group admin; **`last_read_at` / `last_delivered_at` only by self as server timestamps** (no forged receipts); delete self or group admin only | G2 + Hub receipts |
 | `userChats/{userId}/chats/{chatId}` | Owner only | Owner **or** chat member with allowlisted peer fields only | G2 hardened |
 | `users/{userId}` | Any signed-in user | Owner only | Unchanged |
 
@@ -68,8 +68,10 @@ No composite index file is required today.
 
 | Path | Read | Write |
 |------|------|-------|
-| `chat_media/{chatId}/{messageId}/{fileName}` | **Chat members only** | **Members only** + size/type limits |
+| `chat_media/{chatId}/{messageId}/{fileName}` | **Chat members only** (`member_ids` **or** `members/{uid}` **or** `dm_pair`) | Create/update: members + size/type limits; **delete: message sender only** (delete-for-everyone media cleanup) |
 | Other `chat_media/**` shapes | Denied | Denied |
+
+Voice (`.webm` / `audio/*`) uses the same path. Hub must be signed in with custom token uid `odoo_{id}` matching the DM pair.
 
 ### RTDB — recommended (`database.rules.json`)
 

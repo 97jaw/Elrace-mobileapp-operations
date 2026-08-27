@@ -30,6 +30,7 @@ import {
   ref as storageRef,
   uploadBytes,
   getBytes,
+  deleteObject,
 } from 'firebase/storage';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -448,6 +449,52 @@ describe('Firestore chat security', () => {
       }),
     );
   });
+
+  it('allows sender soft-delete within 10 minutes', async () => {
+    await assertSucceeds(
+      updateDoc(doc(aliceFs(), 'chats', DM_AB, 'messages', 'm1'), {
+        status: 'deleted',
+        text: '',
+        media_url: null,
+        media_path: null,
+        thumb_url: null,
+        deleted_at: Timestamp.now(),
+      }),
+    );
+  });
+
+  it('denies peer soft-delete of another user message', async () => {
+    await testEnv.withSecurityRulesDisabled(async (ctx) => {
+      await setDoc(doc(ctx.firestore(), 'chats', DM_AB, 'messages', 'm_peer'), {
+        sender_id: ALICE,
+        type: 'text',
+        text: 'mine',
+        created_at: Timestamp.now(),
+        status: 'sent',
+      });
+    });
+    await assertFails(
+      updateDoc(doc(bobFs(), 'chats', DM_AB, 'messages', 'm_peer'), {
+        status: 'deleted',
+        text: '',
+      }),
+    );
+  });
+
+  it('allows self member receipt timestamps and denies forged peer receipts', async () => {
+    await assertSucceeds(
+      updateDoc(doc(aliceFs(), 'chats', DM_AB, 'members', ALICE), {
+        last_read_at: Timestamp.now(),
+        last_delivered_at: Timestamp.now(),
+      }),
+    );
+    await assertFails(
+      updateDoc(doc(aliceFs(), 'chats', DM_AB, 'members', BOB), {
+        last_read_at: Timestamp.now(),
+        last_delivered_at: Timestamp.now(),
+      }),
+    );
+  });
 });
 
 describe('RTDB presence/typing security', () => {
@@ -540,5 +587,77 @@ describe('Storage chat_media security', () => {
         { contentType: 'application/pdf' },
       ),
     );
+  });
+
+  it('allows member media read via members/{uid} when member_ids lags', async () => {
+    const lagChat = 'dm_odoo_100_odoo_300';
+    const charlie = 'odoo_300';
+    await testEnv.withSecurityRulesDisabled(async (ctx) => {
+      const db = ctx.firestore();
+      await setDoc(doc(db, 'chats', lagChat), {
+        type: 'dm',
+        dm_pair: [ALICE, charlie],
+        // member_ids intentionally missing / empty — Hub race case
+      });
+      await setDoc(doc(db, 'chats', lagChat, 'members', ALICE), {
+        joined_at: new Date(),
+        muted: false,
+      });
+      await setDoc(doc(db, 'chats', lagChat, 'members', charlie), {
+        joined_at: new Date(),
+        muted: false,
+      });
+    });
+
+    const alice = testEnv.authenticatedContext(ALICE, ALICE_CLAIMS).storage();
+    const path = `chat_media/${lagChat}/hub_voice_1/voice.webm`;
+    await assertSucceeds(
+      uploadBytes(storageRef(alice, path), bytes, {
+        contentType: 'audio/webm',
+      }),
+    );
+    await assertSucceeds(getBytes(storageRef(alice, path)));
+  });
+
+  it('allows DM peer media via dm_pair without members doc', async () => {
+    const pairChat = 'dm_odoo_100_odoo_400';
+    const dana = 'odoo_400';
+    await testEnv.withSecurityRulesDisabled(async (ctx) => {
+      await setDoc(doc(ctx.firestore(), 'chats', pairChat), {
+        type: 'dm',
+        dm_pair: [ALICE, dana],
+      });
+    });
+
+    const alice = testEnv.authenticatedContext(ALICE, ALICE_CLAIMS).storage();
+    const path = `chat_media/${pairChat}/hub_msg/voice.webm`;
+    await assertSucceeds(
+      uploadBytes(storageRef(alice, path), bytes, {
+        contentType: 'audio/webm',
+      }),
+    );
+  });
+
+  it('allows sender to delete own message media object', async () => {
+    const alice = testEnv.authenticatedContext(ALICE, ALICE_CLAIMS).storage();
+    const path = `chat_media/${DM_AB}/m1/voice-delete.webm`;
+    await assertSucceeds(
+      uploadBytes(storageRef(alice, path), bytes, {
+        contentType: 'audio/webm',
+      }),
+    );
+    await assertSucceeds(deleteObject(storageRef(alice, path)));
+  });
+
+  it('denies non-sender media delete', async () => {
+    const alice = testEnv.authenticatedContext(ALICE, ALICE_CLAIMS).storage();
+    const bob = testEnv.authenticatedContext(BOB, BOB_CLAIMS).storage();
+    const path = `chat_media/${DM_AB}/m1/alice-only.pdf`;
+    await assertSucceeds(
+      uploadBytes(storageRef(alice, path), bytes, {
+        contentType: 'application/pdf',
+      }),
+    );
+    await assertFails(deleteObject(storageRef(bob, path)));
   });
 });
