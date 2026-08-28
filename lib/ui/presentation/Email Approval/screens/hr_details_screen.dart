@@ -35,6 +35,7 @@ class HrDetailsScreen extends StatefulWidget {
 }
 
 class _HrDetailsScreenState extends State<HrDetailsScreen> {
+  static const String _localFakeHrPrefix = 'LOCAL_FAKE_HR_';
   static const String _localFakeHrManagementId = 'LOCAL_FAKE_HR_001';
   static const Map<int, String> _caseByTypeId = {
     35849: 'sick',
@@ -286,6 +287,10 @@ class _HrDetailsScreenState extends State<HrDetailsScreen> {
     required String requestName,
     required List<Map<String, dynamic>> requestMaps,
   }) {
+    if (_isLocalFakeRequest) {
+      return _localFakeCaseKey;
+    }
+
     final directRequestId = int.tryParse(widget.requestId);
     if (directRequestId != null && _caseByTypeId.containsKey(directRequestId)) {
       return _caseByTypeId[directRequestId] ?? 'generic';
@@ -631,11 +636,9 @@ class _HrDetailsScreenState extends State<HrDetailsScreen> {
       case 'resign':
         return makeItems([
           ...common,
-          const _FieldDef(
-              'Notice Period Start Date', ['notice_period_start_date']),
           const _FieldDef('Resignation Type', ['resignation_type']),
           const _FieldDef('Last Day of Employee', ['expected_relieving_date']),
-          const _FieldDef('Notice Period', ['notice_period']),
+          const _FieldDef('Notice Period', ['notice_period', 'notice_period_days']),
           const _FieldDef('Reason', ['reason', 'note'], multiline: true),
         ]);
       case 'termination':
@@ -719,29 +722,152 @@ class _HrDetailsScreenState extends State<HrDetailsScreen> {
     }
   }
 
-  bool get _isLocalFakeRequest => widget.requestId == _localFakeHrManagementId;
+  bool get _isLocalFakeRequest =>
+      widget.requestId.startsWith(_localFakeHrPrefix);
+
+  String get _localFakeCaseKey {
+    if (widget.requestId == _localFakeHrManagementId) {
+      return 'temporary_permission';
+    }
+    final key = widget.requestId.substring(_localFakeHrPrefix.length);
+    if (key.isNotEmpty && _caseTitle.containsKey(key)) return key;
+    return 'generic';
+  }
 
   Map<String, dynamic> _buildLocalFakeFormData() {
+    final caseKey = _localFakeCaseKey;
+    final title = _caseTitle[caseKey] ?? 'HR Request';
+    final isExit = caseKey == 'termination' ||
+        caseKey == 'resignation' ||
+        caseKey == 'resign';
+
+    final employeeInfo = <String, dynamic>{
+      'employee_name': 'Adil Rasheed',
+      'emp_id': '524',
+      'type': 'staff',
+      'department': 'Civil',
+      'section': 'Engineering',
+      'job_title': 'Project Engineer',
+      'city_id': 'Abu Dhabi',
+      'joining_date': '2013-08-09',
+      'working_days': '13 years 0 months 16 days',
+      'salary': 12500,
+    };
+
+    if (isExit) {
+      employeeInfo['assigned_assets'] = [
+        {
+          'id': 7,
+          'hardware_type': 'laptop',
+          'hardware_type_other': null,
+          'name': 'Laptop - 1H84130LNF - Adil Rasheed',
+          'serial_number': '1H84130LNF',
+          'state': 'assigned',
+          'notes': 'Company laptop',
+        },
+        {
+          'id': 8,
+          'hardware_type': 'other',
+          'hardware_type_other': 'Company Phone',
+          'name': 'Company Phone - Adil Rasheed',
+          'serial_number': 'PH-001',
+          'state': 'assigned',
+          'notes': 'company phone',
+        },
+        {
+          'id': 9,
+          'hardware_type': 'other',
+          'hardware_type_other': 'ID Card',
+          'name': 'ID Card - Adil Rasheed',
+          'serial_number': 'IDC-524',
+          'state': 'assigned',
+          'notes': 'id card access card',
+        },
+      ];
+    }
+
+    final requestInfo = <String, dynamic>{
+      'request_no': 'REQ/DEBUG/${caseKey.toUpperCase()}',
+      'request_name': title,
+      'request_type': title,
+      'request_type_code': caseKey,
+      'request_date_from': '2026-08-01',
+      'request_date_to': '2026-08-05',
+      'requested_by': 'Adil Rasheed',
+      'requested_duration': 5,
+      'note': 'Debug review form for $title',
+    };
+
+    switch (caseKey) {
+      case 'temporary_permission':
+        requestInfo.addAll({
+          'duration_type': '3',
+          'start_time': '8 am',
+          'leave_balance': '42.50',
+          'available_days': '3',
+        });
+        break;
+      case 'termination':
+        requestInfo.addAll({
+          'termination_type': 'Company Initiated',
+          'termination_reason': 'End of contract',
+          'emp_last_day': '2026-09-30',
+        });
+        break;
+      case 'resignation':
+      case 'resign':
+        requestInfo.addAll({
+          'resignation_type': 'Voluntary',
+          'notice_period_start_date': '2026-08-01',
+          'notice_period': 30,
+          'last_work_date': '2026-09-30',
+          'expected_relieving_date': '2026-09-30',
+        });
+        break;
+      case 'increment':
+      case 'salary_increment':
+        requestInfo.addAll({
+          'increment_effective_date': '2026-09-01',
+          'employee_suggested_salary': 500,
+          'manager_suggested_salary': 400,
+          'suggested_total': 12900,
+          'overall_score': 85,
+        });
+        break;
+      case 'promotion':
+        requestInfo.addAll({
+          'effective_date': '2026-09-01',
+          'new_job': 'Senior Project Engineer',
+          'overall_score': 90,
+        });
+        break;
+      case 'loan':
+        requestInfo.addAll({
+          'loan_type': 'Personal',
+          'loan_amount': 10000,
+          'years': 2,
+        });
+        break;
+      case 'car_rent':
+        requestInfo.addAll({
+          'car_req_type': 'New',
+          'rent_type': 'Monthly',
+          'company_no': '0501234567',
+        });
+        break;
+      case 'sim':
+        requestInfo.addAll({
+          'sim_type': 'New Line',
+          'company_no': '0501234567',
+        });
+        break;
+      default:
+        break;
+    }
+
     return {
-      'employee_info': {
-        'employee_name': 'Local Test Employee',
-        'emp_id': 'EMP-FAKE-001',
-        'type': 'Staff',
-        'section': 'Media',
-        'job_title': 'Media Manager',
-        'city_id': 'Al Ain',
-        'joining_date': '2023-10-16',
-        'working_days': '2 years 4 months 24 days',
-      },
-      'request_info': {
-        'request_no': 'REQ/FAKE/001',
-        'request_name': 'Temporary Permission',
-        'request_date_from': '2026-03-04',
-        'request_date_to': '2026-03-05',
-        'duration_type': '3',
-        'start_time': '8 am',
-        'leave_balance': '42.50',
-      },
+      'employee_info': employeeInfo,
+      'request_info': requestInfo,
     };
   }
 
@@ -1261,6 +1387,79 @@ class _HrDetailsScreenState extends State<HrDetailsScreen> {
     return raw;
   }
 
+  String _formatWorkDurationCompact(String value) {
+    final raw = value.trim();
+    if (raw.isEmpty || raw == '-') return '-';
+
+    final years =
+        RegExp(r'(\d+)\s*years?', caseSensitive: false).firstMatch(raw);
+    final months =
+        RegExp(r'(\d+)\s*months?', caseSensitive: false).firstMatch(raw);
+    final days =
+        RegExp(r'(\d+)\s*days?', caseSensitive: false).firstMatch(raw);
+
+    if (years != null || months != null || days != null) {
+      final y = years?.group(1) ?? '0';
+      final m = months?.group(1) ?? '0';
+      final d = days?.group(1) ?? '0';
+      return '${y}y, ${m}m, ${d}d';
+    }
+
+    // Already compact or unknown shape — keep single-line.
+    return raw.replaceAll(RegExp(r'\s+'), ' ');
+  }
+
+  String _formatNoticePeriodDays(String value) {
+    final raw = value.trim();
+    if (raw.isEmpty || raw == '-') return '-';
+    if (RegExp(r'\bdays?\b', caseSensitive: false).hasMatch(raw)) {
+      return raw;
+    }
+    final asInt = int.tryParse(raw);
+    if (asInt != null) return '$asInt days';
+    final digits = RegExp(r'-?\d+').firstMatch(raw)?.group(0);
+    if (digits != null) {
+      final n = int.tryParse(digits);
+      if (n != null) return '$n days';
+    }
+    return raw;
+  }
+
+  int? _noticePeriodDaysBetween(String startRaw, String endRaw) {
+    DateTime? parse(String raw) {
+      final s = raw.trim();
+      if (s.isEmpty || s == '-') return null;
+      final datePart = s.split(' ').first;
+      final iso = DateTime.tryParse(datePart);
+      if (iso != null) return iso;
+      final parts = datePart.split('/');
+      if (parts.length == 3) {
+        final d = int.tryParse(parts[0]);
+        final m = int.tryParse(parts[1]);
+        final y = int.tryParse(parts[2]);
+        if (d != null && m != null && y != null) {
+          return DateTime(y, m, d);
+        }
+      }
+      final dash = datePart.split('-');
+      if (dash.length == 3 && dash[0].length == 4) {
+        final y = int.tryParse(dash[0]);
+        final m = int.tryParse(dash[1]);
+        final d = int.tryParse(dash[2]);
+        if (y != null && m != null && d != null) {
+          return DateTime(y, m, d);
+        }
+      }
+      return null;
+    }
+
+    final start = parse(startRaw);
+    final end = parse(endRaw);
+    if (start == null || end == null) return null;
+    final days = end.difference(start).inDays + 1;
+    return days < 0 ? null : days;
+  }
+
   String _formatAmountWithAed(String value) {
     final raw = value.trim();
     if (raw.isEmpty) return '-';
@@ -1272,6 +1471,25 @@ class _HrDetailsScreenState extends State<HrDetailsScreen> {
     return raw;
   }
 
+  String _formatSalaryDisplay(String value) {
+    final raw = value.trim();
+    if (raw.isEmpty || raw == '-') return '-';
+    final cleaned = raw.replaceAll(RegExp(r'[^\d.]'), '');
+    final number = double.tryParse(cleaned);
+    if (number == null) return raw;
+    final isWhole = number == number.roundToDouble();
+    final digits = isWhole
+        ? number.round().toString()
+        : number.toStringAsFixed(2);
+    final parts = digits.split('.');
+    final withCommas = parts[0].replaceAllMapped(
+      RegExp(r'(\d)(?=(\d{3})+(?!\d))'),
+      (m) => '${m[1]},',
+    );
+    if (parts.length == 1) return withCommas;
+    return '$withCommas.${parts[1]}';
+  }
+
   bool _isDurationFieldLabel(String label) {
     final normalized = label.trim().toLowerCase();
     return normalized == 'duration' || normalized == 'duration time';
@@ -1280,15 +1498,25 @@ class _HrDetailsScreenState extends State<HrDetailsScreen> {
   Widget _simSectionCard({
     required String title,
     required List<_DetailItem> items,
+    int columns = 2,
+    bool paddedCells = true,
   }) {
     final visible =
         items.where((e) => e.value.trim().isNotEmpty).toList(growable: false);
+    final colCount = columns < 1 ? 2 : columns;
+    final gap = paddedCells ? 8.tw : 6.tw;
+    final runGap = paddedCells ? 8.th : 6.th;
 
     return OverviewGlassPanel(
       fillAlpha: 0.9,
       blurSigma: 8,
       radius: 16,
-      padding: EdgeInsets.fromLTRB(12.tw, 10.th, 12.tw, 10.th),
+      padding: EdgeInsets.fromLTRB(
+        paddedCells ? 14.tw : 12.tw,
+        paddedCells ? 12.th : 10.th,
+        paddedCells ? 14.tw : 12.tw,
+        paddedCells ? 12.th : 10.th,
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
@@ -1302,7 +1530,7 @@ class _HrDetailsScreenState extends State<HrDetailsScreen> {
               color: ApprovalsOverviewTheme.screenDeep,
             ),
           ),
-          SizedBox(height: 6.th),
+          SizedBox(height: paddedCells ? 10.th : 6.th),
           if (visible.isEmpty)
             Text(
               'No data',
@@ -1314,10 +1542,11 @@ class _HrDetailsScreenState extends State<HrDetailsScreen> {
           else
             LayoutBuilder(
               builder: (context, constraints) {
-                final cellW = (constraints.maxWidth - 8.tw) / 2;
+                final totalGap = gap * (colCount - 1);
+                final cellW = (constraints.maxWidth - totalGap) / colCount;
                 return Wrap(
-                  spacing: 6.tw,
-                  runSpacing: 6.th,
+                  spacing: gap,
+                  runSpacing: runGap,
                   children: [
                     for (final item in visible)
                       SizedBox(
@@ -1325,8 +1554,9 @@ class _HrDetailsScreenState extends State<HrDetailsScreen> {
                         child: _themeDetailCell(
                           item.label,
                           item.value,
-                          // Form view: only Duration values use red text.
                           highlight: _isDurationFieldLabel(item.label),
+                          padded: paddedCells,
+                          valueMaxLines: paddedCells ? 1 : (item.multiline ? 4 : 2),
                         ),
                       ),
                   ],
@@ -1338,11 +1568,19 @@ class _HrDetailsScreenState extends State<HrDetailsScreen> {
     );
   }
 
-  Widget _themeDetailCell(String label, String value,
-      {bool highlight = false}) {
+  Widget _themeDetailCell(
+    String label,
+    String value, {
+    bool highlight = false,
+    bool padded = false,
+    int valueMaxLines = 2,
+  }) {
     return Container(
       width: double.infinity,
-      padding: EdgeInsets.symmetric(horizontal: 8.tw, vertical: 6.th),
+      padding: EdgeInsets.symmetric(
+        horizontal: padded ? 10.tw : 8.tw,
+        vertical: padded ? 10.th : 6.th,
+      ),
       decoration: BoxDecoration(
         color: ApprovalsOverviewTheme.screenTintLight.withValues(alpha: 0.65),
         borderRadius: BorderRadius.circular(12.tr),
@@ -1355,7 +1593,7 @@ class _HrDetailsScreenState extends State<HrDetailsScreen> {
         children: [
           Text(
             label,
-            maxLines: 2,
+            maxLines: 1,
             overflow: TextOverflow.ellipsis,
             style: GoogleFonts.poppins(
               fontSize: 9.tsp,
@@ -1363,18 +1601,198 @@ class _HrDetailsScreenState extends State<HrDetailsScreen> {
               color: ApprovalsOverviewTheme.textSoft,
             ),
           ),
-          SizedBox(height: 2.th),
+          SizedBox(height: padded ? 4.th : 2.th),
           Text(
             value,
-            maxLines: 2,
+            maxLines: valueMaxLines,
             overflow: TextOverflow.ellipsis,
+            softWrap: valueMaxLines > 1,
             style: GoogleFonts.poppins(
-              fontSize: 11.tsp,
+              fontSize: padded ? 12.tsp : 11.tsp,
               fontWeight: FontWeight.w700,
+              height: 1.15,
               color: highlight
                   ? ApprovalsOverviewTheme.hr
                   : ApprovalsOverviewTheme.textDark,
             ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  static const List<String> _fixedAssetCategories = [
+    'Laptop',
+    'Company Phone',
+    'Vehicle Key',
+    'ID Card',
+    'SIM Card',
+    'Uniform',
+    'Access Card',
+  ];
+
+  static const Map<String, String> _hardwareTypeToAssetLabel = {
+    'laptop': 'Laptop',
+    'desktop': 'Desktop',
+    'screen': 'Screen',
+    'printer': 'Printer',
+    'keyboard': 'Keyboard',
+    'mouse': 'Mouse',
+    'hdd': 'HDD',
+  };
+
+  List<MapEntry<String, bool>> _buildAssignedAssetEntries(
+    List<dynamic> rawAssets,
+  ) {
+    final selected = <String>{};
+    final extras = <String>[];
+
+    for (final raw in rawAssets) {
+      if (raw is! Map) continue;
+      final map = Map<String, dynamic>.from(raw);
+      final hardwareType =
+          (map['hardware_type'] ?? '').toString().trim().toLowerCase();
+      final other =
+          (map['hardware_type_other'] ?? '').toString().trim().toLowerCase();
+      final name = (map['name'] ?? '').toString().trim().toLowerCase();
+      final notes = (map['notes'] ?? '').toString().trim().toLowerCase();
+      final blob = '$other $name $notes';
+
+      var matchedFixed = false;
+      final mapped = _hardwareTypeToAssetLabel[hardwareType];
+      if (mapped != null && _fixedAssetCategories.contains(mapped)) {
+        selected.add(mapped);
+        matchedFixed = true;
+      }
+
+      bool hit(String needle) => blob.contains(needle);
+      if (hit('laptop')) {
+        selected.add('Laptop');
+        matchedFixed = true;
+      }
+      if (hit('phone') || hit('mobile')) {
+        selected.add('Company Phone');
+        matchedFixed = true;
+      }
+      if (hit('vehicle') || hit('car key') || hit('vehicle key')) {
+        selected.add('Vehicle Key');
+        matchedFixed = true;
+      }
+      if (hit('id card') || hit('identity')) {
+        selected.add('ID Card');
+        matchedFixed = true;
+      }
+      if (hit('sim')) {
+        selected.add('SIM Card');
+        matchedFixed = true;
+      }
+      if (hit('uniform')) {
+        selected.add('Uniform');
+        matchedFixed = true;
+      }
+      if (hit('access card') || hit('access')) {
+        selected.add('Access Card');
+        matchedFixed = true;
+      }
+
+      if (!matchedFixed) {
+        String label;
+        if (mapped != null) {
+          label = mapped;
+        } else if (other.isNotEmpty) {
+          label = (map['hardware_type_other'] ?? 'Other').toString();
+        } else if ((map['name'] ?? '').toString().trim().isNotEmpty) {
+          label = map['name'].toString().trim();
+        } else {
+          label = hardwareType.isNotEmpty ? hardwareType : 'Other';
+        }
+        if (label.isNotEmpty &&
+            !selected.contains(label) &&
+            !_fixedAssetCategories.contains(label)) {
+          extras.add(label);
+          selected.add(label);
+        }
+      }
+    }
+
+    final entries = <MapEntry<String, bool>>[
+      for (final label in _fixedAssetCategories)
+        MapEntry(label, selected.contains(label)),
+      for (final extra in extras) MapEntry(extra, true),
+    ];
+    return entries;
+  }
+
+  Widget _assignedAssetsSection(List<dynamic> rawAssets) {
+    final entries = _buildAssignedAssetEntries(rawAssets);
+
+    return OverviewGlassPanel(
+      fillAlpha: 0.9,
+      blurSigma: 8,
+      radius: 16,
+      padding: EdgeInsets.fromLTRB(14.tw, 12.th, 14.tw, 12.th),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            'ASSIGNED ASSETS',
+            style: GoogleFonts.poppins(
+              fontSize: 10.tsp,
+              fontWeight: FontWeight.w700,
+              letterSpacing: 0.7,
+              color: ApprovalsOverviewTheme.screenDeep,
+            ),
+          ),
+          SizedBox(height: 10.th),
+          LayoutBuilder(
+            builder: (context, constraints) {
+              const cols = 3;
+              final gap = 10.tw;
+              final cellW = (constraints.maxWidth - gap * (cols - 1)) / cols;
+              return Wrap(
+                spacing: gap,
+                runSpacing: 10.th,
+                children: [
+                  for (final entry in entries)
+                    SizedBox(
+                      width: cellW,
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.center,
+                        children: [
+                          Container(
+                            width: 14.tw,
+                            height: 14.tw,
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              color: entry.value
+                                  ? ApprovalsOverviewTheme.screenDeep
+                                  : Colors.transparent,
+                              border: Border.all(
+                                color: ApprovalsOverviewTheme.screenDeep,
+                                width: 1.5,
+                              ),
+                            ),
+                          ),
+                          SizedBox(width: 6.tw),
+                          Expanded(
+                            child: Text(
+                              entry.key,
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                              style: GoogleFonts.poppins(
+                                fontSize: 11.tsp,
+                                fontWeight: FontWeight.w600,
+                                color: ApprovalsOverviewTheme.textDark,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                ],
+              );
+            },
           ),
         ],
       ),
@@ -1769,7 +2187,7 @@ class _HrDetailsScreenState extends State<HrDetailsScreen> {
       _DetailItem('City/Branch',
           _pickFromMaps(employeeMaps, ['city_id', 'city', 'branch'])),
       _DetailItem('Employee ID',
-          _pickFromMaps(employeeMaps, ['emp_id', 'employee_id'])),
+          _pickFromMaps(employeeMaps, ['emp_id'])),
       _DetailItem('Joining Date',
           _pickFromMaps(employeeMaps, ['joining_date', 'join_date'])),
       _DetailItem(
@@ -1824,10 +2242,24 @@ class _HrDetailsScreenState extends State<HrDetailsScreen> {
 
     final employeeType =
         _pickFromMaps(employeeMaps, ['type', 'employee_type'], fallback: '-');
-    final employeeId =
-        _pickFromMaps(employeeMaps, ['emp_id', 'employee_id'], fallback: '-');
+    // Waiting form ID box must show emp_id only (not Odoo employee_id).
+    final employeeId = _pickFromMaps(employeeMaps, ['emp_id'], fallback: '-');
+    final employeePosition = _pickFromMaps(
+      employeeMaps,
+      ['job_title', 'job_position'],
+      fallback: '-',
+    );
+    // API maps section_id → "department"; prefer that for Section.
+    final employeeSection = _pickFromMaps(
+      employeeMaps,
+      ['department', 'section'],
+      fallback: '-',
+    );
     final joiningDate = _formatDateForDisplay(
       _pickFromMaps(employeeMaps, ['joining_date', 'join_date'], fallback: '-'),
+    );
+    final employeeSalary = _formatSalaryDisplay(
+      _pickFromMaps(employeeMaps, ['salary', 'total_salary'], fallback: '-'),
     );
     final effectiveDate = _formatDateForDisplay(
       _pickFromMaps(
@@ -1869,8 +2301,9 @@ class _HrDetailsScreenState extends State<HrDetailsScreen> {
       ['evaluation_score', 'overall_score'],
       fallback: '-',
     );
-    final workDuration =
-        _pickFromMaps(employeeMaps, ['working_days'], fallback: '-');
+    final workDuration = _formatWorkDurationCompact(
+      _pickFromMaps(employeeMaps, ['working_days'], fallback: '-'),
+    );
     final requestedBy = _pickFromMaps(
         requestMaps, ['requested_by', 'requester_name', 'employee_name'],
         fallback: employeeName);
@@ -2132,13 +2565,6 @@ class _HrDetailsScreenState extends State<HrDetailsScreen> {
         fallback: '-',
       ),
     );
-    final noticePeriodStart = _formatDateForDisplay(
-      _pickFromMaps(
-        requestMaps,
-        ['notice_period_start_date'],
-        fallback: '-',
-      ),
-    );
     final resignationType = _pickFromMaps(
       requestMaps,
       ['resignation_type'],
@@ -2151,11 +2577,28 @@ class _HrDetailsScreenState extends State<HrDetailsScreen> {
         fallback: '-',
       ),
     );
-    final noticePeriod = _pickFromMaps(
+    final noticePeriodRaw = _pickFromMaps(
       requestMaps,
-      ['notice_period'],
-      fallback: '-',
+      ['notice_period', 'notice_period_days'],
+      fallback: '',
     );
+    var noticePeriod = _formatNoticePeriodDays(
+      noticePeriodRaw.isEmpty ? '-' : noticePeriodRaw,
+    );
+    if (noticePeriod == '-') {
+      final startRaw = _pickFromMaps(
+        requestMaps,
+        ['notice_period_start_date'],
+      );
+      final endRaw = _pickFromMaps(
+        requestMaps,
+        ['expected_relieving_date', 'emp_last_day', 'last_work_date'],
+      );
+      final computed = _noticePeriodDaysBetween(startRaw, endRaw);
+      if (computed != null) {
+        noticePeriod = '$computed days';
+      }
+    }
     final terminationType = _pickFromMaps(
       requestMaps,
       ['termination_type'],
@@ -2381,6 +2824,8 @@ class _HrDetailsScreenState extends State<HrDetailsScreen> {
                                                 children: [
                                                   _simSectionCard(
                                                     title: 'Employee Summary',
+                                                    columns: 3,
+                                                    paddedCells: true,
                                                     items: [
                                                       _DetailItem(
                                                           'Employee Type',
@@ -2393,10 +2838,31 @@ class _HrDetailsScreenState extends State<HrDetailsScreen> {
                                                               ? '-'
                                                               : employeeId),
                                                       _DetailItem(
-                                                          'Joining Date',
-                                                          joiningDate.isEmpty
+                                                          'Position',
+                                                          employeePosition
+                                                                  .isEmpty
                                                               ? '-'
-                                                              : joiningDate),
+                                                              : employeePosition),
+                                                      _DetailItem(
+                                                          'Section',
+                                                          employeeSection
+                                                                  .isEmpty
+                                                              ? '-'
+                                                              : employeeSection),
+                                                      if (isTerminationRequest ||
+                                                          isResignationRequest)
+                                                        _DetailItem(
+                                                            'Salary (AED)',
+                                                            employeeSalary
+                                                                    .isEmpty
+                                                                ? '-'
+                                                                : employeeSalary)
+                                                      else
+                                                        _DetailItem(
+                                                            'Joining Date',
+                                                            joiningDate.isEmpty
+                                                                ? '-'
+                                                                : joiningDate),
                                                       _DetailItem(
                                                           'Work Duration',
                                                           workDuration.isEmpty
@@ -2404,6 +2870,20 @@ class _HrDetailsScreenState extends State<HrDetailsScreen> {
                                                               : workDuration),
                                                     ],
                                                   ),
+                                                  if (isTerminationRequest ||
+                                                      isResignationRequest) ...[
+                                                    SizedBox(height: 6.tw),
+                                                    _assignedAssetsSection(
+                                                      (_employeeInfo[
+                                                                  'assigned_assets']
+                                                              is List)
+                                                          ? List<dynamic>.from(
+                                                              _employeeInfo[
+                                                                      'assigned_assets']
+                                                                  as List)
+                                                          : const [],
+                                                    ),
+                                                  ],
                                                   SizedBox(height: 6.tw),
                                                   _simSectionCard(
                                                     title: 'Request Info',
@@ -2945,10 +3425,6 @@ class _HrDetailsScreenState extends State<HrDetailsScreen> {
                                                                                                                       requestDate.isEmpty ? '-' : requestDate,
                                                                                                                     ),
                                                                                                                     _DetailItem(
-                                                                                                                      'Notice Period Start',
-                                                                                                                      noticePeriodStart.isEmpty ? '-' : noticePeriodStart,
-                                                                                                                    ),
-                                                                                                                    _DetailItem(
                                                                                                                       'Resignation Type',
                                                                                                                       resignationType.isEmpty ? '-' : resignationType,
                                                                                                                     ),
@@ -2959,7 +3435,7 @@ class _HrDetailsScreenState extends State<HrDetailsScreen> {
                                                                                                                     _DetailItem(
                                                                                                                       'Notice Period',
                                                                                                                       noticePeriod.isEmpty ? '-' : noticePeriod,
-                                                                                                                    ),
+                                                                                    ),
                                                                                                                   ]
                                                                                                                 : isTerminationRequest
                                                                                                                     ? [

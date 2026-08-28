@@ -6,6 +6,7 @@ import 'package:el_race/core/clients_vendors/clients_vendors_route_names.dart';
 import 'package:el_race/ui/presentation/clients_vendors/data/vendors_dashboard_repository.dart';
 import 'package:el_race/ui/presentation/clients_vendors/theme/vendors_theme.dart';
 import 'package:el_race/ui/presentation/clients_vendors/widgets/clients_list_chrome.dart';
+import 'package:el_race/ui/presentation/my_documents/utils/document_attachment_opener.dart';
 import 'package:el_race/ui/widgets/contextual_glass_chrome_header.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -1001,6 +1002,19 @@ class _AgreementsSheetState extends State<_AgreementsSheet> {
     return '${parsed.day.toString().padLeft(2, '0')} ${months[parsed.month - 1]} ${parsed.year}';
   }
 
+  Future<void> _openAttachmentsSheet(VendorsAgreementRow row) async {
+    final title = row.number.isEmpty ? 'Contract #${row.id}' : row.number;
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => _AgreementAttachmentsSheet(
+        agreementId: row.id,
+        agreementTitle: title,
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final q = _query.trim();
@@ -1058,7 +1072,7 @@ class _AgreementsSheetState extends State<_AgreementsSheet> {
                       ),
                       cursorColor: VendorsTheme.glowBright,
                       decoration: InputDecoration(
-                        hintText: 'Search contracts…',
+                        hintText: 'Search code, project code, vendor…',
                         hintStyle: GoogleFonts.poppins(
                           fontSize: 13,
                           color: Colors.white54,
@@ -1117,7 +1131,7 @@ class _AgreementsSheetState extends State<_AgreementsSheet> {
                                 end: _fmtDate(row.endDate),
                                 value:
                                     '${_VendorsDashboardBodyState._kmOnly(row.valueFormatted)} AED',
-                                onTap: () {},
+                                onTap: () => _openAttachmentsSheet(row),
                               );
                             }
                             if (showEmpty) {
@@ -1157,6 +1171,283 @@ class _AgreementsSheetState extends State<_AgreementsSheet> {
           ),
         );
       },
+    );
+  }
+}
+
+class _AgreementAttachmentsSheet extends StatefulWidget {
+  const _AgreementAttachmentsSheet({
+    required this.agreementId,
+    required this.agreementTitle,
+  });
+
+  final int agreementId;
+  final String agreementTitle;
+
+  @override
+  State<_AgreementAttachmentsSheet> createState() =>
+      _AgreementAttachmentsSheetState();
+}
+
+class _AgreementAttachmentsSheetState extends State<_AgreementAttachmentsSheet> {
+  final _repo = VendorsDashboardRepository();
+  bool _loading = true;
+  String? _error;
+  List<VendorsAgreementAttachmentRow> _items = const [];
+  String _headerTitle = '';
+
+  @override
+  void initState() {
+    super.initState();
+    _headerTitle = widget.agreementTitle;
+    _load();
+  }
+
+  Future<void> _load() async {
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
+    try {
+      final page = await _repo.fetchAgreementAttachments(
+        agreementId: widget.agreementId,
+      );
+      if (!mounted) return;
+      setState(() {
+        _items = page.items;
+        if (page.agreementName.trim().isNotEmpty) {
+          _headerTitle = page.agreementName.trim();
+        }
+        _loading = false;
+        _error = null;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _loading = false;
+        _items = const [];
+        _error = 'Could not load files.';
+      });
+    }
+  }
+
+  Future<void> _viewFile(VendorsAgreementAttachmentRow file) async {
+    await DocumentAttachmentOpener.openById(
+      context,
+      attachmentId: file.id,
+      hintName: file.name,
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return DraggableScrollableSheet(
+      initialChildSize: 0.72,
+      minChildSize: 0.40,
+      maxChildSize: 0.94,
+      builder: (context, scrollController) {
+        return Container(
+          decoration: const BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: [
+                VendorsTheme.deepLight,
+                VendorsTheme.deepDark,
+              ],
+            ),
+            borderRadius: BorderRadius.vertical(top: Radius.circular(22)),
+          ),
+          child: Column(
+            children: [
+              const SizedBox(height: 10),
+              Container(
+                width: 42,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.35),
+                  borderRadius: BorderRadius.circular(99),
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(12, 14, 12, 8),
+                child: Row(
+                  children: [
+                    IconButton(
+                      onPressed: () => Navigator.of(context).pop(),
+                      icon: const Icon(
+                        Icons.arrow_back_ios_new_rounded,
+                        color: Colors.white70,
+                        size: 18,
+                      ),
+                      tooltip: 'Back to contracts',
+                    ),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Files',
+                            style: GoogleFonts.poppins(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w700,
+                              color: Colors.white,
+                            ),
+                          ),
+                          Text(
+                            _headerTitle,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: GoogleFonts.poppins(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w500,
+                              color: Colors.white70,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Expanded(
+                child: _loading
+                    ? const Center(
+                        child: CircularProgressIndicator(
+                          color: Colors.white70,
+                          strokeWidth: 2.5,
+                        ),
+                      )
+                    : _items.isEmpty
+                        ? ListView(
+                            controller: scrollController,
+                            padding: const EdgeInsets.all(24),
+                            children: [
+                              Text(
+                                _error ?? 'No files attached to this contract.',
+                                textAlign: TextAlign.center,
+                                style: GoogleFonts.poppins(
+                                  fontSize: 13,
+                                  color: Colors.white70,
+                                ),
+                              ),
+                            ],
+                          )
+                        : ListView.builder(
+                            controller: scrollController,
+                            padding: const EdgeInsets.fromLTRB(12, 0, 12, 24),
+                            itemCount: _items.length,
+                            itemBuilder: (context, index) {
+                              final file = _items[index];
+                              return _AgreementAttachmentTile(
+                                name: file.name,
+                                typeLabel: file.attachmentTypeLabel,
+                                onView: () => _viewFile(file),
+                              );
+                            },
+                          ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _AgreementAttachmentTile extends StatelessWidget {
+  const _AgreementAttachmentTile({
+    required this.name,
+    required this.typeLabel,
+    required this.onView,
+  });
+
+  final String name;
+  final String typeLabel;
+  final VoidCallback onView;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Container(
+        padding: const EdgeInsets.fromLTRB(14, 12, 10, 12),
+        decoration: BoxDecoration(
+          color: Colors.white.withValues(alpha: 0.08),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+            color: Colors.white.withValues(alpha: 0.14),
+          ),
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 38,
+              height: 38,
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                color: Colors.white.withValues(alpha: 0.10),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: const Icon(
+                Icons.insert_drive_file_rounded,
+                color: Colors.white70,
+                size: 20,
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    name,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: GoogleFonts.poppins(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.white,
+                    ),
+                  ),
+                  if (typeLabel.trim().isNotEmpty) ...[
+                    const SizedBox(height: 2),
+                    Text(
+                      typeLabel,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: GoogleFonts.poppins(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w500,
+                        color: Colors.white60,
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+            const SizedBox(width: 8),
+            TextButton(
+              onPressed: onView,
+              style: TextButton.styleFrom(
+                foregroundColor: VendorsTheme.glowBright,
+                backgroundColor: Colors.white.withValues(alpha: 0.10),
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10),
+                ),
+              ),
+              child: Text(
+                'View',
+                style: GoogleFonts.poppins(
+                  fontSize: 12.5,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

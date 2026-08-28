@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:el_race/core/utils/shared_pref.dart';
-import 'package:el_race/ui/widgets/header_widget.dart';
+import 'package:el_race/core/widgets/hr_management/hr_module_glass_header.dart';
+import 'package:el_race/ui/navigation/home_navigation.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
@@ -262,17 +263,17 @@ class _RequestLeavePageNewState extends State<RequestLeavePageNew> {
   String _getPageTitle() {
     switch (widget.leaveType) {
       case 'SICK':
-        return 'SICK LEAVE';
+        return 'Sick leave';
       case 'SHORT':
-        return 'SHORT LEAVE';
+        return 'Short leave';
       case 'ANNUAL':
-        return 'ANNUAL LEAVE';
+        return 'Annual leave';
       case 'WORK_COMPENSATION':
-        return 'WORK COMPENSATION';
+        return 'Work compensation';
       case 'LEAVE_ENCASHMENT':
-        return 'LEAVE ENCASHMENT';
+        return 'Leave encashment';
       default:
-        return 'LEAVE REQUEST';
+        return 'Leave request';
     }
   }
 
@@ -297,28 +298,23 @@ class _RequestLeavePageNewState extends State<RequestLeavePageNew> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFFF5F5F5),
-      appBar: const HeaderWidget(),
-      body: SafeArea(
-        child: Column(
-          children: [
-            // Title
-            Padding(
-              padding: EdgeInsets.symmetric(vertical: 16.h),
-              child: Text(
-                _getPageTitle(),
-                style: GoogleFonts.poppins(
-                  fontSize: 18.sp,
-                  fontWeight: FontWeight.w400,
-                  letterSpacing: 1.5,
-                  color: _primary,
-                ),
-              ),
-            ),
-
+      body: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          HrModuleGlassHeader(
+            title: _getPageTitle(),
+            accentTint: HrModuleHeaderTints.requests,
+            onBack: () => HomeNavigation.handleSystemBack(context),
+          ),
+          Expanded(
+            child: SafeArea(
+              top: false,
+              child: Column(
+                children: [
             // Content Card
             Expanded(
               child: Container(
-                margin: EdgeInsets.symmetric(horizontal: 20.w),
+                margin: EdgeInsets.fromLTRB(20.w, 12.h, 20.w, 0),
                 padding: EdgeInsets.all(20.w),
                 decoration: BoxDecoration(
                   color: Colors.white,
@@ -544,8 +540,11 @@ class _RequestLeavePageNewState extends State<RequestLeavePageNew> {
               ),
             ),
             SizedBox(height: 20.h),
-          ],
-        ),
+                ],
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }

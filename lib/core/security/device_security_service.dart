@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'package:flutter/foundation.dart' show kDebugMode;
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_jailbreak_detection/flutter_jailbreak_detection.dart';
 import 'package:safe_device/safe_device.dart';
 import 'package:vpn_connection_detector/vpn_connection_detector.dart';
@@ -28,6 +29,28 @@ class SecurityCheckResult {
             !isUsingVpn &&
             !isMockLocation &&
             !isEmulator;
+
+  factory SecurityCheckResult.vpnOnly() => SecurityCheckResult(
+        isRooted: false,
+        isJailbroken: false,
+        isUsingVpn: true,
+        isMockLocation: false,
+        isEmulator: false,
+      );
+
+  /// True when VPN is the only blocking reason.
+  bool get isVpnOnlyViolation =>
+      isUsingVpn &&
+      !isRooted &&
+      !isJailbroken &&
+      !isMockLocation &&
+      !isEmulator;
+
+  String get dialogTitle {
+    if (isVpnOnlyViolation) return 'VPN Not Allowed';
+    if (isUsingVpn) return 'Security Warning';
+    return 'Security Warning';
+  }
 
   /// Returns the reason why device is not secure
   String getSecurityViolationMessage() {
@@ -61,7 +84,24 @@ class SecurityCheckResult {
       return 'Device is secure ✓';
     }
 
-    return 'The application cannot be used for the following reasons:\n\n${getSecurityViolationMessage()}\n\nPlease disable these features and restart the application.';
+    if (isVpnOnlyViolation) {
+      final howTo =
+          Platform.isIOS
+              ? 'Open Settings → VPN (or General → VPN & Device Management), turn VPN off, then tap Retry.'
+              : 'Turn off VPN in your device settings (or your VPN app), then tap Retry.';
+      return 'A VPN connection is active on this device.\n\n'
+          'For security reasons, Elrace Operations cannot be used while a VPN is turned on.\n\n'
+          '$howTo';
+    }
+
+    final vpnHint = isUsingVpn
+        ? '\n\nIf you are using a VPN, please turn it off and try again.'
+        : '';
+
+    return 'The application cannot be used for the following reasons:\n\n'
+        '${getSecurityViolationMessage()}'
+        '$vpnHint\n\n'
+        'Please fix these issues and restart the application.';
   }
 }
 
@@ -113,19 +153,14 @@ class DeviceSecurityService {
         print('⚠️ Error checking root/jailbreak: $e');
       }
 
-      // Check VPN (Android only).
-      // iOS: VPN detection is intentionally disabled — blocking the app while
-      // a VPN is active risks App Store rejection, and the NEVPNManager /
-      // NETunnelProviderManager check was removed from the iOS AppDelegate.
-      if (Platform.isIOS) {
-        print('🔒 VPN check: SKIPPED on iOS (App Store compliance)');
-      } else if (AppConfigService.instance.shouldSkipVpnCheck) {
+      // Check VPN on Android and iOS (unless remote/test config skips it).
+      if (AppConfigService.instance.shouldSkipVpnCheck) {
         print('🔒 VPN check: SKIPPED (shouldSkipVpnCheck=true)');
       } else {
         try {
-          print('🔒 Android: Calling VPN detector...');
-          isUsingVpn = await VpnConnectionDetector.isVpnActive();
-          print('🔒 Android: VPN check result: $isUsingVpn');
+          print('🔒 ${Platform.isIOS ? "iOS" : "Android"}: Calling VPN detector...');
+          isUsingVpn = await _detectVpnActive();
+          print('🔒 VPN check result: $isUsingVpn');
         } catch (e) {
           print('⚠️ Error checking VPN: $e');
           // Don't fail the security check if VPN detection fails
@@ -179,67 +214,179 @@ class DeviceSecurityService {
     return result.isSecure;
   }
 
+  static const MethodChannel _vpnChannel =
+      MethodChannel('ae.elrace.mobile/vpn_detection');
+
+  /// Platform VPN probe used by full security check and resume re-check.
+  /// Android: interface / connectivity detector. iOS: native `__SCOPED__` proxy settings.
+  Future<bool> _detectVpnActive() async {
+    if (Platform.isIOS) {
+      final active = await _vpnChannel.invokeMethod<bool>('isVpnActive');
+      return active ?? false;
+    }
+    return VpnConnectionDetector.isVpnActive();
+  }
+
+  /// Quick VPN-only check (Android + iOS). Used on app resume.
+  /// Returns true when an active VPN should block the app.
+  Future<bool> isVpnBlockingActive() async {
+    if (AppConfigService.instance.shouldSkipVpnCheck) return false;
+    try {
+      return await _detectVpnActive().timeout(
+        const Duration(milliseconds: 1500),
+        onTimeout: () => false,
+      );
+    } catch (e) {
+      print('⚠️ Quick VPN check error: $e');
+      return false;
+    }
+  }
+
+  static bool _securityDialogVisible = false;
+
   /// Shows a blocking dialog if the device is not secure
   static Future<void> showSecurityBlockDialog(
     BuildContext context,
     SecurityCheckResult result,
   ) async {
-    await showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (context) => WillPopScope(
-        onWillPop: () async => false, // Prevent back button
-        child: AlertDialog(
-          backgroundColor: Colors.white,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
-          ),
-          title: const Row(
-            children: [
-              Icon(Icons.security, color: Colors.red, size: 32),
-              SizedBox(width: 12),
-              Text(
-                'Security Warning',
-                style: TextStyle(
-                  color: Colors.red,
-                  fontWeight: FontWeight.bold,
-                  fontSize: 20,
+    if (_securityDialogVisible) return;
+    if (!context.mounted) return;
+    _securityDialogVisible = true;
+
+    final isVpnFocused = result.isVpnOnlyViolation || result.isUsingVpn;
+    final title = result.dialogTitle;
+    final accent = isVpnFocused ? Colors.deepOrange : Colors.red;
+
+    try {
+      await showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (dialogContext) => WillPopScope(
+          onWillPop: () async => false,
+          child: AlertDialog(
+            backgroundColor: Colors.white,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16),
+            ),
+            title: Row(
+              children: [
+                Icon(
+                  isVpnFocused ? Icons.vpn_lock_rounded : Icons.security,
+                  color: accent,
+                  size: 32,
                 ),
-              ),
-            ],
-          ),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                result.getUserFriendlyMessage(),
-                style: const TextStyle(
-                  fontSize: 16,
-                  height: 1.5,
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    title,
+                    style: TextStyle(
+                      color: accent,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 20,
+                    ),
+                  ),
                 ),
-                textDirection: TextDirection.ltr,
-              ),
-              const SizedBox(height: 20),
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: Colors.red.shade50,
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: Colors.red.shade200),
+              ],
+            ),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  result.getUserFriendlyMessage(),
+                  style: const TextStyle(
+                    fontSize: 16,
+                    height: 1.5,
+                  ),
+                  textDirection: TextDirection.ltr,
                 ),
-                child: const Row(
-                  children: [
-                    Icon(Icons.info_outline, color: Colors.red),
-                    SizedBox(width: 8),
-                    Expanded(
-                      child: Text(
-                        'To protect your data security, the app cannot be used in this state.',
-                        style: TextStyle(
-                          color: Colors.red,
-                          fontSize: 13,
+                const SizedBox(height: 20),
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: accent.withValues(alpha: 0.08),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: accent.withValues(alpha: 0.35)),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(Icons.info_outline, color: accent),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          isVpnFocused
+                              ? (Platform.isIOS
+                                  ? 'Turn off VPN in iOS Settings, then tap Retry to continue.'
+                                  : 'Turn off VPN on your device, then tap Retry to continue.')
+                              : 'To protect your data security, the app cannot be used in this state.',
+                          style: TextStyle(
+                            color: accent.shade700,
+                            fontSize: 13,
+                          ),
+                          textDirection: TextDirection.ltr,
                         ),
-                        textDirection: TextDirection.ltr,
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            actions: [
+              SizedBox(
+                width: double.infinity,
+                child: Column(
+                  children: [
+                    SizedBox(
+                      width: double.infinity,
+                      child: OutlinedButton.icon(
+                        onPressed: () async {
+                          Navigator.of(dialogContext).pop();
+                          final newResult = await DeviceSecurityService.instance
+                              .performSecurityCheck();
+                          if (!newResult.isSecure && context.mounted) {
+                            showSecurityBlockDialog(context, newResult);
+                          }
+                        },
+                        icon: const Icon(Icons.refresh),
+                        label: const Text(
+                          'Retry',
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: Colors.orange,
+                          side: const BorderSide(color: Colors.orange),
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                    SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton(
+                        onPressed: () {
+                          exit(0);
+                        },
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: accent,
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                        ),
+                        child: const Text(
+                          'Close App',
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
                       ),
                     ),
                   ],
@@ -247,73 +394,11 @@ class DeviceSecurityService {
               ),
             ],
           ),
-          actions: [
-            SizedBox(
-              width: double.infinity,
-              child: Column(
-                children: [
-                  // Retry button – re-run security check without killing the app
-                  SizedBox(
-                    width: double.infinity,
-                    child: OutlinedButton.icon(
-                      onPressed: () async {
-                        Navigator.of(context).pop(); // dismiss dialog
-                        final newResult = await DeviceSecurityService.instance
-                            .performSecurityCheck();
-                        if (!newResult.isSecure && context.mounted) {
-                          showSecurityBlockDialog(context, newResult);
-                        }
-                      },
-                      icon: const Icon(Icons.refresh),
-                      label: const Text(
-                        'Retry',
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      style: OutlinedButton.styleFrom(
-                        foregroundColor: Colors.orange,
-                        side: const BorderSide(color: Colors.orange),
-                        padding: const EdgeInsets.symmetric(vertical: 14),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 10),
-                  // Close button
-                  SizedBox(
-                    width: double.infinity,
-                    child: ElevatedButton(
-                      onPressed: () {
-                        exit(0);
-                      },
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.red,
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(vertical: 14),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                      ),
-                      child: const Text(
-                        'Close App',
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
         ),
-      ),
-    );
+      );
+    } finally {
+      _securityDialogVisible = false;
+    }
   }
 
   /// Alternative: Shows a full-screen blocking page

@@ -171,7 +171,7 @@ class HrManagementMenuPage extends ConsumerWidget {
                   child: Align(
                     alignment: Alignment.centerLeft,
                     child: Text(
-                      'Asset requests',
+                      'More requests',
                       style: GoogleFonts.poppins(
                         fontSize: 14.sp,
                         fontWeight: FontWeight.w700,
@@ -179,21 +179,6 @@ class HrManagementMenuPage extends ConsumerWidget {
                       ),
                     ),
                   ),
-                ),
-                _pillButton(
-                  context: context,
-                  label: 'SIM Card Request',
-                  onTap: () {
-                    Navigator.of(context).pushNamed(HrRouteNames.simRequest);
-                  },
-                ),
-                _pillButton(
-                  context: context,
-                  label: 'Car Rent Request',
-                  onTap: () {
-                    Navigator.of(context)
-                        .pushNamed(HrRouteNames.carRentRequest);
-                  },
                 ),
                 _pillButton(
                   context: context,

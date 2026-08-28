@@ -383,7 +383,12 @@ class _ApprovalsScreenState extends State<ApprovalsScreen> {
       setState(() {
         switch (categoryKey) {
           case 'hr':
-            hrItems = _normalizeCategoryItems(items, categoryLabel: 'HR');
+            var normalizedHr =
+                _normalizeCategoryItems(items, categoryLabel: 'HR');
+            if (kDebugMode) {
+              normalizedHr = _ensureDebugWaitingHrRequests(normalizedHr);
+            }
+            hrItems = normalizedHr;
             _countCache.hr = hrItems.length;
           case 'rfq':
             rfqItems = _normalizeCategoryItems(items, categoryLabel: 'RFQ');
@@ -622,6 +627,65 @@ class _ApprovalsScreenState extends State<ApprovalsScreen> {
   ) {
     if (items.isNotEmpty) return items;
     return [_debugLocalFakeInvoiceItem()];
+  }
+
+  /// Debug-only: prepend one local fake waiting HR card per request type.
+  List<Map<String, dynamic>> _ensureDebugWaitingHrRequests(
+    List<Map<String, dynamic>> items,
+  ) {
+    final dummies = _debugLocalFakeHrItems();
+    final existingIds = items.map((e) => e['id']?.toString()).toSet();
+    final toAdd = dummies
+        .where((d) => !existingIds.contains(d['id']?.toString()))
+        .toList(growable: false);
+    if (toAdd.isEmpty) return items;
+    return [...toAdd, ...items];
+  }
+
+  List<Map<String, dynamic>> _debugLocalFakeHrItems() {
+    const cases = <(String, String)>[
+      ('annual', 'Annual Leave'),
+      ('sick', 'Sick Leave'),
+      ('short', 'Short Leave'),
+      ('maternity', 'Maternity Leave'),
+      ('parental', 'Parental'),
+      ('death', 'Death Leave'),
+      ('compensation', 'Compensation Leave'),
+      ('emergency', 'Emergency Leave'),
+      ('unpaid', 'Unpaid Leave'),
+      ('job_mission', 'Job Mission'),
+      ('temporary_permission', 'Temporary Permission'),
+      ('clearance', 'Clearance'),
+      ('effective_date', 'Effective Date'),
+      ('salary_certificate', 'Salary Certificate'),
+      ('loan', 'Loan Request'),
+      ('increment', 'Salary Increment'),
+      ('promotion', 'Promotion'),
+      ('resignation', 'Resignation'),
+      ('termination', 'Termination'),
+      ('transfer', 'Transfer Request'),
+      ('passport', 'Passport'),
+      ('leave_encashment', 'Leave Encashment'),
+      ('car_rent', 'Car Rent Request'),
+      ('sim', 'Sim Card Request'),
+    ];
+
+    return [
+      for (final entry in cases)
+        {
+          'id': 'LOCAL_FAKE_HR_${entry.$1}',
+          'name': '[DEBUG] ${entry.$2}',
+          'request_no': 'REQ/DEBUG/${entry.$1.toUpperCase()}',
+          'request_name': entry.$2,
+          'request_type': entry.$2,
+          'request_type_code': entry.$1,
+          'type': 'HR',
+          'category': 'HR',
+          'employee_name': 'Adil Rasheed',
+          'emp_id': '524',
+          'comment': 'Debug review form — ${entry.$2}',
+        },
+    ];
   }
 
   Map<String, dynamic> _debugLocalFakeInvoiceItem() => {

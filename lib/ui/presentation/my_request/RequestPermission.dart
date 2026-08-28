@@ -1,7 +1,8 @@
 import 'dart:convert';
 
 import 'package:el_race/core/utils/shared_pref.dart';
-import 'package:el_race/ui/widgets/header_widget.dart';
+import 'package:el_race/core/widgets/hr_management/hr_module_glass_header.dart';
+import 'package:el_race/ui/navigation/home_navigation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter_translate/flutter_translate.dart';
@@ -94,25 +95,22 @@ class _RequestPermissionState extends State<RequestPermission> {
     return Scaffold(
       backgroundColor: _bg,
       resizeToAvoidBottomInset: true,
-      appBar: const HeaderWidget(),
-      body: SafeArea(
-        child: Column(
-          children: [
-            Padding(
-              padding: EdgeInsets.symmetric(vertical: 16.h),
-              child: Text(
-                'TEMPORARY PERMISSION',
-                style: GoogleFonts.poppins(
-                  fontSize: 18.sp,
-                  fontWeight: FontWeight.w400,
-                  letterSpacing: 1.5,
-                  color: _primary,
-                ),
-              ),
-            ),
+      body: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          HrModuleGlassHeader(
+            title: 'Temporary permission',
+            accentTint: HrModuleHeaderTints.requests,
+            onBack: () => HomeNavigation.handleSystemBack(context),
+          ),
+          Expanded(
+            child: SafeArea(
+              top: false,
+              child: Column(
+                children: [
             Expanded(
               child: Container(
-                margin: EdgeInsets.symmetric(horizontal: 20.w),
+                margin: EdgeInsets.fromLTRB(20.w, 12.h, 20.w, 0),
                 padding: EdgeInsets.all(20.w),
                 decoration: BoxDecoration(
                   color: Colors.white,
@@ -341,8 +339,11 @@ class _RequestPermissionState extends State<RequestPermission> {
               ),
             ),
             SizedBox(height: 20.h),
-          ],
-        ),
+                ],
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }

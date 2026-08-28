@@ -8,22 +8,21 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:fluttertoast/fluttertoast.dart';
 
-/// Car Allowance — Odoo screenshot fields (car_req_type + rent_type).
-class HrCarAllowanceRequestScreen extends ConsumerStatefulWidget {
-  const HrCarAllowanceRequestScreen({super.key});
+class HrCertificateRequestScreen extends ConsumerStatefulWidget {
+  const HrCertificateRequestScreen({super.key});
 
-  static const draftKey = 'hr_draft_car_allowance_v2';
+  static const draftKey = 'hr_draft_certificate_v1';
 
   @override
-  ConsumerState<HrCarAllowanceRequestScreen> createState() =>
-      _HrCarAllowanceRequestScreenState();
+  ConsumerState<HrCertificateRequestScreen> createState() =>
+      _HrCertificateRequestScreenState();
 }
 
-class _HrCarAllowanceRequestScreenState
-    extends ConsumerState<HrCarAllowanceRequestScreen> {
+class _HrCertificateRequestScreenState
+    extends ConsumerState<HrCertificateRequestScreen> {
   final _formKey = GlobalKey<FormState>();
-  String? _carReqType;
-  String? _rentType;
+  String? _certType;
+  String _language = 'en';
   final _description = TextEditingController();
   bool _submitting = false;
 
@@ -35,22 +34,22 @@ class _HrCarAllowanceRequestScreenState
 
   void _loadDraft() {
     final raw =
-        SharedPref().getPreferenceString(HrCarAllowanceRequestScreen.draftKey);
+        SharedPref().getPreferenceString(HrCertificateRequestScreen.draftKey);
     if (raw.isEmpty) return;
     try {
       final m = jsonDecode(raw) as Map<String, dynamic>;
-      _carReqType = m['car_req_type'] as String?;
-      _rentType = m['rent_type'] as String?;
+      _certType = m['type'] as String?;
+      _language = m['language'] as String? ?? 'en';
       _description.text = m['description'] as String? ?? '';
     } catch (_) {}
   }
 
   Future<void> _saveDraft() async {
     await SharedPref().setPreferencesString(
-      HrCarAllowanceRequestScreen.draftKey,
+      HrCertificateRequestScreen.draftKey,
       jsonEncode({
-        'car_req_type': _carReqType,
-        'rent_type': _rentType,
+        'type': _certType,
+        'language': _language,
         'description': _description.text,
       }),
     );
@@ -62,18 +61,17 @@ class _HrCarAllowanceRequestScreenState
     setState(() => _submitting = true);
     final ok = await HrRequestFormUi.submit(
       api: ref.read(hrApiClientProvider),
-      code: 'Car Allowance',
+      code: 'CERTIFICATE',
       fields: {
-        'car_req_type': _carReqType,
-        if (_rentType != null) 'rent_type': _rentType,
+        'certificate_type': _certType,
+        'language': _language,
       },
       description: _description.text.trim(),
     );
     if (!mounted) return;
     setState(() => _submitting = false);
     if (ok) {
-      await SharedPref()
-          .removePreference(HrCarAllowanceRequestScreen.draftKey);
+      await SharedPref().removePreference(HrCertificateRequestScreen.draftKey);
       if (mounted) Navigator.of(context).pop();
     }
   }
@@ -87,33 +85,39 @@ class _HrCarAllowanceRequestScreenState
   @override
   Widget build(BuildContext context) {
     return HrLegacyRequestFormShell(
-      title: 'Car Allowance',
+      title: 'Certificate',
       formKey: _formKey,
       submitting: _submitting,
       onSaveDraft: _saveDraft,
       onSubmit: _submit,
       children: [
-        HrRequestFormUi.label('Car Request Type *'),
+        HrRequestFormUi.label('Certificate Type *'),
         HrRequestFormUi.dropdown<String>(
-          value: _carReqType,
+          value: _certType,
           hint: 'Select type',
           items: const [
-            DropdownMenuItem(value: 'request', child: Text('Request')),
-            DropdownMenuItem(value: 'return', child: Text('Return')),
+            DropdownMenuItem(value: 'salary', child: Text('Salary Certificate')),
+            DropdownMenuItem(
+                value: 'no_opjection',
+                child: Text('No Objection Certificate [NOC]')),
+            DropdownMenuItem(
+                value: 'experience', child: Text('Experience Certificate')),
+            DropdownMenuItem(
+                value: 'whom', child: Text('To Whom It May Concern')),
           ],
-          onChanged: (v) => setState(() => _carReqType = v),
+          onChanged: (v) => setState(() => _certType = v),
           validator: (v) => v == null ? 'Required' : null,
         ),
         SizedBox(height: 14.h),
-        HrRequestFormUi.label('Rent Type'),
+        HrRequestFormUi.label('Language *'),
         HrRequestFormUi.dropdown<String>(
-          value: _rentType,
-          hint: 'Select rent type',
+          value: _language,
+          hint: 'Language',
           items: const [
-            DropdownMenuItem(value: 'limitted', child: Text('Limited')),
-            DropdownMenuItem(value: 'permanent', child: Text('Permanent')),
+            DropdownMenuItem(value: 'en', child: Text('English')),
+            DropdownMenuItem(value: 'ar', child: Text('Arabic')),
           ],
-          onChanged: (v) => setState(() => _rentType = v),
+          onChanged: (v) => setState(() => _language = v ?? 'en'),
         ),
         SizedBox(height: 14.h),
         HrRequestFormUi.label('Description'),
