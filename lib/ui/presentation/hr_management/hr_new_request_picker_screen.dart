@@ -30,7 +30,9 @@ class _HrNewRequestPickerScreenState
     extends ConsumerState<HrNewRequestPickerScreen> {
   bool _loadingEligibility = true;
   bool _eligibleSim = false;
-  bool _eligibleCarRent = false;
+  /// Contract `eligible_car_rent_request` — gates mobile **Car Allowance**
+  /// (Odoo `car_rent_request` / Car Allowance type).
+  bool _eligibleCarAllowance = false;
 
   @override
   void initState() {
@@ -50,7 +52,8 @@ class _HrNewRequestPickerScreenState
       if (mounted) {
         setState(() {
           _eligibleSim = elig?['eligible_sim_card_request'] == true;
-          _eligibleCarRent = elig?['eligible_car_rent_request'] == true;
+          _eligibleCarAllowance =
+              elig?['eligible_car_rent_request'] == true;
           _loadingEligibility = false;
         });
       }
@@ -142,20 +145,13 @@ class _HrNewRequestPickerScreenState
         iconColor: HrModuleColors.secondary,
         onTap: () => _openEffectiveDate(context),
       ),
-      _RequestTypeSpec(
-        label: 'Car allowance',
-        icon: Icons.local_gas_station_outlined,
-        iconColor: const Color(0xFF5D4037),
-        onTap: () =>
-            Navigator.of(context).pushNamed(HrRouteNames.carAllowanceRequest),
-      ),
-      if (_eligibleCarRent)
+      if (_eligibleCarAllowance)
         _RequestTypeSpec(
-          label: 'Car rent',
-          icon: Icons.directions_car_outlined,
-          iconColor: const Color(0xFF455A64),
-          onTap: () =>
-              Navigator.of(context).pushNamed(HrRouteNames.carRentRequest),
+          label: 'Car Allowance',
+          icon: Icons.local_gas_station_outlined,
+          iconColor: const Color(0xFF5D4037),
+          onTap: () => Navigator.of(context)
+              .pushNamed(HrRouteNames.carAllowanceRequest),
         ),
       if (_eligibleSim)
         _RequestTypeSpec(
@@ -221,10 +217,6 @@ class _HrNewRequestPickerScreenState
   Widget build(BuildContext context) {
     final pad = HrModuleLayout.screenPaddingH.tw;
     final specs = _specs(context);
-    final tileCount = specs.length;
-    final rowCount =
-        (tileCount + HrNewRequestPickerScreen._crossAxisCount - 1) ~/
-            HrNewRequestPickerScreen._crossAxisCount;
 
     return HrRequestsGradientScaffold(
       body: Column(
@@ -239,13 +231,13 @@ class _HrNewRequestPickerScreenState
               top: false,
               minimum: EdgeInsets.zero,
               child: Padding(
-                padding: EdgeInsets.fromLTRB(pad, 4.th, pad, 8.th),
+                padding: EdgeInsets.fromLTRB(pad, 8.th, pad, 8.th),
                 child: Column(
                   children: [
                     Expanded(
                       child: Container(
                         width: double.infinity,
-                        padding: EdgeInsets.all(8.tr),
+                        padding: EdgeInsets.all(12.tr),
                         decoration: BoxDecoration(
                           color: HrModuleColors.surface,
                           borderRadius: BorderRadius.circular(
@@ -255,57 +247,25 @@ class _HrNewRequestPickerScreenState
                         ),
                         child: _loadingEligibility
                             ? const Center(child: CircularProgressIndicator())
-                            : LayoutBuilder(
-                                builder: (context, constraints) {
-                                  final gap = (constraints.maxHeight * 0.012)
-                                      .clamp(4.0, 10.0);
-                                  final crossGap =
-                                      (constraints.maxWidth * 0.02)
-                                          .clamp(6.0, 12.0);
-
-                                  return Column(
-                                    children: [
-                                      for (var row = 0;
-                                          row < rowCount;
-                                          row++) ...[
-                                        if (row > 0) SizedBox(height: gap),
-                                        Expanded(
-                                          child: Row(
-                                            children: [
-                                              for (var col = 0;
-                                                  col <
-                                                      HrNewRequestPickerScreen
-                                                          ._crossAxisCount;
-                                                  col++) ...[
-                                                if (col > 0)
-                                                  SizedBox(width: crossGap),
-                                                Expanded(
-                                                  child: Builder(
-                                                    builder: (_) {
-                                                      final i = row *
-                                                              HrNewRequestPickerScreen
-                                                                  ._crossAxisCount +
-                                                          col;
-                                                      if (i >= specs.length) {
-                                                        return const SizedBox
-                                                            .expand();
-                                                      }
-                                                      final s = specs[i];
-                                                      return _RequestTypeTile(
-                                                        label: s.label,
-                                                        icon: s.icon,
-                                                        iconColor: s.iconColor,
-                                                        onTap: s.onTap,
-                                                      );
-                                                    },
-                                                  ),
-                                                ),
-                                              ],
-                                            ],
-                                          ),
-                                        ),
-                                      ],
-                                    ],
+                            : GridView.builder(
+                                physics: const BouncingScrollPhysics(),
+                                gridDelegate:
+                                    SliverGridDelegateWithFixedCrossAxisCount(
+                                  crossAxisCount:
+                                      HrNewRequestPickerScreen._crossAxisCount,
+                                  mainAxisSpacing: 10.th,
+                                  crossAxisSpacing: 10.tw,
+                                  childAspectRatio:
+                                      HrModuleLayout.tileAspectRatio,
+                                ),
+                                itemCount: specs.length,
+                                itemBuilder: (context, i) {
+                                  final s = specs[i];
+                                  return _RequestTypeTile(
+                                    label: s.label,
+                                    icon: s.icon,
+                                    iconColor: s.iconColor,
+                                    onTap: s.onTap,
                                   );
                                 },
                               ),
@@ -382,32 +342,25 @@ class _RequestTypeTile extends StatelessWidget {
             ),
           ),
           child: Padding(
-            padding: EdgeInsets.symmetric(horizontal: 4.tw, vertical: 4.th),
-            child: FittedBox(
-              fit: BoxFit.scaleDown,
-              child: ConstrainedBox(
-                constraints: BoxConstraints(maxWidth: 96.tw),
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(icon, size: 22.tsp, color: iconColor),
-                    SizedBox(height: 4.th),
-                    Text(
-                      label,
-                      textAlign: TextAlign.center,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: HrModuleTypography.caption().copyWith(
-                        fontSize: 10.tsp,
-                        color: HrModuleColors.text,
-                        fontWeight: FontWeight.w600,
-                        height: 1.1,
-                      ),
-                    ),
-                  ],
+            padding: EdgeInsets.symmetric(horizontal: 8.tw, vertical: 10.th),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(icon, size: 28.tsp, color: iconColor),
+                SizedBox(height: 8.th),
+                Text(
+                  label,
+                  textAlign: TextAlign.center,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: HrModuleTypography.caption().copyWith(
+                    fontSize: 11.tsp,
+                    color: HrModuleColors.text,
+                    fontWeight: FontWeight.w600,
+                    height: 1.15,
+                  ),
                 ),
-              ),
+              ],
             ),
           ),
         ),

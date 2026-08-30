@@ -127,4 +127,18 @@ class Employee {
         "profile_photo_url": profilePhotoUrl,
         "department": department,
       };
+
+  /// Company number from Odoo `mobile_phone`. Call only when this is set.
+  bool get hasCompanyPhone {
+    final raw = mobilePhone;
+    if (raw == null || raw is bool) return false;
+    final text = raw.toString().trim();
+    if (text.isEmpty || text == 'false' || text == 'null') return false;
+    return true;
+  }
+
+  String? get companyPhone {
+    if (!hasCompanyPhone) return null;
+    return mobilePhone.toString().trim();
+  }
 }

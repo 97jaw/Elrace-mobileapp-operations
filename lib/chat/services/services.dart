@@ -6,3 +6,4 @@ export 'chat_lifecycle_observer.dart';
 export 'voice_recorder_service.dart';
 export 'chat_notification_service.dart';
 export 'chat_session_storage.dart';
+export 'chat_unread_badge_service.dart';

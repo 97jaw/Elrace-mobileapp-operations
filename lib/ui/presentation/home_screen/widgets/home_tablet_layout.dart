@@ -1,5 +1,6 @@
 import 'dart:math' as math;
 
+import 'package:el_race/chat/chat.dart';
 import 'package:el_race/core/services/approval_count_service.dart';
 import 'package:el_race/core/utils/app_orientations.dart';
 import 'package:el_race/core/services/notification_storage_service.dart';
@@ -524,6 +525,7 @@ class _TabletSideTrail extends StatelessWidget {
                 tooltip: 'Chat',
                 icon: Icons.chat_bubble_outline_rounded,
                 onTap: () => _openChat(context),
+                badgeListenable: ChatUnreadBadgeService.instance.count,
               ),
               const SizedBox(height: 14),
               _TrailIcon(
@@ -562,23 +564,76 @@ class _TrailIcon extends StatelessWidget {
     required this.tooltip,
     required this.icon,
     required this.onTap,
+    this.badgeListenable,
   });
 
   final String tooltip;
   final IconData icon;
   final VoidCallback onTap;
+  final ValueNotifier<int>? badgeListenable;
 
   @override
   Widget build(BuildContext context) {
+    final iconChild = SizedBox(
+      width: 40,
+      height: 40,
+      child: Icon(icon, size: 22, color: HomeGlassTheme.maroon),
+    );
+
+    Widget body = iconChild;
+    final listenable = badgeListenable;
+    if (listenable != null) {
+      body = ValueListenableBuilder<int>(
+        valueListenable: listenable,
+        builder: (context, count, child) {
+          return Stack(
+            clipBehavior: Clip.none,
+            alignment: Alignment.center,
+            children: [
+              child!,
+              if (count > 0)
+                Positioned(
+                  right: 0,
+                  top: 0,
+                  child: Container(
+                    padding: EdgeInsets.symmetric(
+                      horizontal: count > 9 ? 4 : 0,
+                      vertical: 2,
+                    ),
+                    constraints: const BoxConstraints(
+                      minWidth: 16,
+                      minHeight: 16,
+                    ),
+                    decoration: BoxDecoration(
+                      color: HomeGlassTheme.accentRed,
+                      borderRadius: BorderRadius.circular(999),
+                      border: Border.all(color: Colors.white, width: 1.5),
+                    ),
+                    child: Center(
+                      child: Text(
+                        count > 99 ? '99+' : '$count',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 9,
+                          fontWeight: FontWeight.w700,
+                          height: 1,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+            ],
+          );
+        },
+        child: iconChild,
+      );
+    }
+
     return Tooltip(
       message: tooltip,
       child: GlassTapIcon(
         onTap: onTap,
-        child: SizedBox(
-          width: 40,
-          height: 40,
-          child: Icon(icon, size: 22, color: HomeGlassTheme.maroon),
-        ),
+        child: body,
       ),
     );
   }

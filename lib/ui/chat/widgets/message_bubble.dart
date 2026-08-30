@@ -27,6 +27,9 @@ class MessageBubble extends StatelessWidget {
   final MessageActionCallback? onStar;
   final MessageActionCallback? onReply;
   final MessageActionCallback? onForward;
+  final MessageActionCallback? onDelete;
+  /// When set (own messages), overrides [message.status] for tick icons.
+  final MessageStatus? receiptStatus;
 
   const MessageBubble({
     super.key,
@@ -39,6 +42,8 @@ class MessageBubble extends StatelessWidget {
     this.onStar,
     this.onReply,
     this.onForward,
+    this.onDelete,
+    this.receiptStatus,
   });
 
   @override
@@ -186,6 +191,13 @@ class MessageBubble extends StatelessWidget {
           icon: Icons.shortcut_rounded,
           label: 'Forward',
         ),
+        if (isMe && message.canDeleteForEveryone && onDelete != null)
+          _buildMenuItem(
+            value: 'delete',
+            icon: Icons.delete_outline_rounded,
+            label: 'Delete for everyone',
+            destructive: true,
+          ),
       ],
     ).then((value) {
       if (value == null) return;
@@ -199,6 +211,9 @@ class MessageBubble extends StatelessWidget {
         case 'forward':
           onForward?.call(message);
           break;
+        case 'delete':
+          onDelete?.call(message);
+          break;
       }
     });
   }
@@ -207,18 +222,22 @@ class MessageBubble extends StatelessWidget {
     required String value,
     required IconData icon,
     required String label,
+    bool destructive = false,
   }) {
+    final color = destructive ? const Color(0xFFD32F2F) : const Color(0xFF8E8E93);
+    final textColor =
+        destructive ? const Color(0xFFD32F2F) : const Color(0xFF2C2C2E);
     return PopupMenuItem<String>(
       value: value,
       height: 48,
       child: Row(
         children: [
-          Icon(icon, color: const Color(0xFF8E8E93), size: 22),
+          Icon(icon, color: color, size: 22),
           const SizedBox(width: 14),
           Text(
             label,
-            style: const TextStyle(
-              color: Color(0xFF2C2C2E),
+            style: TextStyle(
+              color: textColor,
               fontSize: 17,
               fontWeight: FontWeight.w500,
             ),
@@ -300,7 +319,8 @@ class MessageBubble extends StatelessWidget {
   }
 
   Widget _buildReadReceipt() {
-    switch (message.status) {
+    final status = receiptStatus ?? message.status;
+    switch (status) {
       case MessageStatus.sending:
         // Clock icon for pending message
         return Icon(
@@ -330,11 +350,11 @@ class MessageBubble extends StatelessWidget {
           color: Colors.grey[400],
         );
       case MessageStatus.read:
-        // Double check blue for read
-        return Icon(
+        // Double check WhatsApp green for seen
+        return const Icon(
           Icons.done_all,
           size: 14,
-          color: ChatGlassTheme.gold,
+          color: Color(0xFF25D366),
         );
       case MessageStatus.deleted:
         return const SizedBox.shrink();

@@ -1,5 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
+import 'chat_member.dart';
+
 /// Message types supported
 enum MessageType {
   text,
@@ -368,6 +370,56 @@ class Message {
 
   /// Soft-deleted for everyone (`status == deleted`).
   bool get isDeleted => status == MessageStatus.deleted;
+
+  /// Sender may soft-delete within 10 minutes of [createdAt] (Hub contract).
+  /// Signed documents are excluded from delete-for-everyone.
+  bool get canDeleteForEveryone {
+    if (isDeleted) return false;
+    if (type == MessageType.signableDoc) return false;
+    if (id.startsWith('pending_')) return false;
+    return DateTime.now().difference(createdAt) <= const Duration(minutes: 10);
+  }
+
+  /// WhatsApp-style ticks from peer member watermarks (Hub + mobile).
+  ///
+  /// Watermarks live on `chats/{chatId}/members/{uid}` and are never shown
+  /// as on-screen timestamps — only as ticks under your bubbles:
+  /// - ✓ grey = sent
+  /// - ✓✓ grey = delivered (`last_delivered_at`)
+  /// - ✓✓ green = seen (`last_read_at`)
+  static MessageStatus receiptStatusFromPeers({
+    required Message message,
+    required String currentUid,
+    required List<ChatMember> members,
+  }) {
+    if (message.isDeleted) return MessageStatus.deleted;
+    if (message.status == MessageStatus.sending ||
+        message.status == MessageStatus.failed) {
+      return message.status;
+    }
+    if (message.senderId != currentUid) return message.status;
+
+    var peers = members.where((m) => m.uid != currentUid).toList();
+    // Note-to-self / self DM: no other peer — use own watermarks.
+    if (peers.isEmpty) {
+      peers = members.where((m) => m.uid == currentUid).toList();
+      if (peers.isEmpty) return MessageStatus.sent;
+    }
+
+    final created = message.createdAt;
+    bool covers(DateTime? watermark) =>
+        watermark != null && !watermark.isBefore(created);
+
+    final allRead = peers.every((p) => covers(p.lastReadAt));
+    if (allRead) return MessageStatus.read;
+
+    final allDelivered = peers.every(
+      (p) => covers(p.lastDeliveredAt) || covers(p.lastReadAt),
+    );
+    if (allDelivered) return MessageStatus.delivered;
+
+    return MessageStatus.sent;
+  }
 
   /// Get preview text for last_message in chat
   String getPreviewText() {

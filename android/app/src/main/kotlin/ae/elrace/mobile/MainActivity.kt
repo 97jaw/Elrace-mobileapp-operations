@@ -4,9 +4,15 @@ import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.content.Intent
 import android.media.AudioAttributes
+import android.net.ConnectivityManager
+import android.net.Network
+import android.net.NetworkCapabilities
+import android.net.NetworkRequest
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
 import android.os.PowerManager
 import android.provider.Settings
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
@@ -20,6 +26,7 @@ import com.google.android.play.core.install.model.AppUpdateType
 import com.google.android.play.core.install.model.UpdateAvailability
 import io.flutter.embedding.android.FlutterFragmentActivity
 import io.flutter.embedding.engine.FlutterEngine
+import io.flutter.plugin.common.EventChannel
 import io.flutter.plugin.common.MethodChannel
 
 class MainActivity : FlutterFragmentActivity() {
@@ -28,8 +35,22 @@ class MainActivity : FlutterFragmentActivity() {
     private val SYSTEM_UI_CHANNEL = "ae.elrace.mobile/system_ui"
     private val APP_ICON_BADGE_CHANNEL = "ae.elrace.mobile/app_icon_badge"
     private val PLAY_UPDATE_CHANNEL = "ae.elrace.mobile/play_update"
+    private val VPN_DETECTION_CHANNEL = "ae.elrace.mobile/vpn_detection"
+    private val VPN_DETECTION_EVENTS = "ae.elrace.mobile/vpn_detection_events"
     private val PLAY_UPDATE_REQUEST_CODE = 6317
     private lateinit var appUpdateManager: AppUpdateManager
+    private var vpnNetworkCallback: ConnectivityManager.NetworkCallback? = null
+    private var vpnEventSink: EventChannel.EventSink? = null
+    private var lastVpnActive = false
+    private val mainHandler = Handler(Looper.getMainLooper())
+    private val vpnPollRunnable = object : Runnable {
+        override fun run() {
+            if (vpnEventSink != null) {
+                notifyVpnStatusChanged()
+                mainHandler.postDelayed(this, 3000)
+            }
+        }
+    }
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
@@ -90,6 +111,31 @@ class MainActivity : FlutterFragmentActivity() {
                     else -> result.notImplemented()
                 }
             }
+
+        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, VPN_DETECTION_CHANNEL)
+            .setMethodCallHandler { call, result ->
+                when (call.method) {
+                    "isVpnActive" -> result.success(isVpnTransportActive())
+                    else -> result.notImplemented()
+                }
+            }
+
+        EventChannel(flutterEngine.dartExecutor.binaryMessenger, VPN_DETECTION_EVENTS)
+            .setStreamHandler(object : EventChannel.StreamHandler {
+                override fun onListen(arguments: Any?, events: EventChannel.EventSink?) {
+                    vpnEventSink = events
+                    notifyVpnStatusChanged()
+                    registerVpnNetworkCallback()
+                    mainHandler.removeCallbacks(vpnPollRunnable)
+                    mainHandler.postDelayed(vpnPollRunnable, 3000)
+                }
+
+                override fun onCancel(arguments: Any?) {
+                    mainHandler.removeCallbacks(vpnPollRunnable)
+                    unregisterVpnNetworkCallback()
+                    vpnEventSink = null
+                }
+            })
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -158,6 +204,71 @@ class MainActivity : FlutterFragmentActivity() {
     override fun onResume() {
         super.onResume()
         resumeImmediateUpdateIfNeeded()
+        notifyVpnStatusChanged()
+    }
+
+    override fun onDestroy() {
+        mainHandler.removeCallbacks(vpnPollRunnable)
+        unregisterVpnNetworkCallback()
+        super.onDestroy()
+    }
+
+    /// True only when a VPN network is actively connected (not merely configured).
+    private fun isVpnTransportActive(): Boolean {
+        val connectivityManager =
+            getSystemService(CONNECTIVITY_SERVICE) as ConnectivityManager
+        for (network in connectivityManager.allNetworks) {
+            val capabilities = connectivityManager.getNetworkCapabilities(network)
+                ?: continue
+            if (capabilities.hasTransport(NetworkCapabilities.TRANSPORT_VPN)) {
+                return true
+            }
+        }
+        return false
+    }
+
+    private fun registerVpnNetworkCallback() {
+        unregisterVpnNetworkCallback()
+        val connectivityManager =
+            getSystemService(CONNECTIVITY_SERVICE) as ConnectivityManager
+        val callback = object : ConnectivityManager.NetworkCallback() {
+            override fun onAvailable(network: Network) = notifyVpnStatusChanged()
+            override fun onLost(network: Network) = notifyVpnStatusChanged()
+            override fun onCapabilitiesChanged(
+                network: Network,
+                networkCapabilities: NetworkCapabilities
+            ) = notifyVpnStatusChanged()
+        }
+        vpnNetworkCallback = callback
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+            connectivityManager.registerDefaultNetworkCallback(callback)
+        } else {
+            connectivityManager.registerNetworkCallback(
+                NetworkRequest.Builder().build(),
+                callback
+            )
+        }
+    }
+
+    private fun unregisterVpnNetworkCallback() {
+        val callback = vpnNetworkCallback ?: return
+        val connectivityManager =
+            getSystemService(CONNECTIVITY_SERVICE) as ConnectivityManager
+        try {
+            connectivityManager.unregisterNetworkCallback(callback)
+        } catch (_: Exception) {
+            // Already unregistered.
+        }
+        vpnNetworkCallback = null
+    }
+
+    private fun notifyVpnStatusChanged() {
+        mainHandler.post {
+            val active = isVpnTransportActive()
+            if (active == lastVpnActive) return@post
+            lastVpnActive = active
+            vpnEventSink?.success(active)
+        }
     }
 
     private fun startImmediateUpdateIfAvailable(result: MethodChannel.Result) {

@@ -1930,11 +1930,33 @@ class ChatRepository {
 
   // ============== Read Receipts ==============
 
+  /// Mark chat as **delivered** only (grey double-tick for sender).
+  /// Does not clear unread / does not set `last_read_at`.
+  Future<void> markChatDelivered(String chatId) async {
+    final currentUid = _currentUid;
+    if (currentUid == null) return;
+
+    try {
+      await _chatsCollection
+          .doc(chatId)
+          .collection('members')
+          .doc(currentUid)
+          .set({
+        'last_delivered_at': FieldValue.serverTimestamp(),
+      }, SetOptions(merge: true));
+    } catch (e) {
+      print('❌ ChatRepository: Error marking chat delivered: $e');
+    }
+  }
+
   /// Mark a chat as read for Hub read receipts + local unread badges.
   ///
   /// Writes server timestamps to:
   /// - `chats/{chatId}/members/{uid}` → `last_delivered_at`, `last_read_at`
   /// - `userChats/{uid}/chats/{chatId}` → `last_read_at` (inbox unread)
+  ///
+  /// These fields are **not** shown as UI labels — they drive WhatsApp-style
+  /// ticks on the sender's device (✓ / ✓✓ grey / ✓✓ green).
   Future<void> markChatRead(String chatId) async {
     final currentUid = _currentUid;
     if (currentUid == null) return;
@@ -2068,6 +2090,100 @@ class ChatRepository {
   }
 
   // ============== Chat Members ==============
+
+  /// Live members stream (includes Hub read-receipt watermarks).
+  Stream<List<ChatMember>> subscribeToChatMembers(String chatId) {
+    return _chatsCollection
+        .doc(chatId)
+        .collection('members')
+        .snapshots()
+        .map((snapshot) =>
+            snapshot.docs.map((doc) => ChatMember.fromFirestore(doc)).toList());
+  }
+
+  /// Soft-delete for everyone (sender only, within 10 minutes).
+  /// Clears text/media fields and removes Storage object when present.
+  Future<void> deleteMessageForEveryone({
+    required String chatId,
+    required Message message,
+  }) async {
+    final currentUid = _currentUid;
+    if (currentUid == null) throw Exception('Not authenticated');
+    if (message.senderId != currentUid) {
+      throw Exception('Only the sender can delete this message');
+    }
+    if (message.isDeleted) return;
+    if (message.type == MessageType.signableDoc) {
+      throw Exception('Signed documents cannot be deleted');
+    }
+    if (!message.canDeleteForEveryone) {
+      throw Exception('Messages can only be deleted within 10 minutes');
+    }
+
+    final messageRef =
+        _chatsCollection.doc(chatId).collection('messages').doc(message.id);
+
+    final mediaPath = message.mediaPath;
+    final mediaUrl = message.mediaUrl;
+
+    await messageRef.update({
+      'status': 'deleted',
+      'text': '',
+      'media_url': null,
+      'media_path': null,
+      'thumb_url': null,
+      'file_name': null,
+      'file_size': null,
+      'mime_type': null,
+      'duration_ms': null,
+      'deleted_at': FieldValue.serverTimestamp(),
+      'updated_at': FieldValue.serverTimestamp(),
+    });
+
+    // Refresh chat list preview if this was the latest message.
+    try {
+      final chatDoc = await _chatsCollection.doc(chatId).get();
+      final last = chatDoc.data()?['last_message'];
+      final lastCreated = last is Map ? last['created_at'] : null;
+      final matchesLast = last is Map &&
+          (last['sender_id'] == currentUid) &&
+          (lastCreated is Timestamp) &&
+          (lastCreated.toDate().difference(message.createdAt).inSeconds.abs() <=
+              5);
+      if (matchesLast || last == null) {
+        await _chatsCollection.doc(chatId).set({
+          'last_message': {
+            'text': 'This message was deleted',
+            'type': 'text',
+            'sender_id': currentUid,
+            'status': 'deleted',
+            'created_at': Timestamp.fromDate(message.createdAt),
+          },
+          'updated_at': FieldValue.serverTimestamp(),
+        }, SetOptions(merge: true));
+      }
+    } catch (e) {
+      print('⚠️ ChatRepository: last_message refresh after delete: $e');
+    }
+
+    Future<void> deleteRef(String path) async {
+      try {
+        await _storage.ref(path).delete();
+      } catch (e) {
+        print('⚠️ ChatRepository: Storage delete skipped ($path): $e');
+      }
+    }
+
+    if (mediaPath != null && mediaPath.isNotEmpty) {
+      await deleteRef(mediaPath);
+    } else if (mediaUrl != null && mediaUrl.isNotEmpty) {
+      try {
+        await _storage.refFromURL(mediaUrl).delete();
+      } catch (e) {
+        print('⚠️ ChatRepository: Storage delete via URL skipped: $e');
+      }
+    }
+  }
 
   /// Get members of a chat
   Future<List<ChatMember>> getChatMembers(String chatId) async {

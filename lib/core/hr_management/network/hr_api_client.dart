@@ -375,7 +375,8 @@ class HrApiClient {
     return _postMap('/api/hr/request_form_meta', {'code': code});
   }
 
-  /// Contract eligibility for New request picker (SIM / Car rent tiles).
+  /// Contract eligibility for New request picker (SIM / Car Allowance tiles).
+  /// `eligible_car_rent_request` gates **Car Allowance** (Odoo car rent).
   Future<HrApiEnvelope<Map<String, dynamic>>> fetchPickerCapabilities() {
     return fetchRequestFormMeta(code: 'PICKER');
   }
