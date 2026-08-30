@@ -135,6 +135,7 @@ dependencies:
   face_liveness_detector:
     path: packages/face_liveness_detector
   flutter_tts: ^4.2.5
+  connectivity_plus: ^6.1.5
 
 dev_dependencies:
   flutter_launcher_icons: ^0.13.1

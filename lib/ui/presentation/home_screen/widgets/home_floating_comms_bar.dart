@@ -1,3 +1,4 @@
+import 'package:el_race/chat/chat.dart';
 import 'package:el_race/core/constants/app_images.dart';
 import 'package:el_race/ui/chat/chat_ui.dart';
 import 'package:el_race/ui/navigation/glass_route_navigation.dart';
@@ -68,9 +69,15 @@ class HomeFloatingCommsBar extends StatelessWidget {
                     mainAxisSize: MainAxisSize.min,
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      _CommsIcon(
-                        asset: AppImages.chatIconNew,
-                        onTap: () => _openChat(context),
+                      ValueListenableBuilder<int>(
+                        valueListenable: ChatUnreadBadgeService.instance.count,
+                        builder: (context, unread, _) {
+                          return _CommsIcon(
+                            asset: AppImages.chatIconNew,
+                            onTap: () => _openChat(context),
+                            badgeCount: unread,
+                          );
+                        },
                       ),
                       _divider(),
                       _CommsIcon(
@@ -104,10 +111,15 @@ class HomeFloatingCommsBar extends StatelessWidget {
 }
 
 class _CommsIcon extends StatelessWidget {
-  const _CommsIcon({required this.asset, required this.onTap});
+  const _CommsIcon({
+    required this.asset,
+    required this.onTap,
+    this.badgeCount = 0,
+  });
 
   final String asset;
   final VoidCallback onTap;
+  final int badgeCount;
 
   @override
   Widget build(BuildContext context) {
@@ -118,11 +130,47 @@ class _CommsIcon extends StatelessWidget {
         borderRadius: BorderRadius.circular(999),
         child: Padding(
           padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 7.h),
-          child: Image.asset(
-            asset,
-            width: 28.w,
-            height: 28.w,
-            fit: BoxFit.contain,
+          child: Stack(
+            clipBehavior: Clip.none,
+            children: [
+              Image.asset(
+                asset,
+                width: 28.w,
+                height: 28.w,
+                fit: BoxFit.contain,
+              ),
+              if (badgeCount > 0)
+                Positioned(
+                  right: -6.w,
+                  top: -4.h,
+                  child: Container(
+                    padding: EdgeInsets.symmetric(
+                      horizontal: badgeCount > 9 ? 4.w : 0,
+                      vertical: 1.h,
+                    ),
+                    constraints: BoxConstraints(
+                      minWidth: 16.w,
+                      minHeight: 16.w,
+                    ),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFF04D57),
+                      borderRadius: BorderRadius.circular(999),
+                      border: Border.all(color: Colors.white, width: 1.5),
+                    ),
+                    child: Center(
+                      child: Text(
+                        badgeCount > 99 ? '99+' : '$badgeCount',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 9.sp,
+                          fontWeight: FontWeight.w700,
+                          height: 1,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+            ],
           ),
         ),
       ),

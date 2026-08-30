@@ -95,6 +95,10 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   Set<String> _starredIds = {};
   StreamSubscription? _starredSub;
 
+  /// Members + Hub/mobile receipt watermarks for tick colors.
+  List<ChatMember> _chatMembers = const [];
+  StreamSubscription? _membersSub;
+
   /// Reply state (WhatsApp-style)
   Message? _replyingTo;
 
@@ -111,6 +115,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   bool _isResolvingTargetMessage = false;
   Message? _resolvedTargetMessage;
   List<Message> _latestFirestoreMessages = const [];
+  String? _lastReadCursorMessageId;
 
   @override
   void initState() {
@@ -155,6 +160,12 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
       _starredSub =
           ChatRepository.instance.subscribeToStarredMessageIds().listen((ids) {
         if (mounted) setState(() => _starredIds = ids);
+      });
+
+      _membersSub = ChatRepository.instance
+          .subscribeToChatMembers(widget.chatId)
+          .listen((members) {
+        if (mounted) setState(() => _chatMembers = members);
       });
     });
   }
@@ -229,6 +240,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     _scrollController.dispose();
     _typingTimer?.cancel();
     _starredSub?.cancel();
+    _membersSub?.cancel();
     PresenceService.instance.setTyping(widget.chatId, false);
 
     // Leaving mid-recording (e.g. back navigation while holding the mic
@@ -569,6 +581,25 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
           ...firestoreMessages,
         ]..sort((a, b) => b.createdAt.compareTo(a.createdAt));
 
+        // Keep watermarks ahead of newest visible message so ticks can
+        // advance to delivered/seen while this chat stays open.
+        if (messages.isNotEmpty) {
+          Message? newestPersisted;
+          for (final m in messages) {
+            if (!m.id.startsWith('pending_')) {
+              newestPersisted = m;
+              break;
+            }
+          }
+          if (newestPersisted != null &&
+              newestPersisted.id != _lastReadCursorMessageId) {
+            _lastReadCursorMessageId = newestPersisted.id;
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              if (mounted) _markAsRead();
+            });
+          }
+        }
+
         // Only show empty state AFTER we got real data (not while loading)
         if (messages.isEmpty && !isWaiting) {
           return Center(
@@ -655,9 +686,17 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                 isHighlighted: _highlightedMessageId == message.id,
                 senderName: senderDisplayName,
                 showSenderName: _isSupportChat && !isMe,
+                receiptStatus: isMe && _currentUid != null
+                    ? Message.receiptStatusFromPeers(
+                        message: message,
+                        currentUid: _currentUid!,
+                        members: _chatMembers,
+                      )
+                    : null,
                 onStar: _onStarMessage,
                 onReply: _onReplyMessage,
                 onForward: _onForwardMessage,
+                onDelete: isMe ? _onDeleteMessage : null,
               ),
             ],
           );
@@ -1438,6 +1477,54 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     Future.delayed(const Duration(milliseconds: 100), () {
       FocusScope.of(context).requestFocus(FocusNode());
     });
+  }
+
+  Future<void> _onDeleteMessage(Message message) async {
+    if (_currentUid == null || message.senderId != _currentUid) return;
+    if (!message.canDeleteForEveryone) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('You can only delete messages within 10 minutes'),
+        ),
+      );
+      return;
+    }
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Delete for everyone?'),
+        content: const Text(
+          'This removes the message for you and the other person '
+          '(Hub and mobile). You can only do this within 10 minutes.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: TextButton.styleFrom(foregroundColor: const Color(0xFFD32F2F)),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+
+    try {
+      await ChatRepository.instance.deleteMessageForEveryone(
+        chatId: widget.chatId,
+        message: message,
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Could not delete message: $e')),
+      );
+    }
   }
 
   void _onForwardMessage(Message message) {

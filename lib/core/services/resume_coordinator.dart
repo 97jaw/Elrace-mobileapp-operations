@@ -4,6 +4,7 @@ import 'package:el_race/core/app_globals.dart';
 import 'package:el_race/core/services/attendance_status_sync_service.dart';
 import 'package:el_race/core/services/badge_refresh_service.dart';
 import 'package:el_race/core/session/force_logout_guard.dart';
+import 'package:el_race/core/security/vpn_block_guard.dart';
 import 'package:el_race/core/utils/shared_pref.dart';
 import 'package:el_race/data/services/prayer_audio_service.dart';
 import 'package:el_race/firebase_service.dart';
@@ -85,6 +86,8 @@ class ResumeCoordinator {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       // Foreground owns azan again — cancel OS schedules; timer plays once.
       unawaited(PrayerAudioService().enterForegroundMode());
+      // VPN block — same resume tier as admin force-logout (popup only).
+      unawaited(VpnBlockGuard.instance.checkOnForeground());
       if (SharedPref.isUserAuthenticated()) {
         unawaited(_runAuthenticatedTier1());
       }

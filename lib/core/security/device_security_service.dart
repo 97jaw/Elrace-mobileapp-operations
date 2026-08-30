@@ -4,7 +4,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_jailbreak_detection/flutter_jailbreak_detection.dart';
 import 'package:safe_device/safe_device.dart';
-import 'package:vpn_connection_detector/vpn_connection_detector.dart';
 import 'package:el_race/core/services/app_config_service.dart';
 
 /// Security check result containing all security statuses
@@ -89,8 +88,9 @@ class SecurityCheckResult {
           Platform.isIOS
               ? 'Open Settings → VPN (or General → VPN & Device Management), turn VPN off, then tap Retry.'
               : 'Turn off VPN in your device settings (or your VPN app), then tap Retry.';
-      return 'A VPN connection is active on this device.\n\n'
-          'For security reasons, Elrace Operations cannot be used while a VPN is turned on.\n\n'
+      return 'A VPN connection is currently active on this device.\n\n'
+          'For security reasons, Elrace Operations cannot be used while a VPN is connected.\n\n'
+          'A VPN profile saved in Settings is fine — only an active connection is blocked.\n\n'
           '$howTo';
     }
 
@@ -217,14 +217,16 @@ class DeviceSecurityService {
   static const MethodChannel _vpnChannel =
       MethodChannel('ae.elrace.mobile/vpn_detection');
 
-  /// Platform VPN probe used by full security check and resume re-check.
-  /// Android: interface / connectivity detector. iOS: native `__SCOPED__` proxy settings.
+  /// Native VPN probe (Android: TRANSPORT_VPN, iOS: active __SCOPED__ tunnel).
+  /// Configured-but-disconnected VPN profiles are intentionally ignored.
   Future<bool> _detectVpnActive() async {
-    if (Platform.isIOS) {
+    try {
       final active = await _vpnChannel.invokeMethod<bool>('isVpnActive');
       return active ?? false;
+    } catch (e) {
+      print('⚠️ Native VPN channel error: $e');
+      return false;
     }
-    return VpnConnectionDetector.isVpnActive();
   }
 
   /// Quick VPN-only check (Android + iOS). Used on app resume.
@@ -233,7 +235,7 @@ class DeviceSecurityService {
     if (AppConfigService.instance.shouldSkipVpnCheck) return false;
     try {
       return await _detectVpnActive().timeout(
-        const Duration(milliseconds: 1500),
+        const Duration(milliseconds: 3500),
         onTimeout: () => false,
       );
     } catch (e) {
@@ -243,6 +245,8 @@ class DeviceSecurityService {
   }
 
   static bool _securityDialogVisible = false;
+
+  static bool get isSecurityDialogVisible => _securityDialogVisible;
 
   /// Shows a blocking dialog if the device is not secure
   static Future<void> showSecurityBlockDialog(

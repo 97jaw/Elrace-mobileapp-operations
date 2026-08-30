@@ -4,6 +4,7 @@ import 'package:el_race/core/services/update_service.dart';
 import 'package:el_race/core/services/android_play_update_service.dart';
 import 'package:el_race/core/app_globals.dart' show appInitCompleter;
 import 'package:el_race/core/session/force_logout_guard.dart';
+import 'package:el_race/core/security/device_security_service.dart';
 import 'package:el_race/core/utils/shared_pref.dart';
 import 'package:el_race/firebase_service.dart';
 import 'package:el_race/ui/presentation/signin/sign_in_screen.dart';
@@ -13,7 +14,6 @@ import 'package:flutter/material.dart';
 import 'package:el_race/ui/presentation/home_screen/screens/home_screen.dart';
 import 'package:el_race/utils/Util.dart';
 import 'package:el_race/core/services/app_config_service.dart';
-import 'package:el_race/core/security/device_security_service.dart';
 import 'package:provider/provider.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:el_race/ui/presentation/qr_survey/providers/qr_survey_data_provider.dart';
@@ -134,7 +134,6 @@ class _SplashScreenState extends State<SplashScreen> {
 
         if (!result.isSecure) {
           print('❌ Device security check failed!');
-          // Show security warning dialog
           DeviceSecurityService.showSecurityBlockDialog(context, result);
         } else {
           print('✅ Device security check passed!');
@@ -306,6 +305,10 @@ class _SplashScreenState extends State<SplashScreen> {
           return;
         }
 
+        // Every splash → home (cold start / long-idle restart) must re-show
+        // the biometric gate; static session flags survive in-process restarts.
+        HomeScreenPage.resetAuthSession();
+
         // Check if face registration is in progress or pending
         final isRegistrationInProgress =
             SharedPref().getPreferenceBoolean('isFaceRegistrationInProgress');
@@ -344,6 +347,7 @@ class _SplashScreenState extends State<SplashScreen> {
       // Fallback based on authentication status, not to login screen blindly
       if (mounted) {
         if (SharedPref.isUserAuthenticated()) {
+          HomeScreenPage.resetAuthSession();
           Util.pushPageAndRemoveRoutes(const HomeScreen(), context);
           FirebaseService.markHomeReady();
         } else {

@@ -25,10 +25,9 @@ import '../document_scanner/data/services/document_export_service.dart';
 import '../document_scanner/data/services/image_processing_service.dart';
 import '../document_scanner/domain/entities/document_page.dart';
 import '../document_scanner/domain/entities/scanned_document.dart';
-import '../qr_code/qr_scanner_screen.dart';
 
 /// Camera Selection Screen with built-in camera preview
-/// Shows SCAN and PHOTO buttons at bottom
+/// Shows SCAN and PHOTO buttons at bottom (QR lives in My Profile).
 class CameraSelectionScreen extends StatefulWidget {
   const CameraSelectionScreen({super.key});
 
@@ -748,53 +747,6 @@ class _CameraSelectionScreenState extends State<CameraSelectionScreen>
     }
   }
 
-  void _openQrScanner() async {
-    try {
-      // Grab the current controller but don't null it yet — keep the frozen
-      // camera frame visible during the push transition (no loading flicker).
-      final oldController = _controller;
-
-      // Dispose silently so the hardware is released before QR scanner opens.
-      _controller = null;
-      await oldController?.dispose();
-
-      // Navigate to QR scanner screen; returns true on successful scan
-      final result = await Navigator.push<bool>(
-        context,
-        MaterialPageRoute(
-          builder: (context) => const QrScannerScreen(),
-          fullscreenDialog: true,
-        ),
-      );
-
-      // If QR was scanned successfully, leave the camera screen too
-      if (result == true && mounted) {
-        Navigator.pop(context);
-        return;
-      }
-
-      if (!mounted) return;
-
-      // Show a spinner while we wait for Android to fully release the hardware
-      // from MobileScanner before we reopen it.
-      setState(() {});
-      await Future.delayed(const Duration(milliseconds: 400));
-
-      if (mounted) await _initializeCamera();
-    } catch (e) {
-      debugPrint('QR scanner error: $e');
-      if (mounted) {
-        await _initializeCamera();
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('QR scanner error: $e'),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     final H = MediaQuery.of(context).size.height;
@@ -1062,13 +1014,12 @@ class _CameraSelectionScreenState extends State<CameraSelectionScreen>
                       ),
                       SizedBox(height: 6.th),
 
-                      /// ——— SCAN / PHOTO / QR BUTTONS ———
+                      /// ——— SCAN / PHOTO BUTTONS ———
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                         children: [
                           _glassButton("SCAN", _openScanner),
                           _glassButton("PHOTO", _takePicture),
-                          _glassButton("QR", _openQrScanner),
                         ],
                       ),
                     ],

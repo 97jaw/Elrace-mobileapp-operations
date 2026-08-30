@@ -93,6 +93,7 @@ class ChatModuleHelper {
         
         // Initialize lifecycle observer for presence
         ChatLifecycleObserver.instance.initialize();
+        ChatUnreadBadgeService.instance.ensureListening();
         
         // Request notification permissions (non-blocking)
         FirebaseChatAuthService.instance.requestNotificationPermissions();
@@ -138,6 +139,7 @@ class ChatModuleHelper {
         // If we have cached result and it's enabled, return it
         if (_isInitialized && _lastResult != null && _lastResult!.chatEnabled) {
           print('✅ ChatModuleHelper: Returning cached chat session');
+          ChatUnreadBadgeService.instance.ensureListening();
           return _lastResult;
         }
 
@@ -153,6 +155,7 @@ class ChatModuleHelper {
             _isInitialized = true;
             chatEnabledNotifier.value = true;
             _lastResult = result;
+            ChatUnreadBadgeService.instance.ensureListening();
             
             // Restore session model from cached data
             final loginStamp =
@@ -213,6 +216,7 @@ class ChatModuleHelper {
         print('🔷 ChatModuleHelper: Already initialized and signed in, verifying setup...');
         if (_lastResult != null && _lastResult!.chatEnabled) {
           print('✅ ChatModuleHelper: Setup already complete');
+          ChatUnreadBadgeService.instance.ensureListening();
           return _lastResult;
         }
       }
@@ -314,6 +318,7 @@ class ChatModuleHelper {
       
       // Dispose lifecycle observer
       ChatLifecycleObserver.instance.dispose();
+      await ChatUnreadBadgeService.instance.stop();
       
       // Sign out from Firebase and cleanup (also clears secure cache)
       await FirebaseChatAuthService.instance.signOut();

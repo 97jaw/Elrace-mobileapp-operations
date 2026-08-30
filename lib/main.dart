@@ -9,6 +9,8 @@ import 'package:el_race/core/timesheet/services/capture_queue_service.dart';
 import 'package:el_race/core/utils/app_orientations.dart';
 import 'package:el_race/core/utils/shared_pref.dart';
 import 'package:el_race/core/security/device_security_service.dart';
+import 'package:el_race/core/security/vpn_block_guard.dart';
+import 'package:el_race/core/security/vpn_security_monitor.dart';
 import 'package:el_race/core/services/resume_coordinator.dart';
 import 'package:el_race/chat/chat.dart';
 import 'package:el_race/data/services/hive_service.dart';
@@ -740,6 +742,7 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
     debugPrint('🚀 MyApp.initState(): first Flutter screen tree started');
     WidgetsBinding.instance.addObserver(this);
     _enableAndroidImmersiveMode();
+    VpnSecurityMonitor.instance.start();
     // NOTE: Do NOT call FirebaseService.processPendingNotificationTap() here.
     // At this point the SplashScreen is still running. Notification taps
     // require the full app context (HomeBloc, providers, auth session) that is
@@ -749,6 +752,7 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
 
   @override
   void dispose() {
+    VpnSecurityMonitor.instance.stop();
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
   }
@@ -760,6 +764,10 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
       _enableAndroidImmersiveMode();
       // ignore: unawaited_futures
       _lockPortraitOrientation();
+      VpnSecurityMonitor.instance.start();
+      // Immediate VPN check when returning (Settings / Control Center toggle).
+      // ignore: unawaited_futures
+      VpnBlockGuard.instance.checkOnForeground(force: true);
 
       // Long-idle security re-verification runs silently in the background;
       // it only routes to splash if the device check actually fails.
@@ -769,14 +777,7 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
         if (inactiveFor >= _inactiveTimeout) {
           // ignore: unawaited_futures
           _recheckSecurityAfterTimeout(inactiveFor);
-        } else {
-          // Short resume: still re-check VPN and show popup immediately.
-          // ignore: unawaited_futures
-          _recheckVpnOnResume();
         }
-      } else if (!_isRestartingFromTimeout) {
-        // ignore: unawaited_futures
-        _recheckVpnOnResume();
       }
 
       // Tiered resume work (prayer foreground handover, badge refresh,
@@ -798,27 +799,6 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
         // ignore: unawaited_futures
         PrayerAudioService().enterBackgroundMode();
       }
-    }
-  }
-
-  /// Quick VPN re-check when returning to the app (Android + iOS).
-  /// Shows the blocking VPN popup without restarting splash.
-  Future<void> _recheckVpnOnResume() async {
-    if (!(Platform.isAndroid || Platform.isIOS)) return;
-    if (AppConfigService.instance.shouldSkipVpnCheck) return;
-    try {
-      final vpnActive =
-          await DeviceSecurityService.instance.isVpnBlockingActive();
-      if (!vpnActive) return;
-      final ctx = navKey.currentContext;
-      if (ctx == null || !ctx.mounted) return;
-      debugPrint('🔒 Resume VPN check: VPN active — showing block dialog');
-      await DeviceSecurityService.showSecurityBlockDialog(
-        ctx,
-        SecurityCheckResult.vpnOnly(),
-      );
-    } catch (e) {
-      debugPrint('🔒 Resume VPN check error (fail-open): $e');
     }
   }
 
