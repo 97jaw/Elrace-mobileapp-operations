@@ -1,7 +1,6 @@
 import 'dart:io';
 import 'package:image/image.dart' as img;
 
-import 'package:el_race/report_module/data/models/company_model.dart';
 import 'package:el_race/report_module/data/models/report_detail_model.dart';
 import 'package:el_race/report_module/data/models/report_item_model.dart';
 import 'package:el_race/report_module/data/repositories/company_repository.dart';
@@ -15,6 +14,13 @@ import 'package:pdf/widgets.dart' as pw;
 import '../../../ui/presentation/call_screen/data/repository.dart';
 
 class PdfService {
+  // Brand palette aligned to El Race Site Report sample.
+  static final PdfColor _brandNavy = PdfColor.fromInt(0x1B2A4A);
+  static final PdfColor _brandRed = PdfColor.fromInt(0xC8102E);
+  static final PdfColor _labelGrey = PdfColor.fromInt(0x6B7280);
+  static final PdfColor _cardBorder = PdfColor.fromInt(0xE6E8EB);
+  static final PdfColor _fieldLine = PdfColor.fromInt(0xD0D4D9);
+
   Future<Uint8List> generateReportPdf({
     required ReportDetailModel report,
     required String projectName,
@@ -97,147 +103,275 @@ class PdfService {
 
   _buildHeader(context, logo, ReportDetailModel report, String projectName,
       pw.Font font) {
-    CompanyModel companyData = CompanyRepository.company!;
-    bool needToShowCover =
+    final needToShowCover =
         (context.pageNumber == 1 && report.coverPage != null);
     if (needToShowCover) return pw.SizedBox();
+
+    final reportNo = _getReportNumber(report).toString();
+    final dateText = DateFormat('dd/MM/yyyy').format(DateTime.now());
+    final projectDisplay =
+        projectName.trim().isEmpty ? '—' : projectName.trim();
+
     return pw.Column(
       crossAxisAlignment: pw.CrossAxisAlignment.stretch,
       children: [
-        // Logo centered at the top.
-
         pw.Container(
-          child: pw.Column(children: [
-            pw.Row(
-              mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
-              crossAxisAlignment: pw.CrossAxisAlignment.center,
-              children: [
-                pw.Image(pw.MemoryImage(logo), height: 90, width: 170),
-                pw.Column(
-                  crossAxisAlignment: pw.CrossAxisAlignment.end,
-                  children: [
-                    pw.Text(
-                      "Report",
-                      style: pw.TextStyle(
-                        font: font,
-                        fontSize: 18,
-                        fontWeight: pw.FontWeight.bold,
-                      ),
-                    ),
-                    pw.SizedBox(height: 2),
-                    pw.Text(
-                      "No. ${_getReportNumber(report)}",
-                      style: pw.TextStyle(
-                        font: font,
-                        fontSize: 12,
-                        fontWeight: pw.FontWeight.bold,
-                      ),
-                    ),
-                  ],
-                )
-              ],
-            ),
-            pw.SizedBox(height: 2),
-            pw.Container(height: 1, color: PdfColors.black),
-            pw.Container(
-              decoration: pw.BoxDecoration(
-                border: pw.Border.all(color: PdfColors.black),
+          height: 3,
+          width: 130,
+          color: _brandRed,
+        ),
+        pw.SizedBox(height: 10),
+        // Top brand row: centered logo | centered SITE REPORT | rectangular REPORT NO.
+        pw.Row(
+          crossAxisAlignment: pw.CrossAxisAlignment.center,
+          mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+          children: [
+            pw.SizedBox(
+              width: 140,
+              child: pw.Center(
+                child: pw.Image(pw.MemoryImage(logo), height: 68, width: 130),
               ),
-              child: pw.Row(
-                mainAxisSize: pw.MainAxisSize.min,
-                children: [
-                  // if (companyData.employeeName != "")
-                  // pw.Expanded(
-                  //   child: pw.Column(
-                  //       mainAxisAlignment: pw.MainAxisAlignment.start,
-                  //       children: [
-                  //         pw.Text(
-                  //           "Subject:",
-                  //           textAlign: pw.TextAlign.center,
-                  //           style: pw.TextStyle(
-                  //             fontSize: 13,
-                  //             font: font,
-                  //             fontWeight: pw.FontWeight.bold,
-                  //           ),
-                  //         ),
-                  //         pw.SizedBox(height: 3),
-                  //         pw.Text(
-                  //           subject,
-                  //           textAlign: pw.TextAlign.center,
-                  //           textDirection:
-                  //               RegExp(r'[\u0600-\u06FF]').hasMatch(subject)
-                  //                   ? pw.TextDirection.rtl
-                  //                   : pw.TextDirection.ltr,
-                  //           style: pw.TextStyle(
-                  //             fontSize: 13,
-                  //             font: font,
-                  //             fontWeight: pw.FontWeight.normal,
-                  //           ),
-                  //         ),
-                  //       ]),
-                  // ),
-                  // pw.Container(width: 1, color: PdfColors.black, height: 44),
-                  pw.Expanded(
-                    flex: 2,
-                    child: pw.Column(
-                        mainAxisAlignment: pw.MainAxisAlignment.start,
-                        children: [
-                          pw.SizedBox(height: 1),
-                          pw.Text(
-                            "Project Name",
-                            textAlign: pw.TextAlign.center,
-                            style: pw.TextStyle(
-                              fontSize: 14,
-                              font: font,
-                              fontWeight: pw.FontWeight.bold,
-                            ),
-                          ),
-                          // pw.SizedBox(height: 1),
-                          pw.Text(
-                            projectName,
-                            textAlign: pw.TextAlign.center,
-                            textDirection:
-                                RegExp(r'[\u0600-\u06FF]').hasMatch(projectName)
-                                    ? pw.TextDirection.rtl
-                                    : pw.TextDirection.ltr,
-                            style: pw.TextStyle(fontSize: 13, font: font),
-                          )
-                        ]),
+            ),
+            pw.SizedBox(
+              width: 210,
+              child: pw.Center(
+                child: pw.Text(
+                  'SITE REPORT',
+                  textAlign: pw.TextAlign.center,
+                  style: pw.TextStyle(
+                    font: font,
+                    fontSize: 24,
+                    fontWeight: pw.FontWeight.bold,
+                    color: _brandNavy,
+                    letterSpacing: 1.2,
                   ),
-                  pw.Container(width: 1, color: PdfColors.black, height: 44),
-                  pw.Expanded(
-                    child: pw.Column(
-                        mainAxisAlignment: pw.MainAxisAlignment.start,
-                        children: [
-                          pw.SizedBox(height: 1),
-                          pw.Text(
-                            "Date:",
-                            textAlign: pw.TextAlign.center,
-                            style: pw.TextStyle(
-                              fontSize: 14,
-                              font: font,
-                              fontWeight: pw.FontWeight.bold,
-                            ),
-                          ),
-                          // pw.SizedBox(height: 1),
-                          pw.Text(
-                            " ${DateFormat("dd//MM/yyyy").format(DateTime.now())}",
-                            textAlign: pw.TextAlign.center,
-                            style: pw.TextStyle(
-                              font: font,
-                              fontSize: 13,
-                            ),
-                          )
-                        ]),
+                ),
+              ),
+            ),
+            pw.Container(
+              width: 110,
+              padding: const pw.EdgeInsets.symmetric(vertical: 10, horizontal: 10),
+              decoration: pw.BoxDecoration(
+                color: _brandNavy,
+                borderRadius: pw.BorderRadius.circular(4),
+              ),
+              child: pw.Column(
+                children: [
+                  pw.Text(
+                    'REPORT NO.',
+                    style: pw.TextStyle(
+                      font: font,
+                      fontSize: 7.5,
+                      fontWeight: pw.FontWeight.bold,
+                      color: PdfColors.white,
+                      letterSpacing: 0.6,
+                    ),
+                  ),
+                  pw.SizedBox(height: 2),
+                  pw.Text(
+                    reportNo,
+                    style: pw.TextStyle(
+                      font: font,
+                      fontSize: 18,
+                      fontWeight: pw.FontWeight.bold,
+                      color: PdfColors.white,
+                    ),
                   ),
                 ],
               ),
             ),
-          ]),
+          ],
         ),
+        pw.SizedBox(height: 14),
+        // PROJECT | DATE card with red left border accent
+        pw.Container(
+          decoration: pw.BoxDecoration(
+            color: PdfColors.white,
+            borderRadius: pw.BorderRadius.circular(12),
+            border: pw.Border.all(color: _cardBorder, width: 1),
+          ),
+          child: pw.SizedBox(
+            height: 68,
+            child: pw.Row(
+              crossAxisAlignment: pw.CrossAxisAlignment.stretch,
+              children: [
+                pw.Container(
+                  width: 7,
+                  decoration: pw.BoxDecoration(
+                    color: _brandRed,
+                    borderRadius: const pw.BorderRadius.only(
+                      topLeft: pw.Radius.circular(12),
+                      bottomLeft: pw.Radius.circular(12),
+                    ),
+                  ),
+                ),
+              pw.SizedBox(
+                width: 300,
+                child: pw.Padding(
+                  padding:
+                      const pw.EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                  child: pw.Column(
+                    crossAxisAlignment: pw.CrossAxisAlignment.start,
+                    children: [
+                      pw.Text(
+                        'PROJECT',
+                        style: pw.TextStyle(
+                          font: font,
+                          fontSize: 10,
+                          fontWeight: pw.FontWeight.bold,
+                          color: _labelGrey,
+                          letterSpacing: 0.8,
+                        ),
+                      ),
+                      pw.SizedBox(height: 4),
+                      pw.Text(
+                        projectDisplay,
+                        textDirection:
+                            RegExp(r'[\u0600-\u06FF]').hasMatch(projectDisplay)
+                                ? pw.TextDirection.rtl
+                                : pw.TextDirection.ltr,
+                        style: pw.TextStyle(
+                          font: font,
+                          fontSize: 17,
+                          fontWeight: pw.FontWeight.bold,
+                          color: _brandNavy,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              pw.Container(width: 1, color: _cardBorder),
+              pw.SizedBox(
+                width: 150,
+                child: pw.Padding(
+                  padding:
+                      const pw.EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                  child: pw.Column(
+                    crossAxisAlignment: pw.CrossAxisAlignment.start,
+                    children: [
+                      pw.Text(
+                        'DATE',
+                        style: pw.TextStyle(
+                          font: font,
+                          fontSize: 10,
+                          fontWeight: pw.FontWeight.bold,
+                          color: _labelGrey,
+                          letterSpacing: 0.8,
+                        ),
+                      ),
+                      pw.SizedBox(height: 4),
+                      pw.Text(
+                        dateText,
+                        style: pw.TextStyle(
+                          font: font,
+                          fontSize: 16,
+                          fontWeight: pw.FontWeight.bold,
+                          color: _brandNavy,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+        ),
+        pw.SizedBox(height: 16),
+      ],
+    );
+  }
 
-        pw.SizedBox(height: 20),
-        if (!needToShowCover) _buildTableHeader()
+  String _padItemIndex(int index) => (index + 1).toString().padLeft(2, '0');
+
+  pw.Widget _buildSitePhotosHeading(int itemCount, pw.Font font) {
+    final end = itemCount <= 0 ? '00' : itemCount.toString().padLeft(2, '0');
+    return pw.Padding(
+      padding: const pw.EdgeInsets.only(bottom: 10),
+      child: pw.Row(
+        mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+        children: [
+          pw.Text(
+            'SITE PHOTOS',
+            style: pw.TextStyle(
+              font: font,
+              fontSize: 13,
+              fontWeight: pw.FontWeight.bold,
+              color: _brandNavy,
+              letterSpacing: 0.6,
+            ),
+          ),
+          pw.Text(
+            'Items 01-$end',
+            style: pw.TextStyle(
+              font: font,
+              fontSize: 9,
+              color: _labelGrey,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  pw.Widget _buildItemIndexBadge(int index) {
+    return pw.Container(
+      width: 28,
+      height: 28,
+      alignment: pw.Alignment.center,
+      decoration: pw.BoxDecoration(
+        color: _brandNavy,
+        borderRadius: pw.BorderRadius.circular(6),
+      ),
+      child: pw.Text(
+        _padItemIndex(index),
+        style: pw.TextStyle(
+          fontSize: 11,
+          fontWeight: pw.FontWeight.bold,
+          color: PdfColors.white,
+        ),
+      ),
+    );
+  }
+
+  pw.Widget _buildLabeledField(String label, String value, pw.Font font) {
+    final display = value.trim().isEmpty ? '—' : value.trim();
+    return pw.Column(
+      crossAxisAlignment: pw.CrossAxisAlignment.start,
+      children: [
+        pw.Text(
+          label.toUpperCase(),
+          style: pw.TextStyle(
+            font: font,
+            fontSize: 8.5,
+            fontWeight: pw.FontWeight.bold,
+            color: _labelGrey,
+            letterSpacing: 0.7,
+          ),
+        ),
+        pw.SizedBox(height: 4),
+        pw.Container(
+          width: double.infinity,
+          padding: const pw.EdgeInsets.only(bottom: 4),
+          decoration: pw.BoxDecoration(
+            border: pw.Border(
+              bottom: pw.BorderSide(color: _fieldLine, width: 0.8),
+            ),
+          ),
+          child: pw.Text(
+            display,
+            textDirection: RegExp(r'[\u0600-\u06FF]').hasMatch(display)
+                ? pw.TextDirection.rtl
+                : pw.TextDirection.ltr,
+            style: pw.TextStyle(
+              font: font,
+              fontSize: 11,
+              color: _brandNavy,
+              fontWeight: pw.FontWeight.bold,
+            ),
+          ),
+        ),
       ],
     );
   }
@@ -305,8 +439,6 @@ class PdfService {
       String templateType) {
     List<pw.Widget> content = [];
     // CompanyModel companyData = CompanyRepository.company!;
-
-    bool needToShowCover = (reportDetail.coverPage != null);
 
     if (reportDetail.coverPage != null) {
       content.add(pw.SizedBox(
@@ -465,7 +597,7 @@ class PdfService {
                                 ),
                               ),
                               pw.Text(
-                                " ${DateFormat("dd//MM/yyyy").format(DateTime.now())}",
+                                " ${DateFormat("dd/MM/yyyy").format(DateTime.now())}",
                                 textAlign: pw.TextAlign.center,
                                 style: pw.TextStyle(
                                   font: font,
@@ -476,7 +608,6 @@ class PdfService {
                       ])),
                 ),
                 pw.SizedBox(height: 20),
-                if (!needToShowCover) _buildTableHeader()
               ],
             ),
             pw.SizedBox(height: 20),
@@ -529,26 +660,25 @@ class PdfService {
     final items = reportDetail.reportItems;
 
     return pw.Column(
+      crossAxisAlignment: pw.CrossAxisAlignment.stretch,
       children: [
+        _buildSitePhotosHeading(items.length, font),
         for (int i = 0; i < items.length; i++)
           pw.Container(
             margin: const pw.EdgeInsets.only(bottom: 12),
-            padding: const pw.EdgeInsets.all(8),
+            padding: const pw.EdgeInsets.all(10),
             decoration: pw.BoxDecoration(
-              border: pw.Border.all(color: PdfColors.grey400),
-              borderRadius: pw.BorderRadius.circular(8),
+              color: PdfColors.white,
+              border: pw.Border.all(color: _cardBorder),
+              borderRadius: pw.BorderRadius.circular(12),
             ),
             child: pw.Column(
               crossAxisAlignment: pw.CrossAxisAlignment.start,
               children: [
-                pw.Text('Item ${i + 1}',
-                    style: pw.TextStyle(
-                        fontSize: 11,
-                        fontWeight: pw.FontWeight.bold,
-                        font: font)),
-                pw.SizedBox(height: 6),
-                _buildReportImage(items[i], imageMap, height: 190),
+                _buildItemIndexBadge(i),
                 pw.SizedBox(height: 8),
+                _buildReportImage(items[i], imageMap, height: 180),
+                pw.SizedBox(height: 10),
                 _buildTemplateText(items[i], font),
               ],
             ),
@@ -561,33 +691,36 @@ class PdfService {
       ReportDetailModel reportDetail, Map imageMap, pw.Font font) {
     final items = reportDetail.reportItems;
 
-    return pw.Wrap(
-      spacing: 10,
-      runSpacing: 10,
+    return pw.Column(
+      crossAxisAlignment: pw.CrossAxisAlignment.stretch,
       children: [
-        for (int i = 0; i < items.length; i++)
-          pw.Container(
-            width: 250,
-            padding: const pw.EdgeInsets.all(8),
-            decoration: pw.BoxDecoration(
-              border: pw.Border.all(color: PdfColors.grey400),
-              borderRadius: pw.BorderRadius.circular(8),
-            ),
-            child: pw.Column(
-              crossAxisAlignment: pw.CrossAxisAlignment.start,
-              children: [
-                pw.Text('Item ${i + 1}',
-                    style: pw.TextStyle(
-                        fontSize: 10,
-                        fontWeight: pw.FontWeight.bold,
-                        font: font)),
-                pw.SizedBox(height: 4),
-                _buildReportImage(items[i], imageMap, height: 130),
-                pw.SizedBox(height: 6),
-                _buildTemplateText(items[i], font),
-              ],
-            ),
-          ),
+        _buildSitePhotosHeading(items.length, font),
+        pw.Wrap(
+          spacing: 10,
+          runSpacing: 10,
+          children: [
+            for (int i = 0; i < items.length; i++)
+              pw.Container(
+                width: 250,
+                padding: const pw.EdgeInsets.all(8),
+                decoration: pw.BoxDecoration(
+                  color: PdfColors.white,
+                  border: pw.Border.all(color: _cardBorder),
+                  borderRadius: pw.BorderRadius.circular(12),
+                ),
+                child: pw.Column(
+                  crossAxisAlignment: pw.CrossAxisAlignment.start,
+                  children: [
+                    _buildItemIndexBadge(i),
+                    pw.SizedBox(height: 6),
+                    _buildReportImage(items[i], imageMap, height: 120),
+                    pw.SizedBox(height: 8),
+                    _buildTemplateText(items[i], font),
+                  ],
+                ),
+              ),
+          ],
+        ),
       ],
     );
   }
@@ -597,24 +730,32 @@ class PdfService {
     final items = reportDetail.reportItems;
 
     return pw.Column(
+      crossAxisAlignment: pw.CrossAxisAlignment.stretch,
       children: [
+        _buildSitePhotosHeading(items.length, font),
         for (int i = 0; i < items.length; i++)
           pw.Container(
-            margin: const pw.EdgeInsets.only(bottom: 10),
-            padding: const pw.EdgeInsets.all(8),
+            margin: const pw.EdgeInsets.only(bottom: 12),
+            padding: const pw.EdgeInsets.all(10),
             decoration: pw.BoxDecoration(
-              border: pw.Border.all(color: PdfColors.grey400),
-              borderRadius: pw.BorderRadius.circular(8),
+              color: PdfColors.white,
+              border: pw.Border.all(color: _cardBorder),
+              borderRadius: pw.BorderRadius.circular(12),
             ),
             child: pw.Row(
               crossAxisAlignment: pw.CrossAxisAlignment.start,
               children: [
-                pw.SizedBox(
-                  width: 190,
-                  child: _buildReportImage(items[i], imageMap, height: 130),
-                ),
+                _buildItemIndexBadge(i),
                 pw.SizedBox(width: 10),
-                pw.Expanded(child: _buildTemplateText(items[i], font)),
+                pw.SizedBox(
+                  width: 170,
+                  child: _buildReportImage(items[i], imageMap, height: 120),
+                ),
+                pw.SizedBox(width: 12),
+                pw.SizedBox(
+                  width: 240,
+                  child: _buildTemplateText(items[i], font),
+                ),
               ],
             ),
           ),
@@ -626,33 +767,36 @@ class PdfService {
       ReportDetailModel reportDetail, Map imageMap, pw.Font font) {
     final items = reportDetail.reportItems;
 
-    return pw.Wrap(
-      spacing: 8,
-      runSpacing: 8,
+    return pw.Column(
+      crossAxisAlignment: pw.CrossAxisAlignment.stretch,
       children: [
-        for (int i = 0; i < items.length; i++)
-          pw.Container(
-            width: 170,
-            padding: const pw.EdgeInsets.all(6),
-            decoration: pw.BoxDecoration(
-              border: pw.Border.all(color: PdfColors.grey400),
-              borderRadius: pw.BorderRadius.circular(8),
-            ),
-            child: pw.Column(
-              crossAxisAlignment: pw.CrossAxisAlignment.start,
-              children: [
-                pw.Text('Item ${i + 1}',
-                    style: pw.TextStyle(
-                        fontSize: 10,
-                        fontWeight: pw.FontWeight.bold,
-                        font: font)),
-                pw.SizedBox(height: 4),
-                _buildReportImage(items[i], imageMap, height: 95),
-                pw.SizedBox(height: 6),
-                _buildTemplateText(items[i], font),
-              ],
-            ),
-          ),
+        _buildSitePhotosHeading(items.length, font),
+        pw.Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: [
+            for (int i = 0; i < items.length; i++)
+              pw.Container(
+                width: 170,
+                padding: const pw.EdgeInsets.all(8),
+                decoration: pw.BoxDecoration(
+                  color: PdfColors.white,
+                  border: pw.Border.all(color: _cardBorder),
+                  borderRadius: pw.BorderRadius.circular(12),
+                ),
+                child: pw.Column(
+                  crossAxisAlignment: pw.CrossAxisAlignment.start,
+                  children: [
+                    _buildItemIndexBadge(i),
+                    pw.SizedBox(height: 6),
+                    _buildReportImage(items[i], imageMap, height: 90),
+                    pw.SizedBox(height: 8),
+                    _buildTemplateText(items[i], font),
+                  ],
+                ),
+              ),
+          ],
+        ),
       ],
     );
   }
@@ -665,10 +809,12 @@ class PdfService {
         height: height,
         alignment: pw.Alignment.center,
         decoration: pw.BoxDecoration(
-          border: pw.Border.all(color: PdfColors.grey300),
+          border: pw.Border.all(color: _cardBorder),
           color: PdfColors.grey100,
+          borderRadius: pw.BorderRadius.circular(8),
         ),
-        child: pw.Text('No image'),
+        child: pw.Text('No image',
+            style: pw.TextStyle(fontSize: 10, color: _labelGrey)),
       );
     }
     final squareSide = height;
@@ -676,8 +822,9 @@ class PdfService {
       height: height,
       width: double.infinity,
       decoration: pw.BoxDecoration(
-        border: pw.Border.all(color: PdfColors.grey300),
+        border: pw.Border.all(color: _cardBorder),
         color: PdfColors.grey100,
+        borderRadius: pw.BorderRadius.circular(8),
       ),
       child: pw.Center(
         child: pw.SizedBox(
@@ -693,49 +840,50 @@ class PdfService {
   }
 
   pw.Widget _buildTemplateText(ReportItemModel item, pw.Font font) {
-    final location = item.location.trim();
-    final description = item.description.trim();
-
     return pw.Column(
       crossAxisAlignment: pw.CrossAxisAlignment.start,
       children: [
-        if (location.isNotEmpty) ...[
-          pw.Text('Location:',
-              style: pw.TextStyle(
-                  fontSize: 10, fontWeight: pw.FontWeight.bold, font: font)),
-          _buildBulletList(location, font),
-          pw.SizedBox(height: 4),
-        ],
-        if (description.isNotEmpty) ...[
-          pw.Text('Description:',
-              style: pw.TextStyle(
-                  fontSize: 10, fontWeight: pw.FontWeight.bold, font: font)),
-          _buildBulletList(description, font),
-        ],
-        if (location.isEmpty && description.isEmpty)
-          pw.Text('-', style: pw.TextStyle(fontSize: 10, font: font)),
+        _buildLabeledField('Location', item.location, font),
+        pw.SizedBox(height: 10),
+        _buildLabeledField('Description', item.description, font),
       ],
     );
   }
 
   _buildFooter(context, String userName, pw.Font font) {
+    final pageLabel =
+        'PAGE ${context.pageNumber.toString().padLeft(2, '0')} / ${context.pagesCount.toString().padLeft(2, '0')}';
     return pw.Container(
-        decoration: const pw.BoxDecoration(
-            border: pw.Border(top: pw.BorderSide(width: 2))),
-        padding: const pw.EdgeInsets.only(top: 10, left: 20, right: 20),
-        child: pw.Row(
-            mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
-            children: [
-              if (userName.isNotEmpty)
-                pw.Text(
-                  userName,
-                  style: pw.TextStyle(fontSize: 12, font: font),
-                ),
-              pw.Text(
-                'Page ${context.pageNumber} of ${context.pagesCount}',
-                style: pw.TextStyle(fontSize: 12, font: font),
+      decoration: pw.BoxDecoration(
+        border: pw.Border(top: pw.BorderSide(width: 1, color: _cardBorder)),
+      ),
+      padding: const pw.EdgeInsets.only(top: 10, left: 4, right: 4),
+      child: pw.Row(
+        mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+        children: [
+          pw.SizedBox(
+            width: 250,
+            child: pw.Text(
+              userName,
+              style: pw.TextStyle(
+                fontSize: 10,
+                font: font,
+                color: _labelGrey,
               ),
-            ]));
+            ),
+          ),
+          pw.Text(
+            pageLabel,
+            style: pw.TextStyle(
+              fontSize: 10,
+              font: font,
+              fontWeight: pw.FontWeight.bold,
+              color: _brandNavy,
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
   Future<Uint8List> _loadAssetAsBytes(String assetPath) async {
