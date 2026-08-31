@@ -808,7 +808,8 @@ class NotificationStorageService {
     return getBadgeCount();
   }
 
-  /// Maps legacy "LPO Fully Approved" copy to "LPI has been issued" + vendor.
+  /// Maps legacy "LPO Fully Approved" / typo "LPI …" copy to
+  /// "LPO {number} has been issued" + vendor body.
   static (String, String) _remapLpoIssuedNotification({
     required String title,
     required String body,
@@ -822,17 +823,22 @@ class NotificationStorageService {
         .trim()
         .toLowerCase();
     final isLpoContext = categoryLower.contains('lpo') ||
+        categoryLower.contains('lpi') ||
         categoryLower.contains('purchase') ||
         model == 'purchase.order' ||
-        titleLower.contains('lpo');
+        titleLower.contains('lpo') ||
+        titleLower.contains('lpi');
     final isLegacyFinal = titleLower == 'lpo fully approved' ||
+        titleLower == 'lpi has been issued' ||
         titleLower.contains('has been fully approved') ||
-        (titleLower.contains('lpo') && titleLower.contains('fully approved'));
+        (titleLower.contains('lpo') && titleLower.contains('fully approved')) ||
+        (titleLower.contains('lpi') && titleLower.contains('issued'));
 
     if (!isLpoContext || !isLegacyFinal) {
       return (title, body);
     }
 
+    final lpoNumber = _lpoNumberFromNotificationData(data, body);
     final vendor = (data?['vendor_name'] ??
             data?['partner_name'] ??
             data?['vendor'] ??
@@ -840,10 +846,61 @@ class NotificationStorageService {
             '')
         .toString()
         .trim();
-    return (
-      'LPI has been issued',
-      vendor.isNotEmpty ? vendor : body,
-    );
+
+    final remappedTitle = lpoNumber.isNotEmpty
+        ? 'LPO $lpoNumber has been issued'
+        : 'LPO has been issued';
+
+    // Prefer vendor in the body; keep LPO number in the title.
+    final remappedBody = vendor.isNotEmpty
+        ? vendor
+        : (body.trim().isNotEmpty &&
+                !body.toLowerCase().contains('fully approved')
+            ? body.trim()
+            : (lpoNumber.isNotEmpty ? 'LPO No: $lpoNumber' : remappedTitle));
+
+    return (remappedTitle, remappedBody);
+  }
+
+  static String _lpoNumberFromNotificationData(
+    Map<String, dynamic>? data,
+    String body,
+  ) {
+    if (data != null) {
+      for (final key in const [
+        'name',
+        'lpo_number',
+        'lpo_name',
+        'po_name',
+        'po_number',
+        'display_name',
+        'res_name',
+        'document_name',
+        'origin',
+        'order_name',
+      ]) {
+        final value = (data[key] ?? '').toString().trim();
+        if (value.isNotEmpty && value.toLowerCase() != 'false') {
+          return value;
+        }
+      }
+      final nested = data['record'] ?? data['order'] ?? data['lpo'];
+      if (nested is Map) {
+        for (final key in const ['name', 'display_name', 'lpo_number']) {
+          final value = (nested[key] ?? '').toString().trim();
+          if (value.isNotEmpty && value.toLowerCase() != 'false') {
+            return value;
+          }
+        }
+      }
+    }
+
+    // Fallback: pull an LPO/P0-style token from the original body.
+    final match = RegExp(
+      r'\b(?:LPO[\s#/:-]*)?([A-Z]{0,4}\d[\w./-]{2,})\b',
+      caseSensitive: false,
+    ).firstMatch(body);
+    return match?.group(1)?.trim() ?? '';
   }
 
   static Map<String, dynamic> _withLpoIssuedRemap(Map<String, dynamic> item) {
@@ -893,7 +950,7 @@ class NotificationStorageService {
         (raw['title'] ?? raw['subject'] ?? 'Notification').toString();
     normalized['body'] = (raw['body'] ?? raw['message'] ?? '').toString();
 
-    // LPO final-approval copy: title → "LPI has been issued", body → vendor.
+    // LPO final-approval copy: title → "LPO {number} has been issued", body → vendor.
     final remapped = _remapLpoIssuedNotification(
       title: normalized['title']?.toString() ?? '',
       body: normalized['body']?.toString() ?? '',
