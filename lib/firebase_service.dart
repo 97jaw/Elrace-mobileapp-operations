@@ -556,7 +556,7 @@ class FirebaseService {
     RemoteNotification? notification = message.notification;
     final data = message.data;
 
-    final title = (notification?.title ??
+    var title = (notification?.title ??
             data['title']?.toString() ??
             data['notification_title']?.toString() ??
             data['sender_name']?.toString() ??
@@ -564,7 +564,7 @@ class FirebaseService {
             'Notification')
         .trim();
 
-    final body = (notification?.body ??
+    var body = (notification?.body ??
             data['body']?.toString() ??
             data['message']?.toString() ??
             data['text']?.toString() ??
@@ -581,7 +581,18 @@ class FirebaseService {
       category = message.data['category'].toString();
     } else if (message.data.containsKey('type')) {
       category = message.data['type'].toString();
+    } else if (message.data.containsKey('model')) {
+      category = message.data['model'].toString();
     }
+
+    final remapped = NotificationStorageService.displayCopyForPush(
+      title: title.isEmpty ? 'Notification' : title,
+      body: body,
+      category: category,
+      data: Map<String, dynamic>.from(data),
+    );
+    title = remapped.$1;
+    body = remapped.$2;
 
     final isMuted = await NotificationStorageService.shouldMuteNotification(
       category: category,

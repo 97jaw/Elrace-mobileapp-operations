@@ -808,6 +808,21 @@ class NotificationStorageService {
     return getBadgeCount();
   }
 
+  /// Public entry for push banners + in-app list: fix LPI→LPO and attach LPO No.
+  static (String, String) displayCopyForPush({
+    required String title,
+    required String body,
+    required String category,
+    Map<String, dynamic>? data,
+  }) {
+    return _remapLpoIssuedNotification(
+      title: title,
+      body: body,
+      category: category,
+      data: data,
+    );
+  }
+
   /// Maps legacy "LPO Fully Approved" / typo "LPI …" copy to
   /// title "LPO has been issued" and a description that includes the LPO number.
   static (String, String) _remapLpoIssuedNotification({
@@ -828,19 +843,34 @@ class NotificationStorageService {
         model == 'purchase.order' ||
         titleLower.contains('lpo') ||
         titleLower.contains('lpi');
-    final isLegacyFinal = titleLower == 'lpo fully approved' ||
-        titleLower == 'lpi has been issued' ||
-        titleLower == 'lpo has been issued' ||
-        titleLower.contains('has been fully approved') ||
-        (titleLower.contains('lpo') && titleLower.contains('fully approved')) ||
-        (titleLower.contains('lpi') && titleLower.contains('issued')) ||
-        (titleLower.contains('lpo') && titleLower.contains('issued'));
 
-    if (!isLpoContext || !isLegacyFinal) {
+    // Always scrub the LPI typo in LPO-related copy (banner + inbox).
+    String scrubLpi(String value) => value
+        .replaceAll('LPI', 'LPO')
+        .replaceAll('lpi', 'lpo')
+        .replaceAll('Lpi', 'Lpo');
+
+    final scrubbedTitle = isLpoContext ? scrubLpi(title) : title;
+    final scrubbedBody = isLpoContext ? scrubLpi(body) : body;
+    final scrubbedTitleLower = scrubbedTitle.trim().toLowerCase();
+
+    final isLegacyFinal = scrubbedTitleLower == 'lpo fully approved' ||
+        scrubbedTitleLower == 'lpo has been issued' ||
+        scrubbedTitleLower.contains('has been fully approved') ||
+        (scrubbedTitleLower.contains('lpo') &&
+            scrubbedTitleLower.contains('fully approved')) ||
+        (scrubbedTitleLower.contains('lpo') &&
+            scrubbedTitleLower.contains('issued'));
+
+    if (!isLpoContext) {
       return (title, body);
     }
 
-    final lpoNumber = _lpoNumberFromNotificationData(data, body);
+    if (!isLegacyFinal) {
+      return (scrubbedTitle, scrubbedBody);
+    }
+
+    final lpoNumber = _lpoNumberFromNotificationData(data, scrubbedBody);
     final vendor = (data?['vendor_name'] ??
             data?['partner_name'] ??
             data?['vendor'] ??
@@ -857,9 +887,9 @@ class NotificationStorageService {
     ];
     final remappedBody = descriptionParts.isNotEmpty
         ? descriptionParts.join('\n')
-        : (body.trim().isNotEmpty &&
-                !body.toLowerCase().contains('fully approved')
-            ? body.trim()
+        : (scrubbedBody.trim().isNotEmpty &&
+                !scrubbedBody.toLowerCase().contains('fully approved')
+            ? scrubbedBody.trim()
             : remappedTitle);
 
     return (remappedTitle, remappedBody);
