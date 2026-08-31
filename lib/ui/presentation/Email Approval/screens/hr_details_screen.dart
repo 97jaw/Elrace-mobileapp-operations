@@ -301,50 +301,36 @@ class _HrDetailsScreenState extends State<HrDetailsScreen> {
       return _caseByTypeId[caseId] ?? 'generic';
     }
 
-    final leaveSubtype = _pickFromMaps(requestMaps, [
-      'leave_request_subtype',
-      'leave_request_type',
-      'leave_request_type_labor',
-      'leave_type',
-      'leave_type_code',
-      'holiday_status_name',
-    ]);
-    if (leaveSubtype.isNotEmpty) {
-      final normalizedLeaveSubtype = _normalizeToken(leaveSubtype);
-      final mappedLeaveSubtype = _caseByTypeCode[normalizedLeaveSubtype];
-      if (mappedLeaveSubtype != null) return mappedLeaveSubtype;
-    }
-
-    final rawTypeCode = _pick([
-      _pickFromMaps(requestMaps, [
-        'request_type_code',
-        'request_code',
-        'type_code',
-        'leave_request_subtype',
-        'leave_type_code',
-        'request_type',
-        'leave_type',
-      ]),
-      widget.type,
-    ]);
-
-    if (rawTypeCode.isNotEmpty) {
-      final normalizedTypeCode = _normalizeToken(rawTypeCode);
-      final mapped = _caseByTypeCode[normalizedTypeCode];
-      if (mapped != null) return mapped;
+    // Prefer request_type_code (SIM, ANNUALLEAVE, JM, …) before leave subtype,
+    // otherwise a stale leave_request_type on Sim Card maps to "annual".
+    final typeCode = _normalizeToken(_pickFromMaps(requestMaps, [
+      'request_type_code',
+      'request_code',
+      'type_code',
+    ]));
+    if (typeCode.isNotEmpty) {
+      if (typeCode == 'annualleave') {
+        final leaveSubtype = _normalizeToken(_pickFromMaps(requestMaps, [
+          'leave_request_subtype',
+          'leave_request_type',
+          'leave_request_type_labor',
+          'leave_type',
+          'leave_type_code',
+        ]));
+        if (leaveSubtype.isNotEmpty) {
+          final mappedLeave =
+              _caseByTypeCode[leaveSubtype] ??
+                  _caseByTypeCode['annualleave_$leaveSubtype'];
+          if (mappedLeave != null) return mappedLeave;
+        }
+        return 'annual';
+      }
+      final mappedCode = _caseByTypeCode[typeCode];
+      if (mappedCode != null) return mappedCode;
     }
 
     final n = requestName.toLowerCase();
     if (n.contains('sim')) return 'sim';
-    if (n.contains('sick')) return 'sick';
-    if (n.contains('short')) return 'short';
-    if (n.contains('death')) return 'death';
-    if (n.contains('compensation')) return 'compensation';
-    if (n.contains('emergency')) return 'emergency';
-    if (n.contains('unpaid')) return 'unpaid';
-    if (n.contains('annual')) return 'annual';
-    if (n.contains('maternity')) return 'maternity';
-    if (n.contains('parental')) return 'parental';
     if (n.contains('job mission') || n.contains('مهمة')) return 'job_mission';
     if (n.contains('temporary')) return 'temporary_permission';
     if (n.contains('clearance')) return 'clearance';
@@ -360,6 +346,36 @@ class _HrDetailsScreenState extends State<HrDetailsScreen> {
     if (n.contains('passport')) return 'passport';
     if (n.contains('encash')) return 'leave_encashment';
     if (n.contains('car') && n.contains('rent')) return 'car_rent';
+
+    // Leave subtypes only when this is actually a leave request.
+    final isLeave = n.contains('leave') ||
+        HrApprovalDisplay.isLeaveRequest({
+          for (final map in requestMaps) ...map,
+        });
+    if (isLeave) {
+      final leaveSubtype = _normalizeToken(_pickFromMaps(requestMaps, [
+        'leave_request_subtype',
+        'leave_request_type',
+        'leave_request_type_labor',
+        'leave_type',
+        'leave_type_code',
+        'holiday_status_name',
+      ]));
+      if (leaveSubtype.isNotEmpty) {
+        final mappedLeaveSubtype = _caseByTypeCode[leaveSubtype];
+        if (mappedLeaveSubtype != null) return mappedLeaveSubtype;
+      }
+      if (n.contains('sick')) return 'sick';
+      if (n.contains('short')) return 'short';
+      if (n.contains('death')) return 'death';
+      if (n.contains('compensation')) return 'compensation';
+      if (n.contains('emergency')) return 'emergency';
+      if (n.contains('unpaid')) return 'unpaid';
+      if (n.contains('maternity')) return 'maternity';
+      if (n.contains('parental')) return 'parental';
+      if (n.contains('annual')) return 'annual';
+    }
+
     return 'generic';
   }
 
@@ -1501,8 +1517,12 @@ class _HrDetailsScreenState extends State<HrDetailsScreen> {
     int columns = 2,
     bool paddedCells = true,
   }) {
-    final visible =
-        items.where((e) => e.value.trim().isNotEmpty).toList(growable: false);
+    final visible = items
+        .where((e) {
+          final v = e.value.trim();
+          return v.isNotEmpty && v != '-';
+        })
+        .toList(growable: false);
     final colCount = columns < 1 ? 2 : columns;
     final gap = paddedCells ? 8.tw : 6.tw;
     final runGap = paddedCells ? 8.th : 6.th;
@@ -2119,10 +2139,8 @@ class _HrDetailsScreenState extends State<HrDetailsScreen> {
         'request_type',
         'holiday_status_name',
         'holiday_status_id',
-        'leave_type',
         'type',
         'title',
-        'leave_request_subtype',
       ],
       fallback: 'HR Management',
     );
@@ -2515,6 +2533,7 @@ class _HrDetailsScreenState extends State<HrDetailsScreen> {
         fallback: '-',
       ),
     );
+    final sickLeaveDuration = _pickDuration(requestMaps);
     final sickAllowedDays = _pickFromMaps(
       requestMaps,
       ['allowed_sick_days'],
@@ -3177,6 +3196,11 @@ class _HrDetailsScreenState extends State<HrDetailsScreen> {
                                                                                     _DetailItem(
                                                                                       'Start Date',
                                                                                       sickLeaveStartDate.isEmpty ? '-' : sickLeaveStartDate,
+                                                                                    ),
+                                                                                    _DetailItem(
+                                                                                      'Duration',
+                                                                                      sickLeaveDuration.isEmpty ? '-' : sickLeaveDuration,
+                                                                                      highlight: true,
                                                                                     ),
                                                                                     _DetailItem(
                                                                                       'Allow Sick Days',

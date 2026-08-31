@@ -57,17 +57,21 @@ class HrApprovalDisplay {
   }
 
   static bool isLeaveRequest(Map<dynamic, dynamic> item) {
+    final code = _pick(item, const [
+      'request_type_code',
+      'request_code',
+      'type_code',
+    ]).toLowerCase();
+    if (code == 'annualleave' || code.startsWith('annualleave_')) {
+      return true;
+    }
+
     final requestType = requestTypeName(item).toLowerCase();
     if (requestType.contains('leave')) return true;
 
-    final rawSubtype = _pick(item, const [
-      'leave_request_subtype',
-      'leave_request_type',
-      'leave_request_type_labor',
-      'leave_type',
-      'holiday_status_name',
-    ]);
-    return rawSubtype.isNotEmpty;
+    // Do NOT treat a leftover leave_request_type on non-leave records
+    // (e.g. Sim Card) as a leave request — that caused "Annual" under SIM.
+    return false;
   }
 
   static String leaveSubtypeLabel(Map<dynamic, dynamic> item) {

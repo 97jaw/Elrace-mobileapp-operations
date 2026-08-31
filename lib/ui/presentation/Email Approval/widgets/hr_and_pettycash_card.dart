@@ -409,16 +409,11 @@ class HrAndPettycashCard extends StatelessWidget {
         final requestType = HrApprovalDisplay.requestTypeName(item).isNotEmpty
             ? HrApprovalDisplay.requestTypeName(item)
             : _getSafeString(
-                item['leave_request_subtype'] ??
-                    item['leave_request_type'] ??
-                    item['request_type'] ??
-                    item['holiday_status_name'] ??
+                item['request_type'] ??
                     item['request_type_name'] ??
-                    item['holiday_status_id'] ??
-                    item['leave_type'] ??
-                    item['subject'] ??
                     item['type'] ??
-                    item['title'],
+                    item['title'] ??
+                    item['subject'],
                 'HR Management',
               );
 
