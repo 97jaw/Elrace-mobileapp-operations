@@ -809,7 +809,7 @@ class NotificationStorageService {
   }
 
   /// Maps legacy "LPO Fully Approved" / typo "LPI …" copy to
-  /// "LPO {number} has been issued" + vendor body.
+  /// title "LPO has been issued" and a description that includes the LPO number.
   static (String, String) _remapLpoIssuedNotification({
     required String title,
     required String body,
@@ -830,9 +830,11 @@ class NotificationStorageService {
         titleLower.contains('lpi');
     final isLegacyFinal = titleLower == 'lpo fully approved' ||
         titleLower == 'lpi has been issued' ||
+        titleLower == 'lpo has been issued' ||
         titleLower.contains('has been fully approved') ||
         (titleLower.contains('lpo') && titleLower.contains('fully approved')) ||
-        (titleLower.contains('lpi') && titleLower.contains('issued'));
+        (titleLower.contains('lpi') && titleLower.contains('issued')) ||
+        (titleLower.contains('lpo') && titleLower.contains('issued'));
 
     if (!isLpoContext || !isLegacyFinal) {
       return (title, body);
@@ -847,17 +849,18 @@ class NotificationStorageService {
         .toString()
         .trim();
 
-    final remappedTitle = lpoNumber.isNotEmpty
-        ? 'LPO $lpoNumber has been issued'
-        : 'LPO has been issued';
+    const remappedTitle = 'LPO has been issued';
 
-    // Prefer vendor in the body; keep LPO number in the title.
-    final remappedBody = vendor.isNotEmpty
-        ? vendor
+    final descriptionParts = <String>[
+      if (lpoNumber.isNotEmpty) 'LPO No: $lpoNumber',
+      if (vendor.isNotEmpty) vendor,
+    ];
+    final remappedBody = descriptionParts.isNotEmpty
+        ? descriptionParts.join('\n')
         : (body.trim().isNotEmpty &&
                 !body.toLowerCase().contains('fully approved')
             ? body.trim()
-            : (lpoNumber.isNotEmpty ? 'LPO No: $lpoNumber' : remappedTitle));
+            : remappedTitle);
 
     return (remappedTitle, remappedBody);
   }
@@ -950,7 +953,8 @@ class NotificationStorageService {
         (raw['title'] ?? raw['subject'] ?? 'Notification').toString();
     normalized['body'] = (raw['body'] ?? raw['message'] ?? '').toString();
 
-    // LPO final-approval copy: title → "LPO {number} has been issued", body → vendor.
+    // LPO final-approval copy: title → "LPO has been issued",
+    // description → LPO number (+ vendor when available).
     final remapped = _remapLpoIssuedNotification(
       title: normalized['title']?.toString() ?? '',
       body: normalized['body']?.toString() ?? '',
