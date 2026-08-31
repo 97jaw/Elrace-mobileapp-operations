@@ -30,6 +30,7 @@ class SplashScreen extends StatefulWidget {
 class _SplashScreenState extends State<SplashScreen> {
   static const String _splashVideoAsset = 'assets/mp4/splash.mp4';
   static const Duration _videoInitTimeout = Duration(seconds: 8);
+  static const Duration _maxDecorativeVideoWait = Duration(seconds: 4);
 
   bool _isSecurityCheckComplete = false;
   bool _isDeviceSecure = true;
@@ -200,9 +201,9 @@ class _SplashScreenState extends State<SplashScreen> {
       ),
     ]);
     await _videoCompletedCompleter.future.timeout(
-      const Duration(seconds: 30),
+      _maxDecorativeVideoWait,
       onTimeout: () {
-        print('Video completion timeout in splash - continuing anyway');
+        print('Video wait timeout in splash - continuing anyway');
       },
     );
     _logGateTiming('waitForInitAndNavigate-gate-resolved');

@@ -21,6 +21,7 @@ class VpnSecurityMonitor with WidgetsBindingObserver {
   StreamSubscription<dynamic>? _eventSubscription;
   StreamSubscription<List<ConnectivityResult>>? _connectivitySubscription;
   Timer? _pollTimer;
+  Timer? _initialPollTimer;
   final List<Timer> _delayedChecks = [];
   bool _running = false;
   bool _observingLifecycle = false;
@@ -47,13 +48,15 @@ class VpnSecurityMonitor with WidgetsBindingObserver {
       _scheduleBurstChecks();
     });
 
-    _pollTimer = Timer.periodic(const Duration(seconds: 2), (_) {
+    _pollTimer = Timer.periodic(const Duration(seconds: 15), (_) {
       // ignore: unawaited_futures
       _pollVpnStatus();
     });
 
-    // ignore: unawaited_futures
-    _pollVpnStatus();
+    _initialPollTimer = Timer(const Duration(seconds: 2), () {
+      // ignore: unawaited_futures
+      _pollVpnStatus();
+    });
   }
 
   void stop() {
@@ -64,6 +67,8 @@ class VpnSecurityMonitor with WidgetsBindingObserver {
     _connectivitySubscription = null;
     _pollTimer?.cancel();
     _pollTimer = null;
+    _initialPollTimer?.cancel();
+    _initialPollTimer = null;
     _cancelDelayedChecks();
   }
 
@@ -111,8 +116,7 @@ class VpnSecurityMonitor with WidgetsBindingObserver {
     if (AppConfigService.instance.shouldSkipVpnCheck) return;
 
     try {
-      final active =
-          await DeviceSecurityService.instance.isVpnBlockingActive();
+      final active = await DeviceSecurityService.instance.isVpnBlockingActive();
       if (active) {
         // ignore: unawaited_futures
         VpnBlockGuard.instance.checkOnForeground(force: true);

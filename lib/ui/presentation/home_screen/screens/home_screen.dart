@@ -103,13 +103,17 @@ class _HomeScreenState extends State<HomeScreenPage>
     // One GPS prime per Home mount (post-login); resumes no longer re-fetch.
     _locationBloc.add(GetCurrentLocationET());
 
-    // After splash / login: show biometric gate with button (not auto Face ID).
-    // Cancel/miss and cold reopen all use the same screen.
+    // After splash / login: open the OS biometric prompt immediately.
+    // The button gate is only a fallback when the prompt is cancelled/missed.
     if (!AppConfigService.instance.shouldSkipFaceId &&
         !HomeScreenPage._didAuthenticateThisSession) {
       _isBiometricLocked = true;
       HomeScreenPage._sessionUiLocked = true;
-      _showBiometricGateScreen = true;
+      _showBiometricGateScreen = false;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        _authenticateAfterLogin();
+      });
     }
   }
 
