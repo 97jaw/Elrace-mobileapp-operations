@@ -4,6 +4,7 @@ import 'dart:convert';
 import 'package:el_race/chat/models/models.dart';
 import 'package:el_race/core/app_globals.dart';
 import 'package:el_race/core/services/attendance_status_sync_service.dart';
+import 'package:el_race/core/services/incoming_share_service.dart';
 import 'package:el_race/core/services/notification_storage_service.dart';
 import 'package:el_race/core/utils/shared_pref.dart';
 import 'package:el_race/data/services/prayer_audio_service.dart';
@@ -55,6 +56,7 @@ class FirebaseService {
   static void markHomeReady() {
     _isHomeReady = true;
     processPendingNotificationTap();
+    IncomingShareService.instance.markHomeReady();
   }
 
   /// Call this when the app returns to splash and chat taps must wait again.
