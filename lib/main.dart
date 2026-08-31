@@ -1098,6 +1098,13 @@ void _handleDeepLink(Uri uri, BuildContext context) async {
   print('🔗 Path: ${uri.path}');
   print('🔗 Query Parameters: ${uri.queryParameters}');
 
+  // Shared files from WhatsApp / Files land as file:// — never treat as routes.
+  if (uri.scheme == 'file' || _looksLikeFilesystemPath(uri.path)) {
+    print('📎 Incoming shared file detected — routing to Chat/Sign chooser');
+    await IncomingShareService.instance.handleSharedFileUri(uri);
+    return;
+  }
+
   if (await UaepassLinkHandler.handle(uri)) {
     return;
   }
@@ -1273,6 +1280,13 @@ void _handleDeepLink(Uri uri, BuildContext context) async {
     print('⚠️ Expected: https://elrace.com/RCC4/Requirements/qrcodeapp[.php]');
   }
   print('🔗 ==================== END DEEP LINK HANDLER ====================');
+}
+
+bool _looksLikeFilesystemPath(String path) {
+  return path.startsWith('/private/') ||
+      path.startsWith('/var/') ||
+      path.contains('/Documents/Inbox/') ||
+      path.contains('/tmp/');
 }
 
 /// Helper function to show error dialog

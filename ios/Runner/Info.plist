@@ -44,13 +44,15 @@
 			</array>
 		</dict>
 	</array>
-	<!-- Open-in support (Share sheet targets for Chat/Sign are Android-first;
-	     iOS Share Extensions can be added as a follow-up). -->
+	<key>FlutterDeepLinkingEnabled</key>
+	<false/>
+	<!-- Open-in: single app entry ("Elrace Company"). Separate Chat/Sign
+	     share-sheet icons require iOS Share Extensions (Android already has aliases). -->
 	<key>CFBundleDocumentTypes</key>
 	<array>
 		<dict>
 			<key>CFBundleTypeName</key>
-			<string>PDF</string>
+			<string>PDF and Documents</string>
 			<key>CFBundleTypeRole</key>
 			<string>Viewer</string>
 			<key>LSHandlerRank</key>
@@ -60,6 +62,8 @@
 				<string>com.adobe.pdf</string>
 				<string>public.image</string>
 				<string>public.data</string>
+				<string>public.plain-text</string>
+				<string>net.daringfireball.markdown</string>
 			</array>
 		</dict>
 	</array>
