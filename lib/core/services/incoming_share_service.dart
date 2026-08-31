@@ -60,6 +60,9 @@ class IncomingShareService {
   void start() {
     if (_started) return;
     _started = true;
+    // Native share aliases + channels exist on Android only.
+    // iOS uses Open-in / file:// via handleSharedFileUri (app_links).
+    if (!Platform.isAndroid) return;
     _sub = _eventChannel.receiveBroadcastStream().listen((event) {
       if (event is Map) {
         _enqueue(IncomingSharePayload.fromMap(event));
@@ -70,6 +73,7 @@ class IncomingShareService {
   }
 
   Future<void> _pullInitial() async {
+    if (!Platform.isAndroid) return;
     try {
       final raw = await _methodChannel.invokeMethod<dynamic>('getInitialShare');
       if (raw is Map) {
