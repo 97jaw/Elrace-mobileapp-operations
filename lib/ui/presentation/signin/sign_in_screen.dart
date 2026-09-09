@@ -2,6 +2,7 @@ import 'dart:developer';
 
 import 'package:el_race/auth/uaepass_auth_cubit.dart';
 import 'package:el_race/chat/services/chat_credential_storage.dart';
+import 'package:el_race/core/config/feature_flags.dart';
 import 'package:el_race/core/session/post_login_setup.dart';
 import 'package:el_race/ui/auth/auth_loading_screen.dart';
 import 'package:el_race/ui/presentation/home_screen/screens/home_screen.dart';
@@ -64,7 +65,6 @@ class _SignInScreenState extends State<SignInScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final uaepassCubit = context.read<UaepassAuthCubit>();
     final screenWidth = MediaQuery.sizeOf(context).width;
 
     return BlocConsumer<SignInBloc, SignInState>(
@@ -186,67 +186,71 @@ class _SignInScreenState extends State<SignInScreen> {
                             ));
                           }),
                         ),
-                        const SizedBox(height: 16),
-                        SizedBox(
-                          width: 227,
-                          child: Row(
-                            children: [
-                              Expanded(
-                                child: Container(
-                                  height: 1,
-                                  color: HexColor("#DDDDDD"),
-                                ),
-                              ),
-                              Padding(
-                                padding:
-                                    const EdgeInsets.symmetric(horizontal: 16),
-                                child: Text(
-                                  'or',
-                                  style: TextStyle(
-                                    color: HexColor("#999999"),
-                                    fontSize: 14.0,
+                        if (FeatureFlags.showUaepassButton) ...[
+                          const SizedBox(height: 16),
+                          SizedBox(
+                            width: 227,
+                            child: Row(
+                              children: [
+                                Expanded(
+                                  child: Container(
+                                    height: 1,
+                                    color: HexColor("#DDDDDD"),
                                   ),
                                 ),
-                              ),
-                              Expanded(
-                                child: Container(
-                                  height: 1,
-                                  color: HexColor("#DDDDDD"),
+                                Padding(
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 16),
+                                  child: Text(
+                                    'or',
+                                    style: TextStyle(
+                                      color: HexColor("#999999"),
+                                      fontSize: 14.0,
+                                    ),
+                                  ),
                                 ),
-                              ),
-                            ],
+                                Expanded(
+                                  child: Container(
+                                    height: 1,
+                                    color: HexColor("#DDDDDD"),
+                                  ),
+                                ),
+                              ],
+                            ),
                           ),
-                        ),
-                        const SizedBox(height: 16),
-                        SizedBox(
-                          width: 227,
-                          child: GestureDetector(
-                            onTap: () {
-                              Navigator.of(context).push(
-                                MaterialPageRoute(
-                                  builder: (_) => const AuthLoadingScreen(),
+                          const SizedBox(height: 16),
+                          SizedBox(
+                            width: 227,
+                            child: GestureDetector(
+                              onTap: () {
+                                final uaepassCubit =
+                                    context.read<UaepassAuthCubit>();
+                                Navigator.of(context).push(
+                                  MaterialPageRoute(
+                                    builder: (_) => const AuthLoadingScreen(),
+                                  ),
+                                );
+                                uaepassCubit.startLogin();
+                              },
+                              child: Image.asset(
+                                'assets/newapp/uae-pass-button.png',
+                                width: 227,
+                                fit: BoxFit.contain,
+                                errorBuilder: (context, _, __) => Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 24,
+                                    vertical: 12,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    borderRadius: BorderRadius.circular(8),
+                                    border: Border.all(color: Colors.black12),
+                                  ),
+                                  child: const Text('Sign in with UAE PASS'),
                                 ),
-                              );
-                              uaepassCubit.startLogin();
-                            },
-                            child: Image.asset(
-                              'assets/newapp/uae-pass-button.png',
-                              width: 227,
-                              fit: BoxFit.contain,
-                              errorBuilder: (context, _, __) => Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 24,
-                                  vertical: 12,
-                                ),
-                                decoration: BoxDecoration(
-                                  borderRadius: BorderRadius.circular(8),
-                                  border: Border.all(color: Colors.black12),
-                                ),
-                                child: const Text('Sign in with UAE PASS'),
                               ),
                             ),
                           ),
-                        ),
+                        ],
                         SizedBox(height: SizeConfig().getHeight(70)),
                         Text(
                           'Contact support',
