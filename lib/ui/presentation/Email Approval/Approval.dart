@@ -72,6 +72,9 @@ class _ApprovalsScreenState extends State<ApprovalsScreen> {
   // Per-category loading/loaded/error state — no full-screen blocking loader
   final Map<String, bool> _categoryLoading = {};
   final Map<String, bool> _categoryLoaded = {};
+  /// Monotonic fetch id per category so overlapping force-refreshes cannot
+  /// apply a stale response after a newer approve/reject reload.
+  final Map<String, int> _categoryFetchGeneration = {};
   Map<String, String> categoryErrors = {};
 
   // Delayed requests count from API
@@ -367,8 +370,15 @@ class _ApprovalsScreenState extends State<ApprovalsScreen> {
       return;
     }
 
+    final generation =
+        (_categoryFetchGeneration[categoryKey] ?? 0) + (force ? 1 : 0);
+    if (force) {
+      _categoryFetchGeneration[categoryKey] = generation;
+    }
+    final fetchGeneration = _categoryFetchGeneration[categoryKey] ?? 0;
+
     debugPrint(
-        '🔄 [ApprovalsScreen] Loading category=$categoryKey force=$force');
+        '🔄 [ApprovalsScreen] Loading category=$categoryKey force=$force gen=$fetchGeneration');
     setState(() {
       _categoryLoading[categoryKey] = true;
       if (force) {
@@ -380,6 +390,14 @@ class _ApprovalsScreenState extends State<ApprovalsScreen> {
     try {
       final items = await _fetchCategoryData(categoryKey);
       if (!mounted) return;
+      // Drop stale responses from an older force-refresh that finished late.
+      if ((_categoryFetchGeneration[categoryKey] ?? 0) != fetchGeneration) {
+        debugPrint(
+          '⏭️ [ApprovalsScreen] Drop stale $categoryKey result gen=$fetchGeneration '
+          '(current=${_categoryFetchGeneration[categoryKey]})',
+        );
+        return;
+      }
       setState(() {
         switch (categoryKey) {
           case 'hr':
@@ -428,6 +446,12 @@ class _ApprovalsScreenState extends State<ApprovalsScreen> {
       }
     } catch (e) {
       if (!mounted) return;
+      if ((_categoryFetchGeneration[categoryKey] ?? 0) != fetchGeneration) {
+        debugPrint(
+          '⏭️ [ApprovalsScreen] Drop stale $categoryKey error gen=$fetchGeneration',
+        );
+        return;
+      }
       setState(() {
         categoryErrors[categoryKey] = e.toString();
         _categoryLoading[categoryKey] = false;

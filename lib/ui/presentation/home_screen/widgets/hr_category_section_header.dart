@@ -14,7 +14,7 @@ class HrCategorySectionHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return HomeCategorySectionHeader(
-      title: 'Human Resource',
+      title: 'Human Resources',
       icon: Icons.person_outline_rounded,
       iconColor: const Color(0xFFE63946),
       compact: compact,

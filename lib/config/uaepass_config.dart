@@ -222,15 +222,17 @@ class UaepassConfig {
         'ui_locales': 'en',
       },
       uiMessages: const UaepassUiMessages(
-        existingUsersOnly: 'Existing users only',
-        unverified: 'Unverified / Not eligible',
-        generic: 'Something went wrong',
-        cancelled: 'User cancel',
+        existingUsersOnly:
+            'This service is only for registered users, please contact HR Department in order to access the services',
+        unverified:
+            'You are not eligible to access this service. Your account is either not upgraded or you have a visitor account. Please contact HR Department to access the services.',
+        generic: 'Something went wrong during the login, please try again later!',
+        cancelled: 'User cancelled the login',
       ),
       buttonAssetPath: 'assets/png/uaepass_button.png',
       loadingMessage: 'Signing in with UAE PASS...',
       pollingInterval: const Duration(seconds: 3),
-      pollingTimeout: const Duration(seconds: 30),
+      pollingTimeout: const Duration(seconds: 60),
       enableDebugLog: kDebugMode,
     );
   }
@@ -262,15 +264,17 @@ class UaepassConfig {
         'ui_locales': 'en',
       },
       uiMessages: const UaepassUiMessages(
-        existingUsersOnly: 'Existing users only',
-        unverified: 'Unverified / Not eligible',
-        generic: 'Something went wrong',
-        cancelled: 'User cancel',
+        existingUsersOnly:
+            'This service is only for registered users, please contact HR Department in order to access the services',
+        unverified:
+            'You are not eligible to access this service. Your account is either not upgraded or you have a visitor account. Please contact HR Department to access the services.',
+        generic: 'Something went wrong during the login, please try again later!',
+        cancelled: 'User cancelled the login',
       ),
       buttonAssetPath: 'assets/png/uaepass_button.png',
       loadingMessage: 'Signing in with UAE PASS...',
       pollingInterval: const Duration(seconds: 3),
-      pollingTimeout: const Duration(seconds: 30),
+      pollingTimeout: const Duration(seconds: 60),
       enableDebugLog: false, // no debug logs in production
     );
   }

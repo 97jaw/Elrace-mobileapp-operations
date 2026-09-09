@@ -1,6 +1,7 @@
 import 'package:bloc/bloc.dart';
 import 'package:el_race/config/uaepass_config.dart';
 import 'package:el_race/services/uaepass_auth_service.dart';
+import 'package:el_race/ui/auth/error_dialog.dart';
 import 'package:el_race/utils/uaepass_logger.dart';
 import 'package:equatable/equatable.dart';
 
@@ -28,6 +29,10 @@ class UaepassAuthCubit extends Cubit<UaepassAuthState> {
 
   Future<void> handleCallbackOrResult(Uri uri) async {
     UaepassLogger.log('Cubit: handleCallbackOrResult called');
+    if (state.status == UaepassAuthStatus.loading) {
+      UaepassLogger.logWarning('Cubit: callback ignored — exchange already in progress');
+      return;
+    }
     emit(const UaepassAuthState.loading());
     final result = await authService.handleCallbackOrResult(uri);
     if (result.isSuccess) {
@@ -51,7 +56,12 @@ class UaepassAuthCubit extends Cubit<UaepassAuthState> {
   Future<void> tryFinalizeLogin() async {
     UaepassLogger.logSection('TRY FINALIZE LOGIN (from button)');
     UaepassLogger.log('Cubit: tryFinalizeLogin called');
-    
+
+    if (state.status == UaepassAuthStatus.loading) {
+      UaepassLogger.logWarning('Cubit: finalize ignored — exchange already in progress');
+      return;
+    }
+
     emit(const UaepassAuthState.loading());
     
     try {
@@ -65,14 +75,7 @@ class UaepassAuthCubit extends Cubit<UaepassAuthState> {
         UaepassLogger.logError('Cubit: Finalization failed');
         UaepassLogger.logKV('Failure type', result.failureType?.toString());
         UaepassLogger.logKV('UI Message', msg);
-        
-        // If polling failed, go back to waiting state
-        if (result.failureType == AuthFailureType.generic && config.enablePollingFallback) {
-          UaepassLogger.log('Cubit: Returning to waiting state (no result yet)');
-          emit(const UaepassAuthState.waiting());
-        } else {
-          emit(UaepassAuthState.failure(result.failureType));
-        }
+        emit(UaepassAuthState.failure(result.failureType));
       }
     } catch (e) {
       UaepassLogger.logError('Cubit: tryFinalizeLogin exception', e);
@@ -92,17 +95,5 @@ class UaepassAuthCubit extends Cubit<UaepassAuthState> {
     emit(const UaepassAuthState.idle());
   }
 
-  String messageFor(AuthFailureType? type) {
-    switch (type) {
-      case AuthFailureType.existingOnly:
-        return config.uiMessages.existingUsersOnly;
-      case AuthFailureType.unverified:
-        return config.uiMessages.unverified;
-      case AuthFailureType.cancelled:
-        return config.uiMessages.cancelled;
-      case AuthFailureType.generic:
-      default:
-        return config.uiMessages.generic;
-    }
-  }
+  String messageFor(AuthFailureType? type) => ErrorDialog.messageFor(type);
 }

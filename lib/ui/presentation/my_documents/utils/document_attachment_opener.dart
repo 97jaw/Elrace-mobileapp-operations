@@ -276,12 +276,20 @@ class DocumentAttachmentOpener {
       }
     }
 
-    // 2) Public preview URL
+    // 2) Public / external preview URL (Odoo public file or Graph download URL).
     final url = normalizeProjectFileUrl(publicUrl);
     if (url.isNotEmpty) {
       final uri = Uri.parse(url);
+      final isExternalBinary = url.toLowerCase().contains('sharepoint.com') ||
+          url.toLowerCase().contains('1drv.ms') ||
+          url.toLowerCase().contains('graph.microsoft.com') ||
+          url.toLowerCase().contains('tempauth=');
+      // Graph download links already carry auth in the query string — do not
+      // send the Odoo Bearer token (it can break the download).
       var bytes = await tryGet(uri, const {'Accept': '*/*'});
-      bytes ??= await tryGet(uri, authHeaders);
+      if (!isExternalBinary) {
+        bytes ??= await tryGet(uri, authHeaders);
+      }
       if (bytes != null) return bytes;
     }
 
@@ -303,6 +311,77 @@ class DocumentAttachmentOpener {
       }
     }
     return null;
+  }
+
+  static String _safeTempBaseName(String fileName) {
+    final raw = fileName.trim().isEmpty ? 'document' : fileName.trim();
+    return raw.replaceAll(RegExp(r'[/\\:*?"<>|]'), '_');
+  }
+
+  /// True when the file starts with `%PDF`.
+  static bool fileLooksLikePdf(File file) {
+    try {
+      final raf = file.openSync(mode: FileMode.read);
+      final header = raf.readSync(5);
+      raf.closeSync();
+      return isPdfBytes(Uint8List.fromList(header));
+    } catch (_) {
+      return false;
+    }
+  }
+
+  /// Stream a remote URL straight to a temp file (avoids holding large PDFs in RAM).
+  static Future<File> streamUrlToTempFile({
+    required String url,
+    required String fileName,
+    String extension = '.pdf',
+  }) async {
+    final uri = Uri.parse(url);
+    final client = HttpClient();
+    client.connectionTimeout = const Duration(seconds: 45);
+    try {
+      final request = await client.getUrl(uri);
+      request.headers.set(HttpHeaders.acceptHeader, '*/*');
+      final response = await request.close().timeout(const Duration(minutes: 3));
+      if (response.statusCode < 200 || response.statusCode >= 300) {
+        throw Exception('Download failed (HTTP ${response.statusCode})');
+      }
+
+      var base = _safeTempBaseName(fileName);
+      if (!base.toLowerCase().endsWith(extension.toLowerCase())) {
+        base = '$base$extension';
+      }
+      final dir = await getTemporaryDirectory();
+      final stamp = DateTime.now().millisecondsSinceEpoch;
+      final file = File('${dir.path}/sp_${stamp}_$base');
+      final sink = file.openWrite();
+      try {
+        await response.pipe(sink);
+      } catch (_) {
+        await sink.close();
+        rethrow;
+      }
+      // pipe closes the sink.
+      return file;
+    } finally {
+      client.close(force: true);
+    }
+  }
+
+  static Future<File> writeBytesToTempFile({
+    required Uint8List bytes,
+    required String fileName,
+    String extension = '.pdf',
+  }) async {
+    var base = _safeTempBaseName(fileName);
+    if (!base.toLowerCase().endsWith(extension.toLowerCase())) {
+      base = '$base$extension';
+    }
+    final dir = await getTemporaryDirectory();
+    final stamp = DateTime.now().millisecondsSinceEpoch;
+    final file = File('${dir.path}/mem_${stamp}_$base');
+    await file.writeAsBytes(bytes, flush: true);
+    return file;
   }
 
   /// Writes bytes to a temp file and opens the OS share / “Open with” sheet

@@ -66,7 +66,7 @@ List<WidgetModel> getAvailableWidgets() {
     ),
     const WidgetModel(
       id: 'documents',
-      title: 'Documents',
+      title: 'My Documents',
       iconPath: 'assets/png/icons/doc_icon.png',
       backgroundPath: 'assets/png/gray_card.png',
     ),
@@ -79,7 +79,7 @@ List<WidgetModel> getAvailableWidgets() {
     // ),
     const WidgetModel(
       id: 'todo_list',
-      title: 'TO DO List',
+      title: 'To-Do List',
       iconPath: 'assets/png/notes_icon.png',
       backgroundPath: 'assets/png/blue_card.png',
     ),
@@ -91,7 +91,7 @@ List<WidgetModel> getAvailableWidgets() {
     ),
     const WidgetModel(
       id: 'my_request',
-      title: 'My Request',
+      title: 'My Requests',
       iconPath: 'assets/png/my_request.png',
       backgroundPath: 'assets/png/gray_card.png',
     ),

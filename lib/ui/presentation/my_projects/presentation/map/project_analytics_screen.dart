@@ -6,13 +6,12 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:el_race/chat/chat_module_helper.dart';
 import 'package:el_race/chat/models/models.dart';
 import 'package:el_race/chat/repositories/chat_repository.dart';
+import 'package:el_race/core/utils/app_screen_protection.dart';
 import 'package:el_race/data/repositories/company_repository.dart';
 import 'package:el_race/ui/presentation/my_projects/data/datasources/project_remote_datasource.dart';
-import 'package:el_race/ui/presentation/my_projects/data/models/project_expense_breakdown_model.dart';
 import 'package:el_race/ui/presentation/my_projects/data/models/project_expense_summary_model.dart';
 import 'package:el_race/ui/presentation/my_projects/data/models/project_scurve_model.dart';
 import 'package:el_race/ui/presentation/my_projects/domain/entities/project_entity.dart';
-import 'package:el_race/ui/presentation/my_projects/presentation/map/project_expense_breakdown_panel.dart';
 import 'package:el_race/ui/presentation/my_projects/presentation/map/project_expense_summary_panel.dart';
 import 'package:el_race/ui/presentation/my_projects/presentation/utils/projects_dashboard_access.dart';
 import 'package:el_race/ui/presentation/my_projects/presentation/theme/projects_dashboard_theme.dart';
@@ -20,7 +19,6 @@ import 'package:el_race/ui/presentation/my_projects/presentation/widgets/project
 import 'package:el_race/ui/presentation/my_projects/presentation/widgets/projects_glass_chrome.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:http/http.dart' as http;
 import 'package:path_provider/path_provider.dart';
@@ -51,14 +49,31 @@ class _ProjectAnalyticsScreenState extends State<ProjectAnalyticsScreen>
     _showFinancials = ProjectsDashboardAccess.isManagementUser();
     final tabCount = _showFinancials ? 3 : 2;
     _tabController = TabController(length: tabCount, vsync: this);
+    _tabController.addListener(_onTabChanged);
     _remoteDataSource = ProjectRemoteDataSource();
     _future = _remoteDataSource.fetchProjectScurve(widget.project.projectId);
     _financialsFuture = _loadFinancials();
   }
 
+  void _onTabChanged() {
+    if (_tabController.indexIsChanging) return;
+    _syncFinancialsScreenProtection();
+  }
+
+  Future<void> _syncFinancialsScreenProtection() async {
+    final onFinancials = _showFinancials && _tabController.index == 1;
+    if (onFinancials) {
+      await AppScreenProtection.enable();
+    } else {
+      await AppScreenProtection.disable();
+    }
+  }
+
   @override
   void dispose() {
+    _tabController.removeListener(_onTabChanged);
     _tabController.dispose();
+    AppScreenProtection.disable();
     super.dispose();
   }
 
@@ -128,7 +143,6 @@ class _ProjectAnalyticsScreenState extends State<ProjectAnalyticsScreen>
         }
         return _ProjectFinancialsBody(
           data: data,
-          onRetry: _reloadFinancials,
         );
       },
     );
@@ -146,14 +160,14 @@ class _ProjectAnalyticsScreenState extends State<ProjectAnalyticsScreen>
   List<Widget> get _tabs {
     if (_showFinancials) {
       return const [
-        Tab(text: 'Project progress'),
-        Tab(text: 'Project Financials'),
-        Tab(text: 'Documents'),
+        Tab(text: 'Progress'),
+        Tab(text: 'Financials'),
+        Tab(text: 'Attachments'),
       ];
     }
     return const [
-      Tab(text: 'Project progress'),
-      Tab(text: 'Documents'),
+      Tab(text: 'Progress'),
+      Tab(text: 'Attachments'),
     ];
   }
 
@@ -176,18 +190,9 @@ class _ProjectAnalyticsScreenState extends State<ProjectAnalyticsScreen>
         ),
         child: Column(
           children: [
-            ProjectsGlassChromeHeader(
+            const ProjectsGlassChromeHeader(
               title: 'Project Analytics',
               showBack: true,
-              bottom: _AutoMarqueeTitle(
-                text: widget.project.name,
-                style: TextStyle(
-                  fontSize: 11.tsp,
-                  fontWeight: FontWeight.w600,
-                  color: ProjectsDashboardTheme.greyPanel,
-                ),
-              ),
-              tabsHeight: 18,
             ),
               Padding(
                 padding: EdgeInsets.symmetric(horizontal: 14.tw),
@@ -227,15 +232,9 @@ class _ProjectAnalyticsScreenState extends State<ProjectAnalyticsScreen>
   }
 
   Future<_ProjectFinancialsData> _loadFinancials() async {
-    final projectId = widget.project.projectId;
-    final results = await Future.wait([
-      _remoteDataSource.fetchProjectExpenseSummary(projectId),
-      _remoteDataSource.fetchProjectExpenseBreakdown(projectId),
-    ]);
-    return _ProjectFinancialsData(
-      summary: results[0] as ProjectExpenseSummaryModel,
-      breakdown: results[1] as ProjectExpenseBreakdownResult,
-    );
+    final summary = await _remoteDataSource
+        .fetchProjectExpenseSummary(widget.project.projectId);
+    return _ProjectFinancialsData(summary: summary);
   }
 
   void _reloadFinancials() {
@@ -246,13 +245,9 @@ class _ProjectAnalyticsScreenState extends State<ProjectAnalyticsScreen>
 }
 
 class _ProjectFinancialsData {
-  const _ProjectFinancialsData({
-    required this.summary,
-    required this.breakdown,
-  });
+  const _ProjectFinancialsData({required this.summary});
 
   final ProjectExpenseSummaryModel summary;
-  final ProjectExpenseBreakdownResult breakdown;
 }
 
 class _FinancialLoadingView extends StatelessWidget {
@@ -303,22 +298,12 @@ class _FinancialFatalErrorView extends StatelessWidget {
   }
 }
 
-class _ProjectFinancialsBody extends StatefulWidget {
+class _ProjectFinancialsBody extends StatelessWidget {
   const _ProjectFinancialsBody({
     required this.data,
-    required this.onRetry,
   });
 
   final _ProjectFinancialsData data;
-  final VoidCallback onRetry;
-
-  @override
-  State<_ProjectFinancialsBody> createState() => _ProjectFinancialsBodyState();
-}
-
-class _ProjectFinancialsBodyState extends State<_ProjectFinancialsBody> {
-  /// 0 = Analytics (ERP summary), 1 = Cost distribution (GL breakdown)
-  int _financialSection = 0;
 
   @override
   Widget build(BuildContext context) {
@@ -327,114 +312,58 @@ class _ProjectFinancialsBodyState extends State<_ProjectFinancialsBody> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          _financialSectionToggle(),
+          Container(
+            width: double.infinity,
+            padding: EdgeInsets.symmetric(vertical: 12.th, horizontal: 8.tw),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(14.tr),
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [
+                  ProjectsDashboardTheme.navy.withValues(alpha: 0.88),
+                  ProjectsDashboardTheme.maroon.withValues(alpha: 0.78),
+                ],
+              ),
+              border: Border.all(
+                color: Colors.white.withValues(alpha: 0.38),
+                width: 1.2,
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: ProjectsDashboardTheme.navy.withValues(alpha: 0.35),
+                  blurRadius: 12,
+                  offset: const Offset(0, 4),
+                ),
+              ],
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(
+                  Icons.insights_rounded,
+                  size: 18.tsp,
+                  color: ProjectsDashboardTheme.white,
+                ),
+                SizedBox(width: 8.tw),
+                Text(
+                  'Analytics',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: 11.tsp,
+                    fontWeight: FontWeight.w800,
+                    color: ProjectsDashboardTheme.white,
+                  ),
+                ),
+              ],
+            ),
+          ),
           SizedBox(height: 12.th),
           Expanded(
-            child: _financialSection == 0
-                ? ProjectExpenseSummaryPanel(
-                    summary: widget.data.summary,
-                  )
-                : ProjectExpenseBreakdownPanel(
-                    result: widget.data.breakdown,
-                  ),
+            child: ProjectExpenseSummaryPanel(summary: data.summary),
           ),
         ],
       ),
-    );
-  }
-
-  Widget _financialSectionToggle() {
-    Widget seg({
-      required IconData icon,
-      required String label,
-      required int index,
-    }) {
-      final on = _financialSection == index;
-      return Expanded(
-        child: Material(
-          color: Colors.transparent,
-          child: InkWell(
-            onTap: () => setState(() => _financialSection = index),
-            borderRadius: BorderRadius.circular(14.tr),
-            child: AnimatedContainer(
-              duration: const Duration(milliseconds: 220),
-              curve: Curves.easeOutCubic,
-              padding: EdgeInsets.symmetric(vertical: 12.th, horizontal: 8.tw),
-              decoration: on
-                  ? BoxDecoration(
-                      borderRadius: BorderRadius.circular(14.tr),
-                      gradient: LinearGradient(
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                        colors: [
-                          ProjectsDashboardTheme.navy.withValues(alpha: 0.88),
-                          ProjectsDashboardTheme.maroon.withValues(alpha: 0.78),
-                        ],
-                      ),
-                      border: Border.all(
-                        color: Colors.white.withValues(alpha: 0.38),
-                        width: 1.2,
-                      ),
-                      boxShadow: [
-                        BoxShadow(
-                          color: ProjectsDashboardTheme.navy
-                              .withValues(alpha: 0.35),
-                          blurRadius: 12,
-                          offset: const Offset(0, 4),
-                        ),
-                      ],
-                    )
-                  : analyticsGlassPanel(radius: 14),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(
-                    icon,
-                    size: 18.tsp,
-                    color: on
-                        ? ProjectsDashboardTheme.white
-                        : ProjectsDashboardTheme.greyPanel
-                            .withValues(alpha: 0.85),
-                  ),
-                  SizedBox(width: 8.tw),
-                  Flexible(
-                    child: Text(
-                      label,
-                      textAlign: TextAlign.center,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: GoogleFonts.poppins(
-                        fontSize: 11.tsp,
-                        fontWeight: FontWeight.w800,
-                        color: on
-                            ? ProjectsDashboardTheme.white
-                            : ProjectsDashboardTheme.greyPanel
-                                .withValues(alpha: 0.9),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ),
-      );
-    }
-
-    return Row(
-      children: [
-        seg(
-          icon: Icons.insights_rounded,
-          label: 'Analytics',
-          index: 0,
-        ),
-        SizedBox(width: 10.tw),
-        seg(
-          icon: Icons.pie_chart_outline_rounded,
-          label: 'Cost distribution',
-          index: 1,
-        ),
-      ],
     );
   }
 }
@@ -538,12 +467,6 @@ class _ProgressAnalyticsBodyState extends State<_ProgressAnalyticsBody> {
   @override
   Widget build(BuildContext context) {
     final kpi = widget.data.kpis;
-    final status = kpi.status.toLowerCase();
-    final statusColor = status == 'green'
-        ? const Color(0xFF16A34A)
-        : status == 'amber' || status == 'yellow'
-            ? const Color(0xFFF59E0B)
-            : const Color(0xFFDC2626);
     final isBehind = kpi.variance < 0;
     final varianceText =
         '${isBehind ? 'Behind' : 'Ahead'} by ${kpi.variance.abs().toStringAsFixed(1)}%';
@@ -572,50 +495,6 @@ class _ProgressAnalyticsBodyState extends State<_ProgressAnalyticsBody> {
               children: [
                 Row(
                   children: [
-                    Container(
-                      padding: EdgeInsets.symmetric(horizontal: 10.tw, vertical: 5.th),
-                      decoration: BoxDecoration(
-                        color: statusColor.withValues(alpha: 0.2),
-                        borderRadius: BorderRadius.circular(16.tr),
-                        border: Border.all(color: statusColor.withValues(alpha: 0.7)),
-                      ),
-                      child: Text(
-                        status.toUpperCase(),
-                        style: TextStyle(
-                          color: statusColor,
-                          fontWeight: FontWeight.w700,
-                          fontSize: 10.tsp,
-                        ),
-                      ),
-                    ),
-                    const Spacer(),
-                    Text(
-                      'SPI ${kpi.spi.toStringAsFixed(3)}',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontWeight: FontWeight.w800,
-                        fontSize: 14.tsp,
-                      ),
-                    ),
-                  ],
-                ),
-                SizedBox(height: 10.th),
-                Text(
-                  varianceText,
-                  style: TextStyle(
-                    color: isBehind ? const Color(0xFFFCA5A5) : const Color(0xFF86EFAC),
-                    fontSize: 12.tsp,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-                SizedBox(height: 4.th),
-                Text(
-                  'Range: week ${widget.data.rangeStart} - ${widget.data.rangeEnd}',
-                  style: TextStyle(color: const Color(0xFFCBD5E1), fontSize: 10.tsp),
-                ),
-                SizedBox(height: 10.th),
-                Row(
-                  children: [
                     CircleAvatar(
                       radius: 14.tr,
                       backgroundColor: Colors.white24,
@@ -626,18 +505,67 @@ class _ProgressAnalyticsBodyState extends State<_ProgressAnalyticsBody> {
                               : null,
                       child: (widget.project.managerPhoto == null ||
                               widget.project.managerPhoto!.isEmpty)
-                          ? Icon(Icons.person_rounded, color: Colors.white, size: 14.tsp)
+                          ? Icon(Icons.person_rounded,
+                              color: Colors.white, size: 14.tsp)
                           : null,
                     ),
                     SizedBox(width: 8.tw),
                     Expanded(
                       child: Text(
-                        widget.project.projectManagerName ?? 'Manager not assigned',
+                        widget.project.projectManagerName ??
+                            'Manager not assigned',
                         style: TextStyle(
                           color: Colors.white,
-                          fontSize: 11.tsp,
-                          fontWeight: FontWeight.w600,
+                          fontSize: 12.tsp,
+                          fontWeight: FontWeight.w700,
                         ),
+                      ),
+                    ),
+                  ],
+                ),
+                SizedBox(height: 10.th),
+                Text(
+                  varianceText,
+                  style: TextStyle(
+                    color: isBehind
+                        ? const Color(0xFFFCA5A5)
+                        : const Color(0xFF86EFAC),
+                    fontSize: 12.tsp,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                SizedBox(height: 4.th),
+                Text(
+                  'Range: week ${widget.data.rangeStart} - ${widget.data.rangeEnd}',
+                  style: TextStyle(
+                    color: const Color(0xFFE2E8F0),
+                    fontSize: 10.tsp,
+                  ),
+                ),
+                SizedBox(height: 12.th),
+                Row(
+                  children: [
+                    Expanded(
+                      child: _kpiPlain(
+                        'Planned',
+                        '${kpi.planned.toStringAsFixed(1)}%',
+                        const Color(0xFF93C5FD),
+                      ),
+                    ),
+                    Expanded(
+                      child: _kpiPlain(
+                        'Actual',
+                        '${kpi.actual.toStringAsFixed(1)}%',
+                        const Color(0xFF86EFAC),
+                      ),
+                    ),
+                    Expanded(
+                      child: _kpiPlain(
+                        'Variance',
+                        '${kpi.variance.toStringAsFixed(1)}%',
+                        isBehind
+                            ? const Color(0xFFFCA5A5)
+                            : const Color(0xFF86EFAC),
                       ),
                     ),
                   ],
@@ -645,34 +573,18 @@ class _ProgressAnalyticsBodyState extends State<_ProgressAnalyticsBody> {
               ],
             ),
           ),
-          SizedBox(height: 12.th),
-          Row(
-            children: [
-              _miniKpiCard('Planned', '${kpi.planned.toStringAsFixed(1)}%',
-                  const Color(0xFF2563EB)),
-              SizedBox(width: 8.tw),
-              _miniKpiCard('Actual', '${kpi.actual.toStringAsFixed(1)}%',
-                  const Color(0xFF16A34A)),
-              SizedBox(width: 8.tw),
-              _miniKpiCard(
-                'Variance',
-                '${kpi.variance.toStringAsFixed(1)}%',
-                isBehind ? const Color(0xFFDC2626) : const Color(0xFF16A34A),
-              ),
-            ],
-          ),
           SizedBox(height: 10.th),
           Container(
             width: double.infinity,
             padding: EdgeInsets.all(12.tw),
             decoration: BoxDecoration(
               gradient: const LinearGradient(
-                colors: [Color(0xFF0B3A87), Color(0xFF1D4ED8)],
+                colors: [Color(0xFF3B82F6), Color(0xFF93C5FD)],
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
               ),
               borderRadius: BorderRadius.circular(12.tr),
-              border: Border.all(color: const Color(0xFF1E3A8A)),
+              border: Border.all(color: const Color(0xFF60A5FA)),
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -682,7 +594,7 @@ class _ProgressAnalyticsBodyState extends State<_ProgressAnalyticsBody> {
                   style: TextStyle(
                     fontWeight: FontWeight.w700,
                     fontSize: 12.tsp,
-                    color: Colors.white,
+                    color: const Color(0xFF0F172A),
                   ),
                 ),
                 SizedBox(height: 6.th),
@@ -732,9 +644,9 @@ class _ProgressAnalyticsBodyState extends State<_ProgressAnalyticsBody> {
           Container(
             height: 250.th,
             decoration: BoxDecoration(
-              color: kAnalyticsFadedPanel,
+              color: const Color(0xE6F8FAFC),
               borderRadius: BorderRadius.circular(12.tr),
-              border: Border.all(color: kAnalyticsFadedPanelBorder),
+              border: Border.all(color: const Color(0xFFCBD5E1)),
             ),
             child: Column(
               children: [
@@ -762,38 +674,28 @@ class _ProgressAnalyticsBodyState extends State<_ProgressAnalyticsBody> {
     );
   }
 
-  Widget _miniKpiCard(String title, String value, Color color) {
-    return Expanded(
-      child: Container(
-        padding: EdgeInsets.symmetric(horizontal: 8.tw, vertical: 10.th),
-        decoration: BoxDecoration(
-          color: kAnalyticsFadedPanel,
-          borderRadius: BorderRadius.circular(10.tr),
-          border: Border.all(color: kAnalyticsFadedPanelBorder),
+  Widget _kpiPlain(String title, String value, Color valueColor) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          title,
+          style: TextStyle(
+            fontSize: 10.tsp,
+            color: const Color(0xFFE2E8F0),
+            fontWeight: FontWeight.w600,
+          ),
         ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              title,
-              style: TextStyle(
-                fontSize: 10.tsp,
-                color: const Color(0xFF6B7280).withValues(alpha: 0.9),
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-            SizedBox(height: 3.th),
-            Text(
-              value,
-              style: TextStyle(
-                fontSize: 12.tsp,
-                color: color,
-                fontWeight: FontWeight.w800,
-              ),
-            ),
-          ],
+        SizedBox(height: 2.th),
+        Text(
+          value,
+          style: TextStyle(
+            fontSize: 13.tsp,
+            color: valueColor,
+            fontWeight: FontWeight.w800,
+          ),
         ),
-      ),
+      ],
     );
   }
 
@@ -802,16 +704,16 @@ class _ProgressAnalyticsBodyState extends State<_ProgressAnalyticsBody> {
       width: double.infinity,
       padding: EdgeInsets.symmetric(horizontal: 9.tw, vertical: 7.th),
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.16),
+        color: Colors.white.withValues(alpha: 0.42),
         borderRadius: BorderRadius.circular(8.tr),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.28)),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.55)),
       ),
       child: Text(
         '$title: $value',
         style: TextStyle(
           fontSize: 11.tsp,
-          fontWeight: FontWeight.w600,
-          color: Colors.white,
+          fontWeight: FontWeight.w700,
+          color: const Color(0xFF0F172A),
         ),
       ),
     );
@@ -821,7 +723,7 @@ class _ProgressAnalyticsBodyState extends State<_ProgressAnalyticsBody> {
     return Container(
       padding: EdgeInsets.symmetric(horizontal: 10.tw, vertical: 8.th),
       decoration: BoxDecoration(
-        color: const Color(0xFFF3F4F6).withValues(alpha: 0.72),
+        color: const Color(0xFFE2E8F0),
         borderRadius: BorderRadius.vertical(top: Radius.circular(12.tr)),
       ),
       child: Row(
@@ -841,9 +743,9 @@ class _ProgressAnalyticsBodyState extends State<_ProgressAnalyticsBody> {
         t,
         textAlign: TextAlign.center,
         style: TextStyle(
-          fontSize: 10,
-          fontWeight: FontWeight.w700,
-          color: const Color(0xFF4B5563).withValues(alpha: 0.88),
+          fontSize: 10.tsp,
+          fontWeight: FontWeight.w800,
+          color: const Color(0xFF0F172A),
         ),
       ),
     );
@@ -884,14 +786,13 @@ class _ProgressAnalyticsBodyState extends State<_ProgressAnalyticsBody> {
     required double actual,
   }) {
     final gap = actual - planned;
-    final gapColor = gap < 0 ? const Color(0xFFDC2626) : const Color(0xFF16A34A);
+    final gapColor = gap < 0 ? const Color(0xFFB91C1C) : const Color(0xFF15803D);
     return Container(
       padding: EdgeInsets.symmetric(horizontal: 10.tw, vertical: 9.th),
-      decoration: BoxDecoration(
+      decoration: const BoxDecoration(
+        color: Color(0xFFF8FAFC),
         border: Border(
-          top: BorderSide(
-            color: const Color(0xFFE5E7EB).withValues(alpha: 0.65),
-          ),
+          top: BorderSide(color: Color(0xFFCBD5E1)),
         ),
       ),
       child: Row(
@@ -906,7 +807,7 @@ class _ProgressAnalyticsBodyState extends State<_ProgressAnalyticsBody> {
               style: TextStyle(
                 fontSize: 10.tsp,
                 color: gapColor,
-                fontWeight: FontWeight.w700,
+                fontWeight: FontWeight.w800,
               ),
             ),
           ),
@@ -922,8 +823,8 @@ class _ProgressAnalyticsBodyState extends State<_ProgressAnalyticsBody> {
         textAlign: TextAlign.center,
         style: TextStyle(
           fontSize: 10.tsp,
-          color: const Color(0xFF111827).withValues(alpha: 0.88),
-          fontWeight: FontWeight.w600,
+          color: const Color(0xFF0F172A),
+          fontWeight: FontWeight.w700,
         ),
       ),
     );
@@ -1469,76 +1370,35 @@ class _ProgressAnalyticsBodyState extends State<_ProgressAnalyticsBody> {
   }
 }
 
-class _AnalyticsPdfViewerScreen extends StatelessWidget {
+class _AnalyticsPdfViewerScreen extends StatefulWidget {
   const _AnalyticsPdfViewerScreen({required this.bytes, required this.title});
 
   final Uint8List bytes;
   final String title;
 
   @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: Text(title), centerTitle: true),
-      body: SfPdfViewer.memory(bytes),
-    );
-  }
+  State<_AnalyticsPdfViewerScreen> createState() =>
+      _AnalyticsPdfViewerScreenState();
 }
 
-class _AutoMarqueeTitle extends StatefulWidget {
-  const _AutoMarqueeTitle({required this.text, required this.style});
-
-  final String text;
-  final TextStyle style;
-
+class _AnalyticsPdfViewerScreenState extends State<_AnalyticsPdfViewerScreen> {
   @override
-  State<_AutoMarqueeTitle> createState() => _AutoMarqueeTitleState();
-}
-
-class _AutoMarqueeTitleState extends State<_AutoMarqueeTitle> {
-  final ScrollController _controller = ScrollController();
-  bool _running = false;
+  void initState() {
+    super.initState();
+    AppScreenProtection.enable();
+  }
 
   @override
   void dispose() {
-    _running = false;
-    _controller.dispose();
+    AppScreenProtection.disable();
     super.dispose();
-  }
-
-  void _startIfNeeded() {
-    if (_running || !_controller.hasClients) return;
-    if (_controller.position.maxScrollExtent <= 2) return;
-    _running = true;
-    Future<void>(() async {
-      while (mounted && _running) {
-        await _controller.animateTo(
-          _controller.position.maxScrollExtent,
-          duration: const Duration(seconds: 5),
-          curve: Curves.linear,
-        );
-        await Future.delayed(const Duration(milliseconds: 600));
-        if (!mounted) break;
-        _controller.jumpTo(0);
-        await Future.delayed(const Duration(milliseconds: 600));
-      }
-    });
   }
 
   @override
   Widget build(BuildContext context) {
-    WidgetsBinding.instance.addPostFrameCallback((_) => _startIfNeeded());
-    return SizedBox(
-      height: 16,
-      child: SingleChildScrollView(
-        controller: _controller,
-        scrollDirection: Axis.horizontal,
-        physics: const NeverScrollableScrollPhysics(),
-        child: Text(
-          widget.text,
-          maxLines: 1,
-          style: widget.style,
-        ),
-      ),
+    return Scaffold(
+      appBar: AppBar(title: Text(widget.title), centerTitle: true),
+      body: SfPdfViewer.memory(widget.bytes),
     );
   }
 }

@@ -332,7 +332,7 @@ class _ListViewWidgetsState extends State<ListViewWidgets> {
         return Stack(
           children: [
             GrayCardComponent(
-              cardTitle: "Task Managment",
+              cardTitle: "Task Management",
               titleColor: Colors.white,
               backgroundImagePath:
                   'assets/newapp/task_managment_widget_backdround.png',

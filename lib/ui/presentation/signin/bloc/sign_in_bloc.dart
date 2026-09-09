@@ -3,15 +3,14 @@ import 'dart:convert';
 import 'dart:developer';
 
 import 'package:dio/dio.dart';
-import 'package:el_race/core/utils/shared_pref.dart';
-import 'package:flutter_secure_storage/flutter_secure_storage.dart';
-import 'package:uuid/uuid.dart';
-import 'package:el_race/data/services/hive_service.dart';
+import 'package:el_race/core/session/post_login_setup.dart';
 import 'package:el_race/ui/presentation/signin/data/model.dart';
 import 'package:el_race/ui/presentation/signin/data/repository.dart';
 import 'package:equatable/equatable.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:uuid/uuid.dart';
 
 import '../../../../firebase_service.dart';
 import '../../../../utils/di.dart';
@@ -62,21 +61,14 @@ class SignInBloc extends Bloc<SignInEvent, SignInState> {
               'Unexpected login payload type: ${decoded.runtimeType}');
         }
         final Map<String, dynamic> json = Map<String, dynamic>.from(decoded);
-        loginResponseModel = LoginResponseModel.fromJson(json);
-
-        await userRepo.setDeviceInfo(deviceName);
+        loginResponseModel =
+            await PostLoginSetup.persistLoginResponse(
+                  json,
+                  deviceId: deviceName,
+                ) ??
+                LoginResponseModel.fromJson(json);
 
         if (loginResponseModel.result?.success == true) {
-          await userRepo.setLoginResponse(loginResponseModel, rawJson: json);
-          await userRepo.setISLoggedIn(true);
-          await SharedPref().setPreferencesBoolean('isRegistered', true);
-          // Update login state in Hive for background service
-          await HiveService.setUserLoggedIn(true);
-          // Login JWT is ready — push FCM token (may have been empty at request time).
-          unawaited(() async {
-            await FirebaseService.ensureFCMToken();
-            await FirebaseService.syncFcmTokenToOdoo(force: true);
-          }());
           emit(InitialSignedInST(loginResponse: loginResponseModel));
           emit(const LoadingST(isLoading: false));
         } else {

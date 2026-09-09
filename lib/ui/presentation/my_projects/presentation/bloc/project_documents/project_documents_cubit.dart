@@ -50,24 +50,23 @@ class ProjectDocumentsCubit extends Cubit<ProjectDocumentsState> {
     ));
   }
 
-  void onBottomBarTap(int index) {
+  /// Header nav: 0 Dashboard, 1 Files, 2 Uploaded By.
+  void onHeaderBarTap(int index) {
     switch (index) {
       case 0:
-        refreshAll();
+        switchView(ProjectDocumentsView.dashboard);
         return;
       case 1:
         switchView(ProjectDocumentsView.files);
         return;
       case 2:
-        switchView(ProjectDocumentsView.dashboard);
-        return;
-      case 3:
         switchView(ProjectDocumentsView.uploadedBy);
-        return;
-      case 4:
         return;
     }
   }
+
+  @Deprecated('Use onHeaderBarTap')
+  void onBottomBarTap(int index) => onHeaderBarTap(index);
 
   bool _hasCachedData(ProjectDocumentsView view) => switch (view) {
         ProjectDocumentsView.dashboard => state.dashboard != null,

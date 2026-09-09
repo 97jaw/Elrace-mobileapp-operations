@@ -31,7 +31,6 @@ import 'package:el_race/ui/presentation/my_projects/presentation/utils/projects_
 import 'package:el_race/ui/presentation/elrace_ai/elrace_ai_assistant_screen.dart';
 import 'package:el_race/ui/presentation/my_projects/presentation/widgets/projects_group_hub_screen.dart';
 import 'package:el_race/ui/presentation/my_projects/presentation/models/projects_list_context.dart';
-import 'package:el_race/ui/presentation/my_projects/presentation/widgets/projects_status_filter_section.dart';
 import 'package:el_race/ui/presentation/my_projects/presentation/widgets/projects_section_frame.dart';
 import 'package:el_race/ui/presentation/my_projects/presentation/widgets/projects_toolbar_icons_row.dart';
 import 'package:el_race/ui/presentation/my_projects/presentation/widgets/projects_view_switch_row.dart';
@@ -335,58 +334,6 @@ class _MyProjectState extends State<MyProject> {
         agreements: _domainAgreements,
       );
 
-  ProjectsDashboardStripStats? get _statusStats =>
-      ProjectsDashboardAggregator.resolveStripStats(
-        domainProjects: _inProgressProjects,
-        summary: _dashboardSummary,
-      );
-
-  /// Hide status section when user has no domain agreement/project access.
-  bool get _showProjectStatusSection =>
-      _isLoading ||
-      _chartLoading ||
-      (ProjectsDashboardAccess.bypassesDomainScope
-          ? _inProgressProjects.isNotEmpty
-          : _domainAgreements.isNotEmpty);
-
-  void _openStatusFilter(ProjectsStatusFilterKind kind) {
-    if (kind == ProjectsStatusFilterKind.invoiced) return;
-
-    final labels = ProjectsStatusFilterLabels(
-      inProgress: translate('projects_dashboard.in_progress'),
-      completed: translate('projects_dashboard.completed'),
-    );
-
-    final title = switch (kind) {
-      ProjectsStatusFilterKind.inProgress => labels.inProgress,
-      ProjectsStatusFilterKind.completed => labels.completed,
-      ProjectsStatusFilterKind.invoiced => labels.completed,
-    };
-
-    final statusCompute = switch (kind) {
-      ProjectsStatusFilterKind.inProgress => 'in_progress',
-      ProjectsStatusFilterKind.completed => 'completed',
-      ProjectsStatusFilterKind.invoiced => 'completed',
-    };
-
-    final bloc = _buildProjectsBloc();
-    Navigator.of(context).push(
-      MaterialPageRoute<void>(
-        builder: (_) => BlocProvider.value(
-          value: bloc,
-          child: ProjectListScreen(
-            bloc: bloc,
-            partnerName: title,
-            listContext: ProjectsListContext.general,
-            hubFilters: ProjectsGroupHubFilters(
-              projectStatusCompute: statusCompute,
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
   void _openAgreement(UserProjectModel project) {
     final bloc = _buildProjectsBloc();
     final agreementId = project.agreementId ?? project.projectId;
@@ -471,7 +418,6 @@ class _MyProjectState extends State<MyProject> {
           : kProjectsDashboardMaxProjects;
       final projects = await ds.fetchDashboardChartProjects(
         maxItems: maxItems,
-        projectStatusCompute: 'in_progress',
       );
       if (!mounted) return;
       final visible = projects.where((p) => !p.isGeneralWo).toList();
@@ -547,6 +493,8 @@ class _MyProjectState extends State<MyProject> {
                                 onMapsTap: _openPortfolioMapScreen,
                                 onGroupByTap: _openGroupByHub,
                                 onDocumentsTap: _openProjectDocumentsHub,
+                                // AI toolbar entry hidden for now.
+                                showAiButton: false,
                                 onAiTap: _openAiAssistant,
                               ),
                             ),
@@ -578,20 +526,6 @@ class _MyProjectState extends State<MyProject> {
                               onYearChanged: (y) =>
                                   setState(() => _selectedYear = y),
                             ),
-                            if (_showProjectStatusSection)
-                              ProjectsStatusFilterSection(
-                                stats: _statusStats,
-                                isLoading: _chartLoading || _isLoading,
-                                labels: ProjectsStatusFilterLabels(
-                                  inProgress: translate(
-                                    'projects_dashboard.in_progress',
-                                  ),
-                                  completed: translate(
-                                    'projects_dashboard.completed',
-                                  ),
-                                ),
-                                onFilterTap: _openStatusFilter,
-                              ),
                           ],
                         ),
                       ),

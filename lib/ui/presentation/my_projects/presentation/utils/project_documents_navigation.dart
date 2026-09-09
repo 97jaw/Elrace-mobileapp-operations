@@ -38,6 +38,7 @@ void pushCloudDocumentsFolder(
   required int projectId,
   required String folderId,
   required String folderName,
+  String? driveId,
   String? folderType,
   required List<ProjectDocumentsBreadcrumb> breadcrumbs,
 }) {
@@ -50,6 +51,7 @@ void pushCloudDocumentsFolder(
           projectId: projectId,
           folderId: folderId,
           folderName: folderName,
+          driveId: driveId,
           folderType: folderType,
           breadcrumbs: breadcrumbs,
         ),

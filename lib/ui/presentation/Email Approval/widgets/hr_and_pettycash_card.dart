@@ -17,7 +17,8 @@ import 'package:google_fonts/google_fonts.dart';
 
 class HrAndPettycashCard extends StatelessWidget {
   final List<dynamic> approvalItems;
-  final VoidCallback? onRefresh;
+  /// Awaited after approve/reject so the Waiting list cannot race a second action.
+  final Future<void> Function()? onRefresh;
 
   const HrAndPettycashCard({
     super.key,
@@ -470,7 +471,7 @@ class HrAndPettycashCard extends StatelessWidget {
             if (result == true) {
               ApprovalCountService.invalidateCache();
               ApprovalCountService.notifyListeners();
-              onRefresh?.call();
+              await onRefresh?.call();
             }
           },
           child: isHr

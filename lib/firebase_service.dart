@@ -50,6 +50,7 @@ class FirebaseService {
   static const String _lastSyncedOdooTokenKey = 'fcm_token_synced_odoo';
   static const Duration _odooSyncMinInterval = Duration(minutes: 5);
   static Future<void>? _initializeFuture;
+  static Future<bool>? _odooSyncInFlight;
 
   /// Call this after splash/home is ready so queued chat-notification taps can
   /// be replayed with a valid app context.
@@ -335,6 +336,24 @@ class FirebaseService {
     String? token,
     bool force = false,
   }) async {
+    if (_odooSyncInFlight != null) {
+      return _odooSyncInFlight!;
+    }
+    final future = _syncFcmTokenToOdooBody(token: token, force: force);
+    _odooSyncInFlight = future;
+    try {
+      return await future;
+    } finally {
+      if (identical(_odooSyncInFlight, future)) {
+        _odooSyncInFlight = null;
+      }
+    }
+  }
+
+  static Future<bool> _syncFcmTokenToOdooBody({
+    String? token,
+    bool force = false,
+  }) async {
     try {
       if (!SharedPref.isUserAuthenticated()) return false;
 
@@ -358,6 +377,12 @@ class FirebaseService {
           _lastSyncedOdooToken == fcm &&
           _lastOdooSyncAt != null &&
           now.difference(_lastOdooSyncAt!) < _odooSyncMinInterval) {
+        return true;
+      }
+      // Even with force, skip identical in-flight-window duplicates.
+      if (_lastSyncedOdooToken == fcm &&
+          _lastOdooSyncAt != null &&
+          now.difference(_lastOdooSyncAt!) < const Duration(seconds: 15)) {
         return true;
       }
 
