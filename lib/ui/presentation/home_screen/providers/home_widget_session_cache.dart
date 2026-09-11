@@ -1,3 +1,5 @@
+import 'package:flutter/foundation.dart';
+
 /// Raw API payloads cached for home category widgets (5-minute TTL).
 class HomeWidgetSessionCache {
   HomeWidgetSessionCache._();
@@ -20,6 +22,10 @@ class HomeWidgetSessionCache {
   static Map<String, dynamic>? mediaRaw;
   static Map<String, dynamic>? prayerTimesRaw;
   static DateTime? fetchedAt;
+
+  /// Bumped when clients/vendors cache changes so home cards can rebuild
+  /// (they are not Riverpod providers).
+  static final ValueNotifier<int> clientsVendorsRevision = ValueNotifier(0);
 
   static const ttl = Duration(minutes: 5);
 
@@ -88,9 +94,11 @@ class HomeWidgetSessionCache {
     }
     if (clientsRaw != null) {
       HomeWidgetSessionCache.clientsRaw = clientsRaw;
+      clientsVendorsRevision.value++;
     }
     if (vendorsRaw != null) {
       HomeWidgetSessionCache.vendorsRaw = vendorsRaw;
+      clientsVendorsRevision.value++;
     }
     if (lpoRaw != null) {
       HomeWidgetSessionCache.lpoRaw = lpoRaw;
@@ -142,5 +150,10 @@ class HomeWidgetSessionCache {
     prayerTimesRaw = null;
     fetchedAt = null;
     _fetchedAtByPath.clear();
+    clientsVendorsRevision.value++;
+  }
+
+  static void notifyClientsVendorsChanged() {
+    clientsVendorsRevision.value++;
   }
 }

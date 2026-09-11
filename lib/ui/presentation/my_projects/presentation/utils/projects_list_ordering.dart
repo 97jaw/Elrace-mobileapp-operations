@@ -1,5 +1,6 @@
 import 'package:el_race/ui/presentation/my_projects/data/models/project_documents_models.dart';
 import 'package:el_race/ui/presentation/my_projects/data/models/project_model.dart';
+import 'package:el_race/ui/presentation/my_projects/data/models/user_project_model.dart';
 import 'package:el_race/ui/presentation/my_projects/domain/entities/project_entity.dart';
 
 /// Shared newest-first ordering for My Projects listing records.
@@ -69,6 +70,15 @@ class ProjectsListOrdering {
   ) {
     final out = List<ProjectDocumentFolderProject>.from(input);
     out.sort(compareDocumentProjectsDesc);
+    return out;
+  }
+
+  /// Agreements from `/api/clients/list` (`group_by=agreement`) — newest id first.
+  static List<UserProjectModel> sortAgreementsDesc(
+    Iterable<UserProjectModel> input,
+  ) {
+    final out = List<UserProjectModel>.from(input);
+    out.sort((a, b) => b.projectId.compareTo(a.projectId));
     return out;
   }
 }

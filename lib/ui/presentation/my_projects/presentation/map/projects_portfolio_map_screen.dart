@@ -10,13 +10,12 @@ import 'package:el_race/ui/presentation/my_projects/domain/usecases/get_projects
 import 'package:el_race/ui/presentation/my_projects/domain/usecases/get_projects_usecase.dart';
 import 'package:el_race/ui/presentation/my_projects/presentation/bloc/project_list_bloc.dart';
 import 'package:el_race/ui/presentation/my_projects/presentation/map/portfolio_project_status.dart';
-import 'package:el_race/ui/presentation/my_projects/presentation/map/project_analytics_screen.dart';
 import 'package:el_race/ui/presentation/my_projects/presentation/map/project_map_coordinate_resolver.dart';
 import 'package:el_race/ui/presentation/my_projects/presentation/utils/projects_list_pagination.dart';
-import 'package:el_race/ui/presentation/my_projects/presentation/widgets/project_documents_dialog.dart';
 import 'package:el_race/utils/color_utils.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
+import 'package:geolocator/geolocator.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 import 'package:latlong2/latlong.dart';
@@ -332,38 +331,15 @@ class _ProjectsPortfolioMapScreenState extends State<ProjectsPortfolioMapScreen>
                   ),
                   SizedBox(height: 16.th),
                   _gradientActionButton(
-                    icon: Icons.cloud_queue_rounded,
-                    title: 'Documents',
+                    icon: Icons.share_location_rounded,
+                    title: 'Share Location',
                     colors: const [
                       Color(0xFF11998E),
                       Color(0xFF38EF7D),
                     ],
                     onTap: () {
                       Navigator.pop(ctx);
-                      ProjectDocumentsDialog.show(
-                        context,
-                        projectId: project.projectId,
-                        bloc: _buildBloc(),
-                      );
-                    },
-                  ),
-                  SizedBox(height: 10.th),
-                  _gradientActionButton(
-                    icon: Icons.analytics_rounded,
-                    title: 'View Project Analytics',
-                    colors: const [
-                      Color(0xFF6A11CB),
-                      Color(0xFF2575FC),
-                      Color(0xFF00C6FF),
-                    ],
-                    onTap: () {
-                      Navigator.pop(ctx);
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) => ProjectAnalyticsScreen(project: project),
-                        ),
-                      );
+                      _openDirectionsToProject(project);
                     },
                   ),
                 ],
@@ -373,6 +349,61 @@ class _ProjectsPortfolioMapScreenState extends State<ProjectsPortfolioMapScreen>
         );
       },
     );
+  }
+
+  Future<void> _openDirectionsToProject(ProjectEntity project) async {
+    final destination = projectRealLatLng(project);
+    if (destination == null) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Project coordinates are not available.'),
+        ),
+      );
+      return;
+    }
+
+    LatLng? origin;
+    try {
+      final serviceEnabled = await Geolocator.isLocationServiceEnabled();
+      if (serviceEnabled) {
+        var permission = await Geolocator.checkPermission();
+        if (permission == LocationPermission.denied) {
+          permission = await Geolocator.requestPermission();
+        }
+        if (permission == LocationPermission.whileInUse ||
+            permission == LocationPermission.always) {
+          final position = await Geolocator.getCurrentPosition(
+            locationSettings: const LocationSettings(
+              accuracy: LocationAccuracy.high,
+            ),
+          );
+          origin = LatLng(position.latitude, position.longitude);
+        }
+      }
+    } catch (_) {
+      // Fall through to destination-only maps URL.
+    }
+
+    final uri = origin == null
+        ? Uri.parse(
+            'https://www.google.com/maps/dir/?api=1'
+            '&destination=${destination.latitude},${destination.longitude}'
+            '&travelmode=driving',
+          )
+        : Uri.parse(
+            'https://www.google.com/maps/dir/?api=1'
+            '&origin=${origin.latitude},${origin.longitude}'
+            '&destination=${destination.latitude},${destination.longitude}'
+            '&travelmode=driving',
+          );
+
+    final launched = await launchUrl(uri, mode: LaunchMode.externalApplication);
+    if (!launched && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Could not open Google Maps.')),
+      );
+    }
   }
 
   Future<void> _handleProjectLongPress(ProjectEntity project) async {

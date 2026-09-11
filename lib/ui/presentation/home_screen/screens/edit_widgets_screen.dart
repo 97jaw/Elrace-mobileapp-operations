@@ -440,7 +440,7 @@ class _EditWidgetsScreenState extends State<EditWidgetsScreen> {
     return Stack(
       children: [
         GrayCardComponent(
-          cardTitle: translate('my notes'),
+          cardTitle: translate('home.my_notes'),
           backgroundImagePath: 'assets/png/blue_card.png',
           onClick: null,
           topPadding: true,
@@ -552,7 +552,7 @@ class _EditWidgetsScreenState extends State<EditWidgetsScreen> {
                     SizedBox(height: 4),
                     CustomBulletPoint(
                       // bulletColor: Color(0xFFBA1719),
-                      text: 'Delay',
+                      text: translate('home.Delay'),
                       textColor: Colors.black,
                       countColor: Colors.black,
                       count: '2',
@@ -598,7 +598,7 @@ class _EditWidgetsScreenState extends State<EditWidgetsScreen> {
                   children: [
                     CustomBulletPoint(
                       //bulletColor: const Color(0xFF009859),
-                      text: translate('Approved'),
+                      text: translate('home.Approved'),
                       textColor: Colors.black,
                       countColor: Colors.black,
                       count: '5',
@@ -694,7 +694,7 @@ class _EditWidgetsScreenState extends State<EditWidgetsScreen> {
     return Stack(
       children: [
         GrayCardComponent(
-          cardTitle: translate('Media'),
+          cardTitle: translate('home.media'),
           backgroundImagePath: 'assets/png/gray_card.png',
           onClick: null,
           childWidget: DefaultTextStyle(
@@ -712,7 +712,7 @@ class _EditWidgetsScreenState extends State<EditWidgetsScreen> {
                   children: [
                     CustomBulletPoint(
                       // bulletColor: const Color(0xFF009859),
-                      text: translate('videos'),
+                      text: translate('home.videos'),
                       textColor: Colors.black,
                       countColor: Colors.black,
                       count: '7',
@@ -720,7 +720,7 @@ class _EditWidgetsScreenState extends State<EditWidgetsScreen> {
                     ),
                     CustomBulletPoint(
                       //bulletColor: const Color(0xFFBA1719),
-                      text: translate('photos'),
+                      text: translate('home.photos'),
                       textColor: Colors.black,
                       countColor: Colors.black,
                       count: '20',

@@ -174,6 +174,9 @@ class SharedPref {
   }
 
   /// Merge server role/profile fields into cached login `result.data`.
+  ///
+  /// Does **not** replace `default_widgets` with an empty/failed map — that
+  /// used to wipe a good login widget payload on session/refresh races.
   static Future<bool> mergeLoginRoleFields(Map<String, dynamic> roleData) async {
     final loginJson = sharedPreferences.getString('loginResponse') ??
         sharedPreferences.getString('LOGIN_RESPONSE');
@@ -190,6 +193,13 @@ class SharedPref {
       if (data is! Map<String, dynamic>) return false;
 
       for (final entry in roleData.entries) {
+        if (entry.key == 'default_widgets') {
+          final incoming = entry.value;
+          if (incoming is! Map) continue;
+          final incomingData = incoming['data'];
+          final hasWidgets = incomingData is Map && incomingData.isNotEmpty;
+          if (!hasWidgets) continue;
+        }
         data[entry.key] = entry.value;
       }
 

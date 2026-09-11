@@ -17,6 +17,11 @@ class UaepassLinkHandler {
   }
 
   static Future<bool> handle(Uri uri) async {
+    // Shared documents are not UAE PASS callbacks.
+    if (uri.scheme == 'file') {
+      return false;
+    }
+
     // Enhanced DEEPLINK RECEIVED logging
     UaepassLogger.logSection('DEEPLINK RECEIVED');
     UaepassLogger.log('Full URI: ${uri.toString()}');

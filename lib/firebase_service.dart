@@ -4,6 +4,7 @@ import 'dart:convert';
 import 'package:el_race/chat/models/models.dart';
 import 'package:el_race/core/app_globals.dart';
 import 'package:el_race/core/services/attendance_status_sync_service.dart';
+import 'package:el_race/core/services/incoming_share_service.dart';
 import 'package:el_race/core/services/notification_storage_service.dart';
 import 'package:el_race/core/utils/shared_pref.dart';
 import 'package:el_race/data/services/prayer_audio_service.dart';
@@ -49,12 +50,14 @@ class FirebaseService {
   static const String _lastSyncedOdooTokenKey = 'fcm_token_synced_odoo';
   static const Duration _odooSyncMinInterval = Duration(minutes: 5);
   static Future<void>? _initializeFuture;
+  static Future<bool>? _odooSyncInFlight;
 
   /// Call this after splash/home is ready so queued chat-notification taps can
   /// be replayed with a valid app context.
   static void markHomeReady() {
     _isHomeReady = true;
     processPendingNotificationTap();
+    IncomingShareService.instance.markHomeReady();
   }
 
   /// Call this when the app returns to splash and chat taps must wait again.
@@ -333,6 +336,24 @@ class FirebaseService {
     String? token,
     bool force = false,
   }) async {
+    if (_odooSyncInFlight != null) {
+      return _odooSyncInFlight!;
+    }
+    final future = _syncFcmTokenToOdooBody(token: token, force: force);
+    _odooSyncInFlight = future;
+    try {
+      return await future;
+    } finally {
+      if (identical(_odooSyncInFlight, future)) {
+        _odooSyncInFlight = null;
+      }
+    }
+  }
+
+  static Future<bool> _syncFcmTokenToOdooBody({
+    String? token,
+    bool force = false,
+  }) async {
     try {
       if (!SharedPref.isUserAuthenticated()) return false;
 
@@ -356,6 +377,12 @@ class FirebaseService {
           _lastSyncedOdooToken == fcm &&
           _lastOdooSyncAt != null &&
           now.difference(_lastOdooSyncAt!) < _odooSyncMinInterval) {
+        return true;
+      }
+      // Even with force, skip identical in-flight-window duplicates.
+      if (_lastSyncedOdooToken == fcm &&
+          _lastOdooSyncAt != null &&
+          now.difference(_lastOdooSyncAt!) < const Duration(seconds: 15)) {
         return true;
       }
 
@@ -556,7 +583,7 @@ class FirebaseService {
     RemoteNotification? notification = message.notification;
     final data = message.data;
 
-    final title = (notification?.title ??
+    var title = (notification?.title ??
             data['title']?.toString() ??
             data['notification_title']?.toString() ??
             data['sender_name']?.toString() ??
@@ -564,7 +591,7 @@ class FirebaseService {
             'Notification')
         .trim();
 
-    final body = (notification?.body ??
+    var body = (notification?.body ??
             data['body']?.toString() ??
             data['message']?.toString() ??
             data['text']?.toString() ??
@@ -581,7 +608,18 @@ class FirebaseService {
       category = message.data['category'].toString();
     } else if (message.data.containsKey('type')) {
       category = message.data['type'].toString();
+    } else if (message.data.containsKey('model')) {
+      category = message.data['model'].toString();
     }
+
+    final remapped = NotificationStorageService.displayCopyForPush(
+      title: title.isEmpty ? 'Notification' : title,
+      body: body,
+      category: category,
+      data: Map<String, dynamic>.from(data),
+    );
+    title = remapped.$1;
+    body = remapped.$2;
 
     final isMuted = await NotificationStorageService.shouldMuteNotification(
       category: category,

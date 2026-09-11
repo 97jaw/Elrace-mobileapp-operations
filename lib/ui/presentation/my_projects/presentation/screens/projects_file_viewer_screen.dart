@@ -1,6 +1,8 @@
 import 'package:el_race/core/utils/responsive_breakpoints.dart';
+import 'dart:io';
 import 'dart:typed_data';
 
+import 'package:el_race/core/utils/app_screen_protection.dart';
 import 'package:el_race/core/utils/shared_pref.dart';
 import 'package:el_race/ui/presentation/my_documents/utils/document_attachment_opener.dart';
 import 'package:el_race/ui/presentation/my_projects/presentation/theme/projects_dashboard_theme.dart';
@@ -14,6 +16,9 @@ import 'package:syncfusion_flutter_pdfviewer/pdfviewer.dart';
 enum ProjectsFileViewerMode { pdf, image }
 
 /// In-app file viewer for Projects / DMS — matches portfolio dashboard theme.
+///
+/// For large SharePoint PDFs, prefer [streamToDisk] so we never hold the full
+/// file in Dart memory (avoids OOM on architectural drawing books).
 class ProjectsFileViewerScreen extends StatefulWidget {
   const ProjectsFileViewerScreen({
     super.key,
@@ -23,6 +28,10 @@ class ProjectsFileViewerScreen extends StatefulWidget {
     this.preferUnauthenticated = false,
     this.attachmentId,
     this.initialBytes,
+    this.streamToDisk = false,
+    this.protectScreen = false,
+    this.allowShare = true,
+    this.applyWatermark = true,
   });
 
   final String fileUrl;
@@ -36,8 +45,20 @@ class ProjectsFileViewerScreen extends StatefulWidget {
   /// When public URL returns 502/404, load via get_attachment_details binary.
   final int? attachmentId;
 
-  /// Optional preloaded PDF bytes (skips network when set).
+  /// Optional preloaded PDF bytes (skips network when set). Avoid for large files.
   final Uint8List? initialBytes;
+
+  /// Stream remote URL to a temp file and open with [SfPdfViewer.file].
+  final bool streamToDisk;
+
+  /// Re-assert screenshot / screen-recording protection while this viewer is open.
+  final bool protectScreen;
+
+  /// Share button (disabled for SharePoint).
+  final bool allowShare;
+
+  /// Emp-id PDF watermark (disabled for SharePoint).
+  final bool applyWatermark;
 
   @override
   State<ProjectsFileViewerScreen> createState() =>
@@ -48,18 +69,30 @@ class _ProjectsFileViewerScreenState extends State<ProjectsFileViewerScreen> {
   bool _loading = true;
   String? _error;
   Uint8List? _bytes;
+  File? _localFile;
   int _totalPages = 0;
   int _currentPage = 0;
 
   @override
   void initState() {
     super.initState();
+    if (widget.protectScreen) {
+      AppScreenProtection.enable();
+    }
+
+    if (widget.streamToDisk &&
+        widget.mode == ProjectsFileViewerMode.pdf &&
+        widget.fileUrl.trim().isNotEmpty) {
+      _loadPdfToDisk();
+      return;
+    }
+
     final seeded = widget.initialBytes;
     final seedOk = widget.mode == ProjectsFileViewerMode.pdf
         ? DocumentAttachmentOpener.isPdfBytes(seeded)
         : DocumentAttachmentOpener.isImageBytes(seeded);
     if (seedOk && seeded != null && seeded.isNotEmpty) {
-      _bytes = widget.mode == ProjectsFileViewerMode.pdf
+      _bytes = widget.mode == ProjectsFileViewerMode.pdf && widget.applyWatermark
           ? _maybeWatermark(seeded)
           : seeded;
       _loading = false;
@@ -72,10 +105,59 @@ class _ProjectsFileViewerScreenState extends State<ProjectsFileViewerScreen> {
     }
   }
 
+  @override
+  void dispose() {
+    if (widget.protectScreen) {
+      AppScreenProtection.disable();
+    }
+    final file = _localFile;
+    if (file != null) {
+      // Best-effort cleanup of streamed temp PDFs.
+      try {
+        if (file.existsSync()) file.deleteSync();
+      } catch (_) {}
+    }
+    super.dispose();
+  }
+
   Uint8List _maybeWatermark(Uint8List pdfBytes) {
+    if (!widget.applyWatermark) return pdfBytes;
+    // Skip watermark for large payloads — Syncfusion rewrite doubles RAM.
+    if (pdfBytes.lengthInBytes > 12 * 1024 * 1024) return pdfBytes;
     final empId = SharedPref.getLoginData().result?.data?.emp_id ?? '';
     if (empId.isEmpty) return pdfBytes;
     return _addWatermarkToPdf(pdfBytes, empId);
+  }
+
+  Future<void> _loadPdfToDisk() async {
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
+    try {
+      final file = await DocumentAttachmentOpener.streamUrlToTempFile(
+        url: widget.fileUrl,
+        fileName: widget.title,
+        extension: '.pdf',
+      );
+      if (!DocumentAttachmentOpener.fileLooksLikePdf(file)) {
+        try {
+          await file.delete();
+        } catch (_) {}
+        throw Exception('Downloaded file is not a valid PDF');
+      }
+      if (!mounted) return;
+      setState(() {
+        _localFile = file;
+        _loading = false;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _error = e.toString().replaceFirst(RegExp(r'^Exception:\s*'), '');
+        _loading = false;
+      });
+    }
   }
 
   Future<void> _loadPdf() async {
@@ -85,6 +167,12 @@ class _ProjectsFileViewerScreenState extends State<ProjectsFileViewerScreen> {
     });
 
     try {
+      // Large remote PDFs should never go through the in-memory path.
+      if (widget.streamToDisk || _shouldPreferDisk(widget.fileUrl)) {
+        await _loadPdfToDisk();
+        return;
+      }
+
       final seeded =
           DocumentAttachmentOpener.isPdfBytes(widget.initialBytes)
               ? widget.initialBytes
@@ -103,6 +191,22 @@ class _ProjectsFileViewerScreenState extends State<ProjectsFileViewerScreen> {
         throw Exception('Downloaded file is not a valid PDF');
       }
 
+      // If unexpectedly large, spill to disk instead of watermarking in RAM.
+      if (bytes.lengthInBytes > 12 * 1024 * 1024 || !widget.applyWatermark) {
+        final file = await DocumentAttachmentOpener.writeBytesToTempFile(
+          bytes: bytes,
+          fileName: widget.title,
+          extension: '.pdf',
+        );
+        if (!mounted) return;
+        setState(() {
+          _localFile = file;
+          _bytes = null;
+          _loading = false;
+        });
+        return;
+      }
+
       final watermarked = _maybeWatermark(bytes);
 
       if (!mounted) return;
@@ -119,12 +223,27 @@ class _ProjectsFileViewerScreenState extends State<ProjectsFileViewerScreen> {
     }
   }
 
+  bool _shouldPreferDisk(String url) {
+    final u = url.toLowerCase();
+    return u.contains('sharepoint.com') ||
+        u.contains('1drv.ms') ||
+        u.contains('graph.microsoft.com') ||
+        u.contains('download.aspx') ||
+        u.contains('tempauth=');
+  }
+
   Future<void> _loadImage() async {
     setState(() {
       _loading = true;
       _error = null;
     });
     try {
+      // Prefer network image for remote SharePoint URLs (no full RAM buffer).
+      if (_shouldPreferDisk(widget.fileUrl) && widget.initialBytes == null) {
+        if (!mounted) return;
+        setState(() => _loading = false);
+        return;
+      }
       final seeded =
           DocumentAttachmentOpener.isImageBytes(widget.initialBytes)
               ? widget.initialBytes
@@ -202,9 +321,8 @@ class _ProjectsFileViewerScreenState extends State<ProjectsFileViewerScreen> {
   }
 
   Future<void> _sharePdf() async {
-    if (_bytes == null) return;
-
-    final rawName = widget.title.trim().isEmpty ? 'document' : widget.title.trim();
+    final rawName =
+        widget.title.trim().isEmpty ? 'document' : widget.title.trim();
     final safeName = rawName.replaceAll(RegExp(r'[/\\:*?"<>|]'), '_');
     final fileName =
         safeName.toLowerCase().endsWith('.pdf') ? safeName : '$safeName.pdf';
@@ -214,6 +332,16 @@ class _ProjectsFileViewerScreenState extends State<ProjectsFileViewerScreen> {
         ? (renderObject.localToGlobal(Offset.zero) & renderObject.size)
         : const Rect.fromLTWH(1, 1, 1, 1);
 
+    final local = _localFile;
+    if (local != null && await local.exists()) {
+      await Share.shareXFiles(
+        [XFile(local.path, mimeType: 'application/pdf', name: fileName)],
+        sharePositionOrigin: shareOrigin,
+      );
+      return;
+    }
+
+    if (_bytes == null) return;
     await Share.shareXFiles(
       [
         XFile.fromData(
@@ -228,6 +356,10 @@ class _ProjectsFileViewerScreenState extends State<ProjectsFileViewerScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final canShare = widget.allowShare &&
+        widget.mode == ProjectsFileViewerMode.pdf &&
+        (_bytes != null || _localFile != null);
+
     return Scaffold(
       backgroundColor: Colors.transparent,
       body: Container(
@@ -242,10 +374,7 @@ class _ProjectsFileViewerScreenState extends State<ProjectsFileViewerScreen> {
               _ViewerHeader(
                 title: widget.title,
                 onBack: () => Navigator.of(context).maybePop(),
-                onShare: widget.mode == ProjectsFileViewerMode.pdf &&
-                        _bytes != null
-                    ? _sharePdf
-                    : null,
+                onShare: canShare ? _sharePdf : null,
               ),
               Expanded(child: _buildBody()),
               if (widget.mode == ProjectsFileViewerMode.pdf && _totalPages > 0)
@@ -272,7 +401,7 @@ class _ProjectsFileViewerScreenState extends State<ProjectsFileViewerScreen> {
             ),
             SizedBox(height: 14.th),
             Text(
-              'Loading file…',
+              widget.streamToDisk ? 'Preparing preview…' : 'Loading file…',
               style: GoogleFonts.poppins(
                 fontSize: 13.tsp,
                 color: ProjectsDashboardTheme.greyPanel,
@@ -312,7 +441,8 @@ class _ProjectsFileViewerScreenState extends State<ProjectsFileViewerScreen> {
                 style: FilledButton.styleFrom(
                   backgroundColor: ProjectsDashboardTheme.maroon,
                   foregroundColor: ProjectsDashboardTheme.white,
-                  padding: EdgeInsets.symmetric(horizontal: 22.tw, vertical: 10.th),
+                  padding:
+                      EdgeInsets.symmetric(horizontal: 22.tw, vertical: 10.th),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(12.tr),
                   ),
@@ -356,6 +486,24 @@ class _ProjectsFileViewerScreenState extends State<ProjectsFileViewerScreen> {
   }
 
   Widget _buildPdfViewer() {
+    final local = _localFile;
+    if (local != null) {
+      return SfPdfViewer.file(
+        local,
+        canShowScrollHead: true,
+        canShowScrollStatus: true,
+        enableDoubleTapZooming: true,
+        enableTextSelection: false,
+        pageSpacing: 4,
+        onDocumentLoaded: (details) {
+          setState(() => _totalPages = details.document.pages.count);
+        },
+        onPageChanged: (details) {
+          setState(() => _currentPage = details.newPageNumber);
+        },
+      );
+    }
+
     final bytes = _bytes;
     if (bytes == null) {
       return const Center(child: Text('No PDF data'));
@@ -378,6 +526,36 @@ class _ProjectsFileViewerScreenState extends State<ProjectsFileViewerScreen> {
   }
 
   Widget _buildImageViewer() {
+    if ((_bytes == null || _bytes!.isEmpty) &&
+        _shouldPreferDisk(widget.fileUrl)) {
+      return InteractiveViewer(
+        minScale: 0.6,
+        maxScale: 4,
+        child: Center(
+          child: Image.network(
+            widget.fileUrl,
+            fit: BoxFit.contain,
+            loadingBuilder: (context, child, progress) {
+              if (progress == null) return child;
+              return const CircularProgressIndicator(
+                color: ProjectsDashboardTheme.maroon,
+              );
+            },
+            errorBuilder: (_, __, ___) => Padding(
+              padding: EdgeInsets.all(20.tw),
+              child: Text(
+                'Failed to load image',
+                style: GoogleFonts.poppins(
+                  fontSize: 13.tsp,
+                  color: ProjectsDashboardTheme.greyDark,
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+
     final bytes = _bytes;
     if (bytes == null || bytes.isEmpty) {
       return Center(

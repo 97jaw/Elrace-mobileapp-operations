@@ -1,10 +1,20 @@
 import 'package:flutter/foundation.dart';
 
-/// Feature flags controlling biometric behavior.
+/// Build-time feature flags (pass via `--dart-define=NAME=value`).
 ///
 /// Local attendance biometrics are allowed in production with known
 /// limitations; remote/centralized options remain optional.
 class FeatureFlags {
+  /// Show "Sign in with UAE PASS" on the login screen.
+  ///
+  /// Default `false` so App Store / production builds hide the button.
+  /// TestFlight (UAE PASS QA):
+  /// `flutter build ipa --release --dart-define=SHOW_UAEPASS_BUTTON=true`
+  static const bool showUaepassButton = bool.fromEnvironment(
+    'SHOW_UAEPASS_BUTTON',
+    defaultValue: false,
+  );
+
   /// Enable the on-device attendance biometric flow (default false).
   static const bool enableLocalBiometrics = bool.fromEnvironment(
     'ENABLE_LOCAL_BIOMETRICS',

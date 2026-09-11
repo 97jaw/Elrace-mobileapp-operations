@@ -4,9 +4,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:el_race/core/utils/shared_pref.dart';
-import 'package:el_race/ui/presentation/my_documents/widgets/my_documents_tab_bar.dart';
-import 'package:el_race/ui/presentation/productivity/theme/productivity_theme.dart';
-import 'package:el_race/ui/presentation/productivity/widgets/productivity_background.dart';
+import 'package:el_race/ui/presentation/my_documents/widgets/my_documents_silk_background.dart';
 import 'package:el_race/ui/presentation/productivity/widgets/productivity_glass_header.dart';
 import 'package:el_race/utils/api_logger.dart';
 import 'package:el_race/utils/color_utils.dart';
@@ -25,11 +23,11 @@ import 'package:dropdown_button2/dropdown_button2.dart';
 
 import '../../../widgets/custom_slider_button.dart';
 import '../utils/document_attachment_opener.dart';
-import 'family_insurance_request_screen.dart';
-import 'family_documents_tab.dart';
-// Shared documents tab kept in codebase for later placement (hidden from My Documents UI).
-// ignore: unused_import
-import 'share_documents_tab.dart';
+import '../utils/document_display.dart';
+import '../widgets/document_expiry_trailing.dart';
+import 'add_document_wizard_screen.dart';
+import 'document_details_screen.dart';
+import 'family_documents_screen.dart';
 
 const String _familyTaggedDocumentIdsKey = 'my_documents_family_tagged_ids_v1';
 
@@ -71,24 +69,24 @@ class MyDocumentsScreen extends StatefulWidget {
 }
 
 class _MyDocumentsScreenState extends State<MyDocumentsScreen> {
-  /// 0 = My Documents, 1 = Family Documents, 2 = Share Documents
-  int currentIndex = 0;
   List<Map<String, dynamic>> documents = [];
   bool _loading = false;
   String? _error;
   String _statTotal = '-';
+  String _statActive = '-';
   String _statRequested = '-';
   String _statExpiringSoon = '-';
   String _statExpired = '-';
-  String? _activeMyDocType;
-  String? _activeFamilyDocType;
-  List<Map<String, dynamic>> _familyRecentActivities = [];
+  /// Active stats filter: null = all, active / expiry_soon / requested / expired.
+  String? _activeDocType;
+
+  /// Local scope chip: all / personal / family.
+  String _smartScope = 'all';
 
   // Search state
   final TextEditingController _searchController = TextEditingController();
+  final FocusNode _searchFocusNode = FocusNode();
   Timer? _debounce;
-  final bool _showSearch = false;
-  String _query = '';
   double? _edgeSwipeStartX;
   bool _isHandlingEdgeSwipeBack = false;
 
@@ -102,10 +100,12 @@ class _MyDocumentsScreenState extends State<MyDocumentsScreen> {
       _debounce?.cancel();
       _debounce = Timer(const Duration(milliseconds: 350), () {
         if (!mounted) return;
-        setState(() {
-          _query = text.toLowerCase();
-        });
-        _fetchMyDocuments(keyword: text);
+        unawaited(
+          _fetchMyDocuments(
+            keyword: text.isEmpty ? null : text,
+            docType: _activeDocType,
+          ),
+        );
       });
     });
   }
@@ -114,6 +114,7 @@ class _MyDocumentsScreenState extends State<MyDocumentsScreen> {
   void dispose() {
     _debounce?.cancel();
     _searchController.dispose();
+    _searchFocusNode.dispose();
     super.dispose();
   }
 
@@ -138,24 +139,6 @@ class _MyDocumentsScreenState extends State<MyDocumentsScreen> {
           (i + chunkSize < message.length) ? i + chunkSize : message.length;
       debugPrint(message.substring(i, end));
     }
-  }
-
-  void _debugFamilyLog(String title, [Object? payload]) {
-    if (!kDebugMode) return;
-    debugPrint('');
-    debugPrint('================ FAMILY DOCUMENTS :: $title ================');
-    if (payload != null) {
-      if (payload is String) {
-        _debugPrintLong(payload);
-      } else {
-        try {
-          _debugPrintLong(const JsonEncoder.withIndent('  ').convert(payload));
-        } catch (_) {
-          _debugPrintLong(payload.toString());
-        }
-      }
-    }
-    debugPrint('============================================================');
   }
 
   dynamic _firstAttachmentIdFrom(dynamic attachmentIds) {
@@ -244,12 +227,16 @@ class _MyDocumentsScreenState extends State<MyDocumentsScreen> {
 
   String? _normalizeDocType(String? raw) {
     final value = (raw ?? '').trim().toLowerCase();
-    if (value.isEmpty || value == 'all') return null;
+    if (value.isEmpty || value == 'all' || value == 'active') return null;
     if (value == 'expiry_soon' || value == 'expired' || value == 'requested') {
       return value;
     }
     return null;
   }
+
+  /// Local-only filter key (not sent to API).
+  bool _isLocalActiveFilter(String? raw) =>
+      (raw ?? '').trim().toLowerCase() == 'active';
 
   String _normalizeToken(dynamic value) {
     return (value ?? '')
@@ -257,94 +244,6 @@ class _MyDocumentsScreenState extends State<MyDocumentsScreen> {
         .trim()
         .toLowerCase()
         .replaceAll(RegExp(r'[^a-z0-9]'), '');
-  }
-
-  Map<String, dynamic> _buildRecentActivityItem(Map<String, dynamic> map) {
-    final stateRaw = (map['state'] ?? map['status'] ?? '').toString();
-    final state = stateRaw.trim().toLowerCase();
-    final name = (map['name'] ?? map['document_type'] ?? 'Document').toString();
-    final member = (map['family_member'] ?? '').toString();
-    final whenRaw =
-        (map['request_date'] ?? map['create_date'] ?? map['write_date'] ?? '')
-            .toString();
-
-    return {
-      'title': member.trim().isEmpty ? name : '$name ($member)',
-      'state': state,
-      'time': whenRaw,
-    };
-  }
-
-  Future<void> _fetchFamilyRecentActivities() async {
-    try {
-      final token = SharedPref.getLoginData().result?.token ?? '';
-      if (token.isEmpty) return;
-
-      final url =
-          Uri.parse('${UrlUtil.baseUrl}get_employee_documents');
-      final headers = {
-        'Content-Type': 'application/json',
-        'Accept': 'application/json',
-        'Authorization': 'Bearer $token',
-      };
-      final body = jsonEncode({
-        'jsonrpc': '2.0',
-        'params': {
-          'family_only': true,
-          'doc_type': 'requested',
-        },
-      });
-
-      _debugFamilyLog('RECENT ACTIVITY REQUEST', {
-        'url': url.toString(),
-        'method': 'POST',
-        'headers': {
-          ...headers,
-          'Authorization': headers['Authorization'] != null ? 'Bearer ***' : '',
-        },
-        'body': jsonDecode(body),
-      });
-
-      final response = await http.post(url, headers: headers, body: body);
-      _debugFamilyLog('RECENT ACTIVITY RAW RESPONSE', {
-        'statusCode': response.statusCode,
-        'body': response.body,
-      });
-      if (response.statusCode != 200) return;
-
-      final decoded = jsonDecode(response.body);
-      final result = (decoded is Map && decoded['result'] is Map)
-          ? Map<String, dynamic>.from(decoded['result'] as Map)
-          : (decoded is Map && decoded['status'] != null)
-              ? Map<String, dynamic>.from(decoded)
-              : <String, dynamic>{};
-      final statusToken = _normalizeToken(result['status']);
-      if (!(statusToken == 'success' ||
-          statusToken == 'ok' ||
-          statusToken == 'true')) {
-        return;
-      }
-
-      final rawData = result['data'];
-      if (rawData is! List) return;
-
-      final items = rawData
-          .whereType<Map>()
-          .map((e) => _buildRecentActivityItem(Map<String, dynamic>.from(e)))
-          .toList(growable: false);
-
-      _debugFamilyLog('RECENT ACTIVITY PARSED', {
-        'count': items.length,
-        'firstItem': items.isNotEmpty ? items.first : null,
-      });
-
-      if (!mounted) return;
-      setState(() {
-        _familyRecentActivities = items;
-      });
-    } catch (_) {
-      // Keep UI stable if activity endpoint parsing fails.
-    }
   }
 
   Future<void> _fetchMyDocuments({String? keyword, String? docType}) async {
@@ -355,344 +254,408 @@ class _MyDocumentsScreenState extends State<MyDocumentsScreen> {
 
     try {
       final token = SharedPref.getLoginData().result?.token ?? '';
-      final url =
-          Uri.parse('${UrlUtil.baseUrl}get_employee_documents');
+      final url = Uri.parse('${UrlUtil.baseUrl}get_employee_documents');
       final headers = {
         'Content-Type': 'application/json',
         'Accept': 'application/json',
         'Authorization': 'Bearer $token',
       };
 
-      // Determine family_only based on currentIndex (0 = personal, 1 = family)
-      final bool familyOnly = currentIndex == 1;
-      final normalizedDocType = _normalizeDocType(
-        docType ?? (familyOnly ? _activeFamilyDocType : _activeMyDocType),
-      );
+      final requestedFilter = (docType ?? '').trim().toLowerCase();
+      final normalizedDocType = _normalizeDocType(docType);
       final familyTaggedIds =
           _loadTaggedDocumentIds(_familyTaggedDocumentIdsKey);
 
-      final Map<String, dynamic> params = {
-        'family_only': familyOnly,
-        if (normalizedDocType != null) 'doc_type': normalizedDocType,
-      };
-
-      final body = jsonEncode({'jsonrpc': '2.0', 'params': params});
-
-      // 📤 Log Request
-      ApiLogger.logRequest(
-        endpoint: url.toString(),
-        method: 'POST',
+      final personalBundle = await _requestAndMapDocuments(
+        url: url,
         headers: headers,
-        body: body,
+        familyOnly: false,
+        keyword: keyword,
+        normalizedDocType: normalizedDocType,
+        familyTaggedIds: familyTaggedIds,
+      );
+      final familyBundle = await _requestAndMapDocuments(
+        url: url,
+        headers: headers,
+        familyOnly: true,
+        keyword: keyword,
+        normalizedDocType: normalizedDocType,
+        familyTaggedIds: familyTaggedIds,
       );
 
-      final startTime = DateTime.now();
-      if (familyOnly) {
-        _debugFamilyLog('DOCUMENTS REQUEST', {
-          'url': url.toString(),
-          'method': 'POST',
-          'keyword': keyword,
-          'params': params,
+      if (personalBundle == null && familyBundle == null) {
+        setState(() {
+          _error = 'Failed to load documents';
+          _loading = false;
         });
+        return;
       }
 
-      final response = await http.post(url, headers: headers, body: body);
-      final duration = DateTime.now().difference(startTime);
-
-      if (familyOnly) {
-        _debugFamilyLog('DOCUMENTS RAW RESPONSE', {
-          'statusCode': response.statusCode,
-          'durationMs': duration.inMilliseconds,
-          'body': response.body,
-        });
+      final byId = <String, Map<String, dynamic>>{};
+      for (final doc in [
+        ...?personalBundle?.docs,
+        ...?familyBundle?.docs,
+      ]) {
+        final id = (doc['id'] ?? '').toString();
+        final key = id.isEmpty
+            ? '${doc['title']}_${doc['name']}_${doc['expiry_date']}'
+            : id;
+        byId[key] = doc;
       }
+      final visibleMapped = byId.values.toList(growable: false);
 
-      if (kDebugMode && familyOnly && normalizedDocType == 'requested') {
-        debugPrint('======== FAMILY REQUESTED API START ========');
-        debugPrint('URL: ${url.toString()}');
-        debugPrint('Method: POST');
-        debugPrint(
-            'Headers: {Content-Type: application/json, Accept: application/json, Authorization: Bearer ***}');
-        debugPrint('Body: $body');
-        debugPrint('Status: ${response.statusCode}');
-        _debugPrintLong(response.body);
-        debugPrint('========= FAMILY REQUESTED API END =========');
-      }
-
-      if (kDebugMode) {
-        debugPrint('=========== MY DOCUMENTS API RESPONSE START ===========');
-        debugPrint('URL: $url');
-        debugPrint('Status: ${response.statusCode}');
-        _debugPrintLong(response.body);
-        debugPrint('============ MY DOCUMENTS API RESPONSE END ============');
-      }
-
-      final data = jsonDecode(response.body);
-      final resultEnvelope = (data is Map && data['result'] is Map)
-          ? Map<String, dynamic>.from(data['result'] as Map)
-          : (data is Map && data['status'] != null)
-              ? Map<String, dynamic>.from(data)
-              : <String, dynamic>{};
-      final statusToken = _normalizeToken(resultEnvelope['status']);
-
-      // 📥 Log Response
-      ApiLogger.logResponse(
-        endpoint: url.toString(),
-        statusCode: response.statusCode,
-        responseBody: data,
-        duration: duration,
+      final personalStats = personalBundle?.stats;
+      final familyStats = familyBundle?.stats;
+      final mergedStats = _mergeDocumentStats(
+        personal: personalStats,
+        family: familyStats,
+        visibleDocs: visibleMapped,
       );
 
-      if (kDebugMode) {
-        debugPrint('🔍 ====== MY DOCUMENTS PARSED JSON ======');
-        _debugPrintLong(jsonEncode(data));
-        debugPrint('🔍 ======================================');
-      }
-
-      if (response.statusCode == 200 &&
-          (statusToken == 'success' ||
-              statusToken == 'ok' ||
-              statusToken == 'true')) {
-        final resultData = resultEnvelope['data'];
-        final List list = _extractDocumentGroups(resultData);
-
-        if (kDebugMode) {
-          debugPrint('📄 My Documents: total=${list.length}');
-          for (var i = 0; i < list.length; i++) {
-            _debugPrintLong('📄 Document $i: ${jsonEncode(list[i])}');
-          }
-        }
-        String resolveIcon(String type, String name) {
-          var icon = 'assets/png/other-documetns-icon.png';
-          final t = type.toLowerCase();
-          final n = name.toLowerCase();
-
-          if (t.contains('pdf')) {
-            icon = 'assets/png/pdf-icon.png';
-          } else if (t.contains('certificate') || t.contains('cert')) {
-            icon = 'assets/png/certificate-icon.png';
-          } else if (t.contains('contract')) {
-            icon = 'assets/png/contract-icon.png';
-          } else if (t.contains('passport')) {
-            icon = 'assets/png/passport.png';
-          } else if (t.contains('emirates') ||
-              t.contains('id') ||
-              n.contains('emirates') ||
-              n.contains('eid')) {
-            icon = 'assets/png/emitates_id.png';
-          } else if (t.contains('driving') ||
-              t.contains('license') ||
-              n.contains('driving') ||
-              n.contains('license')) {
-            icon = 'assets/png/driving_license.png';
-          } else if (t.contains('insurance') || n.contains('insurance')) {
-            icon = 'assets/png/personal-icon.png';
-          } else if (t.contains('labor') || t.contains('labour')) {
-            icon = 'assets/png/labor-cards-icon.png';
-          } else if (t.contains('personal') || t.contains('profile')) {
-            icon = 'assets/png/personal-icon.png';
-          }
-
-          return icon;
-        }
-
-        final mapped = <Map<String, dynamic>>[];
-
-        for (final raw in list) {
-          if (raw is! Map) continue;
-
-          final group = Map<String, dynamic>.from(raw as Map);
-          final groupType =
-              (group['document_type'] ?? group['type'] ?? '-').toString();
-          final groupDocs = group['documents'];
-
-          if (groupDocs is List && groupDocs.isNotEmpty) {
-            for (final docRaw in groupDocs) {
-              if (docRaw is! Map) continue;
-              final map = Map<String, dynamic>.from(docRaw as Map);
-
-              final type =
-                  (map['document_type'] ?? map['type'] ?? groupType).toString();
-              final name = (map['name'] ?? '-').toString();
-              final docIdInt = int.tryParse((map['id'] ?? '').toString());
-
-              final resolvedIsFamily = familyOnly ||
-                  _isFamilyDoc(group) ||
-                  _isFamilyDoc(map) ||
-                  (docIdInt != null && familyTaggedIds.contains(docIdInt));
-
-              mapped.add({
-                'id': map['id'],
-                'icon': resolveIcon(type, name),
-                'title': type.toUpperCase(),
-                'name': name,
-                'issue_date': map['issue_date'],
-                'expiry_date': map['expiry_date'],
-                'description': map['description'],
-                'attachment_ids': map['attachment_ids'] ??
-                    (map['attachment_id'] != null
-                        ? [
-                            {
-                              'attachment_id': map['attachment_id'],
-                            }
-                          ]
-                        : []),
-                'state': map['state'],
-                'request_date': map['request_date'],
-                'is_family': map['is_family'],
-                'family_member': map['family_member'],
-                'family_member_label': map['family_member_label'],
-                'relation': map['relation'],
-                'person_name': map['person_name'] ??
-                    map['family_member_name'] ??
-                    map['family_member'] ??
-                    map['employee'],
-                'family_member_name': map['family_member_name'],
-                'passport_no': map['passport_no'] ?? map['passport_number'],
-                'eid_no': map['eid_no'] ?? map['emirates_id_no'],
-                'nationality': map['nationality'] ??
-                    map['family_member_nationality_id'] ??
-                    map['nationality_name'],
-                'birth_date': map['birth_date'] ?? map['family_member_dob'],
-                'passport_expiry_date':
-                    map['passport_expiry_date'] ?? map['expiry_date'],
-                'eid_expiry_date': map['eid_expiry_date'] ?? map['expiry_date'],
-                'photo': map['photo'],
-                'image_url': map['image_url'],
-                'avatar': map['avatar'],
-                '_isFamily': resolvedIsFamily,
-              });
-            }
-          } else {
-            final map = group;
-            final type =
-                (map['document_type'] ?? map['type'] ?? groupType).toString();
-            final name = (map['name'] ?? '-').toString();
-            final docIdInt = int.tryParse((map['id'] ?? '').toString());
-
-            final resolvedIsFamily = familyOnly ||
-                _isFamilyDoc(group) ||
-                _isFamilyDoc(map) ||
-                (docIdInt != null && familyTaggedIds.contains(docIdInt));
-
-            mapped.add({
-              'id': map['id'],
-              'icon': resolveIcon(type, name),
-              'title': type.toUpperCase(),
-              'name': name,
-              'issue_date': map['issue_date'],
-              'expiry_date': map['expiry_date'],
-              'description': map['description'],
-              'attachment_ids': map['attachment_ids'] ??
-                  (map['attachment_id'] != null
-                      ? [
-                          {
-                            'attachment_id': map['attachment_id'],
-                          }
-                        ]
-                      : []),
-              'state': map['state'],
-              'request_date': map['request_date'],
-              'is_family': map['is_family'],
-              'family_member': map['family_member'],
-              'family_member_label': map['family_member_label'],
-              'relation': map['relation'],
-              'person_name': map['person_name'] ??
-                  map['family_member_name'] ??
-                  map['family_member'] ??
-                  map['employee'],
-              'family_member_name': map['family_member_name'],
-              'passport_no': map['passport_no'] ?? map['passport_number'],
-              'eid_no': map['eid_no'] ?? map['emirates_id_no'],
-              'nationality': map['nationality'] ??
-                  map['family_member_nationality_id'] ??
-                  map['nationality_name'],
-              'birth_date': map['birth_date'] ?? map['family_member_dob'],
-              'passport_expiry_date':
-                  map['passport_expiry_date'] ?? map['expiry_date'],
-              'eid_expiry_date': map['eid_expiry_date'] ?? map['expiry_date'],
-              'photo': map['photo'],
-              'image_url': map['image_url'],
-              'avatar': map['avatar'],
-              '_isFamily': resolvedIsFamily,
-            });
-          }
-        }
-
-        // Apply search filter if keyword is provided
-        final filteredMapped = keyword != null && keyword.trim().isNotEmpty
-            ? mapped.where((d) {
-                final title = (d['title'] ?? '').toString().toLowerCase();
-                final name = (d['name'] ?? '').toString().toLowerCase();
-                final searchTerm = keyword.toLowerCase();
-                return title.contains(searchTerm) || name.contains(searchTerm);
-              }).toList()
-            : mapped;
-
-        final strictVisibleMapped = familyOnly
-            ? filteredMapped.where((d) => d['_isFamily'] == true).toList()
-            : filteredMapped.where((d) => d['_isFamily'] != true).toList();
-
-        // Fallback: if strict client-side tagging hides all docs but API returned
-        // items, keep server-filtered data visible to avoid false empty states.
-        final visibleMapped = strictVisibleMapped.isNotEmpty
-            ? strictVisibleMapped
-            : filteredMapped;
-
-        final stats = _buildDocumentsStats(
-          resultEnvelope: resultEnvelope,
-          resultData: resultData,
-          visibleDocs: visibleMapped,
-        );
-
-        if (familyOnly) {
-          _debugFamilyLog('DOCUMENTS PARSED SUMMARY', {
-            'docType': normalizedDocType,
-            'mappedTotal': mapped.length,
-            'visibleTotal': visibleMapped.length,
-            'stats': stats,
-            'firstVisible':
-                visibleMapped.isNotEmpty ? visibleMapped.first : null,
-          });
-        }
-
-        setState(() {
-          documents = visibleMapped;
-          _statTotal = stats['total'] ?? '-';
-          _statRequested = stats['requested'] ?? '-';
-          _statExpiringSoon = stats['expiringSoon'] ?? '-';
-          _statExpired = stats['expired'] ?? '-';
-          if (familyOnly) {
-            _activeFamilyDocType = normalizedDocType;
-          } else {
-            _activeMyDocType = normalizedDocType;
-          }
-          _loading = false;
-        });
-
-        if (familyOnly) {
-          unawaited(_fetchFamilyRecentActivities());
-        }
-      } else {
-        setState(() {
-          _error = resultEnvelope['message']?.toString() ??
-              (data is Map ? data['error']?.toString() : null) ??
-              'Failed to load documents';
-          _loading = false;
-        });
-      }
+      if (!mounted) return;
+      setState(() {
+        documents = visibleMapped;
+        _statTotal = mergedStats['total'] ?? '-';
+        _statActive = mergedStats['active'] ?? '-';
+        _statRequested = mergedStats['requested'] ?? '-';
+        _statExpiringSoon = mergedStats['expiringSoon'] ?? '-';
+        _statExpired = mergedStats['expired'] ?? '-';
+        _activeDocType =
+            _isLocalActiveFilter(requestedFilter) ? 'active' : normalizedDocType;
+        _loading = false;
+        _error = null;
+      });
     } catch (e, stackTrace) {
-      // ❌ Log Error
       ApiLogger.logError(
         endpoint: '${UrlUtil.baseUrl}get_employee_documents',
         error: e,
         stackTrace: stackTrace,
       );
+      if (!mounted) return;
       setState(() {
         _error = e.toString();
         _loading = false;
       });
     }
+  }
+
+  Future<_DocsFetchBundle?> _requestAndMapDocuments({
+    required Uri url,
+    required Map<String, String> headers,
+    required bool familyOnly,
+    required String? keyword,
+    required String? normalizedDocType,
+    required Set<int> familyTaggedIds,
+  }) async {
+    final Map<String, dynamic> params = {
+      'family_only': familyOnly,
+      if (normalizedDocType != null) 'doc_type': normalizedDocType,
+    };
+    final body = jsonEncode({'jsonrpc': '2.0', 'params': params});
+
+    ApiLogger.logRequest(
+      endpoint: url.toString(),
+      method: 'POST',
+      headers: headers,
+      body: body,
+    );
+
+    final startTime = DateTime.now();
+    final response = await http.post(url, headers: headers, body: body);
+    final duration = DateTime.now().difference(startTime);
+
+    final data = jsonDecode(response.body);
+    final resultEnvelope = (data is Map && data['result'] is Map)
+        ? Map<String, dynamic>.from(data['result'] as Map)
+        : (data is Map && data['status'] != null)
+            ? Map<String, dynamic>.from(data)
+            : <String, dynamic>{};
+    final statusToken = _normalizeToken(resultEnvelope['status']);
+
+    ApiLogger.logResponse(
+      endpoint: url.toString(),
+      statusCode: response.statusCode,
+      responseBody: data,
+      duration: duration,
+    );
+
+    if (response.statusCode != 200 ||
+        (statusToken != 'success' &&
+            statusToken != 'ok' &&
+            statusToken != 'true')) {
+      return null;
+    }
+
+    final resultData = resultEnvelope['data'];
+    final List list = _extractDocumentGroups(resultData);
+
+    String resolveIcon(String type, String name) {
+      var icon = 'assets/png/other-documetns-icon.png';
+      final t = type.toLowerCase();
+      final n = name.toLowerCase();
+
+      if (t.contains('pdf')) {
+        icon = 'assets/png/pdf-icon.png';
+      } else if (t.contains('certificate') || t.contains('cert')) {
+        icon = 'assets/png/certificate-icon.png';
+      } else if (t.contains('contract')) {
+        icon = 'assets/png/contract-icon.png';
+      } else if (t.contains('passport')) {
+        icon = 'assets/png/passport.png';
+      } else if (t.contains('emirates') ||
+          t.contains('id') ||
+          n.contains('emirates') ||
+          n.contains('eid')) {
+        icon = 'assets/png/emitates_id.png';
+      } else if (t.contains('driving') ||
+          t.contains('license') ||
+          n.contains('driving') ||
+          n.contains('license')) {
+        icon = 'assets/png/driving_license.png';
+      } else if (t.contains('insurance') || n.contains('insurance')) {
+        icon = 'assets/png/personal-icon.png';
+      } else if (t.contains('labor') || t.contains('labour')) {
+        icon = 'assets/png/labor-cards-icon.png';
+      } else if (t.contains('personal') || t.contains('profile')) {
+        icon = 'assets/png/personal-icon.png';
+      }
+
+      return icon;
+    }
+
+    final mapped = <Map<String, dynamic>>[];
+
+    for (final raw in list) {
+      if (raw is! Map) continue;
+
+      final group = Map<String, dynamic>.from(raw);
+      final groupType =
+          (group['document_type'] ?? group['type'] ?? '-').toString();
+      final groupDocs = group['documents'];
+
+      if (groupDocs is List && groupDocs.isNotEmpty) {
+        for (final docRaw in groupDocs) {
+          if (docRaw is! Map) continue;
+          final map = Map<String, dynamic>.from(docRaw);
+          mapped.add(_mapDocumentRow(
+            map: map,
+            group: group,
+            groupType: groupType,
+            familyOnly: familyOnly,
+            familyTaggedIds: familyTaggedIds,
+            resolveIcon: resolveIcon,
+          ));
+        }
+      } else {
+        mapped.add(_mapDocumentRow(
+          map: group,
+          group: group,
+          groupType: groupType,
+          familyOnly: familyOnly,
+          familyTaggedIds: familyTaggedIds,
+          resolveIcon: resolveIcon,
+        ));
+      }
+    }
+
+    final filteredMapped = keyword != null && keyword.trim().isNotEmpty
+        ? mapped.where((d) {
+            final title = (d['title'] ?? '').toString().toLowerCase();
+            final name = (d['name'] ?? '').toString().toLowerCase();
+            final searchTerm = keyword.toLowerCase();
+            return title.contains(searchTerm) || name.contains(searchTerm);
+          }).toList()
+        : mapped;
+
+    final stats = _buildDocumentsStats(
+      resultEnvelope: resultEnvelope,
+      resultData: resultData,
+      visibleDocs: filteredMapped,
+    );
+
+    return _DocsFetchBundle(docs: filteredMapped, stats: stats);
+  }
+
+  Map<String, dynamic> _mapDocumentRow({
+    required Map<String, dynamic> map,
+    required Map<String, dynamic> group,
+    required String groupType,
+    required bool familyOnly,
+    required Set<int> familyTaggedIds,
+    required String Function(String type, String name) resolveIcon,
+  }) {
+    final type =
+        (map['document_type'] ?? map['type'] ?? groupType).toString();
+    final name = (map['name'] ?? '-').toString();
+    final docIdInt = int.tryParse((map['id'] ?? '').toString());
+
+    final resolvedIsFamily = familyOnly ||
+        _isFamilyDoc(group) ||
+        _isFamilyDoc(map) ||
+        (docIdInt != null && familyTaggedIds.contains(docIdInt));
+
+    final issueDate = _normalizeApiDate(DocumentDisplay.pickIssueRaw(map) ??
+        map['issue_date'] ??
+        map['issue'] ??
+        map['date_issue']);
+    final expiryDate = _normalizeApiDate(DocumentDisplay.pickExpiryRaw(map) ??
+        map['expiry_date'] ??
+        map['expiry'] ??
+        map['date_expiry']);
+    final statusRaw = (map['status'] ?? '').toString().trim().toLowerCase();
+    final resolvedStatus = (statusRaw.isNotEmpty && statusRaw != 'unknown')
+        ? statusRaw
+        : _statusFromExpiry(expiryDate);
+
+    return {
+      'id': map['id'],
+      'icon': resolveIcon(type, name),
+      'title': type.toUpperCase(),
+      'name': name,
+      'issue_date': issueDate,
+      'expiry_date': expiryDate,
+      'date_expiry': expiryDate,
+      'description': map['description'],
+      'status': resolvedStatus,
+      'document_number': map['document_number'] ?? map['id_number'] ?? name,
+      'attachment_ids': map['attachment_ids'] ??
+          (map['attachment_id'] != null
+              ? [
+                  {
+                    'attachment_id': map['attachment_id'],
+                  }
+                ]
+              : []),
+      'state': map['state'],
+      'request_date': map['request_date'],
+      'is_family': map['is_family'],
+      'family_member': map['family_member'],
+      'family_member_label': map['family_member_label'],
+      'relation': map['relation'],
+      'person_name': map['person_name'] ??
+          map['family_member_name'] ??
+          map['family_member'] ??
+          map['employee'],
+      'family_member_name': map['family_member_name'],
+      'passport_no': map['passport_no'] ?? map['passport_number'],
+      'eid_no': map['eid_no'] ?? map['emirates_id_no'],
+      'id_number': map['id_number'] ??
+          map['document_number'] ??
+          map['document_no'] ??
+          map['number'],
+      'nationality': map['nationality'] ??
+          map['family_member_nationality_id'] ??
+          map['nationality_name'],
+      'birth_date': map['birth_date'] ?? map['family_member_dob'],
+      'passport_expiry_date': map['passport_expiry_date'] ?? expiryDate,
+      'eid_expiry_date': map['eid_expiry_date'] ?? expiryDate,
+      'photo': map['photo'],
+      'image_url': map['image_url'] ?? map['photo_url'],
+      'avatar': map['avatar'],
+      'write_date': map['write_date'] ??
+          map['updated_at'] ??
+          map['writeDate'] ??
+          map['create_date'],
+      '_isFamily': resolvedIsFamily,
+    };
+  }
+
+  String? _normalizeApiDate(dynamic raw) {
+    if (raw == null || raw == false) return null;
+    var s = raw.toString().trim();
+    if (s.isEmpty) return null;
+    final lower = s.toLowerCase();
+    if (lower == 'false' || lower == 'null' || lower == 'none') return null;
+    if (s.contains('T')) s = s.split('T').first;
+    if (s.contains(' ')) s = s.split(' ').first;
+    return s;
+  }
+
+  String _statusFromExpiry(String? expiryIso) {
+    final parsed = DocumentDisplay.parseDate(expiryIso);
+    if (parsed == null) return 'unknown';
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final expiry = DateTime(parsed.year, parsed.month, parsed.day);
+    final days = expiry.difference(today).inDays;
+    if (days < 0) return 'expired';
+    if (days <= 30) return 'expiring';
+    return 'valid';
+  }
+
+  Map<String, String> _mergeDocumentStats({
+    required Map<String, String>? personal,
+    required Map<String, String>? family,
+    required List<Map<String, dynamic>> visibleDocs,
+  }) {
+    int? parseStat(String? raw) {
+      if (raw == null || raw == '-' || raw.trim().isEmpty) return null;
+      return int.tryParse(raw.trim());
+    }
+
+    String sumOrDash(String? a, String? b) {
+      final av = parseStat(a);
+      final bv = parseStat(b);
+      if (av == null && bv == null) return '-';
+      return ((av ?? 0) + (bv ?? 0)).toString();
+    }
+
+    final totalMerged = sumOrDash(personal?['total'], family?['total']);
+    final requestedMerged =
+        sumOrDash(personal?['requested'], family?['requested']);
+    final expiringMerged =
+        sumOrDash(personal?['expiringSoon'], family?['expiringSoon']);
+    final expiredMerged =
+        sumOrDash(personal?['expired'], family?['expired']);
+
+    // Prefer merged API counters; fall back to visible list length / dates.
+    final fallback = _buildDocumentsStats(
+      resultEnvelope: const {},
+      resultData: const {},
+      visibleDocs: visibleDocs,
+    );
+
+    return {
+      'total': totalMerged == '-'
+          ? visibleDocs.length.toString()
+          : totalMerged,
+      'requested':
+          requestedMerged == '-' ? (fallback['requested'] ?? '-') : requestedMerged,
+      'expiringSoon': expiringMerged == '-'
+          ? (fallback['expiringSoon'] ?? '-')
+          : expiringMerged,
+      'expired':
+          expiredMerged == '-' ? (fallback['expired'] ?? '-') : expiredMerged,
+      'active': _resolveActiveCount(
+        total: totalMerged == '-'
+            ? visibleDocs.length.toString()
+            : totalMerged,
+        expired: expiredMerged == '-'
+            ? (fallback['expired'] ?? '-')
+            : expiredMerged,
+        visibleDocs: visibleDocs,
+        fallbackActive: fallback['active'],
+      ),
+    };
+  }
+
+  String _resolveActiveCount({
+    required String total,
+    required String expired,
+    required List<Map<String, dynamic>> visibleDocs,
+    String? fallbackActive,
+  }) {
+    final t = int.tryParse(total);
+    final e = int.tryParse(expired);
+    if (t != null && e != null) {
+      return (t - e).clamp(0, t).toString();
+    }
+    if (fallbackActive != null && fallbackActive != '-') return fallbackActive;
+    var active = 0;
+    for (final doc in visibleDocs) {
+      if (DocumentDisplay.status(doc) != DocumentStatus.expired) active++;
+    }
+    return active.toString();
   }
 
   List<dynamic> _extractDocumentGroups(dynamic resultData) {
@@ -777,9 +740,12 @@ class _MyDocumentsScreenState extends State<MyDocumentsScreen> {
     final now = DateTime.now();
     var expiringSoonComputed = 0;
     var expiredComputed = 0;
+    var activeComputed = 0;
     var hasDateData = false;
     for (final doc in visibleDocs) {
-      final raw = doc['expiry_date'];
+      final status = DocumentDisplay.status(doc);
+      if (status != DocumentStatus.expired) activeComputed++;
+      final raw = DocumentDisplay.pickExpiryRaw(doc) ?? doc['expiry_date'];
       if (raw == null || raw == false) continue;
       final s = raw.toString().trim();
       if (s.isEmpty) continue;
@@ -794,24 +760,42 @@ class _MyDocumentsScreenState extends State<MyDocumentsScreen> {
       }
     }
 
+    final total = totalRaw != null
+        ? _countOrDash(totalRaw)
+        : visibleDocs.length.toString();
+    final expired = expiredRaw != null
+        ? _countOrDash(expiredRaw)
+        : (hasDateData ? expiredComputed.toString() : '-');
+
     return {
-      'total': totalRaw != null
-          ? _countOrDash(totalRaw)
-          : visibleDocs.length.toString(),
+      'total': total,
       'requested': _countOrDash(requestedRaw),
       'expiringSoon': expiringSoonRaw != null
           ? _countOrDash(expiringSoonRaw)
           : (hasDateData ? expiringSoonComputed.toString() : '-'),
-      'expired': expiredRaw != null
-          ? _countOrDash(expiredRaw)
-          : (hasDateData ? expiredComputed.toString() : '-'),
+      'expired': expired,
+      'active': _resolveActiveCount(
+        total: total,
+        expired: expired,
+        visibleDocs: visibleDocs,
+        fallbackActive: activeComputed.toString(),
+      ),
     };
   }
 
   List<Map<String, dynamic>> _filteredDocs() {
-    // Documents are already filtered by family_only from API
-    // Just return them as is since filtering happens server-side
-    return documents;
+    Iterable<Map<String, dynamic>> docs = documents;
+    if (_smartScope == 'personal') {
+      docs = docs.where((d) => d['_isFamily'] != true);
+    } else if (_smartScope == 'family') {
+      docs = docs.where((d) => d['_isFamily'] == true);
+    }
+    if (_activeDocType == 'active') {
+      docs = docs.where(
+        (d) => DocumentDisplay.status(d) != DocumentStatus.expired,
+      );
+    }
+    return docs.toList(growable: false);
   }
 
   String _toTitleCase(String value) {
@@ -841,768 +825,837 @@ class _MyDocumentsScreenState extends State<MyDocumentsScreen> {
   Widget _buildDocumentsSummaryCard() {
     return Padding(
       padding: EdgeInsets.symmetric(horizontal: 16.tw),
-      child: Container(
-        decoration: ProductivityTheme.glassCard(radius: 14.tr),
-        child: Column(
-          children: [
-            Row(
+      child: Column(
+        children: [
+          IntrinsicHeight(
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 Expanded(
-                  child: _buildSummaryCell(
-                    label: 'Total',
+                  flex: 11,
+                  child: _buildTotalDocumentsMetallicCard(
                     value: _statTotal,
-                    selected: _activeMyDocType == null,
+                    selected: _activeDocType == null && _smartScope == 'all',
                     onTap: () {
-                      final keyword = _searchController.text.trim();
-                      unawaited(_fetchMyDocuments(
-                        keyword: keyword.isEmpty ? null : keyword,
-                        docType: null,
-                      ));
+                      _applySmartChip(scope: 'all', docType: null);
                     },
                   ),
                 ),
-                Container(
-                    width: 1, height: 64.th, color: const Color(0xFFD1D1D1)),
+                SizedBox(width: 8.tw),
                 Expanded(
-                  child: _buildSummaryCell(
-                    label: 'Expiring Soon',
-                    value: _statExpiringSoon,
-                    dotColor: const Color(0xFFF0B321),
-                    selected: _activeMyDocType == 'expiry_soon',
+                  flex: 9,
+                  child: _buildActiveDocumentsCard(
+                    value: _statActive,
+                    selected: _activeDocType == 'active',
                     onTap: () {
-                      final keyword = _searchController.text.trim();
-                      unawaited(_fetchMyDocuments(
-                        keyword: keyword.isEmpty ? null : keyword,
-                        docType: 'expiry_soon',
-                      ));
+                      _applySmartChip(scope: 'all', docType: 'active');
                     },
                   ),
                 ),
               ],
             ),
-            Container(height: 1, color: const Color(0xFFD1D1D1)),
-            Row(
+          ),
+          SizedBox(height: 10.th),
+          Row(
+            children: [
+              Expanded(
+                child: _buildCategoryStatCard(
+                  label: 'Expiring',
+                  value: _statExpiringSoon,
+                  icon: Icons.schedule_rounded,
+                  accent: const Color(0xFFC47A12),
+                  softFill: const Color(0xFFFFF1D9),
+                  compact: true,
+                  selected: _activeDocType == 'expiry_soon',
+                  onTap: () {
+                    _applySmartChip(scope: 'all', docType: 'expiry_soon');
+                  },
+                ),
+              ),
+              SizedBox(width: 8.tw),
+              Expanded(
+                child: _buildCategoryStatCard(
+                  label: 'Requested',
+                  value: _statRequested,
+                  icon: Icons.pending_actions_rounded,
+                  accent: const Color(0xFF2F6AD8),
+                  softFill: const Color(0xFFE3EDFF),
+                  compact: true,
+                  selected: _activeDocType == 'requested',
+                  onTap: () {
+                    _applySmartChip(scope: 'all', docType: 'requested');
+                  },
+                ),
+              ),
+              SizedBox(width: 8.tw),
+              Expanded(
+                child: _buildCategoryStatCard(
+                  label: 'Expired',
+                  value: _statExpired,
+                  icon: Icons.event_busy_rounded,
+                  accent: const Color(0xFFC62828),
+                  softFill: const Color(0xFFFFE5E5),
+                  compact: true,
+                  selected: _activeDocType == 'expired',
+                  onTap: () {
+                    _applySmartChip(scope: 'all', docType: 'expired');
+                  },
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildTotalDocumentsMetallicCard({
+    required String value,
+    required bool selected,
+    required VoidCallback onTap,
+  }) {
+    const blueDeep = Color(0xFF3D7FDB);
+    const blueMid = Color(0xFF5BA3EA);
+    const blueLight = Color(0xFF7EC0F5);
+
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(18.tr),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 180),
+          curve: Curves.easeOut,
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(18.tr),
+            gradient: const LinearGradient(
+              begin: Alignment(-0.95, -1),
+              end: Alignment(0.9, 1.1),
+              colors: [
+                Color(0xFF4A8FE8),
+                blueMid,
+                blueLight,
+              ],
+              stops: [0.0, 0.45, 1.0],
+            ),
+            border: Border.all(
+              color: Colors.white.withValues(alpha: selected ? 0.55 : 0.28),
+              width: selected ? 1.6 : 1,
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: blueDeep.withValues(alpha: selected ? 0.38 : 0.22),
+                blurRadius: selected ? 18 : 14,
+                offset: const Offset(0, 7),
+              ),
+            ],
+          ),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(18.tr),
+            child: Stack(
               children: [
-                Expanded(
-                  child: _buildSummaryCell(
-                    label: 'Requested',
-                    value: _statRequested,
-                    selected: _activeMyDocType == 'requested',
-                    onTap: () {
-                      final keyword = _searchController.text.trim();
-                      unawaited(_fetchMyDocuments(
-                        keyword: keyword.isEmpty ? null : keyword,
-                        docType: 'requested',
-                      ));
-                    },
+                // Soft metallic sheen
+                Positioned(
+                  top: -28.th,
+                  right: -18.tw,
+                  child: Transform.rotate(
+                    angle: -0.55,
+                    child: Container(
+                      width: 120.tw,
+                      height: 90.th,
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          begin: Alignment.topCenter,
+                          end: Alignment.bottomCenter,
+                          colors: [
+                            Colors.white.withValues(alpha: 0.55),
+                            Colors.white.withValues(alpha: 0.12),
+                            Colors.white.withValues(alpha: 0.0),
+                          ],
+                        ),
+                      ),
+                    ),
                   ),
                 ),
-                Container(
-                    width: 1, height: 64.th, color: const Color(0xFFD1D1D1)),
-                Expanded(
-                  child: _buildSummaryCell(
-                    label: 'Expired',
-                    value: _statExpired,
-                    dotColor: const Color(0xFFC62828),
-                    selected: _activeMyDocType == 'expired',
-                    onTap: () {
-                      final keyword = _searchController.text.trim();
-                      unawaited(_fetchMyDocuments(
-                        keyword: keyword.isEmpty ? null : keyword,
-                        docType: 'expired',
-                      ));
-                    },
+                Positioned(
+                  left: -10.tw,
+                  bottom: -20.th,
+                  child: Container(
+                    width: 70.tw,
+                    height: 70.tw,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: Colors.white.withValues(alpha: 0.10),
+                    ),
+                  ),
+                ),
+                // Document watermark
+                Positioned(
+                  right: 6.tw,
+                  bottom: -6.th,
+                  child: Opacity(
+                    opacity: 0.18,
+                    child: Icon(
+                      Icons.description_rounded,
+                      size: 72.tsp,
+                      color: Colors.white,
+                    ),
+                  ),
+                ),
+                Positioned(
+                  right: 22.tw,
+                  bottom: 4.th,
+                  child: Opacity(
+                    opacity: 0.12,
+                    child: Icon(
+                      Icons.description_outlined,
+                      size: 54.tsp,
+                      color: Colors.white,
+                    ),
+                  ),
+                ),
+                Padding(
+                  padding: EdgeInsets.fromLTRB(14.tw, 14.th, 12.tw, 14.th),
+                  child: Row(
+                    children: [
+                      Icon(
+                        Icons.description_rounded,
+                        size: 28.tsp,
+                        color: Colors.white,
+                      ),
+                      SizedBox(width: 10.tw),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Text(
+                              'Total Documents',
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: GoogleFonts.poppins(
+                                fontSize: 12.tsp,
+                                fontWeight: FontWeight.w500,
+                                color: Colors.white.withValues(alpha: 0.95),
+                              ),
+                            ),
+                            SizedBox(height: 4.th),
+                            Text(
+                              value,
+                              style: GoogleFonts.poppins(
+                                fontSize: 28.tsp,
+                                height: 1,
+                                fontWeight: FontWeight.w700,
+                                color: Colors.white,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      Container(
+                        width: 30.tw,
+                        height: 30.tw,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: Colors.white.withValues(alpha: 0.22),
+                          border: Border.all(
+                            color: Colors.white.withValues(alpha: 0.35),
+                          ),
+                        ),
+                        alignment: Alignment.center,
+                        child: Icon(
+                          Icons.chevron_right_rounded,
+                          size: 20.tsp,
+                          color: Colors.white,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               ],
             ),
-          ],
+          ),
         ),
       ),
     );
   }
 
-  Widget _buildSummaryCell({
+  Widget _buildActiveDocumentsCard({
+    required String value,
+    required bool selected,
+    required VoidCallback onTap,
+  }) {
+    const green = Color(0xFF1F7A4D);
+    const mint = Color(0xFFE7F6EE);
+
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(18.tr),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 180),
+          curve: Curves.easeOut,
+          padding: EdgeInsets.fromLTRB(12.tw, 12.th, 10.tw, 12.th),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(18.tr),
+            color: selected ? const Color(0xFFD5F0E2) : mint,
+            border: Border.all(
+              color: green.withValues(alpha: selected ? 0.45 : 0.16),
+              width: selected ? 1.5 : 1,
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: green.withValues(alpha: selected ? 0.14 : 0.06),
+                blurRadius: selected ? 14 : 10,
+                offset: const Offset(0, 5),
+              ),
+            ],
+          ),
+          child: Row(
+            children: [
+              SizedBox(
+                width: 28.tw,
+                height: 28.tw,
+                child: Stack(
+                  clipBehavior: Clip.none,
+                  children: [
+                    Icon(
+                      Icons.description_rounded,
+                      size: 26.tsp,
+                      color: green,
+                    ),
+                    Positioned(
+                      right: -2,
+                      bottom: -1,
+                      child: Container(
+                        width: 14.tw,
+                        height: 14.tw,
+                        decoration: const BoxDecoration(
+                          color: mint,
+                          shape: BoxShape.circle,
+                        ),
+                        child: Icon(
+                          Icons.check_circle_rounded,
+                          size: 14.tsp,
+                          color: green,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              SizedBox(width: 8.tw),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Text(
+                      'Active Documents',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: GoogleFonts.poppins(
+                        fontSize: 11.tsp,
+                        fontWeight: FontWeight.w600,
+                        color: green,
+                      ),
+                    ),
+                    SizedBox(height: 2.th),
+                    Text(
+                      value,
+                      style: GoogleFonts.poppins(
+                        fontSize: 24.tsp,
+                        height: 1,
+                        fontWeight: FontWeight.w700,
+                        color: green,
+                      ),
+                    ),
+                    Text(
+                      'Up to date',
+                      style: GoogleFonts.poppins(
+                        fontSize: 10.tsp,
+                        fontWeight: FontWeight.w500,
+                        color: green.withValues(alpha: 0.7),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Icon(
+                Icons.chevron_right_rounded,
+                size: 20.tsp,
+                color: green.withValues(alpha: 0.55),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildCategoryStatCard({
     required String label,
     required String value,
-    Color? dotColor,
-    bool selected = false,
-    VoidCallback? onTap,
+    required IconData icon,
+    required Color accent,
+    required Color softFill,
+    required bool selected,
+    required VoidCallback onTap,
+    bool compact = false,
+    bool labelItalic = false,
   }) {
     return Material(
       color: Colors.transparent,
       child: InkWell(
         onTap: onTap,
-        child: Padding(
-          padding: EdgeInsets.fromLTRB(10.tw, 8.th, 10.tw, 7.th),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  if (dotColor != null) ...[
-                    Container(
-                      width: 7.tw,
-                      height: 7.tw,
-                      decoration: BoxDecoration(
-                        color: dotColor,
-                        shape: BoxShape.circle,
-                      ),
-                    ),
-                    SizedBox(width: 4.tw),
-                  ],
-                  Expanded(
-                    child: Text(
+        borderRadius: BorderRadius.circular(18.tr),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 180),
+          curve: Curves.easeOut,
+          padding: EdgeInsets.fromLTRB(
+            compact ? 10.tw : 16.tw,
+            compact ? 12.th : 14.th,
+            compact ? 10.tw : 16.tw,
+            compact ? 12.th : 14.th,
+          ),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(18.tr),
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [
+                softFill.withValues(alpha: selected ? 0.98 : 0.82),
+                Colors.white.withValues(alpha: selected ? 0.72 : 0.48),
+                accent.withValues(alpha: selected ? 0.16 : 0.08),
+              ],
+            ),
+            border: Border.all(
+              color: accent.withValues(alpha: selected ? 0.55 : 0.22),
+              width: selected ? 1.6 : 1,
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: accent.withValues(alpha: selected ? 0.18 : 0.08),
+                blurRadius: selected ? 18 : 12,
+                offset: const Offset(0, 6),
+              ),
+            ],
+          ),
+          child: compact
+              ? Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Icon(icon, size: 22.tsp, color: accent),
+                    SizedBox(height: 10.th),
+                    Text(
                       label,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                       style: GoogleFonts.poppins(
                         fontSize: 11.tsp,
                         fontWeight: FontWeight.w500,
-                        color: const Color(0xFF262626),
+                        fontStyle:
+                            labelItalic ? FontStyle.italic : FontStyle.normal,
+                        color: accent.withValues(alpha: 0.85),
                       ),
                     ),
-                  ),
-                ],
-              ),
-              SizedBox(height: 4.th),
-              Text(
-                value,
-                style: GoogleFonts.poppins(
-                  fontSize: 20.tsp,
-                  height: 1,
-                  fontWeight: FontWeight.w700,
-                  color: const Color(0xFF111111),
+                    SizedBox(height: 4.th),
+                    Text(
+                      value,
+                      style: GoogleFonts.poppins(
+                        fontSize: 22.tsp,
+                        height: 1,
+                        fontWeight: FontWeight.w700,
+                        color: accent,
+                      ),
+                    ),
+                  ],
+                )
+              : Row(
+                  children: [
+                    Icon(icon, size: 28.tsp, color: accent),
+                    SizedBox(width: 12.tw),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            label,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: GoogleFonts.poppins(
+                              fontSize: 13.tsp,
+                              fontWeight: FontWeight.w500,
+                              fontStyle: labelItalic
+                                  ? FontStyle.italic
+                                  : FontStyle.normal,
+                              color: accent.withValues(alpha: 0.88),
+                            ),
+                          ),
+                          SizedBox(height: 4.th),
+                          Text(
+                            value,
+                            style: GoogleFonts.poppins(
+                              fontSize: 28.tsp,
+                              height: 1,
+                              fontWeight: FontWeight.w700,
+                              color: accent,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Icon(
+                      Icons.chevron_right_rounded,
+                      size: 22.tsp,
+                      color: accent.withValues(alpha: 0.45),
+                    ),
+                  ],
                 ),
-              ),
-            ],
-          ),
         ),
       ),
     );
   }
 
-  Map<String, dynamic> _myDocFilterMeta(String docType) {
-    switch (docType) {
-      case 'expiry_soon':
-        return {
-          'label': 'Expired soon',
-          'value': _statExpiringSoon,
-          'background': const Color(0xFF8B2AB3),
-          'labelColor': Colors.white,
-          'valueColor': Colors.white,
-          'icon': Icons.access_time_rounded,
-          'iconColor': Colors.white,
-          'forceRedBorder': true,
-        };
-      case 'requested':
-        return {
-          'label': 'Requested',
-          'value': _statRequested,
-          'background': const Color(0xFFF6CC1B),
-          'labelColor': Colors.black,
-          'valueColor': Colors.black,
-          'icon': Icons.assignment_outlined,
-          'iconColor': Colors.black,
-          'forceRedBorder': false,
-        };
-      case 'expired':
-      default:
-        return {
-          'label': 'Expired',
-          'value': _statExpired,
-          'background': const Color(0xFFE2F3E9),
-          'labelColor': const Color(0xFFBA1719),
-          'valueColor': const Color(0xFFBA1719),
-          'icon': Icons.error_outline_rounded,
-          'iconColor': const Color(0xFFBA1719),
-          'forceRedBorder': true,
-        };
-    }
-  }
-
-  Widget _buildMyFilteredMode(String docType) {
-    final meta = _myDocFilterMeta(docType);
-    final forceRedBorder = meta['forceRedBorder'] == true;
-
-    if (docType == 'requested') {
-      return _buildMyRequestedFilteredMode(meta);
-    }
-
-    return ListView(
-      padding: EdgeInsets.only(left: 12.tw, right: 12.tw, top: 14.th, bottom: 8.th),
-      children: [
-        Container(
-          height: 96.th,
-          padding: EdgeInsets.symmetric(horizontal: 16.tw, vertical: 10.th),
-          decoration: BoxDecoration(
-            color: meta['background'] as Color,
-            borderRadius: BorderRadius.circular(16.tr),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withOpacity(0.12),
-                blurRadius: 8,
-                offset: const Offset(0, 3),
-              ),
-            ],
-          ),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Row(
-                children: [
-                  Icon(
-                    meta['icon'] as IconData,
-                    size: 32.tsp,
-                    color: meta['iconColor'] as Color,
-                  ),
-                  SizedBox(width: 10.tw),
-                  Text(
-                    meta['label'] as String,
-                    style: GoogleFonts.poppins(
-                      fontSize: 15.tsp,
-                      fontWeight: FontWeight.w700,
-                      color: meta['labelColor'] as Color,
-                    ),
-                  ),
-                ],
-              ),
-              Text(
-                (meta['value'] ?? '-').toString(),
-                style: GoogleFonts.poppins(
-                  fontSize: 44.tsp,
-                  fontWeight: FontWeight.w700,
-                  color: meta['valueColor'] as Color,
-                  height: 1,
-                ),
-              ),
-            ],
-          ),
-        ),
-        SizedBox(height: 16.th),
-        GridView.builder(
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          padding: EdgeInsets.zero,
-          itemCount: _filteredDocs().length,
-          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-            crossAxisCount: 2,
-            crossAxisSpacing: 12.tw,
-            mainAxisSpacing: 12.th,
-            mainAxisExtent: 188.th,
-          ),
-          itemBuilder: (context, index) {
-            final item = _filteredDocs()[index];
-            final iconPath =
-                (item['icon'] ?? 'assets/png/other-documetns-icon.png')
-                    .toString();
-            final rawName = (item['name'] ?? '').toString().trim();
-            final rawType = (item['title'] ?? '').toString().trim();
-            final typeLabel = _toTitleCase(rawType.replaceAll('_', ' '));
-            final nameLabel = _toTitleCase(rawName.replaceAll('_', ' '));
-            final displayName =
-                _isMeaningfulDocLabel(nameLabel) ? nameLabel : typeLabel;
-            final cardDateRaw =
-                (item['expiry_date'] != null && item['expiry_date'] != false)
-                    ? item['expiry_date']
-                    : item['issue_date'];
-            final date = _formatCardDate(cardDateRaw);
-            final isRedBorderCard = forceRedBorder;
-
-            return GestureDetector(
-              onTap: () {
-                if (kDebugMode) {
-                  unawaited(_debugPrintDocumentTapApi(item));
-                }
-                unawaited(_openDocumentAttachment(item));
-              },
-              onLongPress: () {
-                _showDocumentDetailsDialog(context, item);
-              },
-              child: Container(
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(24.tr),
-                  border: Border.all(
-                    color: isRedBorderCard
-                        ? const Color(0xFFBA1719)
-                        : const Color(0xffD9D9D9),
-                    width: isRedBorderCard ? 2 : 1,
-                  ),
-                  color: Colors.white,
-                ),
-                child: Padding(
-                  padding: EdgeInsets.all(10.tw),
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.start,
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      SizedBox(
-                        height: 90.th,
-                        child: Image.asset(
-                          iconPath,
-                          fit: BoxFit.contain,
-                          width: double.infinity,
-                          errorBuilder: (_, __, ___) => Icon(
-                            Icons.insert_drive_file_outlined,
-                            size: 44.tsp,
-                            color: const Color(0xff949494),
-                          ),
-                        ),
-                      ),
-                      SizedBox(height: 8.th),
-                      Text(
-                        displayName,
-                        textAlign: TextAlign.center,
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                        style: GoogleFonts.poppins(
-                          fontSize: 13.tsp,
-                          fontWeight: FontWeight.w700,
-                          color: Colors.black,
-                        ),
-                      ),
-                      SizedBox(height: 4.th),
-                      Text(
-                        date,
-                        textAlign: TextAlign.center,
-                        style: GoogleFonts.poppins(
-                          fontSize: 10.tsp,
-                          fontWeight: FontWeight.w600,
-                          color: isRedBorderCard
-                              ? const Color(0xFFBA1719)
-                              : const Color(0xff949494),
-                        ),
-                      ),
-                      if (isRedBorderCard) ...[
-                        SizedBox(height: 8.th),
-                        GestureDetector(
-                          onTap: () {
-                            unawaited(_showChangeDocumentDialog(
-                                item, DocumentDialogType.my));
-                          },
-                          child: Container(
-                            constraints: BoxConstraints(minHeight: 24.th),
-                            padding: EdgeInsets.symmetric(
-                                horizontal: 10.tw, vertical: 4.th),
-                            decoration: BoxDecoration(
-                              gradient: const LinearGradient(
-                                begin: Alignment.topCenter,
-                                end: Alignment.bottomCenter,
-                                colors: [Color(0xFF1B1F26), Color(0xFF717171)],
-                              ),
-                              borderRadius: BorderRadius.circular(12.tr),
-                            ),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                SizedBox(
-                                  width: 12.tw,
-                                  height: 12.tw,
-                                  child: Image.asset(
-                                    'assets/newapp/newicon/change_document_icon.png',
-                                    fit: BoxFit.contain,
-                                    errorBuilder: (_, __, ___) => Icon(
-                                      Icons.swap_horiz_rounded,
-                                      color: Colors.white,
-                                      size: 12.tsp,
-                                    ),
-                                  ),
-                                ),
-                                SizedBox(width: 4.tw),
-                                Text(
-                                  'Update',
-                                  style: GoogleFonts.poppins(
-                                    fontSize: 10.tsp,
-                                    fontWeight: FontWeight.w600,
-                                    color: Colors.white,
-                                    height: 1,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                      ],
-                    ],
-                  ),
-                ),
-              ),
-            );
-          },
-        ),
-      ],
-    );
-  }
-
-  String _requestedDocName(Map<String, dynamic> item) {
-    final rawName = (item['name'] ?? '').toString().trim();
-    final rawType =
-        (item['title'] ?? item['document_type'] ?? '').toString().trim();
-    final typeLabel = _toTitleCase(rawType.replaceAll('_', ' '));
-    final nameLabel = _toTitleCase(rawName.replaceAll('_', ' '));
-    return _isMeaningfulDocLabel(nameLabel) ? nameLabel : typeLabel;
-  }
-
-  String _documentNameForChange(Map<String, dynamic> item) {
-    final rawName = (item['name'] ?? '').toString().trim();
-    final rawType =
-        (item['title'] ?? item['document_type'] ?? item['type'] ?? '')
-            .toString()
-            .trim();
-    final typeLabel = _toTitleCase(rawType.replaceAll('_', ' '));
-    final nameLabel = _toTitleCase(rawName.replaceAll('_', ' '));
-    if (_isMeaningfulDocLabel(nameLabel)) return nameLabel;
-    if (_isMeaningfulDocLabel(typeLabel)) return typeLabel;
-    return 'Document';
-  }
-
-  Future<void> _showChangeDocumentDialog(
-    Map<String, dynamic> item,
-    DocumentDialogType type,
-  ) async {
-    if (!mounted) return;
-    final action = await showModalBottomSheet<String>(
-      context: context,
-      backgroundColor: Colors.white,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
-      ),
-      builder: (ctx) {
-        return SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(16, 12, 16, 20),
+  Widget _buildDocumentsHeroHeader() {
+    final dateLabel = DateFormat('EEE, d MMM yyyy').format(DateTime.now());
+    return Padding(
+      padding: EdgeInsets.fromLTRB(16.tw, 4.th, 16.tw, 8.th),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Expanded(
             child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Your Documents',
+                  style: GoogleFonts.poppins(
+                    fontSize: 24.tsp,
+                    fontWeight: FontWeight.w700,
+                    color: const Color(0xFF1E2365),
+                    height: 1.15,
+                  ),
+                ),
+                SizedBox(height: 4.th),
+                Text(
+                  'Organize • Track • Stay Updated',
+                  style: GoogleFonts.poppins(
+                    fontSize: 12.tsp,
+                    fontWeight: FontWeight.w500,
+                    color: const Color(0xFF7B8290),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          SizedBox(width: 10.tw),
+          Container(
+            padding: EdgeInsets.symmetric(horizontal: 10.tw, vertical: 8.th),
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.88),
+              borderRadius: BorderRadius.circular(14.tr),
+              border: Border.all(
+                color: const Color(0xFF7EB6D9).withValues(alpha: 0.35),
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.05),
+                  blurRadius: 10,
+                  offset: const Offset(0, 3),
+                ),
+              ],
+            ),
+            child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
                 Container(
-                  width: 40,
-                  height: 4,
+                  width: 28.tw,
+                  height: 28.tw,
                   decoration: BoxDecoration(
-                    color: Colors.black26,
-                    borderRadius: BorderRadius.circular(999),
+                    color: const Color(0xFFE3F0FF),
+                    borderRadius: BorderRadius.circular(8.tr),
+                  ),
+                  alignment: Alignment.center,
+                  child: Icon(
+                    Icons.calendar_month_rounded,
+                    size: 16.tsp,
+                    color: const Color(0xFF2F6AD8),
                   ),
                 ),
-                const SizedBox(height: 16),
+                SizedBox(width: 8.tw),
                 Text(
-                  _documentNameForChange(item),
-                  style: const TextStyle(
-                    fontSize: 16,
+                  dateLabel,
+                  style: GoogleFonts.poppins(
+                    fontSize: 12.tsp,
                     fontWeight: FontWeight.w700,
+                    color: const Color(0xFF1E2365),
                   ),
-                ),
-                const SizedBox(height: 12),
-                ListTile(
-                  leading: const Icon(Icons.visibility_outlined),
-                  title: const Text('Preview'),
-                  onTap: () => Navigator.pop(ctx, 'preview'),
-                ),
-                ListTile(
-                  leading: const Icon(Icons.upload_file_outlined),
-                  title: const Text('Update'),
-                  onTap: () => Navigator.pop(ctx, 'update'),
                 ),
               ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildTopSearchBar() {
+    final hasQuery = _searchController.text.trim().isNotEmpty;
+    final hasActiveFilter =
+        _smartScope != 'all' || (_activeDocType ?? '').isNotEmpty;
+
+    return Padding(
+      padding: EdgeInsets.fromLTRB(16.tw, 4.th, 16.tw, 4.th),
+      child: Container(
+        height: 48.th,
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(999),
+          color: Colors.white.withValues(alpha: 0.78),
+          border: Border.all(
+            color: const Color(0xFF7EB6D9).withValues(alpha: 0.45),
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.04),
+              blurRadius: 10,
+              offset: const Offset(0, 3),
+            ),
+          ],
+        ),
+        alignment: Alignment.center,
+        child: TextField(
+          controller: _searchController,
+          focusNode: _searchFocusNode,
+          style: GoogleFonts.poppins(
+            fontSize: 14.tsp,
+            color: const Color(0xFF1F2933),
+          ),
+          cursorColor: const Color(0xFF2E8B57),
+          decoration: InputDecoration(
+            hintText: 'Search documents, people or keywords...',
+            hintStyle: GoogleFonts.poppins(
+              fontSize: 13.tsp,
+              color: const Color(0xFF7B8290),
+            ),
+            prefixIcon: Icon(
+              Icons.search_rounded,
+              size: 20.tsp,
+              color: const Color(0xFF5A6A5E),
+            ),
+            suffixIcon: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (hasQuery)
+                  IconButton(
+                    tooltip: 'Clear',
+                    onPressed: () => _searchController.clear(),
+                    icon: Icon(
+                      Icons.close_rounded,
+                      size: 18.tsp,
+                      color: const Color(0xFF7B8290),
+                    ),
+                  ),
+                IconButton(
+                  tooltip: 'Smart filters',
+                  onPressed: _openSmartFilterSheet,
+                  icon: Icon(
+                    Icons.tune_rounded,
+                    size: 20.tsp,
+                    color: hasActiveFilter
+                        ? const Color(0xFF1F7A4D)
+                        : const Color(0xFF5A6A5E),
+                  ),
+                ),
+              ],
+            ),
+            border: InputBorder.none,
+            contentPadding: EdgeInsets.symmetric(vertical: 12.th),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _openSmartFilterSheet() async {
+    final options = <({String label, String scope, String? docType, IconData icon})>[
+      (label: 'All', scope: 'all', docType: null, icon: Icons.apps_rounded),
+      (
+        label: 'Personal',
+        scope: 'personal',
+        docType: null,
+        icon: Icons.person_outline_rounded
+      ),
+      (
+        label: 'Family',
+        scope: 'family',
+        docType: null,
+        icon: Icons.family_restroom_rounded
+      ),
+      (
+        label: 'Active',
+        scope: 'all',
+        docType: 'active',
+        icon: Icons.verified_outlined
+      ),
+      (
+        label: 'Expiring',
+        scope: 'all',
+        docType: 'expiry_soon',
+        icon: Icons.schedule_rounded
+      ),
+      (
+        label: 'Expired',
+        scope: 'all',
+        docType: 'expired',
+        icon: Icons.event_busy_rounded
+      ),
+      (
+        label: 'Requested',
+        scope: 'all',
+        docType: 'requested',
+        icon: Icons.pending_actions_rounded
+      ),
+    ];
+
+    await showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (sheetContext) {
+        return SafeArea(
+          child: Padding(
+            padding: EdgeInsets.fromLTRB(16.tw, 0, 16.tw, 16.th),
+            child: Container(
+              decoration: BoxDecoration(
+                color: Colors.white.withValues(alpha: 0.96),
+                borderRadius: BorderRadius.circular(22.tr),
+                border: Border.all(
+                  color: const Color(0xFF7EB6D9).withValues(alpha: 0.35),
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.08),
+                    blurRadius: 18,
+                    offset: const Offset(0, 8),
+                  ),
+                ],
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  SizedBox(height: 10.th),
+                  Container(
+                    width: 42.tw,
+                    height: 4.th,
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFD0D5DD),
+                      borderRadius: BorderRadius.circular(999),
+                    ),
+                  ),
+                  Padding(
+                    padding: EdgeInsets.fromLTRB(18.tw, 14.th, 8.tw, 6.th),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            'Filter documents',
+                            style: GoogleFonts.poppins(
+                              fontSize: 16.tsp,
+                              fontWeight: FontWeight.w700,
+                              color: const Color(0xFF1E2365),
+                            ),
+                          ),
+                        ),
+                        if (_smartScope != 'all' ||
+                            (_activeDocType ?? '').isNotEmpty)
+                          TextButton(
+                            onPressed: () {
+                              Navigator.pop(sheetContext);
+                              _applySmartChip(scope: 'all', docType: null);
+                            },
+                            child: Text(
+                              'Clear',
+                              style: GoogleFonts.poppins(
+                                fontSize: 13.tsp,
+                                fontWeight: FontWeight.w600,
+                                color: const Color(0xFF1F7A4D),
+                              ),
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
+                  ...options.map((option) {
+                    final selected = option.docType != null
+                        ? _activeDocType == option.docType
+                        : (_activeDocType == null &&
+                            _smartScope == option.scope);
+                    return ListTile(
+                      leading: Icon(
+                        option.icon,
+                        color: selected
+                            ? const Color(0xFF1F7A4D)
+                            : const Color(0xFF5A6A5E),
+                      ),
+                      title: Text(
+                        option.label,
+                        style: GoogleFonts.poppins(
+                          fontSize: 14.tsp,
+                          fontWeight:
+                              selected ? FontWeight.w700 : FontWeight.w500,
+                          color: selected
+                              ? const Color(0xFF1B5E40)
+                              : const Color(0xFF3B4352),
+                        ),
+                      ),
+                      trailing: selected
+                          ? Icon(
+                              Icons.check_circle_rounded,
+                              color: const Color(0xFF1F7A4D),
+                              size: 20.tsp,
+                            )
+                          : null,
+                      onTap: () {
+                        Navigator.pop(sheetContext);
+                        _applySmartChip(
+                          scope: option.scope,
+                          docType: option.docType,
+                        );
+                      },
+                    );
+                  }),
+                  SizedBox(height: 8.th),
+                ],
+              ),
             ),
           ),
         );
       },
     );
-    if (!mounted || action == null) return;
-    if (action == 'preview') {
-      await _openDocumentAttachment(item);
-      return;
-    }
-    if (action == 'update') {
-      final rawId = item['id'];
-      final documentId = rawId is int
-          ? rawId
-          : int.tryParse(rawId?.toString() ?? '');
-      await _showDocumentDialogByType(
-        type,
-        fixedDocumentType: _documentNameForChange(item),
-        documentId: documentId,
-      );
-    }
   }
 
-  String _requestedIdNumber(Map<String, dynamic> item) {
-    for (final key in [
-      'id_number',
-      'eid_no',
-      'emirates_id_no',
-      'emirates_id',
-      'passport_no',
-      'passport_number',
-    ]) {
-      final v = (item[key] ?? '').toString().trim();
-      if (v.isNotEmpty && v.toLowerCase() != 'null') return v;
-    }
-    return '--------';
-  }
-
-  String _requestedFromLabel(Map<String, dynamic> item) {
-    for (final key in [
-      'from',
-      'source',
-      'source_doc_type',
-      'request_source',
-      'origin_doc_type',
-    ]) {
-      final v = (item[key] ?? '').toString().trim();
-      if (v.isNotEmpty && v.toLowerCase() != 'null') {
-        return _toTitleCase(v.replaceAll('_', ' '));
+  void _applySmartChip({
+    required String scope,
+    required String? docType,
+  }) {
+    final keyword = _searchController.text.trim();
+    setState(() {
+      if (docType != null) {
+        _smartScope = 'all';
+        _activeDocType = docType;
+      } else {
+        _smartScope = scope;
+        _activeDocType = null;
       }
-    }
+    });
 
-    final state = (item['state'] ?? '').toString().trim().toLowerCase();
-    if (state.contains('expire')) return 'Expired';
-    return '';
-  }
-
-  String _requestedFileName(Map<String, dynamic> item) {
-    for (final key in [
-      'attachment_filename',
-      'file_name',
-      'attachment_name',
-      'name',
-    ]) {
-      final v = (item[key] ?? '').toString().trim();
-      if (v.isNotEmpty && v.toLowerCase() != 'null') return v;
-    }
-    return 'Attachment';
-  }
-
-  Widget _buildMyRequestedFilteredMode(Map<String, dynamic> meta) {
-    final docs = _filteredDocs();
-
-    return ListView(
-      padding: EdgeInsets.only(left: 12.tw, right: 12.tw, top: 14.th, bottom: 8.th),
-      children: [
-        Container(
-          height: 96.th,
-          padding: EdgeInsets.symmetric(horizontal: 16.tw, vertical: 10.th),
-          decoration: BoxDecoration(
-            color: meta['background'] as Color,
-            borderRadius: BorderRadius.circular(16.tr),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withOpacity(0.12),
-                blurRadius: 8,
-                offset: const Offset(0, 3),
-              ),
-            ],
-          ),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Row(
-                children: [
-                  Icon(
-                    meta['icon'] as IconData,
-                    size: 30.tsp,
-                    color: meta['iconColor'] as Color,
-                  ),
-                  SizedBox(width: 10.tw),
-                  Text(
-                    meta['label'] as String,
-                    style: GoogleFonts.poppins(
-                      fontSize: 15.tsp,
-                      fontWeight: FontWeight.w700,
-                      color: meta['labelColor'] as Color,
-                    ),
-                  ),
-                ],
-              ),
-              Text(
-                (meta['value'] ?? '-').toString(),
-                style: GoogleFonts.poppins(
-                  fontSize: 44.tsp,
-                  fontWeight: FontWeight.w700,
-                  color: meta['valueColor'] as Color,
-                  height: 1,
-                ),
-              ),
-            ],
-          ),
-        ),
-        SizedBox(height: 12.th),
-        GestureDetector(
-          onTap: () {
-            unawaited(_showDocumentDialogByType(DocumentDialogType.my));
-          },
-          child: Container(
-            height: 58.th,
-            decoration: BoxDecoration(
-              color: const Color(0xFFE8E8E8),
-              borderRadius: BorderRadius.circular(14.tr),
-              border: Border.all(color: const Color(0xFFADADAD), width: 1),
-            ),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(Icons.badge_outlined,
-                    size: 22.tsp, color: const Color(0xFF757575)),
-                SizedBox(width: 8.tw),
-                Text(
-                  'Add New Documents',
-                  style: GoogleFonts.poppins(
-                    fontSize: 14.tsp,
-                    fontWeight: FontWeight.w600,
-                    color: const Color(0xFF7A7A7A),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-        SizedBox(height: 12.th),
-        if (docs.isEmpty)
-          Padding(
-            padding: EdgeInsets.only(top: 8.th),
-            child: _buildEmptyState(
-              icon: Icons.folder_off_rounded,
-              title: 'No Requested Documents',
-              subtitle: 'There are no requested documents to display.',
-            ),
-          )
-        else
-          ...docs.map((item) {
-            final docName = _requestedDocName(item);
-            final idNo = _requestedIdNumber(item);
-            final dateRaw =
-                (item['expiry_date'] != null && item['expiry_date'] != false)
-                    ? item['expiry_date']
-                    : item['issue_date'];
-            final expiryDate = _formatCardDate(dateRaw);
-            final source = _requestedFromLabel(item);
-            final iconPath =
-                (item['icon'] ?? 'assets/png/other-documetns-icon.png')
-                    .toString();
-            final fileName = _requestedFileName(item);
-
-            return Padding(
-              padding: EdgeInsets.only(bottom: 10.th),
-              child: GestureDetector(
-                onTap: () {
-                  if (kDebugMode) {
-                    unawaited(_debugPrintDocumentTapApi(item));
-                  }
-                  unawaited(_openDocumentAttachment(item));
-                },
-                onLongPress: () {
-                  _showDocumentDetailsDialog(context, item);
-                },
-                child: Container(
-                  padding:
-                      EdgeInsets.symmetric(horizontal: 10.tw, vertical: 10.th),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFDADADA),
-                    borderRadius: BorderRadius.circular(14.tr),
-                  ),
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              'Documents Name | $docName',
-                              maxLines: 2,
-                              overflow: TextOverflow.ellipsis,
-                              style: GoogleFonts.poppins(
-                                fontSize: 12.tsp,
-                                fontWeight: FontWeight.w700,
-                                color: Colors.black,
-                              ),
-                            ),
-                            SizedBox(height: 4.th),
-                            Text(
-                              'ID number | $idNo',
-                              style: GoogleFonts.poppins(
-                                fontSize: 11.tsp,
-                                fontWeight: FontWeight.w500,
-                                color: Colors.black,
-                              ),
-                            ),
-                            SizedBox(height: 3.th),
-                            Text(
-                              'Expiry date | $expiryDate',
-                              style: GoogleFonts.poppins(
-                                fontSize: 11.tsp,
-                                fontWeight: FontWeight.w600,
-                                color: const Color(0xFFBA1719),
-                              ),
-                            ),
-                            if (source.isNotEmpty) ...[
-                              SizedBox(height: 3.th),
-                              RichText(
-                                text: TextSpan(
-                                  style: GoogleFonts.poppins(
-                                    fontSize: 11.tsp,
-                                    fontWeight: FontWeight.w500,
-                                    color: Colors.black,
-                                  ),
-                                  children: [
-                                    const TextSpan(text: 'from | '),
-                                    TextSpan(
-                                      text: source,
-                                      style: GoogleFonts.poppins(
-                                        fontSize: 11.tsp,
-                                        fontWeight: FontWeight.w600,
-                                        color: const Color(0xFFF0B321),
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ],
-                          ],
-                        ),
-                      ),
-                      SizedBox(width: 10.tw),
-                      Container(
-                        width: 128.tw,
-                        padding: EdgeInsets.symmetric(
-                            horizontal: 8.tw, vertical: 8.th),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFFEDEDED),
-                          borderRadius: BorderRadius.circular(10.tr),
-                        ),
-                        child: Column(
-                          children: [
-                            Image.asset(
-                              iconPath,
-                              width: 34.tw,
-                              height: 34.tw,
-                              fit: BoxFit.contain,
-                              errorBuilder: (_, __, ___) => Icon(
-                                Icons.insert_drive_file_outlined,
-                                size: 30.tsp,
-                                color: const Color(0xFF1AAE78),
-                              ),
-                            ),
-                            SizedBox(height: 4.th),
-                            Text(
-                              fileName,
-                              maxLines: 2,
-                              overflow: TextOverflow.ellipsis,
-                              textAlign: TextAlign.center,
-                              style: GoogleFonts.poppins(
-                                fontSize: 10.5.tsp,
-                                fontWeight: FontWeight.w500,
-                                color: const Color(0xFF2E2E2E),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            );
-          }),
-      ],
-    );
+    // Personal/Family are local filters — still refresh list with cleared API type.
+    unawaited(_fetchMyDocuments(
+      keyword: keyword.isEmpty ? null : keyword,
+      docType: docType,
+    ));
   }
 
   bool _isMeaningfulDocLabel(String value) {
@@ -1613,39 +1666,6 @@ class _MyDocumentsScreenState extends State<MyDocumentsScreen> {
     if (RegExp(r'^\d+$').hasMatch(v)) return false;
     // Require at least one letter (Latin or Arabic).
     return RegExp(r'[A-Za-z\u0600-\u06FF]').hasMatch(v);
-  }
-
-  Widget _buildInlineSearchField() {
-    return Container(
-      decoration: BoxDecoration(
-        image: const DecorationImage(
-          image: AssetImage('assets/png/bg_atten.png'),
-          fit: BoxFit.none,
-        ),
-        color: Colors.transparent,
-        borderRadius: BorderRadius.circular(29.tw),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.grey.withAlpha((0.2 * 255).toInt()),
-            blurRadius: 4,
-            spreadRadius: 2,
-          ),
-        ],
-      ),
-      child: TextField(
-        controller: _searchController,
-        autofocus: true,
-        decoration: const InputDecoration(
-          hintText: 'Find document',
-          prefixIcon: Padding(
-            padding: EdgeInsets.all(8.0),
-            child: Icon(Icons.search, size: 18, color: appFontColor),
-          ),
-          border: InputBorder.none,
-          contentPadding: EdgeInsets.symmetric(vertical: 10, horizontal: 10),
-        ),
-      ),
-    );
   }
 
   Widget _buildEmptyState({
@@ -1696,69 +1716,7 @@ class _MyDocumentsScreenState extends State<MyDocumentsScreen> {
   //   });
   // }
 
-  static const _documentTabs = [
-    MyDocumentsTabItem(
-      label: 'My Docs',
-      icon: Icons.folder_outlined,
-      iconSelected: Icons.folder_rounded,
-    ),
-    MyDocumentsTabItem(
-      label: 'Family',
-      icon: Icons.family_restroom_outlined,
-      iconSelected: Icons.family_restroom_rounded,
-    ),
-    // Shared documents tab kept for later placement — not shown in UI for now.
-    // MyDocumentsTabItem(
-    //   label: 'Share',
-    //   icon: Icons.ios_share_outlined,
-    //   iconSelected: Icons.share_rounded,
-    // ),
-  ];
-
-  final List<Map<String, dynamic>> notificationType = [
-    {
-      'icon': 'assets/png/folder.png',
-      'icon_unfocus': 'assets/png/folder_unfocus.png',
-      'title': translate('home.documents'),
-    },
-    {
-      'icon': 'assets/png/family_focus.png',
-      'icon_unfocus': 'assets/png/family.png',
-      'title': translate('home.family_document'),
-    },
-    // Shared docs entry retained for future surface — hidden from My Documents UI.
-    // {
-    //   'icon': 'assets/newapp/newicon/for_shared_document.png',
-    //   'icon_unfocus': 'assets/newapp/newicon/for_shared_document.png',
-    //   'title': 'Share Documents',
-    // },
-  ];
-
-  String get _headerTitle {
-    switch (currentIndex) {
-      case 0:
-        return translate('home.documents');
-      case 1:
-        return 'Family Documents';
-      // case 2:
-      //   return 'Share Documents';
-      default:
-        return 'Documents';
-    }
-  }
-
-  String get _currentTitle {
-    switch (currentIndex) {
-      case 0:
-        return translate('home.documents').toUpperCase();
-      case 1:
-        return 'FAMILY DOCUMENT';
-      // case 2:
-      //   return 'SHARE DOCUMENTS';
-      default:
-        return 'DOCUMENTS';
-    }
-  }
+  // Tab chrome removed — unified personal + family documents list.
 
   void _onEdgeSwipeStart(DragStartDetails details) {
     if (!Platform.isIOS) return;
@@ -1787,11 +1745,10 @@ class _MyDocumentsScreenState extends State<MyDocumentsScreen> {
   Widget build(BuildContext context) {
     return WillPopScope(
       onWillPop: () async {
-        // If Family tab has an active stats filter, clear it first and stay
-        // on Family tab (do not jump to My Documents tab).
-        if (currentIndex == 0 && _activeMyDocType != null) {
+        if (_activeDocType != null || _smartScope != 'all') {
           setState(() {
-            _activeMyDocType = null;
+            _activeDocType = null;
+            _smartScope = 'all';
             _loading = true;
             _error = null;
           });
@@ -1806,131 +1763,30 @@ class _MyDocumentsScreenState extends State<MyDocumentsScreen> {
           return false;
         }
 
-        if (currentIndex == 1 && _activeFamilyDocType != null) {
-          setState(() {
-            _activeFamilyDocType = null;
-            _loading = true;
-            _error = null;
-          });
-
-          final keyword = _searchController.text.trim();
-          unawaited(
-            _fetchMyDocuments(
-              keyword: keyword.isEmpty ? null : keyword,
-              docType: null,
-            ),
-          );
-          return false;
-        }
-
-        // For Share tab, allow normal pop to previous screen.
         return true;
       },
       child: Stack(
         children: [
-          ProductivityBackground(
+          MyDocumentsSilkBackground(
             child: Scaffold(
-            backgroundColor: Colors.transparent,
-            body: Column(
-          children: [
-            ProductivityGlassHeader(
-              title: _headerTitle,
-              showBack: true,
+              backgroundColor: Colors.transparent,
+              body: Column(
+                children: [
+                  const ProductivityGlassHeader(
+                    showBack: false,
+                    transparentGlassBar: true,
+                    scrimTopOpacity: 0.08,
+                  ),
+                  _buildDocumentsHeroHeader(),
+                  ListenableBuilder(
+                    listenable: _searchController,
+                    builder: (context, _) => _buildTopSearchBar(),
+                  ),
+                  SizedBox(height: 6.th),
+                  Expanded(child: _buildMyDocumentsContent()),
+                ],
+              ),
             ),
-            const SizedBox(height: 6),
-            MyDocumentsTabBar(
-              tabs: _documentTabs,
-              selectedIndex: currentIndex,
-              onChanged: (index) {
-                if (currentIndex == index) return;
-                final shouldFetchDocs = index == 0 || index == 1;
-
-                setState(() {
-                  currentIndex = index;
-                  if (shouldFetchDocs) {
-                    if (index == 0) {
-                      _activeMyDocType = null;
-                    }
-                    if (index == 1) {
-                      _activeFamilyDocType = null;
-                    }
-                    _loading = true;
-                    _error = null;
-                    if (index == 1) {
-                      documents = [];
-                    }
-                  }
-                });
-
-                if (shouldFetchDocs) {
-                  final keyword = _searchController.text.trim();
-                  unawaited(
-                    _fetchMyDocuments(
-                      keyword: keyword.isEmpty ? null : keyword,
-                      docType: index == 1 ? _activeFamilyDocType : null,
-                    ),
-                  );
-                }
-              },
-            ),
-            SizedBox(height: 10.th),
-            // ── Tab Content ──
-            Expanded(
-              child: currentIndex == 0
-                  ? _buildMyDocumentsContent()
-                  : FamilyDocumentsTab(
-                          isActive: currentIndex == 1,
-                          isLoading: currentIndex == 1 && _loading,
-                          documents: documents,
-                          statTotal: _statTotal,
-                          statRequested: _statRequested,
-                          statExpiringSoon: _statExpiringSoon,
-                          statExpired: _statExpired,
-                          selectedDocType: _activeFamilyDocType,
-                          recentActivities: _familyRecentActivities,
-                          onDocTypeSelected: (docType) {
-                            final keyword = _searchController.text.trim();
-                            unawaited(
-                              _fetchMyDocuments(
-                                keyword: keyword.isEmpty ? null : keyword,
-                                docType: docType,
-                              ),
-                            );
-                          },
-                          onOpenDocument: _openDocumentAttachment,
-                          onChangeDocument: (document) =>
-                              _showChangeDocumentDialog(
-                                  document, DocumentDialogType.family),
-                          onAddDocument: () {
-                            _showDocumentDialogByType(
-                                DocumentDialogType.family);
-                          },
-                          onAddNewRequest: () {
-                            unawaited(() async {
-                              final result =
-                                  await Navigator.of(context).push<bool>(
-                                MaterialPageRoute(
-                                  builder: (_) =>
-                                      const FamilyInsuranceRequestScreen(),
-                                ),
-                              );
-
-                              if (result == true && mounted) {
-                                final keyword = _searchController.text.trim();
-                                await _fetchMyDocuments(
-                                  keyword: keyword.isEmpty ? null : keyword,
-                                  docType: _activeFamilyDocType,
-                                );
-                              }
-                            }());
-                          },
-                        ),
-              // Shared documents UI kept in [ShareDocumentsTab] for later placement.
-              // ShareDocumentsTab(onOpenDocument: _openDocumentAttachment),
-            ),
-          ],
-            ),
-          ),
           ),
           if (Platform.isIOS)
             Positioned(
@@ -1954,16 +1810,8 @@ class _MyDocumentsScreenState extends State<MyDocumentsScreen> {
     );
   }
 
-  /// Builds the original "My Documents" personal documents content.
+  /// Builds the unified documents content (personal + family).
   Widget _buildMyDocumentsContent() {
-    if ((_activeMyDocType == 'expired' ||
-            _activeMyDocType == 'expiry_soon' ||
-            _activeMyDocType == 'requested') &&
-        !_loading &&
-        _error == null) {
-      return _buildMyFilteredMode(_activeMyDocType!);
-    }
-
     return CustomScrollView(
       physics: const BouncingScrollPhysics(),
       slivers: [
@@ -1971,36 +1819,87 @@ class _MyDocumentsScreenState extends State<MyDocumentsScreen> {
           child: Column(
             children: [
               _buildDocumentsSummaryCard(),
-              SizedBox(height: 10.th),
+              SizedBox(height: 14.th),
               Padding(
                 padding: EdgeInsets.symmetric(horizontal: 16.tw),
-                child: GestureDetector(
-                  onTap: () {
-                    unawaited(_showDocumentDialogByType(DocumentDialogType.my));
-                  },
-                  child: Container(
-                    height: 58.th,
-                    decoration: ProductivityTheme.glassCard(radius: 14.tr),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(Icons.badge_outlined,
-                            size: 22.tsp, color: ProductivityTheme.accentBlue),
-                        SizedBox(width: 8.tw),
-                        Text(
-                          'Add New Documents',
-                          style: GoogleFonts.poppins(
-                            fontSize: 14.tsp,
-                            fontWeight: FontWeight.w600,
-                            color: ProductivityTheme.textPrimary,
-                          ),
-                        ),
-                      ],
+                child: Align(
+                  alignment: Alignment.centerLeft,
+                  child: Text(
+                    'Quick Actions',
+                    style: GoogleFonts.poppins(
+                      fontSize: 14.tsp,
+                      fontWeight: FontWeight.w600,
+                      fontStyle: FontStyle.italic,
+                      color: const Color(0xFF3B4352),
                     ),
                   ),
                 ),
               ),
-              SizedBox(height: 10.th),
+              SizedBox(height: 8.th),
+              Padding(
+                padding: EdgeInsets.symmetric(horizontal: 16.tw),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: _buildQuickActionButton(
+                        label: 'Add New',
+                        icon: Icons.add_circle_outline_rounded,
+                        accent: const Color(0xFF1F7A4D),
+                        softFill: const Color(0xFFDFF3E8),
+                        onTap: () {
+                          unawaited(_openAddDocumentWizard());
+                        },
+                      ),
+                    ),
+                    SizedBox(width: 10.tw),
+                    Expanded(
+                      child: _buildQuickActionButton(
+                        label: 'View Family',
+                        icon: Icons.family_restroom_rounded,
+                        accent: const Color(0xFF2F6AD8),
+                        softFill: const Color(0xFFE3EDFF),
+                        onTap: _openFamilyDocumentsView,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              SizedBox(height: 16.th),
+              Padding(
+                padding: EdgeInsets.symmetric(horizontal: 16.tw),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        'Recent Documents',
+                        style: GoogleFonts.poppins(
+                          fontSize: 14.tsp,
+                          fontWeight: FontWeight.w600,
+                          fontStyle: FontStyle.italic,
+                          color: const Color(0xFF3B4352),
+                        ),
+                      ),
+                    ),
+                    TextButton(
+                      onPressed: _openAllDocumentsView,
+                      style: TextButton.styleFrom(
+                        foregroundColor: const Color(0xFF2F6AD8),
+                        padding: EdgeInsets.symmetric(horizontal: 8.tw),
+                        minimumSize: Size.zero,
+                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                      ),
+                      child: Text(
+                        'View all',
+                        style: GoogleFonts.poppins(
+                          fontSize: 12.tsp,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              SizedBox(height: 8.th),
               if (_loading)
                 const Padding(
                   padding: EdgeInsets.all(40),
@@ -2015,221 +1914,24 @@ class _MyDocumentsScreenState extends State<MyDocumentsScreen> {
                     textAlign: TextAlign.center,
                   ),
                 )
+              else if (_recentDocuments().isEmpty)
+                _buildEmptyState(
+                  icon: Icons.folder_off_outlined,
+                  title: 'No documents found',
+                  subtitle: _searchController.text.trim().isEmpty
+                      ? 'Use Quick Actions to add a document.'
+                      : 'Try a different search term.',
+                )
               else
-                Center(
-                  child: GridView.builder(
-                    shrinkWrap: true,
-                    physics: const NeverScrollableScrollPhysics(),
-                    padding: const EdgeInsets.symmetric(horizontal: 16),
-                    itemCount: _filteredDocs().length,
-                    itemBuilder: (context, index) {
-                      final item = _filteredDocs()[index];
-                      bool isExpired = false;
-                      if (item['expiry_date'] != null &&
-                          item['expiry_date'] != false) {
-                        try {
-                          final expiryDate =
-                              DateTime.parse(item['expiry_date'].toString());
-                          isExpired = expiryDate.isBefore(DateTime.now());
-                        } catch (e) {
-                          isExpired = false;
-                        }
-                      }
-
-                      return GestureDetector(
-                        onTap: () {
-                          if (kDebugMode) {
-                            unawaited(_debugPrintDocumentTapApi(item));
-                          }
-                          unawaited(_openDocumentAttachment(item));
-                        },
-                        onLongPress: () {
-                          _showDocumentDetailsDialog(context, item);
-                        },
-                        child: Stack(
-                          clipBehavior: Clip.none,
-                          alignment: Alignment.topCenter,
-                          children: [
-                            Container(
-                              decoration: BoxDecoration(
-                                borderRadius: BorderRadius.circular(30.18),
-                                border: Border.all(
-                                  color: isExpired
-                                      ? const Color(0xFFBA1719)
-                                      : const Color(0xffD9D9D9),
-                                  width: isExpired ? 2 : 1,
-                                ),
-                              ),
-                              child: Padding(
-                                padding: EdgeInsets.symmetric(
-                                  vertical: 10.th,
-                                  horizontal: 10.tw,
-                                ),
-                                child: Column(
-                                  mainAxisAlignment: MainAxisAlignment.start,
-                                  crossAxisAlignment: CrossAxisAlignment.center,
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    SizedBox(
-                                      height: 90.th,
-                                      width: double.infinity,
-                                      child: Column(
-                                        mainAxisAlignment:
-                                            MainAxisAlignment.start,
-                                        children: [
-                                          Expanded(
-                                            child: Center(
-                                              child: Image.asset(
-                                                item['icon'],
-                                                width: double.infinity,
-                                                fit: BoxFit.contain,
-                                              ),
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-                                    SizedBox(height: 10.th),
-                                    Builder(builder: (context) {
-                                      final rawName = (item['name'] ?? '')
-                                          .toString()
-                                          .trim();
-                                      final rawType = (item['title'] ?? '')
-                                          .toString()
-                                          .trim();
-                                      final typeLabel = _toTitleCase(
-                                        rawType.replaceAll('_', ' '),
-                                      );
-                                      final nameLabel = _toTitleCase(
-                                        rawName.replaceAll('_', ' '),
-                                      );
-                                      final displayName =
-                                          _isMeaningfulDocLabel(nameLabel)
-                                              ? nameLabel
-                                              : typeLabel;
-                                      final cardDateRaw =
-                                          (item['expiry_date'] != null &&
-                                                  item['expiry_date'] != false)
-                                              ? item['expiry_date']
-                                              : item['issue_date'];
-                                      final date = _formatCardDate(cardDateRaw);
-                                      final dateColor = isExpired
-                                          ? const Color(0xFFBA1719)
-                                          : const Color(0xff949494);
-
-                                      return Column(
-                                        mainAxisSize: MainAxisSize.min,
-                                        children: [
-                                          Text(
-                                            displayName,
-                                            textAlign: TextAlign.center,
-                                            maxLines: null,
-                                            overflow: TextOverflow.visible,
-                                            style: GoogleFonts.poppins(
-                                              fontSize: 14.tsp,
-                                              fontWeight: FontWeight.w700,
-                                              letterSpacing: .10,
-                                              color: Colors.black,
-                                            ),
-                                          ),
-                                          SizedBox(height: 4.th),
-                                          Text(
-                                            date,
-                                            textAlign: TextAlign.center,
-                                            maxLines: null,
-                                            overflow: TextOverflow.visible,
-                                            style: GoogleFonts.poppins(
-                                              fontSize: 10.tsp,
-                                              fontWeight: FontWeight.w600,
-                                              letterSpacing: .10,
-                                              color: dateColor,
-                                            ),
-                                          ),
-                                          if (isExpired) ...[
-                                            SizedBox(height: 4.th),
-                                            GestureDetector(
-                                              onTap: () {
-                                                unawaited(
-                                                    _showChangeDocumentDialog(
-                                                        item,
-                                                        DocumentDialogType.my));
-                                              },
-                                              child: Container(
-                                                constraints: BoxConstraints(
-                                                  minHeight: 24.th,
-                                                ),
-                                                padding: EdgeInsets.symmetric(
-                                                  horizontal: 10.tw,
-                                                  vertical: 4.th,
-                                                ),
-                                                decoration: BoxDecoration(
-                                                  gradient:
-                                                      const LinearGradient(
-                                                    begin: Alignment.topCenter,
-                                                    end: Alignment.bottomCenter,
-                                                    colors: [
-                                                      Color(0xFF1B1F26),
-                                                      Color(0xFF717171),
-                                                    ],
-                                                  ),
-                                                  borderRadius:
-                                                      BorderRadius.circular(
-                                                          12.tr),
-                                                ),
-                                                child: Row(
-                                                  mainAxisSize:
-                                                      MainAxisSize.min,
-                                                  children: [
-                                                    SizedBox(
-                                                      width: 12.tw,
-                                                      height: 12.tw,
-                                                      child: Image.asset(
-                                                        'assets/newapp/newicon/change_document_icon.png',
-                                                        fit: BoxFit.contain,
-                                                        errorBuilder:
-                                                            (_, __, ___) =>
-                                                                Icon(
-                                                          Icons
-                                                              .swap_horiz_rounded,
-                                                          color: Colors.white,
-                                                          size: 12.tsp,
-                                                        ),
-                                                      ),
-                                                    ),
-                                                    SizedBox(width: 4.tw),
-                                                    Text(
-                                                      'Update',
-                                                      style:
-                                                          GoogleFonts.poppins(
-                                                        fontSize: 10.tsp,
-                                                        fontWeight:
-                                                            FontWeight.w600,
-                                                        color: Colors.white,
-                                                        height: 1,
-                                                      ),
-                                                    ),
-                                                  ],
-                                                ),
-                                              ),
-                                            ),
-                                          ],
-                                        ],
-                                      );
-                                    }),
-                                  ],
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      );
-                    },
-                    gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                      crossAxisCount: 2,
-                      crossAxisSpacing: 12.tw,
-                      mainAxisSpacing: 12.th,
-                      mainAxisExtent: 188.th,
-                    ),
+                Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 16.tw),
+                  child: Column(
+                    children: [
+                      for (final item in _recentDocuments()) ...[
+                        _buildRecentDocumentPlaceholderRow(item),
+                        SizedBox(height: 8.th),
+                      ],
+                    ],
                   ),
                 ),
               SizedBox(height: 20.th),
@@ -2240,11 +1942,190 @@ class _MyDocumentsScreenState extends State<MyDocumentsScreen> {
     );
   }
 
+  List<Map<String, dynamic>> _recentDocuments() {
+    final docs = _filteredDocs();
+    if (docs.length <= 5) return docs;
+    return docs.take(5).toList(growable: false);
+  }
+
+  Widget _buildQuickActionButton({
+    required String label,
+    required IconData icon,
+    required Color accent,
+    required Color softFill,
+    required VoidCallback onTap,
+  }) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(16.tr),
+        child: Container(
+          height: 56.th,
+          padding: EdgeInsets.symmetric(horizontal: 12.tw),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(16.tr),
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [
+                softFill.withValues(alpha: 0.95),
+                Colors.white.withValues(alpha: 0.55),
+                accent.withValues(alpha: 0.12),
+              ],
+            ),
+            border: Border.all(color: accent.withValues(alpha: 0.35)),
+            boxShadow: [
+              BoxShadow(
+                color: accent.withValues(alpha: 0.10),
+                blurRadius: 12,
+                offset: const Offset(0, 4),
+              ),
+            ],
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(icon, size: 20.tsp, color: accent),
+              SizedBox(width: 8.tw),
+              Flexible(
+                child: Text(
+                  label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: GoogleFonts.poppins(
+                    fontSize: 13.tsp,
+                    fontWeight: FontWeight.w700,
+                    color: accent,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// Temporary recent-row chrome — list design TBD.
+  Widget _buildRecentDocumentPlaceholderRow(Map<String, dynamic> item) {
+    final title = DocumentDisplay.typeLabel(item);
+    final isFamily = item['_isFamily'] == true;
+
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: () {
+          if (kDebugMode) {
+            unawaited(_debugPrintDocumentTapApi(item));
+          }
+          _openDocumentDetails(item);
+        },
+        borderRadius: BorderRadius.circular(14.tr),
+        child: Container(
+          width: double.infinity,
+          padding: EdgeInsets.symmetric(horizontal: 12.tw, vertical: 12.th),
+          decoration: BoxDecoration(
+            color: Colors.white.withValues(alpha: 0.55),
+            borderRadius: BorderRadius.circular(14.tr),
+            border: Border.all(color: const Color(0xFFD9D9D9)),
+          ),
+          child: Row(
+            children: [
+              Image.asset(
+                (item['icon'] ?? 'assets/png/other-documetns-icon.png')
+                    .toString(),
+                width: 28.tw,
+                height: 28.tw,
+                fit: BoxFit.contain,
+                errorBuilder: (_, __, ___) => Icon(
+                  Icons.insert_drive_file_outlined,
+                  size: 24.tsp,
+                  color: const Color(0xFF5A6A5E),
+                ),
+              ),
+              SizedBox(width: 10.tw),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: GoogleFonts.poppins(
+                        fontSize: 13.tsp,
+                        fontWeight: FontWeight.w600,
+                        color: const Color(0xFF222222),
+                      ),
+                    ),
+                    SizedBox(height: 2.th),
+                    Text(
+                      isFamily ? 'Family' : 'Personal',
+                      style: GoogleFonts.poppins(
+                        fontSize: 11.tsp,
+                        color: const Color(0xFF7B8290),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              SizedBox(width: 8.tw),
+              DocumentExpiryTrailing(document: item),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _openDocumentDetails(Map<String, dynamic> document) {
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => DocumentDetailsScreen(document: document),
+      ),
+    );
+  }
+
+  Future<void> _openAddDocumentWizard() async {
+    final added = await Navigator.of(context).push<bool>(
+      MaterialPageRoute<bool>(
+        builder: (_) => const AddDocumentWizardScreen(),
+      ),
+    );
+    if (!mounted) return;
+    if (added == true) {
+      final keyword = _searchController.text.trim();
+      await _fetchMyDocuments(
+        keyword: keyword.isEmpty ? null : keyword,
+        docType: _activeDocType,
+      );
+    }
+  }
+
+  void _openAllDocumentsView() {
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => _DocumentsListViewPage(
+          title: 'All Documents',
+          emptyMessage: 'No documents found',
+          documents: _filteredDocs(),
+          onOpenDocument: _openDocumentDetails,
+        ),
+      ),
+    );
+  }
+
+  void _openFamilyDocumentsView() {
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => const FamilyDocumentsScreen(),
+      ),
+    );
+  }
+
   void showDocumentDialog(BuildContext context) async {
-    final type = currentIndex == 1
-        ? DocumentDialogType.family
-        : DocumentDialogType.my;
-    _showDocumentDialogByType(type);
+    _showDocumentDialogByType(DocumentDialogType.my);
   }
 
   Future<void> _showDocumentDialogByType(
@@ -2273,7 +2154,11 @@ class _MyDocumentsScreenState extends State<MyDocumentsScreen> {
     // If document was added successfully, refresh the list
     if (result == true) {
       print('🔄 Refreshing documents list...');
-      await _fetchMyDocuments();
+      final keyword = _searchController.text.trim();
+      await _fetchMyDocuments(
+        keyword: keyword.isEmpty ? null : keyword,
+        docType: _activeDocType,
+      );
     }
   }
 
@@ -4035,4 +3920,132 @@ class _DocumentDialogState extends State<DocumentDialog> {
       child: Center(child: child),
     );
   }
+}
+
+
+
+class _DocumentsListViewPage extends StatelessWidget {
+  const _DocumentsListViewPage({
+    required this.title,
+    required this.emptyMessage,
+    required this.documents,
+    required this.onOpenDocument,
+  });
+
+  final String title;
+  final String emptyMessage;
+  final List<Map<String, dynamic>> documents;
+  final void Function(Map<String, dynamic> document) onOpenDocument;
+
+  @override
+  Widget build(BuildContext context) {
+    return MyDocumentsSilkBackground(
+      child: Scaffold(
+        backgroundColor: Colors.transparent,
+        body: Column(
+          children: [
+            ProductivityGlassHeader(
+              title: title,
+              showBack: true,
+              transparentGlassBar: true,
+              scrimTopOpacity: 0.08,
+            ),
+            Expanded(
+              child: documents.isEmpty
+                  ? Center(
+                      child: Text(
+                        emptyMessage,
+                        style: GoogleFonts.poppins(
+                          fontSize: 14,
+                          color: const Color(0xFF7B8290),
+                        ),
+                      ),
+                    )
+                  : ListView.separated(
+                      padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
+                      itemCount: documents.length,
+                      separatorBuilder: (_, __) => const SizedBox(height: 8),
+                      itemBuilder: (context, index) {
+                        final item = documents[index];
+                        final typeLabel = DocumentDisplay.typeLabel(item);
+                        final isFamily = item['_isFamily'] == true;
+                        return Material(
+                          color: Colors.transparent,
+                          child: InkWell(
+                            onTap: () => onOpenDocument(item),
+                            borderRadius: BorderRadius.circular(14),
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 12,
+                                vertical: 12,
+                              ),
+                              decoration: BoxDecoration(
+                                color: Colors.white.withValues(alpha: 0.55),
+                                borderRadius: BorderRadius.circular(14),
+                                border:
+                                    Border.all(color: const Color(0xFFD9D9D9)),
+                              ),
+                              child: Row(
+                                children: [
+                                  Image.asset(
+                                    (item['icon'] ??
+                                            'assets/png/other-documetns-icon.png')
+                                        .toString(),
+                                    width: 28,
+                                    height: 28,
+                                    errorBuilder: (_, __, ___) => const Icon(
+                                      Icons.insert_drive_file_outlined,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 10),
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          typeLabel,
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                          style: GoogleFonts.poppins(
+                                            fontSize: 13,
+                                            fontWeight: FontWeight.w600,
+                                          ),
+                                        ),
+                                        const SizedBox(height: 2),
+                                        Text(
+                                          isFamily ? 'Family' : 'Personal',
+                                          style: GoogleFonts.poppins(
+                                            fontSize: 11,
+                                            color: const Color(0xFF7B8290),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  DocumentExpiryTrailing(document: item),
+                                ],
+                              ),
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _DocsFetchBundle {
+  const _DocsFetchBundle({
+    required this.docs,
+    required this.stats,
+  });
+
+  final List<Map<String, dynamic>> docs;
+  final Map<String, String> stats;
 }

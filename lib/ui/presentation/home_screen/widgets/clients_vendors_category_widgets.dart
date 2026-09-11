@@ -3,6 +3,7 @@ import 'dart:math' as math;
 import 'package:el_race/core/clients_vendors/clients_vendors_route_names.dart';
 import 'package:el_race/core/home/home_widget_visibility.dart';
 import 'package:el_race/core/utils/responsive_breakpoints.dart';
+import 'package:el_race/core/utils/shared_pref.dart';
 import 'package:el_race/ui/presentation/home_screen/providers/home_widget_api_client.dart';
 import 'package:el_race/ui/presentation/home_screen/providers/home_widget_session_cache.dart';
 import 'package:flutter/material.dart';
@@ -13,6 +14,48 @@ const _kCvAssetRoot = 'assets/images/clients_vendors';
 
 /// Shared height so Client / Vendors&Subs cards align.
 const double _kCvCardHeight = 182;
+
+bool _hasUsableWidgetMetrics(Map<String, dynamic>? raw) {
+  if (raw == null) return false;
+  final metrics = raw['metrics'];
+  return metrics is Map && metrics.isNotEmpty;
+}
+
+Map<String, dynamic>? _clientsRawFromLogin() {
+  return SharedPref.getLoginDataOrNull()
+      ?.result
+      ?.data
+      ?.defaultWidgets
+      ?.data
+      ?.clientsWidget
+      ?.recordMap;
+}
+
+Map<String, dynamic>? _vendorsRawFromLogin() {
+  return SharedPref.getLoginDataOrNull()
+      ?.result
+      ?.data
+      ?.defaultWidgets
+      ?.data
+      ?.vendorsWidget
+      ?.recordMap;
+}
+
+Map<String, dynamic>? _resolveClientsRaw() {
+  final cached = HomeWidgetSessionCache.clientsRaw;
+  if (_hasUsableWidgetMetrics(cached)) return cached;
+  final login = _clientsRawFromLogin();
+  if (_hasUsableWidgetMetrics(login)) return login;
+  return cached ?? login;
+}
+
+Map<String, dynamic>? _resolveVendorsRaw() {
+  final cached = HomeWidgetSessionCache.vendorsRaw;
+  if (_hasUsableWidgetMetrics(cached)) return cached;
+  final login = _vendorsRawFromLogin();
+  if (_hasUsableWidgetMetrics(login)) return login;
+  return cached ?? login;
+}
 
 /// Parsed view of the `clients` widget's `{is_authorized, metrics: {...}}`
 /// payload (see ClientsVendorsWidgetService.get_clients_payload on the
@@ -69,12 +112,35 @@ class _ClientsVendorsCategoryClientsCardState
   @override
   void initState() {
     super.initState();
+    HomeWidgetSessionCache.clientsVendorsRevision.addListener(_onCacheChanged);
+    _seedFromLoginIfNeeded();
     _loadIfNeeded();
   }
 
+  @override
+  void dispose() {
+    HomeWidgetSessionCache.clientsVendorsRevision
+        .removeListener(_onCacheChanged);
+    super.dispose();
+  }
+
+  void _onCacheChanged() {
+    if (!mounted) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) setState(() {});
+    });
+  }
+
+  void _seedFromLoginIfNeeded() {
+    if (_hasUsableWidgetMetrics(HomeWidgetSessionCache.clientsRaw)) return;
+    final login = _clientsRawFromLogin();
+    if (!_hasUsableWidgetMetrics(login)) return;
+    HomeWidgetSessionCache.clientsRaw = login;
+  }
+
   Future<void> _loadIfNeeded() async {
-    if (HomeWidgetSessionCache.clientsRaw != null) return;
     await HomeWidgetApiClient.refreshIfStale(
+      force: !_hasUsableWidgetMetrics(HomeWidgetSessionCache.clientsRaw),
       onlyCodes: const {HomeWidgetCode.clients},
     );
     if (mounted) setState(() {});
@@ -82,7 +148,7 @@ class _ClientsVendorsCategoryClientsCardState
 
   @override
   Widget build(BuildContext context) {
-    final metrics = _ClientsMetrics.fromRaw(HomeWidgetSessionCache.clientsRaw);
+    final metrics = _ClientsMetrics.fromRaw(_resolveClientsRaw());
 
     // Design panel: 130°, #138A00@49% | #0F0C08@92% | #FF0000@20% | #000000@49%
     // Colors match the design-preview card after those stops composite on white
@@ -221,12 +287,35 @@ class _ClientsVendorsCategoryVendorsCardState
   @override
   void initState() {
     super.initState();
+    HomeWidgetSessionCache.clientsVendorsRevision.addListener(_onCacheChanged);
+    _seedFromLoginIfNeeded();
     _loadIfNeeded();
   }
 
+  @override
+  void dispose() {
+    HomeWidgetSessionCache.clientsVendorsRevision
+        .removeListener(_onCacheChanged);
+    super.dispose();
+  }
+
+  void _onCacheChanged() {
+    if (!mounted) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) setState(() {});
+    });
+  }
+
+  void _seedFromLoginIfNeeded() {
+    if (_hasUsableWidgetMetrics(HomeWidgetSessionCache.vendorsRaw)) return;
+    final login = _vendorsRawFromLogin();
+    if (!_hasUsableWidgetMetrics(login)) return;
+    HomeWidgetSessionCache.vendorsRaw = login;
+  }
+
   Future<void> _loadIfNeeded() async {
-    if (HomeWidgetSessionCache.vendorsRaw != null) return;
     await HomeWidgetApiClient.refreshIfStale(
+      force: !_hasUsableWidgetMetrics(HomeWidgetSessionCache.vendorsRaw),
       onlyCodes: const {HomeWidgetCode.vendors},
     );
     if (mounted) setState(() {});
@@ -234,7 +323,7 @@ class _ClientsVendorsCategoryVendorsCardState
 
   @override
   Widget build(BuildContext context) {
-    final metrics = _VendorsMetrics.fromRaw(HomeWidgetSessionCache.vendorsRaw);
+    final metrics = _VendorsMetrics.fromRaw(_resolveVendorsRaw());
 
     // Spec base 160° #252A6B → #100F30
     // Design panel wash 180° #F2ECEE @ 88% → #977DFF @ 49%

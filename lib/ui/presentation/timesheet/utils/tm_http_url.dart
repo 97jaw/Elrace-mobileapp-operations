@@ -17,7 +17,9 @@ Uri? tmEncodedHttpUri(String? raw) {
       parsed.hasScheme &&
       (parsed.isScheme('http') || parsed.isScheme('https')) &&
       !trimmed.contains(' ')) {
-    return _finalizeUri(parsed);
+    // Presigned URLs are typically already encoded. Re-encoding path segments
+    // can turn `%20` into `%2520` and invalidate AWS signatures.
+    return parsed.replace(host: _normalizeS3Host(parsed.host));
   }
 
   final match = RegExp(
@@ -26,7 +28,8 @@ Uri? tmEncodedHttpUri(String? raw) {
   ).firstMatch(trimmed);
   if (match == null) {
     if (parsed == null || !parsed.hasScheme) return null;
-    return _finalizeUri(parsed);
+    // Keep original encoding when URI is already parseable.
+    return parsed.replace(host: _normalizeS3Host(parsed.host));
   }
 
   final scheme = match.group(1)!.toLowerCase();
@@ -74,17 +77,6 @@ String _encodePathSegment(String segment) {
   } catch (_) {
     return Uri.encodeComponent(segment);
   }
-}
-
-Uri _finalizeUri(Uri parsed) {
-  final host = _normalizeS3Host(parsed.host);
-  if (parsed.pathSegments.isEmpty) {
-    return parsed.replace(host: host);
-  }
-  return parsed.replace(
-    host: host,
-    pathSegments: parsed.pathSegments.map(_encodePathSegment).toList(),
-  );
 }
 
 /// Reliable byte fetch for S3 / cloud files (supports presigned query URLs).

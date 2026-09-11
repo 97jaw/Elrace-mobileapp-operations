@@ -11,6 +11,7 @@ import 'package:el_race/core/utils/shared_pref.dart';
 import 'package:el_race/core/security/device_security_service.dart';
 import 'package:el_race/core/security/vpn_block_guard.dart';
 import 'package:el_race/core/security/vpn_security_monitor.dart';
+import 'package:el_race/core/services/incoming_share_service.dart';
 import 'package:el_race/core/services/resume_coordinator.dart';
 import 'package:el_race/chat/chat.dart';
 import 'package:el_race/data/services/hive_service.dart';
@@ -743,6 +744,7 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
     WidgetsBinding.instance.addObserver(this);
     _enableAndroidImmersiveMode();
     VpnSecurityMonitor.instance.start();
+    IncomingShareService.instance.start();
     // NOTE: Do NOT call FirebaseService.processPendingNotificationTap() here.
     // At this point the SplashScreen is still running. Notification taps
     // require the full app context (HomeBloc, providers, auth session) that is
@@ -1096,6 +1098,13 @@ void _handleDeepLink(Uri uri, BuildContext context) async {
   print('🔗 Path: ${uri.path}');
   print('🔗 Query Parameters: ${uri.queryParameters}');
 
+  // Shared files from WhatsApp / Files land as file:// — never treat as routes.
+  if (uri.scheme == 'file' || _looksLikeFilesystemPath(uri.path)) {
+    print('📎 Incoming shared file detected — routing to Chat/Sign chooser');
+    await IncomingShareService.instance.handleSharedFileUri(uri);
+    return;
+  }
+
   if (await UaepassLinkHandler.handle(uri)) {
     return;
   }
@@ -1271,6 +1280,13 @@ void _handleDeepLink(Uri uri, BuildContext context) async {
     print('⚠️ Expected: https://elrace.com/RCC4/Requirements/qrcodeapp[.php]');
   }
   print('🔗 ==================== END DEEP LINK HANDLER ====================');
+}
+
+bool _looksLikeFilesystemPath(String path) {
+  return path.startsWith('/private/') ||
+      path.startsWith('/var/') ||
+      path.contains('/Documents/Inbox/') ||
+      path.contains('/tmp/');
 }
 
 /// Helper function to show error dialog
