@@ -539,7 +539,7 @@ class _EditWidgetsScreenState extends State<EditWidgetsScreen> {
               child: SizedBox(
                 width: SizeConfig().getWidth(190),
                 height: SizeConfig().getHeight(80),
-                child: const Column(
+                child: Column(
                   children: [
                     CustomBulletPoint(
                       // bulletColor: Color(0xFF009859),
@@ -743,5 +743,4 @@ class _EditWidgetsScreenState extends State<EditWidgetsScreen> {
       ],
     );
   }
-
 }
