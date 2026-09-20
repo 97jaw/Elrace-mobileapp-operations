@@ -7,6 +7,7 @@ import 'package:el_race/core/timesheet/models/timesheet_team_member.dart';
 import 'package:el_race/core/timesheet/providers/timesheet_data_providers.dart';
 import 'package:el_race/core/timesheet/providers/timesheet_enrollment_status_provider.dart';
 import 'package:el_race/core/timesheet/routing/timesheet_route_names.dart';
+import 'package:el_race/core/timesheet/services/timesheet_acting_guard.dart';
 import 'package:el_race/core/timesheet/services/timesheet_capture_session_store.dart';
 import 'package:el_race/core/widgets/timesheet/timesheet_widgets.dart';
 import 'package:el_race/ui/presentation/timesheet/foreman/fm_timesheet_capture_submit_screen.dart';
@@ -335,6 +336,15 @@ class Fm1ForemanDashboard extends ConsumerWidget {
     WidgetRef ref,
     TimesheetTeamMember member,
   ) async {
+    // Enrolment writes the login employee as the enrolling foreman, so a PM
+    // acting as a foreman would attach the worker to themselves.
+    if (TimesheetActingGuard.blockWrite(
+      context,
+      ref,
+      action: 'Enrolling a worker',
+    )) {
+      return;
+    }
     // Employee is already known from the team list — skip the file-ID step and
     // go straight to pose capture.
     await Navigator.of(context).pushNamed(
@@ -357,6 +367,13 @@ class Fm1ForemanDashboard extends ConsumerWidget {
     TimesheetProjectBuckets buckets,
     TimesheetTeamMember member,
   ) async {
+    if (TimesheetActingGuard.blockWrite(
+      context,
+      ref,
+      action: 'Taking attendance',
+    )) {
+      return const [];
+    }
     if (buckets.inProgress.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('No active sites available')),
@@ -403,6 +420,13 @@ class Fm1ForemanDashboard extends ConsumerWidget {
     TimesheetProjectBuckets buckets,
     List<TimesheetCaptureSessionEntry> captures,
   ) async {
+    if (TimesheetActingGuard.blockWrite(
+      context,
+      ref,
+      action: 'Submitting attendance',
+    )) {
+      return false;
+    }
     if (captures.isEmpty) return false;
 
     final projects = buckets.inProgress;

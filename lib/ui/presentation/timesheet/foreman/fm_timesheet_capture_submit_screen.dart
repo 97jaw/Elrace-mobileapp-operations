@@ -5,6 +5,7 @@ import 'package:el_race/core/timesheet/models/timesheet_models.dart';
 import 'package:el_race/core/timesheet/models/timesheet_submit_request.dart';
 import 'package:el_race/core/timesheet/network/timesheet_functions_client.dart';
 import 'package:el_race/core/timesheet/network/timesheet_odoo_employee.dart';
+import 'package:el_race/core/timesheet/providers/timesheet_acting_session_provider.dart';
 import 'package:el_race/core/timesheet/providers/timesheet_data_providers.dart';
 import 'package:el_race/core/timesheet/providers/timesheet_hr_scope_provider.dart';
 import 'package:el_race/core/timesheet/providers/timesheet_role_provider.dart';
@@ -617,12 +618,22 @@ class _FmTimesheetCaptureSubmitScreenState
 
   @override
   Widget build(BuildContext context) {
-    final resolution = ref.watch(tmRoleResolutionProvider);
+    final resolution = ref.watch(tmEffectiveResolutionProvider);
+    final acting = ref.watch(tmActingSessionProvider);
     if (!resolution.canSubmitTimesheet) {
-      return Scaffold(
-        appBar: AppBar(title: const Text('Add timesheet')),
-        body: const Center(
-          child: Text('Only foremen can submit timesheets for their labors.'),
+      return TmScaffold(
+        glassTitle: 'Add timesheet',
+        body: Center(
+          child: Text(
+            acting != null
+                ? 'You are viewing as ${acting.foremanName}. '
+                    'Submitting attendance needs a real login for this foreman.'
+                : 'Only foremen can submit timesheets for their labors.',
+            textAlign: TextAlign.center,
+            style: TimesheetModuleTypography.body().copyWith(
+              color: TimesheetModuleColors.warmMuted,
+            ),
+          ),
         ),
       );
     }

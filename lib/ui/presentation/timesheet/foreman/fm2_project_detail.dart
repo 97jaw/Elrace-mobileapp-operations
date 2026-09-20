@@ -1,6 +1,7 @@
 import 'package:el_race/core/theme/timesheet_module_theme.dart';
 import 'package:el_race/core/timesheet/providers/timesheet_data_providers.dart';
 import 'package:el_race/core/timesheet/routing/timesheet_route_names.dart';
+import 'package:el_race/core/timesheet/services/timesheet_acting_guard.dart';
 import 'package:el_race/core/widgets/timesheet/timesheet_widgets.dart';
 import 'package:el_race/ui/presentation/timesheet/project_record_card.dart';
 import 'package:el_race/ui/presentation/timesheet/timesheet_async_state.dart';
@@ -272,10 +273,19 @@ class _TeamsTab extends StatelessWidget {
           title: 'Face enrollment',
           subtitle: 'Enroll labor photos for timesheet capture',
           icon: PhosphorIcons.userFocus(),
-          onTap: () => Navigator.of(context).pushNamed(
-            TimesheetRouteNames.faceEnrollEntry,
-            arguments: TimesheetFaceEnrollArgs(projectId: projectId),
-          ),
+          onTap: () {
+            // Enrolment records the login employee as the enrolling foreman.
+            if (TimesheetActingGuard.blockWriteWithoutRef(
+              context,
+              action: 'Enrolling a worker',
+            )) {
+              return;
+            }
+            Navigator.of(context).pushNamed(
+              TimesheetRouteNames.faceEnrollEntry,
+              arguments: TimesheetFaceEnrollArgs(projectId: projectId),
+            );
+          },
         ),
         const SizedBox(height: TimesheetModuleLayout.cardSpacing),
         TmTaskRow(

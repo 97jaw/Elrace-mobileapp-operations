@@ -1,4 +1,5 @@
 import 'package:el_race/core/theme/timesheet_module_theme.dart';
+import 'package:el_race/core/timesheet/providers/timesheet_acting_session_provider.dart';
 import 'package:el_race/core/timesheet/providers/timesheet_role_provider.dart';
 import 'package:el_race/core/timesheet/routing/timesheet_route_names.dart';
 import 'package:el_race/core/widgets/timesheet/timesheet_widgets.dart';
@@ -56,11 +57,24 @@ class _At1CaptureModeScreenState extends ConsumerState<At1CaptureModeScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final resolution = ref.watch(tmRoleResolutionProvider);
-    if (!resolution.canSubmitTimesheet) {
+    final resolution = ref.watch(tmEffectiveResolutionProvider);
+    // Blocked at the entry to the capture flow, not only at submit: walking
+    // through the camera would persist captures to the session store under an
+    // identity that can never submit them.
+    final acting = ref.watch(tmActingSessionProvider);
+    if (acting != null) {
       return TmScaffold(
         glassTitle: 'Take Attendance',
-        body: const TimesheetEmptyState(
+        body: TimesheetEmptyState(
+          message: 'You are viewing as ${acting.foremanName}. '
+              'Taking attendance needs a real login for this foreman.',
+        ),
+      );
+    }
+    if (!resolution.canSubmitTimesheet) {
+      return const TmScaffold(
+        glassTitle: 'Take Attendance',
+        body: TimesheetEmptyState(
           message:
               'Project managers can review timesheet reports only. '
               'Foremen submit attendance for their assigned labors.',

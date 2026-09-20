@@ -27,6 +27,7 @@ class TimesheetApiClient {
     this.useMockData = false,
     this.useMockSubmit = false,
     this.fallbackToMockOnError = true,
+    this.actingEmployeeId,
     this.baseUrl = 'https://erp.elrace.com/api',
   }) : _transport = transport ??
             TimesheetOdooTransport(
@@ -39,6 +40,25 @@ class TimesheetApiClient {
   final bool useMockSubmit;
   final bool fallbackToMockOnError;
   final String baseUrl;
+
+  /// Foreman being acted as by a PM / HR user, or `null` for a normal session.
+  ///
+  /// Reads resolve against this employee instead of the logged-in one. The
+  /// server re-checks it against the caller's `x_foreman_ids`, so this is a
+  /// scoping hint and not an authorisation decision.
+  final int? actingEmployeeId;
+
+  bool get _isActing => actingEmployeeId != null;
+
+  /// Employee that reads should be scoped to.
+  int? get _scopeEmployeeId =>
+      actingEmployeeId ?? TimesheetProjectAccessService.loginEmployeeId();
+
+  /// Adds `as_employee_id` to an Odoo read payload while acting.
+  Map<String, dynamic> _scoped(Map<String, dynamic> params) {
+    if (!_isActing) return params;
+    return {...params, 'as_employee_id': actingEmployeeId};
+  }
 
   List<Project>? _projectsCache;
   int _siteCompletedCount = 0;
@@ -211,12 +231,12 @@ class TimesheetApiClient {
     final parsedProjectId = projectId?.trim();
     final hasProject =
         parsedProjectId != null && parsedProjectId.isNotEmpty;
-    final params = <String, dynamic>{
+    final params = _scoped(<String, dynamic>{
       'include_drivers': includeDrivers,
       if (hasProject)
         'project_id': int.tryParse(parsedProjectId!) ?? parsedProjectId,
       if (!hasProject && useHrScopeWhenNoProject) 'use_hr_scope': true,
-    };
+    });
 
     try {
       final fromTimesheet = await _fetchLaborListFromEndpoint(
@@ -286,7 +306,7 @@ class TimesheetApiClient {
     try {
       final body = await _transport.postJsonRpc(
         TimesheetOdooApiCatalog.projectStaff,
-        params: {'project_id': int.tryParse(projectId) ?? projectId},
+        params: _scoped({'project_id': int.tryParse(projectId) ?? projectId}),
       );
       final result = _transport.parseResult(body, debugLabel: 'project_staff');
       final data = _unwrapOdooSuccessMap(result);
@@ -312,7 +332,7 @@ class TimesheetApiClient {
     try {
       final body = await _transport.postJsonRpc(
         TimesheetOdooApiCatalog.projectForemenSummary,
-        params: {'project_id': int.tryParse(projectId) ?? projectId},
+        params: _scoped({'project_id': int.tryParse(projectId) ?? projectId}),
       );
       final result =
           _transport.parseResult(body, debugLabel: 'project_foremen_summary');
@@ -693,7 +713,7 @@ class TimesheetApiClient {
     try {
       final body = await _transport.postJsonRpc(
         TimesheetOdooApiCatalog.myHrScope,
-        params: const {},
+        params: _scoped(<String, dynamic>{}),
       );
       final result = _transport.parseResult(body, debugLabel: 'my_hr_scope');
       final map = _unwrapOdooSuccessMap(result);
@@ -727,11 +747,15 @@ class TimesheetApiClient {
   }
 
   Future<TimesheetHrEmployeeScope> _hrScopeFromRosterFallback() async {
-    final login = SharedPref.getLoginDataOrNull()?.result?.data;
+    // While acting, the login's own x_labor_ids / x_foreman_ids belong to the
+    // PM and must not leak into the foreman's roster — resolve purely from the
+    // employee record being acted as.
+    final login =
+        _isActing ? null : SharedPref.getLoginDataOrNull()?.result?.data;
     var laborIds = TimesheetHrMapping.employeeIdsFromJson(login?.xLaborIdsRaw);
     var foremanIds =
         TimesheetHrMapping.employeeIdsFromJson(login?.xForemanIdsRaw);
-    final loginEmployeeId = TimesheetProjectAccessService.loginEmployeeId();
+    final loginEmployeeId = _scopeEmployeeId;
 
     await _ensureEmployeesLoaded();
     TimesheetOdooEmployee? self;
@@ -802,14 +826,17 @@ class TimesheetApiClient {
     final resolution = tmRoleResolutionFromData(
       SharedPref.getLoginDataOrNull()?.result?.data,
     );
-    final effectiveHrWide = hrWideScope || resolution.hrWideScope;
+    // Acting narrows to the foreman's own sites, so an HR-wide PM must not
+    // keep their portfolio scope while viewing as one of their foremen.
+    final effectiveHrWide =
+        !_isActing && (hrWideScope || resolution.hrWideScope);
 
     // Prefer new Site Management API (server-side supervisor_ids / staff lines).
     if (_useLiveOdoo && !effectiveHrWide) {
       try {
         final body = await _transport.postJsonRpc(
           TimesheetOdooApiCatalog.siteProjects,
-          params: {'status': status},
+          params: _scoped({'status': status}),
         );
         final result =
             _transport.parseResult(body, debugLabel: 'site_projects');
@@ -845,12 +872,12 @@ class TimesheetApiClient {
         : TimesheetProjectAccessService.filterForRole(
             rows: accessRows,
             resolution: TimesheetRoleResolution(
-              role: role == 'pm'
+              role: role == 'pm' && !_isActing
                   ? TimesheetEffectiveRole.pm
                   : TimesheetEffectiveRole.foreman,
               hrWideScope: false,
             ),
-            employeeId: TimesheetProjectAccessService.loginEmployeeId(),
+            employeeId: _scopeEmployeeId,
           );
 
     _projectAccessRows = scoped;
@@ -869,7 +896,7 @@ class TimesheetApiClient {
     }
     final body = await _transport.postJsonRpc(
       TimesheetOdooApiCatalog.siteProjects,
-      params: {'status': 'completed'},
+      params: _scoped({'status': 'completed'}),
     );
     final result = _transport.parseResult(body, debugLabel: 'site_projects_completed');
     final rows = _transport.parseMapList(result, key: 'data');

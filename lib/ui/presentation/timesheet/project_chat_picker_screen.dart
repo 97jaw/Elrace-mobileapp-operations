@@ -47,7 +47,8 @@ class _ProjectChatPickerScreenState extends ConsumerState<ProjectChatPickerScree
       widget.pdfBytes != null && widget.fileName != null;
 
   bool get _isPm =>
-      ref.watch(tmRoleResolutionProvider).role == TimesheetEffectiveRole.pm;
+      ref.watch(tmEffectiveResolutionProvider).role ==
+      TimesheetEffectiveRole.pm;
 
   Future<void> _ensureAndMaybeSendGroup({
     required String chatId,

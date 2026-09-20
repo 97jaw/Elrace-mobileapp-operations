@@ -4,6 +4,7 @@ import 'package:el_race/core/timesheet/models/timesheet_models.dart';
 import 'package:el_race/core/timesheet/network/timesheet_api_client.dart';
 import 'package:el_race/core/timesheet/network/timesheet_functions_client.dart';
 import 'package:el_race/core/hr_management/providers/hr_management_providers.dart';
+import 'package:el_race/core/timesheet/providers/timesheet_acting_session_provider.dart';
 import 'package:el_race/core/timesheet/providers/timesheet_hr_scope_provider.dart';
 import 'package:el_race/core/timesheet/providers/timesheet_role_provider.dart';
 import 'package:el_race/core/timesheet/timesheet_defaults.dart';
@@ -30,6 +31,9 @@ final timesheetDioProvider = Provider<Dio>((ref) {
   );
 });
 
+/// Rebuilt whenever the session or the acting-as-foreman selection changes, so
+/// the client's project / roster caches never serve one identity's data to
+/// another.
 final timesheetApiClientProvider = Provider<TimesheetApiClient>((ref) {
   ref.watch(loginSessionRevisionProvider);
   return TimesheetApiClient(
@@ -37,6 +41,7 @@ final timesheetApiClientProvider = Provider<TimesheetApiClient>((ref) {
     useMockData: false,
     useMockSubmit: false,
     fallbackToMockOnError: true,
+    actingEmployeeId: ref.watch(tmActingEmployeeIdProvider),
   );
 });
 
@@ -135,9 +140,12 @@ final timesheetTaskProvider =
 
 final timesheetTaskWorkersProvider = FutureProvider.autoDispose
     .family<List<Worker>, String>((ref, taskId) async {
-  final resolution = ref.watch(tmRoleResolutionProvider);
+  final resolution = ref.watch(tmEffectiveResolutionProvider);
   final scope = await ref.watch(timesheetHrScopeProvider.future);
-  final allowed = resolution.canSubmitTimesheet && scope.hasLaborScope
+  // Scoped by foreman role rather than submit rights, so a PM acting as a
+  // foreman sees exactly that foreman's labors.
+  final allowed = resolution.role == TimesheetEffectiveRole.foreman &&
+          scope.hasLaborScope
       ? scope.laborEmployeeIds
       : null;
   final env = await ref.watch(timesheetApiClientProvider).getTaskWorkers(
@@ -150,7 +158,7 @@ final timesheetTaskWorkersProvider = FutureProvider.autoDispose
 final timesheetAttendanceProvider = FutureProvider.autoDispose
     .family<List<AttendanceRecord>, TimesheetAttendanceQuery>(
         (ref, query) async {
-  final resolution = ref.watch(tmRoleResolutionProvider);
+  final resolution = ref.watch(tmEffectiveResolutionProvider);
   Set<int>? allowed;
   if (resolution.canReviewTimesheetReports) {
     allowed = await ref.watch(
@@ -258,7 +266,7 @@ final timesheetLoginProfileProvider = Provider<TimesheetLoginProfile>((ref) {
 
 final timesheetProjectBucketsProvider =
     FutureProvider<TimesheetProjectBuckets>((ref) async {
-  final resolution = ref.watch(tmRoleResolutionProvider);
+  final resolution = ref.watch(tmEffectiveResolutionProvider);
   final role = resolution.role == TimesheetEffectiveRole.pm ? 'pm' : 'foreman';
   final client = ref.watch(timesheetApiClientProvider);
   final env = await client.getProjects(

@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:el_race/core/timesheet/network/timesheet_odoo_employee.dart';
 import 'package:el_race/core/timesheet/services/capture_queue_service.dart';
+import 'package:el_race/core/timesheet/services/timesheet_acting_scope.dart';
 import 'package:el_race/ui/presentation/timesheet/models/timesheet_capture_session_entry.dart';
 import 'package:el_race/ui/presentation/timesheet/timesheet_route_args.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -17,6 +18,11 @@ abstract final class TimesheetCaptureSessionStore {
     required TimesheetProjectDayArgs args,
     required List<TimesheetCaptureSessionEntry> captures,
   }) async {
+    if (TimesheetActingScope.refusePersist(
+      'TimesheetCaptureSessionStore.save',
+    )) {
+      return;
+    }
     final prefs = await SharedPreferences.getInstance();
     if (captures.isEmpty) {
       await prefs.remove(_prefsKey);

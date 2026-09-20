@@ -1,4 +1,5 @@
 // Project Site Timesheet shared widgets — Module 6 F.2 / SRD §10.7.
+export 'tm_acting_banner.dart';
 export 'tm_avatar_stack.dart';
 export 'tm_bottom_nav_bar.dart';
 export 'tm_buttons.dart';

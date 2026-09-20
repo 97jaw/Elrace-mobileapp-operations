@@ -9,6 +9,7 @@ import 'package:el_race/core/timesheet/network/timesheet_odoo_employee.dart';
 import 'package:el_race/core/timesheet/providers/timesheet_enrollment_status_provider.dart';
 import 'package:el_race/core/timesheet/providers/timesheet_hr_scope_provider.dart';
 import 'package:el_race/core/timesheet/services/face_capture_service.dart';
+import 'package:el_race/core/timesheet/services/timesheet_acting_guard.dart';
 import 'package:el_race/core/timesheet/services/timesheet_project_access_service.dart';
 import 'package:el_race/core/widgets/timesheet/timesheet_widgets.dart';
 import 'package:el_race/ui/presentation/timesheet/foreman/enrollment/widgets/fm_face_enroll_oval_overlay.dart';
@@ -532,6 +533,16 @@ class _FmFaceEnrollCaptureScreenState
   }
 
   Future<void> _submitEnrollment() async {
+    // Backstop: the upload stamps the login employee as the enrolling foreman,
+    // so it must never run while a PM is acting as one.
+    if (mounted &&
+        TimesheetActingGuard.blockWrite(
+          context,
+          ref,
+          action: 'Enrolling a worker',
+        )) {
+      return;
+    }
     await _stopStream();
     setState(() {
       _processStep = FmFaceEnrollProcessStep.validating;
