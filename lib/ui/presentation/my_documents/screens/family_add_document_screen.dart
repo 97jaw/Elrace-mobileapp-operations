@@ -4,10 +4,11 @@ import 'dart:io';
 
 import 'package:el_race/core/utils/responsive_breakpoints.dart';
 import 'package:el_race/core/utils/shared_pref.dart';
+import 'package:el_race/ui/presentation/my_documents/screens/family_document_attach_screen.dart';
+import 'package:el_race/ui/presentation/my_documents/utils/family_insurance_draft_store.dart';
 import 'package:el_race/ui/presentation/my_documents/widgets/my_documents_silk_background.dart';
 import 'package:el_race/ui/presentation/productivity/widgets/productivity_glass_header.dart';
 import 'package:el_race/utils/urll_utils.dart';
-import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:http/http.dart' as http;
@@ -17,7 +18,10 @@ const Color _skyAccent = Color(0xFF7EB6D9);
 const Color _greenAccent = Color(0xFF1F7A4D);
 const Color _navy = Color(0xFF1E2365);
 
-/// Family add/update: Spouse|Child + document types + upload.
+/// Family document request hub (wizard-aligned).
+///
+/// Collects member DOB/nationality, attaches each required support doc, then
+/// calls `/api/family_insurance/submit` (Odoo `action_submit_request`).
 class FamilyAddDocumentScreen extends StatefulWidget {
   const FamilyAddDocumentScreen({
     super.key,
@@ -32,68 +36,38 @@ class FamilyAddDocumentScreen extends StatefulWidget {
 }
 
 class _FamilyAddDocumentScreenState extends State<FamilyAddDocumentScreen> {
-  static const _fallbackTypes = <String>[
-    'Emirates ID',
-    'Passport',
-    'Labor Card',
-    'Medical Insurance',
-    'Contract',
-    'Visa',
-    'Photo',
-    'Others',
-  ];
-
-  static const _knownTypeIdsByNormalizedName = <String, int>{
-    'passport': 1,
-    'emiratesid': 2,
-    'laborcard': 3,
-    'medicalinsurance': 4,
-    'drivinglicense': 6,
-    'visa': 10,
-    'noc': 11,
-    'contract': 89,
-    'cv': 94,
-    'residence': 147,
-    'photo': 172,
-  };
-
-  final _numberController = TextEditingController();
-  final _pageController = PageController();
+  final _nameController = TextEditingController();
+  final _dobController = TextEditingController();
 
   late String _memberKey;
-  int _step = 0;
-  bool _loadingTypes = true;
+  String? _selectedCaseKey;
+  int? _selectedNationalityId;
+  DateTime? _dob;
+
   bool _loadingInit = true;
-  String? _initError;
   bool _submitting = false;
+  bool _savingDraft = false;
+  bool _draftRestored = false;
+  String? _initError;
 
-  /// Catalog from `/document_types` (for id resolution).
-  final List<_FamDocType> _catalogTypes = [];
-
-  /// Cases from `/family_insurance/init`.
   final List<_FamUpdateCase> _updateCases = [];
-  _FamUpdateCase? _selectedCase;
+  final List<_NationalityOption> _nationalities = [];
+  final List<_FamDocReq> _requiredDocs = [];
+  final Map<String, _PickedFile> _pickedFiles = {};
+  final Map<String, DateTime> _docExpiryDates = {};
 
-  /// Types shown in the list — driven by selected init case.
-  final List<_FamDocType> _types = [];
-  _FamDocType? _selectedType;
-
-  /// typeId → existing doc id for the selected member
-  final Map<int, int> _existingDocIdByTypeId = {};
-  final Map<String, int> _existingDocIdByTypeName = {};
-
-  DateTime? _issueDate;
-  DateTime? _expiryDate;
-  String? _fileName;
-  String? _filePath;
-
-  bool get _isUpdateMode {
-    final type = _selectedType;
-    if (type == null) return false;
-    return _existingDocumentIdFor(type) != null;
+  String get _employeeKey {
+    final data = SharedPref.getLoginData().result?.data;
+    final empId = (data?.emp_id ?? '').toString().trim();
+    if (empId.isNotEmpty) return empId;
+    final employeeId = data?.employee_id;
+    if (employeeId != null) return employeeId.toString();
+    final uid = data?.odoo_user_id;
+    if (uid != null) return uid.toString();
+    return 'unknown';
   }
 
-  /// Init API expects `spouse` | `child`.
+  /// Init API accepts only spouse | child.
   String get _initMemberParam =>
       _memberKey == 'spouse' || _memberKey == 'wife' ? 'spouse' : 'child';
 
@@ -106,30 +80,22 @@ class _FamilyAddDocumentScreenState extends State<FamilyAddDocumentScreen> {
 
   @override
   void dispose() {
-    _numberController.dispose();
-    _pageController.dispose();
+    _nameController.dispose();
+    _dobController.dispose();
     super.dispose();
   }
 
   String _normalizeMember(String raw) {
     final v = raw.trim().toLowerCase();
-    if (v == 'child' || v == 'child_1' || v == 'children') return 'child_1';
-    if (v == 'wife') return 'spouse';
-    if (v == 'child_2' || v == 'child_3') return v;
-    return 'spouse';
-  }
-
-  String _memberLabel(String key) {
-    switch (key) {
-      case 'child_1':
-        return 'Child';
-      case 'child_2':
-        return 'Child 2';
-      case 'child_3':
-        return 'Child 3';
-      default:
-        return 'Spouse';
+    if (v == 'child' ||
+        v == 'child_1' ||
+        v == 'child_2' ||
+        v == 'child_3' ||
+        v == 'children') {
+      return 'child_1';
     }
+    if (v == 'wife') return 'spouse';
+    return 'spouse';
   }
 
   String _normalizeToken(dynamic value) {
@@ -140,65 +106,69 @@ class _FamilyAddDocumentScreenState extends State<FamilyAddDocumentScreen> {
         .replaceAll(RegExp(r'[^a-z0-9]'), '');
   }
 
-  int? _existingDocumentIdFor(_FamDocType type) {
-    final id = type.id ??
-        _knownTypeIdsByNormalizedName[_normalizeToken(type.name)];
-    if (id != null && _existingDocIdByTypeId.containsKey(id)) {
-      return _existingDocIdByTypeId[id];
+  Future<void> _bootstrap() async {
+    final draft = await FamilyInsuranceDraftStore.load();
+    if (!mounted) return;
+    if (draft != null &&
+        draft.familyMember.isNotEmpty &&
+        draft.medicalRequestCase.isNotEmpty) {
+      _applyDraftMeta(draft);
+      _draftRestored = true;
+      await _loadInit(restoreCaseKey: draft.medicalRequestCase);
+      if (!mounted) return;
+      _applyDraftAttachments(draft);
+      setState(() {});
+      return;
     }
-    return _existingDocIdByTypeName[_normalizeToken(type.name)];
+    await _loadInit();
   }
 
-  int? _resolveTypeId(_FamDocType type) {
-    if (type.id != null && type.id! > 0) return type.id;
-    final byKnown =
-        _knownTypeIdsByNormalizedName[_normalizeToken(type.name)];
-    if (byKnown != null) return byKnown;
-    for (final c in _catalogTypes) {
-      if (_normalizeToken(c.name) == _normalizeToken(type.name) &&
-          c.id != null) {
-        return c.id;
+  void _applyDraftMeta(FamilyInsuranceDraft draft) {
+    _memberKey = _normalizeMember(draft.familyMember);
+    _selectedCaseKey = draft.medicalRequestCase;
+    _nameController.text = draft.memberName;
+    _selectedNationalityId = draft.nationalityId;
+    if ((draft.dobIso ?? '').isNotEmpty) {
+      final parsed = DateTime.tryParse(draft.dobIso!);
+      if (parsed != null) {
+        _dob = parsed;
+        _dobController.text = DateFormat('dd/MM/yyyy').format(parsed);
       }
     }
-    // Fuzzy: label contains catalog name or vice versa.
-    final token = _normalizeToken(type.name);
-    for (final c in _catalogTypes) {
-      final ct = _normalizeToken(c.name);
-      if (ct.isEmpty || c.id == null) continue;
-      if (token.contains(ct) || ct.contains(token)) return c.id;
-    }
-    return null;
   }
 
-  Future<void> _bootstrap() async {
-    await _loadDocumentTypesCatalog();
-    await Future.wait([
-      _loadExistingForMember(),
-      _loadInitCases(),
-    ]);
+  void _applyDraftAttachments(FamilyInsuranceDraft draft) {
+    _pickedFiles.clear();
+    _docExpiryDates.clear();
+    draft.attachments.forEach((field, att) {
+      if (att.path.isEmpty) return;
+      _pickedFiles[field] = _PickedFile(path: att.path, filename: att.filename);
+      if ((att.expiryIso ?? '').isNotEmpty) {
+        final d = DateTime.tryParse(att.expiryIso!);
+        if (d != null) _docExpiryDates[field] = d;
+      }
+    });
   }
 
   Future<void> _onMemberChanged(String key) async {
     final normalized = _normalizeMember(key);
-    if (normalized == _memberKey) return;
+    if (normalized == _memberKey && _updateCases.isNotEmpty) return;
     setState(() {
       _memberKey = normalized;
-      _existingDocIdByTypeId.clear();
-      _existingDocIdByTypeName.clear();
+      _selectedCaseKey = null;
       _updateCases.clear();
-      _selectedCase = null;
-      _types.clear();
-      _selectedType = null;
+      _nationalities.clear();
+      _requiredDocs.clear();
+      _pickedFiles.clear();
+      _docExpiryDates.clear();
       _loadingInit = true;
       _initError = null;
+      _draftRestored = false;
     });
-    await Future.wait([
-      _loadExistingForMember(),
-      _loadInitCases(),
-    ]);
+    await _loadInit();
   }
 
-  Future<void> _loadInitCases() async {
+  Future<void> _loadInit({String? restoreCaseKey}) async {
     setState(() {
       _loadingInit = true;
       _initError = null;
@@ -238,7 +208,8 @@ class _FamilyAddDocumentScreenState extends State<FamilyAddDocumentScreen> {
       }
 
       final decoded = jsonDecode(response.body);
-      if (decoded is! Map) {
+      final result = _extractResultMap(decoded);
+      if (result == null) {
         if (!mounted) return;
         setState(() {
           _loadingInit = false;
@@ -247,11 +218,6 @@ class _FamilyAddDocumentScreenState extends State<FamilyAddDocumentScreen> {
         return;
       }
 
-      final result = (decoded['result'] is Map)
-          ? Map<String, dynamic>.from(decoded['result'] as Map)
-          : (decoded['status'] != null)
-              ? Map<String, dynamic>.from(decoded)
-              : <String, dynamic>{};
       final status = _normalizeToken(result['status']);
       if (!(status == 'success' || status == 'ok' || status == 'true')) {
         if (!mounted) return;
@@ -264,12 +230,12 @@ class _FamilyAddDocumentScreenState extends State<FamilyAddDocumentScreen> {
         return;
       }
 
-      final data = result['data'];
-      final dataMap = data is Map
-          ? Map<String, dynamic>.from(data)
+      final data = result['data'] is Map
+          ? Map<String, dynamic>.from(result['data'] as Map)
           : <String, dynamic>{};
-      final casesRaw = dataMap['medical_request_cases'];
+
       final cases = <_FamUpdateCase>[];
+      final casesRaw = data['medical_request_cases'];
       if (casesRaw is List) {
         for (final raw in casesRaw) {
           if (raw is! Map) continue;
@@ -277,24 +243,19 @@ class _FamilyAddDocumentScreenState extends State<FamilyAddDocumentScreen> {
           final caseKey = (map['case_key'] ?? '').toString().trim();
           final caseLabel = (map['case_label'] ?? caseKey).toString().trim();
           if (caseKey.isEmpty) continue;
-          final docs = <_FamDocType>[];
+          final docs = <_FamDocReq>[];
           final docsRaw = map['required_documents'];
           if (docsRaw is List) {
             for (final d in docsRaw) {
               if (d is! Map) continue;
               final dm = Map<String, dynamic>.from(d);
-              final label =
-                  (dm['label'] ?? dm['name'] ?? dm['field'] ?? '')
-                      .toString()
-                      .trim();
               final field = (dm['field'] ?? '').toString().trim();
-              if (label.isEmpty) continue;
+              if (field.isEmpty) continue;
               docs.add(
-                _FamDocType(
-                  name: label,
-                  id: _resolveTypeIdFromCatalog(label),
-                  field: field.isEmpty ? null : field,
-                  familyDocType: _familyDocTypeFromField(field),
+                _FamDocReq(
+                  field: field,
+                  label: (dm['label'] ?? dm['name'] ?? field).toString().trim(),
+                  type: (dm['type'] ?? '').toString().trim(),
                 ),
               );
             }
@@ -309,17 +270,53 @@ class _FamilyAddDocumentScreenState extends State<FamilyAddDocumentScreen> {
         }
       }
 
+      final nationalities = <_NationalityOption>[];
+      final natRaw = data['nationalities'];
+      if (natRaw is List) {
+        for (final item in natRaw) {
+          if (item is! Map) continue;
+          final map = Map<String, dynamic>.from(item);
+          final id = int.tryParse((map['id'] ?? '').toString());
+          final name = (map['name'] ?? '').toString().trim();
+          if (id == null || name.isEmpty) continue;
+          nationalities.add(_NationalityOption(id: id, name: name));
+        }
+      }
+
+      String? nextCase = restoreCaseKey;
+      if (nextCase == null || !cases.any((c) => c.key == nextCase)) {
+        nextCase = cases.isNotEmpty ? cases.first.key : null;
+      }
+
+      final keepNat = _selectedNationalityId;
+      final resolvedNat = keepNat != null &&
+              nationalities.any((n) => n.id == keepNat)
+          ? keepNat
+          : nationalities
+              .where((n) => n.id == 233)
+              .map((n) => n.id)
+              .cast<int?>()
+              .firstWhere(
+                (id) => id != null,
+                orElse: () =>
+                    nationalities.isNotEmpty ? nationalities.first.id : null,
+              );
+
       if (!mounted) return;
       setState(() {
         _updateCases
           ..clear()
           ..addAll(cases);
+        _nationalities
+          ..clear()
+          ..addAll(nationalities);
+        _selectedCaseKey = nextCase;
+        _selectedNationalityId = resolvedNat;
         _loadingInit = false;
-        _initError = cases.isEmpty ? 'No document update options available.' : null;
+        _initError =
+            cases.isEmpty ? 'No document update options available.' : null;
       });
-      if (cases.isNotEmpty) {
-        _applyUpdateCase(cases.first);
-      }
+      _syncRequiredDocs();
     } catch (e) {
       debugPrint('Failed to load family_insurance/init: $e');
       if (!mounted) return;
@@ -330,377 +327,245 @@ class _FamilyAddDocumentScreenState extends State<FamilyAddDocumentScreen> {
     }
   }
 
-  int? _resolveTypeIdFromCatalog(String label) {
-    final token = _normalizeToken(label);
-    final known = _knownTypeIdsByNormalizedName[token];
-    if (known != null) return known;
-    for (final c in _catalogTypes) {
-      final ct = _normalizeToken(c.name);
-      if (ct == token && c.id != null) return c.id;
+  Map<String, dynamic>? _extractResultMap(dynamic decoded) {
+    if (decoded is! Map) return null;
+    if (decoded['result'] is Map) {
+      return Map<String, dynamic>.from(decoded['result'] as Map);
     }
-    for (final c in _catalogTypes) {
-      final ct = _normalizeToken(c.name);
-      if (ct.isEmpty || c.id == null) continue;
-      if (token.contains(ct) || ct.contains(token)) return c.id;
+    if (decoded['status'] != null || decoded['data'] != null) {
+      return Map<String, dynamic>.from(decoded);
     }
     return null;
   }
 
-  String? _familyDocTypeFromField(String field) {
-    final f = field.toLowerCase().replaceAll('_file', '').trim();
-    if (f.isEmpty) return null;
-    const allowed = {
-      'passport',
-      'visa',
-      'eid',
-      'photo',
-      'health_insurance',
-      'birth_certificate',
-      'marriage_certificate',
-      'previous_visa',
-      'passport_copy',
-      'resident_cancellation',
-      'coc',
-      'e_visa',
-      'changed_status',
-      'entry_stamp',
-      'visit_visa',
-    };
-    if (allowed.contains(f)) return f;
-    if (f.contains('passport')) return 'passport';
-    if (f.contains('visa')) return 'visa';
-    if (f.contains('eid') || f.contains('emirates')) return 'eid';
-    if (f.contains('photo')) return 'photo';
-    if (f.contains('birth')) return 'birth_certificate';
-    if (f.contains('marriage')) return 'marriage_certificate';
-    if (f.contains('insurance') || f.contains('medical')) {
-      return 'health_insurance';
-    }
-    return null;
-  }
-
-  void _applyUpdateCase(_FamUpdateCase updateCase) {
-    final docs = updateCase.documents.map((d) {
-      return _FamDocType(
-        name: d.name,
-        id: d.id ?? _resolveTypeIdFromCatalog(d.name),
-        field: d.field,
-        familyDocType: d.familyDocType ?? _familyDocTypeFromField(d.field ?? ''),
-      );
-    }).toList(growable: false);
-
+  void _syncRequiredDocs() {
+    final selected =
+        _updateCases.where((c) => c.key == _selectedCaseKey).toList();
+    final docs = selected.isNotEmpty
+        ? List<_FamDocReq>.from(selected.first.documents)
+        : <_FamDocReq>[];
+    final active = docs.map((d) => d.field).toSet();
+    _pickedFiles.removeWhere((k, _) => !active.contains(k));
+    _docExpiryDates.removeWhere((k, _) => !active.contains(k));
     setState(() {
-      _selectedCase = updateCase;
-      _types
+      _requiredDocs
         ..clear()
         ..addAll(docs);
-      _selectedType = docs.isNotEmpty ? docs.first : null;
     });
   }
 
-  Future<void> _loadDocumentTypesCatalog() async {
-    setState(() => _loadingTypes = true);
-    final names = <String>[];
-    final idsByName = <String, int>{};
-
-    try {
-      final token = SharedPref.getLoginData().result?.token ?? '';
-      if (token.isNotEmpty) {
-        final response = await http.post(
-          Uri.parse('${UrlUtil.baseUrl}document_types'),
-          headers: {
-            'Content-Type': 'application/json',
-            'Accept': 'application/json',
-            'Authorization': 'Bearer $token',
-          },
-          body: jsonEncode({
-            'jsonrpc': '2.0',
-            'params': {'family_only': true},
-          }),
-        );
-
-        if (response.statusCode == 200) {
-          final decoded = jsonDecode(response.body);
-          if (decoded is Map) {
-            final result = (decoded['result'] is Map)
-                ? Map<String, dynamic>.from(decoded['result'] as Map)
-                : (decoded['status'] != null)
-                    ? Map<String, dynamic>.from(decoded)
-                    : <String, dynamic>{};
-            final status = _normalizeToken(result['status']);
-            if (status == 'success' || status == 'ok' || status == 'true') {
-              final data = result['data'];
-              if (data is List) {
-                for (final item in data) {
-                  _parseTypeRaw(item, names, idsByName);
-                }
-              }
-            }
-          }
-        }
-      }
-    } catch (e) {
-      debugPrint('Failed to load family document types: $e');
+  _FamUpdateCase? get _selectedCase {
+    for (final c in _updateCases) {
+      if (c.key == _selectedCaseKey) return c;
     }
-
-    if (!mounted) return;
-    if (names.isEmpty) names.addAll(_fallbackTypes);
-
-    final options = names.map((name) {
-      final id = idsByName[name] ??
-          _knownTypeIdsByNormalizedName[_normalizeToken(name)];
-      return _FamDocType(id: id, name: name);
-    }).toList()
-      ..sort((a, b) {
-        final rank = _famDocumentTypeImportance(a.name)
-            .compareTo(_famDocumentTypeImportance(b.name));
-        if (rank != 0) return rank;
-        return a.name.toLowerCase().compareTo(b.name.toLowerCase());
-      });
-
-    setState(() {
-      _catalogTypes
-        ..clear()
-        ..addAll(options);
-      _loadingTypes = false;
-    });
+    return null;
   }
 
-  void _parseTypeRaw(
-    dynamic raw,
-    List<String> names,
-    Map<String, int> idsByName,
-  ) {
-    if (raw is Map) {
-      final map = Map<String, dynamic>.from(raw);
-      final name = (map['name'] ?? map['document_type'] ?? map['label'] ?? '')
-          .toString()
-          .trim();
-      final id = int.tryParse((map['id'] ?? map['document_type_id'] ?? '')
-          .toString());
-      if (name.isEmpty) return;
-      if (!names.contains(name)) names.add(name);
-      if (id != null && id > 0) idsByName[name] = id;
+  int get _attachedCount => _requiredDocs.where((d) {
+        return _pickedFiles.containsKey(d.field) &&
+            _docExpiryDates[d.field] != null;
+      }).length;
+
+  bool get _allDocsAttached {
+    if (_requiredDocs.isEmpty) return false;
+    for (final req in _requiredDocs) {
+      if (!_pickedFiles.containsKey(req.field)) return false;
+      if (_docExpiryDates[req.field] == null) return false;
+    }
+    return true;
+  }
+
+  bool get _canSubmit {
+    if (_nameController.text.trim().isEmpty) return false;
+    if (_dob == null) return false;
+    if (_selectedNationalityId == null) return false;
+    if ((_selectedCaseKey ?? '').isEmpty) return false;
+    if (_validateMemberDetails() != null) return false;
+    return _allDocsAttached && _validateAllExpiries() == null;
+  }
+
+  DateTime get _todayDate {
+    final n = DateTime.now();
+    return DateTime(n.year, n.month, n.day);
+  }
+
+  bool _allowsPastExpiry(String field) {
+    final f = field.toLowerCase();
+    return f.contains('birth_certificate') || f.contains('marriage_certificate');
+  }
+
+  int _ageYears(DateTime dob) {
+    final today = _todayDate;
+    var age = today.year - dob.year;
+    if (today.month < dob.month ||
+        (today.month == dob.month && today.day < dob.day)) {
+      age -= 1;
+    }
+    return age;
+  }
+
+  String? _validateDob(DateTime dob) {
+    final day = DateTime(dob.year, dob.month, dob.day);
+    if (day.isAfter(_todayDate)) {
+      return 'Date of birth cannot be in the future.';
+    }
+    final age = _ageYears(day);
+    if (_memberKey == 'spouse') {
+      if (age > 50) return 'Wife age must be 50 years old or below.';
+      if (age < 16) return 'Spouse age looks invalid. Please check DOB.';
+    } else {
+      if (age > 18) return 'Children age must be 18 years old or below.';
+      if (age < 0) return 'Date of birth cannot be in the future.';
+    }
+    return null;
+  }
+
+  String? _validateExpiryForField(String field, DateTime expiry) {
+    final day = DateTime(expiry.year, expiry.month, expiry.day);
+    if (_allowsPastExpiry(field)) {
+      if (day.isAfter(DateTime(_todayDate.year + 40, _todayDate.month, _todayDate.day))) {
+        return 'Date is too far in the future.';
+      }
+      return null;
+    }
+    if (day.isBefore(_todayDate)) {
+      return 'Expiry must be today or a future date.';
+    }
+    return null;
+  }
+
+  String? _validateAllExpiries() {
+    for (final req in _requiredDocs) {
+      final expiry = _docExpiryDates[req.field];
+      if (expiry == null) {
+        return 'Please set expiry date for ${req.label}.';
+      }
+      final err = _validateExpiryForField(req.field, expiry);
+      if (err != null) return '${req.label}: $err';
+    }
+    return null;
+  }
+
+  String? _validateMemberDetails() {
+    if (_nameController.text.trim().isEmpty) {
+      return 'Please enter full name.';
+    }
+    if (_dob == null) return 'Please select date of birth.';
+    if (_selectedNationalityId == null) {
+      return 'Please select nationality.';
+    }
+    if ((_selectedCaseKey ?? '').isEmpty) {
+      return 'Please select document update type.';
+    }
+    return _validateDob(_dob!);
+  }
+
+  Future<void> _resetRequest() async {
+    await FamilyInsuranceDraftStore.clear();
+    if (!mounted) return;
+    setState(() {
+      _draftRestored = false;
+      _nameController.clear();
+      _dobController.clear();
+      _dob = null;
+      _selectedNationalityId = null;
+      _pickedFiles.clear();
+      _docExpiryDates.clear();
+      _selectedCaseKey = null;
+      _initError = null;
+    });
+    await _loadInit();
+    if (!mounted) return;
+    _showSnack('Request reset.');
+  }
+
+  Future<void> _openAttach(_FamDocReq req) async {
+    final existing = _pickedFiles[req.field];
+    final result = await Navigator.of(context).push<FamilyDocumentAttachResult>(
+      MaterialPageRoute(
+        builder: (_) => FamilyDocumentAttachScreen(
+          field: req.field,
+          label: req.label,
+          allowedType: req.type,
+          initialPath: existing?.path,
+          initialFilename: existing?.filename,
+          initialExpiry: _docExpiryDates[req.field],
+        ),
+      ),
+    );
+    if (result == null || !mounted) return;
+    final err = _validateExpiryForField(result.field, result.expiry);
+    if (err != null) {
+      _showSnack('${req.label}: $err');
       return;
     }
-    final name = (raw ?? '').toString().trim();
-    if (name.isNotEmpty && !names.contains(name)) names.add(name);
+    setState(() {
+      _pickedFiles[result.field] = _PickedFile(
+        path: result.path,
+        filename: result.filename,
+      );
+      _docExpiryDates[result.field] = result.expiry;
+    });
   }
 
-  Future<void> _loadExistingForMember() async {
+  Future<void> _saveDraft() async {
+    final caseKey = _selectedCaseKey;
+    if (caseKey == null || caseKey.isEmpty) {
+      _showSnack('Select a document update type first.');
+      return;
+    }
+    if (_savingDraft) return;
+    setState(() => _savingDraft = true);
     try {
-      final token = SharedPref.getLoginData().result?.token ?? '';
-      if (token.isEmpty) return;
-
-      final response = await http.post(
-        Uri.parse('${UrlUtil.baseUrl}get_employee_documents'),
-        headers: {
-          'Content-Type': 'application/json',
-          'Accept': 'application/json',
-          'Authorization': 'Bearer $token',
-        },
-        body: jsonEncode({
-          'jsonrpc': '2.0',
-          'params': {'family_only': true},
-        }),
-      );
-      if (response.statusCode != 200) return;
-
-      final decoded = jsonDecode(response.body);
-      if (decoded is! Map) return;
-      final result = (decoded['result'] is Map)
-          ? Map<String, dynamic>.from(decoded['result'] as Map)
-          : (decoded['status'] != null)
-              ? Map<String, dynamic>.from(decoded)
-              : <String, dynamic>{};
-      final status = _normalizeToken(result['status']);
-      if (!(status == 'success' || status == 'ok' || status == 'true')) {
-        return;
-      }
-
-      final byTypeId = <int, int>{};
-      final byTypeName = <String, int>{};
-      final data = result['data'];
-      final groups = data is List ? data : const [];
-
-      void ingestDoc(Map<String, dynamic> doc) {
-        final rawMember = (doc['family_member'] ?? '').toString().trim();
-        final member = rawMember.isEmpty
-            ? ''
-            : _normalizeMember(rawMember);
-        final matches = member == _memberKey ||
-            (member.isEmpty && _memberKey == 'spouse');
-        if (!matches) return;
-
-        final docId = int.tryParse((doc['id'] ?? '').toString());
-        if (docId == null || docId <= 0) return;
-
-        final typeId = int.tryParse(
-          (doc['document_type_id'] ?? '').toString(),
+      final attachments = <String, FamilyInsuranceDraftAttachment>{};
+      _pickedFiles.forEach((field, file) {
+        attachments[field] = FamilyInsuranceDraftAttachment(
+          path: file.path,
+          filename: file.filename,
+          expiryIso: _docExpiryDates[field] == null
+              ? null
+              : DateFormat('yyyy-MM-dd').format(_docExpiryDates[field]!),
         );
-        if (typeId != null && typeId > 0) byTypeId[typeId] = docId;
-
-        final typeName =
-            (doc['document_type'] ?? doc['type'] ?? doc['title'] ?? '')
-                .toString()
-                .trim();
-        final tokenName = _normalizeToken(typeName);
-        if (tokenName.isNotEmpty) byTypeName[tokenName] = docId;
-      }
-
-      for (final raw in groups) {
-        if (raw is! Map) continue;
-        final group = Map<String, dynamic>.from(raw);
-        final docs = group['documents'];
-        if (docs is List && docs.isNotEmpty) {
-          for (final d in docs) {
-            if (d is Map) ingestDoc(Map<String, dynamic>.from(d));
-          }
-        } else {
-          ingestDoc(group);
-        }
-      }
-
+      });
+      final stored = await FamilyInsuranceDraftStore.save(
+        FamilyInsuranceDraft(
+          employeeKey: _employeeKey,
+          familyMember: _memberKey,
+          medicalRequestCase: caseKey,
+          memberName: _nameController.text.trim(),
+          dobIso: _dob == null ? null : DateFormat('yyyy-MM-dd').format(_dob!),
+          nationalityId: _selectedNationalityId,
+          attachments: attachments,
+        ),
+      );
       if (!mounted) return;
-      setState(() {
-        _existingDocIdByTypeId
-          ..clear()
-          ..addAll(byTypeId);
-        _existingDocIdByTypeName
-          ..clear()
-          ..addAll(byTypeName);
-      });
-    } catch (e) {
-      debugPrint('Failed to load existing family docs: $e');
+      // Point UI at durable copied paths so reopen / later save keeps files.
+      _applyDraftAttachments(stored);
+      setState(() => _draftRestored = true);
+      _showSnack('Draft saved. You can continue later.');
+    } catch (_) {
+      _showSnack('Failed to save draft.');
+    } finally {
+      if (mounted) setState(() => _savingDraft = false);
     }
-  }
-
-  void _onBack() {
-    if (_submitting) return;
-    if (_step > 0) {
-      setState(() => _step -= 1);
-      _pageController.previousPage(
-        duration: const Duration(milliseconds: 220),
-        curve: Curves.easeOut,
-      );
-      return;
-    }
-    Navigator.of(context).maybePop();
-  }
-
-  Future<void> _onPrimary() async {
-    if (_step == 0) {
-      if (_selectedType == null) {
-        _showSnack('Please select a document type.');
-        return;
-      }
-      setState(() => _step = 1);
-      await _pageController.nextPage(
-        duration: const Duration(milliseconds: 220),
-        curve: Curves.easeOut,
-      );
-      return;
-    }
-    if (_step == 1) {
-      if ((_filePath ?? '').isEmpty) {
-        _showSnack('Please attach a file.');
-        return;
-      }
-      if (_issueDate == null) {
-        _showSnack('Please select the issue date.');
-        return;
-      }
-      if (_expiryDate == null) {
-        _showSnack('Please select the expiry date.');
-        return;
-      }
-      setState(() => _step = 2);
-      await _pageController.nextPage(
-        duration: const Duration(milliseconds: 220),
-        curve: Curves.easeOut,
-      );
-      return;
-    }
-    await _submit();
-  }
-
-  Future<void> _pickFile() async {
-    final result = await FilePicker.pickFiles(
-      type: FileType.custom,
-      allowedExtensions: const ['pdf', 'png', 'jpg', 'jpeg'],
-    );
-    if (result == null || result.files.isEmpty) return;
-    final file = result.files.single;
-    if (!mounted) return;
-    setState(() {
-      _fileName = file.name;
-      _filePath = file.path;
-    });
-  }
-
-  Future<void> _pickDate({required bool issue}) async {
-    final now = DateTime.now();
-    final initial = issue
-        ? (_issueDate ?? now)
-        : (_expiryDate ?? now.add(const Duration(days: 365)));
-    final picked = await showDatePicker(
-      context: context,
-      initialDate: initial,
-      firstDate: DateTime(1970),
-      lastDate: DateTime(now.year + 40),
-    );
-    if (picked == null || !mounted) return;
-    setState(() {
-      if (issue) {
-        _issueDate = picked;
-      } else {
-        _expiryDate = picked;
-      }
-    });
-  }
-
-  String _safeAttachmentFilename() {
-    final name = (_fileName ?? 'document.pdf').trim();
-    if (name.isEmpty) return 'document.pdf';
-    return name;
-  }
-
-  bool _isUploadSuccess(dynamic decodedBody) {
-    if (decodedBody is! Map) return false;
-    final result = decodedBody['result'];
-    if (result is Map) {
-      final status = _normalizeToken(result['status']);
-      if (status == 'success' || status == 'ok' || status == 'true') {
-        return true;
-      }
-      if (result['document_id'] != null) return true;
-    }
-    return false;
-  }
-
-  String _extractUploadMessage(dynamic decodedBody) {
-    if (decodedBody is! Map) return 'Upload failed';
-    final result = decodedBody['result'];
-    if (result is Map) {
-      final message = result['message']?.toString();
-      if (message != null && message.trim().isNotEmpty) return message.trim();
-    }
-    final error = decodedBody['error'];
-    if (error is Map) {
-      final message = error['message']?.toString();
-      if (message != null && message.trim().isNotEmpty) return message.trim();
-    }
-    return 'Upload failed';
   }
 
   Future<void> _submit() async {
-    final type = _selectedType;
-    final path = (_filePath ?? '').trim();
-    if (type == null || path.isEmpty) return;
-
-    final typeId = _resolveTypeId(type);
-    if (typeId == null) {
-      _showSnack('document_type_id is missing for "${type.name}".');
+    if (_submitting) return;
+    final err = _validateMemberDetails();
+    if (err != null) {
+      _showSnack(err);
+      return;
+    }
+    for (final req in _requiredDocs) {
+      if (_pickedFiles[req.field] == null) {
+        _showSnack('Please attach ${req.label}.');
+        return;
+      }
+    }
+    final expiryErr = _validateAllExpiries();
+    if (expiryErr != null) {
+      _showSnack(expiryErr);
       return;
     }
 
@@ -712,31 +577,26 @@ class _FamilyAddDocumentScreenState extends State<FamilyAddDocumentScreen> {
 
     setState(() => _submitting = true);
     try {
-      final bytes = await File(path).readAsBytes();
-      final number = _numberController.text.trim();
       final params = <String, dynamic>{
-        'name': number.isNotEmpty ? number : type.name,
-        'description': 'Uploaded from mobile app (family)',
-        'attachment': base64Encode(bytes),
-        'attachment_filename': _safeAttachmentFilename(),
-        'family_only': true,
         'family_member': _memberKey,
-        'document_type_id': typeId,
-        'issue_date': DateFormat('yyyy-MM-dd').format(_issueDate!),
-        'expiry_date': DateFormat('yyyy-MM-dd').format(_expiryDate!),
+        'medical_request_case': _selectedCaseKey,
+        'family_member_name': _nameController.text.trim(),
+        'family_member_dob': DateFormat('yyyy-MM-dd').format(_dob!),
+        'family_member_nationality_id': _selectedNationalityId,
       };
-      final familyDocType = type.familyDocType;
-      if (familyDocType != null && familyDocType.isNotEmpty) {
-        params['family_doc_type'] = familyDocType;
-      }
 
-      final existingId = _existingDocumentIdFor(type);
-      if (existingId != null && existingId > 0) {
-        params['document_id'] = existingId;
+      for (final req in _requiredDocs) {
+        final picked = _pickedFiles[req.field]!;
+        final bytes = await File(picked.path).readAsBytes();
+        params[req.field] = base64Encode(bytes);
+        params[req.field.replaceFirst('_file', '_filename')] = picked.filename;
+        final expiry = _docExpiryDates[req.field]!;
+        params[req.field.replaceFirst('_file', '_expiry_date')] =
+            DateFormat('yyyy-MM-dd').format(expiry);
       }
 
       final response = await http.post(
-        Uri.parse('${UrlUtil.baseUrl}upload_employee_document'),
+        Uri.parse('${UrlUtil.baseUrl}family_insurance/submit'),
         headers: {
           'Content-Type': 'application/json',
           'Accept': 'application/json',
@@ -744,26 +604,35 @@ class _FamilyAddDocumentScreenState extends State<FamilyAddDocumentScreen> {
         },
         body: jsonEncode({
           'jsonrpc': '2.0',
-          'id': null,
           'params': params,
         }),
       );
 
-      final data = jsonDecode(response.body);
-      if (response.statusCode != 200 || !_isUploadSuccess(data)) {
+      final decoded = jsonDecode(response.body);
+      final result = _extractResultMap(decoded);
+      final status = _normalizeToken(result?['status']);
+      final isOk = response.statusCode == 200 &&
+          (status == 'success' || status == 'ok' || status == 'true');
+
+      if (!isOk) {
+        final message = (result?['message'] ??
+                (decoded is Map ? decoded['message'] : null) ??
+                'Failed to submit request.')
+            .toString();
         if (!mounted) return;
-        _showSnack(_extractUploadMessage(data));
+        _showSnack(message);
         return;
       }
 
+      await FamilyInsuranceDraftStore.clear();
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(_extractUploadMessage(data))),
+        const SnackBar(content: Text('Request submitted successfully.')),
       );
       Navigator.of(context).pop(true);
-    } catch (e) {
+    } catch (_) {
       if (!mounted) return;
-      _showSnack('An error occurred while uploading the document.');
+      _showSnack('Failed to submit request.');
     } finally {
       if (mounted) setState(() => _submitting = false);
     }
@@ -773,45 +642,363 @@ class _FamilyAddDocumentScreenState extends State<FamilyAddDocumentScreen> {
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
   }
 
+  Future<void> _pickDob() async {
+    final today = _todayDate;
+    final isSpouse = _memberKey == 'spouse';
+    // Spouse: up to 50 years; Child: up to 18 years.
+    final earliest = isSpouse
+        ? DateTime(today.year - 50, today.month, today.day)
+        : DateTime(today.year - 18, today.month, today.day);
+    final latest = today;
+    var initial = _dob ??
+        (isSpouse
+            ? DateTime(today.year - 25, today.month, today.day)
+            : DateTime(today.year - 5, today.month, today.day));
+    if (initial.isBefore(earliest)) initial = earliest;
+    if (initial.isAfter(latest)) initial = latest;
+
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: initial,
+      firstDate: earliest,
+      lastDate: latest,
+      helpText: 'Date of birth',
+    );
+    if (picked == null || !mounted) return;
+    final err = _validateDob(picked);
+    if (err != null) {
+      _showSnack(err);
+      return;
+    }
+    setState(() {
+      _dob = picked;
+      _dobController.text = DateFormat('dd/MM/yyyy').format(picked);
+    });
+  }
+
+  Future<void> _openCaseSheet() async {
+    if (_updateCases.isEmpty) return;
+    final picked = await showModalBottomSheet<_FamUpdateCase>(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (ctx) {
+        return SafeArea(
+          child: Padding(
+            padding: EdgeInsets.fromLTRB(16.tw, 0, 16.tw, 16.th),
+            child: Container(
+              constraints: BoxConstraints(
+                maxHeight: MediaQuery.of(ctx).size.height * 0.55,
+              ),
+              decoration: BoxDecoration(
+                color: Colors.white.withValues(alpha: 0.97),
+                borderRadius: BorderRadius.circular(22.tr),
+                border: Border.all(color: _skyAccent.withValues(alpha: 0.35)),
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  SizedBox(height: 10.th),
+                  Container(
+                    width: 42.tw,
+                    height: 4.th,
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFD0D5DD),
+                      borderRadius: BorderRadius.circular(999),
+                    ),
+                  ),
+                  Padding(
+                    padding: EdgeInsets.fromLTRB(18.tw, 14.th, 18.tw, 8.th),
+                    child: Align(
+                      alignment: Alignment.centerLeft,
+                      child: Text(
+                        'Document Update',
+                        style: GoogleFonts.poppins(
+                          fontSize: 16.tsp,
+                          fontWeight: FontWeight.w700,
+                          color: _navy,
+                        ),
+                      ),
+                    ),
+                  ),
+                  Flexible(
+                    child: ListView.separated(
+                      shrinkWrap: true,
+                      padding: EdgeInsets.fromLTRB(12.tw, 0, 12.tw, 12.th),
+                      itemCount: _updateCases.length,
+                      separatorBuilder: (_, __) => SizedBox(height: 8.th),
+                      itemBuilder: (context, index) {
+                        final c = _updateCases[index];
+                        final selected = _selectedCaseKey == c.key;
+                        return Material(
+                          color: Colors.transparent,
+                          child: InkWell(
+                            onTap: () => Navigator.pop(ctx, c),
+                            borderRadius: BorderRadius.circular(14.tr),
+                            child: Container(
+                              padding: EdgeInsets.symmetric(
+                                horizontal: 12.tw,
+                                vertical: 12.th,
+                              ),
+                              decoration: BoxDecoration(
+                                color: selected
+                                    ? _greenAccent.withValues(alpha: 0.12)
+                                    : const Color(0xFFF5F8FB),
+                                borderRadius: BorderRadius.circular(14.tr),
+                                border: Border.all(
+                                  color: selected
+                                      ? _greenAccent.withValues(alpha: 0.45)
+                                      : _skyAccent.withValues(alpha: 0.3),
+                                ),
+                              ),
+                              child: Row(
+                                children: [
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          c.label,
+                                          style: GoogleFonts.poppins(
+                                            fontSize: 13.tsp,
+                                            fontWeight: FontWeight.w700,
+                                            color: _navy,
+                                          ),
+                                        ),
+                                        Text(
+                                          '${c.documents.length} document(s)',
+                                          style: GoogleFonts.poppins(
+                                            fontSize: 11.tsp,
+                                            color: const Color(0xFF7B8290),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                  if (selected)
+                                    Icon(
+                                      Icons.check_circle_rounded,
+                                      color: _greenAccent,
+                                      size: 20.tsp,
+                                    ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
+    );
+    if (picked != null && mounted) {
+      setState(() => _selectedCaseKey = picked.key);
+      _syncRequiredDocs();
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
+    final progress = _requiredDocs.isEmpty
+        ? 'Select update type'
+        : '$_attachedCount / ${_requiredDocs.length} attached';
+
     return PopScope(
-      canPop: _step == 0 && !_submitting,
-      onPopInvokedWithResult: (didPop, _) {
-        if (didPop) return;
-        _onBack();
-      },
+      canPop: !_submitting,
       child: MyDocumentsSilkBackground(
         child: Scaffold(
           backgroundColor: Colors.transparent,
           body: Column(
             children: [
               ProductivityGlassHeader(
-                title: 'Add Family Document',
+                title: 'Family Document Request',
                 showBack: true,
-                onBack: _onBack,
                 transparentGlassBar: true,
                 scrimTopOpacity: 0.08,
               ),
-              Padding(
-                padding: EdgeInsets.fromLTRB(16.tw, 4.th, 16.tw, 8.th),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    _buildMemberChips(),
-                    SizedBox(height: 10.th),
-                    _buildStepper(),
-                  ],
-                ),
-              ),
               Expanded(
-                child: PageView(
-                  controller: _pageController,
-                  physics: const NeverScrollableScrollPhysics(),
+                child: ListView(
+                  padding: EdgeInsets.fromLTRB(16.tw, 4.th, 16.tw, 16.th),
                   children: [
-                    _buildTypeStep(),
-                    _buildUploadStep(),
-                    _buildReviewStep(),
+                    if (_draftRestored) ...[
+                      Container(
+                        width: double.infinity,
+                        padding: EdgeInsets.fromLTRB(12.tw, 8.th, 8.tw, 8.th),
+                        decoration: BoxDecoration(
+                          color: _skyAccent.withValues(alpha: 0.18),
+                          borderRadius: BorderRadius.circular(12.tr),
+                          border: Border.all(
+                            color: _skyAccent.withValues(alpha: 0.35),
+                          ),
+                        ),
+                        child: Row(
+                          children: [
+                            Icon(
+                              Icons.edit_note_rounded,
+                              size: 18.tsp,
+                              color: _navy,
+                            ),
+                            SizedBox(width: 8.tw),
+                            Expanded(
+                              child: Text(
+                                'Continuing your saved draft.',
+                                style: GoogleFonts.poppins(
+                                  fontSize: 12.tsp,
+                                  fontWeight: FontWeight.w600,
+                                  color: _navy,
+                                ),
+                              ),
+                            ),
+                            SizedBox(width: 6.tw),
+                            Material(
+                              color: Colors.white.withValues(alpha: 0.9),
+                              borderRadius: BorderRadius.circular(999),
+                              child: InkWell(
+                                onTap: _submitting || _savingDraft
+                                    ? null
+                                    : () => unawaited(_resetRequest()),
+                                borderRadius: BorderRadius.circular(999),
+                                child: Padding(
+                                  padding: EdgeInsets.symmetric(
+                                    horizontal: 12.tw,
+                                    vertical: 6.th,
+                                  ),
+                                  child: Text(
+                                    'Reset',
+                                    style: GoogleFonts.poppins(
+                                      fontSize: 11.tsp,
+                                      fontWeight: FontWeight.w700,
+                                      color: const Color(0xFFBA1719),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      SizedBox(height: 10.th),
+                    ],
+                    _buildMemberChips(),
+                    SizedBox(height: 14.th),
+                    Text(
+                      'Basic Information',
+                      style: GoogleFonts.poppins(
+                        fontSize: 13.tsp,
+                        fontWeight: FontWeight.w700,
+                        color: _navy,
+                      ),
+                    ),
+                    SizedBox(height: 8.th),
+                    _labeledField(
+                      'Full Name',
+                      TextField(
+                        controller: _nameController,
+                        style: GoogleFonts.poppins(fontSize: 13.tsp),
+                        decoration: _inputDecoration('Enter name'),
+                        onChanged: (_) => setState(() {}),
+                      ),
+                    ),
+                    SizedBox(height: 10.th),
+                    _labeledField(
+                      'Date of Birth',
+                      InkWell(
+                        onTap: _pickDob,
+                        borderRadius: BorderRadius.circular(14.tr),
+                        child: IgnorePointer(
+                          child: TextField(
+                            controller: _dobController,
+                            style: GoogleFonts.poppins(fontSize: 13.tsp),
+                            decoration: _inputDecoration('dd/MM/yyyy'),
+                          ),
+                        ),
+                      ),
+                    ),
+                    SizedBox(height: 10.th),
+                    _labeledField(
+                      'Nationality',
+                      _nationalityDropdown(),
+                    ),
+                    SizedBox(height: 14.th),
+                    Text(
+                      'Document Update',
+                      style: GoogleFonts.poppins(
+                        fontSize: 13.tsp,
+                        fontWeight: FontWeight.w700,
+                        color: _navy,
+                      ),
+                    ),
+                    SizedBox(height: 8.th),
+                    if (_loadingInit)
+                      const Padding(
+                        padding: EdgeInsets.symmetric(vertical: 16),
+                        child: Center(
+                          child: CircularProgressIndicator(color: _greenAccent),
+                        ),
+                      )
+                    else if ((_initError ?? '').isNotEmpty)
+                      Text(
+                        _initError!,
+                        style: GoogleFonts.poppins(
+                          fontSize: 12.tsp,
+                          color: const Color(0xFFC62828),
+                        ),
+                      )
+                    else
+                      _buildCaseDropdown(),
+                    SizedBox(height: 14.th),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            'Required Documents',
+                            style: GoogleFonts.poppins(
+                              fontSize: 13.tsp,
+                              fontWeight: FontWeight.w700,
+                              color: _navy,
+                            ),
+                          ),
+                        ),
+                        Text(
+                          progress,
+                          style: GoogleFonts.poppins(
+                            fontSize: 11.tsp,
+                            fontWeight: FontWeight.w600,
+                            color: _allDocsAttached
+                                ? _greenAccent
+                                : const Color(0xFF7B8290),
+                          ),
+                        ),
+                      ],
+                    ),
+                    SizedBox(height: 4.th),
+                    Text(
+                      'Tap each item to Attach. Submit unlocks when all are attached.',
+                      style: GoogleFonts.poppins(
+                        fontSize: 11.tsp,
+                        color: const Color(0xFF7B8290),
+                      ),
+                    ),
+                    SizedBox(height: 10.th),
+                    if (_requiredDocs.isEmpty && !_loadingInit)
+                      Text(
+                        'No documents for this update option.',
+                        style: GoogleFonts.poppins(
+                          fontSize: 12.tsp,
+                          color: const Color(0xFF7B8290),
+                        ),
+                      )
+                    else
+                      for (final req in _requiredDocs) ...[
+                        _docRow(req),
+                        SizedBox(height: 8.th),
+                      ],
                   ],
                 ),
               ),
@@ -819,40 +1006,83 @@ class _FamilyAddDocumentScreenState extends State<FamilyAddDocumentScreen> {
                 top: false,
                 child: Padding(
                   padding: EdgeInsets.fromLTRB(16.tw, 8.th, 16.tw, 12.th),
-                  child: SizedBox(
-                    height: 52.th,
-                    width: double.infinity,
-                    child: ElevatedButton(
-                      onPressed: _submitting ? null : _onPrimary,
-                      style: ElevatedButton.styleFrom(
-                        elevation: 0,
-                        backgroundColor: _greenAccent,
-                        foregroundColor: Colors.white,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(999),
-                        ),
-                      ),
-                      child: _submitting
-                          ? const SizedBox(
-                              width: 22,
-                              height: 22,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 2.4,
-                                color: Colors.white,
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: SizedBox(
+                          height: 52.th,
+                          child: OutlinedButton(
+                            onPressed:
+                                _savingDraft || _submitting ? null : _saveDraft,
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: _navy,
+                              side: BorderSide(
+                                color: _skyAccent.withValues(alpha: 0.6),
                               ),
-                            )
-                          : Text(
-                              _step == 2
-                                  ? (_isUpdateMode ? 'Update' : 'Submit')
-                                  : (_isUpdateMode
-                                      ? 'Next (Update)'
-                                      : 'Next'),
-                              style: GoogleFonts.poppins(
-                                fontSize: 16.tsp,
-                                fontWeight: FontWeight.w700,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(999),
                               ),
                             ),
-                    ),
+                            child: _savingDraft
+                                ? const SizedBox(
+                                    width: 22,
+                                    height: 22,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2.4,
+                                      color: _greenAccent,
+                                    ),
+                                  )
+                                : Text(
+                                    'Save Draft',
+                                    style: GoogleFonts.poppins(
+                                      fontSize: 14.tsp,
+                                      fontWeight: FontWeight.w700,
+                                    ),
+                                  ),
+                          ),
+                        ),
+                      ),
+                      SizedBox(width: 10.tw),
+                      Expanded(
+                        flex: 2,
+                        child: SizedBox(
+                          height: 52.th,
+                          child: ElevatedButton(
+                            onPressed: (!_canSubmit || _submitting)
+                                ? null
+                                : _submit,
+                            style: ElevatedButton.styleFrom(
+                              elevation: 0,
+                              backgroundColor: _greenAccent,
+                              disabledBackgroundColor:
+                                  const Color(0xFFD0D5DD),
+                              foregroundColor: Colors.white,
+                              disabledForegroundColor:
+                                  const Color(0xFF7B8290),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(999),
+                              ),
+                            ),
+                            child: _submitting
+                                ? const SizedBox(
+                                    width: 22,
+                                    height: 22,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2.4,
+                                      color: Colors.white,
+                                    ),
+                                  )
+                                : Text(
+                                    'Submit Request',
+                                    style: GoogleFonts.poppins(
+                                      fontSize: 15.tsp,
+                                      fontWeight: FontWeight.w700,
+                                    ),
+                                  ),
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               ),
@@ -860,6 +1090,46 @@ class _FamilyAddDocumentScreenState extends State<FamilyAddDocumentScreen> {
           ),
         ),
       ),
+    );
+  }
+
+  InputDecoration _inputDecoration(String hint) {
+    return InputDecoration(
+      hintText: hint,
+      hintStyle: GoogleFonts.poppins(
+        fontSize: 12.tsp,
+        color: const Color(0xFF9AA3AF),
+      ),
+      filled: true,
+      fillColor: Colors.white.withValues(alpha: 0.75),
+      contentPadding:
+          EdgeInsets.symmetric(horizontal: 14.tw, vertical: 12.th),
+      border: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(14.tr),
+        borderSide: const BorderSide(color: Color(0xFFE4E7EC)),
+      ),
+      enabledBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(14.tr),
+        borderSide: BorderSide(color: _skyAccent.withValues(alpha: 0.4)),
+      ),
+    );
+  }
+
+  Widget _labeledField(String label, Widget child) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label,
+          style: GoogleFonts.poppins(
+            fontSize: 11.tsp,
+            fontWeight: FontWeight.w600,
+            color: const Color(0xFF7B8290),
+          ),
+        ),
+        SizedBox(height: 4.th),
+        child,
+      ],
     );
   }
 
@@ -909,113 +1179,47 @@ class _FamilyAddDocumentScreenState extends State<FamilyAddDocumentScreen> {
     );
   }
 
-  Widget _buildStepper() {
-    return Row(
-      children: List.generate(3, (i) {
-        final active = i <= _step;
-        return Expanded(
-          child: Container(
-            margin: EdgeInsets.symmetric(horizontal: 3.tw),
-            height: 4.th,
-            decoration: BoxDecoration(
-              color: active ? _greenAccent : const Color(0xFFD0D5DD),
-              borderRadius: BorderRadius.circular(999),
-            ),
-          ),
-        );
-      }),
-    );
-  }
-
-  Widget _buildTypeStep() {
-    return ListView(
-      padding: EdgeInsets.fromLTRB(16.tw, 4.th, 16.tw, 16.th),
-      children: [
-        Text(
-          'Document Update',
-          style: GoogleFonts.poppins(
-            fontSize: 13.tsp,
-            fontWeight: FontWeight.w600,
-            color: const Color(0xFF7B8290),
-          ),
-        ),
-        SizedBox(height: 6.th),
-        if (_loadingInit)
-          const Padding(
-            padding: EdgeInsets.symmetric(vertical: 16),
-            child: Center(
-              child: CircularProgressIndicator(color: _greenAccent),
-            ),
-          )
-        else if ((_initError ?? '').isNotEmpty)
-          Text(
-            _initError!,
+  Widget _nationalityDropdown() {
+    return Container(
+      padding: EdgeInsets.symmetric(horizontal: 12.tw),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.75),
+        borderRadius: BorderRadius.circular(14.tr),
+        border: Border.all(color: _skyAccent.withValues(alpha: 0.4)),
+      ),
+      child: DropdownButtonHideUnderline(
+        child: DropdownButton<int>(
+          value: _selectedNationalityId,
+          isExpanded: true,
+          hint: Text(
+            _loadingInit ? 'Loading...' : 'Select nationality',
             style: GoogleFonts.poppins(
               fontSize: 12.tsp,
-              color: const Color(0xFFC62828),
+              color: const Color(0xFF9AA3AF),
             ),
-          )
-        else
-          _buildDocumentUpdateDropdown(),
-        SizedBox(height: 16.th),
-        Text(
-          'Select Document Type',
-          style: GoogleFonts.poppins(
-            fontSize: 15.tsp,
-            fontWeight: FontWeight.w700,
-            color: _navy,
           ),
+          icon: const Icon(Icons.keyboard_arrow_down_rounded),
+          style: GoogleFonts.poppins(fontSize: 13.tsp, color: _navy),
+          items: _nationalities
+              .map(
+                (n) => DropdownMenuItem<int>(
+                  value: n.id,
+                  child: Text(n.name),
+                ),
+              )
+              .toList(growable: false),
+          onChanged: (v) => setState(() => _selectedNationalityId = v),
         ),
-        SizedBox(height: 4.th),
-        Text(
-          _selectedCase == null
-              ? 'Choose a document update option above.'
-              : 'Documents required for ${_selectedCase!.label}.',
-          style: GoogleFonts.poppins(
-            fontSize: 12.tsp,
-            color: const Color(0xFF7B8290),
-          ),
-        ),
-        SizedBox(height: 12.th),
-        if (_loadingInit || _loadingTypes)
-          const Padding(
-            padding: EdgeInsets.symmetric(vertical: 40),
-            child: Center(
-              child: CircularProgressIndicator(color: _greenAccent),
-            ),
-          )
-        else if (_types.isEmpty)
-          Padding(
-            padding: EdgeInsets.symmetric(vertical: 24.th),
-            child: Text(
-              'No document types for this update option.',
-              style: GoogleFonts.poppins(
-                fontSize: 13.tsp,
-                color: const Color(0xFF7B8290),
-              ),
-            ),
-          )
-        else
-          for (final type in _types) ...[
-            _FamTypeRow(
-              name: type.name,
-              field: type.field,
-              selected: _selectedType?.name == type.name,
-              isUpdate: _existingDocumentIdFor(type) != null,
-              onTap: () => setState(() => _selectedType = type),
-            ),
-            SizedBox(height: 10.th),
-          ],
-      ],
+      ),
     );
   }
 
-  Widget _buildDocumentUpdateDropdown() {
+  Widget _buildCaseDropdown() {
     final selected = _selectedCase;
     return Material(
       color: Colors.transparent,
       child: InkWell(
-        onTap: _openDocumentUpdateSheet,
+        onTap: _openCaseSheet,
         borderRadius: BorderRadius.circular(16.tr),
         child: Container(
           padding: EdgeInsets.fromLTRB(12.tw, 12.th, 10.tw, 12.th),
@@ -1029,16 +1233,7 @@ class _FamilyAddDocumentScreenState extends State<FamilyAddDocumentScreen> {
                 const Color(0xFFE8F4FB).withValues(alpha: 0.88),
               ],
             ),
-            border: Border.all(
-              color: _skyAccent.withValues(alpha: 0.5),
-            ),
-            boxShadow: [
-              BoxShadow(
-                color: _skyAccent.withValues(alpha: 0.12),
-                blurRadius: 12,
-                offset: const Offset(0, 4),
-              ),
-            ],
+            border: Border.all(color: _skyAccent.withValues(alpha: 0.5)),
           ),
           child: Row(
             children: [
@@ -1046,7 +1241,7 @@ class _FamilyAddDocumentScreenState extends State<FamilyAddDocumentScreen> {
                 width: 40.tw,
                 height: 40.tw,
                 decoration: BoxDecoration(
-                  color: const Color(0xFF1F7A4D).withValues(alpha: 0.12),
+                  color: _greenAccent.withValues(alpha: 0.12),
                   borderRadius: BorderRadius.circular(12.tr),
                 ),
                 alignment: Alignment.center,
@@ -1073,11 +1268,10 @@ class _FamilyAddDocumentScreenState extends State<FamilyAddDocumentScreen> {
                             : _navy,
                       ),
                     ),
-                    SizedBox(height: 2.th),
                     Text(
                       selected == null
-                          ? 'Tap to choose from available cases'
-                          : '${selected.documents.length} document type(s)',
+                          ? 'Tap to choose'
+                          : '${selected.documents.length} required document(s)',
                       style: GoogleFonts.poppins(
                         fontSize: 11.tsp,
                         color: const Color(0xFF7B8290),
@@ -1086,22 +1280,10 @@ class _FamilyAddDocumentScreenState extends State<FamilyAddDocumentScreen> {
                   ],
                 ),
               ),
-              Container(
-                width: 30.tw,
-                height: 30.tw,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: Colors.white.withValues(alpha: 0.85),
-                  border: Border.all(
-                    color: _skyAccent.withValues(alpha: 0.45),
-                  ),
-                ),
-                alignment: Alignment.center,
-                child: Icon(
-                  Icons.keyboard_arrow_down_rounded,
-                  color: _navy,
-                  size: 20.tsp,
-                ),
+              Icon(
+                Icons.keyboard_arrow_down_rounded,
+                color: _navy,
+                size: 22.tsp,
               ),
             ],
           ),
@@ -1110,366 +1292,98 @@ class _FamilyAddDocumentScreenState extends State<FamilyAddDocumentScreen> {
     );
   }
 
-  Future<void> _openDocumentUpdateSheet() async {
-    if (_updateCases.isEmpty) return;
-    final picked = await showModalBottomSheet<_FamUpdateCase>(
-      context: context,
-      backgroundColor: Colors.transparent,
-      isScrollControlled: true,
-      builder: (ctx) {
-        return SafeArea(
-          child: Padding(
-            padding: EdgeInsets.fromLTRB(16.tw, 0, 16.tw, 16.th),
-            child: Container(
-              constraints: BoxConstraints(
-                maxHeight: MediaQuery.of(ctx).size.height * 0.55,
+  Widget _docRow(_FamDocReq req) {
+    final picked = _pickedFiles[req.field];
+    final expiry = _docExpiryDates[req.field];
+    final attached = picked != null && expiry != null;
+    final partial = picked != null && expiry == null;
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: () => unawaited(_openAttach(req)),
+        borderRadius: BorderRadius.circular(14.tr),
+        child: Container(
+          padding: EdgeInsets.symmetric(horizontal: 12.tw, vertical: 12.th),
+          decoration: BoxDecoration(
+            color: Colors.white.withValues(alpha: 0.78),
+            borderRadius: BorderRadius.circular(14.tr),
+            border: Border.all(
+              color: attached
+                  ? _greenAccent.withValues(alpha: 0.45)
+                  : _skyAccent.withValues(alpha: 0.4),
+            ),
+          ),
+          child: Row(
+            children: [
+              Icon(
+                attached
+                    ? Icons.check_circle_rounded
+                    : Icons.pending_outlined,
+                color: attached ? _greenAccent : const Color(0xFF9AA3AF),
+                size: 22.tsp,
               ),
-              decoration: BoxDecoration(
-                color: Colors.white.withValues(alpha: 0.97),
-                borderRadius: BorderRadius.circular(22.tr),
-                border: Border.all(
-                  color: _skyAccent.withValues(alpha: 0.35),
-                ),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.08),
-                    blurRadius: 18,
-                    offset: const Offset(0, 8),
-                  ),
-                ],
-              ),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  SizedBox(height: 10.th),
-                  Container(
-                    width: 42.tw,
-                    height: 4.th,
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFD0D5DD),
-                      borderRadius: BorderRadius.circular(999),
-                    ),
-                  ),
-                  Padding(
-                    padding: EdgeInsets.fromLTRB(18.tw, 14.th, 18.tw, 8.th),
-                    child: Align(
-                      alignment: Alignment.centerLeft,
-                      child: Text(
-                        'Document Update',
-                        style: GoogleFonts.poppins(
-                          fontSize: 16.tsp,
-                          fontWeight: FontWeight.w700,
-                          color: _navy,
-                        ),
+              SizedBox(width: 10.tw),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      req.label,
+                      style: GoogleFonts.poppins(
+                        fontSize: 13.tsp,
+                        fontWeight: FontWeight.w600,
+                        color: _navy,
                       ),
                     ),
-                  ),
-                  Flexible(
-                    child: ListView.separated(
-                      shrinkWrap: true,
-                      padding: EdgeInsets.fromLTRB(12.tw, 0, 12.tw, 12.th),
-                      itemCount: _updateCases.length,
-                      separatorBuilder: (_, __) => SizedBox(height: 8.th),
-                      itemBuilder: (context, index) {
-                        final c = _updateCases[index];
-                        final selected = _selectedCase?.key == c.key;
-                        return Material(
-                          color: Colors.transparent,
-                          child: InkWell(
-                            onTap: () => Navigator.pop(ctx, c),
-                            borderRadius: BorderRadius.circular(14.tr),
-                            child: Container(
-                              padding: EdgeInsets.symmetric(
-                                horizontal: 12.tw,
-                                vertical: 12.th,
-                              ),
-                              decoration: BoxDecoration(
-                                color: selected
-                                    ? _greenAccent.withValues(alpha: 0.12)
-                                    : const Color(0xFFF5F8FB),
-                                borderRadius: BorderRadius.circular(14.tr),
-                                border: Border.all(
-                                  color: selected
-                                      ? _greenAccent.withValues(alpha: 0.45)
-                                      : _skyAccent.withValues(alpha: 0.3),
-                                ),
-                              ),
-                              child: Row(
-                                children: [
-                                  Container(
-                                    width: 36.tw,
-                                    height: 36.tw,
-                                    decoration: BoxDecoration(
-                                      color: selected
-                                          ? _greenAccent.withValues(alpha: 0.18)
-                                          : Colors.white,
-                                      borderRadius: BorderRadius.circular(10.tr),
-                                    ),
-                                    alignment: Alignment.center,
-                                    child: Icon(
-                                      Icons.folder_special_rounded,
-                                      size: 18.tsp,
-                                      color: selected
-                                          ? _greenAccent
-                                          : const Color(0xFF5A6A5E),
-                                    ),
-                                  ),
-                                  SizedBox(width: 10.tw),
-                                  Expanded(
-                                    child: Column(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
-                                      children: [
-                                        Text(
-                                          c.label,
-                                          style: GoogleFonts.poppins(
-                                            fontSize: 13.tsp,
-                                            fontWeight: FontWeight.w700,
-                                            color: _navy,
-                                          ),
-                                        ),
-                                        Text(
-                                          '${c.documents.length} document type(s)',
-                                          style: GoogleFonts.poppins(
-                                            fontSize: 11.tsp,
-                                            color: const Color(0xFF7B8290),
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                  if (selected)
-                                    Icon(
-                                      Icons.check_circle_rounded,
-                                      color: _greenAccent,
-                                      size: 20.tsp,
-                                    ),
-                                ],
-                              ),
-                            ),
-                          ),
-                        );
-                      },
+                    Text(
+                      attached
+                          ? '${picked.filename} · exp ${DateFormat('dd/MM/yyyy').format(expiry)}'
+                          : partial
+                              ? 'File added — expiry required'
+                              : 'Pending — tap to Attach',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: GoogleFonts.poppins(
+                        fontSize: 11.tsp,
+                        color: attached
+                            ? _greenAccent
+                            : const Color(0xFF7B8290),
+                      ),
                     ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        );
-      },
-    );
-    if (picked != null && mounted) {
-      _applyUpdateCase(picked);
-    }
-  }
-
-  Widget _buildUploadStep() {
-    final hasFile = (_filePath ?? '').isNotEmpty;
-    return ListView(
-      padding: EdgeInsets.fromLTRB(16.tw, 4.th, 16.tw, 16.th),
-      children: [
-        Text(
-          'Upload & Details',
-          style: GoogleFonts.poppins(
-            fontSize: 15.tsp,
-            fontWeight: FontWeight.w700,
-            color: _navy,
-          ),
-        ),
-        SizedBox(height: 12.th),
-        InkWell(
-          onTap: _pickFile,
-          borderRadius: BorderRadius.circular(16.tr),
-          child: Container(
-            width: double.infinity,
-            padding: EdgeInsets.symmetric(vertical: 28.th),
-            decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.7),
-              borderRadius: BorderRadius.circular(16.tr),
-              border: Border.all(color: _skyAccent.withValues(alpha: 0.5)),
-            ),
-            child: Column(
-              children: [
-                Icon(
-                  hasFile
-                      ? Icons.insert_drive_file_rounded
-                      : Icons.cloud_upload_outlined,
-                  color: _greenAccent,
-                  size: 36.tsp,
+                  ],
                 ),
-                SizedBox(height: 8.th),
-                Text(
-                  hasFile ? (_fileName ?? 'Selected file') : 'Tap to choose a file',
+              ),
+              Container(
+                padding:
+                    EdgeInsets.symmetric(horizontal: 8.tw, vertical: 4.th),
+                decoration: BoxDecoration(
+                  color: attached
+                      ? _greenAccent.withValues(alpha: 0.12)
+                      : const Color(0xFFFFF3CD),
+                  borderRadius: BorderRadius.circular(999),
+                ),
+                child: Text(
+                  attached ? 'Attached' : 'Pending',
                   style: GoogleFonts.poppins(
-                    fontSize: 13.tsp,
-                    fontWeight: FontWeight.w600,
-                    color: _navy,
+                    fontSize: 10.tsp,
+                    fontWeight: FontWeight.w700,
+                    color: attached
+                        ? _greenAccent
+                        : const Color(0xFF856404),
                   ),
                 ),
-              ],
-            ),
-          ),
-        ),
-        SizedBox(height: 12.th),
-        TextField(
-          controller: _numberController,
-          decoration: InputDecoration(
-            labelText: 'Document number (optional)',
-            labelStyle: GoogleFonts.poppins(fontSize: 12.tsp),
-            filled: true,
-            fillColor: Colors.white.withValues(alpha: 0.75),
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(14.tr),
-              borderSide: const BorderSide(color: Color(0xFFE4E7EC)),
-            ),
-          ),
-        ),
-        SizedBox(height: 10.th),
-        _dateTile(
-          label: 'Issue date (mandatory)',
-          value: _issueDate == null
-              ? 'Select issue date'
-              : DateFormat('dd/MM/yyyy').format(_issueDate!),
-          onTap: () => _pickDate(issue: true),
-        ),
-        SizedBox(height: 8.th),
-        _dateTile(
-          label: 'Expiry date (mandatory)',
-          value: _expiryDate == null
-              ? 'Select expiry date'
-              : DateFormat('dd/MM/yyyy').format(_expiryDate!),
-          onTap: () => _pickDate(issue: false),
-        ),
-      ],
-    );
-  }
-
-  Widget _dateTile({
-    required String label,
-    required String value,
-    required VoidCallback onTap,
-  }) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(14.tr),
-      child: Container(
-        width: double.infinity,
-        padding: EdgeInsets.symmetric(horizontal: 14.tw, vertical: 14.th),
-        decoration: BoxDecoration(
-          color: Colors.white.withValues(alpha: 0.75),
-          borderRadius: BorderRadius.circular(14.tr),
-          border: Border.all(color: const Color(0xFFE4E7EC)),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              label,
-              style: GoogleFonts.poppins(
-                fontSize: 11.tsp,
-                color: const Color(0xFF7B8290),
               ),
-            ),
-            SizedBox(height: 4.th),
-            Text(
-              value,
-              style: GoogleFonts.poppins(
-                fontSize: 13.tsp,
-                fontWeight: FontWeight.w600,
-                color: _navy,
+              Icon(
+                Icons.chevron_right_rounded,
+                color: const Color(0xFF9AA3AF),
+                size: 22.tsp,
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
   }
-
-  Widget _buildReviewStep() {
-    final type = _selectedType?.name ?? '-';
-    return ListView(
-      padding: EdgeInsets.fromLTRB(16.tw, 4.th, 16.tw, 16.th),
-      children: [
-        Text(
-          'Review & Submit',
-          style: GoogleFonts.poppins(
-            fontSize: 15.tsp,
-            fontWeight: FontWeight.w700,
-            color: _navy,
-          ),
-        ),
-        SizedBox(height: 12.th),
-        _reviewRow('Member', _memberLabel(_memberKey)),
-        _reviewRow('Document update', _selectedCase?.label ?? '-'),
-        _reviewRow('Document type', type),
-        _reviewRow(
-          'Number',
-          _numberController.text.trim().isEmpty
-              ? '-'
-              : _numberController.text.trim(),
-        ),
-        _reviewRow('File', _fileName ?? '-'),
-        _reviewRow(
-          'Issue',
-          _issueDate == null
-              ? '-'
-              : DateFormat('dd/MM/yyyy').format(_issueDate!),
-        ),
-        _reviewRow(
-          'Expiry',
-          _expiryDate == null
-              ? '-'
-              : DateFormat('dd/MM/yyyy').format(_expiryDate!),
-        ),
-        _reviewRow('Mode', _isUpdateMode ? 'Update' : 'Add'),
-      ],
-    );
-  }
-
-  Widget _reviewRow(String label, String value) {
-    return Padding(
-      padding: EdgeInsets.only(bottom: 10.th),
-      child: Row(
-        children: [
-          SizedBox(
-            width: 110.tw,
-            child: Text(
-              label,
-              style: GoogleFonts.poppins(
-                fontSize: 12.tsp,
-                color: const Color(0xFF7B8290),
-              ),
-            ),
-          ),
-          Expanded(
-            child: Text(
-              value,
-              style: GoogleFonts.poppins(
-                fontSize: 13.tsp,
-                fontWeight: FontWeight.w600,
-                color: _navy,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _FamDocType {
-  const _FamDocType({
-    required this.name,
-    this.id,
-    this.field,
-    this.familyDocType,
-  });
-
-  final String name;
-  final int? id;
-  final String? field;
-  final String? familyDocType;
 }
 
 class _FamUpdateCase {
@@ -1481,314 +1395,31 @@ class _FamUpdateCase {
 
   final String key;
   final String label;
-  final List<_FamDocType> documents;
-
-  @override
-  bool operator ==(Object other) =>
-      identical(this, other) ||
-      other is _FamUpdateCase && other.key == key;
-
-  @override
-  int get hashCode => key.hashCode;
+  final List<_FamDocReq> documents;
 }
 
-class _FamTypeRow extends StatelessWidget {
-  const _FamTypeRow({
-    required this.name,
-    required this.selected,
-    required this.isUpdate,
-    required this.onTap,
-    this.field,
+class _FamDocReq {
+  const _FamDocReq({
+    required this.field,
+    required this.label,
+    required this.type,
   });
 
+  final String field;
+  final String label;
+  final String type;
+}
+
+class _NationalityOption {
+  const _NationalityOption({required this.id, required this.name});
+
+  final int id;
   final String name;
-  final String? field;
-  final bool selected;
-  final bool isUpdate;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final visual = _famTypeVisual(name, field: field);
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(14.tr),
-        child: Container(
-          padding: EdgeInsets.symmetric(horizontal: 12.tw, vertical: 12.th),
-          decoration: BoxDecoration(
-            color: Colors.white.withValues(alpha: selected ? 0.92 : 0.62),
-            borderRadius: BorderRadius.circular(14.tr),
-            border: Border.all(
-              color: selected
-                  ? _greenAccent.withValues(alpha: 0.55)
-                  : _skyAccent.withValues(alpha: 0.55),
-              width: selected ? 1.4 : 1,
-            ),
-          ),
-          child: Row(
-            children: [
-              Container(
-                width: 44.tw,
-                height: 44.tw,
-                decoration: BoxDecoration(
-                  color: visual.bg,
-                  borderRadius: BorderRadius.circular(12.tr),
-                ),
-                alignment: Alignment.center,
-                child: Icon(visual.icon, color: visual.fg, size: 22.tsp),
-              ),
-              SizedBox(width: 12.tw),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      name,
-                      style: GoogleFonts.poppins(
-                        fontSize: 15.tsp,
-                        fontWeight: FontWeight.w600,
-                        color: _navy,
-                      ),
-                    ),
-                    if (isUpdate) ...[
-                      SizedBox(height: 2.th),
-                      Text(
-                        'Already uploaded — will update',
-                        style: GoogleFonts.poppins(
-                          fontSize: 11.tsp,
-                          color: const Color(0xFF2F6AD8),
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                    ],
-                  ],
-                ),
-              ),
-              Icon(
-                selected
-                    ? Icons.check_circle_rounded
-                    : Icons.chevron_right_rounded,
-                color: selected ? _greenAccent : const Color(0xFF9AA3AF),
-                size: 22.tsp,
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
 }
 
-class _FamTypeVisual {
-  const _FamTypeVisual({
-    required this.bg,
-    required this.fg,
-    required this.icon,
-  });
+class _PickedFile {
+  const _PickedFile({required this.path, required this.filename});
 
-  final Color bg;
-  final Color fg;
-  final IconData icon;
-}
-
-int _famDocumentTypeImportance(String name) {
-  final t = name.toLowerCase().trim();
-  const ranked = <String>[
-    'emirates id',
-    'passport',
-    'residence',
-    'visa',
-    'labor card',
-    'labour card',
-    'driving license',
-    'driving licence',
-    'medical insurance',
-    'photo',
-    'contract',
-  ];
-  for (var i = 0; i < ranked.length; i++) {
-    if (t.contains(ranked[i])) return i;
-  }
-  return 1000;
-}
-
-_FamTypeVisual _famTypeVisual(String name, {String? field}) {
-  final t = name.toLowerCase().trim();
-  final f = (field ?? '').toLowerCase().replaceAll('_file', '').trim();
-  final key = '$t $f';
-
-  if (key.contains('emirates') ||
-      key.contains('eid') ||
-      RegExp(r'\beid\b').hasMatch(f)) {
-    return const _FamTypeVisual(
-      bg: Color(0xFFE3F0FF),
-      fg: Color(0xFF1565C0),
-      icon: Icons.badge_rounded,
-    );
-  }
-  if (key.contains('passport_copy') || key.contains('passport copy')) {
-    return const _FamTypeVisual(
-      bg: Color(0xFFE8EEF8),
-      fg: Color(0xFF3949AB),
-      icon: Icons.copy_all_rounded,
-    );
-  }
-  if (key.contains('passport')) {
-    return const _FamTypeVisual(
-      bg: Color(0xFF1E4F8A),
-      fg: Colors.white,
-      icon: Icons.menu_book_rounded,
-    );
-  }
-  if (key.contains('residence') || key.contains('resident_cancellation')) {
-    return const _FamTypeVisual(
-      bg: Color(0xFFE0F2F1),
-      fg: Color(0xFF00796B),
-      icon: Icons.home_work_rounded,
-    );
-  }
-  if (key.contains('e_visa') || key.contains('e-visa')) {
-    return const _FamTypeVisual(
-      bg: Color(0xFFF3E5F5),
-      fg: Color(0xFF7B1FA2),
-      icon: Icons.airplane_ticket_rounded,
-    );
-  }
-  if (key.contains('visit_visa') || key.contains('visit visa')) {
-    return const _FamTypeVisual(
-      bg: Color(0xFFEDE7F6),
-      fg: Color(0xFF5E35B1),
-      icon: Icons.luggage_rounded,
-    );
-  }
-  if (key.contains('previous_visa') || key.contains('previous visa')) {
-    return const _FamTypeVisual(
-      bg: Color(0xFFE8EAF6),
-      fg: Color(0xFF3F51B5),
-      icon: Icons.history_rounded,
-    );
-  }
-  if (key.contains('visa')) {
-    return const _FamTypeVisual(
-      bg: Color(0xFFEDE7F6),
-      fg: Color(0xFF5E35B1),
-      icon: Icons.flight_takeoff_rounded,
-    );
-  }
-  if (key.contains('entry_stamp') || key.contains('entry stamp')) {
-    return const _FamTypeVisual(
-      bg: Color(0xFFFFF3E0),
-      fg: Color(0xFFEF6C00),
-      icon: Icons.approval_rounded,
-    );
-  }
-  if (key.contains('changed_status') || key.contains('status')) {
-    return const _FamTypeVisual(
-      bg: Color(0xFFE0F7FA),
-      fg: Color(0xFF00838F),
-      icon: Icons.swap_horiz_rounded,
-    );
-  }
-  if (key.contains('labor') || key.contains('labour')) {
-    return const _FamTypeVisual(
-      bg: Color(0xFFFFF1D9),
-      fg: Color(0xFFC47A12),
-      icon: Icons.engineering_rounded,
-    );
-  }
-  if (key.contains('driving') || key.contains('license') || key.contains('licence')) {
-    return const _FamTypeVisual(
-      bg: Color(0xFFFFEBEE),
-      fg: Color(0xFFD84315),
-      icon: Icons.directions_car_filled_rounded,
-    );
-  }
-  if (key.contains('marriage')) {
-    return const _FamTypeVisual(
-      bg: Color(0xFFFCE4EC),
-      fg: Color(0xFFC2185B),
-      icon: Icons.favorite_rounded,
-    );
-  }
-  if (key.contains('birth')) {
-    return const _FamTypeVisual(
-      bg: Color(0xFFE8F5E9),
-      fg: Color(0xFF2E7D32),
-      icon: Icons.child_care_rounded,
-    );
-  }
-  if (key.contains('insurance') ||
-      key.contains('medical') ||
-      key.contains('health')) {
-    return const _FamTypeVisual(
-      bg: Color(0xFFFFE5E5),
-      fg: Color(0xFFC62828),
-      icon: Icons.medical_services_rounded,
-    );
-  }
-  if (key.contains('photo') || key.contains('picture') || key.contains('image')) {
-    return const _FamTypeVisual(
-      bg: Color(0xFFF3E5F5),
-      fg: Color(0xFF8E24AA),
-      icon: Icons.photo_camera_rounded,
-    );
-  }
-  if (key.contains('coc')) {
-    return const _FamTypeVisual(
-      bg: Color(0xFFFFF8E1),
-      fg: Color(0xFFF9A825),
-      icon: Icons.verified_rounded,
-    );
-  }
-  if (key.contains('contract')) {
-    return const _FamTypeVisual(
-      bg: Color(0xFFE3F2FD),
-      fg: Color(0xFF1565C0),
-      icon: Icons.handshake_rounded,
-    );
-  }
-  if (key.contains('certificate')) {
-    return const _FamTypeVisual(
-      bg: Color(0xFFE8F5E9),
-      fg: Color(0xFF43A047),
-      icon: Icons.workspace_premium_rounded,
-    );
-  }
-  // Stable unique fallback from name hash so rows don't all look the same.
-  const palette = <_FamTypeVisual>[
-    _FamTypeVisual(
-      bg: Color(0xFFE3F2FD),
-      fg: Color(0xFF1976D2),
-      icon: Icons.description_rounded,
-    ),
-    _FamTypeVisual(
-      bg: Color(0xFFE8F5E9),
-      fg: Color(0xFF388E3C),
-      icon: Icons.article_rounded,
-    ),
-    _FamTypeVisual(
-      bg: Color(0xFFFFF3E0),
-      fg: Color(0xFFF57C00),
-      icon: Icons.folder_rounded,
-    ),
-    _FamTypeVisual(
-      bg: Color(0xFFF3E5F5),
-      fg: Color(0xFF8E24AA),
-      icon: Icons.note_alt_rounded,
-    ),
-    _FamTypeVisual(
-      bg: Color(0xFFE0F7FA),
-      fg: Color(0xFF0097A7),
-      icon: Icons.assignment_rounded,
-    ),
-    _FamTypeVisual(
-      bg: Color(0xFFFFEBEE),
-      fg: Color(0xFFE53935),
-      icon: Icons.task_rounded,
-    ),
-  ];
-  final hash = key.codeUnits.fold<int>(0, (a, b) => a + b);
-  return palette[hash % palette.length];
+  final String path;
+  final String filename;
 }
