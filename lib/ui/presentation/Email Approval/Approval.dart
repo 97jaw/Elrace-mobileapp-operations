@@ -333,23 +333,7 @@ class _ApprovalsScreenState extends State<ApprovalsScreen> {
     }
 
     if (response.statusCode == 200) {
-      final decoded = jsonDecode(response.body);
-      if (decoded is! Map) {
-        throw Exception("Failed to fetch $groupType: invalid JSON body");
-      }
-      final result = decoded['result'];
-      if (result is! Map) {
-        throw Exception("Failed to fetch $groupType: missing result");
-      }
-      final status = result['status']?.toString();
-      if (status != null &&
-          status.isNotEmpty &&
-          status.toLowerCase() != 'success') {
-        throw Exception(
-          result['message']?.toString() ??
-              "Failed to fetch $groupType: $status",
-        );
-      }
+      final data = jsonDecode(response.body);
       const Map<String, String> responseKeys = {
         "hr": "human_resources",
         "rfq": "rfq",
@@ -357,15 +341,7 @@ class _ApprovalsScreenState extends State<ApprovalsScreen> {
         "petty_cash": "petty_cash",
       };
       final actualKey = responseKeys[groupType] ?? groupType;
-      final payload = result['data'];
-      if (payload is! Map) {
-        // Success with no data bucket — treat as empty list (show 0).
-        return <dynamic>[];
-      }
-      final items = payload[actualKey];
-      if (items is! List) {
-        return <dynamic>[];
-      }
+      final items = data['result']['data'][actualKey] ?? [];
 
       if (groupType == 'petty_cash') {
         debugPrint(
@@ -423,7 +399,6 @@ class _ApprovalsScreenState extends State<ApprovalsScreen> {
         return;
       }
       setState(() {
-        categoryErrors.remove(categoryKey);
         switch (categoryKey) {
           case 'hr':
             var normalizedHr =
@@ -433,11 +408,9 @@ class _ApprovalsScreenState extends State<ApprovalsScreen> {
             }
             hrItems = normalizedHr;
             _countCache.hr = hrItems.length;
-            break;
           case 'rfq':
             rfqItems = _normalizeCategoryItems(items, categoryLabel: 'RFQ');
             _countCache.rfq = rfqItems.length;
-            break;
           case 'invoice':
             var normalizedInvoices =
                 _normalizeCategoryItems(items, categoryLabel: 'INVOICE');
@@ -448,12 +421,10 @@ class _ApprovalsScreenState extends State<ApprovalsScreen> {
             }
             invoiceItems = normalizedInvoices;
             _countCache.invoice = invoiceItems.length;
-            break;
           case 'petty_cash':
             pettyCashItems =
                 _normalizeCategoryItems(items, categoryLabel: 'PETTY CASH');
             _countCache.pettyCash = pettyCashItems.length;
-            break;
         }
         allItems = [
           ...hrItems,
@@ -481,37 +452,9 @@ class _ApprovalsScreenState extends State<ApprovalsScreen> {
         );
         return;
       }
-      // Soft-fail: show 0 like other empty categories, keep retry via pull /
-      // card refresh instead of permanent "--" error state.
       setState(() {
-        categoryErrors.remove(categoryKey);
+        categoryErrors[categoryKey] = e.toString();
         _categoryLoading[categoryKey] = false;
-        _categoryLoaded[categoryKey] = true;
-        switch (categoryKey) {
-          case 'hr':
-            hrItems = [];
-            _countCache.hr = 0;
-            break;
-          case 'rfq':
-            rfqItems = [];
-            _countCache.rfq = 0;
-            break;
-          case 'invoice':
-            invoiceItems = [];
-            _countCache.invoice = 0;
-            break;
-          case 'petty_cash':
-            pettyCashItems = [];
-            _countCache.pettyCash = 0;
-            break;
-        }
-        allItems = [
-          ...hrItems,
-          ...rfqItems,
-          ...invoiceItems,
-          ...pettyCashItems
-        ];
-        approvalItems = _getFilteredItems();
       });
       debugPrint('❌ [ApprovalsScreen] Failed loading $categoryKey: $e');
     }
