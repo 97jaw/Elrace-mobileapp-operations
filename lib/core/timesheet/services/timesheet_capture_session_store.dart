@@ -17,6 +17,9 @@ abstract final class TimesheetCaptureSessionStore {
     required TimesheetProjectDayArgs args,
     required List<TimesheetCaptureSessionEntry> captures,
   }) async {
+    // Local capture drafts are allowed while a PM is acting as a foreman so
+    // the camera flow can run; the final Submit timesheet action is blocked
+    // by TimesheetActingGuard instead.
     final prefs = await SharedPreferences.getInstance();
     if (captures.isEmpty) {
       await prefs.remove(_prefsKey);

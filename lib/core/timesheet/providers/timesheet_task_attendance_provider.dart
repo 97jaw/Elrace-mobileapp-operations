@@ -30,9 +30,12 @@ class TimesheetTaskAttendanceSnapshot {
 
 final timesheetTaskAttendanceProvider = FutureProvider.autoDispose
     .family<TimesheetTaskAttendanceSnapshot, TimesheetTaskArgs>((ref, args) async {
-  final resolution = ref.watch(tmRoleResolutionProvider);
+  final resolution = ref.watch(tmEffectiveResolutionProvider);
   final scope = await ref.watch(timesheetHrScopeProvider.future);
-  final allowedLabor = resolution.canSubmitTimesheet && scope.hasLaborScope
+  // Scoped by foreman role rather than submit rights, so a PM acting as a
+  // foreman sees exactly that foreman's labors.
+  final allowedLabor = resolution.role == TimesheetEffectiveRole.foreman &&
+          scope.hasLaborScope
       ? scope.laborEmployeeIds
       : null;
 

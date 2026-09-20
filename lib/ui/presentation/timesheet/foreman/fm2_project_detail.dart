@@ -272,10 +272,12 @@ class _TeamsTab extends StatelessWidget {
           title: 'Face enrollment',
           subtitle: 'Enroll labor photos for timesheet capture',
           icon: PhosphorIcons.userFocus(),
-          onTap: () => Navigator.of(context).pushNamed(
-            TimesheetRouteNames.faceEnrollEntry,
-            arguments: TimesheetFaceEnrollArgs(projectId: projectId),
-          ),
+          onTap: () {
+            Navigator.of(context).pushNamed(
+              TimesheetRouteNames.faceEnrollEntry,
+              arguments: TimesheetFaceEnrollArgs(projectId: projectId),
+            );
+          },
         ),
         const SizedBox(height: TimesheetModuleLayout.cardSpacing),
         TmTaskRow(

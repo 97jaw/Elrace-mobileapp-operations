@@ -57,7 +57,7 @@ class _MyReportsSiteReportProjectPickerScreenState
 
   Future<List<Project>> _loadProjects() async {
     final client = ref.read(timesheetApiClientProvider);
-    final resolution = ref.read(tmRoleResolutionProvider);
+    final resolution = ref.read(tmEffectiveResolutionProvider);
     final role =
         resolution.role == TimesheetEffectiveRole.pm ? 'pm' : 'foreman';
     switch (_statusFilter) {
