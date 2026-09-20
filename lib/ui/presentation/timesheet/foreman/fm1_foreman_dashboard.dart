@@ -10,6 +10,7 @@ import 'package:el_race/core/timesheet/routing/timesheet_route_names.dart';
 import 'package:el_race/core/timesheet/providers/timesheet_acting_session_provider.dart';
 import 'package:el_race/core/timesheet/services/timesheet_acting_guard.dart';
 import 'package:el_race/core/timesheet/services/timesheet_capture_session_store.dart';
+import 'package:el_race/core/timesheet/timesheet_defaults.dart';
 import 'package:el_race/core/widgets/timesheet/tm_acting_banner.dart';
 import 'package:el_race/core/widgets/timesheet/timesheet_widgets.dart';
 import 'package:el_race/ui/presentation/timesheet/foreman/fm_timesheet_capture_submit_screen.dart';
@@ -292,6 +293,25 @@ class Fm1ForemanDashboard extends ConsumerWidget {
     }
   }
 
+  /// Resolves the capture task without going through the autoDispose
+  /// [timesheetMaintenanceTaskProvider], which can be disposed mid-await when
+  /// a session refresh rebuilds dependents (camera then never opens).
+  Future<Task> _resolveCaptureTask(WidgetRef ref, String projectId) async {
+    final acting = ref.read(tmActingSessionProvider);
+    final profile = ref.read(timesheetLoginProfileProvider);
+    final env = await ref.read(timesheetApiClientProvider).getTimesheetTaskForProject(
+          projectId,
+          displayName: acting?.foremanName ?? profile.displayName,
+          odooUserId: acting?.odooUserId,
+          preferLoginUser: acting == null,
+        );
+    final task = env.data;
+    if (task == null || !TimesheetDefaults.isOdooIntegerId(task.id)) {
+      throw Exception(env.error ?? 'Foreman or maintenance task not found');
+    }
+    return task;
+  }
+
   Future<TimesheetProjectDayArgs?> _resolveDefaultArgs(
     WidgetRef ref,
     TimesheetProjectBuckets buckets,
@@ -299,8 +319,7 @@ class Fm1ForemanDashboard extends ConsumerWidget {
     if (buckets.inProgress.isEmpty) return null;
     final project = buckets.inProgress.first;
     try {
-      final task =
-          await ref.read(timesheetMaintenanceTaskProvider(project.id).future);
+      final task = await _resolveCaptureTask(ref, project.id);
       final today = DateTime.now();
       return TimesheetProjectDayArgs(
         projectId: project.id,
@@ -373,8 +392,7 @@ class Fm1ForemanDashboard extends ConsumerWidget {
 
     final project = buckets.inProgress.first;
     try {
-      final task =
-          await ref.read(timesheetMaintenanceTaskProvider(project.id).future);
+      final task = await _resolveCaptureTask(ref, project.id);
       if (!context.mounted) return const [];
       final today = DateTime.now();
       final result =
@@ -472,9 +490,7 @@ class Fm1ForemanDashboard extends ConsumerWidget {
     var submitProjectId = selectedProject?.id ?? projects.first.id;
     String submitTaskId;
     try {
-      final task = await ref.read(
-        timesheetMaintenanceTaskProvider(submitProjectId).future,
-      );
+      final task = await _resolveCaptureTask(ref, submitProjectId);
       submitTaskId = task.id;
     } catch (_) {
       if (context.mounted) {

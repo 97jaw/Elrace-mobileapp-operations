@@ -68,20 +68,29 @@ final timesheetPendingSyncCountProvider = FutureProvider<int>((ref) async {
 
 final timesheetMaintenanceTaskProvider = FutureProvider.autoDispose
     .family<Task, String>((ref, projectId) async {
-  final profile = ref.watch(timesheetLoginProfileProvider);
-  final acting = ref.watch(tmActingSessionProvider);
-  // While acting, resolve the foreman's assignment task — never the PM's.
-  final env = await ref.watch(timesheetApiClientProvider).getTimesheetTaskForProject(
-        projectId,
-        displayName: acting?.foremanName ?? profile.displayName,
-        odooUserId: acting?.odooUserId,
-        preferLoginUser: acting == null,
-      );
-  final task = env.data;
-  if (task == null || !TimesheetDefaults.isOdooIntegerId(task.id)) {
-    throw Exception(env.error ?? 'Foreman or maintenance task not found');
+  // Keep alive while the future is in flight so a brief unwatch (e.g. sheet
+  // rebuild) does not dispose the load mid-await.
+  final link = ref.keepAlive();
+  try {
+    final profile = ref.watch(timesheetLoginProfileProvider);
+    final acting = ref.watch(tmActingSessionProvider);
+    // While acting, resolve the foreman's assignment task — never the PM's.
+    final env =
+        await ref.watch(timesheetApiClientProvider).getTimesheetTaskForProject(
+              projectId,
+              displayName: acting?.foremanName ?? profile.displayName,
+              odooUserId: acting?.odooUserId,
+              preferLoginUser: acting == null,
+            );
+    final task = env.data;
+    if (task == null || !TimesheetDefaults.isOdooIntegerId(task.id)) {
+      throw Exception(env.error ?? 'Foreman or maintenance task not found');
+    }
+    return task;
+  } finally {
+    // Allow dispose again once no longer watched (after a short grace).
+    Future<void>.delayed(const Duration(seconds: 30), link.close);
   }
-  return task;
 });
 
 final timesheetTaskDayCountsProvider = FutureProvider.autoDispose

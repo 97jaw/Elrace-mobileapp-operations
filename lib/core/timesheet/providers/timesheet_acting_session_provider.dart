@@ -1,6 +1,7 @@
 import 'package:el_race/core/hr_management/providers/hr_management_providers.dart';
 import 'package:el_race/core/timesheet/models/timesheet_team_member.dart';
 import 'package:el_race/core/timesheet/services/timesheet_acting_scope.dart';
+import 'package:el_race/core/timesheet/services/timesheet_project_access_service.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 export 'package:el_race/core/timesheet/services/timesheet_acting_scope.dart'
@@ -16,12 +17,31 @@ final tmActingSessionProvider =
 );
 
 class TimesheetActingSessionNotifier extends Notifier<TimesheetActingSession?> {
+  /// Login employee the current acting session (if any) belongs to.
+  int? _boundLoginEmployeeId;
+
   @override
   TimesheetActingSession? build() {
-    // Rebuilding on login/logout drops any acting session with the session.
+    // Token refresh bumps this revision. We must NOT clear acting on every
+    // bump — only when the logged-in employee actually changes (logout /
+    // switch user). Clearing on refresh disposed in-flight capture task loads
+    // and kicked PMs out of "Access with Foreman" mid-flow.
     ref.watch(loginSessionRevisionProvider);
-    TimesheetActingScope.setForNotifier(null);
-    return null;
+    int? loginId;
+    try {
+      loginId = TimesheetProjectAccessService.loginEmployeeId();
+    } catch (_) {
+      loginId = null;
+    }
+
+    if (_boundLoginEmployeeId != null && _boundLoginEmployeeId != loginId) {
+      TimesheetActingScope.setForNotifier(null);
+      _boundLoginEmployeeId = loginId;
+      return null;
+    }
+
+    _boundLoginEmployeeId = loginId;
+    return TimesheetActingScope.current;
   }
 
   void enter(TimesheetTeamMember foreman) {

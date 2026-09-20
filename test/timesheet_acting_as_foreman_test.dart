@@ -1,3 +1,4 @@
+import 'package:el_race/core/hr_management/providers/hr_management_providers.dart';
 import 'package:el_race/core/timesheet/models/timesheet_team_member.dart';
 import 'package:el_race/core/timesheet/providers/timesheet_acting_session_provider.dart';
 import 'package:el_race/core/timesheet/providers/timesheet_role_provider.dart';
@@ -103,6 +104,24 @@ void main() {
         TimesheetEffectiveRole.pm,
       );
       expect(TimesheetActingScope.isActing, isFalse);
+    });
+
+    test('token-refresh revision bump keeps the acting session', () {
+      final container = _containerFor(_pm);
+      container
+          .read(tmActingSessionProvider.notifier)
+          .enter(_member(42, 'Ali Hassan'));
+
+      // Simulate /api/session/refresh bumping the login revision without a
+      // different employee — acting must survive.
+      container.read(loginSessionRevisionProvider.notifier).bump();
+
+      expect(container.read(tmActingSessionProvider)?.foremanEmployeeId, 42);
+      expect(container.read(tmActingEmployeeIdProvider), 42);
+      expect(
+        container.read(tmEffectiveResolutionProvider).isActingAsForeman,
+        isTrue,
+      );
     });
 
     test('project scope switches to the foreman supervisor branch', () {
