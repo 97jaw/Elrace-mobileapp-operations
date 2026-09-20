@@ -306,7 +306,6 @@ class _TmTeamMembersSheetBodyState
                                   ? null
                                   : () => _handleEnroll(member, enrolled),
                               onSubmit: widget.onCaptureAttendance == null ||
-                                      !enrolled ||
                                       captured ||
                                       enrolling
                                   ? null
@@ -532,7 +531,7 @@ class _MemberTile extends StatelessWidget {
                   ? 'Already captured'
                   : isEnrolled
                       ? 'Capture attendance'
-                      : 'Enroll before submitting',
+                      : 'Capture attendance (not enrolled yet)',
               icon: PhosphorIcons.paperPlaneTilt(),
               color: onSubmit != null
                   ? _TmLaborActionColors.ok

@@ -616,17 +616,26 @@ class TimesheetApiClient {
   }
 
   /// Foreman assignment task for this project (Postman `task_id`), else Maintenance.
+  ///
+  /// [preferLoginUser] defaults to true so a real foreman login still matches
+  /// tasks by their JWT `user_id`. When a PM is acting as a foreman, pass
+  /// `preferLoginUser: false` and the acted-as [odooUserId] / [displayName]
+  /// instead — otherwise capture resolves the PM's task (or none) and the
+  /// camera never opens.
   Future<TimesheetApiEnvelope<Task>> getTimesheetTaskForProject(
     String projectId, {
     int? odooUserId,
     String? displayName,
+    bool preferLoginUser = true,
   }) async {
     final tasksEnv = await getProjectTasks(projectId: projectId);
     final tasks = tasksEnv.data ?? const <Task>[];
+    final resolvedUserId = odooUserId ??
+        (preferLoginUser && !_isActing ? _transport.odooUserId : null);
     final foreman = TimesheetDefaults.tryResolveForemanTask(
       projectId: projectId,
       projectTasks: tasks,
-      odooUserId: odooUserId ?? _transport.odooUserId,
+      odooUserId: resolvedUserId,
       displayName: displayName,
     );
     if (foreman != null) return _ok(foreman);

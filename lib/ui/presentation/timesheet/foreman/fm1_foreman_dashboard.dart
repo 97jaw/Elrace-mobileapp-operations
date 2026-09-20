@@ -393,10 +393,17 @@ class Fm1ForemanDashboard extends ConsumerWidget {
         ),
       );
       return result ?? const [];
-    } catch (_) {
+    } catch (error, stack) {
+      debugPrint('Fm1ForemanDashboard._captureForMember: $error\n$stack');
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Could not open timesheet capture')),
+          SnackBar(
+            content: Text(
+              error.toString().contains('task')
+                  ? 'Could not open camera: no timesheet task on this site for the foreman.'
+                  : 'Could not open timesheet capture',
+            ),
+          ),
         );
       }
       return const [];

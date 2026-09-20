@@ -14,6 +14,7 @@ class TimesheetActingSession {
     required this.foremanName,
     this.fileId,
     this.avatarUrl,
+    this.odooUserId,
   });
 
   factory TimesheetActingSession.fromMember(TimesheetTeamMember member) {
@@ -22,6 +23,7 @@ class TimesheetActingSession {
       foremanName: member.name,
       fileId: member.fileId,
       avatarUrl: member.imageUrl,
+      odooUserId: member.odooUserId,
     );
   }
 
@@ -29,6 +31,10 @@ class TimesheetActingSession {
   final String foremanName;
   final String? fileId;
   final String? avatarUrl;
+
+  /// Odoo `res.users` id for the acted-as foreman, when the HR scope card
+  /// includes it. Used to resolve that foreman's assignment task for capture.
+  final int? odooUserId;
 }
 
 /// Process-wide mirror of the acting session for code that cannot reach a

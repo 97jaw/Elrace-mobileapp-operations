@@ -69,9 +69,13 @@ final timesheetPendingSyncCountProvider = FutureProvider<int>((ref) async {
 final timesheetMaintenanceTaskProvider = FutureProvider.autoDispose
     .family<Task, String>((ref, projectId) async {
   final profile = ref.watch(timesheetLoginProfileProvider);
+  final acting = ref.watch(tmActingSessionProvider);
+  // While acting, resolve the foreman's assignment task — never the PM's.
   final env = await ref.watch(timesheetApiClientProvider).getTimesheetTaskForProject(
         projectId,
-        displayName: profile.displayName,
+        displayName: acting?.foremanName ?? profile.displayName,
+        odooUserId: acting?.odooUserId,
+        preferLoginUser: acting == null,
       );
   final task = env.data;
   if (task == null || !TimesheetDefaults.isOdooIntegerId(task.id)) {
