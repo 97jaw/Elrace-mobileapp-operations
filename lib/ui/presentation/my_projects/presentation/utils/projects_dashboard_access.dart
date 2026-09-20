@@ -63,9 +63,11 @@ class ProjectsDashboardAccess {
       isManagementUser() || isProjectManagerUser();
 
   /// Domains are applied on the server from the auth token — never pass domains
-  /// from the app. This flag only toggles client-side summary vs scoped UI.
+  /// from the app. Portfolio KPIs / client bars use server aggregates for both
+  /// management and staff (all statuses except internal/general).
   static bool get bypassesDomainScope => isManagementUser();
 
-  /// Apply staff-list / agreement domain filtering for non-management users.
+  /// Apply staff-list / agreement domain filtering for non-management users
+  /// (v1 chart sample fallback only).
   static bool get shouldApplyDomainScope => !bypassesDomainScope;
 }

@@ -170,7 +170,10 @@ class _MyProjectState extends State<MyProject> {
   bool _showContent = false;
   String? _error;
   List<UserProjectModel> _projects = [];
-  List<ProjectEntity> _inProgressProjects = [];
+  /// Portfolio project sample for map/status helpers + client sheet rows.
+  List<ProjectEntity> _portfolioProjects = [];
+  /// Server `clients/list` group_by=client buckets (authoritative bar counts).
+  List<UserProjectModel> _clientBuckets = [];
   ProjectsDashboardSummaryModel? _dashboardSummary;
   ProjectsViewMode _viewMode = ProjectsViewMode.dashboard;
   int? _selectedYear;
@@ -306,14 +309,14 @@ class _MyProjectState extends State<MyProject> {
   ProjectsDashboardBoxStats get _boxStats =>
       ProjectsDashboardAggregator.resolveBoxStats(
         agreements: _domainAgreements,
-        domainProjects: _inProgressProjects,
+        domainProjects: _portfolioProjects,
         summary: _dashboardSummary,
         widgetRecordMap: _widgetRecordMap,
       );
 
   List<int> get _availableYears {
     final years = <int>{DateTime.now().year};
-    for (final p in _inProgressProjects) {
+    for (final p in _portfolioProjects) {
       final y = _projectYear(p);
       if (y != null) years.add(y);
     }
@@ -330,18 +333,10 @@ class _MyProjectState extends State<MyProject> {
     return null;
   }
 
-  List<ProjectEntity> get _projectsForSelectedYear {
-    if (_selectedYear == null) return _inProgressProjects;
-    return _inProgressProjects.where((p) {
-      final y = _projectYear(p);
-      return y == null || y == _selectedYear;
-    }).toList();
-  }
-
   List<ClientInProgressBarData> get _clientBars =>
-      ClientInProgressGrouper.group(
-        _projectsForSelectedYear,
-        agreements: _domainAgreements,
+      ClientInProgressGrouper.fromClientBuckets(
+        _clientBuckets,
+        projectsForSheets: _portfolioProjects,
       );
 
   void _openAgreement(UserProjectModel project) {
@@ -385,7 +380,11 @@ class _MyProjectState extends State<MyProject> {
     final ds = ProjectsModule.remote;
 
     try {
-      final clientsFuture = ds.fetchClientsList();
+      final clientsFuture = ds.fetchClientsList(groupBy: 'agreement');
+      final clientBarsFuture = ds.fetchClientsList(
+        groupBy: 'client',
+        year: _selectedYear,
+      );
       final summaryFuture = ds.fetchProjectsDashboardSummary();
 
       final UserProjectsResponse response = await clientsFuture;
@@ -396,9 +395,17 @@ class _MyProjectState extends State<MyProject> {
         summary = null;
       }
 
+      List<UserProjectModel> clientBuckets = const [];
+      try {
+        clientBuckets = (await clientBarsFuture).projects;
+      } catch (_) {
+        clientBuckets = const [];
+      }
+
       if (!mounted) return;
       setState(() {
         _projects = response.projects;
+        _clientBuckets = clientBuckets;
         _dashboardSummary = summary;
         _isLoading = false;
       });
@@ -418,6 +425,19 @@ class _MyProjectState extends State<MyProject> {
     }
   }
 
+  Future<void> _loadClientEngagementBars() async {
+    try {
+      final response = await ProjectsModule.remote.fetchClientsList(
+        groupBy: 'client',
+        year: _selectedYear,
+      );
+      if (!mounted) return;
+      setState(() => _clientBuckets = response.projects);
+    } catch (_) {
+      // Keep previous bars on year-filter failure.
+    }
+  }
+
   Future<void> _loadChartProjects(ProjectRemoteDataSource ds) async {
     await Future<void>.delayed(const Duration(milliseconds: 600));
     if (!mounted) return;
@@ -434,20 +454,20 @@ class _MyProjectState extends State<MyProject> {
       setState(() {
         if (ProjectsDashboardAccess.shouldApplyDomainScope &&
             !ds.projectsHubV2Available) {
-          _inProgressProjects =
+          _portfolioProjects =
               ProjectsDashboardAggregator.filterProjectsForAccessibleAgreements(
             projects: visible,
             agreements: _domainAgreements,
           );
         } else {
-          _inProgressProjects = visible;
+          _portfolioProjects = visible;
         }
         _chartLoading = false;
       });
     } catch (_) {
       if (!mounted) return;
       setState(() {
-        _inProgressProjects = [];
+        _portfolioProjects = [];
         _chartLoading = false;
       });
     }
@@ -533,8 +553,10 @@ class _MyProjectState extends State<MyProject> {
                               ),
                               selectedYear: _selectedYear,
                               availableYears: _availableYears,
-                              onYearChanged: (y) =>
-                                  setState(() => _selectedYear = y),
+                              onYearChanged: (y) {
+                                setState(() => _selectedYear = y);
+                                unawaited(_loadClientEngagementBars());
+                              },
                             ),
                           ],
                         ),
