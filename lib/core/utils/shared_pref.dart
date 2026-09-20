@@ -197,8 +197,57 @@ class SharedPref {
           final incoming = entry.value;
           if (incoming is! Map) continue;
           final incomingData = incoming['data'];
-          final hasWidgets = incomingData is Map && incomingData.isNotEmpty;
-          if (!hasWidgets) continue;
+          if (incomingData is! Map || incomingData.isEmpty) continue;
+
+          // Session refresh returns visibility-only widgets (empty
+          // record_to_show). Merge flags only — never wipe card metadata
+          // that came from a full login or /widgets/*/data refresh.
+          final existingDefault = data['default_widgets'];
+          final existingMap = existingDefault is Map
+              ? Map<String, dynamic>.from(existingDefault)
+              : <String, dynamic>{
+                  'status': incoming['status'] ?? 'success',
+                  'message': incoming['message'] ?? 'merged',
+                };
+          final existingData = existingMap['data'];
+          final widgetsData = existingData is Map
+              ? Map<String, dynamic>.from(existingData)
+              : <String, dynamic>{};
+
+          for (final widgetEntry in incomingData.entries) {
+            final key = widgetEntry.key.toString();
+            final flag = widgetEntry.value;
+            if (flag is! Map) continue;
+            final incomingWidget = Map<String, dynamic>.from(flag);
+            final existingWidget = widgetsData[key];
+            if (existingWidget is Map) {
+              final merged = Map<String, dynamic>.from(existingWidget);
+              if (incomingWidget.containsKey('is_disabled')) {
+                merged['is_disabled'] = incomingWidget['is_disabled'];
+              }
+              if (incomingWidget.containsKey('widget_number') &&
+                  merged['widget_number'] == null) {
+                merged['widget_number'] = incomingWidget['widget_number'];
+              }
+              final incomingRecord = incomingWidget['record_to_show'];
+              final hasRecord = incomingRecord is Map
+                  ? incomingRecord.isNotEmpty
+                  : incomingRecord != null;
+              if (hasRecord) {
+                merged['record_to_show'] = incomingRecord;
+              }
+              widgetsData[key] = merged;
+            } else {
+              widgetsData[key] = incomingWidget;
+            }
+          }
+
+          existingMap['data'] = widgetsData;
+          if (incoming['status'] != null) {
+            existingMap['status'] = incoming['status'];
+          }
+          data['default_widgets'] = existingMap;
+          continue;
         }
         data[entry.key] = entry.value;
       }
