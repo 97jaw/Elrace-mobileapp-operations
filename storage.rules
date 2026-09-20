@@ -58,14 +58,56 @@ service firebase.storage {
           == request.auth.uid;
     }
 
-    // Canonical chat media path only: chat_media/{chatId}/{messageId}/{fileName}
+    function signatureDocPath(userId, docId) {
+      return /databases/(default)/documents/users/$(userId)/signature_documents/$(docId);
+    }
+
+    // Mirrors the Firestore rule on users/{userId}/signature_documents/{docId}.
+    function isSignatureDocRecipient(userId, docId) {
+      return firestore.exists(signatureDocPath(userId, docId))
+        && firestore.get(signatureDocPath(userId, docId)).data.recipient_uid
+          == request.auth.uid;
+    }
+
+    // Canonical chat message media: chat_media/{chatId}/{messageId}/{fileName}
     match /chat_media/{chatId}/{messageId}/{fileName} {
       allow read: if isChatMember(chatId);
       allow create, update: if isChatMember(chatId) && validChatMediaWrite();
       allow delete: if canDeleteOwnMessageMedia(chatId, messageId);
     }
 
-    // My Notes audio / images — owner only
+    // My Notes audio / images — owner only.
+    // The app writes under chat_media/notes/{uid}/{noteId}/... (audio.m4a and
+    // images/{id}.jpg), so this prefix must be matched explicitly.
+    match /chat_media/notes/{userId}/{noteId}/{allPaths=**} {
+      allow read: if isSignedIn() && request.auth.uid == userId;
+      allow write: if isSignedIn()
+                   && request.auth.uid == userId
+                   && request.resource.size < 50 * 1024 * 1024
+                   && request.resource.contentType.matches('audio/.*|image/.*|application/octet-stream');
+    }
+
+    // Signature personal library — owner writes, owner or named recipient reads.
+    match /chat_media/signature_docs/{userId}/{docId}/{allPaths=**} {
+      allow read: if isSignedIn()
+                  && (request.auth.uid == userId
+                      || isSignatureDocRecipient(userId, docId));
+      allow write: if isSignedIn()
+                   && request.auth.uid == userId
+                   && request.resource.size < 50 * 1024 * 1024
+                   && request.resource.contentType.matches('application/pdf|image/.*|application/octet-stream');
+    }
+
+    // Task voice comments, keyed by task id — todos are readable by any signed-in user.
+    match /voice_comments/{taskId}/{fileName} {
+      allow read: if isSignedIn();
+      allow write: if isSignedIn()
+                   && request.resource.size < 25 * 1024 * 1024
+                   && request.resource.contentType.matches('audio/.*');
+    }
+
+    // Legacy owner-scoped notes prefix, kept for files uploaded before the
+    // chat_media/notes/** layout.
     match /users/{userId}/notes/{noteId}/{allPaths=**} {
       allow read: if isSignedIn() && request.auth.uid == userId;
       allow write: if isSignedIn()

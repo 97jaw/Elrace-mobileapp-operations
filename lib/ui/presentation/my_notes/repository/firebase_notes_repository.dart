@@ -1,4 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:el_race/core/firebase/firebase_session.dart';
 import 'package:el_race/core/utils/shared_pref.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
@@ -31,31 +32,7 @@ class FirebaseNotesRepository implements INotesRepository {
     return uid;
   }
 
-  /// Same pattern as TodoFirebaseService — custom token may not be hydrated yet.
-  Future<void> _ensureSignedIn() async {
-    if (_auth.currentUser != null) return;
-
-    final loginData = SharedPref.getLoginData();
-    final customToken = loginData.result?.data?.firebase_custom_token;
-    if (customToken != null &&
-        customToken.isNotEmpty &&
-        customToken != 'false') {
-      try {
-        await _auth.signInWithCustomToken(customToken);
-        debugPrint('✅ FirebaseNotesRepository: Signed in with custom token');
-      } catch (e) {
-        debugPrint(
-          '⚠️ FirebaseNotesRepository: Could not sign in with custom token: $e',
-        );
-      }
-    }
-
-    if (_auth.currentUser == null) {
-      throw Exception(
-        'Firebase Auth not signed in. Open Chat once after login, then retry Notes.',
-      );
-    }
-  }
+  Future<void> _ensureSignedIn() => FirebaseSession.instance.ensureSignedIn();
 
   CollectionReference<Map<String, dynamic>> get _notesCollection =>
       _firestore.collection('users').doc(_userId).collection('notes');

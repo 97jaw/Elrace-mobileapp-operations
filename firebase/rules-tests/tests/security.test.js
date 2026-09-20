@@ -661,3 +661,141 @@ describe('Storage chat_media security', () => {
     await assertFails(deleteObject(storageRef(bob, path)));
   });
 });
+
+describe('Storage feature media security', () => {
+  const pdfBytes = Buffer.from('%PDF-1.4 fake');
+  const audioBytes = Buffer.from('fake-m4a');
+  const imageBytes = Buffer.from('fake-jpeg');
+
+  const NOTE_ID = 'note_1';
+  const DOC_ID = 'doc_1';
+  const TASK_ID = 'task_1';
+
+  function aliceStorage() {
+    return testEnv.authenticatedContext(ALICE, ALICE_CLAIMS).storage();
+  }
+  function bobStorage() {
+    return testEnv.authenticatedContext(BOB, BOB_CLAIMS).storage();
+  }
+
+  it('allows owner to upload and read notes audio', async () => {
+    const path = `chat_media/notes/${ALICE}/${NOTE_ID}/audio.m4a`;
+    await assertSucceeds(
+      uploadBytes(storageRef(aliceStorage(), path), audioBytes, {
+        contentType: 'audio/mp4',
+      }),
+    );
+    await assertSucceeds(getBytes(storageRef(aliceStorage(), path)));
+  });
+
+  it('allows owner to upload nested notes images', async () => {
+    const path = `chat_media/notes/${ALICE}/${NOTE_ID}/images/img1.jpg`;
+    await assertSucceeds(
+      uploadBytes(storageRef(aliceStorage(), path), imageBytes, {
+        contentType: 'image/jpeg',
+      }),
+    );
+  });
+
+  it('denies another user reading or writing notes media', async () => {
+    const path = `chat_media/notes/${ALICE}/${NOTE_ID}/audio.m4a`;
+    await testEnv.withSecurityRulesDisabled(async (ctx) => {
+      await uploadBytes(storageRef(ctx.storage(), path), audioBytes, {
+        contentType: 'audio/mp4',
+      });
+    });
+    await assertFails(getBytes(storageRef(bobStorage(), path)));
+    await assertFails(
+      uploadBytes(storageRef(bobStorage(), path), audioBytes, {
+        contentType: 'audio/mp4',
+      }),
+    );
+  });
+
+  it('denies a non-audio/image content type on notes media', async () => {
+    await assertFails(
+      uploadBytes(
+        storageRef(aliceStorage(), `chat_media/notes/${ALICE}/${NOTE_ID}/evil.html`),
+        pdfBytes,
+        { contentType: 'text/html' },
+      ),
+    );
+  });
+
+  it('allows owner to upload a signature document PDF', async () => {
+    await assertSucceeds(
+      uploadBytes(
+        storageRef(
+          aliceStorage(),
+          `chat_media/signature_docs/${ALICE}/${DOC_ID}/original_contract.pdf`,
+        ),
+        pdfBytes,
+        { contentType: 'application/pdf' },
+      ),
+    );
+  });
+
+  it('denies a non-owner writing into the signature library', async () => {
+    await assertFails(
+      uploadBytes(
+        storageRef(
+          bobStorage(),
+          `chat_media/signature_docs/${ALICE}/${DOC_ID}/evil.pdf`,
+        ),
+        pdfBytes,
+        { contentType: 'application/pdf' },
+      ),
+    );
+  });
+
+  it('allows the named recipient to read a signature document, and denies others', async () => {
+    const path = `chat_media/signature_docs/${ALICE}/${DOC_ID}/original_contract.pdf`;
+    await testEnv.withSecurityRulesDisabled(async (ctx) => {
+      await setDoc(
+        doc(ctx.firestore(), 'users', ALICE, 'signature_documents', DOC_ID),
+        {
+          owner_uid: ALICE,
+          recipient_uid: BOB,
+          file_name: 'contract.pdf',
+        },
+      );
+      await uploadBytes(storageRef(ctx.storage(), path), pdfBytes, {
+        contentType: 'application/pdf',
+      });
+    });
+
+    await assertSucceeds(getBytes(storageRef(bobStorage(), path)));
+
+    const eve = testEnv.authenticatedContext(EVE, EVE_CLAIMS).storage();
+    await assertFails(getBytes(storageRef(eve, path)));
+  });
+
+  it('allows a signed-in user to upload and read a task voice comment', async () => {
+    const path = `voice_comments/${TASK_ID}/voice_1.m4a`;
+    await assertSucceeds(
+      uploadBytes(storageRef(aliceStorage(), path), audioBytes, {
+        contentType: 'audio/mp4',
+      }),
+    );
+    await assertSucceeds(getBytes(storageRef(bobStorage(), path)));
+  });
+
+  it('denies a non-audio task voice comment and unauthenticated access', async () => {
+    await assertFails(
+      uploadBytes(
+        storageRef(aliceStorage(), `voice_comments/${TASK_ID}/evil.pdf`),
+        pdfBytes,
+        { contentType: 'application/pdf' },
+      ),
+    );
+
+    const anon = testEnv.unauthenticatedContext().storage();
+    await assertFails(
+      uploadBytes(
+        storageRef(anon, `voice_comments/${TASK_ID}/anon.m4a`),
+        audioBytes,
+        { contentType: 'audio/mp4' },
+      ),
+    );
+  });
+});

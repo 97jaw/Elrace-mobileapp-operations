@@ -581,6 +581,9 @@ class FirebaseChatAuthService {
             phoneNumber: session.phoneNumber ?? data.phone,
             xStampUser: session.xStampUser || (data.xStampUser == true),
           );
+          // Keep _currentSession populated on the cache path so sign-out can
+          // unsubscribe the role topic and ensureAuthenticated has a JWT.
+          _currentSession = healed;
           await UserRepository.instance.upsertUser(healed);
           print('✅ FirebaseChatAuth: Profile re-synced on cache restore');
           print('   - name=${healed.name}');
@@ -613,6 +616,11 @@ class FirebaseChatAuthService {
       _isSetupComplete = true;
       print('✅ FirebaseChatAuth: Restored from cache successfully!');
 
+      // The cached path skipped setupAfterBackendLogin, so wire up proactive
+      // token rotation here too — otherwise a long foreground session started
+      // from cache silently loses auth when the custom token expires.
+      _startAutoTokenRefresh();
+
       return ChatSetupResult.success(
         firebaseUid: firebaseUid,
         roleChatId: _currentRoleChatId!,
@@ -625,12 +633,6 @@ class FirebaseChatAuthService {
     }
   }
 
-  /// Re-authenticate with existing session (e.g., on app resume if token expired).
-  ///
-  /// Returns true if already authenticated with valid token,
-  /// or if reauthentication succeeded. Returns false if token expired
-  /// and needs fresh token from backend.
-
   /// Notification taps are routed by FirebaseService. This callback is kept
   /// for chat-module integrations that still observe tap events directly.
   void _wireChatNotificationTap() {
@@ -638,52 +640,6 @@ class FirebaseChatAuthService {
         (chatId, chatTitle, chatType) {
       print('🔔 FirebaseChatAuth: Chat notification tapped → $chatId');
     };
-  }
-
-  Future<bool> reauthenticate() async {
-    // Check if user is already signed in with correct UID
-    if (_auth.currentUser != null && _currentSession != null) {
-      if (_auth.currentUser!.uid == _currentSession!.firebaseUid) {
-        print(
-            '✅ FirebaseChatAuth: User already authenticated as ${_auth.currentUser!.uid}');
-        return true;
-      } else {
-        print(
-            '⚠️ FirebaseChatAuth: UID mismatch. Current: ${_auth.currentUser!.uid}, Expected: ${_currentSession!.firebaseUid}');
-      }
-    }
-
-    // Try to reauthenticate with stored token
-    if (_currentSession == null || !_currentSession!.isChatAvailable) {
-      print(
-          '⚠️ FirebaseChatAuth: No session or token available for reauthentication');
-      return false;
-    }
-
-    try {
-      print(
-          '🔄 FirebaseChatAuth: Attempting reauthentication with stored token...');
-      final cleanToken =
-          _cleanFirebaseToken(_currentSession!.firebaseCustomToken!);
-      await _auth.signInWithCustomToken(cleanToken);
-      print('✅ FirebaseChatAuth: Reauthentication successful');
-      return true;
-    } on FirebaseAuthException catch (e) {
-      print(
-          '❌ FirebaseChatAuth: Reauthentication failed - ${e.code}: ${e.message}');
-
-      // Token expired or invalid - need fresh token from backend
-      if (e.code == 'invalid-custom-token' ||
-          e.code == 'custom-token-expired') {
-        print(
-            '⚠️ FirebaseChatAuth: Token expired. Need fresh token from backend.');
-      }
-
-      return false;
-    } catch (e) {
-      print('❌ FirebaseChatAuth: Reauthentication error: $e');
-      return false;
-    }
   }
 
   /// Ensure Firebase Auth is signed in with a usable ID token.

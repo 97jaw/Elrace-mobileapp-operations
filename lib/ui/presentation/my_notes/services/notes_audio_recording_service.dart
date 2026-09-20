@@ -1,7 +1,7 @@
 import 'dart:async';
 import 'dart:io';
 
-import 'package:el_race/chat/services/firebase_chat_auth_service.dart';
+import 'package:el_race/core/firebase/firebase_session.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/foundation.dart';
@@ -56,7 +56,7 @@ class NotesAudioRecordingService {
     }
 
     try {
-      await FirebaseChatAuthService.instance.ensureAuthenticated();
+      await FirebaseSession.instance.ensureSignedIn();
 
       final directory = await getTemporaryDirectory();
       final fileName = 'note_audio_${_uuid.v4()}.m4a';
@@ -199,49 +199,40 @@ class NotesAudioRecordingService {
   }
 
   /// Uploads audio to `chat_media/notes/{uid}/{noteId}/audio.m4a`
-  /// (uses existing Storage rules that already allow chat_media/**).
+  /// (covered by the owner-scoped `chat_media/notes/**` block in storage.rules).
   Future<String> uploadAudio({
     required String noteId,
     required File audioFile,
     required String language,
   }) async {
-    await FirebaseChatAuthService.instance.ensureAuthenticated();
-    final uid = _auth.currentUser?.uid;
-    if (uid == null || uid.isEmpty) {
-      throw Exception('Firebase auth required to upload audio');
-    }
-
-    final storagePath = 'chat_media/notes/$uid/$noteId/audio.m4a';
-    final ref = _storage.ref(storagePath);
-
-    debugPrint('☁️ NotesAudio: uploading $storagePath');
-
-    final metadata = SettableMetadata(
-      contentType: 'audio/mp4',
-      customMetadata: {
-        'ownerUid': uid,
-        'noteId': noteId,
-        'language': language,
-        'purpose': 'notes_transcription',
-      },
-    );
-
-    try {
-      await ref.putFile(audioFile, metadata);
-    } on FirebaseException catch (e) {
-      if (e.code == 'unauthorized' ||
-          e.code == 'permission-denied' ||
-          e.code == 'unauthenticated') {
-        await FirebaseChatAuthService.instance.ensureAuthenticated();
-        await ref.putFile(audioFile, metadata);
-      } else {
-        rethrow;
+    return FirebaseSession.instance.run(() async {
+      final uid = _auth.currentUser?.uid;
+      if (uid == null || uid.isEmpty) {
+        throw Exception('Firebase auth required to upload audio');
       }
-    }
 
-    final url = await ref.getDownloadURL();
-    debugPrint('✅ NotesAudio: uploaded $url');
-    return url;
+      final storagePath = 'chat_media/notes/$uid/$noteId/audio.m4a';
+      final ref = _storage.ref(storagePath);
+
+      debugPrint('☁️ NotesAudio: uploading $storagePath');
+
+      await ref.putFile(
+        audioFile,
+        SettableMetadata(
+          contentType: 'audio/mp4',
+          customMetadata: {
+            'ownerUid': uid,
+            'noteId': noteId,
+            'language': language,
+            'purpose': 'notes_transcription',
+          },
+        ),
+      );
+
+      final url = await ref.getDownloadURL();
+      debugPrint('✅ NotesAudio: uploaded $url');
+      return url;
+    });
   }
 
   Future<void> dispose() async {

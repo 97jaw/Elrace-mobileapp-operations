@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:io';
 import 'dart:ui' as ui show TextDirection;
 
+import 'package:el_race/core/firebase/firebase_error_message.dart';
 import 'package:el_race/ui/presentation/my_notes/bloc/notes_bloc.dart';
 import 'package:el_race/ui/presentation/my_notes/data/note_model.dart';
 import 'package:el_race/ui/presentation/my_notes/repository/firebase_notes_repository.dart';
@@ -705,11 +706,12 @@ class _AddNoteScreenState extends State<AddNoteScreen> {
       );
       // Keep _aiBusy true until live watch sees done/error/result.
     } catch (e) {
+      debugPrint('❌ Notes AI ($mode) failed: $e');
       if (!mounted) return;
       setState(() => _aiBusy = false);
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('AI failed: $e'),
+          content: Text(firebaseErrorMessage(e, fallback: 'AI could not run.')),
           backgroundColor: NotesTheme.surface,
         ),
       );

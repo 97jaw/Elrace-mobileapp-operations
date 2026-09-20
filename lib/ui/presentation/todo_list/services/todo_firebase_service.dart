@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart' show kDebugMode;
+import 'package:el_race/core/firebase/firebase_session.dart';
 import 'package:el_race/core/utils/shared_pref.dart';
 
 import '../data/todo_list_model.dart';
@@ -29,23 +30,10 @@ class TodoFirebaseService {
     return SharedPref.getLoginData().result?.data?.firebase_uid;
   }
 
-  // Ensure Firebase Auth is signed in using the custom token from login data
-  Future<void> _ensureSignedIn() async {
-    if (FirebaseAuth.instance.currentUser != null) return;
-    final loginData = SharedPref.getLoginData();
-    final customToken = loginData.result?.data?.firebase_custom_token;
-    if (customToken != null &&
-        customToken.isNotEmpty &&
-        customToken != 'false') {
-      try {
-        await FirebaseAuth.instance.signInWithCustomToken(customToken);
-        print('✅ TodoFirebaseService: Signed in to Firebase with custom token');
-      } catch (e) {
-        print(
-            '⚠️ TodoFirebaseService: Could not sign in with custom token: $e');
-      }
-    }
-  }
+  // Ensure Firebase Auth has a usable session (refreshes the custom token when
+  // the one stored at login has expired).
+  Future<void> _ensureSignedIn() =>
+      FirebaseSession.instance.ensureSignedInOrNull();
 
   // Get current user name from SharedPref
   String get _currentUserName {
