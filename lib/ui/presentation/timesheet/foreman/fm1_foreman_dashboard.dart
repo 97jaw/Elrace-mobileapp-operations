@@ -296,20 +296,53 @@ class Fm1ForemanDashboard extends ConsumerWidget {
   /// Resolves the capture task without going through the autoDispose
   /// [timesheetMaintenanceTaskProvider], which can be disposed mid-await when
   /// a session refresh rebuilds dependents (camera then never opens).
+  ///
+  /// Real foreman login still requires a real Odoo task id. While a PM is
+  /// acting as a foreman, capture is browse-only (submit is blocked), so we
+  /// open the camera with a stub task when none is configured on the site.
   Future<Task> _resolveCaptureTask(WidgetRef ref, String projectId) async {
     final acting = ref.read(tmActingSessionProvider);
     final profile = ref.read(timesheetLoginProfileProvider);
-    final env = await ref.read(timesheetApiClientProvider).getTimesheetTaskForProject(
-          projectId,
-          displayName: acting?.foremanName ?? profile.displayName,
-          odooUserId: acting?.odooUserId,
-          preferLoginUser: acting == null,
-        );
+    final client = ref.read(timesheetApiClientProvider);
+    final env = await client.getTimesheetTaskForProject(
+      projectId,
+      displayName: acting?.foremanName ?? profile.displayName,
+      odooUserId: acting?.odooUserId,
+      preferLoginUser: acting == null,
+    );
     final task = env.data;
-    if (task == null || !TimesheetDefaults.isOdooIntegerId(task.id)) {
-      throw Exception(env.error ?? 'Foreman or maintenance task not found');
+    if (task != null && TimesheetDefaults.isOdooIntegerId(task.id)) {
+      return task;
     }
-    return task;
+
+    if (acting != null) {
+      // Prefer any real task on the project so the preview looks correct;
+      // otherwise a non-numeric stub — submit is already blocked while acting.
+      try {
+        final tasksEnv = await client.getProjectTasks(projectId: projectId);
+        for (final candidate in tasksEnv.data ?? const <Task>[]) {
+          if (TimesheetDefaults.isOdooIntegerId(candidate.id)) {
+            return candidate;
+          }
+        }
+      } catch (_) {
+        // Fall through to stub.
+      }
+      return Task(
+        id: 'acting-preview',
+        projectId: projectId,
+        name: TimesheetDefaults.maintenanceTaskName,
+        description: 'Preview only — needs a real foreman login to submit',
+        plannedStart: null,
+        plannedEnd: null,
+        status: 'IN_PROGRESS',
+        percentComplete: 0,
+        assignedForemanId: acting.foremanEmployeeId.toString(),
+        workerIds: const [],
+      );
+    }
+
+    throw Exception(env.error ?? 'Foreman or maintenance task not found');
   }
 
   Future<TimesheetProjectDayArgs?> _resolveDefaultArgs(

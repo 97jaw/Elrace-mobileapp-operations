@@ -74,19 +74,46 @@ final timesheetMaintenanceTaskProvider = FutureProvider.autoDispose
   try {
     final profile = ref.watch(timesheetLoginProfileProvider);
     final acting = ref.watch(tmActingSessionProvider);
+    final client = ref.watch(timesheetApiClientProvider);
     // While acting, resolve the foreman's assignment task — never the PM's.
-    final env =
-        await ref.watch(timesheetApiClientProvider).getTimesheetTaskForProject(
-              projectId,
-              displayName: acting?.foremanName ?? profile.displayName,
-              odooUserId: acting?.odooUserId,
-              preferLoginUser: acting == null,
-            );
+    final env = await client.getTimesheetTaskForProject(
+      projectId,
+      displayName: acting?.foremanName ?? profile.displayName,
+      odooUserId: acting?.odooUserId,
+      preferLoginUser: acting == null,
+    );
     final task = env.data;
-    if (task == null || !TimesheetDefaults.isOdooIntegerId(task.id)) {
-      throw Exception(env.error ?? 'Foreman or maintenance task not found');
+    if (task != null && TimesheetDefaults.isOdooIntegerId(task.id)) {
+      return task;
     }
-    return task;
+
+    // Acting-as is browse-only (submit blocked). Open calendar/capture without
+    // a real Odoo task so PM/Management can preview the flow. Real foreman
+    // logins still require a configured task below.
+    if (acting != null) {
+      try {
+        final tasksEnv = await client.getProjectTasks(projectId: projectId);
+        for (final candidate in tasksEnv.data ?? const <Task>[]) {
+          if (TimesheetDefaults.isOdooIntegerId(candidate.id)) {
+            return candidate;
+          }
+        }
+      } catch (_) {}
+      return Task(
+        id: 'acting-preview',
+        projectId: projectId,
+        name: TimesheetDefaults.maintenanceTaskName,
+        description: 'Preview only — needs a real foreman login to submit',
+        plannedStart: null,
+        plannedEnd: null,
+        status: 'IN_PROGRESS',
+        percentComplete: 0,
+        assignedForemanId: acting.foremanEmployeeId.toString(),
+        workerIds: const [],
+      );
+    }
+
+    throw Exception(env.error ?? 'Foreman or maintenance task not found');
   } finally {
     // Allow dispose again once no longer watched (after a short grace).
     Future<void>.delayed(const Duration(seconds: 30), link.close);
