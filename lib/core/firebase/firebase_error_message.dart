@@ -14,13 +14,13 @@ String firebaseErrorMessage(
     switch (error.code) {
       case 'unavailable':
       case 'deadline-exceeded':
-        return 'Service is unreachable right now. Check your connection and try again.';
+        return 'AI service is offline — Firebase billing is disabled on elrace-new. Re-enable Blaze and try again.';
       case 'unauthenticated':
         return 'Your session expired. Please sign in again.';
       case 'permission-denied':
         return 'You do not have access to this.';
       case 'failed-precondition':
-        return error.message ?? 'This is not ready yet. Try again shortly.';
+        return error.message ?? 'Wait for transcription to finish, then try again.';
       case 'not-found':
         return 'That item no longer exists.';
       case 'resource-exhausted':
@@ -34,7 +34,7 @@ String firebaseErrorMessage(
   if (error is FirebaseException) {
     switch (error.code) {
       case 'unavailable':
-        return 'Service is unreachable right now. Check your connection and try again.';
+        return 'Firebase is unreachable. If uploads keep failing, billing may be disabled on elrace-new.';
       case 'unauthenticated':
       case 'user-token-expired':
       case 'custom-token-expired':
@@ -48,10 +48,15 @@ String firebaseErrorMessage(
         return 'That file is no longer available.';
       case 'canceled':
         return 'Cancelled.';
+      case 'quota-exceeded':
+        return 'Firebase Storage is blocked (quota / billing). Ask admin to enable Blaze billing on the elrace-new project.';
       case 'retry-limit-exceeded':
         return 'Upload timed out. Check your connection and try again.';
-      case 'quota-exceeded':
-        return 'Storage limit reached. Contact your administrator.';
+    }
+    // Some SDKs surface billing-disabled as a generic message.
+    final text = '${error.message ?? ''} ${error.code}'.toLowerCase();
+    if (text.contains('quota') || text.contains('billing')) {
+      return 'Firebase is blocked by billing/quota. Ask admin to enable Blaze on elrace-new.';
     }
     return error.message ?? fallback;
   }

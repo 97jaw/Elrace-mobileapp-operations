@@ -71,11 +71,16 @@ class _NoteDetailViewState extends State<_NoteDetailView> {
     _noteSub = _repo.watchNoteById(_note.id).listen((live) {
       if (!mounted || live == null) return;
       final prev = _note;
-      setState(() => _note = live);
+      final mergedRec = live.recording == null
+          ? prev.recording
+          : RecordingInfo.mergePreferringPlayable(prev.recording, live.recording!);
+      setState(() {
+        _note = live.copyWith(recording: mergedRec);
+      });
       // When transcript lands, kick AI if still pending.
       final transcriptJustReady =
           (prev.recording?.transcript?.trim().isEmpty ?? true) &&
-              (live.recording?.transcript?.trim().isNotEmpty ?? false);
+              (mergedRec?.transcript?.trim().isNotEmpty ?? false);
       if (transcriptJustReady || live.needsAiProcessing) {
         _maybeTriggerAi();
       }

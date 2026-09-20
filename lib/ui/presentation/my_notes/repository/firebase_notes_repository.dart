@@ -157,28 +157,15 @@ class FirebaseNotesRepository implements INotesRepository {
     final cRec = client.recording;
     final sRec = server.recording;
     if (cRec != null && sRec != null) {
-      final clientTranscriptEmpty =
-          cRec.transcript == null || cRec.transcript!.trim().isEmpty;
-      final serverHasTranscript = sRec.transcript?.trim().isNotEmpty ?? false;
-      final serverFurther =
-          sRec.status == TranscriptionStatus.done ||
-          sRec.status == TranscriptionStatus.processing ||
-          serverHasTranscript;
-
-      if (clientTranscriptEmpty && serverFurther) {
-        merged = merged.copyWith(
-          recording: sRec.copyWith(
-            audioUrl:
-                cRec.audioUrl.isNotEmpty ? cRec.audioUrl : sRec.audioUrl,
-            storagePath: cRec.storagePath ?? sRec.storagePath,
-            durationSeconds: cRec.durationSeconds > 0
-                ? cRec.durationSeconds
-                : sRec.durationSeconds,
-          ),
-        );
-      }
+      // Always keep a playable client URL if the server wrote status-only
+      // updates (Whisper sets recording.status without audioUrl).
+      merged = merged.copyWith(
+        recording: RecordingInfo.mergePreferringPlayable(cRec, sRec),
+      );
     } else if (cRec == null && sRec != null) {
       merged = merged.copyWith(recording: sRec);
+    } else if (cRec != null && sRec == null) {
+      merged = merged.copyWith(recording: cRec);
     }
 
     if ((client.aiSummary == null || client.aiSummary!.isEmpty) &&
