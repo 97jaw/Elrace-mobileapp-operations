@@ -11,7 +11,7 @@ import 'package:uuid/uuid.dart';
 import '../../../../../chat/models/chat_user.dart';
 import '../../../../../chat/models/message.dart';
 import '../../../../../chat/repositories/chat_repository.dart';
-import '../../../../../chat/services/firebase_chat_auth_service.dart';
+import '../../../../../core/firebase/firebase_session.dart';
 import '../models/signature_document.dart';
 
 /// Owns the `users/{uid}/signature_documents` collection: the personal
@@ -27,51 +27,19 @@ class SignatureDocumentsRepository {
   final FirebaseStorage _storage = FirebaseStorage.instance;
   final Uuid _uuid = const Uuid();
 
-  /// Storage path under `chat_media/` so existing Storage rules that already
-  /// allow chat uploads also cover Signature self-sign / library files.
+  /// Storage path under `chat_media/signature_docs/{uid}/` — covered by the
+  /// owner-scoped block of the same name in storage.rules.
   String _storagePath(String uid, String docId, String fileName) =>
       'chat_media/signature_docs/$uid/$docId/$fileName';
 
   CollectionReference<Map<String, dynamic>> _collection(String uid) =>
       _firestore.collection('users').doc(uid).collection('signature_documents');
 
-  /// Refresh / restore Firebase Auth via chat auth + `/api/firebase/refresh_token`.
-  /// Forces a fresh ID token so Storage / Firestore see a valid auth context.
-  Future<String> _ensureUid({bool forceRefresh = false}) async {
-    if (forceRefresh) {
-      // Drop stale Auth session so ensureAuthenticated must re-sign with a
-      // fresh custom token (Storage "unauthorized" after long Documents use).
-      try {
-        await FirebaseAuth.instance.signOut();
-      } catch (_) {}
-    }
-
-    final user =
-        await FirebaseChatAuthService.instance.ensureAuthenticated();
-    await user.getIdToken(true);
-    return user.uid;
-  }
-
-  bool _isAuthDenied(FirebaseException e) =>
-      e.code == 'unauthorized' ||
-      e.code == 'permission-denied' ||
-      e.code == 'unauthenticated';
+  bool _isAuthDenied(FirebaseException e) => FirebaseSession.isAuthDenied(e);
 
   /// Run [action] after auth; on Storage/Firestore auth denial, force refresh once and retry.
-  Future<T> _withFirebaseAuthRetry<T>(Future<T> Function() action) async {
-    await _ensureUid();
-    try {
-      return await action();
-    } on FirebaseException catch (e) {
-      if (!_isAuthDenied(e)) rethrow;
-      debugPrint(
-          '⚠️ SignatureDocuments: auth denied (${e.code}), refreshing and retrying…');
-      await _ensureUid(forceRefresh: true);
-      // Brief yield so Auth/Storage clients pick up the new token.
-      await Future<void>.delayed(const Duration(milliseconds: 250));
-      return await action();
-    }
-  }
+  Future<T> _withFirebaseAuthRetry<T>(Future<T> Function() action) =>
+      FirebaseSession.instance.run(action);
 
   /// Live stream of the current user's documents, newest first.
   /// Never hangs forever on permission/index errors — emits `[]` instead.
@@ -234,8 +202,6 @@ class SignatureDocumentsRepository {
         final first = recipients.first;
         final docId = _uuid.v4();
 
-        await FirebaseChatAuthService.instance.ensureAuthenticated();
-
         final chatId = await ChatRepository.instance.createOrGetDmChat(
           otherUid: first.uid,
           otherName: first.name,
@@ -287,7 +253,8 @@ class SignatureDocumentsRepository {
         throw Exception(
           'Firebase permission denied while sending via chat '
           '(${e.code}: ${e.message}). Auth was refreshed and retried — '
-          'confirm Storage rules allow chat_media/** and Chat Firebase login works.',
+          'confirm Storage rules cover chat_media/signature_docs/** and '
+          'Firebase login works.',
         );
       }
       if (e.code == 'permission-denied') {

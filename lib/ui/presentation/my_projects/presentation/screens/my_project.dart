@@ -155,6 +155,19 @@ class _MyProjectState extends State<MyProject> {
       AgreementsPanelController();
   bool _agreementsBackdropVisible = false;
 
+  /// Ignores a second tap during the push animation (not for the whole
+  /// time a child screen is open, so hub → list still works).
+  bool _routePushInFlight = false;
+
+  void _runGuardedNavigate(VoidCallback navigate) {
+    if (_routePushInFlight) return;
+    _routePushInFlight = true;
+    navigate();
+    Future<void>.delayed(const Duration(milliseconds: 700), () {
+      if (mounted) _routePushInFlight = false;
+    });
+  }
+
   bool _isLoading = false;
   bool _chartLoading = false;
   bool _showContent = false;
@@ -180,57 +193,64 @@ class _MyProjectState extends State<MyProject> {
 
   Future<void> _openGroupByHub() async {
     if (!mounted) return;
-    Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (hubContext) => ProjectsGroupHubScreen(
-          initialMode: ProjectsGroupByMode.projectManager,
-          onHome: () => Navigator.of(hubContext).pop(),
-          onItemTap: (item, mode, hubFilters) {
-            final listContext = switch (mode) {
-              ProjectsGroupByMode.projectManager =>
-                ProjectsListContext.projectManager,
-              ProjectsGroupByMode.client => ProjectsListContext.client,
-              ProjectsGroupByMode.city => ProjectsListContext.city,
-            };
-            final projectManagerId = mode == ProjectsGroupByMode.projectManager &&
-                    item.id > 0
-                ? item.id
-                : null;
-            final partnerId = mode == ProjectsGroupByMode.client && item.id > 0
-                ? item.id
-                : null;
-            final cityId =
-                mode == ProjectsGroupByMode.city && item.id > 0 ? item.id : null;
-            final bucketName = item.id <= 0 ? item.name : null;
-            _openGroupedProjectList(
-              projectManagerId: projectManagerId,
-              partnerId: partnerId,
-              cityId: cityId,
-              title: item.name,
-              photoUrl: item.photoUrl,
-              listContext: listContext,
-              hubFilters: hubFilters,
-              bucketName: bucketName,
-            );
-          },
+    _runGuardedNavigate(() {
+      Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (hubContext) => ProjectsGroupHubScreen(
+            initialMode: ProjectsGroupByMode.projectManager,
+            onHome: () => Navigator.of(hubContext).pop(),
+            onItemTap: (item, mode, hubFilters) {
+              final listContext = switch (mode) {
+                ProjectsGroupByMode.projectManager =>
+                  ProjectsListContext.projectManager,
+                ProjectsGroupByMode.client => ProjectsListContext.client,
+                ProjectsGroupByMode.city => ProjectsListContext.city,
+              };
+              final projectManagerId =
+                  mode == ProjectsGroupByMode.projectManager && item.id > 0
+                      ? item.id
+                      : null;
+              final partnerId = mode == ProjectsGroupByMode.client && item.id > 0
+                  ? item.id
+                  : null;
+              final cityId = mode == ProjectsGroupByMode.city && item.id > 0
+                  ? item.id
+                  : null;
+              final bucketName = item.id <= 0 ? item.name : null;
+              _openGroupedProjectList(
+                projectManagerId: projectManagerId,
+                partnerId: partnerId,
+                cityId: cityId,
+                title: item.name,
+                photoUrl: item.photoUrl,
+                listContext: listContext,
+                hubFilters: hubFilters,
+                bucketName: bucketName,
+              );
+            },
+          ),
         ),
-      ),
-    );
+      );
+    });
   }
 
   void _openProjectDocumentsHub() {
-    ProjectDocumentsHubScreen.open(
-      context,
-      fromPortfolioHub: true,
-    );
+    _runGuardedNavigate(() {
+      ProjectDocumentsHubScreen.open(
+        context,
+        fromPortfolioHub: true,
+      );
+    });
   }
 
   void _openAiAssistant() {
-    Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (_) => const ProjectsAiAssistantScreen(),
-      ),
-    );
+    _runGuardedNavigate(() {
+      Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (_) => const ProjectsAiAssistantScreen(),
+        ),
+      );
+    });
   }
 
   void _openGroupedProjectList({
@@ -244,6 +264,8 @@ class _MyProjectState extends State<MyProject> {
     String? bucketName,
     String? initialKeyword,
   }) {
+    // Nested from Group-by hub — do not share the dashboard tap lock, or a
+    // quick hub item tap would be ignored while the hub push is still gated.
     final bloc = _buildProjectsBloc();
     final dashboardContext = context;
     Navigator.of(context).push(

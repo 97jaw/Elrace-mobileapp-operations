@@ -8,9 +8,9 @@ import 'package:firebase_storage/firebase_storage.dart';
 import 'package:path/path.dart' as p;
 import 'package:uuid/uuid.dart';
 
+import '../../core/firebase/firebase_session.dart';
 import '../models/models.dart';
 import '../services/chat_notification_service.dart';
-import '../services/firebase_chat_auth_service.dart';
 import '../services/presence_service.dart';
 import 'user_repository.dart';
 
@@ -48,9 +48,7 @@ class ChatRepository {
 
   /// Ensure Firebase Auth is ready before Storage / Firestore chat writes.
   Future<void> _ensureFirebaseAuth() async {
-    final user =
-        await FirebaseChatAuthService.instance.ensureAuthenticated();
-    await user.getIdToken(true);
+    await FirebaseSession.instance.ensureSignedIn();
   }
 
   // ============== DM Chat Creation ==============
@@ -1021,6 +1019,7 @@ class ChatRepository {
   /// Send a text message
   Future<Message> sendText(String chatId, String text,
       {ReplyTo? replyTo}) async {
+    await _ensureFirebaseAuth();
     final currentUid = _currentUid;
     if (currentUid == null) {
       throw Exception('Not authenticated');
@@ -1712,6 +1711,7 @@ class ChatRepository {
     int? durationMs,
     ReplyTo? replyTo,
   }) async {
+    await _ensureFirebaseAuth();
     final currentUid = _currentUid;
     if (currentUid == null) {
       throw Exception('Not authenticated');

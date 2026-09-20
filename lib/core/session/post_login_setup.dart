@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:el_race/chat/chat.dart';
+import 'package:el_race/core/firebase/firebase_session.dart';
 import 'package:el_race/core/hr_management/providers/hr_management_providers.dart';
 import 'package:el_race/core/services/attendance_status_sync_service.dart';
 import 'package:el_race/core/services/mobile_device_id_service.dart';
@@ -54,9 +55,13 @@ class PostLoginSetup {
       await FirebaseService.syncFcmTokenToOdoo(force: true);
     } catch (_) {}
 
-    ChatModuleHelper.instance
+    // Firebase sign-in stays off the login critical path, but the future is
+    // registered so any feature that needs Firebase first can await it instead
+    // of racing it and falling back to a stale custom token.
+    final firebaseBootstrap = ChatModuleHelper.instance
         .initializeFromLoginResponse(normalized)
-        .catchError((_) {});
+        .catchError((_) => ChatSetupResult.failed('Chat setup failed'));
+    FirebaseSession.instance.trackBootstrap(firebaseBootstrap);
 
     return loginResponse;
   }

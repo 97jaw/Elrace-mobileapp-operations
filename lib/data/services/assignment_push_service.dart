@@ -1,4 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:el_race/core/firebase/firebase_session.dart';
 import 'package:flutter/foundation.dart';
 
 /// Queues cross-device assignment / completion pushes for Cloud Functions.
@@ -34,20 +35,22 @@ class AssignmentPushService {
     }
 
     try {
-      await _db.collection('assignment_push_requests').add({
-        'task_id': taskId,
-        'task_title': taskTitle,
-        'assigned_by': assignedBy,
-        'action': action,
-        if (completedBy != null && completedBy.isNotEmpty)
-          'completed_by': completedBy,
-        if (assigneeOdooUserId != null && assigneeOdooUserId > 0)
-          'assignee_odoo_user_id': assigneeOdooUserId,
-        if (assigneeFirebaseUid != null && assigneeFirebaseUid.isNotEmpty)
-          'assignee_firebase_uid': assigneeFirebaseUid,
-        'is_firebase_task': isFirebaseTask,
-        'category': category,
-        'created_at': FieldValue.serverTimestamp(),
+      await FirebaseSession.instance.run(() {
+        return _db.collection('assignment_push_requests').add({
+          'task_id': taskId,
+          'task_title': taskTitle,
+          'assigned_by': assignedBy,
+          'action': action,
+          if (completedBy != null && completedBy.isNotEmpty)
+            'completed_by': completedBy,
+          if (assigneeOdooUserId != null && assigneeOdooUserId > 0)
+            'assignee_odoo_user_id': assigneeOdooUserId,
+          if (assigneeFirebaseUid != null && assigneeFirebaseUid.isNotEmpty)
+            'assignee_firebase_uid': assigneeFirebaseUid,
+          'is_firebase_task': isFirebaseTask,
+          'category': category,
+          'created_at': FieldValue.serverTimestamp(),
+        });
       });
       debugPrint(
         '✅ AssignmentPushService: queued action=$action for task=$taskId '
@@ -69,13 +72,15 @@ class AssignmentPushService {
       return;
     }
     try {
-      await _db.collection('ticket_creators').doc(taskId).set({
-        if (creatorOdooUserId != null && creatorOdooUserId > 0)
-          'creator_odoo_user_id': creatorOdooUserId,
-        if (creatorFirebaseUid != null && creatorFirebaseUid.isNotEmpty)
-          'creator_firebase_uid': creatorFirebaseUid,
-        'updated_at': FieldValue.serverTimestamp(),
-      }, SetOptions(merge: true));
+      await FirebaseSession.instance.run(() {
+        return _db.collection('ticket_creators').doc(taskId).set({
+          if (creatorOdooUserId != null && creatorOdooUserId > 0)
+            'creator_odoo_user_id': creatorOdooUserId,
+          if (creatorFirebaseUid != null && creatorFirebaseUid.isNotEmpty)
+            'creator_firebase_uid': creatorFirebaseUid,
+          'updated_at': FieldValue.serverTimestamp(),
+        }, SetOptions(merge: true));
+      });
     } catch (e) {
       debugPrint('⚠️ AssignmentPushService: rememberTicketCreator failed: $e');
     }
@@ -90,7 +95,8 @@ class AssignmentPushService {
     String? completerFirebaseUid,
   }) async {
     try {
-      final doc = await _db.collection('ticket_creators').doc(taskId).get();
+      final doc = await FirebaseSession.instance
+          .run(() => _db.collection('ticket_creators').doc(taskId).get());
       if (!doc.exists) {
         debugPrint(
           '⚠️ AssignmentPushService: no ticket_creators/$taskId; skip complete push',

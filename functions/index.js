@@ -9,7 +9,10 @@ const { getStorage } = require("firebase-admin/storage");
 
 initializeApp();
 
-setGlobalOptions({ region: "me-central-1" });
+// us-central1 matches every per-function override in this codebase and the
+// Storage bucket the notes/chat triggers read from. "me-central-1" is not a
+// GCP region (GCP uses "me-central1"), so it silently broke deploys here.
+setGlobalOptions({ region: "us-central1" });
 
 const db = getFirestore();
 const messaging = getMessaging();

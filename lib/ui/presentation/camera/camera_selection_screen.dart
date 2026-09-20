@@ -527,7 +527,8 @@ class _CameraSelectionScreenState extends State<CameraSelectionScreen>
       await _initializeControllerFuture;
       final file = await _controller!.takePicture();
 
-      // Show overlay immediately
+      // Show overlay immediately — keep the raw scan (no logo / address footer).
+      // Branding is only for the separate PHOTO capture path.
       setState(() {
         _scanOriginalPath = file.path;
         _scanFilteredPath = null;
@@ -537,15 +538,8 @@ class _CameraSelectionScreenState extends State<CameraSelectionScreen>
         _isCapturing = false;
       });
 
-      // Process overlay and filter in background
-      _composeWithOverlay(file.path).then((withOverlay) {
-        if (mounted) {
-          setState(() {
-            _scanOriginalPath = withOverlay ?? file.path;
-          });
-        }
-        return _applyScanFilter(ImageFilterType.magic);
-      });
+      // Apply default filter in background without stamping branding.
+      unawaited(_applyScanFilter(ImageFilterType.magic));
     } catch (e) {
       debugPrint('Scan capture error: $e');
       if (mounted) {
@@ -709,24 +703,15 @@ class _CameraSelectionScreenState extends State<CameraSelectionScreen>
       // Navigate back immediately so the UI is responsive
       Navigator.pop(context);
 
-      // Process overlays + save in background (no main-thread freeze)
+      // Save scanned pages as-is (no logo / date / address footer).
+      // That branding is only applied on the PHOTO capture path.
       int savedCount = 0;
       for (final picturePath in pictures) {
         try {
-          await compute(
-            _applyOverlayIsolate,
-            _OverlayParams(
-              imagePath: picturePath,
-              logoBytes: _logoBytes,
-              currentTime: _currentTime,
-              currentDate: _currentDate,
-              currentLocation: _currentLocation,
-            ),
-          );
           await Gal.putImage(picturePath, album: 'RCC');
           savedCount++;
         } catch (e) {
-          debugPrint('Error processing scanned page: $e');
+          debugPrint('Error saving scanned page: $e');
         }
       }
 

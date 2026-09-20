@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:el_race/core/app_globals.dart';
+import 'package:el_race/core/firebase/firebase_session.dart';
 import 'package:el_race/core/services/attendance_status_sync_service.dart';
 import 'package:el_race/core/services/badge_refresh_service.dart';
 import 'package:el_race/core/session/force_logout_guard.dart';
@@ -104,6 +105,9 @@ class ResumeCoordinator {
     unawaited(BadgeRefreshService.refreshOnResume());
     // Keep Odoo expo_token fresh after long sessions / token rotation.
     unawaited(FirebaseService.syncFcmTokenToOdoo());
+    // Firebase ID tokens expire after an hour, so a resume from long
+    // background leaves Firestore/Storage/Functions rejecting the first tap.
+    unawaited(FirebaseSession.instance.refreshOnResume());
   }
 
   Future<void> _runTier2AfterDelay() async {

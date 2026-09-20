@@ -15,6 +15,22 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 
 /// Opens the existing My Projects module for a widget row tap.
 abstract final class HomeMyProjectsNavigation {
+  /// Blocks accidental double-taps during the push animation only.
+  static bool _opening = false;
+  static const Duration _tapGuard = Duration(milliseconds: 800);
+
+  static Future<void> _runGuarded(Future<void> Function() action) async {
+    if (_opening) return;
+    _opening = true;
+    try {
+      await action();
+    } finally {
+      // Hold the lock through the route transition, then allow the next open.
+      await Future<void>.delayed(_tapGuard);
+      _opening = false;
+    }
+  }
+
   static ProjectListBloc _buildBloc() {
     final repo = ProjectRepositoryImpl(ProjectRemoteDataSource());
     return ProjectListBloc(
@@ -37,48 +53,54 @@ abstract final class HomeMyProjectsNavigation {
     return null;
   }
 
-  static Future<void> openProject(BuildContext context, int projectId) async {
-    final project = await _resolveProject(projectId);
-    if (!context.mounted) return;
+  static Future<void> openProject(BuildContext context, int projectId) {
+    return _runGuarded(() async {
+      final project = await _resolveProject(projectId);
+      if (!context.mounted) return;
 
-    if (project == null) {
+      if (project == null) {
+        Util.pushPage(const MyProject(), context);
+        return;
+      }
+
+      Navigator.of(context).push(
+        MaterialPageRoute<void>(
+          builder: (_) => ProjectAnalyticsScreen(project: project),
+        ),
+      );
+    });
+  }
+
+  static Future<void> openProjectsModule(BuildContext context) {
+    return _runGuarded(() async {
       Util.pushPage(const MyProject(), context);
-      return;
-    }
-
-    Navigator.of(context).push(
-      MaterialPageRoute<void>(
-        builder: (_) => ProjectAnalyticsScreen(project: project),
-      ),
-    );
+    });
   }
 
-  static void openProjectsModule(BuildContext context) {
-    Util.pushPage(const MyProject(), context);
-  }
+  static Future<void> openProjectList(BuildContext context, int projectId) {
+    return _runGuarded(() async {
+      final project = await _resolveProject(projectId);
+      if (!context.mounted) return;
 
-  static Future<void> openProjectList(BuildContext context, int projectId) async {
-    final project = await _resolveProject(projectId);
-    if (!context.mounted) return;
+      if (project == null) {
+        Util.pushPage(const MyProject(), context);
+        return;
+      }
 
-    if (project == null) {
-      openProjectsModule(context);
-      return;
-    }
-
-    final bloc = _buildBloc();
-    Navigator.of(context).push(
-      MaterialPageRoute<void>(
-        builder: (_) => BlocProvider.value(
-          value: bloc,
-          child: ProjectListScreen(
-            bloc: bloc,
-            preloadedProjects: [project],
-            partnerName: project.name,
-            listContext: ProjectsListContext.general,
+      final bloc = _buildBloc();
+      Navigator.of(context).push(
+        MaterialPageRoute<void>(
+          builder: (_) => BlocProvider.value(
+            value: bloc,
+            child: ProjectListScreen(
+              bloc: bloc,
+              preloadedProjects: [project],
+              partnerName: project.name,
+              listContext: ProjectsListContext.general,
+            ),
           ),
         ),
-      ),
-    );
+      );
+    });
   }
 }

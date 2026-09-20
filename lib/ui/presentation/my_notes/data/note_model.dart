@@ -438,6 +438,35 @@ class RecordingInfo {
       storagePath: storagePath ?? this.storagePath,
     );
   }
+
+  /// Merge a live Firestore recording into a local one without losing the
+  /// playable URL. Whisper / Cloud Functions often write `recording.status`
+  /// alone, which deserializes as `audioUrl: ''` and would hide the player.
+  static RecordingInfo mergePreferringPlayable(
+    RecordingInfo? local,
+    RecordingInfo live,
+  ) {
+    if (local == null) return live;
+    final liveTranscript = live.transcript?.trim() ?? '';
+    return live.copyWith(
+      audioUrl: live.audioUrl.isNotEmpty ? live.audioUrl : local.audioUrl,
+      storagePath: (live.storagePath != null && live.storagePath!.isNotEmpty)
+          ? live.storagePath
+          : local.storagePath,
+      durationSeconds: live.durationSeconds > 0
+          ? live.durationSeconds
+          : local.durationSeconds,
+      language: live.language.isNotEmpty ? live.language : local.language,
+      transcript: liveTranscript.isNotEmpty ? live.transcript : local.transcript,
+      status: liveTranscript.isNotEmpty ||
+              live.status == TranscriptionStatus.processing ||
+              live.status == TranscriptionStatus.done ||
+              live.status == TranscriptionStatus.error ||
+              live.status == TranscriptionStatus.pending
+          ? live.status
+          : local.status,
+    );
+  }
 }
 
 class ImageAttachment {
