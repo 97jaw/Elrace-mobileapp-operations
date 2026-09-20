@@ -533,13 +533,12 @@ class _FmFaceEnrollCaptureScreenState
   }
 
   Future<void> _submitEnrollment() async {
-    // Backstop: the upload stamps the login employee as the enrolling foreman,
-    // so it must never run while a PM is acting as one.
+    // Camera opens while acting; only the final enroll upload is refused.
     if (mounted &&
         TimesheetActingGuard.blockWrite(
           context,
           ref,
-          action: 'Enrolling a worker',
+          action: 'Submitting enrollment',
         )) {
       return;
     }

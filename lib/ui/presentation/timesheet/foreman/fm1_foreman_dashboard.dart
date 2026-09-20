@@ -341,15 +341,7 @@ class Fm1ForemanDashboard extends ConsumerWidget {
     WidgetRef ref,
     TimesheetTeamMember member,
   ) async {
-    // Enrolment writes the login employee as the enrolling foreman, so a PM
-    // acting as a foreman would attach the worker to themselves.
-    if (TimesheetActingGuard.blockWrite(
-      context,
-      ref,
-      action: 'Enrolling a worker',
-    )) {
-      return;
-    }
+    // Camera opens while acting; the enroll upload is blocked at submit time.
     // Employee is already known from the team list — skip the file-ID step and
     // go straight to pose capture.
     await Navigator.of(context).pushNamed(
@@ -372,13 +364,6 @@ class Fm1ForemanDashboard extends ConsumerWidget {
     TimesheetProjectBuckets buckets,
     TimesheetTeamMember member,
   ) async {
-    if (TimesheetActingGuard.blockWrite(
-      context,
-      ref,
-      action: 'Taking attendance',
-    )) {
-      return const [];
-    }
     if (buckets.inProgress.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('No active sites available')),

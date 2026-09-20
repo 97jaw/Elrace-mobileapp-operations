@@ -58,20 +58,10 @@ class _At1CaptureModeScreenState extends ConsumerState<At1CaptureModeScreen> {
   @override
   Widget build(BuildContext context) {
     final resolution = ref.watch(tmEffectiveResolutionProvider);
-    // Blocked at the entry to the capture flow, not only at submit: walking
-    // through the camera would persist captures to the session store under an
-    // identity that can never submit them.
-    final acting = ref.watch(tmActingSessionProvider);
-    if (acting != null) {
-      return TmScaffold(
-        glassTitle: 'Take Attendance',
-        body: TimesheetEmptyState(
-          message: 'You are viewing as ${acting.foremanName}. '
-              'Taking attendance needs a real login for this foreman.',
-        ),
-      );
-    }
-    if (!resolution.canSubmitTimesheet) {
+    // Acting PMs may walk the capture flow; the final Submit button shows the
+    // "needs a real login" notice. Only block PMs who are not acting.
+    if (!resolution.canSubmitTimesheet &&
+        ref.watch(tmActingSessionProvider) == null) {
       return const TmScaffold(
         glassTitle: 'Take Attendance',
         body: TimesheetEmptyState(

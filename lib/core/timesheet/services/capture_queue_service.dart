@@ -1,7 +1,6 @@
 import 'dart:io';
 
 import 'package:el_race/core/timesheet/network/timesheet_functions_client.dart';
-import 'package:el_race/core/timesheet/services/timesheet_acting_scope.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:workmanager/workmanager.dart';
 
@@ -173,9 +172,8 @@ class TimesheetCaptureQueueService {
   final TimesheetFunctionsClient _functionsClient;
 
   Future<void> enqueue(AttendanceCaptureDraft draft) async {
-    if (TimesheetActingScope.refusePersist('CaptureQueueService.enqueue')) {
-      return;
-    }
+    // Local drafts are allowed while acting so the camera flow can run; the
+    // final Submit timesheet action is blocked by TimesheetActingGuard.
     final box = await _openBox();
     await box.put(draft.id, draft.toJson());
   }
