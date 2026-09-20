@@ -7,6 +7,9 @@ import 'package:el_race/ui/presentation/Email%20Approval/theme/approvals_overvie
 import 'package:el_race/ui/presentation/Email%20Approval/utils/hr_approval_display.dart';
 import 'package:el_race/ui/presentation/Email%20Approval/widgets/approval_action_buttons.dart';
 import 'package:el_race/ui/presentation/Email%20Approval/widgets/approval_rejected_banner.dart';
+import 'package:el_race/ui/presentation/my_actions/data/my_actions_models.dart';
+import 'package:el_race/ui/presentation/my_actions/theme/my_actions_module_theme.dart';
+import 'package:el_race/ui/presentation/my_actions/utils/my_actions_detail_navigation.dart';
 import 'package:el_race/ui/widgets/contextual_glass_chrome_header.dart';
 import 'package:el_race/utils/safe_insets.dart';
 import 'package:flutter/material.dart';
@@ -1962,6 +1965,71 @@ class _HrDetailsScreenState extends State<HrDetailsScreen> {
     );
   }
 
+  /// HRMS listing only — opens My Actions review trail (review ids + status).
+  Widget _floatingViewReviewBar({
+    required String requestTitle,
+    required String employeeName,
+    required String employeeImage,
+    required String status,
+  }) {
+    return Container(
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(20.tr),
+        boxShadow: [
+          BoxShadow(
+            color: ApprovalsOverviewTheme.screenDeep.withValues(alpha: 0.12),
+            blurRadius: 16,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: OverviewGlassPanel(
+        fillAlpha: 0.78,
+        blurSigma: 14,
+        radius: 20,
+        padding: EdgeInsets.symmetric(horizontal: 8.tw, vertical: 6.th),
+        child: SizedBox(
+          width: double.infinity,
+          height: 44.th,
+          child: Material(
+            color: ApprovalsOverviewTheme.screenDeep,
+            borderRadius: BorderRadius.circular(14.tr),
+            child: InkWell(
+              borderRadius: BorderRadius.circular(14.tr),
+              onTap: () {
+                final id = int.tryParse(widget.requestId.trim()) ?? 0;
+                if (id <= 0) return;
+                MyActionsDetailNavigation.showPreview(
+                  context,
+                  MyActionsModule.hr,
+                  MyActionItem(
+                    id: id,
+                    name: requestTitle,
+                    status: status,
+                    employeeName: employeeName,
+                    employeeImage: employeeImage,
+                    reference: widget.requestId,
+                    requestType: requestTitle,
+                  ),
+                );
+              },
+              child: Center(
+                child: Text(
+                  'View Review',
+                  style: GoogleFonts.poppins(
+                    fontSize: 14.tsp,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.white,
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
   Widget _simCell(String label, String value,
       {bool highlight = false, bool inlineLabelValue = false}) {
     final isCompanyNumberLabel = label == 'Company No#' ||
@@ -2257,6 +2325,13 @@ class _HrDetailsScreenState extends State<HrDetailsScreen> {
     final rejectedMessage =
         ApprovalRejectedBanner.messageFromForm(rejectionForm);
     final showActions = widget.showApprovalActions && !isRejected;
+    // HRMS opens with showApprovalActions: false — show review trail instead.
+    final showViewReview = !widget.showApprovalActions;
+    final reviewStatus = _pickFromMaps(
+      requestMaps,
+      ['status', 'state', 'approval_status'],
+      fallback: '',
+    );
 
     final employeeType =
         _pickFromMaps(employeeMaps, ['type', 'employee_type'], fallback: '-');
@@ -2824,7 +2899,7 @@ class _HrDetailsScreenState extends State<HrDetailsScreen> {
                                           16.tw,
                                           0,
                                           16.tw,
-                                          showActions
+                                          (showActions || showViewReview)
                                               ? 68.th + context.systemBottomInset
                                               : 16.th + context.systemBottomInset,
                                         ),
@@ -3808,6 +3883,18 @@ class _HrDetailsScreenState extends State<HrDetailsScreen> {
                                     right: 16.tw,
                                     bottom: context.systemBottomInset + 8.th,
                                     child: _floatingApprovalBar(userId),
+                                  ),
+                                if (showViewReview)
+                                  Positioned(
+                                    left: 16.tw,
+                                    right: 16.tw,
+                                    bottom: context.systemBottomInset + 8.th,
+                                    child: _floatingViewReviewBar(
+                                      requestTitle: requestTitle,
+                                      employeeName: employeeName,
+                                      employeeImage: employeeImage,
+                                      status: reviewStatus,
+                                    ),
                                   ),
                               ],
                             ),
