@@ -1,7 +1,11 @@
 import 'package:dio/dio.dart';
+import 'package:el_race/core/session/login_session_refresh_service.dart';
 import 'package:el_race/core/utils/shared_pref.dart';
 import 'package:el_race/data/models/announcement_model.dart';
 import 'package:el_race/data/models/announcement_details_model.dart';
+import 'package:el_race/services/api_client.dart';
+import 'package:el_race/utils/di.dart';
+import 'package:flutter/foundation.dart';
 
 /// Category enum for announcements
 enum AnnouncementCategory {
@@ -28,18 +32,29 @@ class AnnouncementApiException implements Exception {
 /// Service for fetching announcements, news, and circulars
 class AnnouncementsApiService {
   final Dio _dio;
+  final ApiClient? _apiClient;
   final String baseUrl;
 
   AnnouncementsApiService({
     Dio? dio,
+    ApiClient? apiClient,
     this.baseUrl = 'https://erp.elrace.com/api',
-  }) : _dio = dio ??
+  })  : _apiClient = apiClient ?? _registeredApiClientOrNull(),
+        _dio = dio ??
             Dio(BaseOptions(
               connectTimeout: const Duration(seconds: 15),
               receiveTimeout: const Duration(seconds: 15),
               contentType: 'application/json',
               headers: {'Accept': 'application/json'},
             ));
+
+  static ApiClient? _registeredApiClientOrNull() {
+    try {
+      return sl.isRegistered<ApiClient>() ? sl<ApiClient>() : null;
+    } catch (_) {
+      return null;
+    }
+  }
 
   /// Fetch announcements by category
   ///
@@ -68,16 +83,10 @@ class AnnouncementsApiService {
       // print('📋 Request body: $requestBody');
       // print('🔑 Token: ${token.substring(0, 20)}...');
 
-      // Make API call
-      final response = await _dio.post(
-        url,
+      final response = await _postAnnouncements(
+        url: url,
+        token: token,
         data: requestBody,
-        options: Options(
-          headers: {
-            'Authorization': 'Bearer $token',
-            'Content-Type': 'application/json',
-          },
-        ),
       );
 
       // print('📥 Response status: ${response.statusCode}');
@@ -85,7 +94,28 @@ class AnnouncementsApiService {
 
       // Handle response
       if (response.statusCode == 200) {
-        return _parseResponse(response.data);
+        final announcements = _parseResponse(response.data);
+        if (announcements.isNotEmpty) {
+          return announcements;
+        }
+
+        final refreshed = await LoginSessionRefreshService.refreshRoles();
+        if (!refreshed) {
+          return announcements;
+        }
+
+        final retryResponse = await _postAnnouncements(
+          url: url,
+          token: SharedPref.getLoginData().result?.token ?? token,
+          data: requestBody,
+        );
+        if (retryResponse.statusCode == 200) {
+          return _parseResponse(retryResponse.data);
+        }
+        throw AnnouncementApiException(
+          'Failed to fetch announcements',
+          statusCode: retryResponse.statusCode,
+        );
       } else {
         throw AnnouncementApiException(
           'Failed to fetch announcements',
@@ -116,6 +146,36 @@ class AnnouncementsApiService {
     }
   }
 
+  Future<Response<dynamic>> _postAnnouncements({
+    required String url,
+    required String token,
+    required Map<String, dynamic> data,
+  }) {
+    final apiClient = _apiClient;
+    if (apiClient != null && baseUrl == 'https://erp.elrace.com/api') {
+      return apiClient.post(
+        'announcements',
+        data: data,
+        headers: const {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+        },
+      );
+    }
+
+    return _dio.post(
+      url,
+      data: data,
+      options: Options(
+        headers: {
+          'Authorization': 'Bearer $token',
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+        },
+      ),
+    );
+  }
+
   /// Parse the API response into a list of AnnouncementModel
   List<AnnouncementModel> _parseResponse(dynamic responseData) {
     try {
@@ -136,6 +196,22 @@ class AnnouncementsApiService {
         final result = responseData['result'];
         if (result == null) {
           return [];
+        }
+
+        if (result is Map<String, dynamic>) {
+          final status = result['status']?.toString().toLowerCase().trim();
+          final success = result['success'];
+          final ok = result['ok'];
+          final hasExplicitFailure =
+              status == 'error' || success == false || ok == false;
+          if (hasExplicitFailure) {
+            final message =
+                result['message']?.toString() ?? 'Failed to fetch news';
+            if (kDebugMode) {
+              debugPrint('Announcements API returned failure: $message');
+            }
+            throw AnnouncementApiException(message);
+          }
         }
 
         final data = result is Map<String, dynamic> ? result['data'] : result;

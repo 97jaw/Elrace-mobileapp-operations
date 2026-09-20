@@ -37,7 +37,7 @@
     <application
         android:label="Elrace Company"
         android:name="${applicationName}"
-        android:icon="@mipmap/ic_launcher"
+        android:icon="@drawable/app_icon1"
         android:allowBackup="false"
         android:fullBackupContent="false"
         android:enableOnBackInvokedCallback="true">
@@ -134,7 +134,7 @@
         <activity-alias
             android:name=".ShareToChatAlias"
             android:exported="true"
-            android:icon="@mipmap/ic_launcher"
+            android:icon="@drawable/app_icon1"
             android:label="Elrace Chat"
             android:targetActivity=".MainActivity">
             <intent-filter>
@@ -162,7 +162,7 @@
         <activity-alias
             android:name=".ShareToSignAlias"
             android:exported="true"
-            android:icon="@mipmap/ic_launcher"
+            android:icon="@drawable/app_icon1"
             android:label="Elrace Sign"
             android:targetActivity=".MainActivity">
             <intent-filter>

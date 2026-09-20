@@ -19,6 +19,7 @@ import {
   setDoc,
   updateDoc,
   deleteDoc,
+  serverTimestamp,
   Timestamp,
 } from 'firebase/firestore';
 import {
@@ -458,7 +459,7 @@ describe('Firestore chat security', () => {
         media_url: null,
         media_path: null,
         thumb_url: null,
-        deleted_at: Timestamp.now(),
+        deleted_at: serverTimestamp(),
       }),
     );
   });
@@ -484,14 +485,14 @@ describe('Firestore chat security', () => {
   it('allows self member receipt timestamps and denies forged peer receipts', async () => {
     await assertSucceeds(
       updateDoc(doc(aliceFs(), 'chats', DM_AB, 'members', ALICE), {
-        last_read_at: Timestamp.now(),
-        last_delivered_at: Timestamp.now(),
+        last_read_at: serverTimestamp(),
+        last_delivered_at: serverTimestamp(),
       }),
     );
     await assertFails(
       updateDoc(doc(aliceFs(), 'chats', DM_AB, 'members', BOB), {
-        last_read_at: Timestamp.now(),
-        last_delivered_at: Timestamp.now(),
+        last_read_at: serverTimestamp(),
+        last_delivered_at: serverTimestamp(),
       }),
     );
   });
