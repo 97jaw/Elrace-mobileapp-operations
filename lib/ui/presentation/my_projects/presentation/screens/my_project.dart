@@ -8,10 +8,6 @@ import 'package:el_race/ui/presentation/my_projects/data/models/project_manager_
 import 'package:el_race/ui/presentation/my_projects/data/models/projects_dashboard_summary_model.dart';
 import 'package:el_race/ui/presentation/my_projects/data/models/user_project_model.dart';
 import 'package:el_race/ui/presentation/my_projects/data/models/user_projects_response.dart';
-import 'package:el_race/ui/presentation/my_projects/data/repositories/project_repository_impl.dart';
-import 'package:el_race/ui/presentation/my_projects/domain/usecases/get_projects_by_filters_usecase.dart';
-import 'package:el_race/ui/presentation/my_projects/domain/usecases/get_projects_by_partner_usecase.dart';
-import 'package:el_race/ui/presentation/my_projects/domain/usecases/get_projects_usecase.dart';
 import 'package:el_race/ui/presentation/my_projects/presentation/bloc/project_list_bloc.dart';
 import 'package:el_race/ui/presentation/my_projects/presentation/map/projects_portfolio_map_screen.dart';
 import 'package:el_race/ui/presentation/my_projects/presentation/screens/project_documents_hub_screen.dart';
@@ -41,6 +37,7 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter_translate/flutter_translate.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
+import 'package:el_race/ui/presentation/my_projects/projects_module.dart';
 
 class MarqueeText extends StatefulWidget {
   final String text;
@@ -179,16 +176,7 @@ class _MyProjectState extends State<MyProject> {
   int? _selectedYear;
 
   ProjectListBloc _buildProjectsBloc() {
-    final repo = ProjectRepositoryImpl(ProjectRemoteDataSource());
-    return ProjectListBloc(
-      getProjectsUseCase: GetProjectsUseCase(repository: repo),
-      getProjectAttachmentsUseCase:
-          GetProjectAttachmentsUseCase(repository: repo),
-      getProjectsByPartnerUseCase:
-          GetProjectsByPartnerUseCase(repository: repo),
-      getProjectsByFiltersUseCase:
-          GetProjectsByFiltersUseCase(repository: repo),
-    );
+    return ProjectsModule.createListBloc();
   }
 
   Future<void> _openGroupByHub() async {
@@ -394,7 +382,7 @@ class _MyProjectState extends State<MyProject> {
       _error = null;
     });
 
-    final ds = ProjectRemoteDataSource();
+    final ds = ProjectsModule.remote;
 
     try {
       final clientsFuture = ds.fetchClientsList();
@@ -909,7 +897,7 @@ class _ProjectManagersScreenState extends State<_ProjectManagersScreen> {
     });
 
     try {
-      final data = await ProjectRemoteDataSource().fetchProjectManagersList();
+      final data = await ProjectsModule.remote.fetchProjectManagersList();
       if (!mounted) return;
       setState(() {
         _managers = data;
@@ -943,16 +931,7 @@ class _ProjectManagersScreenState extends State<_ProjectManagersScreen> {
   }
 
   ProjectListBloc _buildProjectsBloc() {
-    final repo = ProjectRepositoryImpl(ProjectRemoteDataSource());
-    return ProjectListBloc(
-      getProjectsUseCase: GetProjectsUseCase(repository: repo),
-      getProjectAttachmentsUseCase:
-          GetProjectAttachmentsUseCase(repository: repo),
-      getProjectsByPartnerUseCase:
-          GetProjectsByPartnerUseCase(repository: repo),
-      getProjectsByFiltersUseCase:
-          GetProjectsByFiltersUseCase(repository: repo),
-    );
+    return ProjectsModule.createListBloc();
   }
 
   void _openManagerProjects(ProjectManagerFilterItem manager) {
@@ -1139,7 +1118,7 @@ class _ClientsScreenState extends State<_ClientsScreen> {
     });
 
     try {
-      final data = await ProjectRemoteDataSource()
+      final data = await ProjectsModule.remote
           .fetchClientsGroupedList(groupBy: 'client');
       if (!mounted) return;
       setState(() {
@@ -1174,16 +1153,7 @@ class _ClientsScreenState extends State<_ClientsScreen> {
   }
 
   ProjectListBloc _buildProjectsBloc() {
-    final repo = ProjectRepositoryImpl(ProjectRemoteDataSource());
-    return ProjectListBloc(
-      getProjectsUseCase: GetProjectsUseCase(repository: repo),
-      getProjectAttachmentsUseCase:
-          GetProjectAttachmentsUseCase(repository: repo),
-      getProjectsByPartnerUseCase:
-          GetProjectsByPartnerUseCase(repository: repo),
-      getProjectsByFiltersUseCase:
-          GetProjectsByFiltersUseCase(repository: repo),
-    );
+    return ProjectsModule.createListBloc();
   }
 
   void _openClientProjects(ProjectManagerFilterItem client) {
@@ -1370,7 +1340,7 @@ class _CitiesScreenState extends State<_CitiesScreen> {
     });
 
     try {
-      final data = await ProjectRemoteDataSource()
+      final data = await ProjectsModule.remote
           .fetchClientsGroupedList(groupBy: 'city');
       if (!mounted) return;
       setState(() {
@@ -1405,16 +1375,7 @@ class _CitiesScreenState extends State<_CitiesScreen> {
   }
 
   ProjectListBloc _buildProjectsBloc() {
-    final repo = ProjectRepositoryImpl(ProjectRemoteDataSource());
-    return ProjectListBloc(
-      getProjectsUseCase: GetProjectsUseCase(repository: repo),
-      getProjectAttachmentsUseCase:
-          GetProjectAttachmentsUseCase(repository: repo),
-      getProjectsByPartnerUseCase:
-          GetProjectsByPartnerUseCase(repository: repo),
-      getProjectsByFiltersUseCase:
-          GetProjectsByFiltersUseCase(repository: repo),
-    );
+    return ProjectsModule.createListBloc();
   }
 
   void _openCityProjects(ProjectManagerFilterItem city) {

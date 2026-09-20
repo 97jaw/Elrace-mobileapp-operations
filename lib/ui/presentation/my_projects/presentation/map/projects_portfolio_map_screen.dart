@@ -2,16 +2,11 @@ import 'package:el_race/core/utils/responsive_breakpoints.dart';
 import 'package:el_race/core/widgets/map/app_map_tiles.dart';
 import 'dart:math' as math;
 
-import 'package:el_race/ui/presentation/my_projects/data/datasources/project_remote_datasource.dart';
-import 'package:el_race/ui/presentation/my_projects/data/repositories/project_repository_impl.dart';
 import 'package:el_race/ui/presentation/my_projects/domain/entities/project_entity.dart';
-import 'package:el_race/ui/presentation/my_projects/domain/usecases/get_projects_by_filters_usecase.dart';
-import 'package:el_race/ui/presentation/my_projects/domain/usecases/get_projects_by_partner_usecase.dart';
-import 'package:el_race/ui/presentation/my_projects/domain/usecases/get_projects_usecase.dart';
-import 'package:el_race/ui/presentation/my_projects/presentation/bloc/project_list_bloc.dart';
 import 'package:el_race/ui/presentation/my_projects/presentation/map/portfolio_project_status.dart';
 import 'package:el_race/ui/presentation/my_projects/presentation/map/project_map_coordinate_resolver.dart';
 import 'package:el_race/ui/presentation/my_projects/presentation/utils/projects_list_pagination.dart';
+import 'package:el_race/ui/presentation/my_projects/projects_module.dart';
 import 'package:el_race/utils/color_utils.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
@@ -69,7 +64,7 @@ class _ProjectsPortfolioMapScreenState extends State<ProjectsPortfolioMapScreen>
       _error = null;
     });
     try {
-      final raw = await ProjectRemoteDataSource().fetchProjects(
+      final raw = await ProjectsModule.remote.fetchProjects(
         maxItems: kProjectsMapMaxProjects,
       );
       if (!mounted) return;
@@ -121,19 +116,6 @@ class _ProjectsPortfolioMapScreenState extends State<ProjectsPortfolioMapScreen>
       return bd.compareTo(ad);
     });
     return items.take(8).toList();
-  }
-
-  ProjectListBloc _buildBloc() {
-    final repo = ProjectRepositoryImpl(ProjectRemoteDataSource());
-    return ProjectListBloc(
-      getProjectsUseCase: GetProjectsUseCase(repository: repo),
-      getProjectAttachmentsUseCase:
-          GetProjectAttachmentsUseCase(repository: repo),
-      getProjectsByPartnerUseCase:
-          GetProjectsByPartnerUseCase(repository: repo),
-      getProjectsByFiltersUseCase:
-          GetProjectsByFiltersUseCase(repository: repo),
-    );
   }
 
   String _money(ProjectEntity p) {

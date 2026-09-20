@@ -16,6 +16,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:phosphor_flutter/phosphor_flutter.dart';
+import 'package:el_race/ui/presentation/my_projects/projects_module.dart';
 
 /// Site Management "Monitor Project" first screen.
 ///
@@ -32,7 +33,7 @@ class SmMonitorProjectScreen extends ConsumerStatefulWidget {
 
 class _SmMonitorProjectScreenState extends ConsumerState<SmMonitorProjectScreen>
     with SingleTickerProviderStateMixin {
-  final ProjectRemoteDataSource _ds = ProjectRemoteDataSource();
+  final ProjectRemoteDataSource _ds = ProjectsModule.remote;
   final TextEditingController _searchCtrl = TextEditingController();
   late final TabController _tab;
 

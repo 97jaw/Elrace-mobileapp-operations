@@ -14,10 +14,10 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:slide_to_act/slide_to_act.dart';
 import 'package:el_race/ui/presentation/my_projects/data/models/folder_model.dart';
-import 'package:el_race/ui/presentation/my_projects/data/datasources/project_remote_datasource.dart';
 import 'package:http/http.dart' as http;
 import 'package:el_race/core/utils/shared_pref.dart';
 import 'package:el_race/ui/presentation/my_projects/presentation/utils/project_file_opening.dart';
+import 'package:el_race/ui/presentation/my_projects/projects_module.dart';
 
 class AttachmentListScreen extends StatefulWidget {
   final ProjectListBloc bloc;
@@ -509,7 +509,7 @@ class _AddDocumentDialogState extends State<_AddDocumentDialog>
   Future<void> _loadFolders() async {
     try {
       print('🔄 Starting to load folders...');
-      final datasource = ProjectRemoteDataSource();
+      final datasource = ProjectsModule.remote;
       final folders = await datasource.fetchProjectFolders();
       print('✅ Folders loaded: ${folders.length} folders');
       for (var folder in folders) {

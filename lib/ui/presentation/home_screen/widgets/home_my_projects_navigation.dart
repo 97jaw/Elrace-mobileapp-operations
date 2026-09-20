@@ -1,14 +1,9 @@
-import 'package:el_race/ui/presentation/my_projects/data/datasources/project_remote_datasource.dart';
-import 'package:el_race/ui/presentation/my_projects/data/repositories/project_repository_impl.dart';
-import 'package:el_race/ui/presentation/my_projects/domain/entities/project_entity.dart';
-import 'package:el_race/ui/presentation/my_projects/domain/usecases/get_projects_by_filters_usecase.dart';
-import 'package:el_race/ui/presentation/my_projects/domain/usecases/get_projects_by_partner_usecase.dart';
-import 'package:el_race/ui/presentation/my_projects/domain/usecases/get_projects_usecase.dart';
-import 'package:el_race/ui/presentation/my_projects/presentation/bloc/project_list_bloc.dart';
 import 'package:el_race/ui/presentation/my_projects/presentation/map/project_analytics_screen.dart';
 import 'package:el_race/ui/presentation/my_projects/presentation/models/projects_list_context.dart';
 import 'package:el_race/ui/presentation/my_projects/presentation/screens/my_project.dart';
 import 'package:el_race/ui/presentation/my_projects/presentation/screens/project_list_screen.dart';
+import 'package:el_race/ui/presentation/my_projects/domain/entities/project_entity.dart';
+import 'package:el_race/ui/presentation/my_projects/projects_module.dart';
 import 'package:el_race/utils/Util.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -31,37 +26,19 @@ abstract final class HomeMyProjectsNavigation {
     }
   }
 
-  static ProjectListBloc _buildBloc() {
-    final repo = ProjectRepositoryImpl(ProjectRemoteDataSource());
-    return ProjectListBloc(
-      getProjectsUseCase: GetProjectsUseCase(repository: repo),
-      getProjectAttachmentsUseCase:
-          GetProjectAttachmentsUseCase(repository: repo),
-      getProjectsByPartnerUseCase:
-          GetProjectsByPartnerUseCase(repository: repo),
-      getProjectsByFiltersUseCase:
-          GetProjectsByFiltersUseCase(repository: repo),
-    );
-  }
-
-  static Future<ProjectEntity?> _resolveProject(int projectId) async {
-    final repo = ProjectRepositoryImpl(ProjectRemoteDataSource());
-    final projects = await repo.getProjects();
-    for (final project in projects) {
-      if (project.projectId == projectId) return project;
-    }
-    return null;
-  }
-
-  static Future<void> openProject(BuildContext context, int projectId) {
+  static Future<void> openProject(
+    BuildContext context, {
+    required int projectId,
+    String name = '',
+    double? totalProgress,
+  }) {
     return _runGuarded(() async {
-      final project = await _resolveProject(projectId);
+      final project = ProjectEntity.stub(
+        projectId: projectId,
+        name: name,
+        totalProgress: totalProgress,
+      );
       if (!context.mounted) return;
-
-      if (project == null) {
-        Util.pushPage(const MyProject(), context);
-        return;
-      }
 
       Navigator.of(context).push(
         MaterialPageRoute<void>(
@@ -77,17 +54,19 @@ abstract final class HomeMyProjectsNavigation {
     });
   }
 
-  static Future<void> openProjectList(BuildContext context, int projectId) {
+  static Future<void> openProjectList(
+    BuildContext context, {
+    required int projectId,
+    String name = '',
+  }) {
     return _runGuarded(() async {
-      final project = await _resolveProject(projectId);
+      final project = ProjectEntity.stub(
+        projectId: projectId,
+        name: name,
+      );
       if (!context.mounted) return;
 
-      if (project == null) {
-        Util.pushPage(const MyProject(), context);
-        return;
-      }
-
-      final bloc = _buildBloc();
+      final bloc = ProjectsModule.createListBloc();
       Navigator.of(context).push(
         MaterialPageRoute<void>(
           builder: (_) => BlocProvider.value(
