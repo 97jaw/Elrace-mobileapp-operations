@@ -8,6 +8,8 @@ class UserProjectModel {
   final String? agreementNo;
   final String? agreementName;
   final String? cityId;
+  /// Latest project write date in the bucket (`last_update` from clients/list).
+  final String? lastUpdate;
 
   const UserProjectModel({
     required this.projectId,
@@ -19,6 +21,7 @@ class UserProjectModel {
     this.agreementNo,
     this.agreementName,
     this.cityId,
+    this.lastUpdate,
   });
 
   factory UserProjectModel.fromJson(Map<String, dynamic> json) {
@@ -30,6 +33,12 @@ class UserProjectModel {
         return parseId(value['id'] ?? value['agreement_id']);
       }
       return int.tryParse(value?.toString() ?? '');
+    }
+
+    int parseCount(dynamic value) {
+      if (value is int) return value;
+      if (value is num) return value.toInt();
+      return int.tryParse(value?.toString() ?? '') ?? 0;
     }
 
     final idValue = json['id'];
@@ -50,7 +59,10 @@ class UserProjectModel {
           ? idValue
           : int.tryParse(idValue?.toString() ?? '') ?? 0,
       projectName: json['name']?.toString() ?? '',
-      totalProjects: json['total_projects'] as int? ?? 0,
+      // agreement buckets use total_projects; client buckets use project_count
+      totalProjects: parseCount(
+        json['total_projects'] ?? json['project_count'],
+      ),
       totalProjectsAmount:
           (json['total_projects_amount'] as num?)?.toDouble() ?? 0.0,
       photoUrl: photoUrl,
@@ -60,6 +72,9 @@ class UserProjectModel {
       cityId: json['city_id'] is List && (json['city_id'] as List).length > 1
           ? (json['city_id'] as List)[1]?.toString()
           : json['city_id']?.toString(),
+      lastUpdate: json['last_update']?.toString() ??
+          json['write_date']?.toString() ??
+          json['date']?.toString(),
     );
   }
 
@@ -74,6 +89,7 @@ class UserProjectModel {
       'agreement_no': agreementNo,
       'agreement_name': agreementName,
       'city_id': cityId,
+      'last_update': lastUpdate,
     };
   }
 }

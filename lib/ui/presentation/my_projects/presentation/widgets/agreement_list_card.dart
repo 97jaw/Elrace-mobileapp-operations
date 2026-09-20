@@ -3,8 +3,8 @@ import 'package:el_race/ui/presentation/my_projects/data/models/user_project_mod
 import 'package:el_race/ui/presentation/my_projects/presentation/theme/projects_dashboard_theme.dart';
 import 'package:el_race/ui/presentation/my_projects/presentation/utils/projects_dashboard_aggregator.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:intl/intl.dart';
 
 class AgreementListCard extends StatelessWidget {
   const AgreementListCard({
@@ -16,6 +16,18 @@ class AgreementListCard extends StatelessWidget {
   final UserProjectModel agreement;
   final VoidCallback onTap;
 
+  String? get _formattedDate {
+    final raw = agreement.lastUpdate?.trim();
+    if (raw == null || raw.isEmpty) return null;
+    final parsed = DateTime.tryParse(raw);
+    if (parsed != null) {
+      return DateFormat('dd MMM yyyy').format(parsed);
+    }
+    // Already a date-only string from API (yyyy-mm-dd).
+    if (raw.length >= 10) return raw.substring(0, 10);
+    return raw;
+  }
+
   @override
   Widget build(BuildContext context) {
     final photoUrl =
@@ -23,6 +35,7 @@ class AgreementListCard extends StatelessWidget {
     final agreementNo = agreement.agreementNo?.isNotEmpty == true
         ? agreement.agreementNo!
         : '${agreement.projectId}';
+    final dateLabel = _formattedDate;
 
     return Material(
       color: Colors.transparent,
@@ -108,32 +121,41 @@ class AgreementListCard extends StatelessWidget {
                             maxLines: 2,
                             overflow: TextOverflow.ellipsis,
                           ),
+                          if ((agreement.agreementName ?? '')
+                              .trim()
+                              .isNotEmpty) ...[
+                            SizedBox(height: 4.th),
+                            Text(
+                              agreement.agreementName!.trim(),
+                              style: GoogleFonts.poppins(
+                                fontSize: 11.tsp,
+                                fontWeight: FontWeight.w500,
+                                color: ProjectsDashboardTheme.white
+                                    .withValues(alpha: 0.75),
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ],
                           SizedBox(height: 10.th),
                           Row(
                             children: [
-                              Container(
-                                padding: EdgeInsets.symmetric(
-                                  horizontal: 10.tw,
-                                  vertical: 4.th,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: ProjectsDashboardTheme.maroon
-                                      .withValues(alpha: 0.35),
-                                  borderRadius: BorderRadius.circular(20.tr),
-                                  border: Border.all(
-                                    color: ProjectsDashboardTheme.white
-                                        .withValues(alpha: 0.35),
+                              if (dateLabel != null) ...[
+                                Flexible(
+                                  child: Text(
+                                    dateLabel,
+                                    style: GoogleFonts.poppins(
+                                      fontSize: 10.tsp,
+                                      fontWeight: FontWeight.w600,
+                                      color: ProjectsDashboardTheme.white
+                                          .withValues(alpha: 0.85),
+                                    ),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
                                   ),
                                 ),
-                                child: Text(
-                                  'In progress',
-                                  style: GoogleFonts.poppins(
-                                    fontSize: 10.tsp,
-                                    fontWeight: FontWeight.w600,
-                                    color: ProjectsDashboardTheme.white,
-                                  ),
-                                ),
-                              ),
+                                SizedBox(width: 8.tw),
+                              ],
                               const Spacer(),
                               Container(
                                 padding: EdgeInsets.symmetric(

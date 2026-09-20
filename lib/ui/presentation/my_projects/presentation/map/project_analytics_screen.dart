@@ -24,6 +24,7 @@ import 'package:http/http.dart' as http;
 import 'package:path_provider/path_provider.dart';
 import 'package:syncfusion_flutter_pdf/pdf.dart';
 import 'package:syncfusion_flutter_pdfviewer/pdfviewer.dart';
+import 'package:el_race/ui/presentation/my_projects/projects_module.dart';
 
 class ProjectAnalyticsScreen extends StatefulWidget {
   const ProjectAnalyticsScreen({super.key, required this.project});
@@ -50,7 +51,7 @@ class _ProjectAnalyticsScreenState extends State<ProjectAnalyticsScreen>
     final tabCount = _showFinancials ? 3 : 2;
     _tabController = TabController(length: tabCount, vsync: this);
     _tabController.addListener(_onTabChanged);
-    _remoteDataSource = ProjectRemoteDataSource();
+    _remoteDataSource = ProjectsModule.remote;
     _future = _remoteDataSource.fetchProjectScurve(widget.project.projectId);
     _financialsFuture = _loadFinancials();
   }

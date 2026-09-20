@@ -2,9 +2,9 @@ import 'package:el_race/core/home/home_widget_visibility.dart';
 import 'package:el_race/core/utils/shared_pref.dart';
 import 'package:el_race/ui/presentation/home_screen/providers/home_widget_api_client.dart';
 import 'package:el_race/ui/presentation/home_screen/providers/home_widget_session_cache.dart';
-import 'package:el_race/ui/presentation/my_projects/data/datasources/project_remote_datasource.dart';
 import 'package:el_race/ui/presentation/signin/data/model.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:el_race/ui/presentation/my_projects/projects_module.dart';
 
 final homeMyProjectsWidgetProvider =
     NotifierProvider<HomeMyProjectsWidgetNotifier, MyProjectsWidgetRecord>(
@@ -60,7 +60,7 @@ class HomeMyProjectsWidgetNotifier extends Notifier<MyProjectsWidgetRecord> {
     MyProjectsWidgetRecord record,
   ) async {
     try {
-      final projects = await ProjectRemoteDataSource().fetchProjects(
+      final projects = await ProjectsModule.remote.fetchProjects(
         maxItems: 3,
       );
       if (projects.isEmpty) return record;

@@ -5,6 +5,7 @@ import 'package:el_race/ui/presentation/my_projects/presentation/models/projects
 import 'package:el_race/ui/presentation/my_projects/presentation/utils/projects_group_hub_filter_applier.dart';
 import 'package:el_race/ui/presentation/my_projects/presentation/utils/projects_group_list_builder.dart';
 import 'package:el_race/ui/presentation/my_projects/presentation/utils/projects_list_pagination.dart';
+import 'package:el_race/ui/presentation/my_projects/projects_module.dart';
 
 /// Group-by hub: **filter project/WO records first**, then aggregate buckets.
 ///
@@ -12,7 +13,7 @@ import 'package:el_race/ui/presentation/my_projects/presentation/utils/projects_
 /// `clients/list` is not used for counts (v1 ignores hub filters and PM id=0).
 class ProjectsGroupHubLoader {
   ProjectsGroupHubLoader({ProjectRemoteDataSource? dataSource})
-      : _dataSource = dataSource ?? ProjectRemoteDataSource();
+      : _dataSource = dataSource ?? ProjectsModule.remote;
 
   final ProjectRemoteDataSource _dataSource;
 

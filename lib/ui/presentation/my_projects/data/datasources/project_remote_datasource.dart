@@ -64,7 +64,10 @@ abstract class ProjectRemoteDataSourceImpl {
     int offset = 0,
   });
   Future<List<FolderModel>> fetchProjectFolders();
-  Future<UserProjectsResponse> fetchClientsList();
+  Future<UserProjectsResponse> fetchClientsList({
+    String groupBy = 'agreement',
+    int? year,
+  });
   Future<ProjectsDashboardSummaryModel> fetchProjectsDashboardSummary();
   Future<List<ProjectManagerFilterItem>> fetchProjectManagersList({
     ProjectsGroupHubFilters? filters,
@@ -735,7 +738,10 @@ class ProjectRemoteDataSource implements ProjectRemoteDataSourceImpl {
   }
 
   @override
-  Future<UserProjectsResponse> fetchClientsList() async {
+  Future<UserProjectsResponse> fetchClientsList({
+    String groupBy = 'agreement',
+    int? year,
+  }) async {
     final token = _getToken();
 
     final headers = {
@@ -747,11 +753,14 @@ class ProjectRemoteDataSource implements ProjectRemoteDataSourceImpl {
     final v1Url = Uri.parse("${UrlUtil.baseUrl}clients/list");
     final v2Url = Uri.parse("${UrlUtil.baseUrl}$_v2ClientsList");
 
+    final params = <String, dynamic>{
+      "group_by": groupBy,
+    };
+    if (year != null) params['year'] = year;
+
     final body = jsonEncode({
       "jsonrpc": "2.0",
-      "params": {
-        "group_by": "agreement",
-      },
+      "params": params,
     });
 
     final response = await _jsonGetTryV2(
@@ -762,8 +771,8 @@ class ProjectRemoteDataSource implements ProjectRemoteDataSourceImpl {
     );
 
     debugPrint(
-      'fetchClientsList: status=${response.statusCode} '
-      'bytes=${response.body.length}',
+      'fetchClientsList: group_by=$groupBy year=$year '
+      'status=${response.statusCode} bytes=${response.body.length}',
     );
 
     if (response.statusCode == 200) {
@@ -778,7 +787,9 @@ class ProjectRemoteDataSource implements ProjectRemoteDataSourceImpl {
         return UserProjectsResponse(
           success: true,
           employeeId: 0,
-          projects: ProjectsListOrdering.sortAgreementsDesc(projects),
+          projects: groupBy == 'agreement'
+              ? ProjectsListOrdering.sortAgreementsDesc(projects)
+              : projects,
         );
       }
 

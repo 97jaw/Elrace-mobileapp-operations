@@ -1,7 +1,6 @@
 import 'package:el_race/ui/presentation/my_projects/data/models/projects_dashboard_summary_model.dart';
 import 'package:el_race/ui/presentation/my_projects/data/models/user_project_model.dart';
 import 'package:el_race/ui/presentation/my_projects/domain/entities/project_entity.dart';
-import 'package:el_race/ui/presentation/my_projects/presentation/utils/projects_dashboard_access.dart';
 import 'package:el_race/ui/presentation/signin/data/model.dart';
 
 /// Portfolio-level stat boxes for the Projects dashboard.
@@ -117,20 +116,43 @@ class ProjectsDashboardAggregator {
     );
   }
 
-  /// Header + status stats with management bypass for domain scope.
+  /// Prefer server `dashboard_summary` for both management and staff so KPI
+  /// totals match portfolio domain counts (all statuses, excl. internal).
+  ///
+  /// Do **not** use a capped chart sample (`domainProjects.length`) for
+  /// total_projects — that under-counted vs Odoo whenever the portfolio
+  /// exceeded the mobile page cap.
   static ProjectsDashboardBoxStats resolveBoxStats({
     required List<UserProjectModel> agreements,
     required List<ProjectEntity> domainProjects,
     ProjectsDashboardSummaryModel? summary,
     Map<String, dynamic>? widgetRecordMap,
   }) {
-    if (ProjectsDashboardAccess.bypassesDomainScope && summary != null) {
-      return boxStatsFromSummary(summary);
+    if (summary != null) {
+      final fromSummary = boxStatsFromSummary(summary);
+      // If summary is stale/empty but agreements already loaded, keep agreement count.
+      if (fromSummary.agreementsCount > 0 || agreements.isEmpty) {
+        return fromSummary;
+      }
+      return ProjectsDashboardBoxStats(
+        agreementsCount: agreements.length,
+        totalProjects: fromSummary.totalProjects > 0
+            ? fromSummary.totalProjects
+            : agreements.fold<int>(0, (sum, a) => sum + a.totalProjects),
+        portfolioValueAed: fromSummary.portfolioValueAed > 0
+            ? fromSummary.portfolioValueAed
+            : agreements.fold<double>(
+                0,
+                (sum, a) => sum + a.totalProjectsAmount,
+              ),
+        delayedProjects: fromSummary.delayedProjects,
+      );
     }
     return computeBoxStats(
       agreements: agreements,
       widgetRecordMap: widgetRecordMap,
-      domainProjects: domainProjects,
+      // Null → sum agreement.total_projects (server group counts), not chart length.
+      domainProjects: null,
     );
   }
 
@@ -138,7 +160,7 @@ class ProjectsDashboardAggregator {
     required List<ProjectEntity> domainProjects,
     ProjectsDashboardSummaryModel? summary,
   }) {
-    if (ProjectsDashboardAccess.bypassesDomainScope && summary != null) {
+    if (summary != null) {
       return stripStatsFromSummary(summary);
     }
     return computeStripStats(domainProjects);

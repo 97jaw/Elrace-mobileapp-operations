@@ -1,5 +1,4 @@
 import 'package:el_race/core/utils/responsive_breakpoints.dart';
-import 'package:el_race/ui/presentation/my_projects/data/datasources/project_remote_datasource.dart';
 import 'package:el_race/ui/presentation/my_projects/data/models/project_manager_filter_item.dart';
 import 'package:el_race/ui/presentation/my_projects/presentation/theme/projects_dashboard_theme.dart';
 import 'package:el_race/ui/presentation/my_projects/presentation/utils/projects_group_list_cache.dart';
@@ -10,6 +9,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
+import 'package:el_race/ui/presentation/my_projects/projects_module.dart';
 
 /// Themed list for Project Manager / Client / City group-by pickers.
 class ProjectsGroupPickerScreen extends StatefulWidget {
@@ -63,7 +63,7 @@ class _ProjectsGroupPickerScreenState extends State<ProjectsGroupPickerScreen> {
     });
 
     try {
-      final data = await ProjectRemoteDataSource()
+      final data = await ProjectsModule.remote
           .fetchClientsGroupedList(groupBy: widget.groupBy);
       ProjectsGroupListCache.instance.put(widget.groupBy, data);
       if (!mounted) return;

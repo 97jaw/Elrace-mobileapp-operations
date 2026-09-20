@@ -13,6 +13,7 @@ import 'package:el_race/ui/presentation/my_projects/presentation/widgets/project
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:el_race/ui/presentation/my_projects/projects_module.dart';
 
 /// SharePoint folders and files for a project.
 class CloudDocumentsScreen extends StatefulWidget {
@@ -38,7 +39,7 @@ class CloudDocumentsScreen extends StatefulWidget {
 }
 
 class _CloudDocumentsScreenState extends State<CloudDocumentsScreen> {
-  final ProjectRemoteDataSource _dataSource = ProjectRemoteDataSource();
+  final ProjectRemoteDataSource _dataSource = ProjectsModule.remote;
 
   bool _isLoading = true;
   String? _error;
