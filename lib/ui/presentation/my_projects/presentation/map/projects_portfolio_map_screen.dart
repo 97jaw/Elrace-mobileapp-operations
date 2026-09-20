@@ -1202,77 +1202,83 @@ class _SupervisorMapAvatar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Container(
-          width: 36,
-          height: 36,
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            border: Border.all(color: const Color(0xFF1E3A8A), width: 2),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.2),
-                blurRadius: 8,
-                offset: const Offset(0, 2),
-              ),
-            ],
+    // Marker size is fixed (150x50). Avoid ScreenUtil here — .tw/.tsp can
+    // push the Row past the marker box and overflow on long-press.
+    return SizedBox(
+      width: 150,
+      height: 50,
+      child: Row(
+        children: [
+          Container(
+            width: 36,
+            height: 36,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              border: Border.all(color: const Color(0xFF1E3A8A), width: 2),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.2),
+                  blurRadius: 8,
+                  offset: const Offset(0, 2),
+                ),
+              ],
+            ),
+            child: ClipOval(
+              child: (supervisor.photo != null && supervisor.photo!.isNotEmpty)
+                  ? Image.network(
+                      supervisor.photo!,
+                      fit: BoxFit.cover,
+                      errorBuilder: (_, __, ___) =>
+                          const Icon(Icons.person_rounded, size: 20),
+                    )
+                  : const Icon(Icons.person_rounded, size: 20),
+            ),
           ),
-          child: ClipOval(
-            child: (supervisor.photo != null && supervisor.photo!.isNotEmpty)
-                ? Image.network(
-                    supervisor.photo!,
-                    fit: BoxFit.cover,
-                    errorBuilder: (_, __, ___) => const Icon(Icons.person_rounded),
-                  )
-                : const Icon(Icons.person_rounded),
-          ),
-        ),
-        SizedBox(width: 4.tw),
-        Container(
-          constraints: BoxConstraints(maxWidth: 105.tw),
-          padding: EdgeInsets.symmetric(horizontal: 7.tw, vertical: 3.th),
-          decoration: BoxDecoration(
-            color: Colors.white.withValues(alpha: 0.96),
-            borderRadius: BorderRadius.circular(14.tr),
-            border: Border.all(color: const Color(0xFFC7D2FE)),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.1),
-                blurRadius: 6,
-                offset: const Offset(0, 2),
-              ),
-            ],
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Flexible(
-                child: Text(
-                  supervisor.employeeName,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: GoogleFonts.poppins(
-                    fontSize: 8.5.tsp,
-                    fontWeight: FontWeight.w700,
-                    color: const Color(0xFF1F2937),
+          const SizedBox(width: 4),
+          Expanded(
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+              decoration: BoxDecoration(
+                color: Colors.white.withValues(alpha: 0.96),
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(color: const Color(0xFFC7D2FE)),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.1),
+                    blurRadius: 6,
+                    offset: const Offset(0, 2),
                   ),
-                ),
+                ],
               ),
-              SizedBox(width: 4.tw),
-              Text(
-                '${distanceMeters}m',
-                style: GoogleFonts.poppins(
-                  fontSize: 7.5.tsp,
-                  fontWeight: FontWeight.w700,
-                  color: const Color(0xFF1D4ED8),
-                ),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      supervisor.employeeName,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: GoogleFonts.poppins(
+                        fontSize: 9,
+                        fontWeight: FontWeight.w700,
+                        color: const Color(0xFF1F2937),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 4),
+                  Text(
+                    '${distanceMeters}m',
+                    style: GoogleFonts.poppins(
+                      fontSize: 8,
+                      fontWeight: FontWeight.w700,
+                      color: const Color(0xFF1D4ED8),
+                    ),
+                  ),
+                ],
               ),
-            ],
+            ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 }
