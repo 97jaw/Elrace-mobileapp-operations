@@ -8,6 +8,13 @@ import 'package:el_race/ui/presentation/my_notes/repository/i_notes_repository.d
 import 'package:el_race/ui/presentation/media/bloc/media_bloc.dart';
 import 'package:el_race/ui/presentation/media/repository/i_media_repository.dart';
 import 'package:el_race/ui/presentation/media/repository/media_repository.dart';
+import 'package:el_race/ui/presentation/my_projects/data/datasources/project_remote_datasource.dart';
+import 'package:el_race/ui/presentation/my_projects/data/repositories/project_repository_impl.dart';
+import 'package:el_race/ui/presentation/my_projects/domain/repositories/project_repository.dart';
+import 'package:el_race/ui/presentation/my_projects/domain/usecases/get_projects_by_filters_usecase.dart';
+import 'package:el_race/ui/presentation/my_projects/domain/usecases/get_projects_by_partner_usecase.dart';
+import 'package:el_race/ui/presentation/my_projects/domain/usecases/get_projects_usecase.dart';
+import 'package:el_race/ui/presentation/my_projects/presentation/bloc/project_list_bloc.dart';
 import 'package:el_race/ui/presentation/my_request/bloc/requests_bloc.dart';
 import 'package:el_race/ui/presentation/signin/bloc/sign_in_bloc.dart';
 import 'package:el_race/ui/presentation/signin/data/model.dart';
@@ -74,15 +81,40 @@ Future<void> initDI() async {
       ),
     );
 
-    // Temporarily comment out problematic dependencies for iOS simulator
-    // sl.registerLazySingleton<ProjectRepository>(() => ProjectRepositoryImpl(sl()));
     _registerLazySingletonIfNeeded<INotesRepository>(
       () => FirebaseNotesRepository(),
     );
     _registerLazySingletonIfNeeded<IMediaRepository>(() => MediaRepository());
 
-    // Data sources
-    // sl.registerLazySingleton<ProjectRemoteDataSource>(() => ProjectRemoteDataSource());
+    // Projects: one remote datasource per session (preserves v2 hub probe).
+    _registerLazySingletonIfNeeded<ProjectRemoteDataSource>(
+      ProjectRemoteDataSource.new,
+    );
+    _registerLazySingletonIfNeeded<ProjectRepository>(
+      () => ProjectRepositoryImpl(sl()),
+    );
+    _registerLazySingletonIfNeeded(
+      () => GetProjectsUseCase(repository: sl()),
+    );
+    _registerLazySingletonIfNeeded(
+      () => GetProjectAttachmentsUseCase(repository: sl()),
+    );
+    _registerLazySingletonIfNeeded(
+      () => GetProjectsByPartnerUseCase(repository: sl()),
+    );
+    _registerLazySingletonIfNeeded(
+      () => GetProjectsByFiltersUseCase(repository: sl()),
+    );
+    if (!sl.isRegistered<ProjectListBloc>()) {
+      sl.registerFactory(
+        () => ProjectListBloc(
+          getProjectsUseCase: sl(),
+          getProjectAttachmentsUseCase: sl(),
+          getProjectsByPartnerUseCase: sl(),
+          getProjectsByFiltersUseCase: sl(),
+        ),
+      );
+    }
 
     // Register Blocs as LAZY singletons – they are only created when first
     // accessed (e.g. when their screen opens), not during splash.
@@ -106,16 +138,6 @@ Future<void> initDI() async {
     _registerLazySingletonIfNeeded<MediaBloc>(
       () => MediaBloc(mediaRepository: sl()),
     );
-
-    // Temporarily comment out problematic bloc for iOS simulator
-    // sl.registerFactory(() => ProjectListBloc(
-    //   getProjectsUseCase: sl(),
-    //   getProjectAttachmentsUseCase: sl()
-    // ));
-
-    /// register usecases
-    // sl.registerLazySingleton(() => GetProjectsUseCase(repository: sl()));
-    // sl.registerLazySingleton(() => GetProjectAttachmentsUseCase(repository: sl()));
 
     _diInitialized = true;
     print('✅ DI initialization complete');

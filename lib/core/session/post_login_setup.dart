@@ -13,6 +13,7 @@ import 'package:el_race/ui/presentation/attendance_reports/attendance_reports_se
 import 'package:el_race/ui/presentation/home_screen/bloc/home_bloc.dart';
 import 'package:el_race/ui/presentation/home_screen/providers/home_widget_refresh_service.dart';
 import 'package:el_race/ui/presentation/home_screen/providers/home_widget_session_cache.dart';
+import 'package:el_race/ui/presentation/my_projects/presentation/utils/projects_group_list_cache.dart';
 import 'package:el_race/ui/presentation/signin/data/model.dart';
 import 'package:el_race/ui/presentation/signin/data/repository.dart';
 import 'package:el_race/utils/Util.dart';
@@ -84,6 +85,7 @@ class PostLoginSetup {
       c.invalidate(attendanceSessionProvider);
       // Drop previous user's widget payloads so home refetches for this login.
       HomeWidgetSessionCache.clear();
+      ProjectsGroupListCache.instance.clear();
       HomeWidgetRefreshService.invalidateWidgetProviders(c);
     } catch (_) {}
 

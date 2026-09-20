@@ -21,13 +21,9 @@ import 'package:el_race/core/timesheet/routing/timesheet_route_names.dart';
 import 'package:el_race/utils/Util.dart';
 import 'package:el_race/utils/custom_navigate.dart';
 import 'package:el_race/ui/presentation/my_projects/presentation/screens/project_list_screen.dart';
-import 'package:el_race/ui/presentation/my_projects/presentation/bloc/project_list_bloc.dart';
-import 'package:el_race/ui/presentation/my_projects/data/repositories/project_repository_impl.dart';
-import 'package:el_race/ui/presentation/my_projects/data/datasources/project_remote_datasource.dart';
-import 'package:el_race/ui/presentation/my_projects/domain/usecases/get_projects_usecase.dart';
-import 'package:el_race/ui/presentation/my_projects/domain/usecases/get_projects_by_partner_usecase.dart';
 import 'package:el_race/ui/presentation/purchase_management/screens/purchase_management_hub_screen.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:el_race/ui/presentation/my_projects/projects_module.dart';
 
 /// Helper class for navigating to detail screens from search results.
 class GlobalSearchNavigationHelper {
@@ -216,14 +212,7 @@ class GlobalSearchNavigationHelper {
       final String partnerPhoto =
           (data['photo_url'] ?? data['partner_photo'] ?? '').toString();
 
-      final repo = ProjectRepositoryImpl(ProjectRemoteDataSource());
-      final bloc = ProjectListBloc(
-        getProjectsUseCase: GetProjectsUseCase(repository: repo),
-        getProjectAttachmentsUseCase:
-            GetProjectAttachmentsUseCase(repository: repo),
-        getProjectsByPartnerUseCase:
-            GetProjectsByPartnerUseCase(repository: repo),
-      );
+      final bloc = ProjectsModule.createListBloc();
 
       Navigator.push(
         context,

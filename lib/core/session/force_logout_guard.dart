@@ -13,6 +13,7 @@ import 'package:el_race/ui/presentation/attendance_reports/attendance_reports_se
 import 'package:el_race/ui/presentation/home_screen/bloc/home_bloc.dart';
 import 'package:el_race/ui/presentation/home_screen/screens/home_screen.dart';
 import 'package:el_race/ui/presentation/my_actions/data/user_stamp_assets.dart';
+import 'package:el_race/ui/presentation/my_projects/presentation/utils/projects_group_list_cache.dart';
 import 'package:el_race/ui/presentation/signin/sign_in_screen.dart';
 import 'package:el_race/utils/di.dart';
 import 'package:flutter/material.dart';
@@ -181,6 +182,9 @@ class ForceLogoutGuard {
 
     HomeScreenPage.resetAuthSession();
 
+    try {
+      ProjectsGroupListCache.instance.clear();
+    } catch (_) {}
     try {
       UserStampAssets.clearCache();
     } catch (_) {}

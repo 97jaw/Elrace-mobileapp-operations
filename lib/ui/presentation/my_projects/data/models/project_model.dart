@@ -147,12 +147,20 @@ class ProjectModel extends ProjectEntity {
         ) ??
         0;
 
+    // Prefer numeric id for filters/aggregators; fall back to label string.
+    final agreementRaw = json['agreement_id'] ?? json['agreement'];
+    final agreementNumericId = OdooFieldParsers.parseMany2oneId(agreementRaw);
+    final agreementLabel = OdooFieldParsers.readString(agreementRaw);
+    final agreementId = agreementNumericId != null
+        ? agreementNumericId.toString()
+        : (agreementLabel == 'false' || agreementLabel == 'None'
+            ? ''
+            : agreementLabel);
+
     return ProjectModel(
       projectId: projectId,
       partnerId: partnerId?.toString() ?? '',
-      agreementId: OdooFieldParsers.readString(
-        json['agreement_id'] ?? json['agreement'],
-      ),
+      agreementId: agreementId,
       woRefNo: json['wo_ref_no'] ?? '',
       name: json['name']?.toString() ?? '',
       woAmount: (json['wo_amount'] as num?)?.toDouble() ?? 0.0,

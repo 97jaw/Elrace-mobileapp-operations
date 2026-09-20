@@ -104,6 +104,26 @@ class ProjectEntity extends Equatable {
     this.supervisors = const [],
   });
 
+  /// Minimal entity for home-widget → analytics navigation (no list fetch).
+  factory ProjectEntity.stub({
+    required int projectId,
+    String name = '',
+    double? totalProgress,
+  }) {
+    return ProjectEntity(
+      projectId: projectId,
+      partnerId: '',
+      agreementId: '',
+      woRefNo: '',
+      name: name,
+      woAmount: 0,
+      projectStatus: '',
+      date: '',
+      dateStart: '',
+      totalProgress: totalProgress,
+    );
+  }
+
   @override
   List<Object?> get props => [
         projectId,
