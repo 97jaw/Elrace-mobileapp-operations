@@ -305,10 +305,43 @@ final timesheetForemanLaborsProvider =
     return List<TimesheetTeamMember>.from(scope.laborMembers)
       ..sort((a, b) => a.name.compareTo(b.name));
   }
-  if (scope.laborEmployeeIds.isEmpty) return const [];
-  final roster = await ref.watch(timesheetApiClientProvider).fetchEmployeeRoster();
+
+  final client = ref.watch(timesheetApiClientProvider);
+  var laborIds = Set<int>.from(scope.laborEmployeeIds);
+  final actingId = ref.watch(tmActingEmployeeIdProvider);
+
+  // When a PM is acting as a foreman, my_hr_scope may still return the PM's
+  // own (labor-empty) scope if the server has not yet picked up as_employee_id.
+  // Resolve that foreman's x_labor_ids from labor_list, then from the roster.
+  if (laborIds.isEmpty && actingId != null) {
+    try {
+      final fromList = await client.fetchLaborEmployeesForReport(
+        useHrScopeWhenNoProject: true,
+        includeDrivers: false,
+      );
+      if (fromList.isNotEmpty) {
+        return fromList
+            .map(TimesheetTeamMember.fromEmployee)
+            .toList()
+          ..sort((a, b) => a.name.compareTo(b.name));
+      }
+    } catch (_) {
+      // Fall through to roster lookup below.
+    }
+
+    final roster = await client.fetchEmployeeRoster();
+    for (final employee in roster) {
+      if (employee.employeeId == actingId && employee.laborIds.isNotEmpty) {
+        laborIds = employee.laborIds.toSet();
+        break;
+      }
+    }
+  }
+
+  if (laborIds.isEmpty) return const [];
+  final roster = await client.fetchEmployeeRoster();
   final members = <TimesheetTeamMember>[];
-  for (final id in scope.laborEmployeeIds) {
+  for (final id in laborIds) {
     TimesheetOdooEmployee? match;
     for (final employee in roster) {
       if (employee.employeeId == id) {
@@ -318,6 +351,14 @@ final timesheetForemanLaborsProvider =
     }
     if (match != null) {
       members.add(TimesheetTeamMember.fromEmployee(match));
+    } else {
+      members.add(
+        TimesheetTeamMember(
+          employeeId: id,
+          name: 'Employee #$id',
+          fileId: id.toString(),
+        ),
+      );
     }
   }
   members.sort((a, b) => a.name.compareTo(b.name));

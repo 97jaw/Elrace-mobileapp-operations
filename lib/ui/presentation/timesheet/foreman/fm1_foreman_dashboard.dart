@@ -7,8 +7,10 @@ import 'package:el_race/core/timesheet/models/timesheet_team_member.dart';
 import 'package:el_race/core/timesheet/providers/timesheet_data_providers.dart';
 import 'package:el_race/core/timesheet/providers/timesheet_enrollment_status_provider.dart';
 import 'package:el_race/core/timesheet/routing/timesheet_route_names.dart';
+import 'package:el_race/core/timesheet/providers/timesheet_acting_session_provider.dart';
 import 'package:el_race/core/timesheet/services/timesheet_acting_guard.dart';
 import 'package:el_race/core/timesheet/services/timesheet_capture_session_store.dart';
+import 'package:el_race/core/widgets/timesheet/tm_acting_banner.dart';
 import 'package:el_race/core/widgets/timesheet/timesheet_widgets.dart';
 import 'package:el_race/ui/presentation/timesheet/foreman/fm_timesheet_capture_submit_screen.dart';
 import 'package:el_race/ui/presentation/timesheet/foreman/fm_timesheet_submitted_list_screen.dart';
@@ -107,6 +109,9 @@ class Fm1ForemanDashboard extends ConsumerWidget {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             const _FmHomeHeader(),
+            // Fm1 uses its own header (not TmScaffold), so the acting banner
+            // must be inserted here. Renders nothing for a real foreman login.
+            const TmActingBanner(),
             Expanded(
               child: SafeArea(
                 top: false,
@@ -543,11 +548,19 @@ class Fm1ForemanDashboard extends ConsumerWidget {
   }
 }
 
-class _FmHomeHeader extends StatelessWidget {
+class _FmHomeHeader extends ConsumerWidget {
   const _FmHomeHeader();
 
+  void _onBack(BuildContext context, WidgetRef ref) {
+    // Leaving Timesheet for app Home closes any acting-as-foreman session.
+    // PopScope on TimesheetModuleHomeScreen also clears it; this covers the
+    // case where the user expects the feature to end the moment they tap back.
+    ref.read(tmActingSessionProvider.notifier).exit();
+    Navigator.of(context).maybePop();
+  }
+
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final canPop = Navigator.of(context).canPop();
     return DecoratedBox(
       decoration: const BoxDecoration(color: Colors.transparent),
@@ -576,7 +589,7 @@ class _FmHomeHeader extends StatelessWidget {
                       minWidth: 36,
                       minHeight: 36,
                     ),
-                    onPressed: () => Navigator.of(context).maybePop(),
+                    onPressed: () => _onBack(context, ref),
                     icon: const Icon(
                       Icons.arrow_back_ios_new_rounded,
                       size: 18,

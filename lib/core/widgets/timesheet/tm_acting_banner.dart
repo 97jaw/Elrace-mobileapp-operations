@@ -13,15 +13,21 @@ import 'package:phosphor_flutter/phosphor_flutter.dart';
 class TmActingBanner extends ConsumerWidget {
   const TmActingBanner({super.key});
 
-  /// Clears the session and returns to the Timesheet home, which reverts to the
-  /// role-restricted screen. An acting session can only be started from that
-  /// route, so it is always below the current one.
+  /// Clears the session. If the user is deeper than Timesheet home (project
+  /// detail, etc.), pops back to that home route so the restricted screen is
+  /// shown. When already on Timesheet home, clearing the provider is enough —
+  /// [TimesheetModuleHomeScreen] rebuilds to the restricted notice.
   void _exit(BuildContext context, WidgetRef ref) {
     ref.read(tmActingSessionProvider.notifier).exit();
-    Navigator.of(context).popUntil(
-      (route) =>
-          route.settings.name == TimesheetRouteNames.home || route.isFirst,
-    );
+    final navigator = Navigator.of(context);
+    final isOnTimesheetHome = ModalRoute.of(context)?.settings.name ==
+        TimesheetRouteNames.home;
+    if (!isOnTimesheetHome) {
+      navigator.popUntil(
+        (route) =>
+            route.settings.name == TimesheetRouteNames.home || route.isFirst,
+      );
+    }
   }
 
   @override

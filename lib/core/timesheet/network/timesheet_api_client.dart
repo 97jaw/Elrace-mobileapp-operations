@@ -729,14 +729,23 @@ class TimesheetApiClient {
           laborMembers: TimesheetHrMapping.teamMembersFromJson(laborRaw),
           foremanMembers: TimesheetHrMapping.teamMembersFromJson(foremanRaw),
         );
-        if (scope.hasLaborScope || scope.hasForemanScope) {
+        // While acting, the returned employee_id must be the foreman we asked
+        // for and must include that foreman's labors. If the server ignored
+        // as_employee_id (older addon) it returns the PM's foreman list with
+        // empty labors — fall through to the roster instead of caching that.
+        final actingMismatch = _isActing &&
+            actingEmployeeId != null &&
+            (scope.loginEmployeeId != actingEmployeeId ||
+                !scope.hasLaborScope);
+        if (!actingMismatch &&
+            (scope.hasLaborScope || scope.hasForemanScope)) {
           _hrScopeCache = scope;
           _touchCache();
           return scope;
         }
         debugPrint(
-          'TimesheetApiClient.fetchMyHrScope: empty scope for employee '
-          '${map['employee_id']}',
+          'TimesheetApiClient.fetchMyHrScope: empty/mismatched scope for '
+          'employee ${map['employee_id']} (acting=$actingEmployeeId)',
         );
       }
     } catch (error) {
