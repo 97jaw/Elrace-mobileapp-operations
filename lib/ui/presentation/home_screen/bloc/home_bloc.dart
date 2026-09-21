@@ -6,12 +6,12 @@ import 'package:el_race/data/services/hive_service.dart';
 import 'package:el_race/data/services/prayer_audio_service.dart';
 import 'package:el_race/data/services/prayer_background_service.dart';
 import 'package:el_race/data/services/prayer_notification_service.dart';
+import 'package:el_race/data/services/prayer_location_service.dart';
 import 'package:el_race/core/services/notification_storage_service.dart';
 import 'package:equatable/equatable.dart';
 import 'package:el_race/ui/presentation/Attendace_list/repository/attendance_repository.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:geolocator/geolocator.dart';
 import 'package:http/http.dart' as http;
 import 'package:intl/intl.dart';
 part 'home_event.dart';
@@ -131,7 +131,8 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
       try {
         await NotificationStorageService.setMuteSetting('prayer', newState);
       } catch (_) {
-        await NotificationStorageService.setLocalMuteSetting('prayer', newState);
+        await NotificationStorageService.setLocalMuteSetting(
+            'prayer', newState);
       }
       await NotificationStorageService.setLocalMuteSetting('adhan', newState);
 
@@ -170,27 +171,20 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
     try {
       // debugPrint('📡 Fetching prayer times from Aladhan API...');
 
-      // Get location coordinates
-      Coordinates coords;
-      try {
-        final last = await Geolocator.getLastKnownPosition();
-        coords = last != null
-            ? Coordinates(last.latitude, last.longitude)
-            : Coordinates(25.2048, 55.2708); // Dubai default
-      } catch (_) {
-        coords = Coordinates(25.2048, 55.2708);
-      }
+      final coords = await PrayerLocationService.getBestAvailableCoordinates();
 
       // debugPrint('📍 Location: ${coords.latitude}, ${coords.longitude}');
 
       // Get current date
       final now = DateTime.now();
       final timestamp = (now.millisecondsSinceEpoch / 1000).round();
+      final calculationMethod =
+          PrayerLocationService.aladhanMethodIdFor(coords);
 
       // جلب أوقات الصلاة من Aladhan API
       final response = await http.get(
         Uri.parse(
-            'https://api.aladhan.com/v1/timings/$timestamp?latitude=${coords.latitude}&longitude=${coords.longitude}&method=5'),
+            'https://api.aladhan.com/v1/timings/$timestamp?latitude=${coords.latitude}&longitude=${coords.longitude}&method=$calculationMethod'),
       );
 
       // debugPrint('📡 Aladhan API Response status: ${response.statusCode}');
@@ -231,7 +225,10 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
           // Foreground owns azan (timer + AudioPlayer). Do NOT reschedule OS
           // notifications here — that caused double azan for the same prayer.
           if (_prayerTimes != null) {
-            await _audioService.initialize(_prayerTimes!);
+            await _audioService.initialize(
+              _prayerTimes!,
+              exactPrayerTimes: _aladhanPrayerSchedule(),
+            );
           }
 
           return;
@@ -243,12 +240,9 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
       // debugPrint('❌ Prayer times API failed: $e');
       // Fallback: استخدام الحساب المحلي
       try {
-        final last = await Geolocator.getLastKnownPosition();
-        if (last != null) {
-          _setPrayerTimesFor(Coordinates(last.latitude, last.longitude));
-        } else {
-          _setPrayerTimesFor(Coordinates(25.2048, 55.2708)); // Dubai
-        }
+        final coords =
+            await PrayerLocationService.getBestAvailableCoordinates();
+        _setPrayerTimesFor(coords);
       } catch (_) {
         _setPrayerTimesFor(Coordinates(25.2048, 55.2708));
       }
@@ -280,8 +274,7 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
 
     // استخدام الأوقات من Aladhan API مباشرة (أدق من local calculation)
     // بس نحتفظ بـ PrayerTimes object للـ UI
-    final params = CalculationMethod.egyptian.getParameters()
-      ..madhab = Madhab.shafi; // تم تغييره من hanafi إلى shafi ليتطابق مع Aladhan API method=5
+    final params = PrayerLocationService.calculationParametersFor(coords);
     final dateComponents = DateComponents.from(DateTime.now());
     _prayerTimes = PrayerTimes(coords, dateComponents, params);
 
@@ -341,9 +334,26 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
     return DateTime(now.year, now.month, now.day, hour, minute);
   }
 
+  Map<String, DateTime>? _aladhanPrayerSchedule() {
+    if (_aladhanFajr == null ||
+        _aladhanDhuhr == null ||
+        _aladhanAsr == null ||
+        _aladhanMaghrib == null ||
+        _aladhanIsha == null) {
+      return null;
+    }
+
+    return {
+      'fajr': _aladhanFajr!,
+      'dhuhr': _aladhanDhuhr!,
+      'asr': _aladhanAsr!,
+      'maghrib': _aladhanMaghrib!,
+      'isha': _aladhanIsha!,
+    };
+  }
+
   void _setPrayerTimesFor(Coordinates coords) {
-    final params = CalculationMethod.egyptian.getParameters()
-      ..madhab = Madhab.shafi; // تم تغييره من hanafi إلى shafi ليتطابق مع Aladhan API method=5
+    final params = PrayerLocationService.calculationParametersFor(coords);
 
     final pt = PrayerTimes.today(coords, params);
     final n = pt.nextPrayer();
@@ -410,13 +420,10 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
     // استخدم فجر الغد فقط إذا انتهت جميع صلوات اليوم (Prayer.none)
     if (n == Prayer.none) {
       try {
-        final last = await Geolocator.getLastKnownPosition();
-        final coords = last != null
-            ? Coordinates(last.latitude, last.longitude)
-            : Coordinates(25.2048, 55.2708);
+        final coords =
+            await PrayerLocationService.getBestAvailableCoordinates();
 
-        final params = CalculationMethod.egyptian.getParameters()
-          ..madhab = Madhab.shafi; // تم تغييره من hanafi إلى shafi ليتطابق مع Aladhan API method=5
+        final params = PrayerLocationService.calculationParametersFor(coords);
 
         final tomorrow = now.add(const Duration(days: 1));
         final tomorrowComponents = DateComponents.from(tomorrow);
@@ -436,7 +443,10 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
       _nextPrayerTime = nt;
 
       // تحديث خدمة الصوت بأوقات الصلاة الجديدة
-      _audioService.updatePrayerTimes(_prayerTimes!);
+      _audioService.updatePrayerTimes(
+        _prayerTimes!,
+        exactPrayerTimes: _aladhanPrayerSchedule(),
+      );
 
       emit(PrayerTimesLoaded(
         prayerTimes: _prayerTimes,

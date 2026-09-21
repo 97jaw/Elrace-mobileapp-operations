@@ -1,116 +1,87 @@
-import 'dart:async';
+import 'dart:convert';
+
 import 'package:adhan/adhan.dart';
+import 'package:el_race/data/services/prayer_location_service.dart';
 import 'package:el_race/data/services/prayer_notification_service.dart';
-import 'package:geolocator/geolocator.dart';
-import 'package:flutter/widgets.dart';
+import 'package:http/http.dart' as http;
 import 'package:workmanager/workmanager.dart';
 
-// اسم المهمة
 const String prayerCheckTaskName = 'prayerCheckTask';
 const String rescheduleTaskName = 'reschedulePrayerTasks';
-
-// NOTE: The background callbackDispatcher has been moved to
-// unified_workmanager_dispatcher.dart to avoid conflicts between
-// prayer, auto-checkout, and counter-reset services.
-// Only ONE callbackDispatcher can be active per app.
-
-// Background notification / audio helpers have been moved to
-// unified_workmanager_dispatcher.dart
+const String prayerScheduleRefreshUniqueName = 'prayerScheduleRefreshV2';
+const int prayerScheduleHorizonDays = 7;
 
 class PrayerBackgroundService {
   static Future<void> initialize() async {
-    // NOTE: Workmanager().initialize() is now called once from main.dart
-    // with the unified dispatcher. Do NOT call it here.
-
-    // جدولة المهام على أوقات الصلاة
+    // Workmanager is initialized once in main.dart with the unified dispatcher.
     await _schedulePrayerTasks();
+  }
 
-    // debugPrint('Prayer background service initialized');
+  /// Refreshes the rolling schedule even when the app stays closed for days.
+  static Future<void> registerPeriodicRefresh() async {
+    await Workmanager().registerPeriodicTask(
+      prayerScheduleRefreshUniqueName,
+      rescheduleTaskName,
+      frequency: const Duration(hours: 12),
+      constraints: Constraints(
+        networkType: NetworkType.notRequired,
+        requiresBatteryNotLow: false,
+        requiresCharging: false,
+        requiresDeviceIdle: false,
+      ),
+      existingWorkPolicy: ExistingPeriodicWorkPolicy.update,
+    );
   }
 
   static Future<void> _schedulePrayerTasks() async {
     try {
-      // debugPrint('🔄 Scheduling prayer tasks...');
-      // IMPORTANT: do not call cancelAll() هنا حتى لا نلغي مهام خدمات أخرى.
-
       final notificationService = PrayerNotificationService();
       await notificationService.initialize();
-      // Avoid stacking duplicate schedules from startup + reschedule passes.
+
+      // A refresh replaces the existing prayer window instead of stacking it.
+      // When prayer sound is muted, scheduleAdhanNotification keeps this empty.
       await notificationService.cancelAllPendingAdhan();
 
-      // حساب أوقات الصلاة
-      // Try to use device last-known location for accurate local Adhan times
-      Position? last;
-      try {
-        last = await Geolocator.getLastKnownPosition();
-      } catch (_) {
-        last = null;
-      }
-
-      final coords = last != null
-          ? Coordinates(last.latitude, last.longitude)
-          : Coordinates(25.2048, 55.2708); // fallback Dubai
-      final params = CalculationMethod.egyptian.getParameters()
-        ..madhab = Madhab
-            .shafi; // تم تغييره من hanafi إلى shafi ليتطابق مع Aladhan API method=5
-      final prayerTimes = PrayerTimes.today(coords, params);
-
+      final coordinates =
+          await PrayerLocationService.getBestAvailableCoordinates();
+      final parameters =
+          PrayerLocationService.calculationParametersFor(coordinates);
       final now = DateTime.now();
-      // debugPrint('🕐 Current time: ${now.hour}:${now.minute}:${now.second}');
-
-      final prayers = [
-        {'name': 'fajr', 'time': prayerTimes.fajr},
-        {'name': 'dhuhr', 'time': prayerTimes.dhuhr},
-        {'name': 'asr', 'time': prayerTimes.asr},
-        {'name': 'maghrib', 'time': prayerTimes.maghrib},
-        {'name': 'isha', 'time': prayerTimes.isha},
-      ];
-
-      for (var prayerData in prayers) {
-        final prayerTime = prayerData['time'] as DateTime;
-        final prayerName = prayerData['name'] as String;
-
-        // جدول المهمة فقط إذا كان الوقت لم يمر بعد
-        if (prayerTime.isAfter(now)) {
-          // جدولة إشعار محلي يشتغل حتى لو التطبيق مغلق
-          // هذا هو المسار الوحيد للأذان في الخلفية (بدون WorkManager)
-          // لتفادي تشغيل صوتين أو إشعارين في نفس الوقت.
-          await notificationService.scheduleAdhanNotification(
-            prayerName,
-            prayerTime,
-          );
-
-          // إلغاء أي مهمة WorkManager قديمة لهذه الصلاة (تنظيف)
-          final ms = prayerTime.millisecondsSinceEpoch;
-          final taskUniqueName = 'prayer-$prayerName-$ms';
-          await Workmanager().cancelByUniqueName(taskUniqueName);
-
-          // debugPrint(
-          //     '✅ Scheduled $prayerName at ${prayerTime.hour}:${prayerTime.minute} (in ${delay.inMinutes}m ${delay.inSeconds % 60}s)');
-        } else {
-          // debugPrint('⏭️ Skipped $prayerName (already passed)');
-        }
-      }
-
-      // جدول مهمة لإعادة الجدولة في منتصف الليل (للصلوات القادمة)
-      final tomorrow = DateTime(now.year, now.month, now.day + 1, 0, 5);
-      final delayUntilTomorrow = tomorrow.difference(now);
-
-      final rescheduleUniqueName =
-          'reschedule-prayers-${now.year}-${now.month}-${now.day}';
-      await Workmanager().cancelByUniqueName(rescheduleUniqueName);
-      await Workmanager().registerOneOffTask(
-        rescheduleUniqueName,
-        'reschedulePrayerTasks',
-        initialDelay: delayUntilTomorrow,
-        constraints: Constraints(
-          networkType: NetworkType.notRequired,
-        ),
+      final dates = List<DateTime>.generate(
+        prayerScheduleHorizonDays,
+        (dayOffset) => DateTime(now.year, now.month, now.day + dayOffset),
+      );
+      final aladhanSchedules = await Future.wait(
+        dates.map((date) => _fetchAladhanTimes(date, coordinates)),
       );
 
-      // debugPrint('Scheduled $taskId prayer tasks for today');
-    } catch (e) {
-      // debugPrint('Error scheduling prayer tasks: $e');
+      for (var dayOffset = 0; dayOffset < dates.length; dayOffset++) {
+        final date = dates[dayOffset];
+        final localPrayerTimes = PrayerTimes(
+          coordinates,
+          DateComponents.from(date),
+          parameters,
+        );
+        final prayers = aladhanSchedules[dayOffset] ??
+            <MapEntry<String, DateTime>>[
+              MapEntry('fajr', localPrayerTimes.fajr),
+              MapEntry('dhuhr', localPrayerTimes.dhuhr),
+              MapEntry('asr', localPrayerTimes.asr),
+              MapEntry('maghrib', localPrayerTimes.maghrib),
+              MapEntry('isha', localPrayerTimes.isha),
+            ];
+
+        for (final prayer in prayers) {
+          if (prayer.value.isAfter(now)) {
+            await notificationService.scheduleAdhanNotification(
+              prayer.key,
+              prayer.value,
+            );
+          }
+        }
+      }
+    } catch (_) {
+      // The next periodic refresh or app launch will retry the rolling window.
     }
   }
 
@@ -118,28 +89,65 @@ class PrayerBackgroundService {
     await _schedulePrayerTasks();
   }
 
+  static Future<List<MapEntry<String, DateTime>>?> _fetchAladhanTimes(
+    DateTime date,
+    Coordinates coordinates,
+  ) async {
+    try {
+      final datePath = '${date.day.toString().padLeft(2, '0')}-'
+          '${date.month.toString().padLeft(2, '0')}-${date.year}';
+      final uri = Uri.https(
+        'api.aladhan.com',
+        '/v1/timings/$datePath',
+        {
+          'latitude': coordinates.latitude.toString(),
+          'longitude': coordinates.longitude.toString(),
+          'method':
+              PrayerLocationService.aladhanMethodIdFor(coordinates).toString(),
+        },
+      );
+      final response = await http.get(uri).timeout(const Duration(seconds: 8));
+      if (response.statusCode != 200) return null;
+
+      final body = jsonDecode(response.body) as Map<String, dynamic>;
+      if (body['code'] != 200) return null;
+      final data = body['data'] as Map<String, dynamic>?;
+      final timings = data?['timings'] as Map<String, dynamic>?;
+      if (timings == null) return null;
+
+      DateTime parse(String key) {
+        final match = RegExp(r'^(\d{1,2}):(\d{2})')
+            .firstMatch(timings[key]?.toString() ?? '');
+        if (match == null) throw const FormatException('Invalid prayer time');
+        return DateTime(
+          date.year,
+          date.month,
+          date.day,
+          int.parse(match.group(1)!),
+          int.parse(match.group(2)!),
+        );
+      }
+
+      return <MapEntry<String, DateTime>>[
+        MapEntry('fajr', parse('Fajr')),
+        MapEntry('dhuhr', parse('Dhuhr')),
+        MapEntry('asr', parse('Asr')),
+        MapEntry('maghrib', parse('Maghrib')),
+        MapEntry('isha', parse('Isha')),
+      ];
+    } catch (_) {
+      return null;
+    }
+  }
+
   static Future<void> cancelAll() async {
     final now = DateTime.now();
-    final keys = <String>[
-      'fajr',
-      'dhuhr',
-      'asr',
-      'maghrib',
-      'isha',
-    ];
+    await PrayerNotificationService().cancelAllPendingAdhan();
+    await Workmanager().cancelByUniqueName(prayerScheduleRefreshUniqueName);
 
-    for (final prayer in keys) {
-      for (int dayOffset = 0; dayOffset <= 1; dayOffset++) {
-        final date = now.add(Duration(days: dayOffset));
-        final roughMs =
-            DateTime(date.year, date.month, date.day).millisecondsSinceEpoch;
-        await Workmanager().cancelByUniqueName('prayer-$prayer-$roughMs');
-      }
-    }
-
+    // Clean up the previous one-off scheduler during migration.
     await Workmanager().cancelByUniqueName(
       'reschedule-prayers-${now.year}-${now.month}-${now.day}',
     );
-    // debugPrint('Prayer background service cancelled');
   }
 }

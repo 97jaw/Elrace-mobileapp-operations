@@ -17,6 +17,7 @@ class PrayerAudioService {
       PrayerNotificationService();
   Timer? _checkTimer;
   PrayerTimes? _currentPrayerTimes;
+  Map<String, DateTime>? _exactPrayerTimes;
   DateTime? _lastPlayedTime;
   bool _isPlaying = false; // منع تشغيل متعدد
   StreamSubscription<double>? _volumeSubscription;
@@ -27,9 +28,13 @@ class PrayerAudioService {
   bool _foregroundActive = true;
 
   // تهيئة الخدمة
-  Future<void> initialize(PrayerTimes prayerTimes) async {
+  Future<void> initialize(
+    PrayerTimes prayerTimes, {
+    Map<String, DateTime>? exactPrayerTimes,
+  }) async {
     // debugPrint('🕌 PrayerAudioService: Initializing...');
     _currentPrayerTimes = prayerTimes;
+    _exactPrayerTimes = exactPrayerTimes;
     await _notificationService.initialize();
 
     // Cold-start from an azan notification: OS already played sound.
@@ -96,13 +101,7 @@ class PrayerAudioService {
     if (_currentPrayerTimes == null) return;
 
     final now = DateTime.now();
-    final prayers = <MapEntry<String, DateTime>>[
-      MapEntry('fajr', _currentPrayerTimes!.fajr),
-      MapEntry('dhuhr', _currentPrayerTimes!.dhuhr),
-      MapEntry('asr', _currentPrayerTimes!.asr),
-      MapEntry('maghrib', _currentPrayerTimes!.maghrib),
-      MapEntry('isha', _currentPrayerTimes!.isha),
-    ];
+    final prayers = _effectivePrayerTimes();
 
     for (final entry in prayers) {
       final diff = now.difference(entry.value);
@@ -191,13 +190,14 @@ class PrayerAudioService {
       final now = DateTime.now();
       // debugPrint('🕐 Current time: ${now.hour}:${now.minute}:${now.second}');
 
-      final prayers = [
-        {'prayer': Prayer.fajr, 'time': _currentPrayerTimes!.fajr},
-        {'prayer': Prayer.dhuhr, 'time': _currentPrayerTimes!.dhuhr},
-        {'prayer': Prayer.asr, 'time': _currentPrayerTimes!.asr},
-        {'prayer': Prayer.maghrib, 'time': _currentPrayerTimes!.maghrib},
-        {'prayer': Prayer.isha, 'time': _currentPrayerTimes!.isha},
-      ];
+      final prayers = _effectivePrayerTimes()
+          .map(
+            (entry) => {
+              'prayer': _prayerForName(entry.key),
+              'time': entry.value,
+            },
+          )
+          .toList();
 
       for (var prayerData in prayers) {
         final prayerTime = prayerData['time'] as DateTime;
@@ -265,8 +265,7 @@ class PrayerAudioService {
     });
     // لا نريد أن يظهر مؤشر الصوت الخاص بالنظام
     VolumeController.instance.showSystemUI = false;
-    _volumeSubscription =
-        VolumeController.instance.addListener((volume) {
+    _volumeSubscription = VolumeController.instance.addListener((volume) {
       if (_isPlaying && _volumeAtStart != null) {
         // إذا تغير مستوى الصوت (أي كبسة) → أوقف الأذان
         if ((volume - _volumeAtStart!).abs() > 0.01) {
@@ -338,8 +337,14 @@ class PrayerAudioService {
   }
 
   // تحديث أوقات الصلاة
-  void updatePrayerTimes(PrayerTimes prayerTimes) {
+  void updatePrayerTimes(
+    PrayerTimes prayerTimes, {
+    Map<String, DateTime>? exactPrayerTimes,
+  }) {
     _currentPrayerTimes = prayerTimes;
+    if (exactPrayerTimes != null) {
+      _exactPrayerTimes = exactPrayerTimes;
+    }
     _lastPlayedTime = null; // إعادة تعيين آخر وقت تشغيل
     if (_foregroundActive) {
       // ignore: unawaited_futures
@@ -359,13 +364,9 @@ class PrayerAudioService {
     } catch (_) {}
 
     final now = DateTime.now();
-    final prayers = [
-      {'name': 'fajr', 'time': _currentPrayerTimes!.fajr},
-      {'name': 'dhuhr', 'time': _currentPrayerTimes!.dhuhr},
-      {'name': 'asr', 'time': _currentPrayerTimes!.asr},
-      {'name': 'maghrib', 'time': _currentPrayerTimes!.maghrib},
-      {'name': 'isha', 'time': _currentPrayerTimes!.isha},
-    ];
+    final prayers = _effectivePrayerTimes()
+        .map((entry) => {'name': entry.key, 'time': entry.value})
+        .toList();
 
     for (final p in prayers) {
       final time = p['time'] as DateTime;
@@ -395,6 +396,37 @@ class PrayerAudioService {
         return 'Isha';
       default:
         return 'Unknown';
+    }
+  }
+
+  List<MapEntry<String, DateTime>> _effectivePrayerTimes() {
+    final prayerTimes = _currentPrayerTimes!;
+    return <MapEntry<String, DateTime>>[
+      MapEntry('fajr', _exactPrayerTimes?['fajr'] ?? prayerTimes.fajr),
+      MapEntry('dhuhr', _exactPrayerTimes?['dhuhr'] ?? prayerTimes.dhuhr),
+      MapEntry('asr', _exactPrayerTimes?['asr'] ?? prayerTimes.asr),
+      MapEntry(
+        'maghrib',
+        _exactPrayerTimes?['maghrib'] ?? prayerTimes.maghrib,
+      ),
+      MapEntry('isha', _exactPrayerTimes?['isha'] ?? prayerTimes.isha),
+    ];
+  }
+
+  Prayer _prayerForName(String name) {
+    switch (name) {
+      case 'fajr':
+        return Prayer.fajr;
+      case 'dhuhr':
+        return Prayer.dhuhr;
+      case 'asr':
+        return Prayer.asr;
+      case 'maghrib':
+        return Prayer.maghrib;
+      case 'isha':
+        return Prayer.isha;
+      default:
+        return Prayer.none;
     }
   }
 

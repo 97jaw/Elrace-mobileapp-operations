@@ -496,6 +496,7 @@ Future<void> _initWorkManager() async {
         ),
         existingWorkPolicy: ExistingPeriodicWorkPolicy.keep,
       ),
+      PrayerBackgroundService.registerPeriodicRefresh(),
       TimesheetCaptureQueueService().registerBackgroundDrain(),
       TaskNotificationService().initialize(),
     ]);
