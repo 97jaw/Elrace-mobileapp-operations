@@ -17,8 +17,19 @@ abstract final class TimesheetDefaults {
 
   /// True when [id] is a numeric Odoo primary key (safe for task_id APIs).
   static bool isOdooIntegerId(String? id) {
-    if (id == null || id.isEmpty) return false;
-    return int.tryParse(id) != null;
+    return tryParseOdooInt(id) != null;
+  }
+
+  /// Parses an Odoo id string (`"123"`, `"123.0"`) to int.
+  static int? tryParseOdooInt(String? id) {
+    if (id == null || id.isEmpty) return null;
+    final direct = int.tryParse(id.trim());
+    if (direct != null) return direct;
+    final asDouble = double.tryParse(id.trim());
+    if (asDouble == null) return null;
+    final rounded = asDouble.round();
+    if (asDouble != rounded.toDouble()) return null;
+    return rounded;
   }
 
   static bool isMaintenanceTaskName(String name) {
@@ -105,9 +116,8 @@ abstract final class TimesheetDefaults {
 
   /// Value for `task_id` on submit when no real Odoo task exists.
   static Object submitTaskIdParam(String taskId) {
-    if (isOdooIntegerId(taskId)) {
-      return int.parse(taskId);
-    }
+    final parsed = tryParseOdooInt(taskId);
+    if (parsed != null) return parsed;
     return false;
   }
 }

@@ -42,15 +42,41 @@ abstract final class FaceRecognitionModel {
 abstract final class FaceRecognitionMatch {
   static const double defaultThreshold = 0.75;
   static const double idealThreshold = 0.80;
-  /// Field pilot — auto-fill when best >= this (22% — tune to 0.20 if needed).
-  static const double pilotThreshold = 0.22;
+
+  /// Add-to-list after still capture — pilot bar (iOS + Android, same).
+  /// Product request: 15% so genuine weak stills still detect (no "No Face").
+  static const double pilotThreshold = 0.15;
+
+  /// Soft still accept when live preview already locked the same employee.
+  static const double pilotSoftCaptureThreshold = 0.15;
+
+  /// Stream score floor before auto-shutter (same as match bar).
+  static const double pilotAutoCaptureMinScore = 0.15;
+
+  /// Name badge floor — same as match so badge ⇒ eligible to detect.
+  static const double pilotDisplayThreshold = 0.15;
+
+  /// Minimum winner gap to show employee name on live preview.
+  static const double minDisplayWinnerMargin = 0.02;
+
+  /// Best must beat 2nd-best employee by this before roster add.
+  /// Aligned with display margin so a shown name can also detect.
+  static const double minWinnerMargin = 0.02;
+
   /// Set false to revert UI + matcher to [defaultThreshold].
   static const bool usePilotThresholdForMatch = true;
+
   static double get activeMatchThreshold => usePilotThresholdForMatch
       ? pilotThreshold
       : defaultThreshold;
+
+  static double get activeDisplayThreshold => usePilotThresholdForMatch
+      ? pilotDisplayThreshold
+      : defaultThreshold;
+
   /// TC-C2 / E.3 bar: same photo vs stored embedding.
   static const double verificationMinCosine = 0.95;
+
   /// Close second match — optional UI hint.
-  static const double closeSecondDelta = 0.03;
+  static const double closeSecondDelta = 0.05;
 }

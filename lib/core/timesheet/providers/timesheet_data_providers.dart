@@ -322,24 +322,36 @@ final timesheetForemanLaborsProvider =
 final timesheetForemanRecentRowsProvider =
     FutureProvider.autoDispose<List<Map<String, dynamic>>>((ref) async {
   final buckets = await ref.watch(timesheetProjectBucketsProvider.future);
-  final projects =
-      buckets.inProgress.isNotEmpty ? buckets.inProgress : buckets.completed;
+  final projects = <Project>[
+    ...buckets.inProgress,
+    if (buckets.inProgress.isEmpty) ...buckets.completed,
+  ];
   if (projects.isEmpty) return const [];
   final client = ref.watch(timesheetApiClientProvider);
   final today = DateTime.now();
   final toDate = DateTime(today.year, today.month, today.day);
   final fromDate = toDate.subtract(const Duration(days: 30));
   final collected = <Map<String, dynamic>>[];
-  for (final project in projects.take(5)) {
+  final seenIds = <String>{};
+  for (final project in projects.take(8)) {
     try {
       final rows = await client.fetchProjectTimesheetRowsForRange(
         projectId: project.id,
         fromDate: fromDate,
         toDate: toDate,
       );
-      collected.addAll(rows);
-    } catch (_) {
+      for (final row in rows) {
+        final id = row['id']?.toString() ?? '';
+        if (id.isNotEmpty && !seenIds.add(id)) continue;
+        collected.add(row);
+      }
+    } catch (error, stack) {
       // Skip projects that fail; keep collecting from the rest.
+      assert(() {
+        // ignore: avoid_print
+        print('timesheetForemanRecentRowsProvider ${project.id}: $error\n$stack');
+        return true;
+      }());
     }
   }
   final sorted = TimesheetOdooMappers.sortTimesheetRowsByWorkDateDesc(collected);

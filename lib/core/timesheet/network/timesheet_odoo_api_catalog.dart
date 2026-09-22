@@ -37,6 +37,10 @@ abstract final class TimesheetOdooApiCatalog {
   /// Timesheet rows for a task on a date (used by `EmptyShiftPage`).
   static const String taskTimesheetsList = '/task/timesheets/list';
 
+  /// Timesheet rows for a project in a date range (Recent / Show all).
+  /// Queries analytic lines by ``project_id`` — does not depend on tasks/list.
+  static const String projectTimesheetsList = '/project/timesheets/list';
+
   /// Aggregated counts per day for a task (used by `TaskDetailsPage`).
   static const String countTimesheetsByDays = '/count/timesheets/by/days';
 

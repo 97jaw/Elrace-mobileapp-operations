@@ -8,6 +8,11 @@ DateTime? tmDateTimeFromJson(Object? value) {
 
 String tmStringFromJson(Object? value) {
   if (value == null) return '';
+  if (value is int) return value.toString();
+  if (value is num) {
+    final asInt = value.toInt();
+    if (value == asInt) return asInt.toString();
+  }
   final raw = value.toString();
   return raw.toLowerCase() == 'false' ? '' : raw;
 }

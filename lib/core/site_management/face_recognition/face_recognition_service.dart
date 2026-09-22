@@ -1,3 +1,4 @@
+import 'dart:typed_data';
 import 'dart:ui';
 
 import 'package:el_race/core/site_management/face_recognition/data/models/face_e3_verification_report.dart';
@@ -14,6 +15,7 @@ import 'package:el_race/core/site_management/face_recognition/face_recognition_c
 import 'package:el_race/core/timesheet/network/timesheet_odoo_employee.dart';
 import 'package:el_race/core/timesheet/services/face_capture_service.dart';
 import 'package:flutter/foundation.dart';
+import 'package:image/image.dart' as img;
 
 /// Site Management Phase B — on-device embed + match (no UI).
 class FaceRecognitionService {
@@ -128,7 +130,6 @@ class FaceRecognitionService {
   }) async {
     if (!_syncReady) return null;
     try {
-      final totalSw = Stopwatch()..start();
       final preprocessSw = Stopwatch()..start();
       final tensor = await _preprocessor.buildInputTensorFromCaptureAsync(
         imagePath: imagePath,
@@ -142,71 +143,116 @@ class FaceRecognitionService {
         );
         return FaceMatchResult.none;
       }
-      final embedSw = Stopwatch()..start();
-      final embedding = await _embedder.generateEmbedding(tensor);
-      final embedMs = embedSw.elapsedMilliseconds;
-      var probeNormSq = 0.0;
-      for (final v in embedding) {
-        probeNormSq += v * v;
-      }
-      final roster = await _repository.loadCached();
-      if (roster.isEmpty) return FaceMatchResult.none;
-      _logCacheDiagnostics(roster);
-      final matchSw = Stopwatch()..start();
-      final result = _matcher.findBestMatch(embedding, roster);
-      final matchMs = matchSw.elapsedMilliseconds;
-      final totalMs = totalSw.elapsedMilliseconds;
-      final best = result.best;
-      if (best != null && kDebugMode) {
-        final perTemplate = _matcher.scoreTemplatesForEmployee(
-          embedding,
-          roster,
-          best.employeeId,
-        );
-        FaceMatchLogger.logTemplateScores(
-          employeeId: best.employeeId,
-          scores: perTemplate
-              .map((t) => (pose: t.pose, score: t.score))
-              .toList(),
-        );
-        final e3Pass = perTemplate.isNotEmpty &&
-            perTemplate.first.score >=
-                FaceRecognitionMatch.verificationMinCosine;
-        debugPrint(
-          'FaceRecognition: E.3 topTemplate='
-          '${perTemplate.isNotEmpty ? perTemplate.first.score.toStringAsFixed(4) : "n/a"} '
-          'pass=${e3Pass ? "YES" : "NO"} '
-          '(need >= ${FaceRecognitionMatch.verificationMinCosine})',
-        );
-      }
-      FaceMatchLogger.logAttempt(
-        bestScore: result.bestScore,
-        secondBestScore: result.secondBestScore,
-        employeeId: best?.employeeId,
-        employeeName: best?.name,
-        inForemanTeam: best?.inForemanTeam ?? false,
-        matchedAtProductionThreshold: result.isMatch,
-        templateCount: roster.length,
+      return _matchFromTensor(
+        tensor: tensor,
         preprocessMs: preprocessMs,
-        embedMs: embedMs,
-        matchMs: matchMs,
-        totalMs: totalMs,
         imagePath: imagePath,
       );
-      debugPrint(
-        'FaceRecognition: probeNorm=${probeNormSq.toStringAsFixed(4)} '
-        'cacheRows=${roster.length} '
-        'best=${result.bestScore.toStringAsFixed(4)} '
-        'second=${result.secondBestScore.toStringAsFixed(4)} '
-        'match=${result.isMatch} '
-        'emp=${best?.employeeId} ${best?.name} '
-        'timing=pre${preprocessMs}+emb${embedMs}+mat${matchMs}=${totalMs}ms',
-      );
-      return result;
     } catch (e, st) {
       debugPrint('FaceRecognition.matchCapturePhoto failed: $e\n$st');
       return null;
     }
+  }
+
+  /// Live-path match from an already-decoded RGB frame (no disk I/O).
+  Future<FaceMatchResult?> matchImage({
+    required img.Image source,
+    required Rect faceBox,
+    TimesheetFaceLandmarkSnapshot? landmarks,
+  }) async {
+    if (!_syncReady) return null;
+    try {
+      final preprocessSw = Stopwatch()..start();
+      final tensor = _preprocessor.buildInputTensorFromImage(
+        source: source,
+        faceBox: faceBox,
+        landmarks: landmarks,
+      );
+      final preprocessMs = preprocessSw.elapsedMilliseconds;
+      if (tensor == null) {
+        debugPrint('FaceRecognition: chip build failed (memory) box=$faceBox');
+        return FaceMatchResult.none;
+      }
+      return _matchFromTensor(
+        tensor: tensor,
+        preprocessMs: preprocessMs,
+        imagePath: 'memory://camera_frame',
+      );
+    } catch (e, st) {
+      debugPrint('FaceRecognition.matchImage failed: $e\n$st');
+      return null;
+    }
+  }
+
+  Future<FaceMatchResult?> _matchFromTensor({
+    required Float32List tensor,
+    required int preprocessMs,
+    required String imagePath,
+  }) async {
+    final totalSw = Stopwatch()..start();
+    final embedSw = Stopwatch()..start();
+    final embedding = await _embedder.generateEmbedding(tensor);
+    final embedMs = embedSw.elapsedMilliseconds;
+    var probeNormSq = 0.0;
+    for (final v in embedding) {
+      probeNormSq += v * v;
+    }
+    final roster = await _repository.loadCached();
+    if (roster.isEmpty) return FaceMatchResult.none;
+    _logCacheDiagnostics(roster);
+    final matchSw = Stopwatch()..start();
+    final result = _matcher.findBestMatch(embedding, roster);
+    final matchMs = matchSw.elapsedMilliseconds;
+    final totalMs = totalSw.elapsedMilliseconds + preprocessMs;
+    final best = result.best;
+    if (best != null && kDebugMode) {
+      final perTemplate = _matcher.scoreTemplatesForEmployee(
+        embedding,
+        roster,
+        best.employeeId,
+      );
+      FaceMatchLogger.logTemplateScores(
+        employeeId: best.employeeId,
+        scores: perTemplate
+            .map((t) => (pose: t.pose, score: t.score))
+            .toList(),
+      );
+      final e3Pass = perTemplate.isNotEmpty &&
+          perTemplate.first.score >=
+              FaceRecognitionMatch.verificationMinCosine;
+      debugPrint(
+        'FaceRecognition: E.3 topTemplate='
+        '${perTemplate.isNotEmpty ? perTemplate.first.score.toStringAsFixed(4) : "n/a"} '
+        'pass=${e3Pass ? "YES" : "NO"} '
+        '(need >= ${FaceRecognitionMatch.verificationMinCosine})',
+      );
+    }
+    FaceMatchLogger.logAttempt(
+      bestScore: result.bestScore,
+      secondBestScore: result.secondBestScore,
+      employeeId: best?.employeeId,
+      employeeName: best?.name,
+      inForemanTeam: best?.inForemanTeam ?? false,
+      matchedAtProductionThreshold:
+          result.bestScore >= FaceRecognitionMatch.defaultThreshold,
+      templateCount: roster.length,
+      preprocessMs: preprocessMs,
+      embedMs: embedMs,
+      matchMs: matchMs,
+      totalMs: totalMs,
+      imagePath: imagePath,
+    );
+    debugPrint(
+      'FaceRecognition: probeNorm=${probeNormSq.toStringAsFixed(4)} '
+      'cacheRows=${roster.length} '
+      'best=${result.bestScore.toStringAsFixed(4)} '
+      'second=${result.secondBestScore.toStringAsFixed(4)} '
+      'margin=${result.winnerMargin.toStringAsFixed(4)} '
+      'match=${result.isMatch} display=${result.passesDisplayThreshold} '
+      'emp=${best?.employeeId} ${best?.name} '
+      'timing=pre$preprocessMs+emb$embedMs+mat$matchMs=${totalMs}ms',
+    );
+    return result;
   }
 
   void _logCacheDiagnostics(List<FaceEmbeddingRecord> roster) {

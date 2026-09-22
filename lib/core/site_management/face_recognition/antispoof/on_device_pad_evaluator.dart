@@ -5,6 +5,7 @@ import 'package:el_race/core/site_management/face_recognition/antispoof/antispoo
 import 'package:el_race/core/site_management/face_recognition/antispoof/temporal_pad_heuristics.dart';
 import 'package:el_race/core/site_management/face_recognition/antispoof/timesheet_face_classification_snapshot.dart';
 import 'package:flutter/foundation.dart';
+import 'package:image/image.dart' as img;
 
 class OnDevicePadFrameResult {
   const OnDevicePadFrameResult({
@@ -37,8 +38,35 @@ class OnDevicePadEvaluator {
     required String imagePath,
     required Rect faceBox,
     TimesheetFaceClassificationSnapshot? classification,
+  }) {
+    return evaluateFrameSample(
+      imagePath: imagePath,
+      faceBox: faceBox,
+      classification: classification,
+    );
+  }
+
+  Future<OnDevicePadFrameResult> evaluateFrameSample({
+    String? imagePath,
+    img.Image? rgbFrame,
+    required Rect faceBox,
+    TimesheetFaceClassificationSnapshot? classification,
   }) async {
-    final layer1 = await _layer1.evaluate(imagePath: imagePath, faceBox: faceBox);
+    final Layer1Result layer1;
+    if (rgbFrame != null) {
+      layer1 = await _layer1.evaluateImage(source: rgbFrame, faceBox: faceBox);
+    } else if (imagePath != null) {
+      layer1 = await _layer1.evaluate(imagePath: imagePath, faceBox: faceBox);
+    } else {
+      return const OnDevicePadFrameResult(
+        passed: false,
+        layer1: Layer1Result(
+          verdict: Layer1Verdict.error,
+          fused: null,
+          message: 'No frame for liveness.',
+        ),
+      );
+    }
     final framePass = layer1.verdict != Layer1Verdict.spoof &&
         layer1.verdict != Layer1Verdict.error;
 
@@ -81,6 +109,13 @@ class OnDevicePadEvaluator {
     }
 
     return OnDevicePadFrameResult(passed: true, layer1: layer1);
+  }
+
+  Future<Layer1Result> evaluateImage({
+    required img.Image source,
+    required Rect faceBox,
+  }) {
+    return _layer1.evaluateImage(source: source, faceBox: faceBox);
   }
 
   Future<Layer1Result> evaluateShutter({

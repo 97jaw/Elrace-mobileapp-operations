@@ -3,6 +3,7 @@ import 'dart:ui';
 
 import 'package:el_race/core/site_management/face_recognition/antispoof/antispoof_config.dart';
 import 'package:el_race/core/site_management/face_recognition/antispoof/minifasnet_preprocessor.dart';
+import 'package:el_race/core/site_management/face_recognition/tflite_interpreter_factory.dart';
 import 'package:flutter/foundation.dart';
 import 'package:image/image.dart' as img;
 import 'package:tflite_flutter/tflite_flutter.dart';
@@ -29,7 +30,10 @@ class MinifasnetFusedScores {
   final List<double> modelV1Se;
 }
 
-/// Dual MiniFASNet inference with fused softmax (Silent-Face-Anti-Spoofing style).
+/// Dual MiniFASNet — interpreters created once, tensors pinned.
+///
+/// Same rule as [FaceEmbedder]: never feed nested Lists through [Interpreter.run]
+/// (that can resize + re-allocateTensors + re-apply XNNPACK every call).
 class MinifasnetFusionEngine {
   MinifasnetFusionEngine._();
   static final MinifasnetFusionEngine instance = MinifasnetFusionEngine._();
@@ -38,6 +42,8 @@ class MinifasnetFusionEngine {
   Interpreter? _v2;
   Interpreter? _v1Se;
   Future<void>? _loadFuture;
+  int _loadCount = 0;
+  int _inferenceCount = 0;
 
   Future<void> ensureLoaded() {
     _loadFuture ??= _load();
@@ -46,16 +52,33 @@ class MinifasnetFusionEngine {
 
   Future<void> _load() async {
     if (_v2 != null && _v1Se != null) return;
-    final options = InterpreterOptions()..threads = 2;
-    _v2 = await Interpreter.fromAsset(
+    // Task 0 finish — never rebuild mid-session (causes Replacing 65… again).
+    if (_loadCount > 0) {
+      debugPrint(
+        'MinifasnetFusionEngine: refusing reload (already load#$_loadCount)',
+      );
+      return;
+    }
+
+    // Separate creates via factory (CPU default; XNNPACK only if safe).
+    const fasShape = [1, AntispoofConfig.inputSize, AntispoofConfig.inputSize, 3];
+    _v2 = await TfliteInterpreterFactory.fromAsset(
       AntispoofConfig.modelV2Asset,
-      options: options,
+      fixedInputShape: fasShape,
+      preferXnnpack: false,
     );
-    _v1Se = await Interpreter.fromAsset(
+    _v1Se = await TfliteInterpreterFactory.fromAsset(
       AntispoofConfig.modelV1SeAsset,
-      options: options,
+      fixedInputShape: fasShape,
+      preferXnnpack: false,
     );
-    debugPrint('MinifasnetFusionEngine: models loaded');
+    _loadCount += 1;
+    debugPrint(
+      'MinifasnetFusionEngine: INTERPRETER_CACHED load#$_loadCount '
+      'backend=${TfliteInterpreterFactory.backendLabel} '
+      'v2=${AntispoofConfig.modelV2Asset} '
+      'v1se=${AntispoofConfig.modelV1SeAsset}',
+    );
   }
 
   Future<MinifasnetFusedScores?> scoreFace({
@@ -81,6 +104,15 @@ class MinifasnetFusionEngine {
       return (v2Probs[i] + v1Probs[i]) / 2;
     });
     final labelIndex = _argmax(fused);
+
+    _inferenceCount += 1;
+    if (_inferenceCount == 1 || _inferenceCount % 50 == 0) {
+      debugPrint(
+        'MinifasnetFusionEngine: invoke ok pair#$_inferenceCount '
+        '(load#$_loadCount — must stay 1)',
+      );
+    }
+
     return MinifasnetFusedScores(
       probabilities: fused,
       label: _labelFromIndex(labelIndex),
@@ -100,15 +132,23 @@ class MinifasnetFusionEngine {
   }
 
   List<double> _runModel(Interpreter interpreter, Float32List nhwc) {
-    final input = nhwc.reshape([
-      1,
-      AntispoofConfig.inputSize,
-      AntispoofConfig.inputSize,
-      3,
-    ]);
-    final output = [List<double>.filled(AntispoofConfig.numClasses, 0.0)];
-    interpreter.run(input, output);
-    return _softmax(List<double>.from(output[0]));
+    final inputBytes = nhwc.buffer.asUint8List(
+      nhwc.offsetInBytes,
+      nhwc.lengthInBytes,
+    );
+    interpreter.getInputTensor(0).data = inputBytes;
+    interpreter.invoke();
+    final outBytes = interpreter.getOutputTensor(0).data;
+    final outFloats = outBytes.buffer.asFloat32List(
+      outBytes.offsetInBytes,
+      AntispoofConfig.numClasses,
+    );
+    return _softmax(
+      List<double>.generate(
+        AntispoofConfig.numClasses,
+        (i) => outFloats[i].toDouble(),
+      ),
+    );
   }
 
   List<double> _softmax(List<double> logits) {
@@ -137,11 +177,10 @@ class MinifasnetFusionEngine {
     }
   }
 
+  /// Prefer process-lifetime reuse. Closing mid-session re-applies XNNPACK.
   void dispose() {
-    _v2?.close();
-    _v1Se?.close();
-    _v2 = null;
-    _v1Se = null;
-    _loadFuture = null;
+    debugPrint(
+      'MinifasnetFusionEngine: dispose ignored — keep load#$_loadCount cached',
+    );
   }
 }

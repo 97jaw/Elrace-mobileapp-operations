@@ -1,4 +1,5 @@
 import 'package:el_race/core/theme/timesheet_module_theme.dart';
+import 'package:el_race/core/timesheet/models/timesheet_models.dart';
 import 'package:el_race/core/timesheet/providers/timesheet_data_providers.dart';
 import 'package:el_race/core/widgets/timesheet/timesheet_widgets.dart';
 import 'package:el_race/ui/presentation/timesheet/timesheet_async_state.dart';
@@ -42,7 +43,11 @@ class _FmTimesheetSubmittedListScreenState
     });
     try {
       final buckets = await ref.read(timesheetProjectBucketsProvider.future);
-      if (buckets.inProgress.isEmpty) {
+      final projects = <Project>[
+        ...buckets.inProgress,
+        if (buckets.inProgress.isEmpty) ...buckets.completed,
+      ];
+      if (projects.isEmpty) {
         if (!mounted) return;
         setState(() {
           _rows = const [];
@@ -52,14 +57,19 @@ class _FmTimesheetSubmittedListScreenState
       }
       final client = ref.read(timesheetApiClientProvider);
       final collected = <Map<String, dynamic>>[];
-      for (final project in buckets.inProgress.take(5)) {
+      final seenIds = <String>{};
+      for (final project in projects.take(8)) {
         try {
           final rows = await client.fetchProjectTimesheetRowsForRange(
             projectId: project.id,
             fromDate: _from,
             toDate: _to,
           );
-          collected.addAll(rows);
+          for (final row in rows) {
+            final id = row['id']?.toString() ?? '';
+            if (id.isNotEmpty && !seenIds.add(id)) continue;
+            collected.add(row);
+          }
         } catch (_) {}
       }
       collected.sort((a, b) {

@@ -6,6 +6,7 @@ import 'package:el_race/core/site_management/face_recognition/antispoof/liveness
 import 'package:el_race/core/site_management/face_recognition/antispoof/on_device_pad_evaluator.dart';
 import 'package:el_race/core/site_management/face_recognition/antispoof/timesheet_face_classification_snapshot.dart';
 import 'package:flutter/foundation.dart';
+import 'package:image/image.dart' as img;
 
 enum LivenessGatePhase {
   idle,
@@ -177,6 +178,19 @@ class HybridLivenessGate {
     required String imagePath,
     required Rect faceBox,
     TimesheetFaceClassificationSnapshot? classification,
+  }) {
+    return evaluateStreamFrameSample(
+      imagePath: imagePath,
+      faceBox: faceBox,
+      classification: classification,
+    );
+  }
+
+  Future<void> evaluateStreamFrameSample({
+    String? imagePath,
+    img.Image? rgbFrame,
+    required Rect faceBox,
+    TimesheetFaceClassificationSnapshot? classification,
   }) async {
     if (_phase == LivenessGatePhase.fullyPassed ||
         _phase == LivenessGatePhase.verifying ||
@@ -192,8 +206,9 @@ class HybridLivenessGate {
     _phase = LivenessGatePhase.onDeviceRunning;
     _status = 'Step 1: Checking face liveness…';
 
-    final frame = await _onDevice.evaluateFrame(
+    final frame = await _onDevice.evaluateFrameSample(
       imagePath: imagePath,
+      rgbFrame: rgbFrame,
       faceBox: faceBox,
       classification: classification,
     );
