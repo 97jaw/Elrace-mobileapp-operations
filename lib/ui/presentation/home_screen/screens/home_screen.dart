@@ -1,5 +1,4 @@
-import 'dart:async';
-
+import 'package:el_race/core/app_globals.dart';
 import 'package:el_race/core/biometric/device_auth_service.dart';
 import 'package:el_race/core/biometric/unified_biometric_helper.dart';
 import 'package:el_race/ui/presentation/home_screen/bloc/home_bloc.dart';
@@ -35,10 +34,13 @@ class HomeScreenPage extends StatefulWidget {
   /// True while Face ID / fingerprint gate must block the UI.
   static bool _sessionUiLocked = false;
 
+  /// Match long-idle splash / security window in [MyApp] — re-lock biometrics.
+  static const Duration biometricRelockIdle = Duration(minutes: 10);
+
   /// Whether the shell should absorb taps (used by [MainScreen] too).
   static bool get isSessionUiLocked => _sessionUiLocked;
 
-  /// Reset the biometric gate so the next login triggers it again.
+  /// Reset the biometric gate so the next home entry requires it again.
   static void resetAuthSession() {
     _didAuthenticateThisSession = false;
     _isAuthenticating = false;
@@ -49,7 +51,8 @@ class HomeScreenPage extends StatefulWidget {
   State<HomeScreenPage> createState() => _HomeScreenState();
 }
 
-class _HomeScreenState extends State<HomeScreenPage> {
+class _HomeScreenState extends State<HomeScreenPage>
+    with WidgetsBindingObserver {
   // auth flags are stored on the widget class so they can be reset from outside
 
   // bool isMuted = false; // default value
@@ -59,6 +62,9 @@ class _HomeScreenState extends State<HomeScreenPage> {
   bool _isBiometricLocked = false;
 
   bool _showBiometricGateScreen = false;
+
+  /// Set on [AppLifecycleState.paused]/[hidden] — not inactive (Face ID UI).
+  DateTime? _backgroundedAt;
 
   final _locationBloc = LocationBloc();
 
@@ -75,40 +81,76 @@ class _HomeScreenState extends State<HomeScreenPage> {
     setState(() => _isBiometricLocked = locked);
   }
 
+  /// Show gate with button — no automatic OS biometric prompt.
+  void _presentBiometricGate() {
+    if (AppConfigService.instance.shouldSkipFaceId) return;
+    HomeScreenPage._didAuthenticateThisSession = false;
+    HomeScreenPage._isAuthenticating = false;
+    _isBiometricLocked = true;
+    HomeScreenPage._sessionUiLocked = true;
+    if (!mounted) return;
+    setState(() => _showBiometricGateScreen = true);
+  }
+
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     Get.put(TimerController()); // only once!
-    // _loadMuteStatus();
-    // Future.delayed(const Duration(seconds: 5), () {
-    //   showBabyGirlPopup(context);
-    // });
     // Location-services enforcement moved to the check-in panel
     // (LocationServiceBanner) — validated on demand where it matters,
     // instead of a blocking dialog on every Home mount/resume.
     // One GPS prime per Home mount (post-login); resumes no longer re-fetch.
     _locationBloc.add(GetCurrentLocationET());
 
-    // After login: show the dim lock overlay, then start biometrics
-    // automatically after Home has painted.
+    // After splash / login: show biometric gate with button (not auto Face ID).
+    // Cancel/miss and cold reopen all use the same screen.
     if (!AppConfigService.instance.shouldSkipFaceId &&
-        !HomeScreenPage._didAuthenticateThisSession &&
-        !HomeScreenPage._isAuthenticating) {
-      // Lock on the first frame — before the system prompt appears — so taps
-      // cannot slip through in the delay / cancel / retry gaps.
+        !HomeScreenPage._didAuthenticateThisSession) {
       _isBiometricLocked = true;
       HomeScreenPage._sessionUiLocked = true;
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (!mounted) return;
-        unawaited(_authenticateAfterLogin());
-      });
+      _showBiometricGateScreen = true;
     }
-    // List of pages or widgets that you want to display for each navigation ite
   }
 
-  /// Authenticate user right after login using device biometrics only.
-  /// PIN, passcode, password, and pattern fallback are not allowed.
-  /// On cancel/miss, keep the dim lock overlay visible.
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.paused ||
+        state == AppLifecycleState.hidden) {
+      _backgroundedAt ??= DateTime.now();
+      return;
+    }
+
+    if (state != AppLifecycleState.resumed) return;
+    if (isRestartingFromSplashTimeout.value) {
+      _backgroundedAt = null;
+      return;
+    }
+    if (AppConfigService.instance.shouldSkipFaceId) {
+      _backgroundedAt = null;
+      return;
+    }
+
+    final backgroundedAt = _backgroundedAt;
+    _backgroundedAt = null;
+    if (backgroundedAt == null) return;
+
+    final inactiveFor = DateTime.now().difference(backgroundedAt);
+    if (inactiveFor < HomeScreenPage.biometricRelockIdle) return;
+
+    // Long background (same window as splash / security idle): require
+    // biometric again via gate button — session stays logged in.
+    _presentBiometricGate();
+  }
+
+  /// Device biometrics only (no PIN/passcode). Triggered from gate button.
+  /// On cancel/miss, keep the gate screen visible.
   Future<void> _authenticateAfterLogin({bool fromButton = false}) async {
     if (HomeScreenPage._didAuthenticateThisSession) return;
     if (HomeScreenPage._isAuthenticating && !fromButton) return;
@@ -117,9 +159,6 @@ class _HomeScreenState extends State<HomeScreenPage> {
     _setBiometricLocked(true);
     if (mounted) setState(() => _showBiometricGateScreen = false);
 
-    if (!fromButton) {
-      await Future.delayed(const Duration(milliseconds: 350));
-    }
     if (!mounted) {
       HomeScreenPage._isAuthenticating = false;
       HomeScreenPage._sessionUiLocked = false;
@@ -197,10 +236,9 @@ class _HomeScreenState extends State<HomeScreenPage> {
     );
   }
 
-  // NOTE: HomeScreen no longer registers a WidgetsBindingObserver. All
-  // app-resume work (attendance sync, badge refresh, prayer handover) is
-  // owned by ResumeCoordinator (see main.dart), and location-services
-  // enforcement lives in the check-in panel where it actually matters.
+  // Resume work (attendance sync, badge refresh, prayer) is owned by
+  // ResumeCoordinator. This screen only observes lifecycle to re-show the
+  // biometric gate after long background idle.
 
   @override
   Widget build(BuildContext context) {

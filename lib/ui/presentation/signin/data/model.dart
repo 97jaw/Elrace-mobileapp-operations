@@ -288,8 +288,11 @@ class Data {
             ? json["role_id"]
             : int.tryParse(json["role_id"]?.toString() ?? ''),
         odoo_user_id: json["odoo_user_id"] is int
-            ? json["odoo_user_id"]
-            : (json["uid"] is int ? json["uid"] : null),
+            ? (json["odoo_user_id"] == 0 ? null : json["odoo_user_id"] as int)
+            : (int.tryParse(json["odoo_user_id"]?.toString() ?? '') ??
+                (json["uid"] is int
+                    ? (json["uid"] == 0 ? null : json["uid"] as int)
+                    : int.tryParse(json["uid"]?.toString() ?? ''))),
         employee_id: json["employee_id"] is int
             ? json["employee_id"]
             : (json["emp_id"] != null && json["emp_id"] != false

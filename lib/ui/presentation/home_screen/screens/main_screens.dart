@@ -1,4 +1,3 @@
-import 'dart:async';
 import 'dart:ui' as ui;
 
 import 'package:el_race/core/ui/adaptive_glass.dart';
@@ -12,7 +11,6 @@ import 'package:el_race/ui/presentation/home_screen/screens/home_screen.dart';
 import 'package:el_race/ui/presentation/qr_survey/screens/qr_survey_content_wrapper.dart';
 import 'package:el_race/ui/chat/chat_ui.dart';
 import 'package:el_race/chat/chat.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -186,93 +184,10 @@ class CustomBottomNavBar extends StatefulWidget {
 }
 
 class _CustomBottomNavBarState extends State<CustomBottomNavBar> {
-  StreamSubscription<int>? _unreadSub;
-  StreamSubscription? _authSub;
-  Timer? _retryTimer;
-  int _totalUnread = 0;
-
   @override
   void initState() {
     super.initState();
-    _startListening();
-  }
-
-  /// Try to subscribe to unread count. If chat module isn't ready yet,
-  /// set up retries via auth state changes + periodic timer + chatEnabledNotifier.
-  void _startListening() {
-    if (_trySubscribe()) return; // Success on first try
-
-    // Listen to ChatModuleHelper — fires the moment chat becomes enabled
-    ChatModuleHelper.instance.chatEnabledNotifier.addListener(_onChatEnabled);
-
-    // Auth listener: retry when user signs in
-    _authSub = FirebaseAuth.instance.authStateChanges().listen((user) {
-      if (user != null && _unreadSub == null) {
-        if (_trySubscribe()) {
-          _cancelRetries();
-        }
-      }
-    });
-
-    // Periodic retry every 2s as fallback
-    _retryTimer = Timer.periodic(const Duration(seconds: 2), (timer) {
-      if (_trySubscribe()) {
-        _cancelRetries();
-      }
-      if (timer.tick >= 60) {
-        // print('⚠️ BottomNav: Gave up retrying after 2 min');
-        _cancelRetries();
-      }
-    });
-  }
-
-  void _onChatEnabled() {
-    if (ChatModuleHelper.instance.isChatEnabled && _unreadSub == null) {
-      // print('🔔 BottomNav: chatEnabledNotifier fired — trying subscribe');
-      if (_trySubscribe()) {
-        _cancelRetries();
-      }
-    }
-  }
-
-  /// Attempt to subscribe. Returns true if successful.
-  /// Only requires Firebase Auth uid — ChatRepository uses it directly.
-  bool _trySubscribe() {
-    final uid = FirebaseAuth.instance.currentUser?.uid;
-    if (uid == null) {
-      return false;
-    }
-
-    _unreadSub?.cancel();
-    _unreadSub = ChatRepository.instance.subscribeToTotalUnreadCount().listen(
-      (count) {
-        // print('🔔 BottomNav: Received unread count = $count');
-        if (mounted && count != _totalUnread) {
-          setState(() => _totalUnread = count);
-        }
-      },
-      onError: (e) {
-        // print('⚠️ BottomNav: Unread count error: $e');
-      },
-    );
-    // print('✅ BottomNav: Subscribed to unread count (uid=$uid)');
-    return true;
-  }
-
-  void _cancelRetries() {
-    _authSub?.cancel();
-    _authSub = null;
-    _retryTimer?.cancel();
-    _retryTimer = null;
-    ChatModuleHelper.instance.chatEnabledNotifier
-        .removeListener(_onChatEnabled);
-  }
-
-  @override
-  void dispose() {
-    _unreadSub?.cancel();
-    _cancelRetries();
-    super.dispose();
+    ChatUnreadBadgeService.instance.ensureListening();
   }
 
   @override
@@ -304,36 +219,41 @@ class _CustomBottomNavBarState extends State<CustomBottomNavBar> {
                   ),
                 ],
               ),
-              child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.center,
-                  mainAxisAlignment: MainAxisAlignment.spaceAround,
-                  children: [
-                    // Chat button
-                    _buildNavItem(
-                      context,
-                      index: 3,
-                      isMain: isMain,
-                      icon: AppImages.chatIconNew,
-                      badgeCount: _totalUnread,
-                    ),
-                    _buildNavItem(
-                      context,
-                      index: 0,
-                      isMain: isMain,
-                      icon: AppImages.callIcon,
-                    ),
-                    _buildNavItem(
-                      context,
-                      index: 2,
-                      isMain: isMain,
-                      icon: AppImages.chatIcon,
-                    ),
-                  ],
-                ),
+              child: ValueListenableBuilder<int>(
+                valueListenable: ChatUnreadBadgeService.instance.count,
+                builder: (context, totalUnread, _) {
+                  return Row(
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    mainAxisAlignment: MainAxisAlignment.spaceAround,
+                    children: [
+                      // Chat button
+                      _buildNavItem(
+                        context,
+                        index: 3,
+                        isMain: isMain,
+                        icon: AppImages.chatIconNew,
+                        badgeCount: totalUnread,
+                      ),
+                      _buildNavItem(
+                        context,
+                        index: 0,
+                        isMain: isMain,
+                        icon: AppImages.callIcon,
+                      ),
+                      _buildNavItem(
+                        context,
+                        index: 2,
+                        isMain: isMain,
+                        icon: AppImages.chatIcon,
+                      ),
+                    ],
+                  );
+                },
               ),
             ),
           ),
-        );
+        ),
+      );
     });
   }
 

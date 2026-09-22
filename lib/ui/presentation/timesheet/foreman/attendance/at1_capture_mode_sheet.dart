@@ -1,4 +1,5 @@
 import 'package:el_race/core/theme/timesheet_module_theme.dart';
+import 'package:el_race/core/timesheet/providers/timesheet_acting_session_provider.dart';
 import 'package:el_race/core/timesheet/providers/timesheet_role_provider.dart';
 import 'package:el_race/core/timesheet/routing/timesheet_route_names.dart';
 import 'package:el_race/core/widgets/timesheet/timesheet_widgets.dart';
@@ -56,11 +57,14 @@ class _At1CaptureModeScreenState extends ConsumerState<At1CaptureModeScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final resolution = ref.watch(tmRoleResolutionProvider);
-    if (!resolution.canSubmitTimesheet) {
-      return TmScaffold(
+    final resolution = ref.watch(tmEffectiveResolutionProvider);
+    // Acting PMs may walk the capture flow; the final Submit button shows the
+    // "needs a real login" notice. Only block PMs who are not acting.
+    if (!resolution.canSubmitTimesheet &&
+        ref.watch(tmActingSessionProvider) == null) {
+      return const TmScaffold(
         glassTitle: 'Take Attendance',
-        body: const TimesheetEmptyState(
+        body: TimesheetEmptyState(
           message:
               'Project managers can review timesheet reports only. '
               'Foremen submit attendance for their assigned labors.',

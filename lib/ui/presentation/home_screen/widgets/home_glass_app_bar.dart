@@ -2,6 +2,7 @@ import 'package:el_race/core/utils/responsive_breakpoints.dart';
 import 'dart:convert';
 import 'dart:async';
 
+import 'package:el_race/chat/chat.dart';
 import 'package:el_race/core/ui/adaptive_glass.dart';
 import 'package:el_race/core/services/approval_count_service.dart';
 import 'package:el_race/core/services/approval_viewed_service.dart';
@@ -75,6 +76,7 @@ class _HomeGlassAppBarState extends State<HomeGlassAppBar> {
     _loadUserData();
     _loadNotificationCountLocal();
     _loadApprovalCount();
+    ChatUnreadBadgeService.instance.ensureListening();
     ApprovalViewedService.addListener(this, () {
       if (mounted) _loadApprovalCount();
     });
@@ -436,12 +438,18 @@ class _HomeGlassAppBarState extends State<HomeGlassAppBar> {
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceEvenly,
               children: [
-                _GlassWellIcon(
-                  icon: Icons.chat_bubble_outline_rounded,
-                  onTap: _openChat,
-                  size: iconSize,
-                  iconSize: iconGlyph,
-                  lightIcons: lightIcons,
+                ValueListenableBuilder<int>(
+                  valueListenable: ChatUnreadBadgeService.instance.count,
+                  builder: (context, unread, _) {
+                    return _GlassWellBadgeIcon(
+                      icon: Icons.chat_bubble_outline_rounded,
+                      count: unread,
+                      onTap: _openChat,
+                      size: iconSize,
+                      iconSize: iconGlyph,
+                      lightIcons: lightIcons,
+                    );
+                  },
                 ),
                 _GlassWellIcon(
                   icon: Icons.phone_rounded,

@@ -348,70 +348,100 @@ class _TopThreeExpenseChart extends StatelessWidget {
     final leadPct =
         items.isNotEmpty ? items.first.percent : summary.spendPercentOfWo;
 
-    return Container(
-      width: double.infinity,
-      padding: EdgeInsets.fromLTRB(12.tw, 10.th, 12.tw, 8.th),
-      decoration: analyticsGlassPanel(radius: 16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Top 3 expenses',
-                      style: GoogleFonts.poppins(
-                        fontSize: 14.tsp,
-                        fontWeight: FontWeight.w700,
-                        color: ProjectsDashboardTheme.white,
-                      ),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final maxH = constraints.maxHeight;
+        // Keep chart usable on short screens; scroll if content exceeds.
+        final chartH = (maxH * 0.48).clamp(140.0, 220.0);
+
+        final header = Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Top 3 expenses',
+                    style: GoogleFonts.poppins(
+                      fontSize: 14.tsp,
+                      fontWeight: FontWeight.w700,
+                      color: ProjectsDashboardTheme.white,
                     ),
-                    Text(
-                      'Share of project spend',
-                      style: GoogleFonts.poppins(
-                        fontSize: 10.tsp,
-                        color: ProjectsDashboardTheme.greyPanel,
-                      ),
+                  ),
+                  Text(
+                    'Share of project spend',
+                    style: GoogleFonts.poppins(
+                      fontSize: 10.tsp,
+                      color: ProjectsDashboardTheme.greyPanel,
                     ),
-                  ],
+                  ),
+                ],
+              ),
+            ),
+            Text(
+              '${leadPct.toStringAsFixed(1)}%',
+              style: GoogleFonts.poppins(
+                fontSize: 22.tsp,
+                fontWeight: FontWeight.w800,
+                color: ProjectsDashboardTheme.white,
+              ),
+            ),
+          ],
+        );
+
+        final chartBody = items.isEmpty
+            ? SizedBox(
+                height: chartH,
+                child: Center(
+                  child: Text(
+                    'No top expense data',
+                    style: GoogleFonts.poppins(
+                      fontSize: 12.tsp,
+                      color: ProjectsDashboardTheme.greyPanel,
+                    ),
+                  ),
                 ),
-              ),
-              Text(
-                '${leadPct.toStringAsFixed(1)}%',
-                style: GoogleFonts.poppins(
-                  fontSize: 22.tsp,
-                  fontWeight: FontWeight.w800,
-                  color: ProjectsDashboardTheme.white,
+              )
+            : SizedBox(
+                height: chartH,
+                child: _TopThreeSplineChart(
+                  items: items,
+                  shortName: _shortName,
                 ),
+              );
+
+        final legends = items.isEmpty
+            ? const <Widget>[]
+            : [
+                for (var i = 0; i < items.length; i++)
+                  _TopExpenseLegendRow(
+                    item: items[i],
+                    color: legendColorForExpense(items[i].name, i),
+                  ),
+              ];
+
+        return Container(
+          width: double.infinity,
+          padding: EdgeInsets.fromLTRB(12.tw, 10.th, 12.tw, 8.th),
+          decoration: analyticsGlassPanel(radius: 16),
+          child: SingleChildScrollView(
+            physics: const ClampingScrollPhysics(),
+            child: ConstrainedBox(
+              constraints: BoxConstraints(minHeight: maxH),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  header,
+                  SizedBox(height: 8.th),
+                  chartBody,
+                  ...legends,
+                ],
               ),
-            ],
+            ),
           ),
-          SizedBox(height: 8.th),
-          Expanded(
-            child: items.isEmpty
-                ? Center(
-                    child: Text(
-                      'No top expense data',
-                      style: GoogleFonts.poppins(
-                        fontSize: 12.tsp,
-                        color: ProjectsDashboardTheme.greyPanel,
-                      ),
-                    ),
-                  )
-                : _TopThreeSplineChart(items: items, shortName: _shortName),
-          ),
-          if (items.isNotEmpty)
-            for (var i = 0; i < items.length; i++)
-              _TopExpenseLegendRow(
-                item: items[i],
-                color: legendColorForExpense(items[i].name, i),
-              ),
-        ],
-      ),
+        );
+      },
     );
   }
 }

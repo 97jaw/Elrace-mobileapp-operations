@@ -100,7 +100,9 @@ class ProjectsCategoryMyProjectsCard extends ConsumerWidget {
                 project: data.topProjects[i],
                 onTap: () => HomeMyProjectsNavigation.openProject(
                   context,
-                  data.topProjects[i].id,
+                  projectId: data.topProjects[i].id,
+                  name: data.topProjects[i].name,
+                  totalProgress: data.topProjects[i].progressPct,
                 ),
               ),
             ],

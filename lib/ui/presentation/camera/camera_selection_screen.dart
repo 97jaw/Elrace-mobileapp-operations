@@ -25,10 +25,9 @@ import '../document_scanner/data/services/document_export_service.dart';
 import '../document_scanner/data/services/image_processing_service.dart';
 import '../document_scanner/domain/entities/document_page.dart';
 import '../document_scanner/domain/entities/scanned_document.dart';
-import '../qr_code/qr_scanner_screen.dart';
 
 /// Camera Selection Screen with built-in camera preview
-/// Shows SCAN and PHOTO buttons at bottom
+/// Shows SCAN and PHOTO buttons at bottom (QR lives in My Profile).
 class CameraSelectionScreen extends StatefulWidget {
   const CameraSelectionScreen({super.key});
 
@@ -528,7 +527,8 @@ class _CameraSelectionScreenState extends State<CameraSelectionScreen>
       await _initializeControllerFuture;
       final file = await _controller!.takePicture();
 
-      // Show overlay immediately
+      // Show overlay immediately — keep the raw scan (no logo / address footer).
+      // Branding is only for the separate PHOTO capture path.
       setState(() {
         _scanOriginalPath = file.path;
         _scanFilteredPath = null;
@@ -538,15 +538,8 @@ class _CameraSelectionScreenState extends State<CameraSelectionScreen>
         _isCapturing = false;
       });
 
-      // Process overlay and filter in background
-      _composeWithOverlay(file.path).then((withOverlay) {
-        if (mounted) {
-          setState(() {
-            _scanOriginalPath = withOverlay ?? file.path;
-          });
-        }
-        return _applyScanFilter(ImageFilterType.magic);
-      });
+      // Apply default filter in background without stamping branding.
+      unawaited(_applyScanFilter(ImageFilterType.magic));
     } catch (e) {
       debugPrint('Scan capture error: $e');
       if (mounted) {
@@ -710,24 +703,15 @@ class _CameraSelectionScreenState extends State<CameraSelectionScreen>
       // Navigate back immediately so the UI is responsive
       Navigator.pop(context);
 
-      // Process overlays + save in background (no main-thread freeze)
+      // Save scanned pages as-is (no logo / date / address footer).
+      // That branding is only applied on the PHOTO capture path.
       int savedCount = 0;
       for (final picturePath in pictures) {
         try {
-          await compute(
-            _applyOverlayIsolate,
-            _OverlayParams(
-              imagePath: picturePath,
-              logoBytes: _logoBytes,
-              currentTime: _currentTime,
-              currentDate: _currentDate,
-              currentLocation: _currentLocation,
-            ),
-          );
           await Gal.putImage(picturePath, album: 'RCC');
           savedCount++;
         } catch (e) {
-          debugPrint('Error processing scanned page: $e');
+          debugPrint('Error saving scanned page: $e');
         }
       }
 
@@ -745,53 +729,6 @@ class _CameraSelectionScreenState extends State<CameraSelectionScreen>
       }
     } on PlatformException catch (e) {
       debugPrint('Document scanner error: $e');
-    }
-  }
-
-  void _openQrScanner() async {
-    try {
-      // Grab the current controller but don't null it yet — keep the frozen
-      // camera frame visible during the push transition (no loading flicker).
-      final oldController = _controller;
-
-      // Dispose silently so the hardware is released before QR scanner opens.
-      _controller = null;
-      await oldController?.dispose();
-
-      // Navigate to QR scanner screen; returns true on successful scan
-      final result = await Navigator.push<bool>(
-        context,
-        MaterialPageRoute(
-          builder: (context) => const QrScannerScreen(),
-          fullscreenDialog: true,
-        ),
-      );
-
-      // If QR was scanned successfully, leave the camera screen too
-      if (result == true && mounted) {
-        Navigator.pop(context);
-        return;
-      }
-
-      if (!mounted) return;
-
-      // Show a spinner while we wait for Android to fully release the hardware
-      // from MobileScanner before we reopen it.
-      setState(() {});
-      await Future.delayed(const Duration(milliseconds: 400));
-
-      if (mounted) await _initializeCamera();
-    } catch (e) {
-      debugPrint('QR scanner error: $e');
-      if (mounted) {
-        await _initializeCamera();
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('QR scanner error: $e'),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
     }
   }
 
@@ -1062,13 +999,12 @@ class _CameraSelectionScreenState extends State<CameraSelectionScreen>
                       ),
                       SizedBox(height: 6.th),
 
-                      /// ——— SCAN / PHOTO / QR BUTTONS ———
+                      /// ——— SCAN / PHOTO BUTTONS ———
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                         children: [
                           _glassButton("SCAN", _openScanner),
                           _glassButton("PHOTO", _takePicture),
-                          _glassButton("QR", _openQrScanner),
                         ],
                       ),
                     ],

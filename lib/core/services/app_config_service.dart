@@ -19,8 +19,10 @@ class AppConfigService {
   bool _skipVpnCheck = false;
   bool get skipVpnCheck => _skipVpnCheck;
 
-  /// Whether VPN check should be skipped (test mode OR backend flag)
-  bool get shouldSkipVpnCheck => _isTestMode || _skipVpnCheck;
+  /// Skip VPN blocking only when backend explicitly sets `skipVpnCheck`.
+  /// `isTestMode` alone must NOT disable VPN — that caused mid-session skips
+  /// after AppConfig loaded (splash could still detect before config arrived).
+  bool get shouldSkipVpnCheck => _skipVpnCheck;
 
   /// Whether face ID is enabled (default: true)
   /// Backend key: faceIdEnabled

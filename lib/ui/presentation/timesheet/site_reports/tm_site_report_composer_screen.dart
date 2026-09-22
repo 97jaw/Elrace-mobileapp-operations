@@ -236,129 +236,145 @@ class _TmSiteReportComposerScreenState extends State<TmSiteReportComposerScreen>
     required String pdfName,
     required String templateId,
   }) async {
-    notify(
-      progress: 0.05,
-      status: 'Preparing report…',
-      visual: TmReportGenerationVisual.preparing,
-    );
+    try {
+      notify(
+        progress: 0.05,
+        status: 'Preparing report…',
+        visual: TmReportGenerationVisual.preparing,
+      );
 
-    if (!await _ensureReport()) return null;
-    final report = _report!;
+      if (!await _ensureReport()) return null;
+      final report = _report!;
 
-    final title = _titleController.text.trim();
-    if (title.isNotEmpty && title != report.name) {
-      await _provider.updateReport(name: title, reportId: report.id);
-    }
-
-    notify(
-      progress: 0.12,
-      status: 'Syncing photos…',
-      visual: TmReportGenerationVisual.uploadingPhotos,
-    );
-
-    for (final draft in _drafts) {
-      if (draft.pendingDelete && draft.serverItemId != null) {
-        await _provider.deleteReportItem(
-          reportId: report.id,
-          itemId: draft.serverItemId!,
-        );
-        continue;
+      final title = _titleController.text.trim();
+      if (title.isNotEmpty && title != report.name) {
+        await _provider.updateReport(name: title, reportId: report.id);
       }
-      if (draft.pendingDelete) continue;
 
-      final fallbackLocation = widget._effectiveLocation;
-      final location = draft.locationController.text.trim().isNotEmpty
-          ? draft.locationController.text.trim()
-          : fallbackLocation;
-      final description = draft.descriptionController.text.trim();
-      final uploadFile = await draft.effectiveFileForUpload();
+      notify(
+        progress: 0.12,
+        status: 'Syncing photos…',
+        visual: TmReportGenerationVisual.uploadingPhotos,
+      );
 
-      if (draft.serverItemId != null) {
-        await _provider.updateReportItem(
-          reportId: report.id,
-          itemId: draft.serverItemId!,
-          description: description,
-          location: location,
-          imageFile: uploadFile,
-        );
-      } else if (uploadFile != null) {
-        await _provider.addReportItem(
-          reportId: report.id,
-          imageFile: uploadFile,
-          location: location,
-          description: description,
-        );
+      for (final draft in _drafts) {
+        if (draft.pendingDelete && draft.serverItemId != null) {
+          await _provider.deleteReportItem(
+            reportId: report.id,
+            itemId: draft.serverItemId!,
+          );
+          continue;
+        }
+        if (draft.pendingDelete) continue;
+
+        final fallbackLocation = widget._effectiveLocation;
+        final location = draft.locationController.text.trim().isNotEmpty
+            ? draft.locationController.text.trim()
+            : fallbackLocation;
+        final description = draft.descriptionController.text.trim();
+        final uploadFile = await draft.effectiveFileForUpload();
+
+        if (draft.serverItemId != null) {
+          await _provider.updateReportItem(
+            reportId: report.id,
+            itemId: draft.serverItemId!,
+            description: description,
+            location: location,
+            imageFile: uploadFile,
+          );
+        } else if (uploadFile != null) {
+          await _provider.addReportItem(
+            reportId: report.id,
+            imageFile: uploadFile,
+            location: location,
+            description: description,
+          );
+        }
       }
+
+      notify(
+        progress: 0.55,
+        status: 'Loading report data…',
+        visual: TmReportGenerationVisual.preparing,
+      );
+
+      final detail = await _provider.fetchReportDetailFromApi(report.id);
+      if (detail == null || detail.reportItems.length < 3) {
+        debugPrint(
+            '❌ Site report generation aborted: detail missing or less than 3 items (reportId=${report.id})');
+        return null;
+      }
+
+      notify(
+        progress: 0.72,
+        status: 'Generating PDF…',
+        visual: TmReportGenerationVisual.generatingPdf,
+      );
+
+      final pdfProjectLabel = widget.projectName.trim().isNotEmpty
+          ? widget.projectName
+          : (widget._effectiveLocation.isNotEmpty
+              ? widget._effectiveLocation
+              : 'Site Report');
+
+      final pdfBytes = await PdfService().generateReportPdf(
+        report: detail,
+        projectName: pdfProjectLabel,
+        companyName: CompanyRepository.company?.companyName,
+        templateType: templateId,
+      );
+
+      notify(
+        progress: 0.85,
+        status: 'Uploading to cloud…',
+        visual: TmReportGenerationVisual.uploadingCloud,
+      );
+
+      final folderId = _folderIdForUpload;
+      if (folderId.isEmpty) {
+        debugPrint('❌ Site report generation aborted: empty folderId');
+        return null;
+      }
+
+      final uploaded = await _provider.uploadReportPdf(
+        empId: ReportProvider.empID,
+        pdfBytes: pdfBytes,
+        reportId: report.id,
+        folderId: folderId,
+        fileName: pdfName,
+        onProgress: (uploadProgress) {
+          notify(
+            progress: 0.85 + (uploadProgress * 0.14),
+            status: 'Uploading to cloud…',
+            visual: TmReportGenerationVisual.uploadingCloud,
+          );
+        },
+      );
+
+      if (uploaded == null || uploaded.reportLink.trim().isEmpty) {
+        debugPrint(
+            '❌ Site report generation aborted: uploadReportPdf returned empty link');
+        return null;
+      }
+
+      await _provider.persistReportType(report.id, templateId);
+
+      notify(
+        progress: 1,
+        status: 'Completed',
+        visual: TmReportGenerationVisual.done,
+      );
+
+      return TmSiteReportComposerResult(
+        reportId: report.id,
+        pdfUrl: uploaded.reportLink,
+        pdfTitle: pdfName,
+        templateId: templateId,
+      );
+    } catch (e, st) {
+      debugPrint('❌ _runGeneration failed: $e\n$st');
+      rethrow;
     }
-
-    notify(
-      progress: 0.55,
-      status: 'Loading report data…',
-      visual: TmReportGenerationVisual.preparing,
-    );
-
-    final detail = await _provider.fetchReportDetailFromApi(report.id);
-    if (detail == null || detail.reportItems.length < 3) return null;
-
-    notify(
-      progress: 0.72,
-      status: 'Generating PDF…',
-      visual: TmReportGenerationVisual.generatingPdf,
-    );
-
-    final pdfProjectLabel = widget.projectName.trim().isNotEmpty
-        ? widget.projectName
-        : (widget._effectiveLocation.isNotEmpty
-            ? widget._effectiveLocation
-            : 'Site Report');
-
-    final pdfBytes = await PdfService().generateReportPdf(
-      report: detail,
-      projectName: pdfProjectLabel,
-      companyName: CompanyRepository.company?.companyName,
-      templateType: templateId,
-    );
-
-    notify(
-      progress: 0.85,
-      status: 'Uploading to cloud…',
-      visual: TmReportGenerationVisual.uploadingCloud,
-    );
-
-    final folderId = _folderIdForUpload;
-    if (folderId.isEmpty) return null;
-
-    final uploaded = await _provider.uploadReportPdf(
-      empId: ReportProvider.empID,
-      pdfBytes: pdfBytes,
-      reportId: report.id,
-      folderId: folderId,
-      fileName: pdfName,
-      onProgress: (uploadProgress) {
-        notify(
-          progress: 0.85 + (uploadProgress * 0.14),
-          status: 'Uploading to cloud…',
-          visual: TmReportGenerationVisual.uploadingCloud,
-        );
-      },
-    );
-
-    if (uploaded == null || uploaded.reportLink.trim().isEmpty) return null;
-
-    await _provider.persistReportType(report.id, templateId);
-
-    notify(
-      progress: 1,
-      status: 'Completed',
-      visual: TmReportGenerationVisual.done,
-    );
-
-    return TmSiteReportComposerResult(
-      reportId: report.id,
-      pdfUrl: uploaded.reportLink,
-      pdfTitle: pdfName,
-      templateId: templateId,
-    );
   }
 
   void _toast(String message) {

@@ -30,7 +30,7 @@ import 'package:el_race/ui/presentation/home_screen/widgets/parayer_widgets/para
 import 'package:el_race/ui/presentation/media/screens/media_list_screen.dart';
 import 'package:el_race/ui/presentation/my_documents/screens/my_documents_screen.dart';
 import 'package:el_race/ui/presentation/my_notes/screens/my_notes_screen.dart';
-import 'package:el_race/ui/presentation/my_projects/presentation/screens/my_project.dart';
+import 'package:el_race/ui/presentation/home_screen/widgets/home_my_projects_navigation.dart';
 import 'package:el_race/ui/presentation/tasks/logic/tasks_provider.dart';
 import 'package:el_race/ui/presentation/home_screen/widgets/home_productivity_navigation.dart';
 import 'package:el_race/core/timesheet/routing/timesheet_route_names.dart';
@@ -332,7 +332,7 @@ class _ListViewWidgetsState extends State<ListViewWidgets> {
         return Stack(
           children: [
             GrayCardComponent(
-              cardTitle: "Task Managment",
+              cardTitle: "Task Management",
               titleColor: Colors.white,
               backgroundImagePath:
                   'assets/newapp/task_managment_widget_backdround.png',
@@ -423,7 +423,7 @@ class _ListViewWidgetsState extends State<ListViewWidgets> {
             ),
             onClick: (isReorderMode || isDisabled)
                 ? null
-                : () => Util.pushPage(const MyProject(), context),
+                : () => HomeMyProjectsNavigation.openProjectsModule(context),
             childWidget: Directionality(
               textDirection: TextDirection.ltr,
               child: DefaultTextStyle(

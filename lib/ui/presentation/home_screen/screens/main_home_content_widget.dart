@@ -47,6 +47,10 @@ class _MainHomeContentWidgetState extends State<MainHomeContentWidget> {
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       if (!mounted) return;
       context.read<SliderProvider>().fetchAnnouncementsForBanner();
+      // Measure immediately so the widgets panel mounts — do not wait on
+      // network. Deferring this behind widget fetches hid the whole panel.
+      _measureHeaderAndInit();
+
       // Refresh is_disabled from Odoo Effective Widgets (role template /
       // custom override) so home matches admin config without requiring
       // a full re-login after every template edit.
@@ -58,13 +62,20 @@ class _MainHomeContentWidgetState extends State<MainHomeContentWidget> {
         HomeWidgetRefreshService.invalidateWidgetProviders(container);
         setState(() {});
       }
-      HomeWidgetApiClient.refreshIfStale(
-        onlyCodes: HomeWidgetRefreshService.visibleCategoryCodes(),
-      );
+      try {
+        await HomeWidgetApiClient.refreshIfStale(
+          onlyCodes: HomeWidgetRefreshService.visibleCategoryCodes(),
+        );
+      } catch (_) {
+        // Panel already visible; card-level loaders still retry.
+      }
+      if (mounted) setState(() {});
       HomeCityHelper.fetchCity().then((_) {
         if (mounted) setState(() {});
       });
-      _measureHeaderAndInit();
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _measureHeaderAndInit();
+      });
     });
   }
 

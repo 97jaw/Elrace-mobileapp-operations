@@ -1,11 +1,14 @@
 import 'dart:io';
 import 'dart:typed_data';
 
+import 'package:el_race/core/utils/responsive_breakpoints.dart';
 import 'package:el_race/ui/presentation/my_documents/utils/document_attachment_opener.dart';
+import 'package:el_race/ui/presentation/my_documents/widgets/my_documents_silk_background.dart';
 import 'package:el_race/ui/presentation/my_projects/presentation/utils/project_file_opening.dart';
-import 'package:el_race/ui/presentation/productivity/widgets/productivity_screen_shell.dart';
+import 'package:el_race/ui/presentation/productivity/widgets/productivity_glass_header.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_pdfview/flutter_pdfview.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:syncfusion_flutter_pdfviewer/pdfviewer.dart';
@@ -246,30 +249,46 @@ class _AttachmentViewerScreenState extends State<AttachmentViewerScreen> {
 
   Widget _buildBody() {
     if (_loading) {
-      return const Center(child: CircularProgressIndicator());
+      return const Center(
+        child: CircularProgressIndicator(color: Color(0xFF1E2365)),
+      );
     }
     if (_error != null) {
       return Center(
         child: Padding(
-          padding: const EdgeInsets.all(24),
+          padding: EdgeInsets.all(24.tw),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Icon(Icons.broken_image_outlined, size: 48, color: Colors.grey),
-              const SizedBox(height: 12),
+              Icon(
+                Icons.broken_image_outlined,
+                size: 48.tsp,
+                color: const Color(0xFF9AA3AF),
+              ),
+              SizedBox(height: 12.th),
               Text(
                 _error!,
                 textAlign: TextAlign.center,
-                style: const TextStyle(fontSize: 14, color: Colors.black87),
+                style: GoogleFonts.poppins(
+                  fontSize: 14.tsp,
+                  color: const Color(0xFF1E2365),
+                ),
               ),
-              const SizedBox(height: 16),
+              SizedBox(height: 16.th),
               FilledButton.icon(
                 onPressed: _load,
+                style: FilledButton.styleFrom(
+                  backgroundColor: const Color(0xFF1E2365),
+                ),
                 icon: const Icon(Icons.refresh),
-                label: const Text('Retry'),
+                label: Text(
+                  'Retry',
+                  style: GoogleFonts.poppins(fontWeight: FontWeight.w600),
+                ),
               ),
-              if (_bytes != null && DocumentAttachmentOpener.isPdfBytes(_bytes)) ...[
-                const SizedBox(height: 8),
+              if (_bytes != null &&
+                  DocumentAttachmentOpener.isPdfBytes(_bytes)) ...[
+                SizedBox(height: 8.th),
                 TextButton.icon(
                   onPressed: () {
                     setState(() {
@@ -278,7 +297,10 @@ class _AttachmentViewerScreenState extends State<AttachmentViewerScreen> {
                     });
                   },
                   icon: const Icon(Icons.picture_as_pdf_outlined),
-                  label: const Text('Open with alternate viewer'),
+                  label: Text(
+                    'Open with alternate viewer',
+                    style: GoogleFonts.poppins(),
+                  ),
                 ),
               ],
             ],
@@ -289,12 +311,23 @@ class _AttachmentViewerScreenState extends State<AttachmentViewerScreen> {
 
     final bytes = _bytes;
     if (bytes == null || bytes.isEmpty) {
-      return const Center(child: Text('Attachment is empty'));
+      return Center(
+        child: Text(
+          'Attachment is empty',
+          style: GoogleFonts.poppins(color: const Color(0xFF7B8290)),
+        ),
+      );
     }
 
     switch (_kind) {
       case _ViewerKind.pdf:
-        return _buildPdfViewer(bytes);
+        return ClipRRect(
+          borderRadius: BorderRadius.circular(12.tr),
+          child: ColoredBox(
+            color: Colors.white.withValues(alpha: 0.92),
+            child: _buildPdfViewer(bytes),
+          ),
+        );
       case _ViewerKind.image:
         return InteractiveViewer(
           minScale: 0.8,
@@ -303,31 +336,62 @@ class _AttachmentViewerScreenState extends State<AttachmentViewerScreen> {
             child: Image.memory(
               bytes,
               fit: BoxFit.contain,
-              errorBuilder: (_, __, ___) =>
-                  const Center(child: Text('Failed to load image attachment')),
+              errorBuilder: (_, __, ___) => Center(
+                child: Text(
+                  'Failed to load image attachment',
+                  style: GoogleFonts.poppins(color: const Color(0xFF7B8290)),
+                ),
+              ),
             ),
           ),
         );
       case _ViewerKind.unsupported:
-        return const Center(child: Text('Unsupported attachment type'));
+        return Center(
+          child: Text(
+            'Unsupported attachment type',
+            style: GoogleFonts.poppins(color: const Color(0xFF7B8290)),
+          ),
+        );
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    final canShare = !_loading && _bytes != null && _bytes!.isNotEmpty && _error == null;
-    return ProductivityScreenShell(
-      title: widget.title.isEmpty ? 'Attachment' : widget.title,
-      showBack: true,
-      onBack: _goBack,
-      titleTrailing: canShare
-          ? IconButton(
-              tooltip: 'Share',
-              onPressed: _shareAttachment,
-              icon: const Icon(Icons.ios_share_rounded),
-            )
-          : null,
-      body: _buildBody(),
+    final canShare =
+        !_loading && _bytes != null && _bytes!.isNotEmpty && _error == null;
+    return MyDocumentsSilkBackground(
+      child: Scaffold(
+        backgroundColor: Colors.transparent,
+        body: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            ProductivityGlassHeader(
+              title: widget.title.isEmpty ? 'Attachment' : widget.title,
+              showBack: true,
+              onBack: _goBack,
+              transparentGlassBar: true,
+              scrimTopOpacity: 0.08,
+              titleTrailing: canShare
+                  ? IconButton(
+                      tooltip: 'Share',
+                      onPressed: _shareAttachment,
+                      icon: Icon(
+                        Icons.ios_share_rounded,
+                        color: const Color(0xFF1E2365),
+                        size: 22.tsp,
+                      ),
+                    )
+                  : null,
+            ),
+            Expanded(
+              child: Padding(
+                padding: EdgeInsets.fromLTRB(12.tw, 4.th, 12.tw, 12.th),
+                child: TabletContentFrame(child: _buildBody()),
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

@@ -7,7 +7,7 @@ class ComingSoonCategorySectionHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return const HomeCategorySectionHeader(
-      title: 'Coming soon',
+      title: 'Coming Soon',
       icon: Icons.auto_awesome_rounded,
       iconColor: Color(0xFF7C3AED),
       iconGradient: LinearGradient(

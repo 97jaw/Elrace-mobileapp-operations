@@ -3,7 +3,6 @@ import 'dart:convert';
 import 'package:el_race/core/utils/shared_pref.dart';
 import 'package:el_race/ui/presentation/my_projects/data/models/attachment_model.dart';
 import 'package:el_race/ui/presentation/my_projects/data/models/partner_model.dart';
-import 'package:el_race/ui/presentation/my_projects/data/models/project_expense_breakdown_model.dart';
 import 'package:el_race/ui/presentation/my_projects/data/models/project_expense_dashboard_model.dart';
 import 'package:el_race/ui/presentation/my_projects/data/models/project_expense_summary_model.dart';
 import 'package:el_race/ui/presentation/my_projects/data/models/project_financial_model.dart';
@@ -44,10 +43,10 @@ abstract class ProjectRemoteDataSourceImpl {
   /// Loads up to [maxItems] in-progress projects (paginated on the server).
   Future<List<ProjectModel>> fetchProjects({int maxItems = kProjectsDashboardMaxProjects});
 
-  /// Portfolio-scoped in-progress projects for dashboard client bars.
+  /// Portfolio-scoped projects for dashboard client bars (all statuses).
   Future<List<ProjectModel>> fetchDashboardChartProjects({
     int maxItems = kProjectsDashboardMaxProjects,
-    String? projectStatusCompute = 'in_progress',
+    String? projectStatusCompute,
   });
   Future<List<AttachmentModel>> fetchProjectAttachments(String projectId,
       {String? folderType});
@@ -65,7 +64,10 @@ abstract class ProjectRemoteDataSourceImpl {
     int offset = 0,
   });
   Future<List<FolderModel>> fetchProjectFolders();
-  Future<UserProjectsResponse> fetchClientsList();
+  Future<UserProjectsResponse> fetchClientsList({
+    String groupBy = 'agreement',
+    int? year,
+  });
   Future<ProjectsDashboardSummaryModel> fetchProjectsDashboardSummary();
   Future<List<ProjectManagerFilterItem>> fetchProjectManagersList({
     ProjectsGroupHubFilters? filters,
@@ -77,8 +79,15 @@ abstract class ProjectRemoteDataSourceImpl {
   Future<ProjectDocumentsResponse> fetchProjectDocuments(int projectId,
       {String? folderType});
   Future<FolderContentsResponse> fetchFolderContents(
-      int projectId, String folderId);
-  Future<FileDetailsResponse> fetchFileDetails(int projectId, String fileId);
+    int projectId,
+    String folderId, {
+    String? driveId,
+  });
+  Future<FileDetailsResponse> fetchFileDetails(
+    int projectId,
+    String fileId, {
+    String? driveId,
+  });
   Future<ProjectScurveData> fetchProjectScurve(
     int projectId, {
     int rangeStart = 1,
@@ -91,9 +100,6 @@ abstract class ProjectRemoteDataSourceImpl {
     String? dateTo,
   });
   Future<ProjectExpenseSummaryModel> fetchProjectExpenseSummary(int projectId);
-  Future<ProjectExpenseBreakdownResult> fetchProjectExpenseBreakdown(
-    int projectId,
-  );
 }
 
 class ProjectRemoteDataSource implements ProjectRemoteDataSourceImpl {
@@ -211,12 +217,12 @@ class ProjectRemoteDataSource implements ProjectRemoteDataSourceImpl {
     });
   }
 
-  /// Loads in-progress portfolio projects for the dashboard client bars.
+  /// Loads portfolio projects for the dashboard client bars (all statuses).
   /// Uses v2 portfolio domain (management = full portfolio; staff = scoped).
   @override
   Future<List<ProjectModel>> fetchDashboardChartProjects({
     int maxItems = kProjectsDashboardMaxProjects,
-    String? projectStatusCompute = 'in_progress',
+    String? projectStatusCompute,
   }) async {
     final accumulated = <ProjectModel>[];
     var offset = 0;
@@ -732,7 +738,10 @@ class ProjectRemoteDataSource implements ProjectRemoteDataSourceImpl {
   }
 
   @override
-  Future<UserProjectsResponse> fetchClientsList() async {
+  Future<UserProjectsResponse> fetchClientsList({
+    String groupBy = 'agreement',
+    int? year,
+  }) async {
     final token = _getToken();
 
     final headers = {
@@ -744,11 +753,14 @@ class ProjectRemoteDataSource implements ProjectRemoteDataSourceImpl {
     final v1Url = Uri.parse("${UrlUtil.baseUrl}clients/list");
     final v2Url = Uri.parse("${UrlUtil.baseUrl}$_v2ClientsList");
 
+    final params = <String, dynamic>{
+      "group_by": groupBy,
+    };
+    if (year != null) params['year'] = year;
+
     final body = jsonEncode({
       "jsonrpc": "2.0",
-      "params": {
-        "group_by": "agreement",
-      },
+      "params": params,
     });
 
     final response = await _jsonGetTryV2(
@@ -759,8 +771,8 @@ class ProjectRemoteDataSource implements ProjectRemoteDataSourceImpl {
     );
 
     debugPrint(
-      'fetchClientsList: status=${response.statusCode} '
-      'bytes=${response.body.length}',
+      'fetchClientsList: group_by=$groupBy year=$year '
+      'status=${response.statusCode} bytes=${response.body.length}',
     );
 
     if (response.statusCode == 200) {
@@ -775,7 +787,9 @@ class ProjectRemoteDataSource implements ProjectRemoteDataSourceImpl {
         return UserProjectsResponse(
           success: true,
           employeeId: 0,
-          projects: projects,
+          projects: groupBy == 'agreement'
+              ? ProjectsListOrdering.sortAgreementsDesc(projects)
+              : projects,
         );
       }
 
@@ -959,7 +973,16 @@ class ProjectRemoteDataSource implements ProjectRemoteDataSourceImpl {
 
     if (response.statusCode == 200) {
       final decoded = json.decode(response.body) as Map<String, dynamic>;
-      return ProjectDocumentsResponse.fromJson(decoded);
+      final parsed = ProjectDocumentsResponse.fromJson(decoded);
+      if (!parsed.isSuccess) {
+        final msg = (parsed.message ?? '').trim();
+        throw Exception(
+          msg.isNotEmpty
+              ? msg
+              : 'SharePoint authentication or request failed',
+        );
+      }
+      return parsed;
     } else {
       throw Exception(
           'Failed to load project documents: ${response.statusCode}');
@@ -968,7 +991,10 @@ class ProjectRemoteDataSource implements ProjectRemoteDataSourceImpl {
 
   @override
   Future<FolderContentsResponse> fetchFolderContents(
-      int projectId, String folderId) async {
+    int projectId,
+    String folderId, {
+    String? driveId,
+  }) async {
     final token = _getToken();
 
     final headers = {
@@ -980,12 +1006,17 @@ class ProjectRemoteDataSource implements ProjectRemoteDataSourceImpl {
     final url =
         Uri.parse("${UrlUtil.baseUrl}projects/documents/folder");
 
+    final params = <String, dynamic>{
+      "project_id": projectId,
+      "folder_id": folderId,
+    };
+    if (driveId != null && driveId.trim().isNotEmpty) {
+      params["drive_id"] = driveId.trim();
+    }
+
     final body = jsonEncode({
       "jsonrpc": "2.0",
-      "params": {
-        "project_id": projectId,
-        "folder_id": folderId,
-      },
+      "params": params,
     });
 
     debugPrint("===============================");
@@ -1007,7 +1038,15 @@ class ProjectRemoteDataSource implements ProjectRemoteDataSourceImpl {
 
     if (response.statusCode == 200) {
       final decoded = json.decode(response.body) as Map<String, dynamic>;
-      return FolderContentsResponse.fromJson(decoded);
+      final parsed = FolderContentsResponse.fromJson(decoded);
+      if (!parsed.isSuccess) {
+        throw Exception(
+          parsed.message?.isNotEmpty == true
+              ? parsed.message
+              : 'Failed to load folder contents',
+        );
+      }
+      return parsed;
     } else {
       throw Exception('Failed to load folder contents: ${response.statusCode}');
     }
@@ -1015,7 +1054,10 @@ class ProjectRemoteDataSource implements ProjectRemoteDataSourceImpl {
 
   @override
   Future<FileDetailsResponse> fetchFileDetails(
-      int projectId, String fileId) async {
+    int projectId,
+    String fileId, {
+    String? driveId,
+  }) async {
     final token = _getToken();
 
     final headers = {
@@ -1026,12 +1068,17 @@ class ProjectRemoteDataSource implements ProjectRemoteDataSourceImpl {
 
     final url = Uri.parse("${UrlUtil.baseUrl}projects/documents/file");
 
+    final params = <String, dynamic>{
+      "project_id": projectId,
+      "file_id": fileId,
+    };
+    if (driveId != null && driveId.trim().isNotEmpty) {
+      params["drive_id"] = driveId.trim();
+    }
+
     final body = jsonEncode({
       "jsonrpc": "2.0",
-      "params": {
-        "project_id": projectId,
-        "file_id": fileId,
-      },
+      "params": params,
     });
 
     debugPrint("===============================");
@@ -1053,7 +1100,15 @@ class ProjectRemoteDataSource implements ProjectRemoteDataSourceImpl {
 
     if (response.statusCode == 200) {
       final decoded = json.decode(response.body) as Map<String, dynamic>;
-      return FileDetailsResponse.fromJson(decoded);
+      final parsed = FileDetailsResponse.fromJson(decoded);
+      if (!parsed.isSuccess) {
+        throw Exception(
+          parsed.message?.isNotEmpty == true
+              ? parsed.message
+              : 'Failed to load file details',
+        );
+      }
+      return parsed;
     } else {
       throw Exception('Failed to load file details: ${response.statusCode}');
     }
@@ -1287,17 +1342,5 @@ class ProjectRemoteDataSource implements ProjectRemoteDataSourceImpl {
       'expense summary',
     );
     return ProjectExpenseSummaryModel.fromJson(payload);
-  }
-
-  @override
-  Future<ProjectExpenseBreakdownResult> fetchProjectExpenseBreakdown(
-    int projectId,
-  ) async {
-    final payload = await _postJsonSuccess(
-      '${UrlUtil.baseUrl}project/expense/breakdown',
-      {'project_id': projectId},
-      'expense breakdown',
-    );
-    return ProjectExpenseBreakdownResult.fromJson(payload);
   }
 }

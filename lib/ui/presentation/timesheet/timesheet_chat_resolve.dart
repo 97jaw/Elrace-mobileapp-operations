@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:el_race/chat/models/chat.dart';
 import 'package:el_race/chat/repositories/chat_repository.dart';
+import 'package:el_race/core/firebase/firebase_session.dart';
 import 'package:el_race/core/timesheet/models/timesheet_team_member.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
@@ -18,6 +19,9 @@ class TimesheetChatResolve {
       return null;
     }
     try {
+      // The `users` collection requires an authenticated reader.
+      await FirebaseSession.instance.ensureSignedIn();
+
       if (odooUserId != null && odooUserId > 0) {
         final byOdoo = await _users
             .where('odoo_user_id', isEqualTo: odooUserId)

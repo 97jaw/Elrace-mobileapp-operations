@@ -87,9 +87,11 @@ class ChatUserSession {
       print('🔍 result keys: ${(result as Map).keys.toList()}');
     }
 
-    final data = json['result']?['data'] ?? json['data'] ?? json;
+    final data = _resolveLoginDataMap(json);
     print(
-        '🔍 data keys: ${data is Map ? (data as Map).keys.toList() : "not a map"}');
+        '🔍 data keys: ${data.isNotEmpty ? data.keys.toList() : "empty"}');
+
+    final resultMap = result is Map ? Map<String, dynamic>.from(result) : null;
 
     // Check for firebase_custom_token at different levels
     final tokenFromData = data['firebase_custom_token'];
@@ -124,10 +126,12 @@ class ChatUserSession {
 
     final token = json['result']?['token'] ?? json['token'] ?? '';
 
-    // odoo_user_id: prefer explicit field, fallback to uid or user_id
+    // odoo_user_id: prefer explicit field, fallback to uid or result.user_id
     final int odooUserId = _extractInt(data['odoo_user_id']) ??
         _extractInt(data['user_id']) ??
         _extractInt(data['uid']) ??
+        _extractInt(resultMap?['user_id']) ??
+        _extractInt(resultMap?['uid']) ??
         0;
 
     print('🔍 odoo_user_id: $odooUserId');
@@ -266,9 +270,32 @@ class ChatUserSession {
   /// Extract int from various possible types (int, String, etc.)
   static int? _extractInt(dynamic value) {
     if (value == null || value == false) return null;
-    if (value is int) return value;
-    if (value is String) return int.tryParse(value);
+    if (value is int) return value == 0 ? null : value;
+    if (value is String) {
+      final trimmed = value.trim();
+      if (trimmed.isEmpty) return null;
+      final parsed = int.tryParse(trimmed);
+      return parsed == 0 ? null : parsed;
+    }
     return null;
+  }
+
+  static Map<String, dynamic> _resolveLoginDataMap(Map<String, dynamic> json) {
+    final result = json['result'];
+    if (result is Map) {
+      final nested = result['data'];
+      if (nested is Map) {
+        return Map<String, dynamic>.from(nested);
+      }
+    }
+    final rootData = json['data'];
+    if (rootData is Map) {
+      return Map<String, dynamic>.from(rootData);
+    }
+    if (!json.containsKey('jsonrpc') && !json.containsKey('result')) {
+      return Map<String, dynamic>.from(json);
+    }
+    return {};
   }
 
   static bool _extractBool(dynamic value) {

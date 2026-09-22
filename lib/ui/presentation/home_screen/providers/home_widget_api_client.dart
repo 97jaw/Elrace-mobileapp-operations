@@ -115,9 +115,11 @@ class HomeWidgetApiClient {
         return;
       case 'clients':
         HomeWidgetSessionCache.clientsRaw = raw;
+        HomeWidgetSessionCache.notifyClientsVendorsChanged();
         return;
       case 'vendors':
         HomeWidgetSessionCache.vendorsRaw = raw;
+        HomeWidgetSessionCache.notifyClientsVendorsChanged();
         return;
       case 'lpo':
         HomeWidgetSessionCache.lpoRaw = raw;

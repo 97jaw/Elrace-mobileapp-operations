@@ -108,8 +108,9 @@ class _TmReportGenerationSheetHostState extends State<_TmReportGenerationSheetHo
           _status = 'Something went wrong';
         });
       }
-    } catch (_) {
+    } catch (e, st) {
       if (!mounted) return;
+      debugPrint('❌ Site report generation failed: $e\n$st');
       setState(() {
         _failed = true;
         _visual = TmReportGenerationVisual.error;

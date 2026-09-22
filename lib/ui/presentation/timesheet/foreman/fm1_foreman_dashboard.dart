@@ -7,7 +7,11 @@ import 'package:el_race/core/timesheet/models/timesheet_team_member.dart';
 import 'package:el_race/core/timesheet/providers/timesheet_data_providers.dart';
 import 'package:el_race/core/timesheet/providers/timesheet_enrollment_status_provider.dart';
 import 'package:el_race/core/timesheet/routing/timesheet_route_names.dart';
+import 'package:el_race/core/timesheet/providers/timesheet_acting_session_provider.dart';
+import 'package:el_race/core/timesheet/services/timesheet_acting_guard.dart';
 import 'package:el_race/core/timesheet/services/timesheet_capture_session_store.dart';
+import 'package:el_race/core/timesheet/timesheet_defaults.dart';
+import 'package:el_race/core/widgets/timesheet/tm_acting_banner.dart';
 import 'package:el_race/core/widgets/timesheet/timesheet_widgets.dart';
 import 'package:el_race/ui/presentation/timesheet/foreman/fm_timesheet_capture_submit_screen.dart';
 import 'package:el_race/ui/presentation/timesheet/foreman/fm_timesheet_submitted_list_screen.dart';
@@ -106,6 +110,9 @@ class Fm1ForemanDashboard extends ConsumerWidget {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             const _FmHomeHeader(),
+            // Fm1 uses its own header (not TmScaffold), so the acting banner
+            // must be inserted here. Renders nothing for a real foreman login.
+            const TmActingBanner(),
             Expanded(
               child: SafeArea(
                 top: false,
@@ -286,6 +293,58 @@ class Fm1ForemanDashboard extends ConsumerWidget {
     }
   }
 
+  /// Resolves the capture task without going through the autoDispose
+  /// [timesheetMaintenanceTaskProvider], which can be disposed mid-await when
+  /// a session refresh rebuilds dependents (camera then never opens).
+  ///
+  /// Real foreman login still requires a real Odoo task id. While a PM is
+  /// acting as a foreman, capture is browse-only (submit is blocked), so we
+  /// open the camera with a stub task when none is configured on the site.
+  Future<Task> _resolveCaptureTask(WidgetRef ref, String projectId) async {
+    final acting = ref.read(tmActingSessionProvider);
+    final profile = ref.read(timesheetLoginProfileProvider);
+    final client = ref.read(timesheetApiClientProvider);
+    final env = await client.getTimesheetTaskForProject(
+      projectId,
+      displayName: acting?.foremanName ?? profile.displayName,
+      odooUserId: acting?.odooUserId,
+      preferLoginUser: acting == null,
+    );
+    final task = env.data;
+    if (task != null && TimesheetDefaults.isOdooIntegerId(task.id)) {
+      return task;
+    }
+
+    if (acting != null) {
+      // Prefer any real task on the project so the preview looks correct;
+      // otherwise a non-numeric stub — submit is already blocked while acting.
+      try {
+        final tasksEnv = await client.getProjectTasks(projectId: projectId);
+        for (final candidate in tasksEnv.data ?? const <Task>[]) {
+          if (TimesheetDefaults.isOdooIntegerId(candidate.id)) {
+            return candidate;
+          }
+        }
+      } catch (_) {
+        // Fall through to stub.
+      }
+      return Task(
+        id: 'acting-preview',
+        projectId: projectId,
+        name: TimesheetDefaults.maintenanceTaskName,
+        description: 'Preview only — needs a real foreman login to submit',
+        plannedStart: null,
+        plannedEnd: null,
+        status: 'IN_PROGRESS',
+        percentComplete: 0,
+        assignedForemanId: acting.foremanEmployeeId.toString(),
+        workerIds: const [],
+      );
+    }
+
+    throw Exception(env.error ?? 'Foreman or maintenance task not found');
+  }
+
   Future<TimesheetProjectDayArgs?> _resolveDefaultArgs(
     WidgetRef ref,
     TimesheetProjectBuckets buckets,
@@ -293,8 +352,7 @@ class Fm1ForemanDashboard extends ConsumerWidget {
     if (buckets.inProgress.isEmpty) return null;
     final project = buckets.inProgress.first;
     try {
-      final task =
-          await ref.read(timesheetMaintenanceTaskProvider(project.id).future);
+      final task = await _resolveCaptureTask(ref, project.id);
       final today = DateTime.now();
       return TimesheetProjectDayArgs(
         projectId: project.id,
@@ -335,6 +393,7 @@ class Fm1ForemanDashboard extends ConsumerWidget {
     WidgetRef ref,
     TimesheetTeamMember member,
   ) async {
+    // Camera opens while acting; the enroll upload is blocked at submit time.
     // Employee is already known from the team list — skip the file-ID step and
     // go straight to pose capture.
     await Navigator.of(context).pushNamed(
@@ -366,8 +425,7 @@ class Fm1ForemanDashboard extends ConsumerWidget {
 
     final project = buckets.inProgress.first;
     try {
-      final task =
-          await ref.read(timesheetMaintenanceTaskProvider(project.id).future);
+      final task = await _resolveCaptureTask(ref, project.id);
       if (!context.mounted) return const [];
       final today = DateTime.now();
       final result =
@@ -386,10 +444,17 @@ class Fm1ForemanDashboard extends ConsumerWidget {
         ),
       );
       return result ?? const [];
-    } catch (_) {
+    } catch (error, stack) {
+      debugPrint('Fm1ForemanDashboard._captureForMember: $error\n$stack');
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Could not open timesheet capture')),
+          SnackBar(
+            content: Text(
+              error.toString().contains('task')
+                  ? 'Could not open camera: no timesheet task on this site for the foreman.'
+                  : 'Could not open timesheet capture',
+            ),
+          ),
         );
       }
       return const [];
@@ -403,6 +468,13 @@ class Fm1ForemanDashboard extends ConsumerWidget {
     TimesheetProjectBuckets buckets,
     List<TimesheetCaptureSessionEntry> captures,
   ) async {
+    if (TimesheetActingGuard.blockWrite(
+      context,
+      ref,
+      action: 'Submitting attendance',
+    )) {
+      return false;
+    }
     if (captures.isEmpty) return false;
 
     final projects = buckets.inProgress;
@@ -451,9 +523,7 @@ class Fm1ForemanDashboard extends ConsumerWidget {
     var submitProjectId = selectedProject?.id ?? projects.first.id;
     String submitTaskId;
     try {
-      final task = await ref.read(
-        timesheetMaintenanceTaskProvider(submitProjectId).future,
-      );
+      final task = await _resolveCaptureTask(ref, submitProjectId);
       submitTaskId = task.id;
     } catch (_) {
       if (context.mounted) {
@@ -519,11 +589,19 @@ class Fm1ForemanDashboard extends ConsumerWidget {
   }
 }
 
-class _FmHomeHeader extends StatelessWidget {
+class _FmHomeHeader extends ConsumerWidget {
   const _FmHomeHeader();
 
+  void _onBack(BuildContext context, WidgetRef ref) {
+    // Leaving Timesheet for app Home closes any acting-as-foreman session.
+    // PopScope on TimesheetModuleHomeScreen also clears it; this covers the
+    // case where the user expects the feature to end the moment they tap back.
+    ref.read(tmActingSessionProvider.notifier).exit();
+    Navigator.of(context).maybePop();
+  }
+
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final canPop = Navigator.of(context).canPop();
     return DecoratedBox(
       decoration: const BoxDecoration(color: Colors.transparent),
@@ -552,7 +630,7 @@ class _FmHomeHeader extends StatelessWidget {
                       minWidth: 36,
                       minHeight: 36,
                     ),
-                    onPressed: () => Navigator.of(context).maybePop(),
+                    onPressed: () => _onBack(context, ref),
                     icon: const Icon(
                       Icons.arrow_back_ios_new_rounded,
                       size: 18,

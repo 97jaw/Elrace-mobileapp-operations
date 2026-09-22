@@ -7,6 +7,9 @@ import 'package:el_race/ui/presentation/Email%20Approval/theme/approvals_overvie
 import 'package:el_race/ui/presentation/Email%20Approval/utils/hr_approval_display.dart';
 import 'package:el_race/ui/presentation/Email%20Approval/widgets/approval_action_buttons.dart';
 import 'package:el_race/ui/presentation/Email%20Approval/widgets/approval_rejected_banner.dart';
+import 'package:el_race/ui/presentation/my_actions/data/my_actions_models.dart';
+import 'package:el_race/ui/presentation/my_actions/theme/my_actions_module_theme.dart';
+import 'package:el_race/ui/presentation/my_actions/utils/my_actions_detail_navigation.dart';
 import 'package:el_race/ui/widgets/contextual_glass_chrome_header.dart';
 import 'package:el_race/utils/safe_insets.dart';
 import 'package:flutter/material.dart';
@@ -301,50 +304,36 @@ class _HrDetailsScreenState extends State<HrDetailsScreen> {
       return _caseByTypeId[caseId] ?? 'generic';
     }
 
-    final leaveSubtype = _pickFromMaps(requestMaps, [
-      'leave_request_subtype',
-      'leave_request_type',
-      'leave_request_type_labor',
-      'leave_type',
-      'leave_type_code',
-      'holiday_status_name',
-    ]);
-    if (leaveSubtype.isNotEmpty) {
-      final normalizedLeaveSubtype = _normalizeToken(leaveSubtype);
-      final mappedLeaveSubtype = _caseByTypeCode[normalizedLeaveSubtype];
-      if (mappedLeaveSubtype != null) return mappedLeaveSubtype;
-    }
-
-    final rawTypeCode = _pick([
-      _pickFromMaps(requestMaps, [
-        'request_type_code',
-        'request_code',
-        'type_code',
-        'leave_request_subtype',
-        'leave_type_code',
-        'request_type',
-        'leave_type',
-      ]),
-      widget.type,
-    ]);
-
-    if (rawTypeCode.isNotEmpty) {
-      final normalizedTypeCode = _normalizeToken(rawTypeCode);
-      final mapped = _caseByTypeCode[normalizedTypeCode];
-      if (mapped != null) return mapped;
+    // Prefer request_type_code (SIM, ANNUALLEAVE, JM, …) before leave subtype,
+    // otherwise a stale leave_request_type on Sim Card maps to "annual".
+    final typeCode = _normalizeToken(_pickFromMaps(requestMaps, [
+      'request_type_code',
+      'request_code',
+      'type_code',
+    ]));
+    if (typeCode.isNotEmpty) {
+      if (typeCode == 'annualleave') {
+        final leaveSubtype = _normalizeToken(_pickFromMaps(requestMaps, [
+          'leave_request_subtype',
+          'leave_request_type',
+          'leave_request_type_labor',
+          'leave_type',
+          'leave_type_code',
+        ]));
+        if (leaveSubtype.isNotEmpty) {
+          final mappedLeave =
+              _caseByTypeCode[leaveSubtype] ??
+                  _caseByTypeCode['annualleave_$leaveSubtype'];
+          if (mappedLeave != null) return mappedLeave;
+        }
+        return 'annual';
+      }
+      final mappedCode = _caseByTypeCode[typeCode];
+      if (mappedCode != null) return mappedCode;
     }
 
     final n = requestName.toLowerCase();
     if (n.contains('sim')) return 'sim';
-    if (n.contains('sick')) return 'sick';
-    if (n.contains('short')) return 'short';
-    if (n.contains('death')) return 'death';
-    if (n.contains('compensation')) return 'compensation';
-    if (n.contains('emergency')) return 'emergency';
-    if (n.contains('unpaid')) return 'unpaid';
-    if (n.contains('annual')) return 'annual';
-    if (n.contains('maternity')) return 'maternity';
-    if (n.contains('parental')) return 'parental';
     if (n.contains('job mission') || n.contains('مهمة')) return 'job_mission';
     if (n.contains('temporary')) return 'temporary_permission';
     if (n.contains('clearance')) return 'clearance';
@@ -360,6 +349,36 @@ class _HrDetailsScreenState extends State<HrDetailsScreen> {
     if (n.contains('passport')) return 'passport';
     if (n.contains('encash')) return 'leave_encashment';
     if (n.contains('car') && n.contains('rent')) return 'car_rent';
+
+    // Leave subtypes only when this is actually a leave request.
+    final isLeave = n.contains('leave') ||
+        HrApprovalDisplay.isLeaveRequest({
+          for (final map in requestMaps) ...map,
+        });
+    if (isLeave) {
+      final leaveSubtype = _normalizeToken(_pickFromMaps(requestMaps, [
+        'leave_request_subtype',
+        'leave_request_type',
+        'leave_request_type_labor',
+        'leave_type',
+        'leave_type_code',
+        'holiday_status_name',
+      ]));
+      if (leaveSubtype.isNotEmpty) {
+        final mappedLeaveSubtype = _caseByTypeCode[leaveSubtype];
+        if (mappedLeaveSubtype != null) return mappedLeaveSubtype;
+      }
+      if (n.contains('sick')) return 'sick';
+      if (n.contains('short')) return 'short';
+      if (n.contains('death')) return 'death';
+      if (n.contains('compensation')) return 'compensation';
+      if (n.contains('emergency')) return 'emergency';
+      if (n.contains('unpaid')) return 'unpaid';
+      if (n.contains('maternity')) return 'maternity';
+      if (n.contains('parental')) return 'parental';
+      if (n.contains('annual')) return 'annual';
+    }
+
     return 'generic';
   }
 
@@ -1501,8 +1520,12 @@ class _HrDetailsScreenState extends State<HrDetailsScreen> {
     int columns = 2,
     bool paddedCells = true,
   }) {
-    final visible =
-        items.where((e) => e.value.trim().isNotEmpty).toList(growable: false);
+    final visible = items
+        .where((e) {
+          final v = e.value.trim();
+          return v.isNotEmpty && v != '-';
+        })
+        .toList(growable: false);
     final colCount = columns < 1 ? 2 : columns;
     final gap = paddedCells ? 8.tw : 6.tw;
     final runGap = paddedCells ? 8.th : 6.th;
@@ -1942,6 +1965,71 @@ class _HrDetailsScreenState extends State<HrDetailsScreen> {
     );
   }
 
+  /// HRMS listing only — opens My Actions review trail (review ids + status).
+  Widget _floatingViewReviewBar({
+    required String requestTitle,
+    required String employeeName,
+    required String employeeImage,
+    required String status,
+  }) {
+    return Container(
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(20.tr),
+        boxShadow: [
+          BoxShadow(
+            color: ApprovalsOverviewTheme.screenDeep.withValues(alpha: 0.12),
+            blurRadius: 16,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: OverviewGlassPanel(
+        fillAlpha: 0.78,
+        blurSigma: 14,
+        radius: 20,
+        padding: EdgeInsets.symmetric(horizontal: 8.tw, vertical: 6.th),
+        child: SizedBox(
+          width: double.infinity,
+          height: 44.th,
+          child: Material(
+            color: ApprovalsOverviewTheme.screenDeep,
+            borderRadius: BorderRadius.circular(14.tr),
+            child: InkWell(
+              borderRadius: BorderRadius.circular(14.tr),
+              onTap: () {
+                final id = int.tryParse(widget.requestId.trim()) ?? 0;
+                if (id <= 0) return;
+                MyActionsDetailNavigation.showPreview(
+                  context,
+                  MyActionsModule.hr,
+                  MyActionItem(
+                    id: id,
+                    name: requestTitle,
+                    status: status,
+                    employeeName: employeeName,
+                    employeeImage: employeeImage,
+                    reference: widget.requestId,
+                    requestType: requestTitle,
+                  ),
+                );
+              },
+              child: Center(
+                child: Text(
+                  'View Review',
+                  style: GoogleFonts.poppins(
+                    fontSize: 14.tsp,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.white,
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
   Widget _simCell(String label, String value,
       {bool highlight = false, bool inlineLabelValue = false}) {
     final isCompanyNumberLabel = label == 'Company No#' ||
@@ -2119,10 +2207,8 @@ class _HrDetailsScreenState extends State<HrDetailsScreen> {
         'request_type',
         'holiday_status_name',
         'holiday_status_id',
-        'leave_type',
         'type',
         'title',
-        'leave_request_subtype',
       ],
       fallback: 'HR Management',
     );
@@ -2239,6 +2325,13 @@ class _HrDetailsScreenState extends State<HrDetailsScreen> {
     final rejectedMessage =
         ApprovalRejectedBanner.messageFromForm(rejectionForm);
     final showActions = widget.showApprovalActions && !isRejected;
+    // HRMS opens with showApprovalActions: false — show review trail instead.
+    final showViewReview = !widget.showApprovalActions;
+    final reviewStatus = _pickFromMaps(
+      requestMaps,
+      ['status', 'state', 'approval_status'],
+      fallback: '',
+    );
 
     final employeeType =
         _pickFromMaps(employeeMaps, ['type', 'employee_type'], fallback: '-');
@@ -2515,6 +2608,7 @@ class _HrDetailsScreenState extends State<HrDetailsScreen> {
         fallback: '-',
       ),
     );
+    final sickLeaveDuration = _pickDuration(requestMaps);
     final sickAllowedDays = _pickFromMaps(
       requestMaps,
       ['allowed_sick_days'],
@@ -2805,7 +2899,7 @@ class _HrDetailsScreenState extends State<HrDetailsScreen> {
                                           16.tw,
                                           0,
                                           16.tw,
-                                          showActions
+                                          (showActions || showViewReview)
                                               ? 68.th + context.systemBottomInset
                                               : 16.th + context.systemBottomInset,
                                         ),
@@ -3177,6 +3271,11 @@ class _HrDetailsScreenState extends State<HrDetailsScreen> {
                                                                                     _DetailItem(
                                                                                       'Start Date',
                                                                                       sickLeaveStartDate.isEmpty ? '-' : sickLeaveStartDate,
+                                                                                    ),
+                                                                                    _DetailItem(
+                                                                                      'Duration',
+                                                                                      sickLeaveDuration.isEmpty ? '-' : sickLeaveDuration,
+                                                                                      highlight: true,
                                                                                     ),
                                                                                     _DetailItem(
                                                                                       'Allow Sick Days',
@@ -3784,6 +3883,18 @@ class _HrDetailsScreenState extends State<HrDetailsScreen> {
                                     right: 16.tw,
                                     bottom: context.systemBottomInset + 8.th,
                                     child: _floatingApprovalBar(userId),
+                                  ),
+                                if (showViewReview)
+                                  Positioned(
+                                    left: 16.tw,
+                                    right: 16.tw,
+                                    bottom: context.systemBottomInset + 8.th,
+                                    child: _floatingViewReviewBar(
+                                      requestTitle: requestTitle,
+                                      employeeName: employeeName,
+                                      employeeImage: employeeImage,
+                                      status: reviewStatus,
+                                    ),
                                   ),
                               ],
                             ),

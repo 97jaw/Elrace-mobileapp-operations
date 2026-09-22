@@ -68,13 +68,16 @@ class ProjectDocumentsState extends Equatable {
 
   bool get showTabLoadingOverlay => tabSwitchLoading;
 
-  /// Bottom bar slot highlight (decoupled from IndexedStack index).
-  int get bottomBarIndex => switch (activeView) {
-        ProjectDocumentsView.dashboard => 2,
+  /// Header bar slot highlight (0 = Dashboard, 1 = Files, 2 = Uploaded By).
+  int get headerBarIndex => switch (activeView) {
+        ProjectDocumentsView.dashboard => 0,
         ProjectDocumentsView.files => 1,
-        ProjectDocumentsView.uploadedBy => 3,
+        ProjectDocumentsView.uploadedBy => 2,
         ProjectDocumentsView.folderProjects => -1,
       };
+
+  /// Legacy alias for [headerBarIndex].
+  int get bottomBarIndex => headerBarIndex;
 
   /// IndexedStack child index (decoupled from bottom bar slots).
   int get stackIndex => switch (activeView) {

@@ -4,9 +4,15 @@ import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.content.Intent
 import android.media.AudioAttributes
+import android.net.ConnectivityManager
+import android.net.Network
+import android.net.NetworkCapabilities
+import android.net.NetworkRequest
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
 import android.os.PowerManager
 import android.provider.Settings
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
@@ -20,6 +26,7 @@ import com.google.android.play.core.install.model.AppUpdateType
 import com.google.android.play.core.install.model.UpdateAvailability
 import io.flutter.embedding.android.FlutterFragmentActivity
 import io.flutter.embedding.engine.FlutterEngine
+import io.flutter.plugin.common.EventChannel
 import io.flutter.plugin.common.MethodChannel
 
 class MainActivity : FlutterFragmentActivity() {
@@ -28,8 +35,25 @@ class MainActivity : FlutterFragmentActivity() {
     private val SYSTEM_UI_CHANNEL = "ae.elrace.mobile/system_ui"
     private val APP_ICON_BADGE_CHANNEL = "ae.elrace.mobile/app_icon_badge"
     private val PLAY_UPDATE_CHANNEL = "ae.elrace.mobile/play_update"
+    private val VPN_DETECTION_CHANNEL = "ae.elrace.mobile/vpn_detection"
+    private val VPN_DETECTION_EVENTS = "ae.elrace.mobile/vpn_detection_events"
+    private val SHARE_TARGET_CHANNEL = "ae.elrace.mobile/share_target"
     private val PLAY_UPDATE_REQUEST_CODE = 6317
     private lateinit var appUpdateManager: AppUpdateManager
+    private var vpnNetworkCallback: ConnectivityManager.NetworkCallback? = null
+    private var vpnEventSink: EventChannel.EventSink? = null
+    private var shareEventSink: EventChannel.EventSink? = null
+    private var pendingSharePayload: Map<String, Any?>? = null
+    private var lastVpnActive = false
+    private val mainHandler = Handler(Looper.getMainLooper())
+    private val vpnPollRunnable = object : Runnable {
+        override fun run() {
+            if (vpnEventSink != null) {
+                notifyVpnStatusChanged()
+                mainHandler.postDelayed(this, 3000)
+            }
+        }
+    }
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
@@ -90,6 +114,63 @@ class MainActivity : FlutterFragmentActivity() {
                     else -> result.notImplemented()
                 }
             }
+
+        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, VPN_DETECTION_CHANNEL)
+            .setMethodCallHandler { call, result ->
+                when (call.method) {
+                    "isVpnActive" -> result.success(isVpnTransportActive())
+                    else -> result.notImplemented()
+                }
+            }
+
+        EventChannel(flutterEngine.dartExecutor.binaryMessenger, VPN_DETECTION_EVENTS)
+            .setStreamHandler(object : EventChannel.StreamHandler {
+                override fun onListen(arguments: Any?, events: EventChannel.EventSink?) {
+                    vpnEventSink = events
+                    notifyVpnStatusChanged()
+                    registerVpnNetworkCallback()
+                    mainHandler.removeCallbacks(vpnPollRunnable)
+                    mainHandler.postDelayed(vpnPollRunnable, 3000)
+                }
+
+                override fun onCancel(arguments: Any?) {
+                    mainHandler.removeCallbacks(vpnPollRunnable)
+                    unregisterVpnNetworkCallback()
+                    vpnEventSink = null
+                }
+            })
+
+        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, SHARE_TARGET_CHANNEL)
+            .setMethodCallHandler { call, result ->
+                when (call.method) {
+                    "getInitialShare" -> {
+                        val payload = pendingSharePayload
+                        pendingSharePayload = null
+                        result.success(payload)
+                    }
+                    else -> result.notImplemented()
+                }
+            }
+
+        EventChannel(
+            flutterEngine.dartExecutor.binaryMessenger,
+            "$SHARE_TARGET_CHANNEL/events"
+        ).setStreamHandler(object : EventChannel.StreamHandler {
+            override fun onListen(arguments: Any?, events: EventChannel.EventSink?) {
+                shareEventSink = events
+                pendingSharePayload?.let {
+                    events?.success(it)
+                    pendingSharePayload = null
+                }
+            }
+
+            override fun onCancel(arguments: Any?) {
+                shareEventSink = null
+            }
+        })
+
+        // Cold-start share may arrive before the engine is ready.
+        handleShareIntent(intent)
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -103,6 +184,9 @@ class MainActivity : FlutterFragmentActivity() {
 
         // Hide navigation bar immediately on launch
         hideNavigationBarOnly()
+
+        // Capture share before Flutter engine attaches (configureFlutterEngine also retries).
+        handleShareIntent(intent)
         
         // Create notification channels for Android 8.0+
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
@@ -145,7 +229,89 @@ class MainActivity : FlutterFragmentActivity() {
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         setIntent(intent) // Important: update the activity's intent
+        handleShareIntent(intent)
         // Flutter will handle the notification through its listeners
+    }
+
+    private fun handleShareIntent(intent: Intent?) {
+        if (intent == null) return
+        val action = intent.action ?: return
+        if (action != Intent.ACTION_SEND && action != Intent.ACTION_SEND_MULTIPLE) {
+            return
+        }
+
+        val componentName = intent.component?.className.orEmpty()
+        val target = when {
+            componentName.contains("ShareToSign", ignoreCase = true) -> "sign"
+            componentName.contains("ShareToChat", ignoreCase = true) -> "chat"
+            else -> intent.getStringExtra("elrace_share_target") ?: "chat"
+        }
+
+        val uris = mutableListOf<Uri>()
+        if (action == Intent.ACTION_SEND) {
+            val uri = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                intent.getParcelableExtra(Intent.EXTRA_STREAM, Uri::class.java)
+            } else {
+                @Suppress("DEPRECATION")
+                intent.getParcelableExtra(Intent.EXTRA_STREAM)
+            }
+            if (uri != null) uris.add(uri)
+        } else {
+            val list = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                intent.getParcelableArrayListExtra(Intent.EXTRA_STREAM, Uri::class.java)
+            } else {
+                @Suppress("DEPRECATION")
+                intent.getParcelableArrayListExtra(Intent.EXTRA_STREAM)
+            }
+            if (list != null) uris.addAll(list)
+        }
+
+        if (uris.isEmpty()) return
+
+        // Sign flow uses the first PDF/image; Chat can take the first file for now.
+        val uri = uris.first()
+        val copied = copyUriToCache(uri) ?: return
+        val payload = mapOf(
+            "target" to target,
+            "path" to copied.first,
+            "fileName" to copied.second,
+            "mimeType" to (intent.type ?: copied.third)
+        )
+        deliverSharePayload(payload)
+    }
+
+    private fun deliverSharePayload(payload: Map<String, Any?>) {
+        mainHandler.post {
+            val sink = shareEventSink
+            if (sink != null) {
+                sink.success(payload)
+            } else {
+                pendingSharePayload = payload
+            }
+        }
+    }
+
+    private fun copyUriToCache(uri: Uri): Triple<String, String, String>? {
+        return try {
+            val resolver = contentResolver
+            val mime = resolver.getType(uri) ?: "application/octet-stream"
+            var displayName = "shared_${System.currentTimeMillis()}"
+            resolver.query(uri, null, null, null, null)?.use { cursor ->
+                val nameIndex = cursor.getColumnIndex(android.provider.OpenableColumns.DISPLAY_NAME)
+                if (cursor.moveToFirst() && nameIndex >= 0) {
+                    val name = cursor.getString(nameIndex)
+                    if (!name.isNullOrBlank()) displayName = name
+                }
+            }
+            val safeName = displayName.replace(Regex("[\\\\/]+"), "_")
+            val outFile = java.io.File(cacheDir, "incoming_share_$safeName")
+            resolver.openInputStream(uri)?.use { input ->
+                outFile.outputStream().use { output -> input.copyTo(output) }
+            } ?: return null
+            Triple(outFile.absolutePath, safeName, mime)
+        } catch (_: Exception) {
+            null
+        }
     }
 
     override fun onWindowFocusChanged(hasFocus: Boolean) {
@@ -158,6 +324,71 @@ class MainActivity : FlutterFragmentActivity() {
     override fun onResume() {
         super.onResume()
         resumeImmediateUpdateIfNeeded()
+        notifyVpnStatusChanged()
+    }
+
+    override fun onDestroy() {
+        mainHandler.removeCallbacks(vpnPollRunnable)
+        unregisterVpnNetworkCallback()
+        super.onDestroy()
+    }
+
+    /// True only when a VPN network is actively connected (not merely configured).
+    private fun isVpnTransportActive(): Boolean {
+        val connectivityManager =
+            getSystemService(CONNECTIVITY_SERVICE) as ConnectivityManager
+        for (network in connectivityManager.allNetworks) {
+            val capabilities = connectivityManager.getNetworkCapabilities(network)
+                ?: continue
+            if (capabilities.hasTransport(NetworkCapabilities.TRANSPORT_VPN)) {
+                return true
+            }
+        }
+        return false
+    }
+
+    private fun registerVpnNetworkCallback() {
+        unregisterVpnNetworkCallback()
+        val connectivityManager =
+            getSystemService(CONNECTIVITY_SERVICE) as ConnectivityManager
+        val callback = object : ConnectivityManager.NetworkCallback() {
+            override fun onAvailable(network: Network) = notifyVpnStatusChanged()
+            override fun onLost(network: Network) = notifyVpnStatusChanged()
+            override fun onCapabilitiesChanged(
+                network: Network,
+                networkCapabilities: NetworkCapabilities
+            ) = notifyVpnStatusChanged()
+        }
+        vpnNetworkCallback = callback
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+            connectivityManager.registerDefaultNetworkCallback(callback)
+        } else {
+            connectivityManager.registerNetworkCallback(
+                NetworkRequest.Builder().build(),
+                callback
+            )
+        }
+    }
+
+    private fun unregisterVpnNetworkCallback() {
+        val callback = vpnNetworkCallback ?: return
+        val connectivityManager =
+            getSystemService(CONNECTIVITY_SERVICE) as ConnectivityManager
+        try {
+            connectivityManager.unregisterNetworkCallback(callback)
+        } catch (_: Exception) {
+            // Already unregistered.
+        }
+        vpnNetworkCallback = null
+    }
+
+    private fun notifyVpnStatusChanged() {
+        mainHandler.post {
+            val active = isVpnTransportActive()
+            if (active == lastVpnActive) return@post
+            lastVpnActive = active
+            vpnEventSink?.success(active)
+        }
     }
 
     private fun startImmediateUpdateIfAvailable(result: MethodChannel.Result) {

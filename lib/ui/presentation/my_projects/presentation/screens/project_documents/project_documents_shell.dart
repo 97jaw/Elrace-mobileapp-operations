@@ -1,17 +1,16 @@
-import 'package:flutter_translate/flutter_translate.dart';
 import 'package:el_race/ui/presentation/my_projects/presentation/bloc/project_documents/project_documents_cubit.dart';
 import 'package:el_race/ui/presentation/my_projects/presentation/bloc/project_documents/project_documents_state.dart';
 import 'package:el_race/ui/presentation/my_projects/presentation/models/project_document_hub_kind.dart';
+import 'package:el_race/ui/presentation/my_projects/presentation/models/project_documents_breadcrumb.dart';
 import 'package:el_race/ui/presentation/my_projects/presentation/screens/project_documents/project_documents_dashboard_view.dart';
 import 'package:el_race/ui/presentation/my_projects/presentation/screens/project_documents/project_documents_files_view.dart';
 import 'package:el_race/ui/presentation/my_projects/presentation/screens/project_documents/project_documents_folder_projects_view.dart';
 import 'package:el_race/ui/presentation/my_projects/presentation/screens/project_documents/project_documents_uploaded_by_view.dart';
 import 'package:el_race/ui/presentation/my_projects/presentation/theme/projects_dashboard_theme.dart';
-import 'package:el_race/ui/presentation/my_projects/presentation/models/project_documents_breadcrumb.dart';
-import 'package:el_race/ui/presentation/my_projects/presentation/utils/projects_coming_soon.dart';
 import 'package:el_race/ui/presentation/my_projects/presentation/widgets/project_documents_drill_header.dart';
+import 'package:el_race/ui/presentation/my_projects/presentation/widgets/project_documents_filters_sheet.dart';
 import 'package:el_race/ui/presentation/my_projects/presentation/widgets/project_documents_search_bar.dart';
-import 'package:el_race/ui/presentation/my_projects/presentation/widgets/projects_documents_glass_bottom_bar.dart';
+import 'package:el_race/ui/presentation/my_projects/presentation/widgets/projects_documents_glass_header_bar.dart';
 import 'package:el_race/ui/presentation/my_projects/presentation/widgets/projects_glass_chrome.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -51,6 +50,7 @@ class ProjectDocumentsShell extends StatefulWidget {
 
 class _ProjectDocumentsShellState extends State<ProjectDocumentsShell> {
   late final ProjectDocumentsCubit _cubit;
+  bool _searchOpen = false;
 
   @override
   void initState() {
@@ -98,15 +98,18 @@ class _ProjectDocumentsShellState extends State<ProjectDocumentsShell> {
     return state.selectedKind;
   }
 
-  void _onBottomBarTap(BuildContext context, int index) {
-    if (index == 4) {
-      showProjectsComingSoonSnackBar(
-        context,
-        featureLabel: translate('projects_dashboard.ai_assistant'),
-      );
-      return;
+  Future<void> _openFilters(BuildContext context, ProjectDocumentsState state) async {
+    final result = await ProjectDocumentsFiltersSheet.show(
+      context,
+      initial: state.hubFilters,
+    );
+    if (result != null && context.mounted) {
+      context.read<ProjectDocumentsCubit>().setDocumentFilters(result);
     }
-    context.read<ProjectDocumentsCubit>().onBottomBarTap(index);
+  }
+
+  void _toggleSearch() {
+    setState(() => _searchOpen = !_searchOpen);
   }
 
   @override
@@ -122,77 +125,79 @@ class _ProjectDocumentsShellState extends State<ProjectDocumentsShell> {
               context.read<ProjectDocumentsCubit>().backToDashboard();
             },
             child: Scaffold(
-            backgroundColor: Colors.transparent,
-            extendBody: true,
-            bottomNavigationBar: ProjectsDocumentsGlassBottomBar(
-              activeIndex: state.bottomBarIndex,
-              onItemTap: (index) => _onBottomBarTap(context, index),
-            ),
-            body: Container(
-              decoration: const BoxDecoration(
-                gradient: ProjectsDashboardTheme.screenGradient,
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  const ProjectsGlassChromeHeader(
-                    scrimTopOpacity: 0.07,
-                    transparentGlassBar: true,
-                  ),
-                  ProjectDocumentsDrillHeader(
-                    title: _title(state),
-                    kind: _headerKind(state),
-                    breadcrumbs: projectDocumentsTrailForShell(state),
-                    onBack: () {
-                      if (state.activeView == ProjectDocumentsView.folderProjects) {
-                        context.read<ProjectDocumentsCubit>().backToDashboard();
-                      } else {
-                        Navigator.of(context).maybePop();
-                      }
-                    },
-                  ),
-                  ProjectDocumentsSearchBar(
-                    key: ValueKey('search-${state.activeView.name}'),
-                    hint: _searchHint(state),
-                    hasActiveFilters: state.hasDocumentScopeFilters,
-                    initialFilters: state.hubFilters,
-                    initialQuery: state.searchQuery,
-                    onSearchChanged: (q) =>
-                        context.read<ProjectDocumentsCubit>().setSearchQuery(q),
-                    onFiltersApplied: (filters) => context
-                        .read<ProjectDocumentsCubit>()
-                        .setDocumentFilters(filters),
-                  ),
-                  Expanded(
-                    child: Stack(
-                      children: [
-                        IndexedStack(
-                          index: state.stackIndex,
-                          children: const [
-                            ProjectDocumentsDashboardView(),
-                            ProjectDocumentsFolderProjectsView(),
-                            ProjectDocumentsFilesView(),
-                            ProjectDocumentsUploadedByView(),
-                          ],
-                        ),
-                        if (state.showTabLoadingOverlay)
-                          Positioned.fill(
-                            child: ColoredBox(
-                              color: Colors.black.withValues(alpha: 0.12),
-                              child: const Center(
-                                child: CircularProgressIndicator(
-                                  color: ProjectsDashboardTheme.white,
-                                  strokeWidth: 2.6,
+              backgroundColor: Colors.transparent,
+              body: Container(
+                decoration: const BoxDecoration(
+                  gradient: ProjectsDashboardTheme.screenGradient,
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    const ProjectsGlassChromeHeader(
+                      scrimTopOpacity: 0.07,
+                      transparentGlassBar: true,
+                    ),
+                    ProjectDocumentsDrillHeader(
+                      title: _title(state),
+                      kind: _headerKind(state),
+                      breadcrumbs: projectDocumentsTrailForShell(state),
+                      onBack: () {
+                        if (state.activeView ==
+                            ProjectDocumentsView.folderProjects) {
+                          context.read<ProjectDocumentsCubit>().backToDashboard();
+                        } else {
+                          Navigator.of(context).maybePop();
+                        }
+                      },
+                    ),
+                    ProjectsDocumentsGlassHeaderBar(
+                      activeIndex: state.headerBarIndex,
+                      searchActive: _searchOpen || state.searchQuery.isNotEmpty,
+                      hasActiveFilters: state.hasDocumentScopeFilters,
+                      onItemTap: (index) =>
+                          context.read<ProjectDocumentsCubit>().onHeaderBarTap(index),
+                      onSearchTap: _toggleSearch,
+                      onFilterTap: () => _openFilters(context, state),
+                    ),
+                    if (_searchOpen)
+                      ProjectDocumentsSearchBar(
+                        key: ValueKey('search-${state.activeView.name}'),
+                        hint: _searchHint(state),
+                        initialQuery: state.searchQuery,
+                        onSearchChanged: (q) => context
+                            .read<ProjectDocumentsCubit>()
+                            .setSearchQuery(q),
+                      ),
+                    Expanded(
+                      child: Stack(
+                        children: [
+                          IndexedStack(
+                            index: state.stackIndex,
+                            children: const [
+                              ProjectDocumentsDashboardView(),
+                              ProjectDocumentsFolderProjectsView(),
+                              ProjectDocumentsFilesView(),
+                              ProjectDocumentsUploadedByView(),
+                            ],
+                          ),
+                          if (state.showTabLoadingOverlay)
+                            Positioned.fill(
+                              child: ColoredBox(
+                                color: Colors.black.withValues(alpha: 0.12),
+                                child: const Center(
+                                  child: CircularProgressIndicator(
+                                    color: ProjectsDashboardTheme.white,
+                                    strokeWidth: 2.6,
+                                  ),
                                 ),
                               ),
                             ),
-                          ),
-                      ],
+                        ],
+                      ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
-            ),
             ),
           );
         },

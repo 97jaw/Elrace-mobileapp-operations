@@ -4,6 +4,7 @@ import 'package:el_race/core/timesheet/models/timesheet_models.dart';
 import 'package:el_race/core/timesheet/network/timesheet_api_client.dart';
 import 'package:el_race/core/timesheet/network/timesheet_functions_client.dart';
 import 'package:el_race/core/hr_management/providers/hr_management_providers.dart';
+import 'package:el_race/core/timesheet/providers/timesheet_acting_session_provider.dart';
 import 'package:el_race/core/timesheet/providers/timesheet_hr_scope_provider.dart';
 import 'package:el_race/core/timesheet/providers/timesheet_role_provider.dart';
 import 'package:el_race/core/timesheet/timesheet_defaults.dart';
@@ -30,6 +31,9 @@ final timesheetDioProvider = Provider<Dio>((ref) {
   );
 });
 
+/// Rebuilt whenever the session or the acting-as-foreman selection changes, so
+/// the client's project / roster caches never serve one identity's data to
+/// another.
 final timesheetApiClientProvider = Provider<TimesheetApiClient>((ref) {
   ref.watch(loginSessionRevisionProvider);
   return TimesheetApiClient(
@@ -37,6 +41,7 @@ final timesheetApiClientProvider = Provider<TimesheetApiClient>((ref) {
     useMockData: false,
     useMockSubmit: false,
     fallbackToMockOnError: true,
+    actingEmployeeId: ref.watch(tmActingEmployeeIdProvider),
   );
 });
 
@@ -63,16 +68,56 @@ final timesheetPendingSyncCountProvider = FutureProvider<int>((ref) async {
 
 final timesheetMaintenanceTaskProvider = FutureProvider.autoDispose
     .family<Task, String>((ref, projectId) async {
-  final profile = ref.watch(timesheetLoginProfileProvider);
-  final env = await ref.watch(timesheetApiClientProvider).getTimesheetTaskForProject(
-        projectId,
-        displayName: profile.displayName,
+  // Keep alive while the future is in flight so a brief unwatch (e.g. sheet
+  // rebuild) does not dispose the load mid-await.
+  final link = ref.keepAlive();
+  try {
+    final profile = ref.watch(timesheetLoginProfileProvider);
+    final acting = ref.watch(tmActingSessionProvider);
+    final client = ref.watch(timesheetApiClientProvider);
+    // While acting, resolve the foreman's assignment task — never the PM's.
+    final env = await client.getTimesheetTaskForProject(
+      projectId,
+      displayName: acting?.foremanName ?? profile.displayName,
+      odooUserId: acting?.odooUserId,
+      preferLoginUser: acting == null,
+    );
+    final task = env.data;
+    if (task != null && TimesheetDefaults.isOdooIntegerId(task.id)) {
+      return task;
+    }
+
+    // Acting-as is browse-only (submit blocked). Open calendar/capture without
+    // a real Odoo task so PM/Management can preview the flow. Real foreman
+    // logins still require a configured task below.
+    if (acting != null) {
+      try {
+        final tasksEnv = await client.getProjectTasks(projectId: projectId);
+        for (final candidate in tasksEnv.data ?? const <Task>[]) {
+          if (TimesheetDefaults.isOdooIntegerId(candidate.id)) {
+            return candidate;
+          }
+        }
+      } catch (_) {}
+      return Task(
+        id: 'acting-preview',
+        projectId: projectId,
+        name: TimesheetDefaults.maintenanceTaskName,
+        description: 'Preview only — needs a real foreman login to submit',
+        plannedStart: null,
+        plannedEnd: null,
+        status: 'IN_PROGRESS',
+        percentComplete: 0,
+        assignedForemanId: acting.foremanEmployeeId.toString(),
+        workerIds: const [],
       );
-  final task = env.data;
-  if (task == null || !TimesheetDefaults.isOdooIntegerId(task.id)) {
+    }
+
     throw Exception(env.error ?? 'Foreman or maintenance task not found');
+  } finally {
+    // Allow dispose again once no longer watched (after a short grace).
+    Future<void>.delayed(const Duration(seconds: 30), link.close);
   }
-  return task;
 });
 
 final timesheetTaskDayCountsProvider = FutureProvider.autoDispose
@@ -135,9 +180,12 @@ final timesheetTaskProvider =
 
 final timesheetTaskWorkersProvider = FutureProvider.autoDispose
     .family<List<Worker>, String>((ref, taskId) async {
-  final resolution = ref.watch(tmRoleResolutionProvider);
+  final resolution = ref.watch(tmEffectiveResolutionProvider);
   final scope = await ref.watch(timesheetHrScopeProvider.future);
-  final allowed = resolution.canSubmitTimesheet && scope.hasLaborScope
+  // Scoped by foreman role rather than submit rights, so a PM acting as a
+  // foreman sees exactly that foreman's labors.
+  final allowed = resolution.role == TimesheetEffectiveRole.foreman &&
+          scope.hasLaborScope
       ? scope.laborEmployeeIds
       : null;
   final env = await ref.watch(timesheetApiClientProvider).getTaskWorkers(
@@ -150,7 +198,7 @@ final timesheetTaskWorkersProvider = FutureProvider.autoDispose
 final timesheetAttendanceProvider = FutureProvider.autoDispose
     .family<List<AttendanceRecord>, TimesheetAttendanceQuery>(
         (ref, query) async {
-  final resolution = ref.watch(tmRoleResolutionProvider);
+  final resolution = ref.watch(tmEffectiveResolutionProvider);
   Set<int>? allowed;
   if (resolution.canReviewTimesheetReports) {
     allowed = await ref.watch(
@@ -258,7 +306,7 @@ final timesheetLoginProfileProvider = Provider<TimesheetLoginProfile>((ref) {
 
 final timesheetProjectBucketsProvider =
     FutureProvider<TimesheetProjectBuckets>((ref) async {
-  final resolution = ref.watch(tmRoleResolutionProvider);
+  final resolution = ref.watch(tmEffectiveResolutionProvider);
   final role = resolution.role == TimesheetEffectiveRole.pm ? 'pm' : 'foreman';
   final client = ref.watch(timesheetApiClientProvider);
   final env = await client.getProjects(
@@ -297,10 +345,43 @@ final timesheetForemanLaborsProvider =
     return List<TimesheetTeamMember>.from(scope.laborMembers)
       ..sort((a, b) => a.name.compareTo(b.name));
   }
-  if (scope.laborEmployeeIds.isEmpty) return const [];
-  final roster = await ref.watch(timesheetApiClientProvider).fetchEmployeeRoster();
+
+  final client = ref.watch(timesheetApiClientProvider);
+  var laborIds = Set<int>.from(scope.laborEmployeeIds);
+  final actingId = ref.watch(tmActingEmployeeIdProvider);
+
+  // When a PM is acting as a foreman, my_hr_scope may still return the PM's
+  // own (labor-empty) scope if the server has not yet picked up as_employee_id.
+  // Resolve that foreman's x_labor_ids from labor_list, then from the roster.
+  if (laborIds.isEmpty && actingId != null) {
+    try {
+      final fromList = await client.fetchLaborEmployeesForReport(
+        useHrScopeWhenNoProject: true,
+        includeDrivers: false,
+      );
+      if (fromList.isNotEmpty) {
+        return fromList
+            .map(TimesheetTeamMember.fromEmployee)
+            .toList()
+          ..sort((a, b) => a.name.compareTo(b.name));
+      }
+    } catch (_) {
+      // Fall through to roster lookup below.
+    }
+
+    final roster = await client.fetchEmployeeRoster();
+    for (final employee in roster) {
+      if (employee.employeeId == actingId && employee.laborIds.isNotEmpty) {
+        laborIds = employee.laborIds.toSet();
+        break;
+      }
+    }
+  }
+
+  if (laborIds.isEmpty) return const [];
+  final roster = await client.fetchEmployeeRoster();
   final members = <TimesheetTeamMember>[];
-  for (final id in scope.laborEmployeeIds) {
+  for (final id in laborIds) {
     TimesheetOdooEmployee? match;
     for (final employee in roster) {
       if (employee.employeeId == id) {
@@ -310,6 +391,14 @@ final timesheetForemanLaborsProvider =
     }
     if (match != null) {
       members.add(TimesheetTeamMember.fromEmployee(match));
+    } else {
+      members.add(
+        TimesheetTeamMember(
+          employeeId: id,
+          name: 'Employee #$id',
+          fileId: id.toString(),
+        ),
+      );
     }
   }
   members.sort((a, b) => a.name.compareTo(b.name));

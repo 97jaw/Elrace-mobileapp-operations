@@ -31,12 +31,14 @@ class LastMessage {
   final String type;
   final String senderId;
   final DateTime createdAt;
+  final String? status;
 
   LastMessage({
     required this.text,
     required this.type,
     required this.senderId,
     required this.createdAt,
+    this.status,
   });
 
   factory LastMessage.fromMap(Map<String, dynamic>? data) {
@@ -53,8 +55,12 @@ class LastMessage {
       type: data['type'] ?? 'text',
       senderId: data['sender_id'] ?? '',
       createdAt: (data['created_at'] as Timestamp?)?.toDate() ?? DateTime.now(),
+      status: data['status']?.toString(),
     );
   }
+
+  bool get isDeleted =>
+      status == 'deleted' || text == 'This message was deleted';
 
   Map<String, dynamic> toMap() {
     return {
@@ -62,6 +68,7 @@ class LastMessage {
       'type': type,
       'sender_id': senderId,
       'created_at': Timestamp.fromDate(createdAt),
+      if (status != null) 'status': status,
     };
   }
 }

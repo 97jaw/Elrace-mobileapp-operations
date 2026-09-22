@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:io';
 import 'dart:ui' as ui show TextDirection;
 
+import 'package:el_race/core/firebase/firebase_error_message.dart';
 import 'package:el_race/ui/presentation/my_notes/bloc/notes_bloc.dart';
 import 'package:el_race/ui/presentation/my_notes/data/note_model.dart';
 import 'package:el_race/ui/presentation/my_notes/repository/firebase_notes_repository.dart';
@@ -162,15 +163,10 @@ class _AddNoteScreenState extends State<AddNoteScreen> {
         }
         final liveRec = live.recording;
         if (liveRec != null) {
-          final local = _recording;
-          final liveHasTranscript =
-              liveRec.transcript?.trim().isNotEmpty ?? false;
-          final localEmpty = local == null ||
-              local.transcript == null ||
-              local.transcript!.trim().isEmpty;
-          if (localEmpty || liveHasTranscript || liveRec.audioUrl.isNotEmpty) {
-            _recording = liveRec;
-          }
+          _recording = RecordingInfo.mergePreferringPlayable(
+            _recording,
+            liveRec,
+          );
         }
         if (_aiStatus == NoteAiStatus.done ||
             _aiStatus == NoteAiStatus.error ||
@@ -256,6 +252,17 @@ class _AddNoteScreenState extends State<AddNoteScreen> {
     }
   }
 
+  /// Never persist a device file path as `audioUrl` — Firestore clients on
+  /// other devices (and Cloud Functions) cannot read it.
+  RecordingInfo? get _recordingForPersist {
+    final r = _recording;
+    if (r == null) return null;
+    final url = r.audioUrl.trim();
+    final isRemote = url.startsWith('http://') || url.startsWith('https://');
+    if (url.isEmpty || isRemote) return r;
+    return r.copyWith(audioUrl: '');
+  }
+
   NoteModel _buildNoteModel({
     List<ImageAttachment>? images,
     RecordingInfo? recording,
@@ -278,7 +285,7 @@ class _AddNoteScreenState extends State<AddNoteScreen> {
       createdAt: _createdAt,
       updatedAt: DateTime.now(),
       images: images ?? _images,
-      recording: recording ?? _recording,
+      recording: recording ?? _recordingForPersist,
       aiMode: _aiMode,
       aiStatus: _aiStatus,
       aiSummary: _aiSummary,
@@ -623,14 +630,31 @@ class _AddNoteScreenState extends State<AddNoteScreen> {
     }
 
     try {
+      final language =
+          (result.language).trim().isEmpty ? 'auto' : result.language;
+      final localPath = result.file!.path;
+
+      // Show the player immediately from the local file — don't wait for
+      // Storage / Whisper, which can take seconds or fail entirely.
+      setState(() {
+        _recording = RecordingInfo(
+          audioUrl: localPath,
+          durationSeconds: (result.durationMs / 1000).round(),
+          language: language,
+          status: TranscriptionStatus.pending,
+        );
+        _saving = true;
+      });
+
       // Persist note shell first so Storage path + Whisper can find it.
       if (!_persisted) {
         final ok = await _persistNote(popAfter: false, allowEmpty: true);
-        if (!ok) return;
+        if (!ok) {
+          if (mounted) setState(() => _saving = false);
+          return;
+        }
       }
 
-      setState(() => _saving = true);
-      final language = (result.language).trim().isEmpty ? 'auto' : result.language;
       final audioUrl = await _audioService.uploadAudio(
         noteId: _noteId,
         audioFile: result.file!,
@@ -642,16 +666,22 @@ class _AddNoteScreenState extends State<AddNoteScreen> {
         durationSeconds: (result.durationMs / 1000).round(),
         language: language,
         status: TranscriptionStatus.pending,
-        storagePath: 'chat_media/notes/${FirebaseAuth.instance.currentUser?.uid ?? ''}/$_noteId/audio.m4a',
+        storagePath:
+            'chat_media/notes/${FirebaseAuth.instance.currentUser?.uid ?? ''}/$_noteId/audio.m4a',
       );
-      _recording = recording;
-      setState(() => _saving = false);
+      setState(() {
+        _recording = recording;
+        _saving = false;
+      });
       await _persistNote(popAfter: false);
     } catch (e) {
+      debugPrint('❌ AddNoteScreen audio attach failed: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Audio attach failed: $e'),
+            content: Text(
+              firebaseErrorMessage(e, fallback: 'Audio upload failed.'),
+            ),
             backgroundColor: NotesTheme.surface,
           ),
         );
@@ -671,6 +701,35 @@ class _AddNoteScreenState extends State<AddNoteScreen> {
       );
       return;
     }
+
+    // Audio-only notes need a transcript before summarize/bullets/actions.
+    final rec = _recording;
+    final hasText = _titleController.text.trim().isNotEmpty ||
+        _contentController.text.trim().isNotEmpty ||
+        (_aiSummary?.trim().isNotEmpty ?? false);
+    final hasTranscript = rec?.transcript?.trim().isNotEmpty ?? false;
+    final waitingOnWhisper = rec != null &&
+        !hasTranscript &&
+        (rec.status == TranscriptionStatus.pending ||
+            rec.status == TranscriptionStatus.processing);
+    if (!hasText &&
+        !hasTranscript &&
+        waitingOnWhisper &&
+        (mode == 'summarize' ||
+            mode == 'bullets' ||
+            mode == 'actions' ||
+            mode == 'tags')) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Text(
+            'Transcription still running. Wait a moment, then try Summarize again.',
+          ),
+          backgroundColor: NotesTheme.surface,
+        ),
+      );
+      return;
+    }
+
     setState(() => _aiBusy = true);
     try {
       final ok = await _persistNote(popAfter: false);
@@ -705,11 +764,12 @@ class _AddNoteScreenState extends State<AddNoteScreen> {
       );
       // Keep _aiBusy true until live watch sees done/error/result.
     } catch (e) {
+      debugPrint('❌ Notes AI ($mode) failed: $e');
       if (!mounted) return;
       setState(() => _aiBusy = false);
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('AI failed: $e'),
+          content: Text(firebaseErrorMessage(e, fallback: 'AI could not run.')),
           backgroundColor: NotesTheme.surface,
         ),
       );
@@ -788,8 +848,7 @@ class _AddNoteScreenState extends State<AddNoteScreen> {
                               SizedBox(height: 16.h),
                               _buildPhotoStrip(),
                             ],
-                              if (_recording != null &&
-                                _recording!.audioUrl.isNotEmpty) ...[
+                              if (_recording != null) ...[
                               SizedBox(height: 16.h),
                               _buildAudioChip(),
                               if ((_recording!.transcript?.trim().isNotEmpty ??

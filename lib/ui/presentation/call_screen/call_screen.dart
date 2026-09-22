@@ -119,13 +119,17 @@ class _CallScreenState extends State<CallScreen> {
                             empId: emp.empId ?? emp.id.toString(),
                             isExpanded: isExpanded,
                             showDivider: !isLast,
+                            canCall: emp.hasCompanyPhone,
                             onTap: () {
                               setState(() {
                                 expandedIndex = isExpanded ? null : index;
                               });
                             },
-                            onCall: () =>
-                                _makePhoneCall('tel:${emp.mobilePhone}'),
+                            onCall: () {
+                              final phone = emp.companyPhone;
+                              if (phone == null) return;
+                              _makePhoneCall('tel:$phone');
+                            },
                             onWhatsApp: () =>
                                 _openWhatsApp(emp.mobilePhone.toString()),
                             onEmail: () => _sendEmail(emp.name!),

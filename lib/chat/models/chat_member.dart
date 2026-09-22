@@ -10,6 +10,10 @@ class ChatMember {
   final int? companyIdSnapshot;
   final bool muted;
   final bool isAdmin;
+  /// Hub / mobile delivery watermark (server timestamp).
+  final DateTime? lastDeliveredAt;
+  /// Hub / mobile read watermark (server timestamp).
+  final DateTime? lastReadAt;
 
   ChatMember({
     required this.uid,
@@ -19,6 +23,8 @@ class ChatMember {
     this.companyIdSnapshot,
     this.muted = false,
     this.isAdmin = false,
+    this.lastDeliveredAt,
+    this.lastReadAt,
   });
 
   factory ChatMember.fromFirestore(DocumentSnapshot doc) {
@@ -31,6 +37,8 @@ class ChatMember {
       companyIdSnapshot: data['company_id_snapshot'],
       muted: data['muted'] ?? false,
       isAdmin: data['is_admin'] ?? false,
+      lastDeliveredAt: (data['last_delivered_at'] as Timestamp?)?.toDate(),
+      lastReadAt: (data['last_read_at'] as Timestamp?)?.toDate(),
     );
   }
 
@@ -58,6 +66,8 @@ class ChatMember {
     int? companyIdSnapshot,
     bool? muted,
     bool? isAdmin,
+    DateTime? lastDeliveredAt,
+    DateTime? lastReadAt,
   }) {
     return ChatMember(
       uid: uid ?? this.uid,
@@ -67,6 +77,8 @@ class ChatMember {
       companyIdSnapshot: companyIdSnapshot ?? this.companyIdSnapshot,
       muted: muted ?? this.muted,
       isAdmin: isAdmin ?? this.isAdmin,
+      lastDeliveredAt: lastDeliveredAt ?? this.lastDeliveredAt,
+      lastReadAt: lastReadAt ?? this.lastReadAt,
     );
   }
 

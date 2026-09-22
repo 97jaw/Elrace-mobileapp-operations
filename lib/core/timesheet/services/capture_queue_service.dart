@@ -172,6 +172,8 @@ class TimesheetCaptureQueueService {
   final TimesheetFunctionsClient _functionsClient;
 
   Future<void> enqueue(AttendanceCaptureDraft draft) async {
+    // Local drafts are allowed while acting so the camera flow can run; the
+    // final Submit timesheet action is blocked by TimesheetActingGuard.
     final box = await _openBox();
     await box.put(draft.id, draft.toJson());
   }

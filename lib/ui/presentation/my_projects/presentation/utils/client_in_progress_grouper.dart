@@ -19,6 +19,47 @@ class ClientInProgressBarData {
 }
 
 class ClientInProgressGrouper {
+  /// Build bars from `clients/list` `group_by=client` rows (server counts).
+  ///
+  /// [projectsForSheets] is optional chart sample used only when opening a
+  /// client sheet — bar heights always use [UserProjectModel.totalProjects].
+  static List<ClientInProgressBarData> fromClientBuckets(
+    List<UserProjectModel> clients, {
+    List<ProjectEntity> projectsForSheets = const [],
+  }) {
+    final byClient = <String, List<ProjectEntity>>{};
+    for (final p in projectsForSheets) {
+      if (p.isGeneralWo) continue;
+      final name = _clientName(p);
+      final key = name.trim().isNotEmpty
+          ? name.trim().toLowerCase()
+          : p.partnerId.toString();
+      byClient.putIfAbsent(key, () => []).add(p);
+    }
+
+    final bars = <ClientInProgressBarData>[];
+    for (final c in clients) {
+      if (c.projectId <= 0 && c.projectName.trim().isEmpty) continue;
+      final name = c.projectName.trim().isNotEmpty
+          ? c.projectName.trim()
+          : 'Client ${c.projectId}';
+      final key = name.toLowerCase();
+      final matched = byClient[key] ?? const <ProjectEntity>[];
+      bars.add(
+        ClientInProgressBarData(
+          clientKey: key,
+          clientName: name,
+          logoUrl: ProjectsDashboardAggregator.normalizePhotoUrl(c.photoUrl),
+          projectCount: c.totalProjects,
+          projects: matched,
+        ),
+      );
+    }
+
+    bars.sort((a, b) => b.projectCount.compareTo(a.projectCount));
+    return bars;
+  }
+
   static List<ClientInProgressBarData> group(
     List<ProjectEntity> projects, {
     List<UserProjectModel>? agreements,

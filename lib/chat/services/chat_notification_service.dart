@@ -128,6 +128,12 @@ class ChatNotificationService {
     // Don't notify for own messages
     if (message.senderId == currentUid) return;
 
+    // Message reached this device → delivered watermark (grey ✓✓ for sender).
+    // Skip when chat is open — markChatRead already sets delivered + read.
+    if (_activeChatId != userChat.chatId) {
+      unawaited(ChatRepository.instance.markChatDelivered(userChat.chatId));
+    }
+
     // Don't notify if this chat is currently active
     if (_activeChatId == userChat.chatId) return;
 

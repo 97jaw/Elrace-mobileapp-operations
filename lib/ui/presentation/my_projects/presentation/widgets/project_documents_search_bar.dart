@@ -1,30 +1,25 @@
 import 'package:el_race/core/utils/responsive_breakpoints.dart';
 import 'dart:async';
 
-import 'package:el_race/ui/presentation/my_projects/presentation/models/projects_group_hub_filters.dart';
 import 'package:el_race/ui/presentation/my_projects/presentation/theme/projects_dashboard_theme.dart';
-import 'package:el_race/ui/presentation/my_projects/presentation/widgets/project_documents_filters_sheet.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+/// Expandable search field for Project Documents (toggled from header).
 class ProjectDocumentsSearchBar extends StatefulWidget {
   const ProjectDocumentsSearchBar({
     super.key,
     required this.hint,
-    required this.hasActiveFilters,
-    required this.initialFilters,
     required this.onSearchChanged,
-    required this.onFiltersApplied,
     this.initialQuery = '',
+    this.autofocus = true,
   });
 
   final String hint;
-  final bool hasActiveFilters;
-  final ProjectsGroupHubFilters initialFilters;
   final ValueChanged<String> onSearchChanged;
-  final ValueChanged<ProjectsGroupHubFilters> onFiltersApplied;
   final String initialQuery;
+  final bool autofocus;
 
   @override
   State<ProjectDocumentsSearchBar> createState() =>
@@ -33,133 +28,107 @@ class ProjectDocumentsSearchBar extends StatefulWidget {
 
 class _ProjectDocumentsSearchBarState extends State<ProjectDocumentsSearchBar> {
   late final TextEditingController _controller;
+  late final FocusNode _focusNode;
   Timer? _debounce;
 
   @override
   void initState() {
     super.initState();
     _controller = TextEditingController(text: widget.initialQuery);
+    _focusNode = FocusNode();
+    if (widget.autofocus) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _focusNode.requestFocus();
+      });
+    }
   }
 
   @override
   void dispose() {
     _debounce?.cancel();
     _controller.dispose();
+    _focusNode.dispose();
     super.dispose();
   }
 
   void _onChanged(String value) {
+    setState(() {});
     _debounce?.cancel();
     _debounce = Timer(const Duration(milliseconds: 400), () {
       widget.onSearchChanged(value);
     });
   }
 
-  Future<void> _openFilters() async {
-    final result = await ProjectDocumentsFiltersSheet.show(
-      context,
-      initial: widget.initialFilters,
-    );
-    if (result != null && mounted) {
-      widget.onFiltersApplied(result);
-    }
+  void _clear() {
+    _controller.clear();
+    setState(() {});
+    widget.onSearchChanged('');
   }
 
   @override
   Widget build(BuildContext context) {
     return Padding(
       padding: EdgeInsets.fromLTRB(16.tw, 0, 16.tw, 10.th),
-      child: Row(
-        children: [
-          Expanded(
-            child: Container(
-              height: 42.th,
-              padding: EdgeInsets.symmetric(horizontal: 12.tw),
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(14.tr),
-                color: ProjectsDashboardTheme.white.withValues(alpha: 0.14),
-                border: Border.all(
-                  color: ProjectsDashboardTheme.white.withValues(alpha: 0.28),
-                ),
-              ),
-              child: Row(
-                children: [
-                  Icon(
-                    Icons.search_rounded,
-                    size: 20.tsp,
-                    color: ProjectsDashboardTheme.greyPanel,
-                  ),
-                  SizedBox(width: 8.tw),
-                  Expanded(
-                    child: TextField(
-                      controller: _controller,
-                      onChanged: _onChanged,
-                      style: GoogleFonts.poppins(
-                        fontSize: 13.tsp,
-                        color: ProjectsDashboardTheme.white,
-                      ),
-                      decoration: InputDecoration(
-                        hintText: widget.hint,
-                        hintStyle: GoogleFonts.poppins(
-                          fontSize: 13.tsp,
-                          color: ProjectsDashboardTheme.greyPanel
-                              .withValues(alpha: 0.85),
-                        ),
-                        border: InputBorder.none,
-                        isDense: true,
-                        contentPadding: EdgeInsets.zero,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
+      child: Container(
+        height: 42.th,
+        padding: EdgeInsets.symmetric(horizontal: 12.tw),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(14.tr),
+          color: Colors.black.withValues(alpha: 0.58),
+          border: Border.all(
+            color: ProjectsDashboardTheme.white.withValues(alpha: 0.14),
           ),
-          SizedBox(width: 8.tw),
-          Material(
-            color: Colors.transparent,
-            child: InkWell(
-              onTap: _openFilters,
-              borderRadius: BorderRadius.circular(12.tr),
-              child: Container(
-                width: 42.tw,
-                height: 42.tw,
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(12.tr),
-                  color: widget.hasActiveFilters
-                      ? ProjectsDashboardTheme.maroon.withValues(alpha: 0.85)
-                      : ProjectsDashboardTheme.white.withValues(alpha: 0.14),
-                  border: Border.all(
-                    color: ProjectsDashboardTheme.white.withValues(alpha: 0.28),
-                  ),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.28),
+              blurRadius: 12,
+              offset: const Offset(0, 4),
+            ),
+          ],
+        ),
+        child: Row(
+          children: [
+            Icon(
+              Icons.search_rounded,
+              size: 20.tsp,
+              color: ProjectsDashboardTheme.greyPanel,
+            ),
+            SizedBox(width: 8.tw),
+            Expanded(
+              child: TextField(
+                controller: _controller,
+                focusNode: _focusNode,
+                onChanged: _onChanged,
+                style: GoogleFonts.poppins(
+                  fontSize: 13.tsp,
+                  color: ProjectsDashboardTheme.white,
                 ),
-                child: Stack(
-                  alignment: Alignment.center,
-                  children: [
-                    Icon(
-                      Icons.tune_rounded,
-                      size: 20.tsp,
-                      color: ProjectsDashboardTheme.white,
-                    ),
-                    if (widget.hasActiveFilters)
-                      Positioned(
-                        top: 8.th,
-                        right: 8.tw,
-                        child: Container(
-                          width: 7.tw,
-                          height: 7.tw,
-                          decoration: const BoxDecoration(
-                            color: Colors.white,
-                            shape: BoxShape.circle,
-                          ),
-                        ),
-                      ),
-                  ],
+                decoration: InputDecoration(
+                  hintText: widget.hint,
+                  hintStyle: GoogleFonts.poppins(
+                    fontSize: 13.tsp,
+                    color: ProjectsDashboardTheme.greyPanel
+                        .withValues(alpha: 0.85),
+                  ),
+                  border: InputBorder.none,
+                  isDense: true,
+                  contentPadding: EdgeInsets.zero,
                 ),
               ),
             ),
-          ),
-        ],
+            if (_controller.text.isNotEmpty)
+              IconButton(
+                onPressed: _clear,
+                icon: Icon(
+                  Icons.close_rounded,
+                  size: 18.tsp,
+                  color: ProjectsDashboardTheme.greyPanel,
+                ),
+                padding: EdgeInsets.zero,
+                constraints: BoxConstraints(minWidth: 32.tw, minHeight: 32.tw),
+              ),
+          ],
+        ),
       ),
     );
   }

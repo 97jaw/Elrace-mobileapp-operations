@@ -1037,34 +1037,96 @@ class _ChatListTileState extends State<_ChatListTile> {
 
     String text;
 
-    switch (lastMessage.type) {
-      case 'image':
-        text = '📷 Photo';
-        break;
-      case 'file':
-        text = '📎 File';
-        break;
-      case 'audio':
-        text = '🎵 Voice message';
-        break;
-      case 'video':
-        text = '🎬 Video';
-        break;
-      case 'signable_doc':
-        text = '📄 Document';
-        break;
-      default:
-        text = lastMessage.text;
+    if (lastMessage.isDeleted) {
+      text = 'This message was deleted';
+    } else {
+      switch (lastMessage.type) {
+        case 'image':
+          text = '📷 Photo';
+          break;
+        case 'file':
+          text = '📎 File';
+          break;
+        case 'audio':
+          text = '🎵 Voice message';
+          break;
+        case 'video':
+          text = '🎬 Video';
+          break;
+        case 'signable_doc':
+          text = '📄 Document';
+          break;
+        default:
+          text = lastMessage.text;
+      }
     }
 
     final isMine = lastMessage.senderId == widget.currentUid;
-    final display = isMine ? 'You: $text' : text;
+    final display = isMine && !lastMessage.isDeleted ? 'You: $text' : text;
 
-    return Text(
-      display,
-      maxLines: 1,
-      overflow: TextOverflow.ellipsis,
+    if (!isMine || lastMessage.isDeleted) {
+      return Text(
+        display,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+      );
+    }
+
+    // WhatsApp-style: ticks before preview when last message is yours.
+    return StreamBuilder<List<ChatMember>>(
+      stream: ChatRepository.instance.subscribeToChatMembers(userChat.chatId),
+      builder: (context, membersSnap) {
+        final members = membersSnap.data ?? const <ChatMember>[];
+        final status = Message.receiptStatusFromPeers(
+          message: Message(
+            id: 'list_preview',
+            senderId: lastMessage.senderId,
+            type: MessageType.text,
+            text: lastMessage.text,
+            createdAt: lastMessage.createdAt,
+            clientMsgId: '',
+            status: MessageStatus.sent,
+          ),
+          currentUid: widget.currentUid,
+          members: members,
+        );
+
+        return Row(
+          children: [
+            _chatListReceiptTick(status),
+            const SizedBox(width: 4),
+            Expanded(
+              child: Text(
+                display,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+          ],
+        );
+      },
     );
+  }
+
+  Widget _chatListReceiptTick(MessageStatus status) {
+    switch (status) {
+      case MessageStatus.sending:
+        return Icon(Icons.access_time, size: 14, color: Colors.white70);
+      case MessageStatus.failed:
+        return Icon(Icons.error_outline, size: 14, color: Colors.red[300]);
+      case MessageStatus.sent:
+        return const Icon(Icons.done, size: 16, color: Colors.white70);
+      case MessageStatus.delivered:
+        return const Icon(Icons.done_all, size: 16, color: Colors.white70);
+      case MessageStatus.read:
+        return const Icon(
+          Icons.done_all,
+          size: 16,
+          color: Color(0xFF25D366),
+        );
+      case MessageStatus.deleted:
+        return const SizedBox.shrink();
+    }
   }
 
   String _getInitials(String name) {

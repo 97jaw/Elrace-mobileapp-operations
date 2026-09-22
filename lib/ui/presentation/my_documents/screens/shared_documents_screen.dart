@@ -1,6 +1,6 @@
 import 'package:el_race/ui/presentation/my_documents/screens/share_documents_tab.dart';
-import 'package:el_race/ui/presentation/my_documents/theme/shared_documents_theme.dart';
 import 'package:el_race/ui/presentation/my_documents/utils/document_attachment_opener.dart';
+import 'package:el_race/ui/presentation/my_documents/widgets/my_documents_silk_background.dart';
 import 'package:el_race/ui/presentation/productivity/widgets/productivity_glass_header.dart';
 import 'package:el_race/ui/navigation/home_navigation.dart';
 import 'package:el_race/utils/safe_insets.dart';
@@ -57,10 +57,7 @@ class _SharedDocumentsScreenState extends State<SharedDocumentsScreen> {
         if (didPop) return;
         _exitFolder?.call();
       },
-      child: DecoratedBox(
-        decoration: const BoxDecoration(
-          gradient: SharedDocumentsTheme.hubBackgroundGradient,
-        ),
+      child: MyDocumentsSilkBackground(
         child: Scaffold(
           backgroundColor: Colors.transparent,
           body: Column(
@@ -71,6 +68,8 @@ class _SharedDocumentsScreenState extends State<SharedDocumentsScreen> {
                 showBack: true,
                 onBack: _handleBack,
                 titleTrailing: _titleTrailing,
+                transparentGlassBar: true,
+                scrimTopOpacity: 0.08,
               ),
               Expanded(
                 child: Padding(

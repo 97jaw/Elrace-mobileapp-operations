@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import 'package:el_race/core/firebase/firebase_session.dart';
 import 'package:el_race/core/utils/shared_pref.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_storage/firebase_storage.dart';
@@ -46,20 +47,25 @@ class NotesImageService {
     required XFile file,
   }) async {
     final id = const Uuid().v4();
-    final path = 'chat_media/notes/$_uid/$noteId/images/$id.jpg';
-    final ref = _storage.ref(path);
     final bytes = await file.readAsBytes();
-    await ref.putData(
-      bytes,
-      SettableMetadata(contentType: 'image/jpeg'),
-    );
-    final url = await ref.getDownloadURL();
-    debugPrint('✅ NotesImageService uploaded $path');
-    return ImageAttachment(
-      id: id,
-      imageUrl: url,
-      addedAt: DateTime.now(),
-    );
+
+    return FirebaseSession.instance.run(() async {
+      // Storage rules match on request.auth.uid, so the path must use the
+      // signed-in UID rather than the one cached from the login payload.
+      final path = 'chat_media/notes/$_uid/$noteId/images/$id.jpg';
+      final ref = _storage.ref(path);
+      await ref.putData(
+        bytes,
+        SettableMetadata(contentType: 'image/jpeg'),
+      );
+      final url = await ref.getDownloadURL();
+      debugPrint('✅ NotesImageService uploaded $path');
+      return ImageAttachment(
+        id: id,
+        imageUrl: url,
+        addedAt: DateTime.now(),
+      );
+    });
   }
 
   Future<List<ImageAttachment>> uploadFiles({

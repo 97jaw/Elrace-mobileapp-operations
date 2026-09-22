@@ -14,7 +14,8 @@ class ProjectsToolbarIconsRow extends StatelessWidget {
     required this.onMapsTap,
     required this.onGroupByTap,
     required this.onDocumentsTap,
-    required this.onAiTap,
+    this.onAiTap,
+    this.showAiButton = false,
   });
 
   final ProjectsViewMode viewMode;
@@ -22,7 +23,8 @@ class ProjectsToolbarIconsRow extends StatelessWidget {
   final VoidCallback onMapsTap;
   final VoidCallback onGroupByTap;
   final VoidCallback onDocumentsTap;
-  final VoidCallback onAiTap;
+  final VoidCallback? onAiTap;
+  final bool showAiButton;
 
   @override
   Widget build(BuildContext context) {
@@ -49,7 +51,7 @@ class ProjectsToolbarIconsRow extends StatelessWidget {
           isActive: false,
           onTap: onDocumentsTap,
         ),
-        _AiToolbarIcon(onTap: onAiTap),
+        if (showAiButton && onAiTap != null) _AiToolbarIcon(onTap: onAiTap!),
       ],
     );
   }

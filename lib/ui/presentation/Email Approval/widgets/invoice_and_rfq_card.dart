@@ -16,7 +16,8 @@ import 'package:google_fonts/google_fonts.dart';
 
 class InvoiceAndRfqCard extends StatelessWidget {
   final List<dynamic> approvalItems;
-  final VoidCallback? onRefresh;
+  /// Awaited after approve/reject so the Waiting list cannot race a second action.
+  final Future<void> Function()? onRefresh;
   final String categoryType;
   const InvoiceAndRfqCard(
       {super.key,
@@ -483,10 +484,10 @@ class InvoiceAndRfqCard extends StatelessWidget {
                 // Invalidate cache so header re-fetches fresh count from API
                 ApprovalCountService.invalidateCache();
                 ApprovalCountService.notifyListeners();
-                // Refresh the list
+                // Refresh the list (await so double approve/reject cannot race)
                 debugPrint(
                     '🔁 [MyApproval][Invoice/RFQ] Triggering onRefresh callback');
-                onRefresh?.call();
+                await onRefresh?.call();
               }
             }
           },

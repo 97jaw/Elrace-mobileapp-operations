@@ -3,7 +3,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_storage/firebase_storage.dart';
-import 'package:firebase_auth/firebase_auth.dart';
+import 'package:el_race/core/firebase/firebase_session.dart';
 import 'package:el_race/ui/presentation/productivity/widgets/productivity_light_shell.dart';
 import 'package:el_race/ui/presentation/todo_list/data/todo_model.dart';
 import 'package:el_race/ui/presentation/todo_list/data/task_member_model.dart';
@@ -383,17 +383,19 @@ class _TaskDetailsScreenState extends State<TaskDetailsScreen> {
           .child(_task!.firebaseId!)
           .child(fileName);
 
-      // Set metadata to ensure content type is audio
-      final metadata = SettableMetadata(
-        contentType: 'audio/mp4',
-        customMetadata: {
-          'uploaded_by': FirebaseAuth.instance.currentUser?.uid ?? 'unknown',
-          'task_id': _task!.firebaseId!,
-        },
-      );
-
-      await storageRef.putFile(file, metadata);
-      final audioUrl = await storageRef.getDownloadURL();
+      final audioUrl = await FirebaseSession.instance.run(() async {
+        // Metadata is built inside the retry so uploaded_by reflects the UID
+        // we actually uploaded with.
+        final metadata = SettableMetadata(
+          contentType: 'audio/mp4',
+          customMetadata: {
+            'uploaded_by': FirebaseSession.instance.uid ?? 'unknown',
+            'task_id': _task!.firebaseId!,
+          },
+        );
+        await storageRef.putFile(file, metadata);
+        return storageRef.getDownloadURL();
+      });
 
       // Add comment with audio URL
       await TodoFirebaseService.instance.addVoiceComment(

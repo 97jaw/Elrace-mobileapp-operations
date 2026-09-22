@@ -1,4 +1,5 @@
 import 'package:el_race/core/theme/timesheet_module_theme.dart';
+import 'package:el_race/core/widgets/timesheet/tm_acting_banner.dart';
 import 'package:el_race/core/widgets/timesheet/tm_module_glass_header.dart';
 import 'package:flutter/material.dart';
 
@@ -50,6 +51,7 @@ class TmScaffold extends StatelessWidget {
                 titleColor: TimesheetModuleColors.ink,
                 scrimColor: TimesheetModuleColors.warmGradientStart,
               ),
+              const TmActingBanner(),
               Expanded(
                 child: SafeArea(
                   top: false,
@@ -77,9 +79,17 @@ class TmScaffold extends StatelessWidget {
         child: SafeArea(
           top: appBar == null,
           bottom: bottomNavigationBar == null,
-          child: Padding(
-            padding: padding,
-            child: body,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              const TmActingBanner(),
+              Expanded(
+                child: Padding(
+                  padding: padding,
+                  child: body,
+                ),
+              ),
+            ],
           ),
         ),
       ),

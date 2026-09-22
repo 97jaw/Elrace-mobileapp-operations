@@ -1,3 +1,4 @@
+import 'package:el_race/core/firebase/firebase_error_message.dart';
 import 'package:el_race/ui/presentation/my_notes/bloc/notes_bloc.dart';
 import 'package:el_race/ui/presentation/my_notes/data/note_model.dart';
 import 'package:el_race/ui/presentation/my_notes/services/notes_ai_service.dart';
@@ -47,10 +48,11 @@ class _NotesAiActionsSectionState extends State<NotesAiActionsSection> {
         ),
       );
     } catch (e) {
+      debugPrint('❌ Notes AI ($mode) failed: $e');
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('AI failed: $e'),
+          content: Text(firebaseErrorMessage(e, fallback: 'AI could not run.')),
           backgroundColor: NotesTheme.surface,
         ),
       );

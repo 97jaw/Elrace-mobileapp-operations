@@ -27,6 +27,9 @@ class MessageBubble extends StatelessWidget {
   final MessageActionCallback? onStar;
   final MessageActionCallback? onReply;
   final MessageActionCallback? onForward;
+  final MessageActionCallback? onDelete;
+  /// When set (own messages), overrides [message.status] for tick icons.
+  final MessageStatus? receiptStatus;
 
   const MessageBubble({
     super.key,
@@ -39,6 +42,8 @@ class MessageBubble extends StatelessWidget {
     this.onStar,
     this.onReply,
     this.onForward,
+    this.onDelete,
+    this.receiptStatus,
   });
 
   @override
@@ -75,89 +80,6 @@ class MessageBubble extends StatelessWidget {
             ],
           ),
         ),
-      ),
-    );
-  }
-
-  void _showMessageActions(BuildContext context) {
-    HapticFeedback.mediumImpact();
-
-    final RenderBox box = context.findRenderObject() as RenderBox;
-    final Offset position = box.localToGlobal(Offset.zero);
-    final Size size = box.size;
-
-    // Position the menu above or below the bubble based on screen space
-    final screenHeight = MediaQuery.of(context).size.height;
-    final bubbleCenter = position.dx + size.width / 2;
-    final showAbove = position.dy > screenHeight / 2;
-
-    final RelativeRect menuPosition = RelativeRect.fromLTRB(
-      isMe ? position.dx + size.width - 200 : position.dx,
-      showAbove ? position.dy - 8 : position.dy + size.height,
-      isMe ? position.dx + size.width : position.dx + 200,
-      showAbove ? position.dy + size.height : position.dy,
-    );
-
-    showMenu<String>(
-      context: context,
-      position: menuPosition,
-      elevation: 8,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      color: Colors.white,
-      items: [
-        _buildMenuItem(
-          value: 'star',
-          icon: isStarred ? Icons.star_rounded : Icons.star_outline_rounded,
-          label: isStarred ? 'Unstar' : 'Star',
-        ),
-        _buildMenuItem(
-          value: 'reply',
-          icon: Icons.reply_rounded,
-          label: 'Reply',
-        ),
-        _buildMenuItem(
-          value: 'forward',
-          icon: Icons.shortcut_rounded,
-          label: 'Forward',
-        ),
-      ],
-    ).then((value) {
-      if (value == null) return;
-      switch (value) {
-        case 'star':
-          onStar?.call(message);
-          break;
-        case 'reply':
-          onReply?.call(message);
-          break;
-        case 'forward':
-          onForward?.call(message);
-          break;
-      }
-    });
-  }
-
-  PopupMenuItem<String> _buildMenuItem({
-    required String value,
-    required IconData icon,
-    required String label,
-  }) {
-    return PopupMenuItem<String>(
-      value: value,
-      height: 48,
-      child: Row(
-        children: [
-          Icon(icon, color: const Color(0xFF8E8E93), size: 22),
-          const SizedBox(width: 14),
-          Text(
-            label,
-            style: const TextStyle(
-              color: Color(0xFF2C2C2E),
-              fontSize: 17,
-              fontWeight: FontWeight.w500,
-            ),
-          ),
-        ],
       ),
     );
   }
@@ -219,8 +141,108 @@ class MessageBubble extends StatelessWidget {
         ),
         child: ClipRRect(
           borderRadius: bubbleRadius,
-          child: _buildContent(context, textColor),
+          child: message.isDeleted
+              ? _DeletedContent(textColor: textColor)
+              : _buildContent(context, textColor),
         ),
+      ),
+    );
+  }
+
+  void _showMessageActions(BuildContext context) {
+    if (message.isDeleted) return;
+    HapticFeedback.mediumImpact();
+
+    final RenderBox box = context.findRenderObject() as RenderBox;
+    final Offset position = box.localToGlobal(Offset.zero);
+    final Size size = box.size;
+
+    // Position the menu above or below the bubble based on screen space
+    final screenHeight = MediaQuery.of(context).size.height;
+    final bubbleCenter = position.dx + size.width / 2;
+    final showAbove = position.dy > screenHeight / 2;
+
+    final RelativeRect menuPosition = RelativeRect.fromLTRB(
+      isMe ? position.dx + size.width - 200 : position.dx,
+      showAbove ? position.dy - 8 : position.dy + size.height,
+      isMe ? position.dx + size.width : position.dx + 200,
+      showAbove ? position.dy + size.height : position.dy,
+    );
+
+    showMenu<String>(
+      context: context,
+      position: menuPosition,
+      elevation: 8,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      color: Colors.white,
+      items: [
+        _buildMenuItem(
+          value: 'star',
+          icon: isStarred ? Icons.star_rounded : Icons.star_outline_rounded,
+          label: isStarred ? 'Unstar' : 'Star',
+        ),
+        _buildMenuItem(
+          value: 'reply',
+          icon: Icons.reply_rounded,
+          label: 'Reply',
+        ),
+        _buildMenuItem(
+          value: 'forward',
+          icon: Icons.shortcut_rounded,
+          label: 'Forward',
+        ),
+        if (isMe && message.canDeleteForEveryone && onDelete != null)
+          _buildMenuItem(
+            value: 'delete',
+            icon: Icons.delete_outline_rounded,
+            label: 'Delete for everyone',
+            destructive: true,
+          ),
+      ],
+    ).then((value) {
+      if (value == null) return;
+      switch (value) {
+        case 'star':
+          onStar?.call(message);
+          break;
+        case 'reply':
+          onReply?.call(message);
+          break;
+        case 'forward':
+          onForward?.call(message);
+          break;
+        case 'delete':
+          onDelete?.call(message);
+          break;
+      }
+    });
+  }
+
+  PopupMenuItem<String> _buildMenuItem({
+    required String value,
+    required IconData icon,
+    required String label,
+    bool destructive = false,
+  }) {
+    final color = destructive ? const Color(0xFFD32F2F) : const Color(0xFF8E8E93);
+    final textColor =
+        destructive ? const Color(0xFFD32F2F) : const Color(0xFF2C2C2E);
+    return PopupMenuItem<String>(
+      value: value,
+      height: 48,
+      child: Row(
+        children: [
+          Icon(icon, color: color, size: 22),
+          const SizedBox(width: 14),
+          Text(
+            label,
+            style: TextStyle(
+              color: textColor,
+              fontSize: 17,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -263,6 +285,18 @@ class MessageBubble extends StatelessWidget {
   }
 
   Widget _buildStatus(BuildContext context) {
+    if (message.isDeleted) {
+      return Padding(
+        padding: const EdgeInsets.only(top: 2, left: 4, right: 4),
+        child: Text(
+          _formatTime(message.createdAt),
+          style: TextStyle(
+            fontSize: 11,
+            color: Colors.grey[500],
+          ),
+        ),
+      );
+    }
     return Padding(
       padding: const EdgeInsets.only(top: 2, left: 4, right: 4),
       child: Row(
@@ -285,7 +319,8 @@ class MessageBubble extends StatelessWidget {
   }
 
   Widget _buildReadReceipt() {
-    switch (message.status) {
+    final status = receiptStatus ?? message.status;
+    switch (status) {
       case MessageStatus.sending:
         // Clock icon for pending message
         return Icon(
@@ -315,18 +350,55 @@ class MessageBubble extends StatelessWidget {
           color: Colors.grey[400],
         );
       case MessageStatus.read:
-        // Double check blue for read
-        return Icon(
+        // Double check WhatsApp green for seen
+        return const Icon(
           Icons.done_all,
           size: 14,
-          color: ChatGlassTheme.gold,
+          color: Color(0xFF25D366),
         );
+      case MessageStatus.deleted:
+        return const SizedBox.shrink();
     }
   }
 
   String _formatTime(DateTime time) {
     final local = time.toLocal();
     return '${local.hour.toString().padLeft(2, '0')}:${local.minute.toString().padLeft(2, '0')}';
+  }
+}
+
+class _DeletedContent extends StatelessWidget {
+  final Color textColor;
+
+  const _DeletedContent({required this.textColor});
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            Icons.not_interested,
+            size: 16,
+            color: textColor.withValues(alpha: 0.75),
+          ),
+          const SizedBox(width: 8),
+          Flexible(
+            child: Text(
+              'This message was deleted',
+              style: TextStyle(
+                color: textColor.withValues(alpha: 0.85),
+                fontSize: 14,
+                fontStyle: FontStyle.italic,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 }
 

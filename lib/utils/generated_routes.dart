@@ -93,6 +93,16 @@ import '../ui/presentation/timesheet/timesheet_route_args.dart';
 
 class OnGeneratedRoutes {
   Route<dynamic> generatedRoutes(RouteSettings settings) {
+    // iOS "Open in" / share can deliver a file path as the route name.
+    // Never show the "No route defined" error for those.
+    if (_isFilesystemRoute(settings.name)) {
+      return PageRouteBuilder(
+        settings: settings,
+        pageBuilder: (_, __, ___) => const SizedBox.shrink(),
+        transitionDuration: Duration.zero,
+      );
+    }
+
     final signInBloc = sl.get<SignInBloc>();
     final contactBloc = sl.get<ContactBloc>();
     switch (settings.name) {
@@ -532,5 +542,13 @@ class OnGeneratedRoutes {
         builder: (_) => Scaffold(
             body:
                 Center(child: Text('No route defined for ${settings.name}'))));
+  }
+
+  static bool _isFilesystemRoute(String? name) {
+    if (name == null || name.isEmpty) return false;
+    return name.startsWith('/private/') ||
+        name.startsWith('/var/') ||
+        name.contains('/Documents/Inbox/') ||
+        name.startsWith('file:');
   }
 }

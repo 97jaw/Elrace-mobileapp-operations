@@ -21,6 +21,7 @@ class EmployeeContactTile extends StatelessWidget {
     required this.onCall,
     required this.onWhatsApp,
     required this.onEmail,
+    this.canCall = true,
     this.showDivider = true,
   });
 
@@ -34,6 +35,8 @@ class EmployeeContactTile extends StatelessWidget {
   final VoidCallback onCall;
   final VoidCallback onWhatsApp;
   final VoidCallback onEmail;
+  /// True only when contact has company `mobile_phone`.
+  final bool canCall;
   final bool showDivider;
 
   @override
@@ -109,6 +112,7 @@ class EmployeeContactTile extends StatelessWidget {
                 onCall: onCall,
                 onWhatsApp: onWhatsApp,
                 onEmail: onEmail,
+                canCall: canCall,
               ),
             ),
           ),
@@ -222,11 +226,13 @@ class _ContactActionsRow extends StatelessWidget {
     required this.onCall,
     required this.onWhatsApp,
     required this.onEmail,
+    required this.canCall,
   });
 
   final VoidCallback onCall;
   final VoidCallback onWhatsApp;
   final VoidCallback onEmail;
+  final bool canCall;
 
   @override
   Widget build(BuildContext context) {
@@ -254,7 +260,8 @@ class _ContactActionsRow extends StatelessWidget {
               _ActionButton(
                 asset: 'assets/png/call.png',
                 label: 'Call',
-                onTap: onCall,
+                onTap: canCall ? onCall : null,
+                enabled: canCall,
               ),
               _ActionButton(
                 asset: 'assets/png/whatsapp.png',
@@ -279,55 +286,67 @@ class _ActionButton extends StatelessWidget {
     required this.asset,
     required this.label,
     required this.onTap,
+    this.enabled = true,
   });
 
   final String asset;
   final String label;
-  final VoidCallback onTap;
+  final VoidCallback? onTap;
+  final bool enabled;
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Container(
-            width: 44.w,
-            height: 44.w,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              color: Colors.white,
-              border: Border.all(
-                color: ChatSurfaceTheme.accentGold.withValues(alpha: 0.6),
-                width: 1.2,
-              ),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.06),
-                  blurRadius: 6,
-                  offset: const Offset(0, 2),
+    final color = enabled
+        ? AppColors.primaryColor
+        : AppColors.primaryColor.withValues(alpha: 0.35);
+
+    return Opacity(
+      opacity: enabled ? 1 : 0.45,
+      child: GestureDetector(
+        onTap: onTap,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 44.w,
+              height: 44.w,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: Colors.white,
+                border: Border.all(
+                  color: ChatSurfaceTheme.accentGold
+                      .withValues(alpha: enabled ? 0.6 : 0.25),
+                  width: 1.2,
                 ),
-              ],
-            ),
-            child: Padding(
-              padding: EdgeInsets.all(10.w),
-              child: Image.asset(
-                asset,
-                color: AppColors.primaryColor,
+                boxShadow: enabled
+                    ? [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.06),
+                          blurRadius: 6,
+                          offset: const Offset(0, 2),
+                        ),
+                      ]
+                    : null,
+              ),
+              child: Padding(
+                padding: EdgeInsets.all(10.w),
+                child: Image.asset(
+                  asset,
+                  color: color,
+                ),
               ),
             ),
-          ),
-          SizedBox(height: 6.h),
-          Text(
-            label,
-            style: GoogleFonts.poppins(
-              fontSize: 10.sp,
-              fontWeight: FontWeight.w600,
-              color: AppColors.primaryColor,
+            SizedBox(height: 6.h),
+            Text(
+              label,
+              style: GoogleFonts.poppins(
+                fontSize: 10.sp,
+                fontWeight: FontWeight.w600,
+                color: color,
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }

@@ -131,6 +131,17 @@ bool _looksLikeExcel({
       u.contains('.xls');
 }
 
+/// Graph / SharePoint temporary download links return raw file bytes.
+bool _isDirectBinaryUrl(String url) {
+  final u = url.toLowerCase();
+  return u.contains('sharepoint.com') ||
+      u.contains('1drv.ms') ||
+      u.contains('graph.microsoft.com') ||
+      u.contains('download.aspx') ||
+      u.contains('tempauth=') ||
+      u.contains('access_token=');
+}
+
 bool _isPdfBytes(Uint8List? bytes) {
   if (bytes == null || bytes.length < 4) return false;
   return bytes[0] == 0x25 && // %
@@ -148,11 +159,15 @@ String publicPreviewUrlForAttachment(int attachmentId) =>
 /// Prefer [attachmentId] so we resolve via `/api/get_attachment_details`
 /// → `public_url` (`/my/public/file/<id>`) instead of external/broken URLs
 /// that can 502 when launched outside the app.
+///
+/// For SharePoint / Graph files, pass [initialBytes] (or a direct
+/// `@microsoft.graph.downloadUrl`) so the same PDF/image viewer is used.
 Future<void> openProjectFileInApp(
   BuildContext context, {
   required String rawUrl,
   required String fileName,
   int? attachmentId,
+  Uint8List? initialBytes,
 }) async {
   final resolvedId =
       attachmentId ?? extractPublicAttachmentId(rawUrl);
@@ -160,7 +175,9 @@ Future<void> openProjectFileInApp(
   var displayName = fileName.trim().isNotEmpty ? fileName.trim() : 'Document';
   var mime = '';
   var normalizedUrl = normalizeProjectFileUrl(rawUrl);
-  Uint8List? seededBytes;
+  Uint8List? seededBytes = initialBytes;
+  final isSharePointRemote =
+      resolvedId == null && _isDirectBinaryUrl(normalizedUrl);
 
   if (resolvedId != null) {
     // Always prefer the public preview endpoint for Odoo attachments.
@@ -196,7 +213,9 @@ Future<void> openProjectFileInApp(
         details['attachment_binary_data'] ?? details['datas'],
       );
       // Discard truncated/invalid JSON base64 — it causes “corrupted PDF”.
-      if (DocumentAttachmentOpener.isPreviewableBinary(rawSeeded)) {
+      // Also skip seeding very large binaries into RAM.
+      if (DocumentAttachmentOpener.isPreviewableBinary(rawSeeded) &&
+          (rawSeeded?.lengthInBytes ?? 0) <= 12 * 1024 * 1024) {
         seededBytes = rawSeeded;
       }
       dismissLoader();
@@ -205,6 +224,7 @@ Future<void> openProjectFileInApp(
       // Keep constructed /my/public/file/<id> — still better than external 502 URLs.
     }
   }
+  // SharePoint: do NOT pre-download into memory — viewer streams to disk.
 
   if (normalizedUrl.isEmpty) {
     if (!context.mounted) return;
@@ -305,9 +325,16 @@ Future<void> openProjectFileInApp(
           fileUrl: normalizedUrl,
           title: displayName,
           mode: ProjectsFileViewerMode.pdf,
-          preferUnauthenticated: normalizedUrl.contains('/my/public/file/'),
+          preferUnauthenticated: normalizedUrl.contains('/my/public/file/') ||
+              isSharePointRemote,
           attachmentId: resolvedId,
-          initialBytes: seededBytes,
+          // Never pass large SharePoint payloads via RAM.
+          initialBytes: isSharePointRemote ? null : seededBytes,
+          streamToDisk: isSharePointRemote,
+          // Block screenshots for every project PDF (SharePoint + DMS).
+          protectScreen: true,
+          allowShare: !isSharePointRemote,
+          applyWatermark: !isSharePointRemote,
         ),
       ),
     );
@@ -322,9 +349,14 @@ Future<void> openProjectFileInApp(
           fileUrl: normalizedUrl,
           title: displayName,
           mode: ProjectsFileViewerMode.image,
-          preferUnauthenticated: normalizedUrl.contains('/my/public/file/'),
+          preferUnauthenticated: normalizedUrl.contains('/my/public/file/') ||
+              isSharePointRemote,
           attachmentId: resolvedId,
-          initialBytes: seededBytes,
+          initialBytes: isSharePointRemote ? null : seededBytes,
+          streamToDisk: false,
+          protectScreen: false,
+          allowShare: !isSharePointRemote,
+          applyWatermark: false,
         ),
       ),
     );

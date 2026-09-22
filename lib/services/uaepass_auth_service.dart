@@ -1,21 +1,20 @@
-import 'dart:convert';
-import 'dart:io';
-
-import 'package:device_info_plus/device_info_plus.dart';
-import 'package:el_race/chat/chat.dart';
+import 'package:dio/dio.dart';
 import 'package:el_race/config/uaepass_config.dart';
+import 'package:el_race/core/services/mobile_device_id_service.dart';
+import 'package:el_race/core/session/post_login_setup.dart';
 import 'package:el_race/core/utils/shared_pref.dart';
 import 'package:el_race/data/services/hive_service.dart';
 import 'package:el_race/firebase_service.dart';
 import 'package:el_race/services/api_client.dart';
 import 'package:el_race/ui/presentation/signin/data/model.dart';
+import 'package:el_race/utils/api_query.dart';
 import 'package:el_race/utils/string_utils.dart';
 import 'package:el_race/utils/uaepass_logger.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:uuid/uuid.dart';
 
-enum AuthFailureType { existingOnly, unverified, generic, cancelled }
+enum AuthFailureType { existingOnly, unverified, generic, cancelled, noSession }
 
 class UaepassAuthResult {
   final bool isSuccess;
@@ -37,6 +36,9 @@ class UaepassAuthService {
   static const _stateKey = 'uaepass_state';
   static const _sessionKey = 'uaepass_session';
   static const _txKey = 'uaepass_tx';
+
+  static Future<UaepassAuthResult>? _activeExchange;
+  static String? _activeExchangeSession;
 
   final UaepassConfig config;
   final ApiClient apiClient;
@@ -146,13 +148,14 @@ class UaepassAuthService {
       if (session != null && session.isNotEmpty) {
         await secureStorage.write(key: _sessionKey, value: session);
         UaepassLogger.log('Session stored, proceeding to exchange');
+        UaepassLogger.logKV('session (prefix)', '${session.substring(0, session.length.clamp(0, 8))}...');
         return _exchangeSession(session);
       }
 
       if (tx != null && tx.isNotEmpty) {
         await secureStorage.write(key: _txKey, value: tx);
-        UaepassLogger.log('Transaction stored, fetching result');
-        return _fetchResultByTransaction(tx);
+        UaepassLogger.log('Transaction stored, exchanging as session');
+        return _exchangeSession(tx);
       }
 
       // Check for error codes in the deep link (e.g. NOT_ELIGIBLE, EXISTING_USERS_ONLY)
@@ -173,7 +176,17 @@ class UaepassAuthService {
     }
 
     UaepassLogger.log('Using polling fallback');
-    return _pollForResult();
+    final session = await secureStorage.read(key: _sessionKey);
+    final tx = await secureStorage.read(key: _txKey);
+    final pollKey = (session != null && session.isNotEmpty)
+        ? session
+        : (tx != null && tx.isNotEmpty)
+            ? tx
+            : null;
+    if (pollKey == null) {
+      return const UaepassAuthResult.failure(AuthFailureType.noSession);
+    }
+    return _pollForResult(pollKey: pollKey);
   }
 
   AuthFailureType mapBackendErrorToFailureType({
@@ -204,41 +217,48 @@ class UaepassAuthService {
     return AuthFailureType.generic;
   }
 
-  /// Try to finalize login from stored session/tx data
+  /// Try to finalize login from stored session/tx/state data
   /// Called when user taps "I have approved in UAE PASS" button
-  /// 
-  /// Flow:
-  /// 1. Check secure storage for session → exchange it
-  /// 2. Check secure storage for tx → fetch result
-  /// 3. If polling is enabled → poll for result
-  /// 4. Otherwise → return generic failure
   Future<UaepassAuthResult> tryFinalizeFromStoredData() async {
     UaepassLogger.logSection('TRY FINALIZE FROM STORED DATA');
 
-    // Check for stored session
     final session = await secureStorage.read(key: _sessionKey);
     if (session != null && session.isNotEmpty) {
       UaepassLogger.log('Found stored session, exchanging...');
-      return _exchangeSession(session);
+      UaepassLogger.logKV('session (prefix)', '${session.substring(0, 8)}...');
+      final result = await _exchangeSession(session);
+      if (result.isSuccess || result.failureType != AuthFailureType.generic) {
+        return result;
+      }
     }
 
-    // Check for stored transaction
     final tx = await secureStorage.read(key: _txKey);
-    if (tx != null && tx.isNotEmpty) {
-      UaepassLogger.log('Found stored tx, fetching result...');
-      return _fetchResultByTransaction(tx);
+    if (tx != null && tx.isNotEmpty && tx != session) {
+      UaepassLogger.log('Found stored tx, exchanging as session...');
+      UaepassLogger.logKV('tx (prefix)', '${tx.substring(0, 8)}...');
+      final result = await _exchangeSession(tx);
+      if (result.isSuccess || result.failureType != AuthFailureType.generic) {
+        return result;
+      }
     }
 
-    // Try polling if enabled
+    // OAuth state is NOT a backend session id — never send it to /mobile/session.
+    if ((session == null || session.isEmpty) && (tx == null || tx.isEmpty)) {
+      UaepassLogger.logWarning(
+        'No session from deep link yet — user must return via elrace://uaepass/success',
+      );
+      return const UaepassAuthResult.failure(AuthFailureType.noSession);
+    }
+
     if (config.enablePollingFallback) {
-      UaepassLogger.log('No stored data, trying polling...');
-      return _pollForResult();
+      final pollKey = session ?? tx;
+      if (pollKey != null && pollKey.isNotEmpty) {
+        UaepassLogger.log('Polling session exchange...');
+        return _pollForResult(pollKey: pollKey);
+      }
     }
 
-    // No data and polling disabled
-    UaepassLogger.logWarning('No stored session/tx and polling disabled');
-    UaepassLogger.log('User may need to wait for deep link callback');
-    return const UaepassAuthResult.failure(AuthFailureType.generic);
+    return const UaepassAuthResult.failure(AuthFailureType.noSession);
   }
 
   Future<void> logout() async {
@@ -259,24 +279,32 @@ class UaepassAuthService {
   }
 
   Future<UaepassAuthResult> _exchangeSession(String session) async {
+    if (_activeExchangeSession == session && _activeExchange != null) {
+      UaepassLogger.log('Reusing in-flight session exchange');
+      return _activeExchange!;
+    }
+
+    final exchange = _exchangeSessionOnce(session);
+    _activeExchangeSession = session;
+    _activeExchange = exchange;
+    try {
+      return await exchange;
+    } finally {
+      if (_activeExchangeSession == session) {
+        _activeExchange = null;
+        _activeExchangeSession = null;
+      }
+    }
+  }
+
+  Future<UaepassAuthResult> _exchangeSessionOnce(String session) async {
     UaepassLogger.logSection('API: SESSION EXCHANGE');
     try {
-      // Build device_id (same logic as regular login)
-      String deviceId = '';
-      try {
-        final deviceInfo = DeviceInfoPlugin();
-        if (Platform.isAndroid) {
-          final androidInfo = await deviceInfo.androidInfo;
-          deviceId = '${androidInfo.brand}_${androidInfo.device}_${androidInfo.id}';
-        } else if (Platform.isIOS) {
-          final iosInfo = await deviceInfo.iosInfo;
-          deviceId = '${iosInfo.name}_${iosInfo.model}_${iosInfo.utsname.machine}';
-        }
-      } catch (e) {
-        UaepassLogger.logError('Failed to get device info', e);
-      }
+      // Drop stale login payload so session exchange is not affected by old JWT.
+      await SharedPref().removePreference('loginResponse');
 
-      // Ensure FCM token is available
+      final deviceId = await MobileDeviceIdService.getOrCreate();
+
       try {
         await FirebaseService.ensureFCMToken();
       } catch (e) {
@@ -288,31 +316,44 @@ class UaepassAuthService {
         'jsonrpc': '2.0',
         'params': {
           'session': session,
-          if (deviceId.isNotEmpty) 'device_id': deviceId,
+          'device_id': deviceId,
           if (fcmTokenValue.isNotEmpty) 'fcm_token': fcmTokenValue,
         },
       };
 
       UaepassLogger.logKV('Endpoint', config.sessionExchangePath);
       UaepassLogger.logKV('Method', 'POST');
-      UaepassLogger.logKV('device_id', deviceId.isNotEmpty ? deviceId : '(empty)');
+      UaepassLogger.logKV('device_id', deviceId);
+      UaepassLogger.logKV('session (prefix)', '${session.substring(0, session.length.clamp(0, 8))}...');
       UaepassLogger.logKV('fcm_token', fcmTokenValue.isNotEmpty ? '${fcmTokenValue.substring(0, 20)}...' : '(empty)');
-      UaepassLogger.logKV('Request body keys', requestBody.keys.join(', '));
 
-      final response = await apiClient.post(
+      final apiQuery = ApiQuery();
+      const headers = {'Content-Type': 'application/json'};
+      final response = await apiQuery.postQuery(
         config.sessionExchangePath,
-        data: requestBody,
+        headers,
+        requestBody,
+        'uaepass_session',
+        true,
       );
 
-      UaepassLogger.logKV('Response status', response.statusCode);
+      UaepassLogger.logKV('Response status', response?.statusCode);
       UaepassLogger.log('Response body (masked):');
-      if (response.data is Map) {
-        UaepassLogger.log(UaepassLogger.safeJsonEncode(Map<String, dynamic>.from(response.data as Map)));
+      if (response?.data is Map) {
+        UaepassLogger.log(
+          UaepassLogger.safeJsonEncode(
+            Map<String, dynamic>.from(response!.data as Map),
+          ),
+        );
       } else {
-        UaepassLogger.logKV('Response', response.data?.toString());
+        UaepassLogger.logKV('Response', response?.data?.toString());
       }
 
-      return _parseBackendResponse(response.data, response.statusCode);
+      if (response == null || response.statusCode != 200) {
+        return const UaepassAuthResult.failure(AuthFailureType.generic);
+      }
+
+      return await _parseBackendResponse(response.data, response.statusCode);
     } catch (e) {
       UaepassLogger.logError('Session exchange error', e);
       UaepassLogger.logError('UAEPASS LOGIN FAILED', 'Session exchange exception');
@@ -320,64 +361,24 @@ class UaepassAuthService {
     }
   }
 
+  /// Backend exposes POST [sessionExchangePath] only — there is no GET result API.
+  /// Treat [tx] as a session token and exchange it.
   Future<UaepassAuthResult> _fetchResultByTransaction(String tx) async {
-    UaepassLogger.logSection('API: FETCH RESULT BY TX');
-    try {
-      UaepassLogger.logKV('Endpoint', config.resultPollingPath);
-      UaepassLogger.logKV('Method', 'GET');
-      UaepassLogger.logKV('Query param tx', tx);
-
-      final response = await apiClient.get(
-        config.resultPollingPath,
-        queryParameters: {'tx': tx},
-      );
-
-      UaepassLogger.logKV('Response status', response.statusCode);
-      UaepassLogger.log('Response body (masked):');
-      if (response.data is Map) {
-        UaepassLogger.log(UaepassLogger.safeJsonEncode(Map<String, dynamic>.from(response.data as Map)));
-      } else {
-        UaepassLogger.logKV('Response', response.data?.toString());
-      }
-
-      return _parseBackendResponse(response.data, response.statusCode);
-    } catch (e) {
-      UaepassLogger.logError('Result fetch error', e);
-      return const UaepassAuthResult.failure(AuthFailureType.generic);
-    }
+    UaepassLogger.logSection('API: EXCHANGE TX AS SESSION');
+    UaepassLogger.logKV('tx/session', tx);
+    return _exchangeSession(tx);
   }
 
-  Future<UaepassAuthResult> _pollForResult() async {
-    UaepassLogger.logSection('API: POLLING FOR RESULT');
-    final started = DateTime.now();
-    final tx = await secureStorage.read(key: _txKey) ?? _pendingState;
-
-    UaepassLogger.logKV('Transaction/State for polling', tx);
-    UaepassLogger.logKV('Polling timeout', config.pollingTimeout.toString());
-    UaepassLogger.logKV('Polling interval', config.pollingInterval.toString());
-
-    if (tx == null || tx.isEmpty) {
-      UaepassLogger.logError('No tx or state available for polling');
-      return const UaepassAuthResult.failure(AuthFailureType.generic);
-    }
-
-    int attempt = 0;
-    while (DateTime.now().difference(started) <= config.pollingTimeout) {
-      attempt++;
-      UaepassLogger.log('Polling attempt #$attempt');
-      final result = await _fetchResultByTransaction(tx);
-      if (result.isSuccess || result.failureType != AuthFailureType.generic) {
-        return result;
-      }
-      UaepassLogger.log('No result yet, waiting ${config.pollingInterval.inSeconds}s...');
-      await Future.delayed(config.pollingInterval);
-    }
-
-    UaepassLogger.logError('Polling timeout reached');
-    return const UaepassAuthResult.failure(AuthFailureType.generic);
+  Future<UaepassAuthResult> _pollForResult({required String pollKey}) async {
+    UaepassLogger.logSection('API: SINGLE SESSION EXCHANGE (one-time token)');
+    UaepassLogger.logKV('Poll session (prefix)', '${pollKey.substring(0, pollKey.length.clamp(0, 8))}...');
+    return _exchangeSession(pollKey);
   }
 
-  UaepassAuthResult _parseBackendResponse(dynamic data, int? statusCode) {
+  Future<UaepassAuthResult> _parseBackendResponse(
+    dynamic data,
+    int? statusCode,
+  ) async {
     UaepassLogger.log('Parsing backend response');
     UaepassLogger.logKV('Status code', statusCode);
 
@@ -387,16 +388,26 @@ class UaepassAuthService {
       return const UaepassAuthResult.failure(AuthFailureType.generic);
     }
 
-    final map = Map<String, dynamic>.from(data as Map);
-    final errorCode = map['error_code']?.toString() ?? map['code']?.toString();
-    final errorMessage = map['message']?.toString() ?? map['error']?.toString();
+    var map = PostLoginSetup.normalizeLoginPayload(
+      PostLoginSetup.unwrapRawResponse(Map<String, dynamic>.from(data as Map)),
+    );
+    final resultMap = map['result'];
+    final nestedResult = resultMap is Map
+        ? Map<String, dynamic>.from(resultMap)
+        : null;
+    final errorCode = map['error_code']?.toString() ??
+        nestedResult?['error_code']?.toString() ??
+        map['code']?.toString();
+    final errorMessage = map['message']?.toString() ??
+        nestedResult?['message']?.toString() ??
+        map['error']?.toString();
 
     UaepassLogger.logKV('error_code', errorCode ?? '<none>');
     UaepassLogger.logKV('message', errorMessage ?? '<none>');
 
-    final success = map['result']?['success'] == true ||
-        map['success'] == true ||
-        map['result']?['token'] != null;
+    final success = nestedResult?['success'] == true ||
+        map['result']?['success'] == true ||
+        map['success'] == true;
 
     UaepassLogger.logKV('Success flag', success);
 
@@ -415,18 +426,60 @@ class UaepassAuthService {
       );
     }
 
-    final loginResponse = _tryParseLoginResponse(map);
-    if (loginResponse == null) {
-      UaepassLogger.logError('Failed to parse LoginResponseModel');
-      UaepassLogger.logError('UAEPASS LOGIN FAILED', 'Parse error');
+    final token = nestedResult?['token'] ?? map['result']?['token'];
+    if (token == null || token.toString().isEmpty) {
+      UaepassLogger.logError('UAEPASS LOGIN FAILED', 'Missing token in response');
       return const UaepassAuthResult.failure(AuthFailureType.generic);
     }
 
-    _persistLogin(loginResponse);
+    await _persistLogin(map);
+
+    if (!PostLoginSetup.hasCompleteLoginData(map)) {
+      UaepassLogger.logWarning(
+        'Session exchange payload incomplete — hydrating from token',
+      );
+      final hydrated = await PostLoginSetup.hydrateLoginFromToken(map);
+      if (hydrated != null) {
+        map = hydrated;
+        await _persistLogin(map);
+      }
+    }
+
+    if (!PostLoginSetup.hasCompleteLoginData(map)) {
+      UaepassLogger.logError(
+        'Login payload still incomplete after hydrate',
+        'missing employee/widgets',
+      );
+      return const UaepassAuthResult.failure(AuthFailureType.generic);
+    }
+
+    final finalLoginResponse = _tryParseLoginResponse(map);
+    if (finalLoginResponse == null) {
+      return const UaepassAuthResult.failure(AuthFailureType.generic);
+    }
+
+    final dataBlock = map['result'] is Map ? map['result']['data'] : null;
+    UaepassLogger.logKV(
+      'persisted odoo_user_id',
+      dataBlock is Map ? dataBlock['odoo_user_id'] : '<no data>',
+    );
+    UaepassLogger.logKV(
+      'employee_configured',
+      dataBlock is Map ? dataBlock['employee_configured'] : '<no data>',
+    );
+    UaepassLogger.logKV(
+      'has firebase_custom_token',
+      dataBlock is Map && dataBlock['firebase_custom_token'] != null,
+    );
     UaepassLogger.logSuccess('UAEPASS LOGIN SUCCESS');
-    UaepassLogger.logKV('User ID', loginResponse.result?.data?.uid ?? loginResponse.result?.data?.emp_id);
-    UaepassLogger.logKV('Name', loginResponse.result?.data?.name);
-    return UaepassAuthResult.success(loginResponse);
+    UaepassLogger.logKV('User ID', finalLoginResponse.result?.data?.uid ?? finalLoginResponse.result?.data?.emp_id);
+    UaepassLogger.logKV('Name', finalLoginResponse.result?.data?.name);
+    final widgetKeys = finalLoginResponse.result?.data?.defaultWidgets?.data;
+    UaepassLogger.logKV(
+      'default_widgets parsed',
+      widgetKeys != null ? 'yes' : 'MISSING',
+    );
+    return UaepassAuthResult.success(finalLoginResponse);
   }
 
   String _failureTypeToString(AuthFailureType type) {
@@ -439,36 +492,28 @@ class UaepassAuthService {
         return 'CANCELLED';
       case AuthFailureType.generic:
         return 'GENERIC';
+      case AuthFailureType.noSession:
+        return 'NO_SESSION';
     }
   }
 
   LoginResponseModel? _tryParseLoginResponse(Map<String, dynamic> map) {
     try {
-      if (map.containsKey('result')) {
-        return LoginResponseModel.fromJson(map);
+      final normalized = PostLoginSetup.normalizeLoginPayload(map);
+      if (normalized.containsKey('result')) {
+        return LoginResponseModel.fromJson(normalized);
       }
-      if (map.containsKey('loginResponse')) {
+      if (normalized.containsKey('loginResponse')) {
         return LoginResponseModel.fromJson(
-          Map<String, dynamic>.from(map['loginResponse'] as Map),
+          Map<String, dynamic>.from(normalized['loginResponse'] as Map),
         );
       }
     } catch (_) {}
     return null;
   }
 
-  Future<void> _persistLogin(LoginResponseModel loginResponse) async {
-    await SharedPref().setPreferencesString(
-      'loginResponse',
-      jsonEncode(loginResponse.toJson()),
-    );
-    await SharedPref().setPreferencesBoolean('isRegistered', true);
-    await HiveService.setUserLoggedIn(true);
-
-    // Initialize chat module immediately after login
-    ChatModuleHelper.instance
-        .initializeFromLoginResponse(loginResponse.toJson())
-        .then((_) => print('✅ Chat initialized after UAE PASS login'))
-        .catchError((e) => print('⚠️ Chat init after UAE PASS login failed: $e'));
+  Future<void> _persistLogin(Map<String, dynamic> rawJsonRpc) async {
+    await PostLoginSetup.persistLoginResponse(rawJsonRpc);
   }
 
   bool _isCancelled(Uri uri) {

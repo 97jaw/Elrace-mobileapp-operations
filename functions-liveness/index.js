@@ -1,6 +1,6 @@
 /**
- * Isolated codebase: deploy only to asia-south1.
- * Avoids me-central-1 upload 403 when main functions use setGlobalOptions(me-central-1).
+ * Isolated codebase: deploy only to asia-south1, close to the AWS Rekognition
+ * region (ap-south-1) these callables proxy to.
  *
  * Deploy:
  *   firebase deploy --only functions:liveness:createFaceLivenessSession,functions:liveness:getFaceLivenessSessionResults

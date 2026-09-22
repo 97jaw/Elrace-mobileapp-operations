@@ -67,6 +67,15 @@ class _UaepassLoggingInterceptor extends Interceptor {
 class AuthInterceptor extends Interceptor {
   @override
   void onRequest(RequestOptions options, RequestInterceptorHandler handler) {
+    final path = options.uri.path.toLowerCase();
+    // Pre-login endpoints must not attach a stale Bearer token from prefs.
+    if (path.contains('uaepass/mobile/session') ||
+        path.contains('login/new') ||
+        path.contains('/api/login/new')) {
+      handler.next(options);
+      return;
+    }
+
     if (!options.headers.containsKey('Authorization')) {
       final token = SharedPref.getLoginDataOrNull()?.result?.token;
       if (token != null && token.isNotEmpty) {

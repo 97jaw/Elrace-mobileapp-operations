@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import 'package:el_race/core/timesheet/services/timesheet_acting_scope.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 
 enum TimesheetOfflineQueueType {
@@ -55,6 +56,11 @@ class TimesheetOfflineQueueService {
   static const String boxName = 'timesheet_offline_queue';
 
   Future<void> enqueue(TimesheetOfflineQueueItem item) async {
+    if (TimesheetActingScope.refusePersist(
+      'TimesheetOfflineQueueService.enqueue',
+    )) {
+      return;
+    }
     final box = await _openBox();
     await box.put(item.id, item.toJson());
   }

@@ -30,6 +30,7 @@ import {
   ref as storageRef,
   uploadBytes,
   getBytes,
+  deleteObject,
 } from 'firebase/storage';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -448,6 +449,52 @@ describe('Firestore chat security', () => {
       }),
     );
   });
+
+  it('allows sender soft-delete within 10 minutes', async () => {
+    await assertSucceeds(
+      updateDoc(doc(aliceFs(), 'chats', DM_AB, 'messages', 'm1'), {
+        status: 'deleted',
+        text: '',
+        media_url: null,
+        media_path: null,
+        thumb_url: null,
+        deleted_at: Timestamp.now(),
+      }),
+    );
+  });
+
+  it('denies peer soft-delete of another user message', async () => {
+    await testEnv.withSecurityRulesDisabled(async (ctx) => {
+      await setDoc(doc(ctx.firestore(), 'chats', DM_AB, 'messages', 'm_peer'), {
+        sender_id: ALICE,
+        type: 'text',
+        text: 'mine',
+        created_at: Timestamp.now(),
+        status: 'sent',
+      });
+    });
+    await assertFails(
+      updateDoc(doc(bobFs(), 'chats', DM_AB, 'messages', 'm_peer'), {
+        status: 'deleted',
+        text: '',
+      }),
+    );
+  });
+
+  it('allows self member receipt timestamps and denies forged peer receipts', async () => {
+    await assertSucceeds(
+      updateDoc(doc(aliceFs(), 'chats', DM_AB, 'members', ALICE), {
+        last_read_at: Timestamp.now(),
+        last_delivered_at: Timestamp.now(),
+      }),
+    );
+    await assertFails(
+      updateDoc(doc(aliceFs(), 'chats', DM_AB, 'members', BOB), {
+        last_read_at: Timestamp.now(),
+        last_delivered_at: Timestamp.now(),
+      }),
+    );
+  });
 });
 
 describe('RTDB presence/typing security', () => {
@@ -538,6 +585,216 @@ describe('Storage chat_media security', () => {
         storageRef(alice, `chat_media/${DM_AB}/m1/ok.pdf`),
         bytes,
         { contentType: 'application/pdf' },
+      ),
+    );
+  });
+
+  it('allows member media read via members/{uid} when member_ids lags', async () => {
+    const lagChat = 'dm_odoo_100_odoo_300';
+    const charlie = 'odoo_300';
+    await testEnv.withSecurityRulesDisabled(async (ctx) => {
+      const db = ctx.firestore();
+      await setDoc(doc(db, 'chats', lagChat), {
+        type: 'dm',
+        dm_pair: [ALICE, charlie],
+        // member_ids intentionally missing / empty — Hub race case
+      });
+      await setDoc(doc(db, 'chats', lagChat, 'members', ALICE), {
+        joined_at: new Date(),
+        muted: false,
+      });
+      await setDoc(doc(db, 'chats', lagChat, 'members', charlie), {
+        joined_at: new Date(),
+        muted: false,
+      });
+    });
+
+    const alice = testEnv.authenticatedContext(ALICE, ALICE_CLAIMS).storage();
+    const path = `chat_media/${lagChat}/hub_voice_1/voice.webm`;
+    await assertSucceeds(
+      uploadBytes(storageRef(alice, path), bytes, {
+        contentType: 'audio/webm',
+      }),
+    );
+    await assertSucceeds(getBytes(storageRef(alice, path)));
+  });
+
+  it('allows DM peer media via dm_pair without members doc', async () => {
+    const pairChat = 'dm_odoo_100_odoo_400';
+    const dana = 'odoo_400';
+    await testEnv.withSecurityRulesDisabled(async (ctx) => {
+      await setDoc(doc(ctx.firestore(), 'chats', pairChat), {
+        type: 'dm',
+        dm_pair: [ALICE, dana],
+      });
+    });
+
+    const alice = testEnv.authenticatedContext(ALICE, ALICE_CLAIMS).storage();
+    const path = `chat_media/${pairChat}/hub_msg/voice.webm`;
+    await assertSucceeds(
+      uploadBytes(storageRef(alice, path), bytes, {
+        contentType: 'audio/webm',
+      }),
+    );
+  });
+
+  it('allows sender to delete own message media object', async () => {
+    const alice = testEnv.authenticatedContext(ALICE, ALICE_CLAIMS).storage();
+    const path = `chat_media/${DM_AB}/m1/voice-delete.webm`;
+    await assertSucceeds(
+      uploadBytes(storageRef(alice, path), bytes, {
+        contentType: 'audio/webm',
+      }),
+    );
+    await assertSucceeds(deleteObject(storageRef(alice, path)));
+  });
+
+  it('denies non-sender media delete', async () => {
+    const alice = testEnv.authenticatedContext(ALICE, ALICE_CLAIMS).storage();
+    const bob = testEnv.authenticatedContext(BOB, BOB_CLAIMS).storage();
+    const path = `chat_media/${DM_AB}/m1/alice-only.pdf`;
+    await assertSucceeds(
+      uploadBytes(storageRef(alice, path), bytes, {
+        contentType: 'application/pdf',
+      }),
+    );
+    await assertFails(deleteObject(storageRef(bob, path)));
+  });
+});
+
+describe('Storage feature media security', () => {
+  const pdfBytes = Buffer.from('%PDF-1.4 fake');
+  const audioBytes = Buffer.from('fake-m4a');
+  const imageBytes = Buffer.from('fake-jpeg');
+
+  const NOTE_ID = 'note_1';
+  const DOC_ID = 'doc_1';
+  const TASK_ID = 'task_1';
+
+  function aliceStorage() {
+    return testEnv.authenticatedContext(ALICE, ALICE_CLAIMS).storage();
+  }
+  function bobStorage() {
+    return testEnv.authenticatedContext(BOB, BOB_CLAIMS).storage();
+  }
+
+  it('allows owner to upload and read notes audio', async () => {
+    const path = `chat_media/notes/${ALICE}/${NOTE_ID}/audio.m4a`;
+    await assertSucceeds(
+      uploadBytes(storageRef(aliceStorage(), path), audioBytes, {
+        contentType: 'audio/mp4',
+      }),
+    );
+    await assertSucceeds(getBytes(storageRef(aliceStorage(), path)));
+  });
+
+  it('allows owner to upload nested notes images', async () => {
+    const path = `chat_media/notes/${ALICE}/${NOTE_ID}/images/img1.jpg`;
+    await assertSucceeds(
+      uploadBytes(storageRef(aliceStorage(), path), imageBytes, {
+        contentType: 'image/jpeg',
+      }),
+    );
+  });
+
+  it('denies another user reading or writing notes media', async () => {
+    const path = `chat_media/notes/${ALICE}/${NOTE_ID}/audio.m4a`;
+    await testEnv.withSecurityRulesDisabled(async (ctx) => {
+      await uploadBytes(storageRef(ctx.storage(), path), audioBytes, {
+        contentType: 'audio/mp4',
+      });
+    });
+    await assertFails(getBytes(storageRef(bobStorage(), path)));
+    await assertFails(
+      uploadBytes(storageRef(bobStorage(), path), audioBytes, {
+        contentType: 'audio/mp4',
+      }),
+    );
+  });
+
+  it('denies a non-audio/image content type on notes media', async () => {
+    await assertFails(
+      uploadBytes(
+        storageRef(aliceStorage(), `chat_media/notes/${ALICE}/${NOTE_ID}/evil.html`),
+        pdfBytes,
+        { contentType: 'text/html' },
+      ),
+    );
+  });
+
+  it('allows owner to upload a signature document PDF', async () => {
+    await assertSucceeds(
+      uploadBytes(
+        storageRef(
+          aliceStorage(),
+          `chat_media/signature_docs/${ALICE}/${DOC_ID}/original_contract.pdf`,
+        ),
+        pdfBytes,
+        { contentType: 'application/pdf' },
+      ),
+    );
+  });
+
+  it('denies a non-owner writing into the signature library', async () => {
+    await assertFails(
+      uploadBytes(
+        storageRef(
+          bobStorage(),
+          `chat_media/signature_docs/${ALICE}/${DOC_ID}/evil.pdf`,
+        ),
+        pdfBytes,
+        { contentType: 'application/pdf' },
+      ),
+    );
+  });
+
+  it('allows the named recipient to read a signature document, and denies others', async () => {
+    const path = `chat_media/signature_docs/${ALICE}/${DOC_ID}/original_contract.pdf`;
+    await testEnv.withSecurityRulesDisabled(async (ctx) => {
+      await setDoc(
+        doc(ctx.firestore(), 'users', ALICE, 'signature_documents', DOC_ID),
+        {
+          owner_uid: ALICE,
+          recipient_uid: BOB,
+          file_name: 'contract.pdf',
+        },
+      );
+      await uploadBytes(storageRef(ctx.storage(), path), pdfBytes, {
+        contentType: 'application/pdf',
+      });
+    });
+
+    await assertSucceeds(getBytes(storageRef(bobStorage(), path)));
+
+    const eve = testEnv.authenticatedContext(EVE, EVE_CLAIMS).storage();
+    await assertFails(getBytes(storageRef(eve, path)));
+  });
+
+  it('allows a signed-in user to upload and read a task voice comment', async () => {
+    const path = `voice_comments/${TASK_ID}/voice_1.m4a`;
+    await assertSucceeds(
+      uploadBytes(storageRef(aliceStorage(), path), audioBytes, {
+        contentType: 'audio/mp4',
+      }),
+    );
+    await assertSucceeds(getBytes(storageRef(bobStorage(), path)));
+  });
+
+  it('denies a non-audio task voice comment and unauthenticated access', async () => {
+    await assertFails(
+      uploadBytes(
+        storageRef(aliceStorage(), `voice_comments/${TASK_ID}/evil.pdf`),
+        pdfBytes,
+        { contentType: 'application/pdf' },
+      ),
+    );
+
+    const anon = testEnv.unauthenticatedContext().storage();
+    await assertFails(
+      uploadBytes(
+        storageRef(anon, `voice_comments/${TASK_ID}/anon.m4a`),
+        audioBytes,
+        { contentType: 'audio/mp4' },
       ),
     );
   });

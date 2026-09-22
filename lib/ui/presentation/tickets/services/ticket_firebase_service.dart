@@ -1,4 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:el_race/core/firebase/firebase_session.dart';
 import 'package:el_race/core/utils/shared_pref.dart';
 import 'package:el_race/ui/presentation/tickets/data/ticket_model.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -15,18 +16,8 @@ class TicketFirebaseService {
     return SharedPref.getLoginData().result?.data?.firebase_uid;
   }
 
-  Future<void> _ensureSignedIn() async {
-    if (FirebaseAuth.instance.currentUser != null) return;
-    final customToken =
-        SharedPref.getLoginData().result?.data?.firebase_custom_token;
-    if (customToken != null &&
-        customToken.isNotEmpty &&
-        customToken != 'false') {
-      try {
-        await FirebaseAuth.instance.signInWithCustomToken(customToken);
-      } catch (_) {}
-    }
-  }
+  Future<void> _ensureSignedIn() =>
+      FirebaseSession.instance.ensureSignedInOrNull();
 
   CollectionReference<Map<String, dynamic>> _tickets(String uid) =>
       _firestore.collection('users').doc(uid).collection('tickets');

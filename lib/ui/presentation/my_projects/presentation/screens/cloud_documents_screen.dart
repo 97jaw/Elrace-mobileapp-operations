@@ -13,6 +13,7 @@ import 'package:el_race/ui/presentation/my_projects/presentation/widgets/project
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:el_race/ui/presentation/my_projects/projects_module.dart';
 
 /// SharePoint folders and files for a project.
 class CloudDocumentsScreen extends StatefulWidget {
@@ -21,6 +22,7 @@ class CloudDocumentsScreen extends StatefulWidget {
     required this.projectId,
     this.folderId,
     this.folderName,
+    this.driveId,
     this.folderType,
     this.breadcrumbs = const [],
   });
@@ -28,6 +30,7 @@ class CloudDocumentsScreen extends StatefulWidget {
   final int projectId;
   final String? folderId;
   final String? folderName;
+  final String? driveId;
   final String? folderType;
   final List<ProjectDocumentsBreadcrumb> breadcrumbs;
 
@@ -36,7 +39,7 @@ class CloudDocumentsScreen extends StatefulWidget {
 }
 
 class _CloudDocumentsScreenState extends State<CloudDocumentsScreen> {
-  final ProjectRemoteDataSource _dataSource = ProjectRemoteDataSource();
+  final ProjectRemoteDataSource _dataSource = ProjectsModule.remote;
 
   bool _isLoading = true;
   String? _error;
@@ -55,10 +58,11 @@ class _CloudDocumentsScreenState extends State<CloudDocumentsScreen> {
     });
 
     try {
-      if (widget.folderId != null) {
+      if (widget.folderId != null && widget.folderId!.trim().isNotEmpty) {
         final response = await _dataSource.fetchFolderContents(
           widget.projectId,
           widget.folderId!,
+          driveId: widget.driveId,
         );
         _items = response.items;
       } else {
@@ -75,12 +79,29 @@ class _CloudDocumentsScreenState extends State<CloudDocumentsScreen> {
       if (!mounted) return;
       setState(() {
         _isLoading = false;
-        _error = e.toString();
+        _error = _friendlyError(e);
       });
     }
   }
 
+  String _friendlyError(Object e) {
+    var text = e.toString().trim();
+    if (text.startsWith('Exception: ')) {
+      text = text.substring('Exception: '.length).trim();
+    }
+    if (text.isEmpty || text == 'null' || text == '""') {
+      return 'SharePoint authentication failed. Check Microsoft 365 credentials on the company in Odoo.';
+    }
+    return text;
+  }
+
   void _onFolderTap(ProjectDocumentItem folder) {
+    if (folder.id.trim().isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Folder id is missing from SharePoint.')),
+      );
+      return;
+    }
     final nextTrail = [
       ..._trail,
       ProjectDocumentsBreadcrumb.sharePointFolder(folder.name),
@@ -90,6 +111,7 @@ class _CloudDocumentsScreenState extends State<CloudDocumentsScreen> {
       projectId: widget.projectId,
       folderId: folder.id,
       folderName: folder.name,
+      driveId: folder.driveId ?? widget.driveId,
       folderType: widget.folderType,
       breadcrumbs: nextTrail,
     );
@@ -110,21 +132,24 @@ class _CloudDocumentsScreenState extends State<CloudDocumentsScreen> {
       final response = await _dataSource.fetchFileDetails(
         widget.projectId,
         file.id,
+        driveId: file.driveId ?? widget.driveId,
       );
 
-      if (mounted && isLoadingDialogVisible) {
-        Navigator.pop(context);
-        isLoadingDialogVisible = false;
-      }
-
-      final resolvedUrl = response.viewUrl.isNotEmpty
-          ? response.viewUrl
-          : (response.downloadUrl.isNotEmpty
-              ? response.downloadUrl
+      // Prefer Graph download URL (raw PDF bytes) over SharePoint web view URL
+      // (HTML page) so in-app preview matches Work Order / Estimation PDFs.
+      final resolvedUrl = response.downloadUrl.isNotEmpty
+          ? response.downloadUrl
+          : (response.viewUrl.isNotEmpty
+              ? response.viewUrl
               : (file.downloadUrl ?? ''));
 
       if (resolvedUrl.isEmpty) {
         throw Exception('No file URL returned from server');
+      }
+
+      if (mounted && isLoadingDialogVisible) {
+        Navigator.pop(context);
+        isLoadingDialogVisible = false;
       }
 
       if (!mounted) return;

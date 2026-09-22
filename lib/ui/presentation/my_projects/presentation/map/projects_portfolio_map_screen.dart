@@ -2,21 +2,15 @@ import 'package:el_race/core/utils/responsive_breakpoints.dart';
 import 'package:el_race/core/widgets/map/app_map_tiles.dart';
 import 'dart:math' as math;
 
-import 'package:el_race/ui/presentation/my_projects/data/datasources/project_remote_datasource.dart';
-import 'package:el_race/ui/presentation/my_projects/data/repositories/project_repository_impl.dart';
 import 'package:el_race/ui/presentation/my_projects/domain/entities/project_entity.dart';
-import 'package:el_race/ui/presentation/my_projects/domain/usecases/get_projects_by_filters_usecase.dart';
-import 'package:el_race/ui/presentation/my_projects/domain/usecases/get_projects_by_partner_usecase.dart';
-import 'package:el_race/ui/presentation/my_projects/domain/usecases/get_projects_usecase.dart';
-import 'package:el_race/ui/presentation/my_projects/presentation/bloc/project_list_bloc.dart';
 import 'package:el_race/ui/presentation/my_projects/presentation/map/portfolio_project_status.dart';
-import 'package:el_race/ui/presentation/my_projects/presentation/map/project_analytics_screen.dart';
 import 'package:el_race/ui/presentation/my_projects/presentation/map/project_map_coordinate_resolver.dart';
 import 'package:el_race/ui/presentation/my_projects/presentation/utils/projects_list_pagination.dart';
-import 'package:el_race/ui/presentation/my_projects/presentation/widgets/project_documents_dialog.dart';
+import 'package:el_race/ui/presentation/my_projects/projects_module.dart';
 import 'package:el_race/utils/color_utils.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
+import 'package:geolocator/geolocator.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 import 'package:latlong2/latlong.dart';
@@ -70,7 +64,7 @@ class _ProjectsPortfolioMapScreenState extends State<ProjectsPortfolioMapScreen>
       _error = null;
     });
     try {
-      final raw = await ProjectRemoteDataSource().fetchProjects(
+      final raw = await ProjectsModule.remote.fetchProjects(
         maxItems: kProjectsMapMaxProjects,
       );
       if (!mounted) return;
@@ -122,19 +116,6 @@ class _ProjectsPortfolioMapScreenState extends State<ProjectsPortfolioMapScreen>
       return bd.compareTo(ad);
     });
     return items.take(8).toList();
-  }
-
-  ProjectListBloc _buildBloc() {
-    final repo = ProjectRepositoryImpl(ProjectRemoteDataSource());
-    return ProjectListBloc(
-      getProjectsUseCase: GetProjectsUseCase(repository: repo),
-      getProjectAttachmentsUseCase:
-          GetProjectAttachmentsUseCase(repository: repo),
-      getProjectsByPartnerUseCase:
-          GetProjectsByPartnerUseCase(repository: repo),
-      getProjectsByFiltersUseCase:
-          GetProjectsByFiltersUseCase(repository: repo),
-    );
   }
 
   String _money(ProjectEntity p) {
@@ -332,38 +313,15 @@ class _ProjectsPortfolioMapScreenState extends State<ProjectsPortfolioMapScreen>
                   ),
                   SizedBox(height: 16.th),
                   _gradientActionButton(
-                    icon: Icons.cloud_queue_rounded,
-                    title: 'Documents',
+                    icon: Icons.share_location_rounded,
+                    title: 'Share Location',
                     colors: const [
                       Color(0xFF11998E),
                       Color(0xFF38EF7D),
                     ],
                     onTap: () {
                       Navigator.pop(ctx);
-                      ProjectDocumentsDialog.show(
-                        context,
-                        projectId: project.projectId,
-                        bloc: _buildBloc(),
-                      );
-                    },
-                  ),
-                  SizedBox(height: 10.th),
-                  _gradientActionButton(
-                    icon: Icons.analytics_rounded,
-                    title: 'View Project Analytics',
-                    colors: const [
-                      Color(0xFF6A11CB),
-                      Color(0xFF2575FC),
-                      Color(0xFF00C6FF),
-                    ],
-                    onTap: () {
-                      Navigator.pop(ctx);
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) => ProjectAnalyticsScreen(project: project),
-                        ),
-                      );
+                      _openDirectionsToProject(project);
                     },
                   ),
                 ],
@@ -373,6 +331,61 @@ class _ProjectsPortfolioMapScreenState extends State<ProjectsPortfolioMapScreen>
         );
       },
     );
+  }
+
+  Future<void> _openDirectionsToProject(ProjectEntity project) async {
+    final destination = projectRealLatLng(project);
+    if (destination == null) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Project coordinates are not available.'),
+        ),
+      );
+      return;
+    }
+
+    LatLng? origin;
+    try {
+      final serviceEnabled = await Geolocator.isLocationServiceEnabled();
+      if (serviceEnabled) {
+        var permission = await Geolocator.checkPermission();
+        if (permission == LocationPermission.denied) {
+          permission = await Geolocator.requestPermission();
+        }
+        if (permission == LocationPermission.whileInUse ||
+            permission == LocationPermission.always) {
+          final position = await Geolocator.getCurrentPosition(
+            locationSettings: const LocationSettings(
+              accuracy: LocationAccuracy.high,
+            ),
+          );
+          origin = LatLng(position.latitude, position.longitude);
+        }
+      }
+    } catch (_) {
+      // Fall through to destination-only maps URL.
+    }
+
+    final uri = origin == null
+        ? Uri.parse(
+            'https://www.google.com/maps/dir/?api=1'
+            '&destination=${destination.latitude},${destination.longitude}'
+            '&travelmode=driving',
+          )
+        : Uri.parse(
+            'https://www.google.com/maps/dir/?api=1'
+            '&origin=${origin.latitude},${origin.longitude}'
+            '&destination=${destination.latitude},${destination.longitude}'
+            '&travelmode=driving',
+          );
+
+    final launched = await launchUrl(uri, mode: LaunchMode.externalApplication);
+    if (!launched && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Could not open Google Maps.')),
+      );
+    }
   }
 
   Future<void> _handleProjectLongPress(ProjectEntity project) async {
@@ -1189,77 +1202,83 @@ class _SupervisorMapAvatar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Container(
-          width: 36,
-          height: 36,
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            border: Border.all(color: const Color(0xFF1E3A8A), width: 2),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.2),
-                blurRadius: 8,
-                offset: const Offset(0, 2),
-              ),
-            ],
+    // Marker size is fixed (150x50). Avoid ScreenUtil here — .tw/.tsp can
+    // push the Row past the marker box and overflow on long-press.
+    return SizedBox(
+      width: 150,
+      height: 50,
+      child: Row(
+        children: [
+          Container(
+            width: 36,
+            height: 36,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              border: Border.all(color: const Color(0xFF1E3A8A), width: 2),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.2),
+                  blurRadius: 8,
+                  offset: const Offset(0, 2),
+                ),
+              ],
+            ),
+            child: ClipOval(
+              child: (supervisor.photo != null && supervisor.photo!.isNotEmpty)
+                  ? Image.network(
+                      supervisor.photo!,
+                      fit: BoxFit.cover,
+                      errorBuilder: (_, __, ___) =>
+                          const Icon(Icons.person_rounded, size: 20),
+                    )
+                  : const Icon(Icons.person_rounded, size: 20),
+            ),
           ),
-          child: ClipOval(
-            child: (supervisor.photo != null && supervisor.photo!.isNotEmpty)
-                ? Image.network(
-                    supervisor.photo!,
-                    fit: BoxFit.cover,
-                    errorBuilder: (_, __, ___) => const Icon(Icons.person_rounded),
-                  )
-                : const Icon(Icons.person_rounded),
-          ),
-        ),
-        SizedBox(width: 4.tw),
-        Container(
-          constraints: BoxConstraints(maxWidth: 105.tw),
-          padding: EdgeInsets.symmetric(horizontal: 7.tw, vertical: 3.th),
-          decoration: BoxDecoration(
-            color: Colors.white.withValues(alpha: 0.96),
-            borderRadius: BorderRadius.circular(14.tr),
-            border: Border.all(color: const Color(0xFFC7D2FE)),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.1),
-                blurRadius: 6,
-                offset: const Offset(0, 2),
-              ),
-            ],
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Flexible(
-                child: Text(
-                  supervisor.employeeName,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: GoogleFonts.poppins(
-                    fontSize: 8.5.tsp,
-                    fontWeight: FontWeight.w700,
-                    color: const Color(0xFF1F2937),
+          const SizedBox(width: 4),
+          Expanded(
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+              decoration: BoxDecoration(
+                color: Colors.white.withValues(alpha: 0.96),
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(color: const Color(0xFFC7D2FE)),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.1),
+                    blurRadius: 6,
+                    offset: const Offset(0, 2),
                   ),
-                ),
+                ],
               ),
-              SizedBox(width: 4.tw),
-              Text(
-                '${distanceMeters}m',
-                style: GoogleFonts.poppins(
-                  fontSize: 7.5.tsp,
-                  fontWeight: FontWeight.w700,
-                  color: const Color(0xFF1D4ED8),
-                ),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      supervisor.employeeName,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: GoogleFonts.poppins(
+                        fontSize: 9,
+                        fontWeight: FontWeight.w700,
+                        color: const Color(0xFF1F2937),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 4),
+                  Text(
+                    '${distanceMeters}m',
+                    style: GoogleFonts.poppins(
+                      fontSize: 8,
+                      fontWeight: FontWeight.w700,
+                      color: const Color(0xFF1D4ED8),
+                    ),
+                  ),
+                ],
               ),
-            ],
+            ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 }

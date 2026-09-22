@@ -14,6 +14,8 @@ class ProductivityGlassHeader extends StatelessWidget {
     this.bottom,
     this.tabsHeight,
     this.trailing = const [],
+    this.transparentGlassBar = false,
+    this.scrimTopOpacity,
   });
 
   final String? title;
@@ -23,6 +25,8 @@ class ProductivityGlassHeader extends StatelessWidget {
   final Widget? bottom;
   final double? tabsHeight;
   final List<Widget> trailing;
+  final bool transparentGlassBar;
+  final double? scrimTopOpacity;
 
   @override
   Widget build(BuildContext context) {
@@ -35,8 +39,9 @@ class ProductivityGlassHeader extends StatelessWidget {
       tabsHeight: tabsHeight,
       trailing: trailing,
       onLightSurface: true,
+      transparentGlassBar: transparentGlassBar,
       scrimColor: ProductivityTheme.hubBackground,
-      scrimTopOpacity: 0.35,
+      scrimTopOpacity: scrimTopOpacity ?? 0.35,
     );
   }
 }
