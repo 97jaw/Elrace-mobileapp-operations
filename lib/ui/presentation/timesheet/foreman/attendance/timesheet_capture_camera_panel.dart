@@ -1193,9 +1193,12 @@ class TimesheetCaptureCameraPanelState extends State<TimesheetCaptureCameraPanel
             (camera) => camera.lensDirection == CameraLensDirection.back,
             orElse: () => cameras.first,
           );
+      // Attendance ML path (detect → JPEG → PAD → FaceNet) is heavy on Android
+      // YUV frames. Prefer `high` over `max` to cut buffer size / encode cost on
+      // mid- and low-end devices while keeping face match quality close to iOS.
       final controller = CameraController(
         selected,
-        Platform.isIOS ? ResolutionPreset.high : ResolutionPreset.max,
+        ResolutionPreset.high,
         enableAudio: false,
         imageFormatGroup:
             Platform.isAndroid ? ImageFormatGroup.yuv420 : null,
