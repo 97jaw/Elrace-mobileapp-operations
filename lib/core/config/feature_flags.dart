@@ -7,12 +7,11 @@ import 'package:flutter/foundation.dart';
 class FeatureFlags {
   /// Show "Sign in with UAE PASS" on the login screen.
   ///
-  /// Default `false` so App Store / production builds hide the button.
-  /// TestFlight (UAE PASS QA):
-  /// `flutter build ipa --release --dart-define=SHOW_UAEPASS_BUTTON=true`
+  /// Default `true` so production / TestFlight builds show the button.
+  /// Hide if needed: `--dart-define=SHOW_UAEPASS_BUTTON=false`
   static const bool showUaepassButton = bool.fromEnvironment(
     'SHOW_UAEPASS_BUTTON',
-    defaultValue: false,
+    defaultValue: true,
   );
 
   /// Enable the on-device attendance biometric flow (default false).
