@@ -23,8 +23,10 @@ import 'package:el_race/core/utils/shared_pref.dart';
 import 'package:el_race/ui/presentation/timesheet/timesheet_route_args.dart';
 import 'package:el_race/ui/presentation/timesheet/widgets/face_recognition/tm_face_mesh_painter.dart';
 import 'package:el_race/ui/presentation/timesheet/widgets/face_recognition/tm_aws_face_liveness_screen.dart';
+import 'package:device_info_plus/device_info_plus.dart';
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
+import 'package:image/image.dart' as img;
 import 'package:phosphor_flutter/phosphor_flutter.dart';
 
 /// Live chrome state for parent-built overlays (Add timesheet full screen).
@@ -196,6 +198,9 @@ class TimesheetCaptureCameraPanel extends StatefulWidget {
 }
 
 class TimesheetCaptureCameraPanelState extends State<TimesheetCaptureCameraPanel> {
+  static const double _minSupportedAndroidRamGb = 4.5;
+  static const int _minSupportedAndroidCpuCores = 6;
+  static const double _lowTierAndroidRamGb = 6.5;
   static const Duration _streamDetectInterval = Duration(milliseconds: 280);
   static const Duration _streamDetectIntervalFast = Duration(milliseconds: 180);
   static const Duration _previewMatchInterval = Duration(milliseconds: 550);
@@ -204,6 +209,8 @@ class TimesheetCaptureCameraPanelState extends State<TimesheetCaptureCameraPanel
   static const Duration _autoCaptureHoldLocked = Duration(milliseconds: 220);
   static const Duration _previewSuppressAfterMiss = Duration(milliseconds: 900);
   static const Duration _shutterSettleDelay = Duration(milliseconds: 120);
+  /// Clear badge if no qualifying embed for this long (Task 6).
+  static const Duration _badgeStaleTimeout = Duration(milliseconds: 400);
 
   final TimesheetFaceCaptureService _faceService = TimesheetFaceCaptureService();
   final TimesheetCaptureQueueService _queueService =
@@ -229,6 +236,7 @@ class TimesheetCaptureCameraPanelState extends State<TimesheetCaptureCameraPanel
   bool _isInitializingCamera = false;
   bool _isDetectingFrame = false;
   bool _isStreaming = false;
+  bool _lowEndDeviceMode = false;
   bool _iosPollingDetection = false;
   bool _cameraInitInFlight = false;
   String? _cameraError;
@@ -241,22 +249,21 @@ class TimesheetCaptureCameraPanelState extends State<TimesheetCaptureCameraPanel
   DateTime? _autoCaptureCooldownUntil;
   TimesheetFaceOverlayHint? _liveOverlayHint;
   int? _livePreviewEmployeeId;
+  double _livePreviewScore = 0;
   bool _livePreviewBlockCapture = false;
   bool _livePreviewAllowAutoCapture = false;
+  int? _previewCandidateEmployeeId;
+  int _previewCandidateHits = 0;
+  DateTime _previewCandidateSeenAt = DateTime.fromMillisecondsSinceEpoch(0);
+  DateTime _lastRingSampleAt = DateTime.fromMillisecondsSinceEpoch(0);
   bool _previewMatchInFlight = false;
   DateTime _lastPreviewMatchAt = DateTime.fromMillisecondsSinceEpoch(0);
   DateTime? _suppressEmbeddingPreviewUntil;
+  /// Last time a display-threshold match refreshed the badge (Task 6).
+  DateTime? _lastBadgeQualifyingAt;
   int _consecutiveReadyFrames = 0;
-  bool _layer1InFlight = false;
-  DateTime _lastLayer1At = DateTime.fromMillisecondsSinceEpoch(0);
   bool _awsLivenessLaunched = false;
   bool _verificationInFlight = false;
-  bool _captureAfterVerifyInFlight = false;
-  final List<BurstFrameSample> _burstSamples = [];
-  DateTime _lastBurstFrameAt = DateTime.fromMillisecondsSinceEpoch(0);
-  DateTime? _burstStartedAt;
-  int _consecutiveReadyForBurst = 0;
-  bool _pendingLivenessAutoRestart = false;
   final List<BurstFrameSample> _streamSampleRing = [];
   LivenessGateSnapshot _livenessSnapshot = const LivenessGateSnapshot(
     phase: LivenessGatePhase.idle,
@@ -264,17 +271,47 @@ class TimesheetCaptureCameraPanelState extends State<TimesheetCaptureCameraPanel
   );
 
   Duration get _detectInterval =>
-      _consecutiveReadyFrames >= 2 ? _streamDetectIntervalFast : _streamDetectInterval;
+      _consecutiveReadyFrames >= 2
+          ? (_lowEndDeviceMode
+              ? const Duration(milliseconds: 260)
+              : _streamDetectIntervalFast)
+          : (_lowEndDeviceMode
+              ? const Duration(milliseconds: 380)
+              : _streamDetectInterval);
 
   Duration get _previewMatchCooldown {
     if (_livePreviewAllowAutoCapture && _livePreviewEmployeeId != null) {
-      return _previewMatchIntervalLocked;
+      return _lowEndDeviceMode
+          ? const Duration(milliseconds: 1100)
+          : _previewMatchIntervalLocked;
     }
-    return _previewMatchInterval;
+    return _lowEndDeviceMode
+        ? const Duration(milliseconds: 800)
+        : _previewMatchInterval;
   }
 
-  Duration get _autoCaptureWait =>
-      _livePreviewAllowAutoCapture ? _autoCaptureHoldLocked : _autoCaptureHold;
+  Duration get _autoCaptureWait {
+    // Lower scores → wait a bit longer so the still is cleaner before shutter.
+    final score = _livePreviewScore;
+    if (!_livePreviewAllowAutoCapture) {
+      return _lowEndDeviceMode
+          ? const Duration(milliseconds: 520)
+          : _autoCaptureHold;
+    }
+    if (score > 0 && score < 0.22) {
+      return _lowEndDeviceMode
+          ? const Duration(milliseconds: 700)
+          : const Duration(milliseconds: 580);
+    }
+    if (score > 0 && score < 0.28) {
+      return _lowEndDeviceMode
+          ? const Duration(milliseconds: 520)
+          : const Duration(milliseconds: 450);
+    }
+    return _lowEndDeviceMode
+        ? const Duration(milliseconds: 320)
+        : _autoCaptureHoldLocked;
+  }
 
   bool _isEmployeeAlreadyCaptured(int employeeId) =>
       widget.capturedEmployeeIds.contains(employeeId);
@@ -300,8 +337,9 @@ class TimesheetCaptureCameraPanelState extends State<TimesheetCaptureCameraPanel
     return _livenessGate.recognitionAllowed;
   }
 
-  /// Quality + liveness (shutter / auto-capture).
-  bool get canCapture => _qualityReady && _livenessReady;
+  /// Quality gate only — PAD runs at capture (Task 5a), not on the live stream.
+  bool get canCapture =>
+      _qualityReady && !_isCapturing && !_verificationInFlight;
 
   void _syncLivenessSnapshot() {
     _livenessSnapshot = _livenessGate.snapshot;
@@ -339,47 +377,132 @@ class TimesheetCaptureCameraPanelState extends State<TimesheetCaptureCameraPanel
     }
   }
 
-  Future<XFile?> _takePictureWithRetry() async {
-    var controller = _cameraController;
-    if (controller == null || !controller.value.isInitialized) return null;
+  /// Task 5a — run MiniFASNet burst once at shutter, using the in-memory ring.
+  Future<bool> _runCaptureTimePadBurst() async {
+    if (_livenessGate.recognitionAllowed) return true;
 
+    var samples = _preShutterSamplesFromRing();
+    if (samples.length < AntispoofConfig.burstFrameCount) {
+      samples = List<BurstFrameSample>.from(_streamSampleRing);
+    }
+    if (samples.isEmpty) {
+      debugPrint('FaceCapture: PAD blocked — no stream frames yet');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Hold still a moment, then capture again'),
+          ),
+        );
+      }
+      return false;
+    }
+
+    _verificationInFlight = true;
+    _livenessGate.markVerifying();
+    _syncLivenessSnapshot();
+    _emitChrome();
+    try {
+      // Ensure PAD interpreters are warm before first capture invoke.
+      await MinifasnetFusionEngine.instance.ensureLoaded();
+      final BurstVerificationResult verifyResult;
+      if (samples.length >= AntispoofConfig.burstFrameCount) {
+        verifyResult = await _burstPipeline.verify(samples).timeout(
+          AntispoofConfig.maxVerificationBudget,
+          onTimeout: () => const BurstVerificationResult(
+            passed: false,
+            message: 'Verification timed out — retry',
+          ),
+        );
+      } else {
+        // Short ring (just opened camera) — integrity path, still capture-only.
+        verifyResult = await _burstPipeline
+            .verifyIntegrity(
+              samples,
+              requireTemporal: samples.length >= 2,
+            )
+            .timeout(
+              AntispoofConfig.maxVerificationBudget,
+              onTimeout: () => const BurstVerificationResult(
+                passed: false,
+                message: 'Verification timed out — retry',
+              ),
+            );
+      }
+      _livenessGate.completeBurstVerification(
+        passed: verifyResult.passed,
+        message: verifyResult.message,
+        layer1: verifyResult.lastLayer1,
+      );
+      _syncLivenessSnapshot();
+      _emitChrome();
+      if (!verifyResult.passed) {
+        _blockReplayAttempt(verifyResult.message);
+        return false;
+      }
+      debugPrint(
+        'FaceCapture: capture-time PAD passed '
+        '(${samples.length} frames)',
+      );
+      return true;
+    } catch (e, st) {
+      debugPrint('FaceCapture: capture-time PAD failed: $e\n$st');
+      _livenessGate.completeBurstVerification(
+        passed: false,
+        message: 'Verification failed — retry',
+      );
+      _syncLivenessSnapshot();
+      return false;
+    } finally {
+      _verificationInFlight = false;
+    }
+  }
+
+  Future<XFile?> _takePictureWithRetry() async {
+    final controller = _cameraController;
+    if (controller == null || !controller.value.isInitialized) return null;
     try {
       return await controller.takePicture();
     } on CameraException catch (error) {
+      // Avoid re-initializing camera mid-session; it causes visible stalls.
       debugPrint('FaceCapture takePicture failed: $error');
-      if (!mounted) return null;
-      await _initializeCamera(cameraOverride: _camera);
-      controller = _cameraController;
-      if (controller == null || !controller.value.isInitialized) return null;
-      await Future<void>.delayed(_shutterSettleDelay);
-      try {
-        return await controller.takePicture();
-      } on CameraException catch (retryError) {
-        debugPrint('FaceCapture takePicture retry failed: $retryError');
-        return null;
-      }
+      return null;
     }
   }
 
   Future<void> _clearStreamSampleRing() async {
-    for (final sample in _streamSampleRing) {
-      try {
-        await File(sample.imagePath).delete();
-      } catch (_) {}
-    }
+    final stale = List<BurstFrameSample>.from(_streamSampleRing);
     _streamSampleRing.clear();
+    for (final sample in stale) {
+      await _safeDeleteSampleTemp(sample);
+    }
   }
 
   void _pushStreamSample(BurstFrameSample sample) {
     if (_streamSampleRing.length >= 4) {
       final old = _streamSampleRing.removeAt(0);
-      unawaited(old.imagePath.isEmpty ? Future<void>.value() : File(old.imagePath).delete());
+      unawaited(_safeDeleteSampleTemp(old));
     }
     _streamSampleRing.add(sample);
   }
 
+  Future<void> _safeDeleteSampleTemp(BurstFrameSample sample) async {
+    if (!sample.hasTempFile) return;
+    final path = sample.imagePath;
+    if (path == null || path.isEmpty) return;
+    await _safeDeleteFile(path);
+  }
+
+  Future<void> _safeDeleteFile(String path) async {
+    if (path.isEmpty) return;
+    try {
+      final file = File(path);
+      if (!await file.exists()) return;
+      await file.delete();
+    } catch (_) {}
+  }
+
   List<BurstFrameSample> _preShutterSamplesFromRing() {
-    const count = AntispoofConfig.preShutterFrameCount;
+    const count = AntispoofConfig.burstFrameCount;
     if (_streamSampleRing.length < count) {
       return List<BurstFrameSample>.from(_streamSampleRing);
     }
@@ -413,21 +536,60 @@ class TimesheetCaptureCameraPanelState extends State<TimesheetCaptureCameraPanel
   }
 
   Future<void> _clearBurstSamples() async {
-    for (final sample in _burstSamples) {
-      try {
-        await File(sample.imagePath).delete();
-      } catch (_) {}
-    }
-    _burstSamples.clear();
-    _burstStartedAt = null;
-    _consecutiveReadyForBurst = 0;
+    // Legacy no-op kept for retry/reset call sites; stream PAD samples use ring.
   }
 
   void _resetLiveOverlayFields() {
     _liveOverlayHint = null;
     _livePreviewEmployeeId = null;
+    _livePreviewScore = 0;
     _livePreviewBlockCapture = false;
     _livePreviewAllowAutoCapture = false;
+    _previewCandidateEmployeeId = null;
+    _previewCandidateHits = 0;
+    _previewCandidateSeenAt = DateTime.fromMillisecondsSinceEpoch(0);
+    _lastRingSampleAt = DateTime.fromMillisecondsSinceEpoch(0);
+    _lastBadgeQualifyingAt = null;
+  }
+
+  /// Task 6 — blank name immediately (does not wait for N=3).
+  void _clearBadgeNow({String reason = 'clear'}) {
+    if (_liveOverlayHint == null &&
+        _livePreviewEmployeeId == null &&
+        !_livePreviewBlockCapture &&
+        !_livePreviewAllowAutoCapture) {
+      return;
+    }
+    debugPrint('FaceCapture: badge cleared ($reason)');
+    _autoCaptureTimer?.cancel();
+    _previewDebounceTimer?.cancel();
+    _faceReadySince = null;
+    if (!mounted) {
+      _resetLiveOverlayFields();
+      return;
+    }
+    setState(_resetLiveOverlayFields);
+    _emitChrome();
+  }
+
+  bool _acceptStablePreviewIdentity(
+    int employeeId, {
+    required bool force,
+  }) {
+    if (force) return true;
+    final now = DateTime.now();
+    final sameCandidate = _previewCandidateEmployeeId == employeeId;
+    final fresh = now.difference(_previewCandidateSeenAt) <=
+        const Duration(milliseconds: 1600);
+    if (!sameCandidate || !fresh) {
+      _previewCandidateEmployeeId = employeeId;
+      _previewCandidateHits = 1;
+      _previewCandidateSeenAt = now;
+      return false;
+    }
+    _previewCandidateHits += 1;
+    _previewCandidateSeenAt = now;
+    return _previewCandidateHits >= 3;
   }
 
   void _enterDuplicatePreview(TimesheetOdooEmployee emp) {
@@ -469,24 +631,19 @@ class TimesheetCaptureCameraPanelState extends State<TimesheetCaptureCameraPanel
   }
 
   void _clearLiveOverlay() {
-    if (_liveOverlayHint == null &&
-        !_livePreviewBlockCapture &&
-        !_livePreviewAllowAutoCapture) {
-      return;
-    }
-    if (!mounted) return;
-    setState(_resetLiveOverlayFields);
+    _clearBadgeNow(reason: 'overlay');
   }
 
-  /// Live embedding for green/yellow/blue frames — uses stream JPEG, not takePicture.
+  /// Live embedding for badge hints — no PAD on stream (Task 5a).
   Future<void> _runStreamEmbeddingPreview(
     CameraImage image,
-    TimesheetFaceDetectionResult result,
-  ) async {
-    if (!_livenessReady) return;
+    TimesheetFaceDetectionResult result, {
+    img.Image? decodedRgb,
+  }) async {
     if (_previewMatchInFlight ||
         _shouldHoldDuplicateFrame ||
         _isCapturing ||
+        _verificationInFlight ||
         widget.faceRecognition?.isReady != true) {
       return;
     }
@@ -500,30 +657,118 @@ class TimesheetCaptureCameraPanelState extends State<TimesheetCaptureCameraPanel
     if (!result.quality.canCapture || result.faceBoxes.isEmpty) return;
 
     _previewMatchInFlight = true;
-    String? tempPath;
     try {
-      tempPath = await _faceService.saveStreamFrameJpeg(image);
-      if (tempPath == null) return;
-      await _applyLivePreviewMatch(result, tempPath);
+      final rgb = decodedRgb ?? _faceService.decodeCameraImage(image);
+      if (rgb == null) return;
+      await _applyLivePreviewMatchFromImage(result, rgb);
     } catch (e) {
       debugPrint('Timesheet stream embedding preview failed: $e');
     } finally {
       _previewMatchInFlight = false;
       _lastPreviewMatchAt = DateTime.now();
-      if (tempPath != null) {
-        try {
-          await File(tempPath).delete();
-        } catch (_) {}
-      }
     }
   }
 
+  Future<void> _applyLivePreviewMatchFromImage(
+    TimesheetFaceDetectionResult result,
+    img.Image source, {
+    bool captureImmediately = false,
+  }) async {
+    final suppressed = _suppressEmbeddingPreviewUntil;
+    if (suppressed != null && DateTime.now().isBefore(suppressed)) {
+      return;
+    }
+    final phaseB = widget.faceRecognition;
+    final faceBox = _largestFaceBox(result.faceBoxes);
+    if (phaseB == null || !phaseB.isReady || faceBox == null) return;
+
+    final match = await phaseB.matchImage(
+      source: source,
+      faceBox: faceBox,
+      landmarks: result.primaryFace,
+    );
+    if (!mounted) return;
+
+    if (match == null ||
+        match.best == null ||
+        !match.passesDisplayThreshold) {
+      _suppressEmbeddingPreviewUntil =
+          DateTime.now().add(_previewSuppressAfterMiss);
+      _clearBadgeNow(reason: 'sub_threshold');
+      return;
+    }
+    _suppressEmbeddingPreviewUntil = null;
+    _lastBadgeQualifyingAt = DateTime.now();
+
+    final emp = phaseB.employeeFromMatch(match);
+    if (emp == null) {
+      _clearBadgeNow(reason: 'no_employee');
+      return;
+    }
+
+    if (!_acceptStablePreviewIdentity(
+      emp.employeeId,
+      force: captureImmediately,
+    )) {
+      return;
+    }
+
+    _livePreviewEmployeeId = emp.employeeId;
+
+    // Yellow: recognized but not on this project labor list (badge only).
+    if (!_isOnProjectLaborList(emp.employeeId)) {
+      setState(() {
+        _liveOverlayHint = TimesheetFaceOverlayHint.outOfTeam(
+          name: emp.name,
+          fileId: emp.displayFileId,
+        );
+        _livePreviewBlockCapture = false;
+        _livePreviewAllowAutoCapture = false;
+      });
+      return;
+    }
+
+    // Duplicate hint only — PAD runs at capture (Task 5a), not here.
+    if (_isEmployeeAlreadyCaptured(emp.employeeId)) {
+      _enterDuplicatePreview(emp);
+      return;
+    }
+
+    // Stream scores are weak. Show green badge at display bar; only auto-capture
+    // when score is strong enough that the still is likely to clear match bar.
+    final score = match.bestScore;
+    _livePreviewScore = score;
+    final mayAutoCapture =
+        score >= FaceRecognitionMatch.pilotAutoCaptureMinScore;
+    setState(() {
+      _liveOverlayHint = TimesheetFaceOverlayHint.inTeam(
+        name: emp.name,
+        fileId: emp.displayFileId,
+      );
+      _livePreviewBlockCapture = false;
+      _livePreviewAllowAutoCapture = mayAutoCapture;
+    });
+    unawaited(_speech.speakEmployeeDetected(emp.name, employeeId: emp.employeeId));
+    if (!mayAutoCapture) {
+      debugPrint(
+        'FaceCapture: badge only score=${score.toStringAsFixed(3)} '
+        '(need >= ${FaceRecognitionMatch.pilotAutoCaptureMinScore} to auto-capture)',
+      );
+      return;
+    }
+    if (captureImmediately) {
+      unawaited(_capture());
+    } else {
+      _scheduleAutoCapture();
+    }
+  }
+
+  /// Still-capture path (`ts_norm` / takePicture) — file-based match.
   Future<void> _applyLivePreviewMatch(
     TimesheetFaceDetectionResult result,
     String imagePath, {
     bool captureImmediately = false,
   }) async {
-    if (!_livenessReady) return;
     final suppressed = _suppressEmbeddingPreviewUntil;
     if (suppressed != null && DateTime.now().isBefore(suppressed)) {
       return;
@@ -539,20 +784,27 @@ class TimesheetCaptureCameraPanelState extends State<TimesheetCaptureCameraPanel
     );
     if (!mounted) return;
 
-    final score = match?.bestScore ?? 0;
-    final best = match?.best;
-    final passes = score >= FaceRecognitionMatch.activeMatchThreshold;
-    if (match == null || best == null || !passes) {
+    if (match == null ||
+        match.best == null ||
+        !match.passesDisplayThreshold) {
       _suppressEmbeddingPreviewUntil =
           DateTime.now().add(_previewSuppressAfterMiss);
-      _clearLiveOverlay();
+      _clearBadgeNow(reason: 'sub_threshold');
       return;
     }
     _suppressEmbeddingPreviewUntil = null;
+    _lastBadgeQualifyingAt = DateTime.now();
 
     final emp = phaseB.employeeFromMatch(match);
     if (emp == null) {
-      _clearLiveOverlay();
+      _clearBadgeNow(reason: 'no_employee');
+      return;
+    }
+
+    if (!_acceptStablePreviewIdentity(
+      emp.employeeId,
+      force: captureImmediately,
+    )) {
       return;
     }
 
@@ -585,38 +837,24 @@ class TimesheetCaptureCameraPanelState extends State<TimesheetCaptureCameraPanel
       return;
     }
 
+    final score = match.bestScore;
+    _livePreviewScore = score;
+    final mayAutoCapture =
+        score >= FaceRecognitionMatch.pilotAutoCaptureMinScore;
     setState(() {
       _liveOverlayHint = TimesheetFaceOverlayHint.inTeam(
         name: emp.name,
         fileId: emp.displayFileId,
       );
       _livePreviewBlockCapture = false;
-      _livePreviewAllowAutoCapture = true;
+      _livePreviewAllowAutoCapture = mayAutoCapture;
     });
     unawaited(_speech.speakEmployeeDetected(emp.name, employeeId: emp.employeeId));
+    if (!mayAutoCapture) return;
     if (captureImmediately) {
       unawaited(_capture());
     } else {
       _scheduleAutoCapture();
-    }
-  }
-
-  Future<void> _matchAndCaptureAfterVerify(
-    BurstFrameSample lastSample,
-    TimesheetFaceDetectionResult result,
-  ) async {
-    if (_captureAfterVerifyInFlight || _isCapturing || !mounted) return;
-    if (!_livenessReady) return;
-
-    _captureAfterVerifyInFlight = true;
-    try {
-      await _applyLivePreviewMatch(
-        result,
-        lastSample.imagePath,
-        captureImmediately: true,
-      );
-    } finally {
-      _captureAfterVerifyInFlight = false;
     }
   }
 
@@ -881,7 +1119,41 @@ class TimesheetCaptureCameraPanelState extends State<TimesheetCaptureCameraPanel
     if (!mounted) return;
     _patchState(() => _permissionsReady = permissions.canOpenCamera);
     if (!permissions.canOpenCamera) return;
+    final supported = await _checkAndroidDeviceSupport();
+    if (!supported) return;
     await Future.wait([_initializeCamera(), _updateCurrentLocation()]);
+  }
+
+  Future<bool> _checkAndroidDeviceSupport() async {
+    if (!Platform.isAndroid) return true;
+    try {
+      final info = await DeviceInfoPlugin().androidInfo;
+      final ramGb = info.physicalRamSize > 0 ? info.physicalRamSize / 1024.0 : 0;
+      final cores = Platform.numberOfProcessors;
+      final unsupported = (ramGb > 0 && ramGb < _minSupportedAndroidRamGb) ||
+          cores < _minSupportedAndroidCpuCores;
+      final lowTier = !unsupported &&
+          ((ramGb > 0 && ramGb <= _lowTierAndroidRamGb) || cores <= 8);
+      if (unsupported) {
+        if (!mounted) return false;
+        final ramLabel = ramGb > 0 ? ramGb.toStringAsFixed(1) : 'unknown';
+        _patchState(() {
+          _cameraError =
+              'This device is not supported for reliable face attendance.\n'
+              'Device: ${info.brand} ${info.model}\n'
+              'RAM: ${ramLabel}GB, CPU cores: $cores\n'
+              'Minimum required: ${_minSupportedAndroidRamGb.toStringAsFixed(1)}GB RAM and $_minSupportedAndroidCpuCores CPU cores.\n'
+              'Please use a newer device.';
+        });
+        return false;
+      }
+      if (lowTier && mounted) {
+        _patchState(() => _lowEndDeviceMode = true);
+      }
+    } catch (e) {
+      debugPrint('Timesheet device capability check failed: $e');
+    }
+    return true;
   }
 
   Future<void> _capture() async {
@@ -894,8 +1166,12 @@ class TimesheetCaptureCameraPanelState extends State<TimesheetCaptureCameraPanel
       debugPrint('FaceCapture: shutter blocked — emp $previewId captured');
       return;
     }
-    if (!_livenessReady) {
-      debugPrint('FaceCapture: shutter blocked — liveness not ready');
+    if (!_qualityReady) {
+      debugPrint('FaceCapture: shutter blocked — quality not ready');
+      return;
+    }
+    if (_verificationInFlight) {
+      debugPrint('FaceCapture: shutter blocked — PAD in flight');
       return;
     }
     _patchState(() => _isCapturing = true);
@@ -904,17 +1180,14 @@ class TimesheetCaptureCameraPanelState extends State<TimesheetCaptureCameraPanel
       _patchState(() => _isCapturing = false);
       return;
     }
-    final liveReady = _livenessReady;
 
-    final preShutter = _preShutterSamplesFromRing();
-    if (preShutter.length >= AntispoofConfig.preShutterFrameCount) {
-      final preResult = await _burstPipeline.verifyIntegrity(preShutter);
-      if (!preResult.passed) {
-        _patchState(() => _isCapturing = false);
-        _blockReplayAttempt(preResult.message);
-        return;
-      }
+    // Task 5a — PAD burst only at capture (never on the live stream).
+    final padOk = await _runCaptureTimePadBurst();
+    if (!padOk) {
+      _patchState(() => _isCapturing = false);
+      return;
     }
+    final liveReady = _livenessGate.recognitionAllowed;
 
     if (_isStreaming) {
       await _stopImageStream();
@@ -1039,20 +1312,49 @@ class TimesheetCaptureCameraPanelState extends State<TimesheetCaptureCameraPanel
       if (!mounted) return;
       final score = match?.bestScore ?? 0;
       final best = match?.best;
-      final passes = score >= FaceRecognitionMatch.activeMatchThreshold;
-      if (match != null && best != null && passes) {
+      // Yellow path: soft display bar (name only, cannot add).
+      if (match != null &&
+          best != null &&
+          match.passesDisplayThreshold &&
+          !_isOnProjectLaborList(best.employeeId)) {
         final emp = phaseB.employeeFromMatch(match);
         if (emp != null) {
-          if (!_isOnProjectLaborList(emp.employeeId)) {
-            _patchState(() => _isCapturing = false);
-            _armAutoCaptureCooldown();
-            widget.onOutOfTeamRecognized?.call(emp, draft, score);
-            try {
-              await File(photo.path).delete();
-            } catch (_) {}
-            await _startLiveDetection();
-            return;
-          }
+          _patchState(() => _isCapturing = false);
+          _armAutoCaptureCooldown();
+          widget.onOutOfTeamRecognized?.call(emp, draft, score);
+          try {
+            await File(photo.path).delete();
+          } catch (_) {}
+          await _startLiveDetection();
+          return;
+        }
+      }
+      // Green / add: match bar (15%), or soft accept if stream locked same person.
+      // Prefer detect over "No Face" whenever a clear in-team winner exists.
+      final streamLockedId = _livePreviewEmployeeId;
+      final clearInTeamWinner = match != null &&
+          best != null &&
+          _isOnProjectLaborList(best.employeeId) &&
+          match.bestScore >= FaceRecognitionMatch.activeMatchThreshold &&
+          match.passesDisplayThreshold;
+      final softAccept = best != null &&
+          streamLockedId != null &&
+          best.employeeId == streamLockedId &&
+          match != null &&
+          match.passesDisplayThreshold &&
+          match.bestScore >= FaceRecognitionMatch.pilotSoftCaptureThreshold;
+      if (match != null &&
+          best != null &&
+          (match.isMatch || softAccept || clearInTeamWinner)) {
+        if (!match.isMatch) {
+          debugPrint(
+            'FaceCapture: accept still=${match.bestScore.toStringAsFixed(3)} '
+            'second=${match.secondBestScore.toStringAsFixed(3)} '
+            'streamLocked=$streamLockedId soft=$softAccept clear=$clearInTeamWinner',
+          );
+        }
+        final emp = phaseB.employeeFromMatch(match);
+        if (emp != null) {
           if (_isEmployeeAlreadyCaptured(emp.employeeId)) {
             final likelyReplay = await _isLikelyReplayFrame(
               imagePath: matchImagePath,
@@ -1193,9 +1495,12 @@ class TimesheetCaptureCameraPanelState extends State<TimesheetCaptureCameraPanel
             (camera) => camera.lensDirection == CameraLensDirection.back,
             orElse: () => cameras.first,
           );
+      // Android: high (≈720p) — medium hurt still-match scores (0.20–0.27).
+      // Stream cost is controlled by Task 5a (no PAD) + throttle, not preset alone.
+      final preset = ResolutionPreset.high;
       final controller = CameraController(
         selected,
-        Platform.isIOS ? ResolutionPreset.high : ResolutionPreset.max,
+        preset,
         enableAudio: false,
         imageFormatGroup:
             Platform.isAndroid ? ImageFormatGroup.yuv420 : null,
@@ -1236,7 +1541,6 @@ class TimesheetCaptureCameraPanelState extends State<TimesheetCaptureCameraPanel
   Future<void> _startLiveDetection() async {
     _awsLivenessLaunched = false;
     _livenessRetryTimer?.cancel();
-    _pendingLivenessAutoRestart = false;
     _clearLiveOverlay();
     await _clearBurstSamples();
     await _clearStreamSampleRing();
@@ -1295,10 +1599,10 @@ class TimesheetCaptureCameraPanelState extends State<TimesheetCaptureCameraPanel
         trustLiveGate: true,
       );
       final matchPath = result.analyzedImagePath ?? photo.path;
-      await _driveVerificationPipeline(result, imagePath: matchPath);
-      if (!_isStreaming &&
-          _livenessReady &&
-          result.quality.canCapture &&
+      // Task 5a — no stream PAD on iOS polling either; badge embed only.
+      if (result.faceBoxes.isEmpty) {
+        _clearBadgeNow(reason: 'no_face');
+      } else if (result.quality.canCapture &&
           widget.faceRecognition?.isReady == true &&
           !_isCapturing &&
           !_shouldHoldDuplicateFrame) {
@@ -1370,39 +1674,58 @@ class TimesheetCaptureCameraPanelState extends State<TimesheetCaptureCameraPanel
       } else {
         _consecutiveReadyFrames = 0;
       }
+
+      // Task 6 — clear badge on no-face / stale (N=3 only gates identity switch).
       if (result.faceBoxes.isEmpty) {
-        if (_livenessGate.snapshot.phase == LivenessGatePhase.verifying) {
-          unawaited(_clearBurstSamples());
-          _livenessGate.resetSession();
-          _syncLivenessSnapshot();
+        _clearBadgeNow(reason: 'no_face');
+      } else {
+        final lastQual = _lastBadgeQualifyingAt;
+        if (lastQual != null &&
+            now.difference(lastQual) > _badgeStaleTimeout &&
+            _liveOverlayHint != null) {
+          _clearBadgeNow(reason: 'stale');
         }
-        _consecutiveReadyForBurst = 0;
       }
       _patchState(() => _faceResult = result);
 
-      if (result.faceBoxes.isNotEmpty) {
+      // Keep a short in-memory ring for capture-time PAD only (Task 5a).
+      // Do NOT run MiniFASNet on the stream.
+      final ringMinInterval = _lowEndDeviceMode
+          ? const Duration(milliseconds: 900)
+          : const Duration(milliseconds: 350);
+      img.Image? decodedRgb;
+      img.Image? ensureDecoded() =>
+          decodedRgb ??= _faceService.decodeCameraImage(image);
+
+      if (result.faceBoxes.isNotEmpty &&
+          DateTime.now().difference(_lastRingSampleAt) >= ringMinInterval) {
         final ringBox = _largestFaceBox(result.faceBoxes);
-        if (ringBox != null) {
-          final ringPath = await _faceService.saveStreamFrameJpeg(image);
-          if (ringPath != null) {
-            _pushStreamSample(
-              BurstFrameSample(
-                imagePath: ringPath,
-                faceBox: ringBox,
-                classification: result.classification,
-              ),
-            );
-          }
+        final rgb = ensureDecoded();
+        if (ringBox != null && rgb != null) {
+          _lastRingSampleAt = DateTime.now();
+          _pushStreamSample(
+            BurstFrameSample(
+              rgbFrame: rgb,
+              faceBox: ringBox,
+              classification: result.classification,
+            ),
+          );
         }
       }
 
-      unawaited(_driveVerificationPipeline(result, streamImage: image));
-      if (_livenessReady &&
-          result.quality.canCapture &&
+      // Badge embed only (no PAD on stream).
+      if (result.quality.canCapture &&
           _isStreaming &&
           !_shouldHoldDuplicateFrame &&
-          !_isCapturing) {
-        unawaited(_runStreamEmbeddingPreview(image, result));
+          !_isCapturing &&
+          !_verificationInFlight) {
+        unawaited(
+          _runStreamEmbeddingPreview(
+            image,
+            result,
+            decodedRgb: ensureDecoded(),
+          ),
+        );
       }
     } catch (error) {
       debugPrint('Timesheet live face detection failed: $error');
@@ -1509,11 +1832,17 @@ class TimesheetCaptureCameraPanelState extends State<TimesheetCaptureCameraPanel
   }
 
   String _statusLabel(TimesheetFaceDetectionResult? result) {
+    if (_verificationInFlight) {
+      return 'Verifying liveness…';
+    }
+    if (_lowEndDeviceMode && result?.quality.canCapture == true) {
+      return 'Low-end mode: tap capture to verify identity';
+    }
     if (result == null) return 'Looking for faces';
     if (isGroup && result.faceCount > 1) {
       return '${result.faceCount} faces detected';
     }
-    if (result.quality.canCapture && !_livenessReady) {
+    if (_livenessSnapshot.showSpoofWarning) {
       return _livenessSnapshot.statusMessage;
     }
     return result.quality.message;
@@ -1534,165 +1863,11 @@ class TimesheetCaptureCameraPanelState extends State<TimesheetCaptureCameraPanel
 
     _livenessRetryTimer = Timer(AntispoofConfig.livenessRetryDelay, () {
       if (!mounted) return;
-      _pendingLivenessAutoRestart = true;
       _livenessGate.setStatusMessage('Center your face in the frame');
       _syncLivenessSnapshot();
       setState(() {});
       _emitChrome();
     });
-  }
-
-  Future<void> _driveVerificationPipeline(
-    TimesheetFaceDetectionResult result, {
-    CameraImage? streamImage,
-    String? imagePath,
-  }) async {
-    if (AntispoofConfig.useAwsFaceLiveness) {
-      return _driveLivenessPipeline(
-        result,
-        streamImage: streamImage,
-        imagePath: imagePath,
-      );
-    }
-    return _driveBurstVerificationPipeline(
-      result,
-      streamImage: streamImage,
-      imagePath: imagePath,
-    );
-  }
-
-  Future<void> _driveBurstVerificationPipeline(
-    TimesheetFaceDetectionResult result, {
-    CameraImage? streamImage,
-    String? imagePath,
-  }) async {
-    final faceReady = AntispoofConfig.burstRequiresQualityGate
-        ? result.quality.canCapture
-        : result.faceBoxes.isNotEmpty;
-    if (!faceReady) {
-      if (result.faceBoxes.isEmpty) {
-        _consecutiveReadyForBurst = 0;
-      }
-      return;
-    }
-
-    if (_livenessReady || _verificationInFlight) return;
-
-    final phase = _livenessGate.snapshot.phase;
-    if (phase == LivenessGatePhase.blocked ||
-        phase == LivenessGatePhase.onDeviceSpoof ||
-        phase == LivenessGatePhase.fullyPassed) {
-      return;
-    }
-
-    if (_pendingLivenessAutoRestart && phase == LivenessGatePhase.idle) {
-      _pendingLivenessAutoRestart = false;
-      _livenessGate.markVerifying();
-      _burstStartedAt = DateTime.now();
-      _burstSamples.clear();
-      _consecutiveReadyForBurst = 1;
-      _syncLivenessSnapshot();
-    } else if (phase == LivenessGatePhase.idle ||
-        phase == LivenessGatePhase.onDeviceSpoof) {
-      _consecutiveReadyForBurst = math.min(_consecutiveReadyForBurst + 1, 8);
-      if (_consecutiveReadyForBurst < 1) return;
-      _livenessGate.markVerifying();
-      _burstStartedAt = DateTime.now();
-      _burstSamples.clear();
-      _syncLivenessSnapshot();
-    }
-
-    if (_livenessGate.snapshot.phase != LivenessGatePhase.verifying) return;
-
-    final burstBudget = _burstStartedAt;
-    if (burstBudget != null &&
-        DateTime.now().difference(burstBudget) >
-            AntispoofConfig.maxVerificationBudget) {
-      _verificationInFlight = true;
-      try {
-        _livenessGate.completeBurstVerification(
-          passed: false,
-          message: 'Verification timed out — retry',
-        );
-        await _clearBurstSamples();
-        _syncLivenessSnapshot();
-      } finally {
-        _verificationInFlight = false;
-      }
-      if (mounted) {
-        setState(() {});
-        _emitChrome();
-      }
-      return;
-    }
-
-    final now = DateTime.now();
-    if (_burstSamples.isNotEmpty &&
-        now.difference(_lastBurstFrameAt) < AntispoofConfig.burstFrameInterval) {
-      return;
-    }
-
-    final faceBox = _largestFaceBox(result.faceBoxes);
-    if (faceBox == null) return;
-
-    String? tempPath = imagePath ?? result.analyzedImagePath;
-    if (tempPath == null && streamImage != null) {
-      tempPath = await _faceService.saveStreamFrameJpeg(streamImage);
-    }
-    if (tempPath == null) return;
-
-    _lastBurstFrameAt = now;
-    _burstSamples.add(
-      BurstFrameSample(
-        imagePath: tempPath,
-        faceBox: faceBox,
-        classification: result.classification,
-      ),
-    );
-
-    if (_burstSamples.length < AntispoofConfig.burstFrameCount) {
-      if (mounted) {
-        setState(() {});
-        _emitChrome();
-      }
-      return;
-    }
-
-    _verificationInFlight = true;
-    final samples = List<BurstFrameSample>.from(_burstSamples);
-    try {
-      final verifyResult = await _burstPipeline.verify(samples).timeout(
-        AntispoofConfig.maxVerificationBudget,
-        onTimeout: () => const BurstVerificationResult(
-          passed: false,
-          message: 'Verification timed out — retry',
-        ),
-      );
-      _livenessGate.completeBurstVerification(
-        passed: verifyResult.passed,
-        message: verifyResult.message,
-        layer1: verifyResult.lastLayer1,
-      );
-      _syncLivenessSnapshot();
-      if (verifyResult.passed && samples.isNotEmpty && mounted) {
-        await _matchAndCaptureAfterVerify(samples.last, result);
-      }
-    } catch (error, stack) {
-      debugPrint('Burst verification failed: $error\n$stack');
-      _livenessGate.completeBurstVerification(
-        passed: false,
-        message: 'Verification failed — retry',
-      );
-      _syncLivenessSnapshot();
-    } finally {
-      _verificationInFlight = false;
-      await _clearBurstSamples();
-    }
-
-    if (mounted) {
-      setState(() {});
-      _emitChrome();
-    }
   }
 
   Future<void> _launchAwsLiveness() async {
@@ -1731,79 +1906,6 @@ class TimesheetCaptureCameraPanelState extends State<TimesheetCaptureCameraPanel
     _syncLivenessSnapshot();
     setState(() {});
     _emitChrome();
-  }
-
-  Future<void> _driveLivenessPipeline(
-    TimesheetFaceDetectionResult result, {
-    CameraImage? streamImage,
-    String? imagePath,
-  }) async {
-    if (!result.quality.canCapture || result.faceBoxes.isEmpty) {
-      return;
-    }
-
-    if (_livenessReady) return;
-
-    final phase = _livenessGate.snapshot.phase;
-    if (phase == LivenessGatePhase.onDeviceRunning ||
-        phase == LivenessGatePhase.verifying ||
-        phase == LivenessGatePhase.fullyPassed ||
-        phase == LivenessGatePhase.awsRunning ||
-        phase == LivenessGatePhase.blocked) {
-      return;
-    }
-    if (phase == LivenessGatePhase.onDevicePassed ||
-        phase == LivenessGatePhase.awsRequired) {
-      unawaited(_launchAwsLiveness());
-      return;
-    }
-    if (phase != LivenessGatePhase.idle &&
-        phase != LivenessGatePhase.onDeviceSpoof) {
-      return;
-    }
-
-    final now = DateTime.now();
-    if (_layer1InFlight ||
-        now.difference(_lastLayer1At) < AntispoofConfig.onDeviceThrottle) {
-      return;
-    }
-
-    final faceBox = _largestFaceBox(result.faceBoxes);
-    if (faceBox == null) return;
-
-    String? tempPath = imagePath ?? result.analyzedImagePath;
-    if (tempPath == null && streamImage != null) {
-      tempPath = await _faceService.saveStreamFrameJpeg(streamImage);
-    }
-    if (tempPath == null) return;
-
-    final deleteTemp =
-        streamImage != null && tempPath != result.analyzedImagePath;
-
-    _layer1InFlight = true;
-    _lastLayer1At = now;
-    try {
-      await _livenessGate.evaluateStreamFrame(
-        imagePath: tempPath,
-        faceBox: faceBox,
-        classification: result.classification,
-      );
-      _syncLivenessSnapshot();
-      if (_livenessGate.snapshot.phase == LivenessGatePhase.onDevicePassed) {
-        unawaited(_launchAwsLiveness());
-      }
-    } finally {
-      _layer1InFlight = false;
-      if (deleteTemp) {
-        try {
-          await File(tempPath).delete();
-        } catch (_) {}
-      }
-    }
-    if (mounted) {
-      setState(() {});
-      _emitChrome();
-    }
   }
 
   Future<void> _resetCameraZoom(CameraController controller) async {
@@ -1858,6 +1960,8 @@ class TimesheetCaptureCameraPanelState extends State<TimesheetCaptureCameraPanel
       },
     );
     if (nextCamera == current) return;
+    // Task 6 — blank name immediately on flip (before teardown).
+    _clearBadgeNow(reason: 'camera_switch');
     await _stopLiveDetection();
     final oldController = _cameraController;
     _awsLivenessLaunched = false;

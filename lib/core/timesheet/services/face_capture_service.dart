@@ -259,23 +259,8 @@ class TimesheetFaceCaptureService {
     return out.path;
   }
 
-  /// Silent JPEG from live [CameraImage] stream (no [CameraController.takePicture]).
-  Future<String?> saveStreamFrameJpeg(CameraImage image) async {
-    try {
-      final decoded = _decodeCameraImage(image);
-      if (decoded == null) return null;
-      final dir = await getTemporaryDirectory();
-      final path =
-          '${dir.path}/ts_stream_${DateTime.now().millisecondsSinceEpoch}.jpg';
-      await File(path).writeAsBytes(img.encodeJpg(decoded, quality: 82));
-      return path;
-    } catch (e) {
-      debugPrint('TimesheetFaceCapture: stream frame encode failed: $e');
-      return null;
-    }
-  }
-
-  img.Image? _decodeCameraImage(CameraImage image) {
+  /// In-memory YUV/BGRA → RGB for the live path. Prefer this over JPEG.
+  img.Image? decodeCameraImage(CameraImage image) {
     if (image.format.group == ImageFormatGroup.bgra8888 &&
         image.planes.isNotEmpty) {
       final plane = image.planes.first;
@@ -293,6 +278,25 @@ class TimesheetFaceCaptureService {
       return _yuv420ToRgbImage(image);
     }
     return null;
+  }
+
+  /// Debug / legacy only — do **not** call from the live detect+embed path.
+  /// Writes `ts_stream_*.jpg` and forces a full encode+reload cycle.
+  @Deprecated('Use decodeCameraImage for the live path (Task 1)')
+  Future<String?> saveStreamFrameJpeg(CameraImage image) async {
+    try {
+      final decoded = decodeCameraImage(image);
+      if (decoded == null) return null;
+      final dir = await getTemporaryDirectory();
+      final path =
+          '${dir.path}/ts_stream_${DateTime.now().millisecondsSinceEpoch}.jpg';
+      await File(path).writeAsBytes(img.encodeJpg(decoded, quality: 82));
+      debugPrint('TimesheetFaceCapture: WARNING wrote $path (live path should avoid JPEG)');
+      return path;
+    } catch (e) {
+      debugPrint('TimesheetFaceCapture: stream frame encode failed: $e');
+      return null;
+    }
   }
 
   img.Image? _yuv420ToRgbImage(CameraImage image) {

@@ -5,17 +5,29 @@ import 'package:el_race/core/site_management/face_recognition/antispoof/on_devic
 import 'package:el_race/core/site_management/face_recognition/antispoof/temporal_pad_heuristics.dart';
 import 'package:el_race/core/site_management/face_recognition/antispoof/timesheet_face_classification_snapshot.dart';
 import 'package:flutter/foundation.dart';
+import 'package:image/image.dart' as img;
 
 class BurstFrameSample {
   const BurstFrameSample({
-    required this.imagePath,
+    this.imagePath,
+    this.rgbFrame,
     required this.faceBox,
     this.classification,
-  });
+  }) : assert(
+          imagePath != null || rgbFrame != null,
+          'BurstFrameSample needs imagePath or rgbFrame',
+        );
 
-  final String imagePath;
+  /// Still-capture / legacy path (`ts_norm_*.jpg`). Prefer [rgbFrame] live.
+  final String? imagePath;
+
+  /// In-memory RGB from the camera stream (Task 1 — no JPEG).
+  final img.Image? rgbFrame;
   final Rect faceBox;
   final TimesheetFaceClassificationSnapshot? classification;
+
+  bool get hasTempFile =>
+      imagePath != null && imagePath!.contains('ts_stream_');
 }
 
 class BurstVerificationResult {
@@ -63,10 +75,7 @@ class BurstVerificationPipeline {
   Future<BurstVerificationResult> verifySingleFrame(
     BurstFrameSample frame,
   ) async {
-    final layer1 = await _pad.evaluateShutter(
-      imagePath: frame.imagePath,
-      faceBox: frame.faceBox,
-    );
+    final layer1 = await _evaluateSample(frame);
     if (layer1.verdict == Layer1Verdict.spoof) {
       return BurstVerificationResult(
         passed: false,
@@ -78,6 +87,20 @@ class BurstVerificationPipeline {
       passed: true,
       message: 'Live frame',
       lastLayer1: layer1,
+    );
+  }
+
+  Future<Layer1Result> _evaluateSample(BurstFrameSample sample) {
+    final rgb = sample.rgbFrame;
+    if (rgb != null) {
+      return _pad.evaluateImage(
+        source: rgb,
+        faceBox: sample.faceBox,
+      );
+    }
+    return _pad.evaluateShutter(
+      imagePath: sample.imagePath!,
+      faceBox: sample.faceBox,
     );
   }
 
@@ -107,8 +130,9 @@ class BurstVerificationPipeline {
         );
       }
 
-      lastFrame = await _pad.evaluateFrame(
+      lastFrame = await _pad.evaluateFrameSample(
         imagePath: sample.imagePath,
+        rgbFrame: sample.rgbFrame,
         faceBox: sample.faceBox,
         classification: sample.classification,
       );

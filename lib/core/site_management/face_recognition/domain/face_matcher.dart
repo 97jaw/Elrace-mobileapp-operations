@@ -1,9 +1,9 @@
 import 'dart:math' as math;
 
 import 'package:el_race/core/site_management/face_recognition/data/models/face_embedding_record.dart';
-import 'package:flutter/foundation.dart';
 import 'package:el_race/core/site_management/face_recognition/data/models/face_match_result.dart';
 import 'package:el_race/core/site_management/face_recognition/face_recognition_config.dart';
+import 'package:flutter/foundation.dart';
 
 class FaceMatcher {
   FaceMatcher({double? threshold})
@@ -19,9 +19,6 @@ class FaceMatcher {
       return FaceMatchResult.none;
     }
     final probe = _l2Normalize(captured);
-    var bestScore = -1.0;
-    var secondBest = -1.0;
-    FaceEmbeddingRecord? best;
 
     // Max cosine per employee across enrollment templates (user.face.image).
     final perEmployee = <int, double>{};
@@ -39,24 +36,36 @@ class FaceMatcher {
         'FaceRecognition: no scorable cache rows (expected '
         '${FaceRecognitionModel.embeddingDim} dims, first=$dim)',
       );
+      return FaceMatchResult.none;
     }
+
+    // Rank unique employees — never treat another template of the same
+    // person as "second best" (that previously forced second == best).
+    final ranked = perEmployee.entries.toList()
+      ..sort((a, b) => b.value.compareTo(a.value));
+    final bestId = ranked.first.key;
+    final bestScore = ranked.first.value;
+    final secondBest = ranked.length > 1 ? ranked[1].value : 0.0;
+
+    FaceEmbeddingRecord? bestRow;
     for (final row in roster) {
-      final score = perEmployee[row.employeeId];
-      if (score == null) continue;
-      if (score > bestScore) {
-        secondBest = bestScore;
-        bestScore = score;
-        best = row;
-      } else if (score > secondBest) {
-        secondBest = score;
+      if (row.employeeId == bestId) {
+        bestRow = row;
+        break;
       }
     }
 
+    final margin = bestScore - secondBest;
+    final marginOk =
+        ranked.length < 2 || margin >= FaceRecognitionMatch.minWinnerMargin;
+    final aboveThreshold = bestScore >= threshold;
+    final isMatch = aboveThreshold && marginOk && bestRow != null;
+
     return FaceMatchResult(
-      isMatch: bestScore >= threshold,
-      bestScore: bestScore < 0 ? 0 : bestScore,
-      secondBestScore: secondBest < 0 ? 0 : secondBest,
-      best: best,
+      isMatch: isMatch,
+      bestScore: bestScore,
+      secondBestScore: secondBest,
+      best: bestRow,
     );
   }
 

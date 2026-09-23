@@ -49,6 +49,17 @@ class FacePreprocessor {
     return buildInputTensorFromRgbBytes(rgb);
   }
 
+  /// Live-path chip from an already-decoded RGB frame (no JPEG encode/decode).
+  Float32List? buildInputTensorFromImage({
+    required img.Image source,
+    required Rect faceBox,
+    TimesheetFaceLandmarkSnapshot? landmarks,
+  }) {
+    final chip = buildChip112FromImage(source, faceBox, landmarks: landmarks);
+    if (chip == null) return null;
+    return buildInputTensorFromRgbChip(chip);
+  }
+
   Float32List buildInputTensorFromRgbChip(img.Image chip112) {
     if (chip112.width != FaceRecognitionPreprocess.inputWidth ||
         chip112.height != FaceRecognitionPreprocess.inputHeight) {

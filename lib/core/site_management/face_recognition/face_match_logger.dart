@@ -22,14 +22,23 @@ abstract final class FaceMatchLogger {
     FaceForemanFollowUp? followUp,
   }) {
     final activePass = bestScore >= FaceRecognitionMatch.activeMatchThreshold;
+    final displayPass =
+        bestScore >= FaceRecognitionMatch.activeDisplayThreshold;
+    final margin = bestScore - secondBestScore;
+    final marginOk = secondBestScore <= 0 ||
+        margin >= FaceRecognitionMatch.minWinnerMargin;
     final slow = totalMs > FaceRecognitionPerformance.targetTotalMs;
     debugPrint(
       'FaceMatchLog: best=${bestScore.toStringAsFixed(4)} '
       'second=${secondBestScore.toStringAsFixed(4)} '
+      'margin=${margin.toStringAsFixed(4)} '
       'emp=$employeeId '
       'inTeam=$inForemanTeam '
+      'display@${FaceRecognitionMatch.activeDisplayThreshold}=$displayPass '
       'match@${FaceRecognitionMatch.activeMatchThreshold}=$activePass '
-      'prod@${FaceRecognitionMatch.defaultThreshold}=$matchedAtProductionThreshold '
+      'marginOk=$marginOk '
+      'prod@${FaceRecognitionMatch.defaultThreshold}='
+      '${bestScore >= FaceRecognitionMatch.defaultThreshold} '
       'templates=$templateCount '
       'ms=pre$preprocessMs+emb$embedMs+mat$matchMs=${totalMs}ms'
       '${slow ? " SLOW" : ""}',
