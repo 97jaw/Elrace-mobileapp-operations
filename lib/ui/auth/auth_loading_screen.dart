@@ -2,8 +2,10 @@ import 'package:app_links/app_links.dart';
 import 'package:el_race/auth/uaepass_auth_cubit.dart';
 import 'package:el_race/core/session/post_login_setup.dart';
 import 'package:el_race/deep_links/uaepass_link_handler.dart';
+import 'package:el_race/services/uaepass_auth_service.dart';
 import 'package:el_race/ui/presentation/home_screen/screens/home_screen.dart';
 import 'package:el_race/ui/auth/error_dialog.dart';
+import 'package:el_race/ui/auth/uaepass_app_to_app_screen.dart';
 import 'package:el_race/utils/uaepass_logger.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -69,6 +71,24 @@ class _AuthLoadingScreenState extends State<AuthLoadingScreen>
       listener: (context, state) async {
         UaepassLogger.logKV('AuthLoadingScreen state', state.status.toString());
 
+        if (state.status == UaepassAuthStatus.appToApp &&
+            state.appToAppUrl != null) {
+          final result = await Navigator.of(context).push<Uri>(
+            MaterialPageRoute(
+              builder: (_) => UaepassAppToAppScreen(
+                config: config,
+                authorizationUrl: state.appToAppUrl!,
+              ),
+            ),
+          );
+          if (result != null) {
+            await cubit.handleCallbackOrResult(result);
+          } else {
+            cubit.cancelled();
+          }
+          return;
+        }
+
         if (state.status == UaepassAuthStatus.success) {
           UaepassLogger.logSuccess('Navigating to Dashboard');
           if (context.mounted) {
@@ -98,10 +118,17 @@ class _AuthLoadingScreenState extends State<AuthLoadingScreen>
           elevation: 0,
           leading: IconButton(
             icon: const Icon(Icons.close, color: Colors.black54),
-            onPressed: () {
+            onPressed: () async {
               UaepassLogger.log('User closed waiting screen');
+              if (!context.mounted) return;
+              await ErrorDialog.showForFailure(
+                context,
+                AuthFailureType.cancelled,
+              );
               cubit.reset();
-              Navigator.of(context).pop();
+              if (context.mounted) {
+                Navigator.of(context).pop();
+              }
             },
           ),
           title: const Text(
@@ -138,6 +165,7 @@ class _AuthLoadingScreenState extends State<AuthLoadingScreen>
                       ),
                       const SizedBox(height: 32),
                       if (state.status == UaepassAuthStatus.loading ||
+                          state.status == UaepassAuthStatus.appToApp ||
                           _isRetrying) ...[
                         const CircularProgressIndicator(
                           color: Color(0xFF00A3E0),
@@ -198,10 +226,18 @@ class _AuthLoadingScreenState extends State<AuthLoadingScreen>
                         ),
                         const SizedBox(height: 16),
                         TextButton(
-                          onPressed: () {
-                            UaepassLogger.log('User cancelled from waiting screen');
+                          onPressed: () async {
+                            UaepassLogger.log(
+                                'User cancelled from waiting screen');
+                            if (!context.mounted) return;
+                            await ErrorDialog.showForFailure(
+                              context,
+                              AuthFailureType.cancelled,
+                            );
                             cubit.reset();
-                            Navigator.of(context).pop();
+                            if (context.mounted) {
+                              Navigator.of(context).pop();
+                            }
                           },
                           child: const Text(
                             'Cancel',

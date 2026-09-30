@@ -1,6 +1,6 @@
 import 'package:el_race/utils/color_utils.dart';
+import 'package:el_race/core/utils/responsive_breakpoints.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 import 'package:share_plus/share_plus.dart';
@@ -21,7 +21,7 @@ class ContentItemWidget extends StatelessWidget {
 
   Widget _buildThumbnail({bool withBorder = true}) {
     final String imageUrl = content.displayImageUrl;
-    final borderRadius = BorderRadius.circular(18.r);
+    final borderRadius = BorderRadius.circular(18.tr);
     const borderColor = Color(0xB8484848);
 
     Widget placeholder() {
@@ -30,7 +30,7 @@ class ContentItemWidget extends StatelessWidget {
         alignment: Alignment.center,
         child: Icon(
           content.is360View ? Icons.threesixty : Icons.image_outlined,
-          size: 44.sp,
+          size: 44.tsp,
           color: appFontColor.withOpacity(0.55),
         ),
       );
@@ -57,8 +57,8 @@ class ContentItemWidget extends StatelessWidget {
           if (loadingProgress == null) return child;
           return Center(
             child: SizedBox(
-              width: 22.w,
-              height: 22.w,
+              width: 22.tw,
+              height: 22.tw,
               child: CircularProgressIndicator(
                 strokeWidth: 2,
                 value: loadingProgress.expectedTotalBytes != null
@@ -98,7 +98,7 @@ class ContentItemWidget extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final borderRadius = BorderRadius.circular(22.r);
+    final borderRadius = BorderRadius.circular(22.tr);
     const borderColor = Color(0xB8484848);
 
     final uploadedText = content.dateCreated == null
@@ -114,7 +114,7 @@ class ContentItemWidget extends StatelessWidget {
         child: GestureDetector(
           onLongPress: onLongPress,
           child: Container(
-            height: 180.h,
+            height: 180.th,
             decoration: BoxDecoration(
               borderRadius: borderRadius,
               gradient: const LinearGradient(
@@ -127,19 +127,19 @@ class ContentItemWidget extends StatelessWidget {
               children: [
                 Padding(
                   padding:
-                      EdgeInsets.symmetric(horizontal: 16.w, vertical: 14.h),
+                      EdgeInsets.symmetric(horizontal: 16.tw, vertical: 14.th),
                   child: Row(
                     crossAxisAlignment: CrossAxisAlignment.center,
                     children: [
                       SizedBox(
-                        width: 110.w,
-                        height: 150.h,
+                        width: 110.tw,
+                        height: 150.th,
                         child: _buildThumbnail(withBorder: false),
                       ),
-                      SizedBox(width: 14.w),
+                      SizedBox(width: 14.tw),
                       Expanded(
                         child: Padding(
-                          padding: EdgeInsets.only(right: 64.w),
+                          padding: EdgeInsets.only(right: 64.tw),
                           child: Align(
                             alignment: Alignment.centerLeft,
                             child: Column(
@@ -150,7 +150,7 @@ class ContentItemWidget extends StatelessWidget {
                                   '360 TOUR',
                                   textAlign: TextAlign.left,
                                   style: GoogleFonts.poppins(
-                                    fontSize: 12.sp,
+                                    fontSize: 12.tsp,
                                     fontWeight: FontWeight.w700,
                                     color: Colors.white.withOpacity(0.75),
                                     letterSpacing: 1.0,
@@ -158,12 +158,12 @@ class ContentItemWidget extends StatelessWidget {
                                   maxLines: null,
                                   overflow: TextOverflow.visible,
                                 ),
-                                SizedBox(height: 4.h),
+                                SizedBox(height: 4.th),
                                 Text(
                                   content.displayName,
                                   textAlign: TextAlign.left,
                                   style: GoogleFonts.poppins(
-                                    fontSize: 18.sp,
+                                    fontSize: 18.tsp,
                                     fontWeight: FontWeight.w800,
                                     color: Colors.white,
                                   ),
@@ -171,12 +171,12 @@ class ContentItemWidget extends StatelessWidget {
                                   overflow: TextOverflow.visible,
                                 ),
                                 if (content.projectName.isNotEmpty) ...[
-                                  SizedBox(height: 2.h),
+                                  SizedBox(height: 2.th),
                                   Text(
                                     content.projectName,
                                     textAlign: TextAlign.left,
                                     style: GoogleFonts.poppins(
-                                      fontSize: 12.sp,
+                                      fontSize: 12.tsp,
                                       fontWeight: FontWeight.w500,
                                       color: Colors.white.withOpacity(0.75),
                                     ),
@@ -193,23 +193,23 @@ class ContentItemWidget extends StatelessWidget {
                   ),
                 ),
                 Positioned(
-                  bottom: 14.h,
-                  right: 16.w,
+                  bottom: 14.th,
+                  right: 16.tw,
                   child: InkWell(
-                    borderRadius: BorderRadius.circular(16.r),
+                    borderRadius: BorderRadius.circular(16.tr),
                     onTap: onTap,
                     child: Container(
-                      height: 34.h,
-                      padding: EdgeInsets.symmetric(horizontal: 20.w),
+                      height: 34.th,
+                      padding: EdgeInsets.symmetric(horizontal: 20.tw),
                       alignment: Alignment.center,
                       decoration: BoxDecoration(
                         color: Colors.white.withOpacity(0.18),
-                        borderRadius: BorderRadius.circular(16.r),
+                        borderRadius: BorderRadius.circular(16.tr),
                       ),
                       child: Text(
                         'Go',
                         style: GoogleFonts.poppins(
-                          fontSize: 13.sp,
+                          fontSize: 13.tsp,
                           fontWeight: FontWeight.w800,
                           color: Colors.white,
                         ),
@@ -218,14 +218,14 @@ class ContentItemWidget extends StatelessWidget {
                   ),
                 ),
                 Positioned(
-                  top: 12.h,
-                  right: 12.w,
+                  top: 12.th,
+                  right: 12.tw,
                   child: Opacity(
                     opacity: 0.9,
                     child: Image.asset(
                       'assets/newapp/newicon/360 degrees.png',
-                      width: 28.w,
-                      height: 28.w,
+                      width: 28.tw,
+                      height: 28.tw,
                       fit: BoxFit.contain,
                     ),
                   ),
@@ -260,13 +260,13 @@ class ContentItemWidget extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Padding(
-                padding: EdgeInsets.only(top: 10.h, right: 14.w, left: 14.w),
+                padding: EdgeInsets.only(top: 10.th, right: 14.tw, left: 14.tw),
                 child: Align(
                   alignment: Alignment.centerRight,
                   child: Text(
                     uploadedText ?? (content.is360View ? '360° VIEW' : 'PHOTO'),
                     style: GoogleFonts.poppins(
-                      fontSize: 11.sp,
+                      fontSize: 11.tsp,
                       color: const Color(0xFF6E6E6E),
                       letterSpacing: 0.8,
                     ),
@@ -276,18 +276,19 @@ class ContentItemWidget extends StatelessWidget {
                 ),
               ),
               Padding(
-                padding: EdgeInsets.symmetric(horizontal: 14.w, vertical: 10.h),
+                padding:
+                    EdgeInsets.symmetric(horizontal: 14.tw, vertical: 10.th),
                 child: SizedBox(
                   width: double.infinity,
-                  height: 170.h,
+                  height: 170.th,
                   child: _buildThumbnail(),
                 ),
               ),
               Padding(
                 padding: EdgeInsets.only(
-                  left: 16.w,
-                  right: 12.w,
-                  bottom: 14.h,
+                  left: 16.tw,
+                  right: 12.tw,
+                  bottom: 14.th,
                 ),
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.center,
@@ -299,7 +300,7 @@ class ContentItemWidget extends StatelessWidget {
                           Text(
                             content.displayName,
                             style: GoogleFonts.poppins(
-                              fontSize: 16.sp,
+                              fontSize: 16.tsp,
                               fontWeight: FontWeight.w800,
                               color: Colors.black87,
                             ),
@@ -307,11 +308,11 @@ class ContentItemWidget extends StatelessWidget {
                             overflow: TextOverflow.visible,
                           ),
                           if (content.projectName.isNotEmpty) ...[
-                            SizedBox(height: 2.h),
+                            SizedBox(height: 2.th),
                             Text(
                               content.projectName,
                               style: GoogleFonts.poppins(
-                                fontSize: 12.sp,
+                                fontSize: 12.tsp,
                                 fontWeight: FontWeight.w500,
                                 color: const Color(0xFF6E6E6E),
                               ),
@@ -323,38 +324,38 @@ class ContentItemWidget extends StatelessWidget {
                       ),
                     ),
                     InkWell(
-                      borderRadius: BorderRadius.circular(12.r),
+                      borderRadius: BorderRadius.circular(12.tr),
                       onTap: onTap,
                       child: Container(
-                        height: 30.h,
-                        padding: EdgeInsets.symmetric(horizontal: 14.w),
+                        height: 30.th,
+                        padding: EdgeInsets.symmetric(horizontal: 14.tw),
                         alignment: Alignment.center,
                         decoration: BoxDecoration(
                           color: const Color(0xFF6E6E6E),
-                          borderRadius: BorderRadius.circular(12.r),
+                          borderRadius: BorderRadius.circular(12.tr),
                         ),
                         child: Text(
                           'View',
                           style: GoogleFonts.poppins(
-                            fontSize: 12.sp,
+                            fontSize: 12.tsp,
                             fontWeight: FontWeight.w700,
                             color: Colors.white,
                           ),
                         ),
                       ),
                     ),
-                    SizedBox(width: 8.w),
+                    SizedBox(width: 8.tw),
                     InkWell(
                       customBorder: const CircleBorder(),
                       onTap: () => _shareContent(context),
                       child: SizedBox(
-                        width: 42.w,
-                        height: 42.w,
+                        width: 42.tw,
+                        height: 42.tw,
                         child: Center(
                           child: Image.asset(
                             'assets/newapp/newicon/media_share_icon.png',
-                            width: 40.w,
-                            height: 24.h,
+                            width: 40.tw,
+                            height: 24.th,
                             fit: BoxFit.contain,
                           ),
                         ),

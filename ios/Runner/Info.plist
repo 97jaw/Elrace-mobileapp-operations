@@ -79,6 +79,8 @@
 	<array>
 		<string>sms</string>
 		<string>tel</string>
+		<string>uaepass</string>
+		<string>uaepassstg</string>
 	</array>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>

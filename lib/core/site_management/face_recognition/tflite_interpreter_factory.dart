@@ -37,9 +37,12 @@ abstract final class TfliteInterpreterFactory {
   static Future<Interpreter> fromAsset(
     String assetPath, {
     List<int>? fixedInputShape,
-    /// When false, never attach XNNPACK (MiniFASNet / PAD). LiteRT+XNNPACK on
-    /// these graphs was re-logging `Replacing 65…` and costing mid-session.
-    bool preferXnnpack = true,
+
+    /// Opt-in only. XNNPACK SIGSEGVs inside `TfLiteInterpreterCreate` on
+    /// chipsets outside the denylist (Samsung Exynos Galaxy Tab S10 FE), and
+    /// the crash-loop guard only kicks in after the first crash — so plain CPU
+    /// is the default for every model.
+    bool preferXnnpack = false,
   }) {
     final done = Completer<Interpreter>();
     _createChain = _createChain.then((_) async {
@@ -61,7 +64,7 @@ abstract final class TfliteInterpreterFactory {
   static Future<Interpreter> _fromAssetImpl(
     String assetPath, {
     List<int>? fixedInputShape,
-    bool preferXnnpack = true,
+    bool preferXnnpack = false,
   }) async {
     final threads = _cpuThreads();
     final tryXnn = preferXnnpack && await _shouldTryXnnpack();

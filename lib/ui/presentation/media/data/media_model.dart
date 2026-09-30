@@ -39,6 +39,7 @@ class MediaModel {
   final String? clientLogo;
   final String? description;
   final dynamic view360;
+
   /// From Odoo `ir.attachment.is_favorite` (via get_media `is_favorite`).
   final bool isFavorite;
 
@@ -82,7 +83,7 @@ class MediaModel {
       name: fileName,
       url: previewUrl,
       xWebUrl: s3Url,
-      type: getMediaTypeFromExtension(fileName.split('.').last),
+      type: _detectMediaType(fileName, [mainUrl, s3Url]),
       dateCreated: parsedDate,
       duration: json['duration'],
       size: json['size']?.toDouble(),
@@ -191,18 +192,9 @@ class MediaModel {
       cleanUrl = cleanUrl.split('?')[0];
     }
 
-    // Encode the URL to handle spaces and special characters
-    cleanUrl = _encodeUrl(cleanUrl);
-
-    // For S3 URLs, we can add streaming-friendly parameters
-    if (cleanUrl.contains('s3.amazonaws.com') && isVideo) {
-      // For HLS streams, don't add content-type parameter as it can interfere
-      if (!cleanUrl.contains('.m3u8')) {
-        cleanUrl += '?response-content-type=video/$fileExtension';
-      }
-    }
-
-    return cleanUrl;
+    // Public S3 objects reject response-* query overrides (anonymous GET), so
+    // the URL must be streamed as-is.
+    return _encodeUrl(cleanUrl);
   }
 
   String get fileExtension {
@@ -237,19 +229,42 @@ class MediaModel {
     return null;
   }
 
+  static const _imageExtensions = ['jpg', 'jpeg', 'png', 'bmp', 'webp'];
+  static const _videoExtensions = [
+    'mp4',
+    'avi',
+    'mov',
+    'wmv',
+    'flv',
+    'webm',
+    'mkv',
+    'gif',
+    'm3u8'
+  ];
+
+  /// Type from the file name's extension; when the name has no known media
+  /// extension, use the extension of the URL.
+  static MediaType _detectMediaType(String fileName, List<String> urls) {
+    String extensionOf(String value) {
+      final last = value.split('/').last;
+      return last.contains('.') ? last.split('.').last.toLowerCase() : '';
+    }
+
+    bool isKnown(String ext) =>
+        _imageExtensions.contains(ext) || _videoExtensions.contains(ext);
+
+    final nameExt = extensionOf(fileName);
+    if (isKnown(nameExt)) return getMediaTypeFromExtension(nameExt);
+    for (final url in urls) {
+      final ext = extensionOf(Uri.tryParse(url)?.path ?? url);
+      if (isKnown(ext)) return getMediaTypeFromExtension(ext);
+    }
+    return getMediaTypeFromExtension(nameExt);
+  }
+
   static MediaType getMediaTypeFromExtension(String extension) {
-    const imageExtensions = ['jpg', 'jpeg', 'png', 'bmp', 'webp'];
-    const videoExtensions = [
-      'mp4',
-      'avi',
-      'mov',
-      'wmv',
-      'flv',
-      'webm',
-      'mkv',
-      'gif',
-      'm3u8'
-    ];
+    const imageExtensions = _imageExtensions;
+    const videoExtensions = _videoExtensions;
 
     if (imageExtensions.contains(extension.toLowerCase())) {
       return MediaType.image;

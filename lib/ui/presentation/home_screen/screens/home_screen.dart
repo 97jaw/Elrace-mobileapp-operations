@@ -14,6 +14,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:get/get.dart';
 import 'package:el_race/core/services/app_config_service.dart';
+import 'package:el_race/core/config/feature_flags.dart';
 
 class HomeScreen extends StatelessWidget {
   const HomeScreen({super.key});
@@ -74,6 +75,10 @@ class _HomeScreenState extends State<HomeScreenPage>
   //   });
   // }
 
+  bool get _skipBiometricGate =>
+      !FeatureFlags.enableBiometricSignInGate ||
+      AppConfigService.instance.shouldSkipFaceId;
+
   void _setBiometricLocked(bool locked) {
     HomeScreenPage._sessionUiLocked = locked;
     if (!mounted) return;
@@ -83,7 +88,7 @@ class _HomeScreenState extends State<HomeScreenPage>
 
   /// Show gate with button — no automatic OS biometric prompt.
   void _presentBiometricGate() {
-    if (AppConfigService.instance.shouldSkipFaceId) return;
+    if (_skipBiometricGate) return;
     HomeScreenPage._didAuthenticateThisSession = false;
     HomeScreenPage._isAuthenticating = false;
     _isBiometricLocked = true;
@@ -103,17 +108,12 @@ class _HomeScreenState extends State<HomeScreenPage>
     // One GPS prime per Home mount (post-login); resumes no longer re-fetch.
     _locationBloc.add(GetCurrentLocationET());
 
-    // After splash / login: open the OS biometric prompt immediately.
-    // The button gate is only a fallback when the prompt is cancelled/missed.
-    if (!AppConfigService.instance.shouldSkipFaceId &&
-        !HomeScreenPage._didAuthenticateThisSession) {
+    // After splash / login: show biometric gate with button (not auto Face ID).
+    // Cancel/miss and cold reopen all use the same screen.
+    if (!_skipBiometricGate && !HomeScreenPage._didAuthenticateThisSession) {
       _isBiometricLocked = true;
       HomeScreenPage._sessionUiLocked = true;
-      _showBiometricGateScreen = false;
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (!mounted) return;
-        _authenticateAfterLogin();
-      });
+      _showBiometricGateScreen = true;
     }
   }
 
@@ -136,7 +136,7 @@ class _HomeScreenState extends State<HomeScreenPage>
       _backgroundedAt = null;
       return;
     }
-    if (AppConfigService.instance.shouldSkipFaceId) {
+    if (_skipBiometricGate) {
       _backgroundedAt = null;
       return;
     }

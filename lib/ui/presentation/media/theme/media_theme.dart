@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:el_race/core/utils/responsive_breakpoints.dart';
 import 'package:flutter/services.dart';
-import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 /// Dark cinematic theme for Media landing redesign.
@@ -48,18 +48,18 @@ abstract final class MediaTheme {
     statusBarColor: Colors.transparent,
   );
 
-  static double get gridRadius => 18.r;
-  static double get tileRadius => 16.r;
-  static double get heroCardRadius => 28.r;
+  static double get gridRadius => 18.tr;
+  static double get tileRadius => 16.tr;
+  static double get heroCardRadius => 28.tr;
 
   static TextStyle titleLg = GoogleFonts.poppins(
-    fontSize: 18.sp,
+    fontSize: 18.tsp,
     fontWeight: FontWeight.w700,
     color: white,
   );
 
   static TextStyle labelSm = GoogleFonts.poppins(
-    fontSize: 11.sp,
+    fontSize: 11.tsp,
     fontWeight: FontWeight.w500,
     color: textMuted,
   );
@@ -81,14 +81,15 @@ abstract final class MediaTheme {
         onTap: onTap,
         borderRadius: BorderRadius.circular(999),
         child: Container(
-          width: 40.w,
-          height: 40.w,
+          width: 40.tw,
+          height: 40.tw,
           decoration: BoxDecoration(
             color: glassFill,
             shape: BoxShape.circle,
             border: Border.all(color: glassBorder),
           ),
-          child: Icon(Icons.arrow_back_ios_new_rounded, color: white, size: 18.sp),
+          child: Icon(Icons.arrow_back_ios_new_rounded,
+              color: white, size: 18.tsp),
         ),
       ),
     );
@@ -101,14 +102,14 @@ abstract final class MediaTheme {
         onTap: onTap,
         borderRadius: BorderRadius.circular(999),
         child: Container(
-          width: 40.w,
-          height: 40.w,
+          width: 40.tw,
+          height: 40.tw,
           decoration: BoxDecoration(
             color: glassFill,
             shape: BoxShape.circle,
             border: Border.all(color: glassBorder),
           ),
-          child: Icon(Icons.more_horiz_rounded, color: white, size: 22.sp),
+          child: Icon(Icons.more_horiz_rounded, color: white, size: 22.tsp),
         ),
       ),
     );
@@ -121,8 +122,8 @@ abstract final class MediaTheme {
         onTap: onTap,
         customBorder: const CircleBorder(),
         child: Container(
-          width: size.w,
-          height: size.w,
+          width: size.tw,
+          height: size.tw,
           decoration: BoxDecoration(
             color: white,
             shape: BoxShape.circle,
@@ -134,7 +135,8 @@ abstract final class MediaTheme {
               ),
             ],
           ),
-          child: Icon(Icons.play_arrow_rounded, color: black, size: (size * 0.58).sp),
+          child: Icon(Icons.play_arrow_rounded,
+              color: black, size: (size * 0.58).tsp),
         ),
       ),
     );
@@ -150,7 +152,7 @@ abstract final class MediaTheme {
         onTap: onTap,
         borderRadius: BorderRadius.circular(999),
         child: Container(
-          padding: EdgeInsets.symmetric(horizontal: 22.w, vertical: 10.h),
+          padding: EdgeInsets.symmetric(horizontal: 22.tw, vertical: 10.th),
           decoration: BoxDecoration(
             color: white,
             borderRadius: BorderRadius.circular(999),
@@ -158,7 +160,7 @@ abstract final class MediaTheme {
           child: Text(
             label,
             style: GoogleFonts.poppins(
-              fontSize: 14.sp,
+              fontSize: 14.tsp,
               fontWeight: FontWeight.w700,
               color: black,
             ),

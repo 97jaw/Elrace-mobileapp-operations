@@ -23,6 +23,9 @@ abstract final class TimesheetOdooApiCatalog {
   /// Project staff_list + supervisors for chat pickers.
   static const String projectStaff = '/timesheet/project_staff';
 
+  /// Submit geofence gate — `{project_threshold_m}` from `project.threshold`.
+  static const String submitPolicy = '/timesheet/submit_policy';
+
   /// Per-foreman submission summary for a project (Site Management monitor).
   /// Returns `[{employee_id, name, file_id, image, total_hours, last_submit_date}]`.
   static const String projectForemenSummary =
@@ -80,12 +83,16 @@ abstract final class TimesheetSubmitParams {
 
 /// FM screen / state → submit param source.
 abstract final class TimesheetFmSubmitFieldSource {
-  static const String projectId = 'TimesheetCaptureArgs.projectId (FM2/FM3 nav)';
+  static const String projectId =
+      'TimesheetCaptureArgs.projectId (FM2/FM3 nav)';
   static const String taskId = 'TimesheetCaptureArgs.taskId';
   static const String name = 'Matched worker name or targetWorkerName';
-  static const String breakTime = 'Default 0 (no FM UI; HR task sheet has picker)';
-  static const String leaveTypeId = 'Default false (no FM UI; HR has leave types)';
-  static const String employeeIds = 'Worker.odooEmployeeId from task roster / match';
+  static const String breakTime =
+      'Default 0 (no FM UI; HR task sheet has picker)';
+  static const String leaveTypeId =
+      'Default false (no FM UI; HR has leave types)';
+  static const String employeeIds =
+      'Worker.odooEmployeeId from task roster / match';
   static const String date = 'Capture date (local today unless backdated)';
   static const String dateTime =
       'checkIn: capture time; checkOut: capture time − 8h (shift window)';

@@ -47,6 +47,15 @@ class Project {
   final List<String> foremanIds;
   final String chatRoomId;
 
+  /// Same rule as the projects map (`hasRealCoordinates`): missing / zero /
+  /// out-of-range site coordinates mean the geofence can't be checked.
+  bool get hasSiteCoordinates {
+    final lat = geofenceLat;
+    final lon = geofenceLon;
+    if (lat.abs() < 1e-6 || lon.abs() < 1e-6) return false;
+    return lat >= -90 && lat <= 90 && lon >= -180 && lon <= 180;
+  }
+
   factory Project.fromJson(Map<String, dynamic> json) {
     return Project(
       id: tmStringFromJson(json['id']),

@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:el_race/core/utils/responsive_breakpoints.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 
@@ -36,19 +36,19 @@ class MediaVideoListTile extends StatelessWidget {
           onTap: onTap,
           borderRadius: BorderRadius.circular(MediaTheme.tileRadius),
           child: Padding(
-            padding: EdgeInsets.symmetric(vertical: 8.h),
+            padding: EdgeInsets.symmetric(vertical: 8.th),
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 SizedBox(
-                  width: 88.w,
-                  height: 56.h,
+                  width: 88.tw,
+                  height: 56.th,
                   child: MediaVideoThumbnail(
                     media: media,
                     showPlayIcon: true,
                   ),
                 ),
-                SizedBox(width: 12.w),
+                SizedBox(width: 12.tw),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -58,25 +58,25 @@ class MediaVideoListTile extends StatelessWidget {
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: GoogleFonts.poppins(
-                          fontSize: 14.sp,
+                          fontSize: 14.tsp,
                           fontWeight: FontWeight.w600,
                           color: MediaTheme.white,
                         ),
                       ),
                       if (description.isNotEmpty) ...[
-                        SizedBox(height: 3.h),
+                        SizedBox(height: 3.th),
                         Text(
                           description,
                           maxLines: 2,
                           overflow: TextOverflow.ellipsis,
                           style: GoogleFonts.poppins(
-                            fontSize: 11.sp,
+                            fontSize: 11.tsp,
                             fontWeight: FontWeight.w400,
                             color: MediaTheme.textMuted,
                           ),
                         ),
                       ],
-                      SizedBox(height: 4.h),
+                      SizedBox(height: 4.th),
                       Text(
                         date,
                         style: MediaTheme.labelSm,
@@ -88,11 +88,12 @@ class MediaVideoListTile extends StatelessWidget {
                   IconButton(
                     onPressed: onShare,
                     padding: EdgeInsets.zero,
-                    constraints: BoxConstraints(minWidth: 32.w, minHeight: 32.w),
+                    constraints:
+                        BoxConstraints(minWidth: 32.tw, minHeight: 32.tw),
                     icon: Icon(
                       Icons.more_horiz_rounded,
                       color: MediaTheme.textSecondary,
-                      size: 22.sp,
+                      size: 22.tsp,
                     ),
                   ),
               ],

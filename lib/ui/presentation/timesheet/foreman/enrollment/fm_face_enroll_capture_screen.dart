@@ -3,6 +3,7 @@ import 'dart:io';
 
 import 'package:camera/camera.dart';
 import 'package:el_race/core/site_management/face_recognition/data/models/face_enrollment_pose.dart';
+import 'package:el_race/core/site_management/face_recognition/face_recognition_config.dart';
 import 'package:el_race/core/site_management/face_recognition/face_recognition_provider.dart';
 import 'package:el_race/core/theme/timesheet_module_theme.dart';
 import 'package:el_race/core/timesheet/network/timesheet_odoo_employee.dart';
@@ -11,12 +12,15 @@ import 'package:el_race/core/timesheet/providers/timesheet_hr_scope_provider.dar
 import 'package:el_race/core/timesheet/services/face_capture_service.dart';
 import 'package:el_race/core/timesheet/services/timesheet_acting_guard.dart';
 import 'package:el_race/core/timesheet/services/timesheet_project_access_service.dart';
+import 'package:el_race/core/utils/app_orientations.dart';
 import 'package:el_race/core/widgets/timesheet/timesheet_widgets.dart';
 import 'package:el_race/ui/presentation/timesheet/foreman/enrollment/widgets/fm_face_enroll_oval_overlay.dart';
 import 'package:el_race/ui/presentation/timesheet/foreman/enrollment/widgets/fm_face_enroll_processing_sheet.dart';
 import 'package:el_race/ui/presentation/timesheet/timesheet_route_args.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:permission_handler/permission_handler.dart';
 import 'package:phosphor_flutter/phosphor_flutter.dart';
 
 /// Success/ready highlight for enrollment guides, mask, pose dots and the
@@ -38,9 +42,13 @@ class FmFaceEnrollCaptureScreen extends ConsumerStatefulWidget {
 }
 
 class _FmFaceEnrollCaptureScreenState
-    extends ConsumerState<FmFaceEnrollCaptureScreen> {
+    extends ConsumerState<FmFaceEnrollCaptureScreen>
+    with CapturePortraitLock<FmFaceEnrollCaptureScreen> {
   final _captureService = TimesheetFaceCaptureService();
   CameraController? _controller;
+  Future<XFile>? _pictureInFlight;
+  AppLifecycleListener? _lifecycleListener;
+  bool _permissionDenied = false;
   CameraDescription? _camera;
   List<CameraDescription> _cameras = const [];
   bool _cameraSwitching = false;
@@ -61,6 +69,7 @@ class _FmFaceEnrollCaptureScreenState
   DateTime _suppressAutoUntil = DateTime.fromMillisecondsSinceEpoch(0);
   bool _autoCaptureInFlight = false;
   int _consecutiveReadyFrames = 0;
+
   /// Bumped on every open/switch so in-flight frame analysis and iOS pollers
   /// drop results from a disposed or replaced camera session.
   int _cameraSessionId = 0;
@@ -69,9 +78,15 @@ class _FmFaceEnrollCaptureScreenState
   bool get _isFrontCamera =>
       _camera?.lensDirection == CameraLensDirection.front;
 
-  static const _streamInterval = Duration(milliseconds: 550);
-  static const _holdReadyDuration = Duration(milliseconds: 750);
-  static const _requiredReadyFrames = 3;
+  static const _streamInterval = Duration(milliseconds: 250);
+  static const _holdReadyDuration = Duration(milliseconds: 300);
+  static const _requiredReadyFrames = 2;
+
+  /// Turned poses sample faster; `_isAnalyzingFrame` still drops overlap.
+  static const _turnedPoseStreamInterval = Duration(milliseconds: 120);
+
+  /// Short backoff only after a rejected still — never between good poses.
+  static const _failureBackoff = Duration(milliseconds: 400);
 
   TimesheetOdooEmployee get _employee => widget.args.employee;
 
@@ -95,10 +110,21 @@ class _FmFaceEnrollCaptureScreenState
   void initState() {
     super.initState();
     unawaited(_initCamera());
+    _lifecycleListener = AppLifecycleListener(
+      onResume: () {
+        if (!mounted || !_permissionDenied) return;
+        setState(() {
+          _initializing = true;
+          _initError = null;
+        });
+        unawaited(_initCamera());
+      },
+    );
   }
 
   @override
   void dispose() {
+    _lifecycleListener?.dispose();
     _cameraSessionId++;
     _iosPollerGeneration++;
     unawaited(_stopStream());
@@ -110,15 +136,17 @@ class _FmFaceEnrollCaptureScreenState
   }
 
   Future<void> _initCamera() async {
-    final perms = await _captureService.requestCameraPermissions();
-    if (!perms.cameraGranted) {
+    final granted = await _captureService.requestCameraOnlyPermission();
+    if (!granted) {
       if (!mounted) return;
       setState(() {
         _initializing = false;
+        _permissionDenied = true;
         _initError = 'Camera permission is required for enrollment.';
       });
       return;
     }
+    _permissionDenied = false;
     try {
       final cameras = await _captureService.availableCameraDescriptions();
       if (cameras.isEmpty) {
@@ -175,6 +203,23 @@ class _FmFaceEnrollCaptureScreenState
     }
   }
 
+  /// One `takePicture` at a time: the iOS poller and the manual/auto shutter
+  /// otherwise race into "Previous capture has not returned yet".
+  Future<XFile> _takePictureExclusive(CameraController controller) async {
+    while (_pictureInFlight != null) {
+      try {
+        await _pictureInFlight;
+      } catch (_) {}
+    }
+    final pending = controller.takePicture();
+    _pictureInFlight = pending;
+    try {
+      return await pending;
+    } finally {
+      if (identical(_pictureInFlight, pending)) _pictureInFlight = null;
+    }
+  }
+
   Future<void> _waitForInFlightAnalysis({
     Duration timeout = const Duration(milliseconds: 1200),
   }) async {
@@ -199,6 +244,13 @@ class _FmFaceEnrollCaptureScreenState
     if (!mounted || sessionId != _cameraSessionId) {
       await controller.dispose();
       return;
+    }
+    // Pose rules read yaw/pitch; a rotated frame on a landscape-native tablet
+    // swaps them, so keep capture geometry portrait like attendance.
+    try {
+      await controller.lockCaptureOrientation(DeviceOrientation.portraitUp);
+    } catch (e) {
+      debugPrint('FmFaceEnroll: lockCaptureOrientation failed: $e');
     }
     await controller.setFlashMode(FlashMode.off);
     await controller.setFocusMode(FocusMode.auto);
@@ -235,9 +287,8 @@ class _FmFaceEnrollCaptureScreenState
       if (!mounted) return;
       // Toggle strictly between front and back so devices with several back
       // lenses (wide/ultrawide/tele) don't get stuck on a same-side lens.
-      final wantDirection = _isFrontCamera
-          ? CameraLensDirection.back
-          : CameraLensDirection.front;
+      final wantDirection =
+          _isFrontCamera ? CameraLensDirection.back : CameraLensDirection.front;
       final next = _cameras.firstWhere(
         (c) => c.lensDirection == wantDirection,
         orElse: () => _cameras.firstWhere(
@@ -306,7 +357,7 @@ class _FmFaceEnrollCaptureScreenState
         pollerGen == _iosPollerGeneration &&
         sessionId == _cameraSessionId &&
         _poseIndex < FaceEnrollmentPose.captureOrder.length) {
-      await Future<void>.delayed(const Duration(milliseconds: 1000));
+      await Future<void>.delayed(const Duration(milliseconds: 600));
       if (!mounted ||
           pollerGen != _iosPollerGeneration ||
           sessionId != _cameraSessionId ||
@@ -325,7 +376,7 @@ class _FmFaceEnrollCaptureScreenState
       }
       if (DateTime.now().isBefore(_suppressAutoUntil)) continue;
       try {
-        final photo = await controller.takePicture();
+        final photo = await _takePictureExclusive(controller);
         if (sessionId != _cameraSessionId || !mounted) {
           try {
             await File(photo.path).delete();
@@ -349,10 +400,9 @@ class _FmFaceEnrollCaptureScreenState
         if (preview.ok) {
           _consecutiveReadyFrames += 1;
           _readySince ??= DateTime.now();
-          final heldLongEnough = DateTime.now().difference(_readySince!) >=
-              _holdReadyDuration;
-          final stableEnough =
-              _consecutiveReadyFrames >= _requiredReadyFrames;
+          final heldLongEnough =
+              DateTime.now().difference(_readySince!) >= _holdReadyDuration;
+          final stableEnough = _consecutiveReadyFrames >= _requiredReadyFrames;
           if (heldLongEnough && stableEnough) {
             await _autoCapturePose();
           }
@@ -391,7 +441,10 @@ class _FmFaceEnrollCaptureScreenState
     }
     final now = DateTime.now();
     if (now.isBefore(_suppressAutoUntil)) return;
-    if (now.difference(_lastFrameAt) < _streamInterval) return;
+    final interval = _currentPose == FaceEnrollmentPose.front
+        ? _streamInterval
+        : _turnedPoseStreamInterval;
+    if (now.difference(_lastFrameAt) < interval) return;
 
     _isAnalyzingFrame = true;
     _lastFrameAt = now;
@@ -417,13 +470,17 @@ class _FmFaceEnrollCaptureScreenState
         _qualityStatus = preview.qualityStatus;
       });
 
-      if (preview.readyToCapture) {
+      if (preview.readyToCapture &&
+          _currentPose != FaceEnrollmentPose.front &&
+          sessionId == _cameraSessionId &&
+          !_cameraSwitching) {
+        await _captureTurnedPoseFromFrame(image, camera, sessionId);
+      } else if (preview.readyToCapture) {
         _consecutiveReadyFrames += 1;
         _readySince ??= now;
         final heldLongEnough =
             now.difference(_readySince!) >= _holdReadyDuration;
-        final stableEnough =
-            _consecutiveReadyFrames >= _requiredReadyFrames;
+        final stableEnough = _consecutiveReadyFrames >= _requiredReadyFrames;
         if (heldLongEnough &&
             stableEnough &&
             sessionId == _cameraSessionId &&
@@ -438,6 +495,48 @@ class _FmFaceEnrollCaptureScreenState
       debugPrint('FmFaceEnroll: frame analysis failed: $e');
     } finally {
       _isAnalyzingFrame = false;
+    }
+  }
+
+  /// Left / right / up: the head only passes through the angle briefly, so
+  /// keep the frame that passed instead of stopping the stream for a still.
+  /// Falls back to the still path if the frame can't be encoded.
+  Future<void> _captureTurnedPoseFromFrame(
+    CameraImage image,
+    CameraDescription camera,
+    int sessionId,
+  ) async {
+    if (_capturing || _processing || _autoCaptureInFlight) return;
+    final pose = _currentPose;
+    _capturing = true;
+    try {
+      final path = await _captureService.saveEnrollmentStreamFrame(
+        image,
+        camera,
+      );
+      if (!mounted || sessionId != _cameraSessionId) return;
+      if (path == null) {
+        _capturing = false;
+        await _autoCapturePose();
+        return;
+      }
+      _paths[pose] = path;
+      final nextIndex = _nextMissingPoseIndex();
+      if (nextIndex == null) {
+        setState(() => _capturing = false);
+        await _submitEnrollment();
+        return;
+      }
+      setState(() {
+        _poseIndex = nextIndex;
+        _hint = _currentPose.instruction;
+        _qualityStatus = null;
+        _previewReady = false;
+        _consecutiveReadyFrames = 0;
+        _readySince = null;
+      });
+    } finally {
+      _capturing = false;
     }
   }
 
@@ -473,7 +572,7 @@ class _FmFaceEnrollCaptureScreenState
     await _stopStream();
 
     try {
-      final file = await controller.takePicture();
+      final file = await _takePictureExclusive(controller);
       if (sessionId != _cameraSessionId || !mounted) {
         try {
           await File(file.path).delete();
@@ -493,8 +592,7 @@ class _FmFaceEnrollCaptureScreenState
           _capturing = false;
           _hint = validation.message;
           _consecutiveReadyFrames = 0;
-          _suppressAutoUntil =
-              DateTime.now().add(const Duration(milliseconds: 1500));
+          _suppressAutoUntil = DateTime.now().add(_failureBackoff);
         });
         await _startStream();
         return;
@@ -503,17 +601,16 @@ class _FmFaceEnrollCaptureScreenState
       _paths[_currentPose] = validation.imagePath;
       if (!mounted || sessionId != _cameraSessionId) return;
 
-      if (_poseIndex + 1 < FaceEnrollmentPose.captureOrder.length) {
+      final nextIndex = _nextMissingPoseIndex();
+      if (nextIndex != null) {
         setState(() {
-          _poseIndex += 1;
+          _poseIndex = nextIndex;
           _capturing = false;
           _hint = _currentPose.instruction;
           _qualityStatus = null;
           _previewReady = false;
           _consecutiveReadyFrames = 0;
           _readySince = null;
-          _suppressAutoUntil =
-              DateTime.now().add(const Duration(milliseconds: 1200));
         });
         await _startStream();
         return;
@@ -526,7 +623,7 @@ class _FmFaceEnrollCaptureScreenState
       setState(() {
         _capturing = false;
         _hint = 'Capture failed. Adjust and try again.';
-        _suppressAutoUntil = DateTime.now().add(const Duration(seconds: 2));
+        _suppressAutoUntil = DateTime.now().add(_failureBackoff * 2);
       });
       await _startStream();
     }
@@ -547,16 +644,19 @@ class _FmFaceEnrollCaptureScreenState
       _processStep = FmFaceEnrollProcessStep.validating;
       _processError = null;
     });
+    if (!await _passesEnrollmentChecks()) return;
+    if (!mounted) return;
     setState(() => _processStep = FmFaceEnrollProcessStep.uploading);
 
-    final result =
-        await ref.read(faceEnrollmentServiceProvider).enrollOdooEmployee(
-              employeeId: _employee.employeeId,
-              foremanEmployeeId: TimesheetProjectAccessService.loginEmployeeId(),
-              imagePathsByPose: Map<FaceEnrollmentPose, String>.from(_paths),
-              refreshFaceDbAfterUpload: false,
-              waitForTemplatesInFaceDb: false,
-            );
+    final result = await ref
+        .read(faceEnrollmentServiceProvider)
+        .enrollOdooEmployee(
+          employeeId: _employee.employeeId,
+          foremanEmployeeId: TimesheetProjectAccessService.loginEmployeeId(),
+          imagePathsByPose: Map<FaceEnrollmentPose, String>.from(_paths),
+          refreshFaceDbAfterUpload: false,
+          waitForTemplatesInFaceDb: false,
+        );
 
     if (!mounted) return;
     if (!result.success) {
@@ -570,13 +670,157 @@ class _FmFaceEnrollCaptureScreenState
     setState(() => _processStep = FmFaceEnrollProcessStep.submitted);
     ref.invalidate(timesheetHrScopeProvider);
     ref.invalidate(timesheetForemanEnrollmentMapProvider);
-    await Future<void>.delayed(const Duration(milliseconds: 450));
+    ref.invalidate(faceDbSyncProvider);
+    await Future<void>.delayed(const Duration(milliseconds: 250));
     if (!mounted) return;
     setState(() => _processStep = FmFaceEnrollProcessStep.done);
-    await Future<void>.delayed(const Duration(milliseconds: 350));
+    await Future<void>.delayed(const Duration(milliseconds: 200));
     if (!mounted) return;
 
     Navigator.of(context).pop(true);
+  }
+
+  int? _nextMissingPoseIndex() {
+    const order = FaceEnrollmentPose.captureOrder;
+    for (var i = 0; i < order.length; i++) {
+      if (!_paths.containsKey(order[i])) return i;
+    }
+    return null;
+  }
+
+  /// Runs once after every pose is captured: all poses must be the same
+  /// person, and the face must not already belong to another employee.
+  /// Local engine failures fall through (the server still validates).
+  Future<bool> _passesEnrollmentChecks() async {
+    final photos = <({
+      String key,
+      String imagePath,
+      Rect faceBox,
+      TimesheetFaceLandmarkSnapshot? landmarks,
+    })>[];
+    for (final pose in FaceEnrollmentPose.captureOrder) {
+      final path = _paths[pose];
+      if (path == null) continue;
+      try {
+        final detection = await _captureService.analyzeImageFile(
+          path,
+          includeCrop: false,
+          trustLiveGate: true,
+        );
+        final face = detection.primaryFace;
+        if (face == null) {
+          if (!mounted) return false;
+          if (pose == FaceEnrollmentPose.front) {
+            _restartEnrollment('Front photo unclear — look straight again');
+          } else {
+            _retakePose(pose, 'No face in that photo — retake');
+          }
+          return false;
+        }
+        photos.add((
+          key: pose.name,
+          imagePath: detection.analyzedImagePath ?? path,
+          faceBox: face.boundingBox,
+          landmarks: face,
+        ));
+      } catch (e) {
+        debugPrint('FmFaceEnroll: check detect failed ${pose.name}: $e');
+      }
+    }
+    final report =
+        await ref.read(faceRecognitionServiceProvider).checkEnrollmentPhotos(
+              employeeId: _employee.employeeId,
+              photos: photos,
+            );
+    if (!mounted) return false;
+    if (report == null) return true;
+
+    final mismatched =
+        report.keysBelow(FaceEnrollmentChecks.samePersonMinCosine);
+    if (mismatched.length >= 2) {
+      // Most poses disagree with the front photo — the front is the odd one.
+      _restartEnrollment(
+          'Different faces detected — start again with one person');
+      return false;
+    }
+    if (mismatched.length == 1) {
+      final pose = FaceEnrollmentPose.values.byName(mismatched.first);
+      _retakePose(pose, 'That photo looks like a different person — retake');
+      return false;
+    }
+
+    final dup = report.duplicateOf;
+    if (dup != null) {
+      final blocked =
+          report.duplicateScore >= FaceEnrollmentChecks.duplicateBlockCosine;
+      final warn =
+          report.duplicateScore >= FaceEnrollmentChecks.duplicateWarnCosine;
+      if (blocked || warn) {
+        final proceed = await _confirmDuplicate(dup.name, blocked: blocked);
+        if (!mounted) return false;
+        if (!proceed) {
+          _restartEnrollment(_employee.name.isEmpty
+              ? 'Start again'
+              : 'Start again with ${_employee.name}');
+          return false;
+        }
+      }
+    }
+    return true;
+  }
+
+  void _retakePose(FaceEnrollmentPose pose, String hint) {
+    _paths.remove(pose);
+    ScaffoldMessenger.maybeOf(context)
+      ?..hideCurrentSnackBar()
+      ..showSnackBar(SnackBar(content: Text(hint)));
+    setState(() {
+      _processStep = null;
+      _processError = null;
+      _poseIndex = FaceEnrollmentPose.captureOrder.indexOf(pose);
+      _hint = hint;
+      _previewReady = false;
+      _qualityStatus = null;
+      _consecutiveReadyFrames = 0;
+      _readySince = null;
+      _suppressAutoUntil = DateTime.now().add(_failureBackoff);
+    });
+    unawaited(_startStream());
+  }
+
+  void _restartEnrollment(String hint) {
+    _paths.clear();
+    _retakePose(FaceEnrollmentPose.captureOrder.first, hint);
+  }
+
+  Future<bool> _confirmDuplicate(String otherName,
+      {required bool blocked}) async {
+    final result = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => AlertDialog(
+        title: Text(blocked ? 'Face already enrolled' : 'Possible duplicate'),
+        content: Text(
+          blocked
+              ? 'This face is already enrolled as $otherName. '
+                  'It cannot be enrolled for ${_employee.name}.'
+              : 'This face looks similar to $otherName, who is already '
+                  'enrolled. Make sure this is ${_employee.name}.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: const Text('Retake'),
+          ),
+          if (!blocked)
+            FilledButton(
+              onPressed: () => Navigator.of(ctx).pop(true),
+              child: const Text('Enroll anyway'),
+            ),
+        ],
+      ),
+    );
+    return result ?? false;
   }
 
   void _dismissProcessError() {
@@ -586,6 +830,27 @@ class _FmFaceEnrollCaptureScreenState
       _hint = _currentPose.instruction;
     });
     unawaited(_startStream());
+  }
+
+  /// Sized to the sensor's portrait aspect and cover-cropped, so the preview
+  /// never stretches when the screen ratio differs (tablets especially).
+  Widget _buildCameraPreview(CameraController controller) {
+    final previewSize = controller.value.previewSize;
+    if (previewSize == null) {
+      return Center(child: CameraPreview(controller));
+    }
+    final shortSide = previewSize.shortestSide;
+    final longSide = previewSize.longestSide;
+    return ClipRect(
+      child: FittedBox(
+        fit: BoxFit.cover,
+        child: SizedBox(
+          width: shortSide,
+          height: longSide,
+          child: CameraPreview(controller),
+        ),
+      ),
+    );
   }
 
   @override
@@ -598,7 +863,24 @@ class _FmFaceEnrollCaptureScreenState
     if (_initError != null) {
       return TmScaffold(
         appBar: AppBar(title: const Text('Face enrollment')),
-        body: Center(child: Text(_initError!)),
+        body: Center(
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(_initError!, textAlign: TextAlign.center),
+                if (_permissionDenied) ...[
+                  const SizedBox(height: 16),
+                  const FilledButton(
+                    onPressed: openAppSettings,
+                    child: Text('Open Settings'),
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ),
       );
     }
 
@@ -613,7 +895,7 @@ class _FmFaceEnrollCaptureScreenState
                 'enroll-cam-${_camera?.name ?? 'none'}-'
                 '${_camera?.lensDirection.name ?? 'unknown'}',
               ),
-              child: CameraPreview(_controller!),
+              child: _buildCameraPreview(_controller!),
             ),
           FmFaceEnrollOvalOverlay(
             frameColor: _frameColor,
@@ -662,7 +944,8 @@ class _FmFaceEnrollCaptureScreenState
                         onPressed: _processing || _capturing
                             ? null
                             : () => _capturePose(auto: false),
-                        icon: Icon(PhosphorIcons.camera(), color: Colors.white70),
+                        icon:
+                            Icon(PhosphorIcons.camera(), color: Colors.white70),
                       ),
                     ],
                   ),
@@ -781,8 +1064,7 @@ class _EnrollHeader extends StatelessWidget {
           CircleAvatar(
             radius: 28,
             backgroundColor: TimesheetModuleColors.navy,
-            backgroundImage:
-                imageUrl != null ? NetworkImage(imageUrl) : null,
+            backgroundImage: imageUrl != null ? NetworkImage(imageUrl) : null,
             child: imageUrl == null
                 ? Text(
                     employee.name.isNotEmpty
@@ -883,9 +1165,7 @@ class _PoseDot extends StatelessWidget {
                 : Colors.black38,
             border: Border.all(color: color, width: 2),
           ),
-          child: done
-              ? Icon(Icons.check, color: color, size: 18)
-              : null,
+          child: done ? Icon(Icons.check, color: color, size: 18) : null,
         ),
         const SizedBox(height: 4),
         Text(

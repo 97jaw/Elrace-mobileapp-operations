@@ -23,7 +23,10 @@ class MediaRepository implements IMediaRepository {
       Map<String, String> headers = {
         "Content-Type": "application/json",
         "Accept": "application/json",
-        "Authorization": "Bearer $token"
+        "Authorization": "Bearer $token",
+        // This build shows a Projects tab for media-role users; the backend
+        // folds project videos into Videos only for older builds.
+        "X-Media-Projects-Tab": "1",
       };
 
       final body = jsonEncode({"jsonrpc": "2.0", "params": {}});
@@ -233,7 +236,8 @@ class MediaRepository implements IMediaRepository {
       };
 
       final body = jsonEncode({"jsonrpc": "2.0", "params": {}});
-      final url = Uri.parse("${UrlUtil.baseUrl}${UrlUtil.getContentsGroupedApi}");
+      final url =
+          Uri.parse("${UrlUtil.baseUrl}${UrlUtil.getContentsGroupedApi}");
 
       // Use GET request with body (similar to other API calls in this app)
       final request = http.Request('GET', url)

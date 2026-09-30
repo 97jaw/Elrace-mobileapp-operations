@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:el_race/core/utils/responsive_breakpoints.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 
@@ -31,7 +31,7 @@ class MediaContentThumbnail extends StatelessWidget {
         alignment: Alignment.center,
         child: Icon(
           content.is360 ? Icons.threesixty : Icons.image_outlined,
-          size: 32.sp,
+          size: 32.tsp,
           color: MediaTheme.textMuted,
         ),
       );
@@ -53,8 +53,8 @@ class MediaContentThumbnail extends StatelessWidget {
             color: MediaTheme.sheetBg,
             alignment: Alignment.center,
             child: SizedBox(
-              width: 20.w,
-              height: 20.w,
+              width: 20.tw,
+              height: 20.tw,
               child: CircularProgressIndicator(
                 strokeWidth: 2,
                 color: MediaTheme.textMuted,
@@ -76,24 +76,24 @@ class MediaContentThumbnail extends StatelessWidget {
               alignment: Alignment.center,
               child: Icon(
                 Icons.play_circle_fill,
-                size: 36.sp,
+                size: 36.tsp,
                 color: MediaTheme.white.withValues(alpha: 0.85),
               ),
             ),
           if (content.is360)
             Positioned(
-              top: 6.h,
-              right: 6.w,
+              top: 6.th,
+              right: 6.tw,
               child: Container(
-                padding: EdgeInsets.symmetric(horizontal: 6.w, vertical: 2.h),
+                padding: EdgeInsets.symmetric(horizontal: 6.tw, vertical: 2.th),
                 decoration: BoxDecoration(
                   color: MediaTheme.black.withValues(alpha: 0.55),
-                  borderRadius: BorderRadius.circular(6.r),
+                  borderRadius: BorderRadius.circular(6.tr),
                 ),
                 child: Text(
                   '360°',
                   style: GoogleFonts.poppins(
-                    fontSize: 9.sp,
+                    fontSize: 9.tsp,
                     fontWeight: FontWeight.w700,
                     color: MediaTheme.white,
                   ),

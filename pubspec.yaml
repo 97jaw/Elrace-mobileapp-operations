@@ -120,6 +120,7 @@ dependencies:
   archive: ^3.6.1
   mobile_scanner: ^7.0.0
   app_links: ^6.3.3
+  flutter_inappwebview: ^6.1.5
   syncfusion_flutter_pdfviewer: ^28.1.33
   syncfusion_flutter_pdf: ^28.1.33
   chewie: ^1.8.5
@@ -177,6 +178,7 @@ flutter:
     - assets/i18n/
     - assets/mp4/
     - assets/mp3/
+    - assets/sounds/
     - assets/gif/
     - assets/newapp/
     - assets/newapp/newicon/

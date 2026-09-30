@@ -60,6 +60,19 @@ class AntispoofConfig {
   /// Spoof if print + replay probabilities exceed this (even when argmax is live).
   static const double spoofAttackSumThreshold = 0.55;
 
+  /// A spoof frame is "hard" (blocks the burst outright) when both models
+  /// vote attack or print + replay reaches this. Below it, with the models
+  /// disagreeing, it is a "soft" spoof — typically motion blur or glare on a
+  /// real face flipping one model for a single frame.
+  static const double hardSpoofAttackSumThreshold = 0.70;
+
+  /// Soft-spoof frames tolerated per burst.
+  static const int maxSoftSpoofFramesPerBurst = 1;
+
+  /// When a soft spoof is tolerated, this many other frames must be
+  /// confidently live (not merely uncertain).
+  static const int minLiveFramesWithSoftSpoof = 2;
+
   /// Multi-frame Layer 1: need this many passing frames out of [multiFrameWindow].
   static const int multiFramePassRequired = 4;
   static const int multiFrameWindow = 5;

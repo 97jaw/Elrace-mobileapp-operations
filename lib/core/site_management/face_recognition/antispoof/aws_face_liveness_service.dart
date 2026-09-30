@@ -1,4 +1,5 @@
 import 'package:cloud_functions/cloud_functions.dart';
+import 'package:el_race/core/firebase/firebase_session.dart';
 import 'package:el_race/core/site_management/face_recognition/antispoof/antispoof_config.dart';
 import 'package:flutter/foundation.dart';
 
@@ -44,7 +45,8 @@ class AwsFaceLivenessService {
 
   Future<AwsFaceLivenessSession> createSession() async {
     final callable = _functions.httpsCallable('createFaceLivenessSession');
-    final result = await callable.call<Map<String, dynamic>>({});
+    final result = await FirebaseSession.instance
+        .run(() => callable.call<Map<String, dynamic>>({}));
     final data = _asMap(result.data);
     final sessionId = data['session_id']?.toString() ?? '';
     if (sessionId.isEmpty) {
@@ -58,9 +60,9 @@ class AwsFaceLivenessService {
 
   Future<AwsFaceLivenessResult> getSessionResults(String sessionId) async {
     final callable = _functions.httpsCallable('getFaceLivenessSessionResults');
-    final result = await callable.call<Map<String, dynamic>>({
-      'session_id': sessionId,
-    });
+    final result = await FirebaseSession.instance.run(
+      () => callable.call<Map<String, dynamic>>({'session_id': sessionId}),
+    );
     final data = _asMap(result.data);
     final confidence = _toDouble(data['confidence']);
     final live = data['status']?.toString().toUpperCase() == 'SUCCEEDED' ||
@@ -91,9 +93,7 @@ class AwsFaceLivenessService {
       if (last.mockMode) return last;
       final status = last.status?.toUpperCase() ?? '';
       if (last.passed) return last;
-      if (status == 'SUCCEEDED' ||
-          status == 'FAILED' ||
-          status == 'EXPIRED') {
+      if (status == 'SUCCEEDED' || status == 'FAILED' || status == 'EXPIRED') {
         return last;
       }
       if (attempt < maxAttempts - 1) {

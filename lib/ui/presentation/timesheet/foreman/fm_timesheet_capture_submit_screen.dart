@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math' as math;
 
 import 'package:el_race/core/theme/timesheet_module_theme.dart';
 import 'package:el_race/core/timesheet/models/timesheet_models.dart';
@@ -7,6 +8,8 @@ import 'package:el_race/core/timesheet/network/timesheet_functions_client.dart';
 import 'package:el_race/core/timesheet/network/timesheet_odoo_employee.dart';
 import 'package:el_race/core/timesheet/providers/timesheet_acting_session_provider.dart';
 import 'package:el_race/core/timesheet/providers/timesheet_data_providers.dart';
+import 'package:el_race/core/timesheet/services/tm_project_location_notify_service.dart';
+import 'package:el_race/ui/presentation/timesheet/widgets/tm_submit_geofence_dialog.dart';
 import 'package:el_race/core/timesheet/providers/timesheet_hr_scope_provider.dart';
 import 'package:el_race/core/timesheet/providers/timesheet_role_provider.dart';
 import 'package:el_race/core/timesheet/services/capture_queue_service.dart';
@@ -16,6 +19,8 @@ import 'package:el_race/core/site_management/face_recognition/data/repositories/
 import 'package:el_race/core/site_management/face_recognition/face_match_session.dart';
 import 'package:el_race/core/site_management/face_recognition/face_pilot_log_store.dart';
 import 'package:el_race/core/timesheet/services/timesheet_roster_face_matcher.dart';
+import 'package:el_race/core/utils/app_orientations.dart';
+import 'package:el_race/core/utils/responsive_breakpoints.dart';
 import 'package:el_race/core/utils/shared_pref.dart';
 import 'package:el_race/core/widgets/timesheet/timesheet_widgets.dart';
 import 'package:el_race/core/widgets/timesheet/tm_marquee_text.dart';
@@ -31,6 +36,7 @@ import 'package:el_race/ui/presentation/timesheet/widgets/face_recognition/tm_fa
 import 'package:el_race/ui/presentation/timesheet/widgets/face_recognition/tm_timesheet_capture_confirm_sheet.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/scheduler.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:phosphor_flutter/phosphor_flutter.dart';
@@ -41,9 +47,21 @@ class FmTimesheetCaptureSubmitScreen extends ConsumerStatefulWidget {
     super.key,
     required this.args,
     this.returnCaptures = false,
+    this.expectedEmployeeId,
+    this.expectedEmployeeName,
+    this.alreadyCapturedEmployeeIds = const {},
   });
 
   final TimesheetProjectDayArgs args;
+
+  /// Your Team sheet: the labor this camera was opened for. Other faces are
+  /// shown as a mismatch and are not added.
+  final int? expectedEmployeeId;
+  final String? expectedEmployeeName;
+
+  /// Labors already captured by the caller (pending in the Your Team sheet),
+  /// so they show as "already added" instead of a fresh green match.
+  final Set<int> alreadyCapturedEmployeeIds;
 
   /// When true, the screen does not submit itself. After the first successful
   /// face capture it pops, returning the captured entries so the caller (the
@@ -56,7 +74,8 @@ class FmTimesheetCaptureSubmitScreen extends ConsumerStatefulWidget {
 }
 
 class _FmTimesheetCaptureSubmitScreenState
-    extends ConsumerState<FmTimesheetCaptureSubmitScreen> {
+    extends ConsumerState<FmTimesheetCaptureSubmitScreen>
+    with CapturePortraitLock<FmTimesheetCaptureSubmitScreen> {
   final GlobalKey<TimesheetCaptureCameraPanelState> _cameraKey =
       GlobalKey<TimesheetCaptureCameraPanelState>();
 
@@ -65,6 +84,7 @@ class _FmTimesheetCaptureSubmitScreenState
   final List<TimesheetCaptureSessionEntry> _captures = [];
   TimesheetFaceOverlayHint? _overlayHint;
   TimesheetCaptureNoticeToast? _noticeToast;
+  int _noticeSeq = 0;
   bool _showNoMatchNotice = false;
   double? _noMatchBestScore;
   String? _noMatchClosestName;
@@ -83,8 +103,10 @@ class _FmTimesheetCaptureSubmitScreenState
   Timer? _returnTimer;
   bool _returning = false;
 
-  Set<int> get _capturedEmployeeIds =>
-      _captures.map((e) => e.employeeId).toSet();
+  Set<int> get _capturedEmployeeIds => {
+        ...widget.alreadyCapturedEmployeeIds,
+        ..._captures.map((e) => e.employeeId),
+      };
 
   Set<int> get _projectLaborEmployeeIds =>
       _employees.map((e) => e.employeeId).toSet();
@@ -102,8 +124,9 @@ class _FmTimesheetCaptureSubmitScreenState
     super.initState();
     final day = widget.args.date;
     final now = DateTime.now();
-    _startDateTime = DateTime(day.year, day.month, day.day, now.hour, now.minute)
-        .subtract(const Duration(hours: 9));
+    _startDateTime =
+        DateTime(day.year, day.month, day.day, now.hour, now.minute)
+            .subtract(const Duration(hours: 9));
     _endDateTime = DateTime(day.year, day.month, day.day, now.hour, now.minute);
     unawaited(_bootCapture());
   }
@@ -125,8 +148,18 @@ class _FmTimesheetCaptureSubmitScreenState
         setState(() => _captures.addAll(restored.captures));
       }
     }
-    final result = await ref.read(faceDbSyncProvider.future);
+    // Re-check the face DB version on every open: labors enrolled earlier in
+    // this session must be matchable, or their faces fall to whoever is cached.
+    final result = await ref.refresh(faceDbSyncProvider.future);
     if (!mounted) return;
+    final expected = widget.expectedEmployeeId;
+    if (expected != null) {
+      // Version check can miss a just-enrolled labor; pull templates if absent.
+      await ref
+          .read(faceRecognitionServiceProvider)
+          .ensureTemplatesFor(expected);
+      if (!mounted) return;
+    }
     _applySyncResult(result);
     await _loadEmployees();
   }
@@ -171,8 +204,9 @@ class _FmTimesheetCaptureSubmitScreenState
     if (_faceDbRefreshing) return;
     setState(() => _faceDbRefreshing = true);
     try {
-      final result =
-          await ref.read(faceRecognitionServiceProvider).syncFaceDbForceRefresh();
+      final result = await ref
+          .read(faceRecognitionServiceProvider)
+          .syncFaceDbForceRefresh();
       if (!mounted) return;
       _applySyncResult(result, manualRefresh: true);
     } finally {
@@ -182,8 +216,7 @@ class _FmTimesheetCaptureSubmitScreenState
 
   void _applySyncResult(FaceSyncResult result, {bool manualRefresh = false}) {
     final service = ref.read(faceRecognitionServiceProvider);
-    final countSuffix =
-        result.count > 0 ? ' · ${result.count} templates' : '';
+    final countSuffix = result.count > 0 ? ' · ${result.count} templates' : '';
     final prefix = switch (result.status) {
       FaceSyncStatus.synced => manualRefresh
           ? 'Face DB reloaded$countSuffix'
@@ -191,8 +224,8 @@ class _FmTimesheetCaptureSubmitScreenState
       FaceSyncStatus.upToDate => manualRefresh
           ? 'Face DB checked$countSuffix'
           : 'Face DB ready$countSuffix',
-      FaceSyncStatus.failed when result.message?.startsWith('offline_cache') ==
-              true =>
+      FaceSyncStatus.failed
+          when result.message?.startsWith('offline_cache') == true =>
         'Face DB offline$countSuffix',
       FaceSyncStatus.failed => 'Face DB sync failed',
       FaceSyncStatus.empty => 'No enrolled faces on server',
@@ -206,8 +239,7 @@ class _FmTimesheetCaptureSubmitScreenState
       snackText = '$snackText · engine: ${service.engineError}';
     }
     if (kDebugMode && FacePilotLogStore.lastExportPath != null) {
-      snackText =
-          '$snackText · pilot log: ${FacePilotLogStore.lastExportPath}';
+      snackText = '$snackText · pilot log: ${FacePilotLogStore.lastExportPath}';
     }
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
@@ -287,14 +319,27 @@ class _FmTimesheetCaptureSubmitScreenState
     TimesheetOdooEmployee employee,
     TmFaceCaptureNoticeKind kind, {
     double? matchScore,
+    String? expectedName,
   }) {
     setState(() {
+      _noticeSeq++;
       _noticeToast = TimesheetCaptureNoticeToast(
         employee: employee,
         kind: kind,
         matchScore: matchScore,
+        expectedName: expectedName,
+        seq: _noticeSeq,
       );
     });
+  }
+
+  void _onUnexpectedEmployee(TimesheetOdooEmployee employee) {
+    final resolved = _laborEmployeeOrNull(employee) ?? employee;
+    _showCaptureNotice(
+      resolved,
+      TmFaceCaptureNoticeKind.mismatch,
+      expectedName: widget.expectedEmployeeName,
+    );
   }
 
   void _clearNoticeToast() {
@@ -318,6 +363,18 @@ class _FmTimesheetCaptureSubmitScreenState
       _onOutOfTeamRecognized(employee, draft, matchScore);
       return;
     }
+    final expected = widget.expectedEmployeeId;
+    if (expected != null && resolved.employeeId != expected) {
+      debugPrint(
+        'FmTimesheetCaptureSubmit: matched ${resolved.employeeId} but camera '
+        'is for $expected — not added',
+      );
+      return;
+    }
+    if (_capturedEmployeeIds.contains(resolved.employeeId)) {
+      _onAlreadyAttended(resolved);
+      return;
+    }
 
     ref.read(faceMatchSessionProvider.notifier).record(
           FaceMatchSessionRecord(
@@ -331,7 +388,7 @@ class _FmTimesheetCaptureSubmitScreenState
           ),
         );
     ref.read(faceMatchSessionProvider.notifier).markConfirmed();
-  _setOverlayHint(
+    _setOverlayHint(
       TimesheetFaceOverlayHint.inTeam(
         name: resolved.name,
         fileId: resolved.displayFileId,
@@ -386,13 +443,15 @@ class _FmTimesheetCaptureSubmitScreenState
         .toList();
     if (recent.isNotEmpty) {
       final lastCapturedAt = recent.last.capturedAt;
-      if (DateTime.now().difference(lastCapturedAt) < _alreadyAttendedCooldown) {
+      if (DateTime.now().difference(lastCapturedAt) <
+          _alreadyAttendedCooldown) {
         // Too soon after capture — skip the nag so it feels realistic.
         return;
       }
     }
     _showCaptureNotice(resolved, TmFaceCaptureNoticeKind.alreadyAttended);
-    debugPrint('FaceCaptureSession: already attended emp=${resolved.employeeId}');
+    debugPrint(
+        'FaceCaptureSession: already attended emp=${resolved.employeeId}');
   }
 
   void _onOutOfTeamRecognized(
@@ -505,6 +564,13 @@ class _FmTimesheetCaptureSubmitScreenState
 
   void _onChromeChanged(TimesheetCaptureChromeSnapshot chrome) {
     if (!mounted) return;
+    final phase = SchedulerBinding.instance.schedulerPhase;
+    if (phase == SchedulerPhase.persistentCallbacks) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) setState(() => _chrome = chrome);
+      });
+      return;
+    }
     setState(() => _chrome = chrome);
   }
 
@@ -560,6 +626,13 @@ class _FmTimesheetCaptureSubmitScreenState
           unawaited(_persistSession());
         }
       },
+      onReloadProjects: () =>
+          TmProjectLocationNotifyService.reloadInProgressProjects(ref),
+      onNotifyMissingLocation: (project) =>
+          TmProjectLocationNotifyService.notifyStaff(
+        client: ref.read(timesheetApiClientProvider),
+        project: project,
+      ),
     );
     if (!confirmed || !mounted) return;
     if (_captures.isEmpty) return;
@@ -582,9 +655,8 @@ class _FmTimesheetCaptureSubmitScreenState
       }
     }
 
-    setState(() => _isSubmitting = true);
-    try {
-      final client = ref.read(timesheetApiClientProvider);
+    final client = ref.read(timesheetApiClientProvider);
+    Future<TimesheetSubmitResult> doSubmit() {
       final ids = _captures.map((e) => e.employeeId).toList(growable: false);
       final names = _captures.map((e) => e.employee.name).join(', ');
       final coords = _captures
@@ -596,7 +668,7 @@ class _FmTimesheetCaptureSubmitScreenState
             ),
           )
           .toList(growable: false);
-      final result = await client.submitTimesheet(
+      return client.submitTimesheet(
         TimesheetSubmitRequest(
           projectId: submitProjectId,
           taskId: submitTaskId,
@@ -609,6 +681,28 @@ class _FmTimesheetCaptureSubmitScreenState
           coords: coords,
         ),
       );
+    }
+
+    final gateProject = selectedProject;
+    if (!mounted) return;
+    setState(() => _isSubmitting = true);
+    try {
+      if (gateProject != null && gateProject.hasSiteCoordinates) {
+        // Popup decides by foreman distance to site; creates only if inside.
+        final created = await TmSubmitGeofenceGate.run(
+          context,
+          project: gateProject,
+          loadThresholdM: client.fetchProjectSubmitThresholdM,
+          submit: doSubmit,
+        );
+        if (!mounted || !created) return;
+        await TimesheetCaptureSessionStore.clear();
+        if (!mounted) return;
+        Navigator.of(context).pop(true);
+        return;
+      }
+
+      final result = await doSubmit();
       if (!mounted) return;
       if (result.success) {
         await TimesheetCaptureSessionStore.clear();
@@ -656,6 +750,13 @@ class _FmTimesheetCaptureSubmitScreenState
     final headerTop = topPad + 52;
     final captureCount = _captures.length;
     final notice = _noticeToast;
+    // Tablet: keep floating chrome at a readable width, centered over the
+    // full-bleed camera. Phone keeps the original edge insets.
+    final tablet = ResponsiveBreakpoints.useTabletLayout(context);
+    final screenWidth = MediaQuery.sizeOf(context).width;
+    final chromeInset = tablet
+        ? math.max(16.0, (screenWidth - _tabletChromeMaxWidth) / 2)
+        : 10.0;
 
     return PopScope(
       canPop: widget.returnCaptures || _captures.isEmpty,
@@ -666,151 +767,198 @@ class _FmTimesheetCaptureSubmitScreenState
         if (leave) Navigator.of(this.context).pop();
       },
       child: Scaffold(
-      backgroundColor: TimesheetModuleColors.navy,
-      body: Stack(
-        fit: StackFit.expand,
-        children: [
-          TimesheetCaptureCameraPanel(
-            key: _cameraKey,
-            capture: _captureArgs,
-            showShutter: false,
-            fillHeight: true,
-            externalChrome: true,
-            autoCaptureEnabled: true,
-            overlayHint: _overlayHint,
-            capturedEmployeeIds: _capturedEmployeeIds,
-            projectLaborEmployeeIds: _projectLaborEmployeeIds,
-            rosterEmployees: _faceMatchRoster,
-            faceRecognition: ref.read(faceRecognitionServiceProvider),
-            onRosterEmployeeMatched: _onRosterMatched,
-            onAlreadyAttended: _onAlreadyAttended,
-            onOutOfTeamRecognized: _onOutOfTeamRecognized,
-            onNoEmbeddingMatch: _onNoEmbeddingMatch,
-            onCaptureMatched: _onCaptureMatched,
-            onChromeChanged: _onChromeChanged,
-          ),
-          Positioned(
-            top: 0,
-            left: 0,
-            right: 0,
-            child: _NavyTitleBar(
-              onBack: () async {
-                if (widget.returnCaptures) {
-                  _returnTimer?.cancel();
-                  Navigator.of(this.context)
-                      .pop<List<TimesheetCaptureSessionEntry>>(
-                    List<TimesheetCaptureSessionEntry>.from(_captures),
-                  );
-                  return;
-                }
-                final leave = await _confirmLeaveIfNeeded();
-                if (!mounted) return;
-                if (leave) Navigator.of(this.context).pop();
-              },
+        backgroundColor: TimesheetModuleColors.navy,
+        body: Stack(
+          fit: StackFit.expand,
+          children: [
+            TimesheetCaptureCameraPanel(
+              key: _cameraKey,
+              capture: _captureArgs,
+              showShutter: false,
+              fillHeight: true,
+              externalChrome: true,
+              autoCaptureEnabled: false,
+              expectedEmployeeId: widget.expectedEmployeeId,
+              expectedEmployeeName: widget.expectedEmployeeName,
+              overlayHint: _overlayHint,
+              capturedEmployeeIds: _capturedEmployeeIds,
+              projectLaborEmployeeIds: _projectLaborEmployeeIds,
+              rosterEmployees: _faceMatchRoster,
+              faceRecognition: ref.read(faceRecognitionServiceProvider),
+              onRosterEmployeeMatched: _onRosterMatched,
+              onAlreadyAttended: _onAlreadyAttended,
+              onUnexpectedEmployee: _onUnexpectedEmployee,
+              onOutOfTeamRecognized: _onOutOfTeamRecognized,
+              onNoEmbeddingMatch: _onNoEmbeddingMatch,
+              onCaptureMatched: _onCaptureMatched,
+              onChromeChanged: _onChromeChanged,
             ),
-          ),
-          Positioned(
-            top: headerTop,
-            left: 10,
-            right: 10,
-            child: _CaptureProjectHeader(
-              projectName: widget.args.projectName,
-              taskName: widget.args.taskName,
-              dateLabel: dateLabel,
-            ),
-          ),
-          Positioned(
-            top: headerTop + 88,
-            right: 10,
-            child: _CaptureCameraRail(
-              chrome: chrome,
-              onFlip: camera?.switchCameraExternal,
-              onFlash: camera?.toggleFlashExternal,
-              onCapture: camera?.capturePhoto,
-            ),
-          ),
-          Positioned(
-            left: 0,
-            right: 0,
-            bottom: 0,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                TmFaceDbFallbackBanner(
-                  availability: _availability,
-                  phaseAFallback:
-                      !_phaseBActive && _faceMatchRoster.isNotEmpty,
-                ),
-                if (chrome?.livenessShowSpoofWarning == true)
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
-                    child: TmLivenessBlockedBanner(
-                      message: chrome?.livenessMessage?.trim().isNotEmpty == true
-                          ? chrome!.livenessMessage!.trim()
-                          : 'Live face verification failed.',
-                      onRetry: camera?.retryLivenessSpoofExternal,
-                    ),
-                  ),
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(12, 0, 12, 10),
-                  child: TmFaceCaptureStatusIconRow(
-                    embeddingOn: _phaseBActive,
-                    faceDbReady: _faceDbReady,
-                    faceDbTemplateCount: _faceDbTemplateCount,
-                    onRefreshFaceDb: _refreshFaceDb,
-                    refreshingFaceDb: _faceDbRefreshing,
-                    geofenceOk: chrome?.geofenceOk == true,
-                    canCapture: chrome?.canCapture == true,
-                    livenessPhase: chrome?.livenessPhase ?? LivenessGatePhase.idle,
-                    livenessMessage: chrome?.livenessMessage,
-                    onRetryLiveness: chrome?.livenessShowSpoofWarning == true
-                        ? camera?.retryLivenessSpoofExternal
-                        : null,
-                  ),
-                ),
-                _CaptureSubmitBar(
-                  captureCount: captureCount,
-                  isSubmitting: _isSubmitting,
-                  bottomInset: bottomInset,
-                  submitLabel: widget.returnCaptures ? 'Done' : null,
-                  onSubmit: widget.returnCaptures
-                      ? () {
-                          _returnTimer?.cancel();
-                          Navigator.of(context)
-                              .pop<List<TimesheetCaptureSessionEntry>>(
-                            List<TimesheetCaptureSessionEntry>.from(_captures),
-                          );
-                        }
-                      : _submit,
-                ),
-              ],
-            ),
-          ),
-          if (notice != null)
             Positioned(
-              left: 12,
-              right: 12,
-              bottom: bottomInset + 132,
-              child: TmFaceCaptureNoticeTile(
-                key: ValueKey(
-                  '${notice.employee.employeeId}_${notice.kind.name}',
-                ),
-                employee: notice.employee,
-                kind: notice.kind,
-                matchScore: notice.matchScore,
-                onDismissed: _clearNoticeToast,
+              top: 0,
+              left: 0,
+              right: 0,
+              child: _NavyTitleBar(
+                onBack: () async {
+                  if (widget.returnCaptures) {
+                    _returnTimer?.cancel();
+                    Navigator.of(this.context)
+                        .pop<List<TimesheetCaptureSessionEntry>>(
+                      List<TimesheetCaptureSessionEntry>.from(_captures),
+                    );
+                    return;
+                  }
+                  final leave = await _confirmLeaveIfNeeded();
+                  if (!mounted) return;
+                  if (leave) Navigator.of(this.context).pop();
+                },
               ),
             ),
-          if (_showNoMatchNotice)
-            TmFaceNoMatchNotice(
-              bestScore: _noMatchBestScore,
-              suspectedName: _noMatchClosestName,
-              onDismiss: _dismissNoMatch,
+            Positioned(
+              top: headerTop,
+              left: chromeInset,
+              right: chromeInset,
+              child: _CaptureProjectHeader(
+                projectName: widget.args.projectName,
+                taskName: widget.args.taskName,
+                dateLabel: dateLabel,
+              ),
             ),
-        ],
+            Positioned(
+              top: headerTop + 88,
+              right: tablet ? 16 : 10,
+              child: _CaptureCameraRail(
+                large: tablet,
+                chrome: chrome,
+                onFlip: camera?.switchCameraExternal,
+                onFlash: camera?.toggleFlashExternal,
+                onCapture: camera?.capturePhoto,
+              ),
+            ),
+            Positioned(
+              left: 0,
+              right: 0,
+              bottom: 0,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  _TabletChromeWidth(
+                    enabled: tablet,
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        TmFaceDbFallbackBanner(
+                          availability: _availability,
+                          phaseAFallback:
+                              !_phaseBActive && _faceMatchRoster.isNotEmpty,
+                        ),
+                        if (chrome?.livenessShowSpoofWarning == true)
+                          Padding(
+                            padding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
+                            child: TmLivenessBlockedBanner(
+                              message:
+                                  chrome?.livenessMessage?.trim().isNotEmpty ==
+                                          true
+                                      ? chrome!.livenessMessage!.trim()
+                                      : 'Live face verification failed.',
+                              onRetry: camera?.retryLivenessSpoofExternal,
+                            ),
+                          ),
+                        Padding(
+                          padding: const EdgeInsets.fromLTRB(12, 0, 12, 10),
+                          child: TmFaceCaptureStatusIconRow(
+                            embeddingOn: _phaseBActive,
+                            faceDbReady: _faceDbReady,
+                            faceDbTemplateCount: _faceDbTemplateCount,
+                            onRefreshFaceDb: _refreshFaceDb,
+                            refreshingFaceDb: _faceDbRefreshing,
+                            geofenceOk: chrome?.geofenceOk == true,
+                            canCapture: chrome?.canCapture == true,
+                            livenessPhase:
+                                chrome?.livenessPhase ?? LivenessGatePhase.idle,
+                            livenessMessage: chrome?.livenessMessage,
+                            onRetryLiveness:
+                                chrome?.livenessShowSpoofWarning == true
+                                    ? camera?.retryLivenessSpoofExternal
+                                    : null,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  _CaptureSubmitBar(
+                    maxContentWidth: tablet ? _tabletChromeMaxWidth : null,
+                    captureCount: captureCount,
+                    isSubmitting: _isSubmitting,
+                    bottomInset: bottomInset,
+                    submitLabel: widget.returnCaptures ? 'Done' : null,
+                    onSubmit: widget.returnCaptures
+                        ? () {
+                            _returnTimer?.cancel();
+                            Navigator.of(context)
+                                .pop<List<TimesheetCaptureSessionEntry>>(
+                              List<TimesheetCaptureSessionEntry>.from(
+                                  _captures),
+                            );
+                          }
+                        : _submit,
+                  ),
+                ],
+              ),
+            ),
+            if (notice != null)
+              Positioned(
+                left: tablet ? chromeInset : 12,
+                right: tablet ? chromeInset : 12,
+                bottom: bottomInset + 132,
+                child: TmFaceCaptureNoticeTile(
+                  key: ValueKey(
+                    '${notice.employee.employeeId}_${notice.kind.name}_${notice.seq}',
+                  ),
+                  employee: notice.employee,
+                  kind: notice.kind,
+                  matchScore: notice.matchScore,
+                  expectedName: notice.expectedName,
+                  onDismissed: _clearNoticeToast,
+                ),
+              ),
+            if (_showNoMatchNotice)
+              TmFaceNoMatchNotice(
+                bestScore: _noMatchBestScore,
+                suspectedName: _noMatchClosestName,
+                onDismiss: _dismissNoMatch,
+              ),
+          ],
+        ),
       ),
-    ),
+    );
+  }
+}
+
+/// Max width of floating capture chrome (header, status, submit) on tablets.
+const double _tabletChromeMaxWidth = 620;
+
+/// Centers [child] at [maxWidth] when [enabled] (tablet); passthrough on phone.
+class _TabletChromeWidth extends StatelessWidget {
+  const _TabletChromeWidth({
+    required this.enabled,
+    required this.child,
+    this.maxWidth = _tabletChromeMaxWidth,
+  });
+
+  final bool enabled;
+  final double maxWidth;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    if (!enabled) return child;
+    return Center(
+      child: ConstrainedBox(
+        constraints: BoxConstraints(maxWidth: maxWidth),
+        child: child,
+      ),
     );
   }
 }
@@ -820,11 +968,17 @@ class TimesheetCaptureNoticeToast {
     required this.employee,
     required this.kind,
     this.matchScore,
+    this.expectedName,
+    this.seq = 0,
   });
 
   final TimesheetOdooEmployee employee;
   final TmFaceCaptureNoticeKind kind;
   final double? matchScore;
+  final String? expectedName;
+
+  /// Bumped per show so a repeat alert for the same person replays the card.
+  final int seq;
 }
 
 /// Only the title row gets navy gradient; everything else floats on camera.
@@ -946,8 +1100,10 @@ class _CaptureCameraRail extends StatelessWidget {
     required this.onFlip,
     required this.onFlash,
     required this.onCapture,
+    this.large = false,
   });
 
+  final bool large;
   final TimesheetCaptureChromeSnapshot? chrome;
   final Future<void> Function()? onFlip;
   final Future<void> Function()? onFlash;
@@ -958,6 +1114,8 @@ class _CaptureCameraRail extends StatelessWidget {
     final c = chrome;
     final canCapture = c?.canCapture == true && c?.permissionsReady == true;
     final isCapturing = c?.isCapturing == true;
+    final shutter = large ? 72.0 : 56.0;
+    final iconSize = large ? 26.0 : 22.0;
 
     return Column(
       mainAxisSize: MainAxisSize.min,
@@ -965,14 +1123,17 @@ class _CaptureCameraRail extends StatelessWidget {
         _RailIconButton(
           icon: PhosphorIcons.cameraRotate(),
           tooltip: 'Switch camera',
-          onPressed: onFlip,
+          onPressed: isCapturing ? null : onFlip,
+          iconSize: iconSize,
         ),
+        SizedBox(height: large ? 10 : 0),
         _RailIconButton(
           icon: PhosphorIcons.lightning(),
           tooltip: 'Flash',
           onPressed: onFlash,
+          iconSize: iconSize,
         ),
-        const SizedBox(height: 12),
+        SizedBox(height: large ? 16 : 12),
         Material(
           elevation: 4,
           color: canCapture && !isCapturing
@@ -983,17 +1144,21 @@ class _CaptureCameraRail extends StatelessWidget {
             customBorder: const CircleBorder(),
             onTap: canCapture && !isCapturing ? onCapture : null,
             child: SizedBox(
-              width: 56,
-              height: 56,
+              width: shutter,
+              height: shutter,
               child: isCapturing
-                  ? const Padding(
-                      padding: EdgeInsets.all(14),
-                      child: CircularProgressIndicator(
+                  ? Padding(
+                      padding: EdgeInsets.all(shutter / 4),
+                      child: const CircularProgressIndicator(
                         color: Colors.white,
                         strokeWidth: 2,
                       ),
                     )
-                  : Icon(PhosphorIcons.camera(), color: Colors.white, size: 28),
+                  : Icon(
+                      PhosphorIcons.camera(),
+                      color: Colors.white,
+                      size: shutter / 2,
+                    ),
             ),
           ),
         ),
@@ -1007,11 +1172,13 @@ class _RailIconButton extends StatelessWidget {
     required this.icon,
     required this.tooltip,
     required this.onPressed,
+    this.iconSize = 22,
   });
 
   final IconData icon;
   final String tooltip;
   final Future<void> Function()? onPressed;
+  final double iconSize;
 
   @override
   Widget build(BuildContext context) {
@@ -1023,7 +1190,7 @@ class _RailIconButton extends StatelessWidget {
       child: IconButton(
         tooltip: tooltip,
         onPressed: onPressed == null ? null : () => onPressed!(),
-        icon: Icon(icon, color: TimesheetModuleColors.surface, size: 22),
+        icon: Icon(icon, color: TimesheetModuleColors.surface, size: iconSize),
       ),
     );
   }
@@ -1036,8 +1203,10 @@ class _CaptureSubmitBar extends StatelessWidget {
     required this.bottomInset,
     required this.onSubmit,
     this.submitLabel,
+    this.maxContentWidth,
   });
 
+  final double? maxContentWidth;
   final int captureCount;
   final bool isSubmitting;
   final double bottomInset;
@@ -1063,11 +1232,15 @@ class _CaptureSubmitBar extends StatelessWidget {
       ),
       child: Padding(
         padding: EdgeInsets.fromLTRB(14, 10, 14, 10 + bottomInset),
-        child: TmPrimaryButton(
-          label: isSubmitting ? 'Submitting…' : label,
-          warm: true,
-          icon: PhosphorIcons.paperPlaneTilt(),
-          onPressed: isSubmitting ? null : onSubmit,
+        child: _TabletChromeWidth(
+          enabled: maxContentWidth != null,
+          maxWidth: maxContentWidth ?? _tabletChromeMaxWidth,
+          child: TmPrimaryButton(
+            label: isSubmitting ? 'Submitting…' : label,
+            warm: true,
+            icon: PhosphorIcons.paperPlaneTilt(),
+            onPressed: isSubmitting ? null : onSubmit,
+          ),
         ),
       ),
     );

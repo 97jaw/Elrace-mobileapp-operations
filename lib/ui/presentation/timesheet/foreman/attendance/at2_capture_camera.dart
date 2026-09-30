@@ -7,6 +7,7 @@ import 'package:el_race/core/timesheet/providers/timesheet_data_providers.dart';
 import 'package:el_race/core/timesheet/providers/timesheet_hr_scope_provider.dart';
 import 'package:el_race/core/timesheet/routing/timesheet_route_names.dart';
 import 'package:el_race/core/timesheet/services/capture_queue_service.dart';
+import 'package:el_race/core/utils/app_orientations.dart';
 import 'package:el_race/core/site_management/face_recognition/data/repositories/face_db_repository.dart';
 import 'package:el_race/core/widgets/timesheet/timesheet_widgets.dart';
 import 'package:el_race/ui/presentation/timesheet/foreman/attendance/timesheet_capture_camera_panel.dart';
@@ -28,7 +29,8 @@ class At2CaptureCameraScreen extends ConsumerStatefulWidget {
       _At2CaptureCameraScreenState();
 }
 
-class _At2CaptureCameraScreenState extends ConsumerState<At2CaptureCameraScreen> {
+class _At2CaptureCameraScreenState extends ConsumerState<At2CaptureCameraScreen>
+    with CapturePortraitLock<At2CaptureCameraScreen> {
   final GlobalKey<TimesheetCaptureCameraPanelState> _cameraKey =
       GlobalKey<TimesheetCaptureCameraPanelState>();
 
@@ -56,8 +58,8 @@ class _At2CaptureCameraScreenState extends ConsumerState<At2CaptureCameraScreen>
     final msg = switch (result.status) {
       FaceSyncStatus.synced => 'Face DB updated (${result.count} templates)',
       FaceSyncStatus.upToDate => 'Face DB ready (${result.count} templates)',
-      FaceSyncStatus.failed when result.message?.startsWith('offline_cache') ==
-              true =>
+      FaceSyncStatus.failed
+          when result.message?.startsWith('offline_cache') == true =>
         'Face DB offline (${result.count} cached)',
       FaceSyncStatus.failed => 'Face DB sync failed — manual flow only',
       FaceSyncStatus.empty => 'No enrolled faces on server',

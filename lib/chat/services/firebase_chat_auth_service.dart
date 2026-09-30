@@ -398,8 +398,8 @@ class FirebaseChatAuthService {
 
       // Sync local global chat mute → Firestore for CF background mute.
       try {
-        final muted = await NotificationStorageService.isChannelMuted(
-            'chat_message');
+        final muted =
+            await NotificationStorageService.isChannelMuted('chat_message');
         await NotificationStorageService.syncChatNotificationsMutedToFirestore(
             muted);
       } catch (e) {
@@ -523,7 +523,10 @@ class FirebaseChatAuthService {
             empId: session.empId ?? data.emp_id,
             name: session.name.isNotEmpty
                 ? session.name
-                : (data.emp_name ?? data.name ?? cached.sessionData['name'] ?? '')
+                : (data.emp_name ??
+                        data.name ??
+                        cached.sessionData['name'] ??
+                        '')
                     .toString(),
             email: session.email ?? data.email,
             roleId: session.roleId > 0 ? session.roleId : (data.role_id ?? 0),
@@ -610,10 +613,13 @@ class FirebaseChatAuthService {
   Future<User> ensureAuthenticated() async {
     await waitForAuthReady();
 
-    var user = _auth.currentUser;
+    final user = _auth.currentUser;
     if (user != null) {
       try {
-        await user.getIdToken(true);
+        // Not forced: the SDK refreshes on its own when the token is near
+        // expiry. Forcing here ran a network refresh before every Firestore
+        // call, and any blip escalated to a backend re-mint or an auth error.
+        await user.getIdToken();
         return user;
       } catch (e) {
         print(
@@ -621,6 +627,14 @@ class FirebaseChatAuthService {
       }
     }
 
+    return signInWithFreshCustomToken();
+  }
+
+  /// Mints a new custom token from the backend and signs in with it.
+  ///
+  /// Signs in over the current user rather than signing out first, so live
+  /// Firestore listeners in other features keep running through the switch.
+  Future<User> signInWithFreshCustomToken() async {
     final sessionJwt = _currentSession?.backendJwt.trim() ?? '';
     final backendToken = sessionJwt.isNotEmpty
         ? sessionJwt

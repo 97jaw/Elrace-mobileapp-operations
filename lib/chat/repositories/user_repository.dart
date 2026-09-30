@@ -87,9 +87,8 @@ class UserRepository {
     // Stamp flag: promote to true when login/session says so. Never clobber an
     // existing true with false just because login omitted the field.
     final loginStamp = SharedPref.getLoginData().result?.data?.xStampUser;
-    final stampNow = session.xStampUser ||
-        loginStamp == true ||
-        UserStampAssets.isStampUser;
+    final stampNow =
+        session.xStampUser || loginStamp == true || UserStampAssets.isStampUser;
     if (stampNow) {
       data['x_stamp_user'] = true;
     } else if (loginStamp == false) {
@@ -117,8 +116,8 @@ class UserRepository {
                 existingName.toLowerCase() != sessionName.toLowerCase())) {
           if (existingName != null) {
             data['name'] = existingName;
-            data['search_keywords'] =
-                ChatUser.buildSearchKeywords(existingName, safeEmail ?? session.email);
+            data['search_keywords'] = ChatUser.buildSearchKeywords(
+                existingName, safeEmail ?? session.email);
           }
         }
 
@@ -187,7 +186,8 @@ class UserRepository {
       invalidateUserCache(session.firebaseUid);
       // Best-effort: keep peer DM list titles in sync with corrected person name.
       // ignore: unawaited_futures
-      _healDmTitlesForUser(session.firebaseUid, data['name']?.toString() ?? session.name);
+      _healDmTitlesForUser(
+          session.firebaseUid, data['name']?.toString() ?? session.name);
     } catch (e) {
       print('❌ UserRepository: Error upserting user: $e');
       rethrow;
@@ -285,7 +285,8 @@ class UserRepository {
                 ? 'https://erp.elrace.com/public/employee/image/${match.employeeId}'
                 : null);
       }
-      final resolvedName = match.name.trim().isNotEmpty ? match.name.trim() : null;
+      final resolvedName =
+          match.name.trim().isNotEmpty ? match.name.trim() : null;
 
       final enriched = user.copyWith(
         name: needsName ? resolvedName : null,
@@ -532,25 +533,33 @@ class UserRepository {
     }
   }
 
-  /// Bulk-hydrate missing email/phone/job for ALL users in Firestore
-  /// by matching against the employee directory API.
+  /// Hydrate missing email/phone/job from the employee directory API.
   /// Runs in background — safe to fire-and-forget.
+  ///
+  /// Firestore rules only allow writing `users/{uid}` for your own uid, so
+  /// only the signed-in user's doc is patched; others self-heal on their
+  /// own devices.
   Future<int> hydrateAllUsersFromDirectory() async {
     try {
+      final authUid = FirebaseAuth.instance.currentUser?.uid.trim();
+      if (authUid == null || authUid.isEmpty) return 0;
       final members = await TeamMembersApiService.instance.getTeamMembers();
       if (members.isEmpty) {
-        print('⚠️ UserRepository: employee directory is empty, skipping bulk hydration');
+        print(
+            '⚠️ UserRepository: employee directory is empty, skipping bulk hydration');
         return 0;
       }
 
-      // Fetch all Firestore users
-      final snapshot = await _usersCollection.get();
+      final ownDoc = await _usersCollection.doc(authUid).get();
+      if (!ownDoc.exists) return 0;
       int updatedCount = 0;
 
-      for (final doc in snapshot.docs) {
-        final data = doc.data();
-        final email = _normalizeNullableString(data['email']?.toString() ?? data['work_email']?.toString());
-        final phone = _normalizeNullableString(data['phone']?.toString() ?? data['mobile_phone']?.toString());
+      for (final doc in [ownDoc]) {
+        final data = doc.data() ?? const <String, dynamic>{};
+        final email = _normalizeNullableString(
+            data['email']?.toString() ?? data['work_email']?.toString());
+        final phone = _normalizeNullableString(
+            data['phone']?.toString() ?? data['mobile_phone']?.toString());
         final job = _normalizeNullableString(data['job_title']?.toString());
 
         // Skip if already has all fields
@@ -602,7 +611,8 @@ class UserRepository {
         updatedCount++;
       }
 
-      print('✅ UserRepository: Bulk hydration complete — updated $updatedCount users');
+      print(
+          '✅ UserRepository: Bulk hydration complete — updated $updatedCount users');
       return updatedCount;
     } catch (e) {
       print('❌ UserRepository: Error during bulk hydration: $e');
@@ -624,9 +634,8 @@ class UserRepository {
 
       // 1) Firestore stamp flag
       try {
-        final snap = await _usersCollection
-            .where('x_stamp_user', isEqualTo: true)
-            .get();
+        final snap =
+            await _usersCollection.where('x_stamp_user', isEqualTo: true).get();
         for (final doc in snap.docs) {
           final u = ChatUser.fromFirestore(doc);
           byUid[u.uid] = u;
@@ -824,7 +833,8 @@ class UserRepository {
             users[i].copyWith(
               uid: uid,
               xStampUser: true,
-              name: (login?.emp_name ?? login?.name ?? users[i].name).toString(),
+              name:
+                  (login?.emp_name ?? login?.name ?? users[i].name).toString(),
             )
           else
             users[i],

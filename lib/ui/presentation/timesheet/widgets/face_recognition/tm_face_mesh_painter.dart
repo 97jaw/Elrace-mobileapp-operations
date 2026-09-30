@@ -10,6 +10,7 @@ class TmFaceMeshPainter {
   static const Color inTeam = Color(0xFF3DDC84);
   static const Color outOfTeam = Color(0xFFFFB74D);
   static const Color duplicate = Color(0xFF42A5F5);
+  static const Color mismatch = Color(0xFFE53935);
   static const Color neutral = Colors.white;
 
   static const double _lineWidth = 0.65;

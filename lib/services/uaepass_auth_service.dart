@@ -60,12 +60,14 @@ class UaepassAuthService {
     UaepassLogger.logKV('Timestamp', DateTime.now().toIso8601String());
     UaepassLogger.logKV('client_id', config.clientId);
     UaepassLogger.logKV('redirect_uri (raw)', config.redirectUrl);
-    UaepassLogger.logKV('redirect_uri (encoded)', Uri.encodeComponent(config.redirectUrl));
+    UaepassLogger.logKV(
+        'redirect_uri (encoded)', Uri.encodeComponent(config.redirectUrl));
     UaepassLogger.logKV('scope (raw)', config.scope);
     UaepassLogger.logKV('scope (encoded)', Uri.encodeComponent(config.scope));
     UaepassLogger.logKV('response_type', config.responseType);
     UaepassLogger.logKV('acr_values (raw)', config.acrValues);
-    UaepassLogger.logKV('acr_values (encoded)', Uri.encodeComponent(config.acrValues));
+    UaepassLogger.logKV(
+        'acr_values (encoded)', Uri.encodeComponent(config.acrValues));
 
     final state = _uuid.v4();
     _pendingState = state;
@@ -78,7 +80,8 @@ class UaepassAuthService {
     UaepassLogger.logKV('Full URL', authUrl.toString());
 
     UaepassLogger.log('Opening system browser for UAE PASS');
-    UaepassLogger.logKV('LaunchMode', 'externalApplication (Custom Tabs / Safari)');
+    UaepassLogger.logKV(
+        'LaunchMode', 'externalApplication (Custom Tabs / Safari)');
 
     try {
       final launched = await launchUrl(
@@ -87,7 +90,8 @@ class UaepassAuthService {
       );
 
       if (!launched) {
-        UaepassLogger.logError('Failed to open browser - launchUrl returned false');
+        UaepassLogger.logError(
+            'Failed to open browser - launchUrl returned false');
         throw Exception('Unable to open UAE PASS');
       }
       UaepassLogger.logSuccess('Browser opened successfully');
@@ -95,6 +99,31 @@ class UaepassAuthService {
       UaepassLogger.logError('Exception opening browser', e);
       rethrow;
     }
+  }
+
+  /// True when the UAE PASS app for the active environment is installed.
+  Future<bool> isUaepassAppInstalled() async {
+    try {
+      final installed = await canLaunchUrl(Uri.parse('${config.appScheme}://'));
+      UaepassLogger.logKV(
+          'UAE PASS app (${config.appScheme}) installed', installed);
+      return installed;
+    } catch (e) {
+      UaepassLogger.logError('UAE PASS app detection failed', e);
+      return false;
+    }
+  }
+
+  /// Authorization URL for the in-app WebView that hands off to the UAE PASS app.
+  Future<Uri> prepareAppToAppLogin() async {
+    UaepassLogger.logSection('UAE PASS APP-TO-APP LOGIN START');
+    final state = _uuid.v4();
+    _pendingState = state;
+    await secureStorage.write(key: _stateKey, value: state);
+    final authUrl = config.buildAuthorizationUrl(state, appToApp: true);
+    UaepassLogger.logKV('state', state);
+    UaepassLogger.logKV('Full URL', authUrl.toString());
+    return authUrl;
   }
 
   Future<UaepassAuthResult> handleCallbackOrResult(Uri uri) async {
@@ -123,9 +152,11 @@ class UaepassAuthService {
 
     if (config.useBackendRedirectDeepLink) {
       final session = uri.queryParameters['session'];
-      final tx = uri.queryParameters['tx'] ?? uri.queryParameters['transaction'];
+      final tx =
+          uri.queryParameters['tx'] ?? uri.queryParameters['transaction'];
       final errorParam = uri.queryParameters['error'];
-      final errorCode = uri.queryParameters['error_code'] ?? uri.queryParameters['code'];
+      final errorCode =
+          uri.queryParameters['error_code'] ?? uri.queryParameters['code'];
 
       UaepassLogger.logKV('session param', session ?? '<not present>');
       UaepassLogger.logKV('tx param', tx ?? '<not present>');
@@ -136,19 +167,40 @@ class UaepassAuthService {
       // Check before session/tx so error responses are properly caught.
       if (config.isErrorLink(uri)) {
         final deepLinkErrorCode = errorCode ?? errorParam ?? 'GENERIC';
-        UaepassLogger.logWarning('Error deep link received: $deepLinkErrorCode');
+        UaepassLogger.logWarning(
+            'Error deep link received: $deepLinkErrorCode');
+
+        // Backend frequently returns GENERIC / empty when the user aborts in
+        // UAE PASS. Map those to cancelled so the approved mockup copy shows.
+        final normalizedCode = deepLinkErrorCode.toLowerCase().trim();
+        if (normalizedCode.isEmpty ||
+            normalizedCode == 'generic' ||
+            normalizedCode == 'error' ||
+            normalizedCode.contains('cancel') ||
+            normalizedCode.contains('access_denied') ||
+            normalizedCode.contains('decline')) {
+          UaepassLogger.logWarning(
+            'Treating error deep link as cancelled: $deepLinkErrorCode',
+          );
+          return const UaepassAuthResult.failure(AuthFailureType.cancelled);
+        }
+
         final failureType = mapBackendErrorToFailureType(
           errorCode: deepLinkErrorCode,
         );
-        UaepassLogger.logError('UAEPASS LOGIN FAILED', 'Error deep link: $deepLinkErrorCode');
-        UaepassLogger.logKV('Mapped failure type', _failureTypeToString(failureType));
-        return UaepassAuthResult.failure(failureType, backendErrorCode: deepLinkErrorCode);
+        UaepassLogger.logError(
+            'UAEPASS LOGIN FAILED', 'Error deep link: $deepLinkErrorCode');
+        UaepassLogger.logKV(
+            'Mapped failure type', _failureTypeToString(failureType));
+        return UaepassAuthResult.failure(failureType,
+            backendErrorCode: deepLinkErrorCode);
       }
 
       if (session != null && session.isNotEmpty) {
         await secureStorage.write(key: _sessionKey, value: session);
         UaepassLogger.log('Session stored, proceeding to exchange');
-        UaepassLogger.logKV('session (prefix)', '${session.substring(0, session.length.clamp(0, 8))}...');
+        UaepassLogger.logKV('session (prefix)',
+            '${session.substring(0, session.length.clamp(0, 8))}...');
         return _exchangeSession(session);
       }
 
@@ -161,13 +213,17 @@ class UaepassAuthService {
       // Check for error codes in the deep link (e.g. NOT_ELIGIBLE, EXISTING_USERS_ONLY)
       final deepLinkErrorCode = errorCode ?? errorParam;
       if (deepLinkErrorCode != null && deepLinkErrorCode.isNotEmpty) {
-        UaepassLogger.logWarning('Error code from deep link: $deepLinkErrorCode');
+        UaepassLogger.logWarning(
+            'Error code from deep link: $deepLinkErrorCode');
         final failureType = mapBackendErrorToFailureType(
           errorCode: deepLinkErrorCode,
         );
-        UaepassLogger.logError('UAEPASS LOGIN FAILED', 'Deep link error: $deepLinkErrorCode');
-        UaepassLogger.logKV('Mapped failure type', _failureTypeToString(failureType));
-        return UaepassAuthResult.failure(failureType, backendErrorCode: deepLinkErrorCode);
+        UaepassLogger.logError(
+            'UAEPASS LOGIN FAILED', 'Deep link error: $deepLinkErrorCode');
+        UaepassLogger.logKV(
+            'Mapped failure type', _failureTypeToString(failureType));
+        return UaepassAuthResult.failure(failureType,
+            backendErrorCode: deepLinkErrorCode);
       }
 
       UaepassLogger.logError('No session or tx in deeplink');
@@ -206,7 +262,10 @@ class UaepassAuthService {
       return AuthFailureType.unverified;
     }
 
-    if (normalized.contains('cancel') || normalized.contains('decline')) {
+    if (normalized.contains('cancel') ||
+        normalized.contains('decline') ||
+        normalized.contains('access_denied') ||
+        normalized.contains('user_cancel')) {
       return AuthFailureType.cancelled;
     }
 
@@ -324,8 +383,13 @@ class UaepassAuthService {
       UaepassLogger.logKV('Endpoint', config.sessionExchangePath);
       UaepassLogger.logKV('Method', 'POST');
       UaepassLogger.logKV('device_id', deviceId);
-      UaepassLogger.logKV('session (prefix)', '${session.substring(0, session.length.clamp(0, 8))}...');
-      UaepassLogger.logKV('fcm_token', fcmTokenValue.isNotEmpty ? '${fcmTokenValue.substring(0, 20)}...' : '(empty)');
+      UaepassLogger.logKV('session (prefix)',
+          '${session.substring(0, session.length.clamp(0, 8))}...');
+      UaepassLogger.logKV(
+          'fcm_token',
+          fcmTokenValue.isNotEmpty
+              ? '${fcmTokenValue.substring(0, 20)}...'
+              : '(empty)');
 
       final apiQuery = ApiQuery();
       const headers = {'Content-Type': 'application/json'};
@@ -356,7 +420,8 @@ class UaepassAuthService {
       return await _parseBackendResponse(response.data, response.statusCode);
     } catch (e) {
       UaepassLogger.logError('Session exchange error', e);
-      UaepassLogger.logError('UAEPASS LOGIN FAILED', 'Session exchange exception');
+      UaepassLogger.logError(
+          'UAEPASS LOGIN FAILED', 'Session exchange exception');
       return const UaepassAuthResult.failure(AuthFailureType.generic);
     }
   }
@@ -371,7 +436,8 @@ class UaepassAuthService {
 
   Future<UaepassAuthResult> _pollForResult({required String pollKey}) async {
     UaepassLogger.logSection('API: SINGLE SESSION EXCHANGE (one-time token)');
-    UaepassLogger.logKV('Poll session (prefix)', '${pollKey.substring(0, pollKey.length.clamp(0, 8))}...');
+    UaepassLogger.logKV('Poll session (prefix)',
+        '${pollKey.substring(0, pollKey.length.clamp(0, 8))}...');
     return _exchangeSession(pollKey);
   }
 
@@ -383,7 +449,8 @@ class UaepassAuthService {
     UaepassLogger.logKV('Status code', statusCode);
 
     if (data is! Map) {
-      UaepassLogger.logError('Response is not a Map', 'Type: ${data.runtimeType}');
+      UaepassLogger.logError(
+          'Response is not a Map', 'Type: ${data.runtimeType}');
       UaepassLogger.logError('UAEPASS LOGIN FAILED', 'Invalid response format');
       return const UaepassAuthResult.failure(AuthFailureType.generic);
     }
@@ -392,9 +459,8 @@ class UaepassAuthService {
       PostLoginSetup.unwrapRawResponse(Map<String, dynamic>.from(data as Map)),
     );
     final resultMap = map['result'];
-    final nestedResult = resultMap is Map
-        ? Map<String, dynamic>.from(resultMap)
-        : null;
+    final nestedResult =
+        resultMap is Map ? Map<String, dynamic>.from(resultMap) : null;
     final errorCode = map['error_code']?.toString() ??
         nestedResult?['error_code']?.toString() ??
         map['code']?.toString();
@@ -418,7 +484,8 @@ class UaepassAuthService {
         message: errorMessage,
       );
       UaepassLogger.logError('UAEPASS LOGIN FAILED');
-      UaepassLogger.logKV('Error mapping result', _failureTypeToString(failureType));
+      UaepassLogger.logKV(
+          'Error mapping result', _failureTypeToString(failureType));
       UaepassLogger.logKV('Backend error_code', errorCode ?? '<none>');
       return UaepassAuthResult.failure(
         failureType,
@@ -428,7 +495,8 @@ class UaepassAuthService {
 
     final token = nestedResult?['token'] ?? map['result']?['token'];
     if (token == null || token.toString().isEmpty) {
-      UaepassLogger.logError('UAEPASS LOGIN FAILED', 'Missing token in response');
+      UaepassLogger.logError(
+          'UAEPASS LOGIN FAILED', 'Missing token in response');
       return const UaepassAuthResult.failure(AuthFailureType.generic);
     }
 
@@ -472,7 +540,10 @@ class UaepassAuthService {
       dataBlock is Map && dataBlock['firebase_custom_token'] != null,
     );
     UaepassLogger.logSuccess('UAEPASS LOGIN SUCCESS');
-    UaepassLogger.logKV('User ID', finalLoginResponse.result?.data?.uid ?? finalLoginResponse.result?.data?.emp_id);
+    UaepassLogger.logKV(
+        'User ID',
+        finalLoginResponse.result?.data?.uid ??
+            finalLoginResponse.result?.data?.emp_id);
     UaepassLogger.logKV('Name', finalLoginResponse.result?.data?.name);
     final widgetKeys = finalLoginResponse.result?.data?.defaultWidgets?.data;
     UaepassLogger.logKV(
@@ -539,7 +610,8 @@ class UaepassAuthService {
           uri.queryParameters['error_code']?.toLowerCase();
       if (errorCode != null && errorCode.isNotEmpty) {
         // Has a specific error code → let handleCallbackOrResult map it
-        UaepassLogger.logKV('Error link with code', 'code=$errorCode — not treating as cancel');
+        UaepassLogger.logKV(
+            'Error link with code', 'code=$errorCode — not treating as cancel');
         return false;
       }
       // Bare error link with no code → treat as cancel
@@ -548,7 +620,8 @@ class UaepassAuthService {
     }
 
     if (isExplicitCancel) {
-      UaepassLogger.logKV('Cancel detected', 'error=$error, status=$status, result=$result');
+      UaepassLogger.logKV(
+          'Cancel detected', 'error=$error, status=$status, result=$result');
     }
     return isExplicitCancel;
   }

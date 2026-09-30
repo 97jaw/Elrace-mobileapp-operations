@@ -541,7 +541,7 @@ class _EditWidgetsScreenState extends State<EditWidgetsScreen> {
                 height: SizeConfig().getHeight(80),
                 child: Column(
                   children: [
-                    CustomBulletPoint(
+                    const CustomBulletPoint(
                       // bulletColor: Color(0xFF009859),
                       text: 'In progress',
                       textColor: Colors.black,

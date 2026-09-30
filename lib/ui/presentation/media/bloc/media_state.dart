@@ -45,4 +45,4 @@ final class MediaActionError extends MediaState {
 
   @override
   List<Object> get props => [message];
-} 
+}

@@ -16,7 +16,7 @@ abstract final class _TmLaborActionColors {
 /// Signature for opening the camera to capture one labor's attendance.
 /// Returns the captured session entries (empty if none captured).
 typedef TmCaptureAttendance = Future<List<TimesheetCaptureSessionEntry>>
-    Function(TimesheetTeamMember member);
+    Function(TimesheetTeamMember member, Set<int> alreadyCapturedIds);
 
 /// Signature to run the confirm + submit flow for accumulated captures.
 /// Returns `true` when submission succeeded.
@@ -165,16 +165,19 @@ class _TmTeamMembersSheetBodyState
 
   Set<int> get _pendingIds => _pending.map((e) => e.employeeId).toSet();
 
-  void _notifyPending() =>
-      widget.onPendingChanged?.call(List.of(_pending));
+  void _notifyPending() => widget.onPendingChanged?.call(List.of(_pending));
 
   Future<void> _capture(TimesheetTeamMember member) async {
     final handler = widget.onCaptureAttendance;
     if (handler == null || _busy) return;
-    final entries = await handler(member);
+    final entries = await handler(member, _pendingIds);
     if (!mounted || entries.isEmpty) return;
+    final existing = _pendingIds;
+    final duplicates = entries
+        .where((e) => existing.contains(e.employeeId))
+        .map((e) => e.employee.name)
+        .toSet();
     setState(() {
-      final existing = _pendingIds;
       for (final entry in entries) {
         if (!existing.contains(entry.employeeId)) {
           _pending.add(entry);
@@ -182,6 +185,15 @@ class _TmTeamMembersSheetBodyState
       }
     });
     _notifyPending();
+    if (duplicates.isNotEmpty) {
+      ScaffoldMessenger.maybeOf(context)?.showSnackBar(
+        SnackBar(
+          content:
+              Text('${duplicates.join(', ')} already added — not added again'),
+          duration: const Duration(seconds: 3),
+        ),
+      );
+    }
   }
 
   /// Runs confirm + submit for the accumulated captures.
@@ -225,98 +237,97 @@ class _TmTeamMembersSheetBodyState
       minChildSize: 0.35,
       maxChildSize: 0.92,
       builder: (context, scrollController) {
-          return Container(
-            decoration: const BoxDecoration(
-              gradient: TimesheetModuleColors.warmGradient,
-              borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-            ),
-            child: Column(
-              children: [
-                const SizedBox(height: 10),
-                Container(
-                  width: 44,
-                  height: 4,
-                  decoration: BoxDecoration(
-                    color: TimesheetModuleColors.ink.withValues(alpha: 0.2),
-                    borderRadius: BorderRadius.circular(999),
+        return Container(
+          decoration: const BoxDecoration(
+            gradient: TimesheetModuleColors.warmGradient,
+            borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+          ),
+          child: Column(
+            children: [
+              const SizedBox(height: 10),
+              Container(
+                width: 44,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: TimesheetModuleColors.ink.withValues(alpha: 0.2),
+                  borderRadius: BorderRadius.circular(999),
+                ),
+              ),
+              if (pendingCount > 0)
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+                  child: _SubmitCounterButton(
+                    count: pendingCount,
+                    busy: _busy,
+                    onPressed: _onSubmitButtonPressed,
                   ),
                 ),
-                if (pendingCount > 0)
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
-                    child: _SubmitCounterButton(
-                      count: pendingCount,
-                      busy: _busy,
-                      onPressed: _onSubmitButtonPressed,
-                    ),
-                  ),
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(20, 16, 12, 8),
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: Text(
-                          widget.title,
-                          style: TimesheetModuleTypography.h2().copyWith(
-                            color: TimesheetModuleColors.ink,
-                          ),
-                        ),
-                      ),
-                      IconButton(
-                        onPressed: () => Navigator.of(context).maybePop(),
-                        icon: Icon(
-                          PhosphorIcons.x(),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 16, 12, 8),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        widget.title,
+                        style: TimesheetModuleTypography.h2().copyWith(
                           color: TimesheetModuleColors.ink,
                         ),
                       ),
-                    ],
-                  ),
+                    ),
+                    IconButton(
+                      onPressed: () => Navigator.of(context).maybePop(),
+                      icon: Icon(
+                        PhosphorIcons.x(),
+                        color: TimesheetModuleColors.ink,
+                      ),
+                    ),
+                  ],
                 ),
-                Expanded(
-                  child: widget.members.isEmpty
-                      ? Center(
-                          child: Text(
-                            'No records',
-                            style: TimesheetModuleTypography.body().copyWith(
-                              color: TimesheetModuleColors.warmMuted,
-                            ),
+              ),
+              Expanded(
+                child: widget.members.isEmpty
+                    ? Center(
+                        child: Text(
+                          'No records',
+                          style: TimesheetModuleTypography.body().copyWith(
+                            color: TimesheetModuleColors.warmMuted,
                           ),
-                        )
-                      : ListView.separated(
-                          controller: scrollController,
-                          padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
-                          itemCount: widget.members.length,
-                          separatorBuilder: (_, __) =>
-                              const SizedBox(height: 10),
-                          itemBuilder: (context, index) {
-                            final member = widget.members[index];
-                            final enrolled =
-                                enrollment[member.employeeId] == true;
-                            final captured =
-                                _pendingIds.contains(member.employeeId);
-                            final enrolling =
-                                _enrolling.contains(member.employeeId);
-                            return _MemberTile(
-                              member: member,
-                              isEnrolled: enrolled,
-                              isCaptured: captured,
-                              isEnrolling: enrolling,
-                              showActions: _showActions,
-                              onEnroll: widget.onEnroll == null || enrolling
-                                  ? null
-                                  : () => _handleEnroll(member, enrolled),
-                              onSubmit: widget.onCaptureAttendance == null ||
-                                      captured ||
-                                      enrolling
-                                  ? null
-                                  : () => _capture(member),
-                            );
-                          },
                         ),
-                ),
-              ],
-            ),
-          );
+                      )
+                    : ListView.separated(
+                        controller: scrollController,
+                        padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
+                        itemCount: widget.members.length,
+                        separatorBuilder: (_, __) => const SizedBox(height: 10),
+                        itemBuilder: (context, index) {
+                          final member = widget.members[index];
+                          final enrolled =
+                              enrollment[member.employeeId] == true;
+                          final captured =
+                              _pendingIds.contains(member.employeeId);
+                          final enrolling =
+                              _enrolling.contains(member.employeeId);
+                          return _MemberTile(
+                            member: member,
+                            isEnrolled: enrolled,
+                            isCaptured: captured,
+                            isEnrolling: enrolling,
+                            showActions: _showActions,
+                            onEnroll: widget.onEnroll == null || enrolling
+                                ? null
+                                : () => _handleEnroll(member, enrolled),
+                            onSubmit: widget.onCaptureAttendance == null ||
+                                    captured ||
+                                    enrolling
+                                ? null
+                                : () => _capture(member),
+                          );
+                        },
+                      ),
+              ),
+            ],
+          ),
+        );
       },
     );
   }
@@ -428,8 +439,7 @@ class _MemberTile extends StatelessWidget {
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
         color: TimesheetModuleColors.glassSurface,
-        borderRadius:
-            BorderRadius.circular(TimesheetModuleLayout.cardRadiusMd),
+        borderRadius: BorderRadius.circular(TimesheetModuleLayout.cardRadiusMd),
         border: Border.all(
           color: isCaptured
               ? _TmLaborActionColors.ok.withValues(alpha: 0.6)

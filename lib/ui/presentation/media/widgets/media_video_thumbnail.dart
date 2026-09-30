@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:el_race/core/utils/responsive_breakpoints.dart';
 
 import '../data/media_model.dart';
 import '../theme/media_theme.dart';
@@ -28,7 +28,7 @@ class MediaVideoThumbnail extends StatelessWidget {
         alignment: Alignment.center,
         child: Icon(
           Icons.play_circle_outline,
-          size: 32.sp,
+          size: 32.tsp,
           color: MediaTheme.textMuted,
         ),
       );
@@ -56,8 +56,8 @@ class MediaVideoThumbnail extends StatelessWidget {
             color: MediaTheme.sheetBg,
             alignment: Alignment.center,
             child: SizedBox(
-              width: 20.w,
-              height: 20.w,
+              width: 20.tw,
+              height: 20.tw,
               child: CircularProgressIndicator(
                 strokeWidth: 2,
                 color: MediaTheme.textMuted,
@@ -79,7 +79,7 @@ class MediaVideoThumbnail extends StatelessWidget {
               alignment: Alignment.center,
               child: Icon(
                 Icons.play_circle_fill,
-                size: 36.sp,
+                size: 36.tsp,
                 color: MediaTheme.white.withValues(alpha: 0.85),
               ),
             ),
