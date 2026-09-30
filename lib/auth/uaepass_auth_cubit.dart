@@ -18,6 +18,12 @@ class UaepassAuthCubit extends Cubit<UaepassAuthState> {
     UaepassLogger.log('Cubit: startLogin called');
     emit(const UaepassAuthState.loading());
     try {
+      if (await authService.isUaepassAppInstalled()) {
+        final url = await authService.prepareAppToAppLogin();
+        UaepassLogger.log('Cubit: UAE PASS app installed — app-to-app flow');
+        emit(UaepassAuthState.appToApp(url));
+        return;
+      }
       await authService.startLogin();
       UaepassLogger.log('Cubit: Emitting waiting state (browser opened)');
       emit(const UaepassAuthState.waiting());
@@ -30,7 +36,8 @@ class UaepassAuthCubit extends Cubit<UaepassAuthState> {
   Future<void> handleCallbackOrResult(Uri uri) async {
     UaepassLogger.log('Cubit: handleCallbackOrResult called');
     if (state.status == UaepassAuthStatus.loading) {
-      UaepassLogger.logWarning('Cubit: callback ignored — exchange already in progress');
+      UaepassLogger.logWarning(
+          'Cubit: callback ignored — exchange already in progress');
       return;
     }
     emit(const UaepassAuthState.loading());
@@ -48,7 +55,7 @@ class UaepassAuthCubit extends Cubit<UaepassAuthState> {
   }
 
   /// Called when user taps "I have approved in UAE PASS" button
-  /// 
+  ///
   /// This tries to finalize the login by:
   /// 1. Checking for any stored session/tx from a deep link that was received
   /// 2. If polling is enabled, polls the backend for result
@@ -58,15 +65,16 @@ class UaepassAuthCubit extends Cubit<UaepassAuthState> {
     UaepassLogger.log('Cubit: tryFinalizeLogin called');
 
     if (state.status == UaepassAuthStatus.loading) {
-      UaepassLogger.logWarning('Cubit: finalize ignored — exchange already in progress');
+      UaepassLogger.logWarning(
+          'Cubit: finalize ignored — exchange already in progress');
       return;
     }
 
     emit(const UaepassAuthState.loading());
-    
+
     try {
       final result = await authService.tryFinalizeFromStoredData();
-      
+
       if (result.isSuccess) {
         UaepassLogger.logSuccess('Cubit: Login finalized successfully');
         emit(const UaepassAuthState.success());
@@ -88,6 +96,11 @@ class UaepassAuthCubit extends Cubit<UaepassAuthState> {
     await authService.logout();
     UaepassLogger.log('Cubit: Emitting idle state after logout');
     emit(const UaepassAuthState.idle());
+  }
+
+  void cancelled() {
+    UaepassLogger.log('Cubit: app-to-app flow closed without result');
+    emit(const UaepassAuthState.failure(AuthFailureType.cancelled));
   }
 
   void reset() {

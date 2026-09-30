@@ -51,7 +51,8 @@ class MediaBloc extends Bloc<MediaEvent, MediaState> {
       if (contents != null) {
         emit(ContentsLoaded(contents));
       } else {
-        emit(const MediaError('Failed to fetch contents. Please check your connection.'));
+        emit(const MediaError(
+            'Failed to fetch contents. Please check your connection.'));
       }
     } catch (e, stackTrace) {
       emit(MediaError('Error loading contents: ${e.toString()}'));

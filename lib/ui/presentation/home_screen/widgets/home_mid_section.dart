@@ -126,17 +126,32 @@ class _HomeMidSectionState extends State<HomeMidSection> {
             ),
           _MidView.dual || _MidView.checkIn => ResponsiveBreakpoints
                   .isTabletScreen
-              // Tablet: strip fills a taller box — center the row vertically.
-              ? Column(
+              // Tablet: the parent decides the box height, which can be shorter
+              // than the width-scaled row on wide landscape screens — center
+              // when it fits, otherwise scale the row down uniformly.
+              ? LayoutBuilder(
                   key: const ValueKey('mid_dual'),
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    _MidDualRow(
+                  builder: (context, constraints) {
+                    final row = _MidDualRow(
                       onCheckInTap:
                           isCheckInDisabled ? null : () => _openCheckIn(),
                       onPrayerTap: () => _openPrayer(),
-                    ),
-                  ],
+                    );
+                    final natural = _MidDualRow.heightFor(context);
+                    if (!constraints.hasBoundedHeight ||
+                        constraints.maxHeight >= natural) {
+                      return Center(child: row);
+                    }
+                    final scale = constraints.maxHeight / natural;
+                    return FittedBox(
+                      fit: BoxFit.contain,
+                      child: SizedBox(
+                        width: constraints.maxWidth / scale,
+                        height: natural,
+                        child: row,
+                      ),
+                    );
+                  },
                 )
               : _MidDualRow(
                   key: const ValueKey('mid_dual'),
@@ -169,12 +184,15 @@ class _MidDualRow extends StatelessWidget {
   final VoidCallback? onCheckInTap;
   final VoidCallback? onPrayerTap;
 
+  static double heightFor(BuildContext context) =>
+      ResponsiveBreakpoints.isTabletScreen
+          ? math.max(72.uh, 48.w)
+          : math.max(52.uh, 36.w);
+
   @override
   Widget build(BuildContext context) {
     return SizedBox(
-      height: ResponsiveBreakpoints.isTabletScreen
-          ? math.max(72.uh, 48.w)
-          : math.max(52.uh, 36.w),
+      height: heightFor(context),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [

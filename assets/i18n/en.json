@@ -487,10 +487,10 @@
   },
   "uaepass": {
     "errors": {
-      "existing_users_only": "This service is only for registered users, please contact HR Department in order to access the services",
-      "unverified": "You are not eligible to access this service. Your account is either not upgraded or you have a visitor account. Please contact HR Department to access the services.",
+      "existing_users_only": "This Service is only for registered users, please contact HR Department in order to access the services",
+      "unverified": "You are not eligible to access this service. Your account is either not upgraded or you have a visitor account. Please contact HR Department to access the services",
       "generic": "Something went wrong during the login, please try again later!",
-      "cancelled": "User cancelled the login",
+      "cancelled": "User cancelled the login.",
       "session_not_received": "Return to Elrace using the Open button after UAE PASS approval. If you switched back manually, open UAE PASS again and tap Open Elrace when prompted."
     }
   }

@@ -1,12 +1,13 @@
 import 'package:flutter/material.dart';
+import 'package:el_race/core/utils/responsive_breakpoints.dart';
 import 'package:flutter/services.dart';
-import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../data/content_model.dart';
 import '../theme/media_theme.dart';
 import '../utils/media_content_share_utils.dart';
+import '../utils/media_layout.dart';
 import 'media_content_hero.dart';
 import 'media_content_list_tile.dart';
 import 'media_filter_tabs.dart';
@@ -56,6 +57,7 @@ class _MediaContentLandingScreenState extends State<MediaContentLandingScreen> {
   final DraggableScrollableController _sheetController =
       DraggableScrollableController();
   final PageController _heroPageController = PageController();
+  final ScrollController _panelScrollController = ScrollController();
 
   bool _isExpanded = false;
   bool _isGridView = false;
@@ -89,8 +91,7 @@ class _MediaContentLandingScreenState extends State<MediaContentLandingScreen> {
 
   void _toggleSheet() {
     if (!_sheetController.isAttached) return;
-    const mid =
-        (MediaTheme.peekSheetSize + MediaTheme.expandedSheetSize) / 2;
+    const mid = (MediaTheme.peekSheetSize + MediaTheme.expandedSheetSize) / 2;
     final target = _sheetController.size < mid
         ? MediaTheme.expandedSheetSize
         : MediaTheme.peekSheetSize;
@@ -170,7 +171,8 @@ class _MediaContentLandingScreenState extends State<MediaContentLandingScreen> {
           children: [
             ListTile(
               leading: const Icon(Icons.ios_share_rounded, color: Colors.white),
-              title: Text('Share', style: GoogleFonts.poppins(color: Colors.white)),
+              title: Text('Share',
+                  style: GoogleFonts.poppins(color: Colors.white)),
               onTap: () {
                 Navigator.pop(sheetContext);
                 MediaContentShareUtils.shareContent(item);
@@ -209,7 +211,8 @@ class _MediaContentLandingScreenState extends State<MediaContentLandingScreen> {
             ),
             ListTile(
               leading: const Icon(Icons.ios_share_rounded, color: Colors.white),
-              title: Text('Share', style: GoogleFonts.poppins(color: Colors.white)),
+              title: Text('Share',
+                  style: GoogleFonts.poppins(color: Colors.white)),
               onTap: () {
                 Navigator.pop(context);
                 MediaContentShareUtils.shareContent(item);
@@ -226,6 +229,7 @@ class _MediaContentLandingScreenState extends State<MediaContentLandingScreen> {
     _sheetController.removeListener(_onSheetChanged);
     _sheetController.dispose();
     _heroPageController.dispose();
+    _panelScrollController.dispose();
     super.dispose();
   }
 
@@ -245,17 +249,19 @@ class _MediaContentLandingScreenState extends State<MediaContentLandingScreen> {
                   Align(
                     alignment: Alignment.centerLeft,
                     child: Padding(
-                      padding: EdgeInsets.only(left: 16.w, top: 8.h),
+                      padding: EdgeInsets.only(left: 16.tw, top: 8.th),
                       child: MediaTheme.backButton(onTap: widget.onBack),
                     ),
                   ),
                   Expanded(
                     child: Center(
                       child: Text(
-                        widget.is360Mode ? 'No 360° content yet' : 'No photos yet',
+                        widget.is360Mode
+                            ? 'No 360° content yet'
+                            : 'No photos yet',
                         style: GoogleFonts.poppins(
                           color: MediaTheme.textMuted,
-                          fontSize: 16.sp,
+                          fontSize: 16.tsp,
                         ),
                       ),
                     ),
@@ -280,6 +286,44 @@ class _MediaContentLandingScreenState extends State<MediaContentLandingScreen> {
       onToggleView: () => setState(() => _isGridView = !_isGridView),
     );
 
+    Widget buildHero() {
+      return MediaContentHero(
+        items: widget.items,
+        pageController: _heroPageController,
+        currentIndex: _currentIndex,
+        onPageChanged: (i) => setState(() => _currentIndex = i),
+        is360Mode: widget.is360Mode,
+        onBack: widget.onBack,
+        onMore: _showHeroMenu,
+        onPrimaryAction: _openPrimary,
+        imageHeaders: widget.imageHeaders,
+      );
+    }
+
+    if (MediaLayout.useSplitView(context)) {
+      return AnnotatedRegion<SystemUiOverlayStyle>(
+        value: MediaTheme.lightStatusBar,
+        child: Scaffold(
+          backgroundColor: MediaTheme.black,
+          body: Row(
+            children: [
+              Expanded(child: buildHero()),
+              SizedBox(
+                width: MediaLayout.sidePanelWidth(context),
+                child: MediaGallerySheet(
+                  scrollController: _panelScrollController,
+                  onHandleTap: _toggleSheet,
+                  filterTabs: filterTabs,
+                  showHandle: false,
+                  bodySlivers: _buildBodySlivers(),
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
     return AnnotatedRegion<SystemUiOverlayStyle>(
       value: MediaTheme.lightStatusBar,
       child: Scaffold(
@@ -299,17 +343,7 @@ class _MediaContentLandingScreenState extends State<MediaContentLandingScreen> {
                   left: 0,
                   right: 0,
                   height: heroHeight.clamp(0.0, screenHeight),
-                  child: MediaContentHero(
-                    items: widget.items,
-                    pageController: _heroPageController,
-                    currentIndex: _currentIndex,
-                    onPageChanged: (i) => setState(() => _currentIndex = i),
-                    is360Mode: widget.is360Mode,
-                    onBack: widget.onBack,
-                    onMore: _showHeroMenu,
-                    onPrimaryAction: _openPrimary,
-                    imageHeaders: widget.imageHeaders,
-                  ),
+                  child: buildHero(),
                 ),
                 DraggableScrollableSheet(
                   controller: _sheetController,
@@ -321,16 +355,16 @@ class _MediaContentLandingScreenState extends State<MediaContentLandingScreen> {
                     MediaTheme.peekSheetSize,
                     MediaTheme.expandedSheetSize,
                   ],
-                    builder: (context, scrollController) {
-                      return ClipRect(
-                        child: MediaGallerySheet(
-                          scrollController: scrollController,
-                          onHandleTap: _toggleSheet,
-                          filterTabs: filterTabs,
-                          bodySlivers: _buildBodySlivers(),
-                        ),
-                      );
-                    },
+                  builder: (context, scrollController) {
+                    return ClipRect(
+                      child: MediaGallerySheet(
+                        scrollController: scrollController,
+                        onHandleTap: _toggleSheet,
+                        filterTabs: filterTabs,
+                        bodySlivers: _buildBodySlivers(),
+                      ),
+                    );
+                  },
                 ),
               ],
             );
@@ -348,7 +382,7 @@ class _MediaContentLandingScreenState extends State<MediaContentLandingScreen> {
             duration: const Duration(milliseconds: 360),
             child: Padding(
               key: const ValueKey('grid'),
-              padding: EdgeInsets.fromLTRB(16.w, 8.h, 16.w, 0),
+              padding: EdgeInsets.fromLTRB(16.tw, 8.th, 16.tw, 0),
               child: MediaStaggeredContentGrid(
                 items: widget.items,
                 imageHeaders: widget.imageHeaders,
@@ -369,7 +403,8 @@ class _MediaContentLandingScreenState extends State<MediaContentLandingScreen> {
           (context, index) {
             final item = widget.items[index];
             return Padding(
-              padding: EdgeInsets.fromLTRB(16.w, index == 0 ? 8.h : 0, 8.w, 0),
+              padding:
+                  EdgeInsets.fromLTRB(16.tw, index == 0 ? 8.th : 0, 8.tw, 0),
               child: MediaContentListTile(
                 content: item,
                 imageHeaders: widget.imageHeaders,

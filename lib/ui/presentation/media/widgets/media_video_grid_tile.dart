@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:el_race/core/utils/responsive_breakpoints.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../data/media_model.dart';
@@ -35,25 +35,25 @@ class MediaVideoGridTile extends StatelessWidget {
                 borderRadius: BorderRadius.circular(MediaTheme.gridRadius),
               ),
             ),
-            SizedBox(height: 6.h),
+            SizedBox(height: 6.th),
             Text(
               media.displayName,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               style: GoogleFonts.poppins(
-                fontSize: 12.sp,
+                fontSize: 12.tsp,
                 fontWeight: FontWeight.w600,
                 color: MediaTheme.white,
               ),
             ),
             if (description.isNotEmpty) ...[
-              SizedBox(height: 2.h),
+              SizedBox(height: 2.th),
               Text(
                 description,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: GoogleFonts.poppins(
-                  fontSize: 10.sp,
+                  fontSize: 10.tsp,
                   fontWeight: FontWeight.w400,
                   color: MediaTheme.textMuted,
                 ),

@@ -21,16 +21,16 @@ class UaepassUiMessages {
 }
 
 /// UAE PASS Configuration
-/// 
+///
 /// Contains all configuration values for UAE PASS integration.
 /// Use [UaepassConfig.forCurrentEnvironment()] to select the active UAE PASS
 /// environment.
 /// - All build modes currently use [UaepassConfig.staging()]
 /// - Switch release back to [UaepassConfig.production()] after UAE PASS provides
 ///   the production client_id.
-/// 
+///
 /// ## Feature Flags
-/// 
+///
 /// ### useBackendRedirectDeepLink (default: true)
 /// When true, the flow is:
 /// 1. App opens UAE PASS in browser
@@ -38,15 +38,15 @@ class UaepassUiMessages {
 /// 3. Backend exchanges code for tokens
 /// 4. Backend redirects to app deep link with session/tx
 /// 5. App exchanges session for login data
-/// 
+///
 /// When false, app would need to handle the authorization code directly
 /// (NOT recommended - requires client_secret in app)
-/// 
+///
 /// ### enablePollingFallback (default: false)
 /// When true, if deep link callback doesn't arrive:
 /// - User can tap "I have approved" button
 /// - App polls backend for result using stored state
-/// 
+///
 /// When false, app relies entirely on deep link callback.
 class UaepassConfig {
   /// OAuth client_id (public, safe to embed in app)
@@ -73,6 +73,12 @@ class UaepassConfig {
   /// ACR values for authentication level
   /// urn:safelayer:tws:policies:authentication:level:low
   final String acrValues;
+
+  /// ACR values when the UAE PASS app is installed (app-to-app flow).
+  final String appToAppAcrValues;
+
+  /// UAE PASS app URL scheme (staging: uaepassstg, production: uaepass).
+  final String appScheme;
 
   /// Backend API base URL for session exchange
   final String baseApiUrl;
@@ -137,6 +143,8 @@ class UaepassConfig {
     required this.scope,
     required this.responseType,
     required this.acrValues,
+    required this.appToAppAcrValues,
+    required this.appScheme,
     required this.baseApiUrl,
     required this.sessionExchangePath,
     required this.resultPollingPath,
@@ -159,7 +167,7 @@ class UaepassConfig {
         '${authorizationBaseUrl.replaceAll(RegExp(r"/+\$"), "")}$authorizationPath',
       );
 
-  Uri buildAuthorizationUrl(String state) {
+  Uri buildAuthorizationUrl(String state, {bool appToApp = false}) {
     // Build params map - Uri.replace handles encoding automatically
     final params = <String, String>{
       'response_type': responseType,
@@ -167,7 +175,7 @@ class UaepassConfig {
       'redirect_uri': redirectUrl,
       'scope': scope,
       'state': state,
-      'acr_values': acrValues,
+      'acr_values': appToApp ? appToAppAcrValues : acrValues,
       ...extraAuthParams,
     };
 
@@ -191,6 +199,23 @@ class UaepassConfig {
         uri.path == deepLinkErrorPath;
   }
 
+  static const String appReturnSuccessPath = '/app-success';
+  static const String appReturnFailurePath = '/app-failure';
+
+  /// Link the UAE PASS app opens to return to Elrace (app-to-app flow).
+  Uri appReturnUri({required bool success, required String nonce}) => Uri(
+        scheme: deepLinkScheme,
+        host: deepLinkHost,
+        path: success ? appReturnSuccessPath : appReturnFailurePath,
+        queryParameters: {'r': nonce},
+      );
+
+  bool isAppReturnLink(Uri uri) {
+    return uri.scheme == deepLinkScheme &&
+        uri.host == deepLinkHost &&
+        (uri.path == appReturnSuccessPath || uri.path == appReturnFailurePath);
+  }
+
   /// Returns the active UAE PASS config.
   ///
   /// Temporary behavior: release also uses staging until the production
@@ -209,6 +234,8 @@ class UaepassConfig {
       scope: 'urn:uae:digitalid:profile:general',
       responseType: 'code',
       acrValues: 'urn:safelayer:tws:policies:authentication:level:low',
+      appToAppAcrValues: 'urn:digitalid:authentication:flow:mobileondevice',
+      appScheme: 'uaepassstg',
       baseApiUrl: 'https://erp.elrace.com/api/',
       sessionExchangePath: 'uaepass/mobile/session',
       resultPollingPath: 'uaepass/result',
@@ -223,13 +250,14 @@ class UaepassConfig {
       },
       uiMessages: const UaepassUiMessages(
         existingUsersOnly:
-            'This service is only for registered users, please contact HR Department in order to access the services',
+            'This Service is only for registered users, please contact HR Department in order to access the services',
         unverified:
-            'You are not eligible to access this service. Your account is either not upgraded or you have a visitor account. Please contact HR Department to access the services.',
-        generic: 'Something went wrong during the login, please try again later!',
-        cancelled: 'User cancelled the login',
+            'You are not eligible to access this service. Your account is either not upgraded or you have a visitor account. Please contact HR Department to access the services',
+        generic:
+            'Something went wrong during the login, please try again later!',
+        cancelled: 'User cancelled the login.',
       ),
-      buttonAssetPath: 'assets/png/uaepass_button.png',
+      buttonAssetPath: 'assets/newapp/uae-pass-button.png',
       loadingMessage: 'Signing in with UAE PASS...',
       pollingInterval: const Duration(seconds: 3),
       pollingTimeout: const Duration(seconds: 60),
@@ -251,6 +279,8 @@ class UaepassConfig {
       scope: 'urn:uae:digitalid:profile:general',
       responseType: 'code',
       acrValues: 'urn:safelayer:tws:policies:authentication:level:low',
+      appToAppAcrValues: 'urn:digitalid:authentication:flow:mobileondevice',
+      appScheme: 'uaepass',
       baseApiUrl: 'https://erp.elrace.com/api/',
       sessionExchangePath: 'uaepass/mobile/session',
       resultPollingPath: 'uaepass/result',
@@ -265,13 +295,14 @@ class UaepassConfig {
       },
       uiMessages: const UaepassUiMessages(
         existingUsersOnly:
-            'This service is only for registered users, please contact HR Department in order to access the services',
+            'This Service is only for registered users, please contact HR Department in order to access the services',
         unverified:
-            'You are not eligible to access this service. Your account is either not upgraded or you have a visitor account. Please contact HR Department to access the services.',
-        generic: 'Something went wrong during the login, please try again later!',
-        cancelled: 'User cancelled the login',
+            'You are not eligible to access this service. Your account is either not upgraded or you have a visitor account. Please contact HR Department to access the services',
+        generic:
+            'Something went wrong during the login, please try again later!',
+        cancelled: 'User cancelled the login.',
       ),
-      buttonAssetPath: 'assets/png/uaepass_button.png',
+      buttonAssetPath: 'assets/newapp/uae-pass-button.png',
       loadingMessage: 'Signing in with UAE PASS...',
       pollingInterval: const Duration(seconds: 3),
       pollingTimeout: const Duration(seconds: 60),

@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:el_race/core/utils/responsive_breakpoints.dart';
 import 'package:flutter/services.dart';
-import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 /// One page in [MediaPhotoViewer].
@@ -119,7 +119,7 @@ class _MediaPhotoViewerState extends State<MediaPhotoViewer> {
                           ? Icon(
                               Icons.broken_image_outlined,
                               color: Colors.white54,
-                              size: 48.sp,
+                              size: 48.tsp,
                             )
                           : Image.network(
                               _safeImageUrl(page.imageUrl),
@@ -136,7 +136,7 @@ class _MediaPhotoViewerState extends State<MediaPhotoViewer> {
                               errorBuilder: (_, __, ___) => Icon(
                                 Icons.error_outline,
                                 color: Colors.white54,
-                                size: 48.sp,
+                                size: 48.tsp,
                               ),
                             ),
                     ),
@@ -144,13 +144,13 @@ class _MediaPhotoViewerState extends State<MediaPhotoViewer> {
                 },
               ),
               Positioned(
-                top: 4.h,
-                right: 8.w,
+                top: 4.th,
+                right: 8.tw,
                 child: IconButton(
                   onPressed: () => Navigator.of(context).maybePop(),
                   tooltip: 'Close',
                   icon: Container(
-                    padding: EdgeInsets.all(6.w),
+                    padding: EdgeInsets.all(6.tw),
                     decoration: BoxDecoration(
                       color: Colors.black.withValues(alpha: 0.55),
                       shape: BoxShape.circle,
@@ -158,26 +158,26 @@ class _MediaPhotoViewerState extends State<MediaPhotoViewer> {
                     child: Icon(
                       Icons.close,
                       color: Colors.white,
-                      size: 22.sp,
+                      size: 22.tsp,
                     ),
                   ),
                 ),
               ),
               if (widget.items.length > 1)
                 Positioned(
-                  top: 12.h,
-                  left: 16.w,
+                  top: 12.th,
+                  left: 16.tw,
                   child: Container(
                     padding:
-                        EdgeInsets.symmetric(horizontal: 10.w, vertical: 4.h),
+                        EdgeInsets.symmetric(horizontal: 10.tw, vertical: 4.th),
                     decoration: BoxDecoration(
                       color: Colors.black.withValues(alpha: 0.55),
-                      borderRadius: BorderRadius.circular(12.r),
+                      borderRadius: BorderRadius.circular(12.tr),
                     ),
                     child: Text(
                       '${_currentIndex + 1}/${widget.items.length}',
                       style: GoogleFonts.poppins(
-                        fontSize: 12.sp,
+                        fontSize: 12.tsp,
                         color: Colors.white,
                         fontWeight: FontWeight.w600,
                       ),
@@ -187,14 +187,14 @@ class _MediaPhotoViewerState extends State<MediaPhotoViewer> {
               if ((title != null && title.isNotEmpty) ||
                   (subtitle != null && subtitle.isNotEmpty))
                 Positioned(
-                  left: 16.w,
-                  right: 16.w,
-                  bottom: 16.h,
+                  left: 16.tw,
+                  right: 16.tw,
+                  bottom: 16.th,
                   child: Container(
-                    padding: EdgeInsets.all(12.w),
+                    padding: EdgeInsets.all(12.tw),
                     decoration: BoxDecoration(
                       color: Colors.black.withValues(alpha: 0.55),
-                      borderRadius: BorderRadius.circular(8.r),
+                      borderRadius: BorderRadius.circular(8.tr),
                     ),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -204,17 +204,17 @@ class _MediaPhotoViewerState extends State<MediaPhotoViewer> {
                           Text(
                             title,
                             style: GoogleFonts.poppins(
-                              fontSize: 15.sp,
+                              fontSize: 15.tsp,
                               color: Colors.white,
                               fontWeight: FontWeight.w600,
                             ),
                           ),
                         if (subtitle != null && subtitle.isNotEmpty) ...[
-                          SizedBox(height: 4.h),
+                          SizedBox(height: 4.th),
                           Text(
                             subtitle,
                             style: GoogleFonts.poppins(
-                              fontSize: 12.sp,
+                              fontSize: 12.tsp,
                               color: Colors.white70,
                             ),
                           ),

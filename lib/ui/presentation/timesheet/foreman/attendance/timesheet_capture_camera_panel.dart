@@ -11,20 +11,25 @@ import 'package:el_race/core/site_management/face_recognition/antispoof/antispoo
 import 'package:el_race/core/site_management/face_recognition/antispoof/minifasnet_fusion_engine.dart';
 import 'package:el_race/core/site_management/face_recognition/antispoof/timesheet_liveness_gate.dart';
 import 'package:el_race/core/site_management/face_recognition/antispoof/timesheet_face_classification_snapshot.dart';
+import 'package:el_race/core/site_management/face_recognition/data/models/face_match_result.dart';
 import 'package:el_race/core/site_management/face_recognition/face_recognition_config.dart';
 import 'package:el_race/core/site_management/face_recognition/face_recognition_service.dart';
 import 'package:el_race/core/timesheet/services/timesheet_roster_face_matcher.dart';
 import 'package:el_race/core/timesheet/services/capture_queue_service.dart';
 import 'package:el_race/core/timesheet/services/face_capture_service.dart';
 import 'package:el_race/core/timesheet/services/geofence_service.dart';
+import 'package:el_race/core/timesheet/services/tm_face_alarm_service.dart';
 import 'package:el_race/core/timesheet/services/tm_face_detection_speech_service.dart';
 import 'package:el_race/core/timesheet/services/timesheet_capture_flow_service.dart';
+import 'package:el_race/core/utils/app_orientations.dart';
+import 'package:el_race/core/utils/responsive_breakpoints.dart';
 import 'package:el_race/core/utils/shared_pref.dart';
 import 'package:el_race/ui/presentation/timesheet/timesheet_route_args.dart';
 import 'package:el_race/ui/presentation/timesheet/widgets/face_recognition/tm_face_mesh_painter.dart';
 import 'package:el_race/ui/presentation/timesheet/widgets/face_recognition/tm_aws_face_liveness_screen.dart';
 import 'package:device_info_plus/device_info_plus.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:image/image.dart' as img;
 import 'package:phosphor_flutter/phosphor_flutter.dart';
@@ -71,7 +76,12 @@ enum TimesheetFaceFrameKind {
   inTeam,
   outOfTeam,
   duplicate,
+
+  /// Recognised, but not the labor this camera was opened for (red).
+  mismatch,
 }
+
+enum _ExpectedLaborVerdict { mismatch, unsure }
 
 /// Parent-driven face frame color + labels (name / file id on frame).
 class TimesheetFaceOverlayHint {
@@ -114,6 +124,16 @@ class TimesheetFaceOverlayHint {
         employeeName: name,
         fileId: fileId,
       );
+
+  factory TimesheetFaceOverlayHint.mismatch({
+    required String name,
+    required String fileId,
+  }) =>
+      TimesheetFaceOverlayHint(
+        kind: TimesheetFaceFrameKind.mismatch,
+        employeeName: name,
+        fileId: fileId,
+      );
 }
 
 /// Shared camera + live ML Kit face markers (same as AT2 capture screen).
@@ -137,7 +157,19 @@ class TimesheetCaptureCameraPanel extends StatefulWidget {
     this.projectLaborEmployeeIds = const {},
     this.onDuplicateRecognized,
     this.onAlreadyAttended,
+    this.expectedEmployeeId,
+    this.expectedEmployeeName,
+    this.onUnexpectedEmployee,
   });
+
+  /// Fired when a face other than [expectedEmployeeId] is recognised (host
+  /// shows the red "wrong person" card).
+  final ValueChanged<TimesheetOdooEmployee>? onUnexpectedEmployee;
+
+  /// When the camera is opened for one specific labor (Your Team sheet), any
+  /// other recognised face is shown as a mismatch and can't be added.
+  final int? expectedEmployeeId;
+  final String? expectedEmployeeName;
 
   final TimesheetCaptureArgs capture;
   final bool showShutter;
@@ -146,6 +178,7 @@ class TimesheetCaptureCameraPanel extends StatefulWidget {
   final bool autoCaptureEnabled;
   final TimesheetFaceOverlayHint? overlayHint;
   final Set<int> capturedEmployeeIds;
+
   /// Live `/timesheet/labor_list` for this project — source of truth for in-team UI.
   final Set<int> projectLaborEmployeeIds;
   final List<TimesheetOdooEmployee>? rosterEmployees;
@@ -197,25 +230,34 @@ class TimesheetCaptureCameraPanel extends StatefulWidget {
       TimesheetCaptureCameraPanelState();
 }
 
-class TimesheetCaptureCameraPanelState extends State<TimesheetCaptureCameraPanel> {
+class TimesheetCaptureCameraPanelState
+    extends State<TimesheetCaptureCameraPanel> {
   static const double _minSupportedAndroidRamGb = 4.5;
   static const int _minSupportedAndroidCpuCores = 6;
   static const double _lowTierAndroidRamGb = 6.5;
   static const Duration _streamDetectInterval = Duration(milliseconds: 280);
   static const Duration _streamDetectIntervalFast = Duration(milliseconds: 180);
   static const Duration _previewMatchInterval = Duration(milliseconds: 550);
-  static const Duration _previewMatchIntervalLocked = Duration(milliseconds: 900);
+  static const Duration _previewMatchIntervalLocked =
+      Duration(milliseconds: 900);
   static const Duration _autoCaptureHold = Duration(milliseconds: 420);
   static const Duration _autoCaptureHoldLocked = Duration(milliseconds: 220);
   static const Duration _previewSuppressAfterMiss = Duration(milliseconds: 900);
   static const Duration _shutterSettleDelay = Duration(milliseconds: 120);
+  static const List<Duration> _shutterBusyRetries = [
+    Duration(milliseconds: 250),
+    Duration(milliseconds: 600),
+  ];
+
   /// Clear badge if no qualifying embed for this long (Task 6).
   static const Duration _badgeStaleTimeout = Duration(milliseconds: 400);
 
-  final TimesheetFaceCaptureService _faceService = TimesheetFaceCaptureService();
+  final TimesheetFaceCaptureService _faceService =
+      TimesheetFaceCaptureService();
   final TimesheetCaptureQueueService _queueService =
       TimesheetCaptureQueueService();
-  final TimesheetCaptureFlowService _flowService = TimesheetCaptureFlowService();
+  final TimesheetCaptureFlowService _flowService =
+      TimesheetCaptureFlowService();
   final TimesheetGeofenceService _geofenceService =
       const TimesheetGeofenceService();
   final TimesheetRosterFaceMatcher _rosterMatcher =
@@ -232,7 +274,13 @@ class TimesheetCaptureCameraPanelState extends State<TimesheetCaptureCameraPanel
   Position? _position;
   bool _flashEnabled = false;
   bool _permissionsReady = false;
+  TimesheetFaceCapturePermissions? _permissions;
+  final TmFaceAlarmService _alarm = TmFaceAlarmService();
+  TimesheetOdooEmployee? _mismatchEmployee;
+  AppLifecycleListener? _lifecycleListener;
+  bool _preparingCapture = false;
   bool _isCapturing = false;
+  Future<XFile>? _pictureInFlight;
   bool _isInitializingCamera = false;
   bool _isDetectingFrame = false;
   bool _isStreaming = false;
@@ -259,6 +307,7 @@ class TimesheetCaptureCameraPanelState extends State<TimesheetCaptureCameraPanel
   bool _previewMatchInFlight = false;
   DateTime _lastPreviewMatchAt = DateTime.fromMillisecondsSinceEpoch(0);
   DateTime? _suppressEmbeddingPreviewUntil;
+
   /// Last time a display-threshold match refreshed the badge (Task 6).
   DateTime? _lastBadgeQualifyingAt;
   int _consecutiveReadyFrames = 0;
@@ -270,14 +319,13 @@ class TimesheetCaptureCameraPanelState extends State<TimesheetCaptureCameraPanel
     statusMessage: 'Center your face in the frame',
   );
 
-  Duration get _detectInterval =>
-      _consecutiveReadyFrames >= 2
-          ? (_lowEndDeviceMode
-              ? const Duration(milliseconds: 260)
-              : _streamDetectIntervalFast)
-          : (_lowEndDeviceMode
-              ? const Duration(milliseconds: 380)
-              : _streamDetectInterval);
+  Duration get _detectInterval => _consecutiveReadyFrames >= 2
+      ? (_lowEndDeviceMode
+          ? const Duration(milliseconds: 260)
+          : _streamDetectIntervalFast)
+      : (_lowEndDeviceMode
+          ? const Duration(milliseconds: 380)
+          : _streamDetectInterval);
 
   Duration get _previewMatchCooldown {
     if (_livePreviewAllowAutoCapture && _livePreviewEmployeeId != null) {
@@ -319,14 +367,122 @@ class TimesheetCaptureCameraPanelState extends State<TimesheetCaptureCameraPanel
   bool _isOnProjectLaborList(int employeeId) =>
       widget.projectLaborEmployeeIds.contains(employeeId);
 
+  bool _isUnexpectedEmployee(int employeeId) {
+    final expected = widget.expectedEmployeeId;
+    return expected != null && employeeId != expected;
+  }
+
+  /// Someone other than the expected labor won the match. Red only when they
+  /// clearly beat the expected labor; a weak or stale-DB winner is "unsure"
+  /// (no name, no alarm) so a random out-of-team name never pops up.
+  _ExpectedLaborVerdict _judgeUnexpected(FaceMatchResult match) {
+    final focus = match.focusScore;
+    if (focus == null) {
+      unawaited(_ensureExpectedTemplates());
+      return _ExpectedLaborVerdict.unsure;
+    }
+    final lead = match.bestScore - focus;
+    if (match.bestScore >= FaceExpectedLaborMatch.mismatchMinScore &&
+        lead >= FaceExpectedLaborMatch.mismatchMinLead) {
+      return _ExpectedLaborVerdict.mismatch;
+    }
+    debugPrint(
+      'FaceCapture: unsure best=${match.best?.employeeId} '
+      '${match.bestScore.toStringAsFixed(3)} expected=${focus.toStringAsFixed(3)}',
+    );
+    return _ExpectedLaborVerdict.unsure;
+  }
+
+  bool _expectedRefreshInFlight = false;
+  int _expectedRefreshAttempts = 0;
+  DateTime _lastExpectedRefreshAt = DateTime.fromMillisecondsSinceEpoch(0);
+
+  /// Just-enrolled labor: templates may reach Odoo after this screen synced.
+  Future<void> _ensureExpectedTemplates() async {
+    final expected = widget.expectedEmployeeId;
+    final phaseB = widget.faceRecognition;
+    if (expected == null || phaseB == null || _expectedRefreshInFlight) return;
+    if (_expectedRefreshAttempts >=
+        FaceExpectedLaborMatch.maxTemplateRefreshAttempts) {
+      return;
+    }
+    if (DateTime.now().difference(_lastExpectedRefreshAt) <
+        FaceExpectedLaborMatch.templateRefreshCooldown) {
+      return;
+    }
+    _expectedRefreshInFlight = true;
+    _expectedRefreshAttempts++;
+    try {
+      await phaseB.ensureTemplatesFor(expected);
+    } catch (e) {
+      debugPrint('FaceCapture: expected template refresh failed: $e');
+    } finally {
+      _lastExpectedRefreshAt = DateTime.now();
+      _expectedRefreshInFlight = false;
+    }
+  }
+
+  void _showUnsureStillMessage() {
+    final name = widget.expectedEmployeeName?.trim();
+    _showCaptureBlockedMessage(
+      name == null || name.isEmpty
+          ? "Couldn't confirm the labor — hold still and try again"
+          : "Couldn't confirm $name — hold still and try again",
+    );
+  }
+
+  /// Red badge + red card + alarm, shutter blocked, for a face that isn't the
+  /// labor this camera was opened for. [force] re-alerts for the same person
+  /// (shutter tap / still-capture reject).
+  void _enterMismatchPreview(TimesheetOdooEmployee emp, {bool force = false}) {
+    final alreadyShowing = _mismatchEmployee?.employeeId == emp.employeeId &&
+        _liveOverlayHint?.kind == TimesheetFaceFrameKind.mismatch;
+    _autoCaptureTimer?.cancel();
+    _previewDebounceTimer?.cancel();
+    _faceReadySince = null;
+    _livePreviewEmployeeId = emp.employeeId;
+    _mismatchEmployee = emp;
+    if (!mounted) return;
+    setState(() {
+      _liveOverlayHint = TimesheetFaceOverlayHint.mismatch(
+        name: emp.name,
+        fileId: emp.displayFileId,
+      );
+      _livePreviewBlockCapture = true;
+      _livePreviewAllowAutoCapture = false;
+    });
+    _emitChrome();
+    if (!alreadyShowing || force) {
+      unawaited(_alarm.playMismatch(key: emp.employeeId, force: force));
+      widget.onUnexpectedEmployee?.call(emp);
+    }
+  }
+
+  void _showCaptureBlockedMessage(String message) {
+    if (!mounted) return;
+    final messenger = ScaffoldMessenger.maybeOf(context);
+    messenger?.hideCurrentSnackBar();
+    messenger?.showSnackBar(
+      SnackBar(content: Text(message), duration: const Duration(seconds: 3)),
+    );
+  }
+
   bool get _shouldHoldDuplicateFrame =>
       _livePreviewBlockCapture ||
       (_livePreviewEmployeeId != null &&
           _isEmployeeAlreadyCaptured(_livePreviewEmployeeId!));
 
+  /// Live matching keeps running under a red badge so it flips to the right
+  /// person as soon as they step in (shutter stays blocked meanwhile).
+  bool get _holdLiveMatching =>
+      _shouldHoldDuplicateFrame &&
+      _liveOverlayHint?.kind != TimesheetFaceFrameKind.mismatch;
+
   bool get isGroup => widget.capture.mode == 'group';
+  // The live badge describes the face in frame *now*; the host's post-capture
+  // hint is only a fallback, or it paints the last person on the next face.
   TimesheetFaceOverlayHint? get _effectiveOverlayHint =>
-      widget.overlayHint ?? _liveOverlayHint;
+      _liveOverlayHint ?? widget.overlayHint;
   bool get _qualityReady => _faceResult?.quality.canCapture == true;
 
   bool get _livenessReady {
@@ -341,6 +497,11 @@ class TimesheetCaptureCameraPanelState extends State<TimesheetCaptureCameraPanel
   bool get canCapture =>
       _qualityReady && !_isCapturing && !_verificationInFlight;
 
+  /// What the shutter button shows: also off while the face in frame is
+  /// already added or isn't the expected labor ([canCapture] stays
+  /// quality-only because it also drives overlay resets).
+  bool get _shutterEnabled => canCapture && !_shouldHoldDuplicateFrame;
+
   void _syncLivenessSnapshot() {
     _livenessSnapshot = _livenessGate.snapshot;
   }
@@ -350,7 +511,7 @@ class TimesheetCaptureCameraPanelState extends State<TimesheetCaptureCameraPanel
       TimesheetCaptureChromeSnapshot(
         faceStatus: _statusLabel(_faceResult),
         geofenceLabel: _geofencePreview?.label ?? 'Waiting for GPS lock',
-        canCapture: canCapture,
+        canCapture: _shutterEnabled,
         isCapturing: _isCapturing,
         permissionsReady: _permissionsReady,
         geofenceOk: _geofencePreview?.isInside == true,
@@ -407,12 +568,12 @@ class TimesheetCaptureCameraPanelState extends State<TimesheetCaptureCameraPanel
       final BurstVerificationResult verifyResult;
       if (samples.length >= AntispoofConfig.burstFrameCount) {
         verifyResult = await _burstPipeline.verify(samples).timeout(
-          AntispoofConfig.maxVerificationBudget,
-          onTimeout: () => const BurstVerificationResult(
-            passed: false,
-            message: 'Verification timed out — retry',
-          ),
-        );
+              AntispoofConfig.maxVerificationBudget,
+              onTimeout: () => const BurstVerificationResult(
+                passed: false,
+                message: 'Verification timed out — retry',
+              ),
+            );
       } else {
         // Short ring (just opened camera) — integrity path, still capture-only.
         verifyResult = await _burstPipeline
@@ -457,16 +618,51 @@ class TimesheetCaptureCameraPanelState extends State<TimesheetCaptureCameraPanel
     }
   }
 
-  Future<XFile?> _takePictureWithRetry() async {
-    final controller = _cameraController;
-    if (controller == null || !controller.value.isInitialized) return null;
-    try {
-      return await controller.takePicture();
-    } on CameraException catch (error) {
-      // Avoid re-initializing camera mid-session; it causes visible stalls.
-      debugPrint('FaceCapture takePicture failed: $error');
-      return null;
+  /// Every `takePicture` (shutter + iOS polling) goes through here. The camera
+  /// plugin rejects overlapping calls ("Previous capture has not returned
+  /// yet") on both platforms, so callers queue behind the in-flight one.
+  Future<XFile> _takePictureExclusive(CameraController controller) async {
+    while (_pictureInFlight != null) {
+      try {
+        await _pictureInFlight;
+      } catch (_) {}
     }
+    final pending = controller.takePicture();
+    _pictureInFlight = pending;
+    try {
+      return await pending;
+    } finally {
+      if (identical(_pictureInFlight, pending)) _pictureInFlight = null;
+    }
+  }
+
+  static bool _isCameraBusyError(CameraException error) {
+    final text = '${error.code} ${error.description}'.toLowerCase();
+    return text.contains('previous capture') ||
+        text.contains('not returned') ||
+        text.contains('busy') ||
+        text.contains('in progress');
+  }
+
+  Future<XFile?> _takePictureWithRetry() async {
+    for (var attempt = 0; attempt < _shutterBusyRetries.length + 1; attempt++) {
+      final controller = _cameraController;
+      if (controller == null || !controller.value.isInitialized) return null;
+      try {
+        return await _takePictureExclusive(controller);
+      } on CameraException catch (error) {
+        // Avoid re-initializing camera mid-session; it causes visible stalls.
+        debugPrint(
+            'FaceCapture takePicture failed (try ${attempt + 1}): $error');
+        if (!_isCameraBusyError(error) ||
+            attempt >= _shutterBusyRetries.length) {
+          return null;
+        }
+        await Future<void>.delayed(_shutterBusyRetries[attempt]);
+        if (!mounted) return null;
+      }
+    }
+    return null;
   }
 
   Future<void> _clearStreamSampleRing() async {
@@ -542,6 +738,7 @@ class TimesheetCaptureCameraPanelState extends State<TimesheetCaptureCameraPanel
   void _resetLiveOverlayFields() {
     _liveOverlayHint = null;
     _livePreviewEmployeeId = null;
+    _mismatchEmployee = null;
     _livePreviewScore = 0;
     _livePreviewBlockCapture = false;
     _livePreviewAllowAutoCapture = false;
@@ -593,8 +790,8 @@ class TimesheetCaptureCameraPanelState extends State<TimesheetCaptureCameraPanel
   }
 
   void _enterDuplicatePreview(TimesheetOdooEmployee emp) {
-    final alreadyShowing = _livePreviewBlockCapture &&
-        _livePreviewEmployeeId == emp.employeeId;
+    final alreadyShowing =
+        _livePreviewBlockCapture && _livePreviewEmployeeId == emp.employeeId;
     _autoCaptureTimer?.cancel();
     _previewDebounceTimer?.cancel();
     _faceReadySince = null;
@@ -608,6 +805,7 @@ class TimesheetCaptureCameraPanelState extends State<TimesheetCaptureCameraPanel
       _livePreviewBlockCapture = true;
       _livePreviewAllowAutoCapture = false;
     });
+    _emitChrome();
     if (!alreadyShowing) {
       widget.onAlreadyAttended?.call(emp);
       unawaited(_speech.speakAlreadyAttended(employeeId: emp.employeeId));
@@ -623,10 +821,12 @@ class TimesheetCaptureCameraPanelState extends State<TimesheetCaptureCameraPanel
     _autoCaptureTimer?.cancel();
     _previewDebounceTimer?.cancel();
     _faceReadySince = null;
-    if (!mounted) return;
-    setState(() {
-      _livePreviewBlockCapture = true;
-      _livePreviewAllowAutoCapture = false;
+    // Already rebuilding; the host is mid-build too, so notify it after the
+    // frame (a sync setState on the parent here crashes the tree).
+    _livePreviewBlockCapture = true;
+    _livePreviewAllowAutoCapture = false;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _emitChrome();
     });
   }
 
@@ -641,7 +841,7 @@ class TimesheetCaptureCameraPanelState extends State<TimesheetCaptureCameraPanel
     img.Image? decodedRgb,
   }) async {
     if (_previewMatchInFlight ||
-        _shouldHoldDuplicateFrame ||
+        _holdLiveMatching ||
         _isCapturing ||
         _verificationInFlight ||
         widget.faceRecognition?.isReady != true) {
@@ -686,12 +886,11 @@ class TimesheetCaptureCameraPanelState extends State<TimesheetCaptureCameraPanel
       source: source,
       faceBox: faceBox,
       landmarks: result.primaryFace,
+      focusEmployeeId: widget.expectedEmployeeId,
     );
     if (!mounted) return;
 
-    if (match == null ||
-        match.best == null ||
-        !match.passesDisplayThreshold) {
+    if (match == null || match.best == null || !match.passesDisplayThreshold) {
       _suppressEmbeddingPreviewUntil =
           DateTime.now().add(_previewSuppressAfterMiss);
       _clearBadgeNow(reason: 'sub_threshold');
@@ -705,6 +904,11 @@ class TimesheetCaptureCameraPanelState extends State<TimesheetCaptureCameraPanel
       _clearBadgeNow(reason: 'no_employee');
       return;
     }
+    if (_isUnexpectedEmployee(emp.employeeId) &&
+        _judgeUnexpected(match) == _ExpectedLaborVerdict.unsure) {
+      _clearBadgeNow(reason: 'unsure_vs_expected');
+      return;
+    }
 
     if (!_acceptStablePreviewIdentity(
       emp.employeeId,
@@ -715,6 +919,11 @@ class TimesheetCaptureCameraPanelState extends State<TimesheetCaptureCameraPanel
 
     _livePreviewEmployeeId = emp.employeeId;
 
+    if (_isUnexpectedEmployee(emp.employeeId)) {
+      _enterMismatchPreview(emp);
+      return;
+    }
+
     // Yellow: recognized but not on this project labor list (badge only).
     if (!_isOnProjectLaborList(emp.employeeId)) {
       setState(() {
@@ -722,9 +931,10 @@ class TimesheetCaptureCameraPanelState extends State<TimesheetCaptureCameraPanel
           name: emp.name,
           fileId: emp.displayFileId,
         );
-        _livePreviewBlockCapture = false;
+        _livePreviewBlockCapture = true;
         _livePreviewAllowAutoCapture = false;
       });
+      _emitChrome();
       return;
     }
 
@@ -748,7 +958,8 @@ class TimesheetCaptureCameraPanelState extends State<TimesheetCaptureCameraPanel
       _livePreviewBlockCapture = false;
       _livePreviewAllowAutoCapture = mayAutoCapture;
     });
-    unawaited(_speech.speakEmployeeDetected(emp.name, employeeId: emp.employeeId));
+    unawaited(
+        _speech.speakEmployeeDetected(emp.name, employeeId: emp.employeeId));
     if (!mayAutoCapture) {
       debugPrint(
         'FaceCapture: badge only score=${score.toStringAsFixed(3)} '
@@ -756,7 +967,7 @@ class TimesheetCaptureCameraPanelState extends State<TimesheetCaptureCameraPanel
       );
       return;
     }
-    if (captureImmediately) {
+    if (captureImmediately && widget.autoCaptureEnabled) {
       unawaited(_capture());
     } else {
       _scheduleAutoCapture();
@@ -781,12 +992,11 @@ class TimesheetCaptureCameraPanelState extends State<TimesheetCaptureCameraPanel
       imagePath: imagePath,
       faceBox: faceBox,
       landmarks: result.primaryFace,
+      focusEmployeeId: widget.expectedEmployeeId,
     );
     if (!mounted) return;
 
-    if (match == null ||
-        match.best == null ||
-        !match.passesDisplayThreshold) {
+    if (match == null || match.best == null || !match.passesDisplayThreshold) {
       _suppressEmbeddingPreviewUntil =
           DateTime.now().add(_previewSuppressAfterMiss);
       _clearBadgeNow(reason: 'sub_threshold');
@@ -800,6 +1010,11 @@ class TimesheetCaptureCameraPanelState extends State<TimesheetCaptureCameraPanel
       _clearBadgeNow(reason: 'no_employee');
       return;
     }
+    if (_isUnexpectedEmployee(emp.employeeId) &&
+        _judgeUnexpected(match) == _ExpectedLaborVerdict.unsure) {
+      _clearBadgeNow(reason: 'unsure_vs_expected');
+      return;
+    }
 
     if (!_acceptStablePreviewIdentity(
       emp.employeeId,
@@ -810,15 +1025,21 @@ class TimesheetCaptureCameraPanelState extends State<TimesheetCaptureCameraPanel
 
     _livePreviewEmployeeId = emp.employeeId;
 
+    if (_isUnexpectedEmployee(emp.employeeId)) {
+      _enterMismatchPreview(emp);
+      return;
+    }
+
     if (!_isOnProjectLaborList(emp.employeeId)) {
       setState(() {
         _liveOverlayHint = TimesheetFaceOverlayHint.outOfTeam(
           name: emp.name,
           fileId: emp.displayFileId,
         );
-        _livePreviewBlockCapture = false;
+        _livePreviewBlockCapture = true;
         _livePreviewAllowAutoCapture = false;
       });
+      _emitChrome();
       return;
     }
 
@@ -849,9 +1070,10 @@ class TimesheetCaptureCameraPanelState extends State<TimesheetCaptureCameraPanel
       _livePreviewBlockCapture = false;
       _livePreviewAllowAutoCapture = mayAutoCapture;
     });
-    unawaited(_speech.speakEmployeeDetected(emp.name, employeeId: emp.employeeId));
+    unawaited(
+        _speech.speakEmployeeDetected(emp.name, employeeId: emp.employeeId));
     if (!mayAutoCapture) return;
-    if (captureImmediately) {
+    if (captureImmediately && widget.autoCaptureEnabled) {
       unawaited(_capture());
     } else {
       _scheduleAutoCapture();
@@ -901,7 +1123,8 @@ class TimesheetCaptureCameraPanelState extends State<TimesheetCaptureCameraPanel
     });
   }
 
-  void _armAutoCaptureCooldown([Duration duration = const Duration(seconds: 2)]) {
+  void _armAutoCaptureCooldown(
+      [Duration duration = const Duration(seconds: 2)]) {
     _autoCaptureCooldownUntil = DateTime.now().add(duration);
     _faceReadySince = null;
     _autoCaptureTimer?.cancel();
@@ -941,6 +1164,13 @@ class TimesheetCaptureCameraPanelState extends State<TimesheetCaptureCameraPanel
   @override
   void initState() {
     super.initState();
+    // Face detection derives frame rotation from the sensor only, so a
+    // landscape tablet would feed sideways frames — keep capture portrait.
+    if (ResponsiveBreakpoints.isTabletScreen) {
+      unawaited(
+        SystemChrome.setPreferredOrientations(AppOrientations.phone),
+      );
+    }
     // Defer TFLite anti-spoof load until after first frame so opening the
     // camera isn't paired with a cold "Initialized TensorFlow Lite runtime"
     // on the same tick as preview start / camera flip.
@@ -958,10 +1188,21 @@ class TimesheetCaptureCameraPanelState extends State<TimesheetCaptureCameraPanel
     });
     WidgetsBinding.instance.addPostFrameCallback((_) => _emitChrome());
     unawaited(_speech.ensureReady());
+    // Returning from Settings after granting access should unlock the camera
+    // without leaving and re-opening the screen.
+    _lifecycleListener = AppLifecycleListener(
+      onResume: () {
+        if (mounted && !_permissionsReady) {
+          unawaited(_prepareCapture().then((_) => _emitChrome()));
+        }
+      },
+    );
   }
 
   @override
   void dispose() {
+    _lifecycleListener?.dispose();
+    unawaited(AppOrientations.allowTabletRotation());
     _iosPollingTimer?.cancel();
     _autoCaptureTimer?.cancel();
     _previewDebounceTimer?.cancel();
@@ -969,6 +1210,7 @@ class TimesheetCaptureCameraPanelState extends State<TimesheetCaptureCameraPanel
     unawaited(_clearStreamSampleRing());
     unawaited(_stopLiveDetection());
     unawaited(_speech.dispose());
+    unawaited(_alarm.dispose());
     _cameraController?.dispose();
     _faceService.dispose();
     super.dispose();
@@ -1000,6 +1242,7 @@ class TimesheetCaptureCameraPanelState extends State<TimesheetCaptureCameraPanel
               painter: TimesheetFaceOverlayPainter(
                 result: faceResult,
                 overlayHint: _effectiveOverlayHint,
+                fit: _previewFit,
               ),
             ),
           if (!useExternalChrome) ...[
@@ -1057,9 +1300,10 @@ class TimesheetCaptureCameraPanelState extends State<TimesheetCaptureCameraPanel
                 right: TimesheetModuleLayout.cardPadding,
                 bottom: TimesheetModuleLayout.cardPadding + 48,
                 child: FloatingActionButton(
-                  onPressed: (!_permissionsReady || _isCapturing || !canCapture)
-                      ? null
-                      : _capture,
+                  onPressed:
+                      (!_permissionsReady || _isCapturing || !_shutterEnabled)
+                          ? null
+                          : _capture,
                   backgroundColor: TimesheetModuleColors.primary,
                   child: _isCapturing
                       ? const SizedBox(
@@ -1088,11 +1332,7 @@ class TimesheetCaptureCameraPanelState extends State<TimesheetCaptureCameraPanel
               left: 16,
               right: 16,
               bottom: 16,
-              child: TimesheetCaptureStatusPill(
-                label: 'Camera and location permission required',
-                icon: PhosphorIcons.lockKey(),
-                dark: false,
-              ),
+              child: _buildPermissionPill(),
             ),
         ],
       );
@@ -1104,31 +1344,50 @@ class TimesheetCaptureCameraPanelState extends State<TimesheetCaptureCameraPanel
         Expanded(child: cameraBox),
         if (!_permissionsReady) ...[
           const SizedBox(height: TimesheetModuleLayout.cardSpacing),
-          TimesheetCaptureStatusPill(
-            label: 'Camera and location permission required',
-            icon: PhosphorIcons.lockKey(),
-            dark: false,
-          ),
+          _buildPermissionPill(),
         ],
       ],
     );
   }
 
   Future<void> _prepareCapture() async {
-    final permissions = await _faceService.requestCameraPermissions();
-    if (!mounted) return;
-    _patchState(() => _permissionsReady = permissions.canOpenCamera);
-    if (!permissions.canOpenCamera) return;
-    final supported = await _checkAndroidDeviceSupport();
-    if (!supported) return;
-    await Future.wait([_initializeCamera(), _updateCurrentLocation()]);
+    if (_preparingCapture) return;
+    _preparingCapture = true;
+    try {
+      final permissions = await _faceService.requestCameraPermissions();
+      if (!mounted) return;
+      _patchState(() {
+        _permissions = permissions;
+        _permissionsReady = permissions.canOpenCamera;
+      });
+      if (!permissions.canOpenCamera) return;
+      final supported = await _checkAndroidDeviceSupport();
+      if (!supported) return;
+      await Future.wait([_initializeCamera(), _updateCurrentLocation()]);
+    } finally {
+      _preparingCapture = false;
+    }
+  }
+
+  Widget _buildPermissionPill() {
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: () => unawaited(_faceService.openPermissionSettings(_permissions)),
+      child: TimesheetCaptureStatusPill(
+        label: _permissions?.missingLabel ??
+            'Camera and location permission required',
+        icon: PhosphorIcons.lockKey(),
+        dark: false,
+      ),
+    );
   }
 
   Future<bool> _checkAndroidDeviceSupport() async {
     if (!Platform.isAndroid) return true;
     try {
       final info = await DeviceInfoPlugin().androidInfo;
-      final ramGb = info.physicalRamSize > 0 ? info.physicalRamSize / 1024.0 : 0;
+      final ramGb =
+          info.physicalRamSize > 0 ? info.physicalRamSize / 1024.0 : 0;
       final cores = Platform.numberOfProcessors;
       final unsupported = (ramGb > 0 && ramGb < _minSupportedAndroidRamGb) ||
           cores < _minSupportedAndroidCpuCores;
@@ -1157,11 +1416,30 @@ class TimesheetCaptureCameraPanelState extends State<TimesheetCaptureCameraPanel
   }
 
   Future<void> _capture() async {
-    if (_shouldHoldDuplicateFrame) {
-      debugPrint('FaceCapture: shutter blocked — duplicate');
+    // Single-flight: auto-capture timer, manual shutter and external chrome
+    // can all fire in the same window — only the first one runs.
+    if (_isCapturing) {
+      debugPrint('FaceCapture: shutter ignored — capture already running');
       return;
     }
     final previewId = _livePreviewEmployeeId;
+    if (_shouldHoldDuplicateFrame) {
+      final kind = _liveOverlayHint?.kind;
+      debugPrint('FaceCapture: shutter blocked — ${kind?.name ?? 'hold'}');
+      final mismatch = _mismatchEmployee;
+      if (kind == TimesheetFaceFrameKind.mismatch && mismatch != null) {
+        _enterMismatchPreview(mismatch, force: true);
+        return;
+      }
+      final name = _liveOverlayHint?.employeeName?.trim();
+      final who = name == null || name.isEmpty ? 'This labor' : name;
+      _showCaptureBlockedMessage(
+        kind == TimesheetFaceFrameKind.outOfTeam
+            ? "$who is not on this project's labor list — cannot add"
+            : '$who is already added',
+      );
+      return;
+    }
     if (previewId != null && _isEmployeeAlreadyCaptured(previewId)) {
       debugPrint('FaceCapture: shutter blocked — emp $previewId captured');
       return;
@@ -1196,15 +1474,20 @@ class TimesheetCaptureCameraPanelState extends State<TimesheetCaptureCameraPanel
     }
     await Future<void>.delayed(_shutterSettleDelay);
     final photo = await _takePictureWithRetry();
+    if (!mounted) return;
     if (photo == null) {
+      // Back off auto-capture so it doesn't hammer a camera that is still
+      // finishing the previous still.
+      _armAutoCaptureCooldown(const Duration(milliseconds: 1500));
       _patchState(() => _isCapturing = false);
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(
           const SnackBar(
-            content: Text('Camera busy — hold still and try again'),
+            content: Text('Camera is finishing the last photo — try again'),
+            duration: Duration(seconds: 2),
           ),
         );
-      }
       await _startLiveDetection();
       return;
     }
@@ -1299,8 +1582,7 @@ class TimesheetCaptureCameraPanelState extends State<TimesheetCaptureCameraPanel
         phaseB.isReady &&
         faceBox != null &&
         widget.onRosterEmployeeMatched != null) {
-      final matchImagePath =
-          captureResult.analyzedImagePath ?? photo.path;
+      final matchImagePath = captureResult.analyzedImagePath ?? photo.path;
       debugPrint(
         'FaceRecognition: running Phase B match image=$matchImagePath',
       );
@@ -1308,10 +1590,37 @@ class TimesheetCaptureCameraPanelState extends State<TimesheetCaptureCameraPanel
         imagePath: matchImagePath,
         faceBox: faceBox,
         landmarks: faceLandmarks,
+        focusEmployeeId: widget.expectedEmployeeId,
       );
       if (!mounted) return;
       final score = match?.bestScore ?? 0;
       final best = match?.best;
+      // Expected-labor camera: someone else won — red only if they clearly
+      // beat the expected labor, otherwise "couldn't confirm" (never yellow).
+      if (match != null &&
+          best != null &&
+          _isUnexpectedEmployee(best.employeeId)) {
+        final verdict = _judgeUnexpected(match);
+        final emp = phaseB.employeeFromMatch(match);
+        _patchState(() => _isCapturing = false);
+        _armAutoCaptureCooldown();
+        try {
+          await File(photo.path).delete();
+        } catch (_) {}
+        if (verdict == _ExpectedLaborVerdict.mismatch && emp != null) {
+          debugPrint(
+            'FaceCapture: still matched emp=${emp.employeeId} '
+            '(${match.bestScore.toStringAsFixed(3)}) but camera is for '
+            'emp=${widget.expectedEmployeeId} — not added',
+          );
+          _enterMismatchPreview(emp, force: true);
+        } else {
+          _clearBadgeNow(reason: 'unsure_still');
+          _showUnsureStillMessage();
+        }
+        await _startLiveDetection();
+        return;
+      }
       // Yellow path: soft display bar (name only, cannot add).
       if (match != null &&
           best != null &&
@@ -1355,6 +1664,21 @@ class TimesheetCaptureCameraPanelState extends State<TimesheetCaptureCameraPanel
         }
         final emp = phaseB.employeeFromMatch(match);
         if (emp != null) {
+          if (_isUnexpectedEmployee(emp.employeeId)) {
+            debugPrint(
+              'FaceCapture: still matched emp=${emp.employeeId} '
+              '(${match.bestScore.toStringAsFixed(3)}) but camera is for '
+              'emp=${widget.expectedEmployeeId} — not added',
+            );
+            _patchState(() => _isCapturing = false);
+            _armAutoCaptureCooldown();
+            try {
+              await File(photo.path).delete();
+            } catch (_) {}
+            _enterMismatchPreview(emp, force: true);
+            await _startLiveDetection();
+            return;
+          }
           if (_isEmployeeAlreadyCaptured(emp.employeeId)) {
             final likelyReplay = await _isLikelyReplayFrame(
               imagePath: matchImagePath,
@@ -1367,7 +1691,8 @@ class TimesheetCaptureCameraPanelState extends State<TimesheetCaptureCameraPanel
               await File(photo.path).delete();
             } catch (_) {}
             if (likelyReplay) {
-              _blockReplayAttempt('Presentation attack detected — use live face');
+              _blockReplayAttempt(
+                  'Presentation attack detected — use live face');
               await _startLiveDetection();
               return;
             }
@@ -1418,6 +1743,14 @@ class TimesheetCaptureCameraPanelState extends State<TimesheetCaptureCameraPanel
       if (!mounted) return;
       _patchState(() => _isCapturing = false);
       if (local != null) {
+        if (_isUnexpectedEmployee(local.employee.employeeId)) {
+          _enterMismatchPreview(local.employee, force: true);
+          try {
+            await File(photo.path).delete();
+          } catch (_) {}
+          await _startLiveDetection();
+          return;
+        }
         if (!_isOnProjectLaborList(local.employee.employeeId)) {
           widget.onOutOfTeamRecognized?.call(
             local.employee,
@@ -1497,15 +1830,23 @@ class TimesheetCaptureCameraPanelState extends State<TimesheetCaptureCameraPanel
           );
       // Android: high (≈720p) — medium hurt still-match scores (0.20–0.27).
       // Stream cost is controlled by Task 5a (no PAD) + throttle, not preset alone.
-      final preset = ResolutionPreset.high;
+      const preset = ResolutionPreset.high;
       final controller = CameraController(
         selected,
         preset,
         enableAudio: false,
-        imageFormatGroup:
-            Platform.isAndroid ? ImageFormatGroup.yuv420 : null,
+        imageFormatGroup: Platform.isAndroid ? ImageFormatGroup.yuv420 : null,
       );
       await controller.initialize();
+      // The UI is portrait-only here; pinning capture orientation keeps
+      // CameraPreview's aspect/rotation and still-photo EXIF consistent on
+      // landscape-native tablets, whose sensor listener otherwise flips the
+      // preview geometry and stretches it.
+      try {
+        await controller.lockCaptureOrientation(DeviceOrientation.portraitUp);
+      } catch (e) {
+        debugPrint('FaceCapture: lockCaptureOrientation failed: $e');
+      }
       await controller.setFlashMode(FlashMode.off);
       await controller.setFocusMode(FocusMode.auto);
       await controller.setExposureMode(ExposureMode.auto);
@@ -1551,7 +1892,8 @@ class TimesheetCaptureCameraPanelState extends State<TimesheetCaptureCameraPanel
         await _startImageStream();
         return;
       } catch (error) {
-        debugPrint('Timesheet iOS image stream unavailable, using polling: $error');
+        debugPrint(
+            'Timesheet iOS image stream unavailable, using polling: $error');
       }
       await _startIosPollingDetection();
       return;
@@ -1592,7 +1934,11 @@ class TimesheetCaptureCameraPanelState extends State<TimesheetCaptureCameraPanel
     }
     _isDetectingFrame = true;
     try {
-      final photo = await controller.takePicture();
+      final photo = await _takePictureExclusive(controller);
+      if (_isCapturing || !_iosPollingDetection) {
+        unawaited(_safeDeleteFile(photo.path));
+        return;
+      }
       var result = await _faceService.analyzeImageFile(
         photo.path,
         includeCrop: false,
@@ -1605,7 +1951,7 @@ class TimesheetCaptureCameraPanelState extends State<TimesheetCaptureCameraPanel
       } else if (result.quality.canCapture &&
           widget.faceRecognition?.isReady == true &&
           !_isCapturing &&
-          !_shouldHoldDuplicateFrame) {
+          !_holdLiveMatching) {
         await _applyLivePreviewMatch(result, matchPath);
         _lastPreviewMatchAt = DateTime.now();
       }
@@ -1819,17 +2165,32 @@ class TimesheetCaptureCameraPanelState extends State<TimesheetCaptureCameraPanel
     final previewSize = controller.value.previewSize;
     final previewKey = ValueKey('${_camera?.name}_${_camera?.lensDirection}');
     if (previewSize == null) {
-      return CameraPreview(controller, key: previewKey);
+      return Center(child: CameraPreview(controller, key: previewKey));
     }
+    // CameraPreview sizes itself with AspectRatio(ar) in landscape and
+    // AspectRatio(1/ar) in portrait, keyed off the controller's orientation.
+    // The tight box must follow the same rule or AspectRatio is forced to fill
+    // a box of the wrong shape and the image stretches.
+    final orientation = controller.value.lockedCaptureOrientation ??
+        controller.value.deviceOrientation;
+    final portrait = orientation == DeviceOrientation.portraitUp ||
+        orientation == DeviceOrientation.portraitDown;
+    final longSide = math.max(previewSize.width, previewSize.height);
+    final shortSide = math.min(previewSize.width, previewSize.height);
     return FittedBox(
-      fit: BoxFit.cover,
+      fit: _previewFit,
       child: SizedBox(
-        width: previewSize.height,
-        height: previewSize.width,
+        width: portrait ? shortSide : longSide,
+        height: portrait ? longSide : shortSide,
         child: CameraPreview(controller, key: previewKey),
       ),
     );
   }
+
+  /// Phones fill the screen (cover); tablets show the whole sensor frame
+  /// (contain) so a 9:16 preview isn't blown up and cropped on a wide panel.
+  BoxFit get _previewFit =>
+      ResponsiveBreakpoints.isTabletScreen ? BoxFit.contain : BoxFit.cover;
 
   String _statusLabel(TimesheetFaceDetectionResult? result) {
     if (_verificationInFlight) {
@@ -2055,10 +2416,14 @@ class TimesheetFaceOverlayPainter extends CustomPainter {
   const TimesheetFaceOverlayPainter({
     required this.result,
     this.overlayHint,
+    this.fit = BoxFit.cover,
   });
 
   final TimesheetFaceDetectionResult result;
   final TimesheetFaceOverlayHint? overlayHint;
+
+  /// Must match the preview's [BoxFit] so badges land on the face.
+  final BoxFit fit;
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -2072,12 +2437,25 @@ class TimesheetFaceOverlayPainter extends CustomPainter {
     final hint = overlayHint;
     final kind = hint?.kind ?? TimesheetFaceFrameKind.quality;
 
-    final scaleX = size.width / imageSize.width;
-    final scaleY = size.height / imageSize.height;
+    // Boxes come back in upright (rotated) image space while [imageSize] may
+    // be the raw sensor frame — align orientation with the view, then map with
+    // the same uniform cover transform the preview uses (BoxFit.cover), so the
+    // badge stays on the face on tall phones and wide tablets alike.
+    final viewPortrait = size.height >= size.width;
+    final imagePortrait = imageSize.height >= imageSize.width;
+    final upright = viewPortrait == imagePortrait
+        ? imageSize
+        : Size(imageSize.height, imageSize.width);
+    final sx = size.width / upright.width;
+    final sy = size.height / upright.height;
+    final scale = fit == BoxFit.contain ? math.min(sx, sy) : math.max(sx, sy);
+    final dx = (size.width - upright.width * scale) / 2;
+    final dy = (size.height - upright.height * scale) / 2;
     final frameColor = switch (kind) {
       TimesheetFaceFrameKind.inTeam => TmFaceMeshPainter.inTeam,
       TimesheetFaceFrameKind.outOfTeam => TmFaceMeshPainter.outOfTeam,
       TimesheetFaceFrameKind.duplicate => TmFaceMeshPainter.duplicate,
+      TimesheetFaceFrameKind.mismatch => TmFaceMeshPainter.mismatch,
       TimesheetFaceFrameKind.quality => TmFaceMeshPainter.neutral,
     };
 
@@ -2093,10 +2471,10 @@ class TimesheetFaceOverlayPainter extends CustomPainter {
     for (var i = 0; i < boxes.length; i++) {
       final box = boxes[i];
       final scaled = Rect.fromLTRB(
-        box.left * scaleX,
-        box.top * scaleY,
-        box.right * scaleX,
-        box.bottom * scaleY,
+        dx + box.left * scale,
+        dy + box.top * scale,
+        dx + box.right * scale,
+        dy + box.bottom * scale,
       );
       if (i == 0) {
         TmFaceMeshPainter.paintNameBadge(

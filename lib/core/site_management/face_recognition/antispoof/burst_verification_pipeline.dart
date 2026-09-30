@@ -1,5 +1,6 @@
 import 'dart:ui';
 
+import 'package:el_race/core/site_management/face_recognition/antispoof/antispoof_config.dart';
 import 'package:el_race/core/site_management/face_recognition/antispoof/antispoof_layer1.dart';
 import 'package:el_race/core/site_management/face_recognition/antispoof/on_device_pad_evaluator.dart';
 import 'package:el_race/core/site_management/face_recognition/antispoof/temporal_pad_heuristics.dart';
@@ -120,6 +121,9 @@ class BurstVerificationPipeline {
     _pad.reset();
     temporal?.reset();
     OnDevicePadFrameResult? lastFrame;
+    var softSpoofFrames = 0;
+    var liveFrames = 0;
+    var failedOtherFrames = 0;
 
     for (var i = 0; i < frames.length; i++) {
       final sample = frames[i];
@@ -137,13 +141,29 @@ class BurstVerificationPipeline {
         classification: sample.classification,
       );
 
-      if (lastFrame.layer1.verdict == Layer1Verdict.spoof) {
-        debugPrint('BurstVerification: spoof on frame ${i + 1}/${frames.length}');
-        return BurstVerificationResult(
-          passed: false,
-          message: lastFrame.layer1.message,
-          lastLayer1: lastFrame.layer1,
+      final verdict = lastFrame.layer1.verdict;
+      if (verdict == Layer1Verdict.spoof) {
+        final soft = _isSoftSpoof(lastFrame.layer1) &&
+            softSpoofFrames < AntispoofConfig.maxSoftSpoofFramesPerBurst;
+        if (!soft) {
+          debugPrint(
+              'BurstVerification: spoof on frame ${i + 1}/${frames.length}');
+          return BurstVerificationResult(
+            passed: false,
+            message: lastFrame.layer1.message,
+            lastLayer1: lastFrame.layer1,
+          );
+        }
+        softSpoofFrames++;
+        debugPrint(
+          'BurstVerification: soft spoof on frame ${i + 1}/${frames.length} '
+          '(models disagree) — tolerated, need '
+          '${AntispoofConfig.minLiveFramesWithSoftSpoof} live frames',
         );
+      } else if (verdict == Layer1Verdict.live) {
+        liveFrames++;
+      } else if (verdict == Layer1Verdict.error) {
+        failedOtherFrames++;
       }
     }
 
@@ -154,10 +174,28 @@ class BurstVerificationPipeline {
       );
     }
 
+    if (softSpoofFrames > 0) {
+      final lastVerdict = lastFrame.layer1.verdict;
+      if (failedOtherFrames > 0 ||
+          liveFrames < AntispoofConfig.minLiveFramesWithSoftSpoof ||
+          lastVerdict == Layer1Verdict.spoof ||
+          lastVerdict == Layer1Verdict.error) {
+        debugPrint(
+          'BurstVerification: soft spoof not outweighed '
+          '(live=$liveFrames, errors=$failedOtherFrames, last=${lastVerdict.name})',
+        );
+        return const BurstVerificationResult(
+          passed: false,
+          message: 'Liveness check did not pass — retry facing the camera',
+        );
+      }
+    }
+
     if (requireTemporal && temporal != null) {
       final temporalVerdict = temporal.evaluate();
       if (temporalVerdict.ready && !temporalVerdict.passed) {
-        debugPrint('BurstVerification: temporal failed — ${temporalVerdict.reason}');
+        debugPrint(
+            'BurstVerification: temporal failed — ${temporalVerdict.reason}');
         return BurstVerificationResult(
           passed: false,
           message: temporalVerdict.reason,
@@ -172,7 +210,10 @@ class BurstVerificationPipeline {
       }
     }
 
-    final padPassed = requireMultiFramePass ? lastFrame.passed : true;
+    // A tolerated soft spoof leaves the evaluator's 4-of-5 window at 3/4; the
+    // stricter live-frame rule above has already replaced that check.
+    final padPassed =
+        !requireMultiFramePass || lastFrame.passed || softSpoofFrames > 0;
     if (padPassed || !requireMultiFramePass) {
       if (!requireMultiFramePass ||
           lastFrame.layer1.verdict != Layer1Verdict.spoof) {
@@ -194,5 +235,27 @@ class BurstVerificationPipeline {
       message: reason,
       lastLayer1: lastFrame.layer1,
     );
+  }
+
+  /// Spoof verdict where v2 and v1se disagree and the fused attack mass stays
+  /// under the hard ceiling. Both models voting attack is always hard.
+  static bool _isSoftSpoof(Layer1Result layer1) {
+    final fused = layer1.fused;
+    if (fused == null || fused.probabilities.length < 3) return false;
+    final p = fused.probabilities;
+    final attackSum = p[AntispoofConfig.printAttackClassIndex] +
+        p[AntispoofConfig.replayAttackClassIndex];
+    if (attackSum >= AntispoofConfig.hardSpoofAttackSumThreshold) return false;
+    final v2Live = _argmax(fused.modelV2) == AntispoofConfig.liveClassIndex;
+    final v1Live = _argmax(fused.modelV1Se) == AntispoofConfig.liveClassIndex;
+    return v2Live != v1Live;
+  }
+
+  static int _argmax(List<double> values) {
+    var best = 0;
+    for (var i = 1; i < values.length; i++) {
+      if (values[i] > values[best]) best = i;
+    }
+    return best;
   }
 }

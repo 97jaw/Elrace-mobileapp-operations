@@ -11,8 +11,9 @@ class UaepassLinkHandler {
         uri.queryParameters.containsKey('tx') ||
         uri.queryParameters.containsKey('transaction') ||
         uri.queryParameters.containsKey('error');
-    
-    UaepassLogger.log('canHandle check: $canHandle for scheme=${uri.scheme} host=${uri.host} path=${uri.path}');
+
+    UaepassLogger.log(
+        'canHandle check: $canHandle for scheme=${uri.scheme} host=${uri.host} path=${uri.path}');
     return canHandle;
   }
 
@@ -29,7 +30,7 @@ class UaepassLinkHandler {
     UaepassLogger.logKV('Host', uri.host);
     UaepassLogger.logKV('Path', uri.path);
     UaepassLogger.logKV('Query', uri.query);
-    
+
     // Parse all query parameters
     if (uri.queryParameters.isNotEmpty) {
       UaepassLogger.log('Query Parameters:');
@@ -37,27 +38,36 @@ class UaepassLinkHandler {
         UaepassLogger.logKV('  ${entry.key}', entry.value);
       }
     }
-    
+
     // Check if success or error link
     final cubit = sl<UaepassAuthCubit>();
     final config = cubit.config;
-    
+
+    // Returns from the UAE PASS app are consumed by UaepassAppToAppScreen.
+    if (config.isAppReturnLink(uri)) {
+      UaepassLogger.log('UAE PASS app return link — handled by WebView screen');
+      return true;
+    }
+
     final isSuccess = config.isSuccessLink(uri);
     final isError = config.isErrorLink(uri);
     UaepassLogger.logKV('Is Success Link', isSuccess);
     UaepassLogger.logKV('Is Error Link', isError);
-    
+
     // Extract key params
     final session = uri.queryParameters['session'];
     final tx = uri.queryParameters['tx'] ?? uri.queryParameters['transaction'];
-    final errorCode = uri.queryParameters['error_code'] ?? uri.queryParameters['error'] ?? uri.queryParameters['code'];
-    
+    final errorCode = uri.queryParameters['error_code'] ??
+        uri.queryParameters['error'] ??
+        uri.queryParameters['code'];
+
     UaepassLogger.logKV('Session param', session ?? '<not present>');
     UaepassLogger.logKV('TX param', tx ?? '<not present>');
     UaepassLogger.logKV('Error param', errorCode ?? '<not present>');
-    
+
     if (!canHandle(config, uri)) {
-      UaepassLogger.log('Link not handled by UAE PASS (not a UAE PASS callback)');
+      UaepassLogger.log(
+          'Link not handled by UAE PASS (not a UAE PASS callback)');
       return false;
     }
 

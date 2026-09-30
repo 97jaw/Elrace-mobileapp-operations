@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:el_race/core/utils/responsive_breakpoints.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 
@@ -35,7 +35,7 @@ class MediaContentListTile extends StatelessWidget {
         onTap: onTap,
         borderRadius: BorderRadius.circular(MediaTheme.tileRadius),
         child: Container(
-          padding: EdgeInsets.symmetric(vertical: 8.h, horizontal: 4.w),
+          padding: EdgeInsets.symmetric(vertical: 8.th, horizontal: 4.tw),
           decoration: isActive
               ? BoxDecoration(
                   color: MediaTheme.white.withValues(alpha: 0.08),
@@ -46,14 +46,14 @@ class MediaContentListTile extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               SizedBox(
-                width: 88.w,
-                height: 56.h,
+                width: 88.tw,
+                height: 56.th,
                 child: MediaContentThumbnail(
                   content: content,
                   imageHeaders: imageHeaders,
                 ),
               ),
-              SizedBox(width: 12.w),
+              SizedBox(width: 12.tw),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -63,25 +63,25 @@ class MediaContentListTile extends StatelessWidget {
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: GoogleFonts.poppins(
-                        fontSize: 14.sp,
+                        fontSize: 14.tsp,
                         fontWeight: FontWeight.w600,
                         color: MediaTheme.white,
                       ),
                     ),
                     if (content.projectName.isNotEmpty) ...[
-                      SizedBox(height: 3.h),
+                      SizedBox(height: 3.th),
                       Text(
                         content.projectName,
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
                         style: GoogleFonts.poppins(
-                          fontSize: 11.sp,
+                          fontSize: 11.tsp,
                           color: MediaTheme.textMuted,
                         ),
                       ),
                     ],
                     if (date.isNotEmpty) ...[
-                      SizedBox(height: 4.h),
+                      SizedBox(height: 4.th),
                       Text(date, style: MediaTheme.labelSm),
                     ],
                   ],
@@ -91,11 +91,12 @@ class MediaContentListTile extends StatelessWidget {
                 IconButton(
                   onPressed: onShare,
                   padding: EdgeInsets.zero,
-                  constraints: BoxConstraints(minWidth: 32.w, minHeight: 32.w),
+                  constraints:
+                      BoxConstraints(minWidth: 32.tw, minHeight: 32.tw),
                   icon: Icon(
                     Icons.more_horiz_rounded,
                     color: MediaTheme.textSecondary,
-                    size: 22.sp,
+                    size: 22.tsp,
                   ),
                 ),
             ],

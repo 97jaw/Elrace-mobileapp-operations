@@ -123,6 +123,9 @@ class Data {
   final bool? isForeman;
   final bool? isFleet;
 
+  /// Backend-decided access to the Media "Projects" tab.
+  final bool? canSeeProjectMedia;
+
   /// From `/api/login/new` `hr_module_manager` — per-submodule manager UI.
   final HrModuleManagerAccess? hrModuleManager;
 
@@ -219,6 +222,7 @@ class Data {
     this.isPm,
     this.isForeman,
     this.isFleet,
+    this.canSeeProjectMedia,
     this.hrModuleManager,
     this.roleCapabilities,
     this.isPurchaseRep,
@@ -379,7 +383,9 @@ class Data {
         isPm: _parseBoolLoose(json["is_pm"]),
         isForeman: _parseBoolLoose(json["is_foreman"]),
         isFleet: _parseBoolLoose(json["is_fleet"]),
-        hrModuleManager: HrModuleManagerAccess.tryParse(json["hr_module_manager"]),
+        canSeeProjectMedia: _parseBoolLoose(json["can_see_project_media"]),
+        hrModuleManager:
+            HrModuleManagerAccess.tryParse(json["hr_module_manager"]),
         roleCapabilities: _parseStringBoolMap(json["role_capabilities"]),
         isPurchaseRep: _parseBoolLoose(json["is_purchase_rep"]),
         isPurchaseManager: _parseBoolLoose(json["is_purchase_manager"]),
@@ -457,6 +463,7 @@ class Data {
         "is_pm": isPm,
         "is_foreman": isForeman,
         "is_fleet": isFleet,
+        "can_see_project_media": canSeeProjectMedia,
         "hr_module_manager": hrModuleManager == null
             ? null
             : {
@@ -888,8 +895,7 @@ class WidgetInfo {
   SiteManagementWidgetRecord? get siteManagementRecord {
     final map = recordMap;
     if (map == null) return null;
-    if (map.containsKey('active_sites_count') ||
-        map.containsKey('top_sites')) {
+    if (map.containsKey('active_sites_count') || map.containsKey('top_sites')) {
       return SiteManagementWidgetRecord.fromMap(map);
     }
     return null;
@@ -984,8 +990,7 @@ class WidgetInfo {
   MediaWidgetRecord? get mediaRecord {
     final map = recordMap;
     if (map == null) return null;
-    if (map.containsKey('recent_media') ||
-        map.containsKey('overflow_count')) {
+    if (map.containsKey('recent_media') || map.containsKey('overflow_count')) {
       return MediaWidgetRecord.fromMap(map);
     }
     if (map.containsKey('media_count')) {
@@ -1191,9 +1196,7 @@ class MyProjectsWidgetRecord {
       topProjects: projects,
       moreProjectsCount: moreCount > 0
           ? moreCount
-          : (totalActive > projects.length
-              ? totalActive - projects.length
-              : 0),
+          : (totalActive > projects.length ? totalActive - projects.length : 0),
     );
   }
 
@@ -1249,7 +1252,8 @@ class SiteManagementWidgetRecord {
     );
   }
 
-  factory SiteManagementWidgetRecord.empty() => const SiteManagementWidgetRecord(
+  factory SiteManagementWidgetRecord.empty() =>
+      const SiteManagementWidgetRecord(
         activeSitesCount: 0,
         totalWorkers: 0,
         topSites: [],
@@ -1286,8 +1290,7 @@ class MyReportsWidgetRecord {
 
   factory MyReportsWidgetRecord.fromMap(Map<String, dynamic> m) {
     final direction = m['trend_direction']?.toString() ?? 'neutral';
-    final period =
-        m['previous_period_label']?.toString() ?? 'last month';
+    final period = m['previous_period_label']?.toString() ?? 'last month';
     final rawTrend = m['trend_label']?.toString();
     return MyReportsWidgetRecord(
       metricLabel: m['metric_label']?.toString() ?? 'Performance',
@@ -1457,7 +1460,8 @@ class TaskManagementWidgetRecord {
     );
   }
 
-  factory TaskManagementWidgetRecord.empty() => const TaskManagementWidgetRecord(
+  factory TaskManagementWidgetRecord.empty() =>
+      const TaskManagementWidgetRecord(
         openCount: 0,
         inProgressCount: 0,
         doneCount: 0,
@@ -1763,8 +1767,7 @@ class PrayerTimesWidgetRecord {
       nextPrayerName: m['next_prayer_name']?.toString() ?? '',
       nextPrayerCountdownDisplay:
           m['next_prayer_countdown_display']?.toString() ?? '',
-      nextPrayerCountdownSeconds:
-          _readInt(m['next_prayer_countdown_seconds']),
+      nextPrayerCountdownSeconds: _readInt(m['next_prayer_countdown_seconds']),
       dataStale: m['data_stale'] == true,
       subtitle: m['subtitle']?.toString() ?? '',
     );
@@ -1833,8 +1836,7 @@ class LpoWidgetRecord {
           ? null
           : readDouble(m['delta_percentage']),
       deltaDirection: m['delta_direction']?.toString() ?? 'none',
-      previousTotalDisplay:
-          m['previous_total_display']?.toString() ?? '0',
+      previousTotalDisplay: m['previous_total_display']?.toString() ?? '0',
       scope: m['scope']?.toString() ?? 'none',
       trendLabel: m['trend_label']?.toString() ?? '',
     );
@@ -1957,9 +1959,8 @@ class TimesheetWidgetRecord {
 
   String get deltaTrendLabel {
     final abs = deltaVsLastWeek.abs();
-    final formatted = abs % 1 == 0
-        ? abs.toStringAsFixed(0)
-        : abs.toStringAsFixed(1);
+    final formatted =
+        abs % 1 == 0 ? abs.toStringAsFixed(0) : abs.toStringAsFixed(1);
     if (deltaVsLastWeek > 0) return '▲ ${formatted}h vs last week';
     if (deltaVsLastWeek < 0) return '▼ ${formatted}h vs last week';
     return 'No change vs last week';

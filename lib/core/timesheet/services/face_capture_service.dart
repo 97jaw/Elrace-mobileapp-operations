@@ -7,6 +7,7 @@ import 'package:camera/camera.dart';
 import 'package:el_race/core/site_management/face_recognition/antispoof/timesheet_face_classification_snapshot.dart';
 import 'package:el_race/core/site_management/face_recognition/data/models/face_enrollment_pose.dart';
 import 'package:flutter/foundation.dart';
+import 'package:geolocator/geolocator.dart';
 import 'package:google_mlkit_face_detection/google_mlkit_face_detection.dart';
 import 'package:image/image.dart' as img;
 import 'package:path_provider/path_provider.dart';
@@ -104,6 +105,7 @@ class TimesheetFaceDetectionResult {
     required this.quality,
     this.imageSize,
     this.cropBytes,
+
     /// EXIF-corrected path used for ML Kit boxes (use for Phase B crop).
     this.analyzedImagePath,
     this.primaryFace,
@@ -124,12 +126,29 @@ class TimesheetFaceCapturePermissions {
   const TimesheetFaceCapturePermissions({
     required this.cameraGranted,
     required this.locationGranted,
+    this.locationServiceEnabled = true,
   });
 
   final bool cameraGranted;
   final bool locationGranted;
 
+  /// Device-wide Location Services switch (Settings → Privacy → Location).
+  final bool locationServiceEnabled;
+
   bool get canOpenCamera => cameraGranted && locationGranted;
+
+  String get missingLabel {
+    if (!cameraGranted && !locationGranted) {
+      return 'Camera and location permission required — tap to open Settings';
+    }
+    if (!cameraGranted) {
+      return 'Camera permission required — tap to open Settings';
+    }
+    if (!locationServiceEnabled) {
+      return 'Turn on Location Services — tap to open Settings';
+    }
+    return 'Location permission required — tap to open Settings';
+  }
 }
 
 /// Camera + ML Kit facade for Module 6 face capture.
@@ -163,8 +182,10 @@ class TimesheetFaceCaptureService {
   }
 
   static const int cropSizePx = 224;
+
   /// Still capture / shutter quality (absolute px in analyzed image).
   static const double minFaceWidthPx = 80;
+
   /// Live stream — fraction of frame width (allows normal arm-length distance).
   static const double minFaceWidthFractionStream = 0.062;
   static const double minFaceWidthStreamFloorPx = 48;
@@ -182,10 +203,51 @@ class TimesheetFaceCaptureService {
   Future<TimesheetFaceCapturePermissions> requestCameraPermissions() async {
     final cameraStatus = await Permission.camera.request();
     final locationStatus = await Permission.locationWhenInUse.request();
+    var locationGranted = locationStatus.isGranted || locationStatus.isLimited;
+    var serviceEnabled = true;
+    if (!locationGranted) {
+      // permission_handler reports iOS location as denied/permanentlyDenied
+      // when it can't read CLLocationManager state as expected (e.g. services
+      // toggled, iPad configs). Geolocator — which the capture flow actually
+      // uses for the fix — reads the authorization directly.
+      serviceEnabled = await Geolocator.isLocationServiceEnabled();
+      final geo = await Geolocator.checkPermission();
+      locationGranted = serviceEnabled &&
+          (geo == LocationPermission.whileInUse ||
+              geo == LocationPermission.always);
+      debugPrint(
+        'FaceCapture permissions: location handler=$locationStatus '
+        'geolocator=$geo serviceEnabled=$serviceEnabled',
+      );
+    }
+    debugPrint(
+      'FaceCapture permissions: camera=$cameraStatus '
+      'locationGranted=$locationGranted',
+    );
     return TimesheetFaceCapturePermissions(
       cameraGranted: cameraStatus.isGranted,
-      locationGranted: locationStatus.isGranted,
+      locationGranted: locationGranted,
+      locationServiceEnabled: serviceEnabled,
     );
+  }
+
+  /// Enrollment only needs the camera (no geofence), so don't prompt for
+  /// location there.
+  Future<bool> requestCameraOnlyPermission() async {
+    final status = await Permission.camera.request();
+    debugPrint('FaceEnroll permissions: camera=$status');
+    return status.isGranted;
+  }
+
+  Future<void> openPermissionSettings(
+      TimesheetFaceCapturePermissions? permissions) async {
+    if (permissions != null &&
+        permissions.cameraGranted &&
+        !permissions.locationServiceEnabled) {
+      await Geolocator.openLocationSettings();
+      return;
+    }
+    await openAppSettings();
   }
 
   Future<List<CameraDescription>> availableCameraDescriptions() {
@@ -280,6 +342,30 @@ class TimesheetFaceCaptureService {
     return null;
   }
 
+  /// Enrollment turned poses: persist the exact stream frame that passed the
+  /// pose gate (upright, un-mirrored like `takePicture`), so the user never
+  /// has to hold a turned head while the camera stops for a still.
+  Future<String?> saveEnrollmentStreamFrame(
+    CameraImage image,
+    CameraDescription camera,
+  ) async {
+    try {
+      final decoded = decodeCameraImage(image);
+      if (decoded == null) return null;
+      final angle = camera.sensorOrientation % 360;
+      final upright =
+          angle == 0 ? decoded : img.copyRotate(decoded, angle: angle);
+      final dir = await getTemporaryDirectory();
+      final path =
+          '${dir.path}/ts_enroll_${DateTime.now().millisecondsSinceEpoch}.jpg';
+      await File(path).writeAsBytes(img.encodeJpg(upright, quality: 92));
+      return path;
+    } catch (e) {
+      debugPrint('TimesheetFaceCapture: enroll frame save failed: $e');
+      return null;
+    }
+  }
+
   /// Debug / legacy only — do **not** call from the live detect+embed path.
   /// Writes `ts_stream_*.jpg` and forces a full encode+reload cycle.
   @Deprecated('Use decodeCameraImage for the live path (Task 1)')
@@ -291,7 +377,8 @@ class TimesheetFaceCaptureService {
       final path =
           '${dir.path}/ts_stream_${DateTime.now().millisecondsSinceEpoch}.jpg';
       await File(path).writeAsBytes(img.encodeJpg(decoded, quality: 82));
-      debugPrint('TimesheetFaceCapture: WARNING wrote $path (live path should avoid JPEG)');
+      debugPrint(
+          'TimesheetFaceCapture: WARNING wrote $path (live path should avoid JPEG)');
       return path;
     } catch (e) {
       debugPrint('TimesheetFaceCapture: stream frame encode failed: $e');
@@ -537,7 +624,11 @@ class TimesheetFaceCaptureService {
     final yaw = face.headEulerAngleY ?? 0;
     final pitch = face.headEulerAngleX ?? 0;
 
-    if (face.boundingBox.width < minFaceWidthPx) {
+    // A turned head has a narrower box and the far eye reads as "closed", so
+    // only the front pose gets the strict size + eyes gates.
+    final isFrontPose = pose == FaceEnrollmentPose.front;
+    final minWidth = isFrontPose ? minFaceWidthPx : minFaceWidthPx * 0.75;
+    if (face.boundingBox.width < minWidth) {
       return const TimesheetEnrollmentPreviewResult(
         readyToCapture: false,
         message: 'Move closer to the camera.',
@@ -556,8 +647,9 @@ class TimesheetFaceCaptureService {
 
     final leftEye = face.leftEyeOpenProbability;
     final rightEye = face.rightEyeOpenProbability;
-    if ((leftEye != null && leftEye < minEyeOpenProbability) ||
-        (rightEye != null && rightEye < minEyeOpenProbability)) {
+    if (isFrontPose &&
+        ((leftEye != null && leftEye < minEyeOpenProbability) ||
+            (rightEye != null && rightEye < minEyeOpenProbability))) {
       return const TimesheetEnrollmentPreviewResult(
         readyToCapture: false,
         message: 'Open your eyes.',
@@ -722,7 +814,8 @@ class TimesheetFaceCaptureService {
       );
     }
 
-    final minEye = liveStream ? minEyeOpenProbabilityStream : minEyeOpenProbability;
+    final minEye =
+        liveStream ? minEyeOpenProbabilityStream : minEyeOpenProbability;
     final leftEye = face.leftEyeOpenProbability;
     final rightEye = face.rightEyeOpenProbability;
     if ((leftEye != null && leftEye < minEye) ||

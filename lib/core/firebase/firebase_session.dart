@@ -82,17 +82,18 @@ class FirebaseSession {
     }
   }
 
-  /// Drops the current Firebase session and signs in again with a token freshly
-  /// minted by the backend. Used when a valid-looking ID token is being
-  /// rejected, which the local SDK cannot detect on its own.
-  Future<User> forceRefresh() async {
-    _inFlight = null;
-    try {
-      await FirebaseAuth.instance.signOut();
-    } catch (_) {
-      // Already signed out — the sign-in below is what matters.
-    }
-    return ensureSignedIn();
+  /// Signs in again with a token freshly minted by the backend. Used when a
+  /// valid-looking ID token is being rejected, which the local SDK cannot
+  /// detect on its own.
+  ///
+  /// Never signs out first: that drops every open Firestore listener in the
+  /// app, so one rejected call would surface as auth errors in every feature.
+  Future<User> forceRefresh() {
+    return _inFlight = FirebaseChatAuthService.instance
+        .signInWithFreshCustomToken()
+        .whenComplete(() {
+      _inFlight = null;
+    });
   }
 
   /// Re-establishes auth when the app comes back to the foreground. Never

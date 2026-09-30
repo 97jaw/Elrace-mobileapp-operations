@@ -1,8 +1,10 @@
+import 'dart:math' as math;
 import 'dart:typed_data';
 import 'dart:ui';
 
 import 'package:el_race/core/site_management/face_recognition/data/models/face_e3_verification_report.dart';
 import 'package:el_race/core/site_management/face_recognition/data/models/face_embedding_record.dart';
+import 'package:el_race/core/site_management/face_recognition/data/models/face_enrollment_check_report.dart';
 import 'package:el_race/core/site_management/face_recognition/data/models/face_match_result.dart';
 import 'package:el_race/core/site_management/face_recognition/face_pilot_log_store.dart';
 import 'package:el_race/core/site_management/face_recognition/data/repositories/face_db_repository.dart';
@@ -127,6 +129,7 @@ class FaceRecognitionService {
     required String imagePath,
     required Rect faceBox,
     TimesheetFaceLandmarkSnapshot? landmarks,
+    int? focusEmployeeId,
   }) async {
     if (!_syncReady) return null;
     try {
@@ -147,6 +150,7 @@ class FaceRecognitionService {
         tensor: tensor,
         preprocessMs: preprocessMs,
         imagePath: imagePath,
+        focusEmployeeId: focusEmployeeId,
       );
     } catch (e, st) {
       debugPrint('FaceRecognition.matchCapturePhoto failed: $e\n$st');
@@ -159,6 +163,7 @@ class FaceRecognitionService {
     required img.Image source,
     required Rect faceBox,
     TimesheetFaceLandmarkSnapshot? landmarks,
+    int? focusEmployeeId,
   }) async {
     if (!_syncReady) return null;
     try {
@@ -177,6 +182,7 @@ class FaceRecognitionService {
         tensor: tensor,
         preprocessMs: preprocessMs,
         imagePath: 'memory://camera_frame',
+        focusEmployeeId: focusEmployeeId,
       );
     } catch (e, st) {
       debugPrint('FaceRecognition.matchImage failed: $e\n$st');
@@ -188,6 +194,7 @@ class FaceRecognitionService {
     required Float32List tensor,
     required int preprocessMs,
     required String imagePath,
+    int? focusEmployeeId,
   }) async {
     final totalSw = Stopwatch()..start();
     final embedSw = Stopwatch()..start();
@@ -213,13 +220,10 @@ class FaceRecognitionService {
       );
       FaceMatchLogger.logTemplateScores(
         employeeId: best.employeeId,
-        scores: perTemplate
-            .map((t) => (pose: t.pose, score: t.score))
-            .toList(),
+        scores: perTemplate.map((t) => (pose: t.pose, score: t.score)).toList(),
       );
       final e3Pass = perTemplate.isNotEmpty &&
-          perTemplate.first.score >=
-              FaceRecognitionMatch.verificationMinCosine;
+          perTemplate.first.score >= FaceRecognitionMatch.verificationMinCosine;
       debugPrint(
         'FaceRecognition: E.3 topTemplate='
         '${perTemplate.isNotEmpty ? perTemplate.first.score.toStringAsFixed(4) : "n/a"} '
@@ -252,7 +256,30 @@ class FaceRecognitionService {
       'emp=${best?.employeeId} ${best?.name} '
       'timing=pre$preprocessMs+emb$embedMs+mat$matchMs=${totalMs}ms',
     );
-    return result;
+    if (focusEmployeeId == null) return result;
+    final focus = _matcher.scoreTemplatesForEmployee(
+      embedding,
+      roster,
+      focusEmployeeId,
+    );
+    final focusScore = focus.isEmpty ? null : focus.first.score;
+    debugPrint(
+      'FaceRecognition: focus emp=$focusEmployeeId '
+      'score=${focusScore?.toStringAsFixed(4) ?? 'no_templates'}',
+    );
+    return result.withFocusScore(focusScore);
+  }
+
+  /// Full re-download when [employeeId] (e.g. just enrolled) has no templates
+  /// in the local cache yet. Returns true once templates are present.
+  Future<bool> ensureTemplatesFor(int employeeId) async {
+    var roster = await _repository.loadCached();
+    if (roster.any((r) => r.employeeId == employeeId)) return true;
+    await syncFaceDbForceRefresh();
+    roster = await _repository.loadCached();
+    final ok = roster.any((r) => r.employeeId == employeeId);
+    debugPrint('FaceRecognition: ensureTemplatesFor emp=$employeeId ok=$ok');
+    return ok;
   }
 
   void _logCacheDiagnostics(List<FaceEmbeddingRecord> roster) {
@@ -306,20 +333,128 @@ class FaceRecognitionService {
         employeeId: employeeId,
         topScore: top,
         passesVerification: passes,
-        templateScores: perTemplate
-            .map((t) => (pose: t.pose, score: t.score))
-            .toList(),
+        templateScores:
+            perTemplate.map((t) => (pose: t.pose, score: t.score)).toList(),
         preprocessMs: preprocessMs,
         embedMs: embedMs,
       );
     } catch (e, st) {
-      debugPrint('FaceRecognition.verifyCaptureAgainstEmployee failed: $e\n$st');
+      debugPrint(
+          'FaceRecognition.verifyCaptureAgainstEmployee failed: $e\n$st');
       return null;
     }
   }
 
+  /// Enrollment-only: embeds every captured pose once, then scores each pose
+  /// against the first photo (same person) and against the cached face DB
+  /// excluding [employeeId] (duplicate). Returns null if the engine can't run,
+  /// so enrollment is never blocked by a local model failure.
+  Future<FaceEnrollmentCheckReport?> checkEnrollmentPhotos({
+    required int employeeId,
+    required List<
+            ({
+              String key,
+              String imagePath,
+              Rect faceBox,
+              TimesheetFaceLandmarkSnapshot? landmarks,
+            })>
+        photos,
+  }) async {
+    if (photos.isEmpty) return null;
+    try {
+      await _embedder.ensureLoaded();
+      final embeddings = <String, List<double>>{};
+      for (final photo in photos) {
+        final tensor = await _preprocessor.buildInputTensorFromCaptureAsync(
+          imagePath: photo.imagePath,
+          faceBox: photo.faceBox,
+          landmarks: photo.landmarks,
+        );
+        if (tensor == null) continue;
+        embeddings[photo.key] =
+            _unit(await _embedder.generateEmbedding(tensor));
+      }
+      final reference = embeddings[photos.first.key];
+      if (reference == null) return null;
+
+      final samePerson = <String, double>{
+        for (final e in embeddings.entries)
+          if (e.key != photos.first.key) e.key: _dotUnit(reference, e.value),
+      };
+
+      final roster = (await _repository.loadCached())
+          .where(
+            (r) =>
+                r.employeeId != employeeId &&
+                r.embedding.length == FaceRecognitionModel.embeddingDim,
+          )
+          .toList();
+      FaceEmbeddingRecord? dupRow;
+      var dupScore = 0.0;
+      if (roster.isNotEmpty && embeddings.isNotEmpty) {
+        final unitRoster = [for (final r in roster) _unit(r.embedding)];
+        final sums = <int, double>{};
+        for (final probe in embeddings.values) {
+          final perEmployee = <int, double>{};
+          for (var i = 0; i < roster.length; i++) {
+            final id = roster[i].employeeId;
+            final s = _dotUnit(probe, unitRoster[i]);
+            if (s > (perEmployee[id] ?? -1)) perEmployee[id] = s;
+          }
+          perEmployee.forEach((id, s) => sums[id] = (sums[id] ?? 0) + s);
+        }
+        int? bestId;
+        sums.forEach((id, sum) {
+          final mean = sum / embeddings.length;
+          if (mean > dupScore) {
+            dupScore = mean;
+            bestId = id;
+          }
+        });
+        if (bestId != null) {
+          dupRow = roster.firstWhere((r) => r.employeeId == bestId);
+        }
+      }
+
+      debugPrint(
+        'FaceEnrollCheck: emp=$employeeId samePerson='
+        '${samePerson.map((k, v) => MapEntry(k, v.toStringAsFixed(3)))} '
+        'dup=${dupRow?.employeeId} ${dupRow?.name} '
+        'score=${dupScore.toStringAsFixed(3)} roster=${roster.length}',
+      );
+      return FaceEnrollmentCheckReport(
+        samePersonScores: samePerson,
+        duplicateOf: dupRow,
+        duplicateScore: dupScore,
+      );
+    } catch (e, st) {
+      debugPrint('FaceRecognition.checkEnrollmentPhotos failed: $e\n$st');
+      return null;
+    }
+  }
+
+  static List<double> _unit(List<double> v) {
+    var sum = 0.0;
+    for (final x in v) {
+      sum += x * x;
+    }
+    final n = math.sqrt(sum);
+    if (n < 1e-9) return v;
+    return [for (final x in v) x / n];
+  }
+
+  static double _dotUnit(List<double> a, List<double> b) {
+    final n = math.min(a.length, b.length);
+    var s = 0.0;
+    for (var i = 0; i < n; i++) {
+      s += a[i] * b[i];
+    }
+    return s;
+  }
+
   /// Dump pilot JSONL to app documents (debug builds).
-  Future<String?> exportPilotMatchLogs() => FacePilotLogStore.exportJsonlSnapshot();
+  Future<String?> exportPilotMatchLogs() =>
+      FacePilotLogStore.exportJsonlSnapshot();
 
   TimesheetOdooEmployee? employeeFromMatch(FaceMatchResult result) {
     final best = result.best;

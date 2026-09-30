@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:el_race/core/utils/responsive_breakpoints.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../theme/media_theme.dart';
@@ -85,18 +85,16 @@ class MediaFilterTabs extends StatelessWidget {
         ),
         if (onToggleView != null)
           SizedBox(
-            width: 40.w,
-            height: 40.w,
+            width: 40.tw,
+            height: 40.tw,
             child: IconButton(
               padding: EdgeInsets.zero,
               onPressed: onToggleView,
               tooltip: isGridView ? 'List view' : 'Grid view',
               icon: Icon(
-                isGridView
-                    ? Icons.view_list_rounded
-                    : Icons.grid_view_rounded,
+                isGridView ? Icons.view_list_rounded : Icons.grid_view_rounded,
                 color: MediaTheme.white,
-                size: 20.sp,
+                size: 20.tsp,
               ),
             ),
           ),
@@ -134,7 +132,7 @@ class _TabItem extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             Padding(
-              padding: EdgeInsets.symmetric(vertical: 4.h),
+              padding: EdgeInsets.symmetric(vertical: 4.th),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
@@ -142,15 +140,15 @@ class _TabItem extends StatelessWidget {
                     mainAxisAlignment: MainAxisAlignment.center,
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Icon(icon, size: 14.sp, color: color),
-                      SizedBox(width: 3.w),
+                      Icon(icon, size: 14.tsp, color: color),
+                      SizedBox(width: 3.tw),
                       Flexible(
                         child: Text(
                           label,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           style: GoogleFonts.poppins(
-                            fontSize: 10.sp,
+                            fontSize: 10.tsp,
                             fontWeight: FontWeight.w600,
                             color: color,
                           ),
@@ -161,7 +159,7 @@ class _TabItem extends StatelessWidget {
                   Text(
                     '$count',
                     style: GoogleFonts.poppins(
-                      fontSize: 9.sp,
+                      fontSize: 9.tsp,
                       fontWeight: FontWeight.w500,
                       color: isActive
                           ? MediaTheme.textSecondary
@@ -176,7 +174,7 @@ class _TabItem extends StatelessWidget {
               duration: const Duration(milliseconds: 220),
               curve: Curves.easeOutCubic,
               height: 2,
-              margin: EdgeInsets.symmetric(horizontal: 10.w),
+              margin: EdgeInsets.symmetric(horizontal: 10.tw),
               decoration: BoxDecoration(
                 color: isActive ? MediaTheme.white : Colors.transparent,
                 borderRadius: BorderRadius.circular(999),

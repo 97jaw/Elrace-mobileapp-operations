@@ -692,16 +692,16 @@ class _TaskDetailsScreenState extends State<TaskDetailsScreen> {
                 const SizedBox(height: 12),
                 _sectionCard(
                   title: 'Attachments',
-                  child: (task.attachments != null &&
-                          task.attachments!.isNotEmpty)
-                      ? _buildAttachmentsList(task.attachments!)
-                      : Text(
-                          'No attachments',
-                          style: GoogleFonts.roboto(
-                            fontSize: 13,
-                            color: ProductivityLightTheme.inkMuted,
-                          ),
-                        ),
+                  child:
+                      (task.attachments != null && task.attachments!.isNotEmpty)
+                          ? _buildAttachmentsList(task.attachments!)
+                          : Text(
+                              'No attachments',
+                              style: GoogleFonts.roboto(
+                                fontSize: 13,
+                                color: ProductivityLightTheme.inkMuted,
+                              ),
+                            ),
                 ),
                 const SizedBox(height: 12),
                 _sectionCard(
@@ -812,8 +812,7 @@ class _TaskDetailsScreenState extends State<TaskDetailsScreen> {
                   task.project!,
                   ProductivityLightTheme.washBlue,
                 ),
-              if (task.department != null &&
-                  task.department!.trim().isNotEmpty)
+              if (task.department != null && task.department!.trim().isNotEmpty)
                 _statusPill(
                   task.department!,
                   ProductivityLightTheme.washBlue,
@@ -1339,7 +1338,8 @@ class _TaskDetailsScreenState extends State<TaskDetailsScreen> {
             final storageRef = FirebaseStorage.instance
                 .ref()
                 .child('tasks/${_task!.firebaseId}/attachments/$attachment');
-            final url = await storageRef.getDownloadURL();
+            final url =
+                await FirebaseSession.instance.run(storageRef.getDownloadURL);
             uri = Uri.parse(url);
           } catch (storageError) {
             print('❌ Firebase Storage error: $storageError');

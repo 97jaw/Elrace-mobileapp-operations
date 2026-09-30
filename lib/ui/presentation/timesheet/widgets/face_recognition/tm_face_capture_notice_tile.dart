@@ -8,15 +8,20 @@ import 'package:flutter/material.dart';
 enum TmFaceCaptureNoticeKind {
   captured,
   alreadyAttended,
+
+  /// Recognised someone other than the labor the camera was opened for.
+  mismatch,
 }
 
-/// Bottom notice — green (captured) or blue (already attended).
+/// Bottom notice — green (captured), blue (already attended) or red (wrong
+/// person for this camera).
 class TmFaceCaptureNoticeTile extends StatefulWidget {
   const TmFaceCaptureNoticeTile({
     super.key,
     required this.employee,
     required this.kind,
     this.matchScore,
+    this.expectedName,
     this.autoDismissSeconds = 3,
     this.onDismissed,
   });
@@ -24,23 +29,42 @@ class TmFaceCaptureNoticeTile extends StatefulWidget {
   final TimesheetOdooEmployee employee;
   final TmFaceCaptureNoticeKind kind;
   final double? matchScore;
+
+  /// [TmFaceCaptureNoticeKind.mismatch]: who the camera was opened for.
+  final String? expectedName;
   final int autoDismissSeconds;
   final VoidCallback? onDismissed;
 
   @override
-  State<TmFaceCaptureNoticeTile> createState() => _TmFaceCaptureNoticeTileState();
+  State<TmFaceCaptureNoticeTile> createState() =>
+      _TmFaceCaptureNoticeTileState();
 }
 
 class _TmFaceCaptureNoticeTileState extends State<TmFaceCaptureNoticeTile>
     with SingleTickerProviderStateMixin {
   static const Color _green = Color(0xFF3DDC84);
   static const Color _blue = Color(0xFF42A5F5);
+  static const Color _red = Color(0xFFE53935);
 
   late final AnimationController _slide;
   Timer? _timer;
 
-  Color get _accent =>
-      widget.kind == TmFaceCaptureNoticeKind.alreadyAttended ? _blue : _green;
+  Color get _accent => switch (widget.kind) {
+        TmFaceCaptureNoticeKind.captured => _green,
+        TmFaceCaptureNoticeKind.alreadyAttended => _blue,
+        TmFaceCaptureNoticeKind.mismatch => _red,
+      };
+
+  String? get _headline {
+    switch (widget.kind) {
+      case TmFaceCaptureNoticeKind.captured:
+        return null;
+      case TmFaceCaptureNoticeKind.alreadyAttended:
+        return 'ALREADY ATTENDED';
+      case TmFaceCaptureNoticeKind.mismatch:
+        return 'WRONG PERSON';
+    }
+  }
 
   @override
   void initState() {
@@ -70,11 +94,13 @@ class _TmFaceCaptureNoticeTileState extends State<TmFaceCaptureNoticeTile>
     final imageUrl = widget.employee.faceMatchImageUrl?.trim() ??
         widget.employee.imageUrl?.trim();
     final hasHrPhoto = imageUrl != null && imageUrl.isNotEmpty;
-    final isAttended = widget.kind == TmFaceCaptureNoticeKind.alreadyAttended;
+    final isCaptured = widget.kind == TmFaceCaptureNoticeKind.captured;
+    final isMismatch = widget.kind == TmFaceCaptureNoticeKind.mismatch;
+    final headline = _headline;
+    final expected = widget.expectedName?.trim();
     final score = widget.matchScore;
-    final pct = score != null
-        ? (score * 100).clamp(0, 100).toStringAsFixed(0)
-        : null;
+    final pct =
+        score != null ? (score * 100).clamp(0, 100).toStringAsFixed(0) : null;
 
     return IgnorePointer(
       child: SlideTransition(
@@ -88,9 +114,11 @@ class _TmFaceCaptureNoticeTileState extends State<TmFaceCaptureNoticeTile>
           opacity: _slide,
           child: DecoratedBox(
             decoration: BoxDecoration(
-              color: Colors.black.withValues(alpha: 0.5),
+              color: isMismatch
+                  ? const Color(0xFF3B0A0A).withValues(alpha: 0.82)
+                  : Colors.black.withValues(alpha: 0.5),
               borderRadius: BorderRadius.circular(20),
-              border: Border.all(color: _accent, width: 2.5),
+              border: Border.all(color: _accent, width: isMismatch ? 3 : 2.5),
             ),
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 18),
@@ -131,16 +159,31 @@ class _TmFaceCaptureNoticeTileState extends State<TmFaceCaptureNoticeTile>
                       crossAxisAlignment: CrossAxisAlignment.start,
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        if (isAttended)
-                          Text(
-                            'ALREADY ATTENDED',
-                            style: TimesheetModuleTypography.body().copyWith(
-                              color: _blue,
-                              fontWeight: FontWeight.w800,
-                              letterSpacing: 0.6,
-                            ),
+                        if (headline != null) ...[
+                          Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              if (isMismatch) ...[
+                                Icon(
+                                  Icons.warning_amber_rounded,
+                                  color: _accent,
+                                  size: 20,
+                                ),
+                                const SizedBox(width: 6),
+                              ],
+                              Text(
+                                headline,
+                                style:
+                                    TimesheetModuleTypography.body().copyWith(
+                                  color: _accent,
+                                  fontWeight: FontWeight.w800,
+                                  letterSpacing: 0.6,
+                                ),
+                              ),
+                            ],
                           ),
-                        if (isAttended) const SizedBox(height: 4),
+                          const SizedBox(height: 4),
+                        ],
                         Text(
                           widget.employee.name,
                           maxLines: 2,
@@ -171,7 +214,21 @@ class _TmFaceCaptureNoticeTileState extends State<TmFaceCaptureNoticeTile>
                             ),
                           ),
                         ],
-                        if (!isAttended && pct != null) ...[
+                        if (isMismatch) ...[
+                          const SizedBox(height: 6),
+                          Text(
+                            expected == null || expected.isEmpty
+                                ? 'Not the selected labor — not added'
+                                : 'Expected $expected — not added',
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                            style: TimesheetModuleTypography.body().copyWith(
+                              color: _accent,
+                              fontWeight: FontWeight.w800,
+                            ),
+                          ),
+                        ],
+                        if (isCaptured && pct != null) ...[
                           const SizedBox(height: 6),
                           Text(
                             'Confidence $pct%',

@@ -5,6 +5,8 @@ import 'package:el_race/core/timesheet/models/timesheet_models.dart';
 import 'package:el_race/core/timesheet/models/timesheet_submit_request.dart';
 import 'package:el_race/core/timesheet/models/timesheet_team_member.dart';
 import 'package:el_race/core/timesheet/providers/timesheet_data_providers.dart';
+import 'package:el_race/core/timesheet/services/tm_project_location_notify_service.dart';
+import 'package:el_race/ui/presentation/timesheet/widgets/tm_submit_geofence_dialog.dart';
 import 'package:el_race/core/timesheet/providers/timesheet_enrollment_status_provider.dart';
 import 'package:el_race/core/timesheet/routing/timesheet_route_names.dart';
 import 'package:el_race/core/timesheet/providers/timesheet_acting_session_provider.dart';
@@ -107,141 +109,141 @@ class Fm1ForemanDashboard extends ConsumerWidget {
             gradient: TimesheetModuleColors.warmGradient,
           ),
           child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            const _FmHomeHeader(),
-            // Fm1 uses its own header (not TmScaffold), so the acting banner
-            // must be inserted here. Renders nothing for a real foreman login.
-            const TmActingBanner(),
-            Expanded(
-              child: SafeArea(
-                top: false,
-                bottom: false,
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: TimesheetModuleLayout.screenPaddingH,
-                    vertical: 12,
-                  ),
-                  child: bucketsAsync.when(
-                    loading: () => const Center(
-                      child: SizedBox(
-                        width: 28,
-                        height: 28,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2.5,
-                          color: _FmHomeTheme.orange,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              const _FmHomeHeader(),
+              // Fm1 uses its own header (not TmScaffold), so the acting banner
+              // must be inserted here. Renders nothing for a real foreman login.
+              const TmActingBanner(),
+              Expanded(
+                child: SafeArea(
+                  top: false,
+                  bottom: false,
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: TimesheetModuleLayout.screenPaddingH,
+                      vertical: 12,
+                    ),
+                    child: bucketsAsync.when(
+                      loading: () => const Center(
+                        child: SizedBox(
+                          width: 28,
+                          height: 28,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2.5,
+                            color: _FmHomeTheme.orange,
+                          ),
                         ),
                       ),
-                    ),
-                    error: (_, __) => TimesheetErrorState(
-                      message: 'Could not load projects',
-                      warm: true,
-                      onRetry: () =>
-                          ref.invalidate(timesheetProjectBucketsProvider),
-                    ),
-                    data: (buckets) {
-                      final assignedCount = buckets.inProgress.length +
-                          buckets.completedTotal;
-                      if (assignedCount == 0 && laborCount == 0) {
-                        return const Center(
-                          child: Text(
-                            'No projects assigned',
-                            style: TextStyle(
-                              color: _FmHomeTheme.mutedGray,
-                              fontSize: 14,
-                            ),
-                          ),
-                        );
-                      }
-
-                      final content = Column(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: [
-                          IntrinsicHeight(
-                            child: Row(
-                              crossAxisAlignment: CrossAxisAlignment.stretch,
-                              children: [
-                                Expanded(
-                                  child: _HomeStatCard(
-                                    value: '$assignedCount',
-                                    label: 'Assigned Projects',
-                                    icon: PhosphorIcons.buildings(),
-                                  ),
-                                ),
-                                const SizedBox(
-                                  width: TimesheetModuleLayout.cardSpacing,
-                                ),
-                                Expanded(
-                                  child: _HomeStatCard(
-                                    value: '${buckets.inProgress.length}',
-                                    label: 'Active Sites',
-                                    icon: PhosphorIcons.briefcase(),
-                                    onTap: () => TmActiveSitesSheet.show(
-                                      context,
-                                      projects: buckets.inProgress,
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                          const SizedBox(
-                            height: TimesheetModuleLayout.sectionGap,
-                          ),
-                          _YourTeamBox(
-                            laborCount: laborCount,
-                            labors: labors,
-                            onTap: () => _showLabors(context, ref, buckets),
-                          ),
-                          const SizedBox(
-                            height: TimesheetModuleLayout.sectionGap,
-                          ),
-                          _PrintTimesheetButton(
-                            onPressed: () => Navigator.of(context).pushNamed(
-                              TimesheetRouteNames.foremanTimesheetRecords,
-                            ),
-                          ),
-                          const SizedBox(
-                            height: TimesheetModuleLayout.sectionGap,
-                          ),
-                          // Recent list keeps its own internal scroll and fills
-                          // the remaining space instead of scrolling the page.
-                          Expanded(
-                            child: _RecentTimesheetsSection(
-                              recentAsync: recentAsync,
-                            ),
-                          ),
-                          if (pendingCaptures.isNotEmpty)
-                            const SizedBox(height: 72),
-                        ],
-                      );
-
-                      if (pendingCaptures.isEmpty) return content;
-                      return Stack(
-                        children: [
-                          content,
-                          Positioned(
-                            left: 0,
-                            right: 0,
-                            bottom: 12,
-                            child: _FloatingSubmitButton(
-                              count: pendingCaptures.length,
-                              onPressed: () => _submitFromStore(
-                                context,
-                                ref,
-                                buckets,
-                                pendingCaptures,
+                      error: (_, __) => TimesheetErrorState(
+                        message: 'Could not load projects',
+                        warm: true,
+                        onRetry: () =>
+                            ref.invalidate(timesheetProjectBucketsProvider),
+                      ),
+                      data: (buckets) {
+                        final assignedCount =
+                            buckets.inProgress.length + buckets.completedTotal;
+                        if (assignedCount == 0 && laborCount == 0) {
+                          return const Center(
+                            child: Text(
+                              'No projects assigned',
+                              style: TextStyle(
+                                color: _FmHomeTheme.mutedGray,
+                                fontSize: 14,
                               ),
                             ),
-                          ),
-                        ],
-                      );
-                    },
+                          );
+                        }
+
+                        final content = Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            IntrinsicHeight(
+                              child: Row(
+                                crossAxisAlignment: CrossAxisAlignment.stretch,
+                                children: [
+                                  Expanded(
+                                    child: _HomeStatCard(
+                                      value: '$assignedCount',
+                                      label: 'Assigned Projects',
+                                      icon: PhosphorIcons.buildings(),
+                                    ),
+                                  ),
+                                  const SizedBox(
+                                    width: TimesheetModuleLayout.cardSpacing,
+                                  ),
+                                  Expanded(
+                                    child: _HomeStatCard(
+                                      value: '${buckets.inProgress.length}',
+                                      label: 'Active Sites',
+                                      icon: PhosphorIcons.briefcase(),
+                                      onTap: () => TmActiveSitesSheet.show(
+                                        context,
+                                        projects: buckets.inProgress,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            const SizedBox(
+                              height: TimesheetModuleLayout.sectionGap,
+                            ),
+                            _YourTeamBox(
+                              laborCount: laborCount,
+                              labors: labors,
+                              onTap: () => _showLabors(context, ref, buckets),
+                            ),
+                            const SizedBox(
+                              height: TimesheetModuleLayout.sectionGap,
+                            ),
+                            _PrintTimesheetButton(
+                              onPressed: () => Navigator.of(context).pushNamed(
+                                TimesheetRouteNames.foremanTimesheetRecords,
+                              ),
+                            ),
+                            const SizedBox(
+                              height: TimesheetModuleLayout.sectionGap,
+                            ),
+                            // Recent list keeps its own internal scroll and fills
+                            // the remaining space instead of scrolling the page.
+                            Expanded(
+                              child: _RecentTimesheetsSection(
+                                recentAsync: recentAsync,
+                              ),
+                            ),
+                            if (pendingCaptures.isNotEmpty)
+                              const SizedBox(height: 72),
+                          ],
+                        );
+
+                        if (pendingCaptures.isEmpty) return content;
+                        return Stack(
+                          children: [
+                            content,
+                            Positioned(
+                              left: 0,
+                              right: 0,
+                              bottom: 12,
+                              child: _FloatingSubmitButton(
+                                count: pendingCaptures.length,
+                                onPressed: () => _submitFromStore(
+                                  context,
+                                  ref,
+                                  buckets,
+                                  pendingCaptures,
+                                ),
+                              ),
+                            ),
+                          ],
+                        );
+                      },
+                    ),
                   ),
                 ),
               ),
-            ),
-          ],
+            ],
           ),
         ),
       ),
@@ -278,8 +280,8 @@ class Fm1ForemanDashboard extends ConsumerWidget {
       watchForemanEnrollment: true,
       initialCaptures: pending,
       onEnroll: (member) => _openEnroll(context, ref, member),
-      onCaptureAttendance: (member) =>
-          _captureForMember(context, ref, buckets, member),
+      onCaptureAttendance: (member, alreadyCapturedIds) =>
+          _captureForMember(context, ref, buckets, member, alreadyCapturedIds),
       onPendingChanged: (captures) =>
           _persistPending(ref, defaultArgs, captures),
       onSubmitCaptures: (captures) =>
@@ -415,6 +417,7 @@ class Fm1ForemanDashboard extends ConsumerWidget {
     WidgetRef ref,
     TimesheetProjectBuckets buckets,
     TimesheetTeamMember member,
+    Set<int> alreadyCapturedIds,
   ) async {
     if (buckets.inProgress.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -433,6 +436,9 @@ class Fm1ForemanDashboard extends ConsumerWidget {
         MaterialPageRoute(
           builder: (_) => FmTimesheetCaptureSubmitScreen(
             returnCaptures: true,
+            expectedEmployeeId: member.employeeId,
+            expectedEmployeeName: member.name,
+            alreadyCapturedEmployeeIds: alreadyCapturedIds,
             args: TimesheetProjectDayArgs(
               projectId: project.id,
               projectName: project.name,
@@ -493,9 +499,8 @@ class Fm1ForemanDashboard extends ConsumerWidget {
 
     final today = DateTime.now();
     final day = DateTime(today.year, today.month, today.day);
-    var start =
-        DateTime(day.year, day.month, day.day, today.hour, today.minute)
-            .subtract(const Duration(hours: 9));
+    var start = DateTime(day.year, day.month, day.day, today.hour, today.minute)
+        .subtract(const Duration(hours: 9));
     var end = DateTime(day.year, day.month, day.day, today.hour, today.minute);
     var breakHours = 1;
     Project? selectedProject = projects.first;
@@ -516,6 +521,13 @@ class Fm1ForemanDashboard extends ConsumerWidget {
         working.remove(entry);
         unawaited(_persistPending(ref, pendingArgs, List.of(working)));
       },
+      onReloadProjects: () =>
+          TmProjectLocationNotifyService.reloadInProgressProjects(ref),
+      onNotifyMissingLocation: (project) =>
+          TmProjectLocationNotifyService.notifyStaff(
+        client: ref.read(timesheetApiClientProvider),
+        project: project,
+      ),
     );
     if (!confirmed || !context.mounted) return false;
     if (working.isEmpty) return false;
@@ -536,48 +548,69 @@ class Fm1ForemanDashboard extends ConsumerWidget {
       return false;
     }
 
+    if (_submitInFlight) return false;
+    _submitInFlight = true;
     try {
       final client = ref.read(timesheetApiClientProvider);
-      final ids = working.map((e) => e.employeeId).toList(growable: false);
-      final names = working.map((e) => e.employee.name).join(', ');
-      final coords = working
-          .map(
-            (e) => TimesheetSubmitCoord(
-              employeeId: e.employeeId,
-              lat: e.draft.lat,
-              lon: e.draft.lon,
-            ),
-          )
-          .toList(growable: false);
-      final result = await client.submitTimesheet(
-        TimesheetSubmitRequest(
-          projectId: submitProjectId,
-          taskId: submitTaskId,
-          employeeIds: ids,
-          employeeName: names,
-          date: day,
-          dateTime: start,
-          dateTimeEnd: end,
-          breakTimeHours: breakHours,
-          coords: coords,
-        ),
-      );
-      if (!context.mounted) return result.success;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            result.success
-                ? (result.message ?? 'Timesheet submitted')
-                : (result.message ?? 'Submission failed'),
+      Future<TimesheetSubmitResult> doSubmit() {
+        final ids = working.map((e) => e.employeeId).toList(growable: false);
+        final names = working.map((e) => e.employee.name).join(', ');
+        final coords = working
+            .map(
+              (e) => TimesheetSubmitCoord(
+                employeeId: e.employeeId,
+                lat: e.draft.lat,
+                lon: e.draft.lon,
+              ),
+            )
+            .toList(growable: false);
+        return client.submitTimesheet(
+          TimesheetSubmitRequest(
+            projectId: submitProjectId,
+            taskId: submitTaskId,
+            employeeIds: ids,
+            employeeName: names,
+            date: day,
+            dateTime: start,
+            dateTimeEnd: end,
+            breakTimeHours: breakHours,
+            coords: coords,
           ),
-        ),
-      );
-      if (result.success) {
+        );
+      }
+
+      final gateProject = selectedProject;
+      bool success;
+      if (gateProject != null && gateProject.hasSiteCoordinates) {
+        if (!context.mounted) return false;
+        // Popup decides by foreman distance to site; creates only if inside.
+        success = await TmSubmitGeofenceGate.run(
+          context,
+          project: gateProject,
+          loadThresholdM: client.fetchProjectSubmitThresholdM,
+          submit: doSubmit,
+        );
+      } else {
+        final result = await doSubmit();
+        success = result.success;
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                result.success
+                    ? (result.message ?? 'Timesheet submitted')
+                    : (result.message ?? 'Submission failed'),
+              ),
+            ),
+          );
+        }
+      }
+      if (success) {
         await TimesheetCaptureSessionStore.clear();
         ref.invalidate(timesheetForemanRecentRowsProvider);
         ref.invalidate(timesheetPendingCaptureProvider);
       }
-      return result.success;
+      return success;
     } catch (_) {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -585,8 +618,13 @@ class Fm1ForemanDashboard extends ConsumerWidget {
         );
       }
       return false;
+    } finally {
+      _submitInFlight = false;
     }
   }
+
+  /// One submit at a time (a second tap during a slow request duplicated it).
+  static bool _submitInFlight = false;
 }
 
 class _FmHomeHeader extends ConsumerWidget {

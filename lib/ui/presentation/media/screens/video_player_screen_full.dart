@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:el_race/core/utils/responsive_breakpoints.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:video_player/video_player.dart';
@@ -87,16 +87,16 @@ class _VideoPlayerScreenFullState extends State<VideoPlayerScreenFull> {
 
           // Video title overlay
           Positioned(
-            top: 20.h,
-            left: 16.w,
-            right: 16.w,
+            top: 20.th,
+            left: 16.tw,
+            right: 16.tw,
             child: _buildTitleOverlay(),
           ),
 
           // Download button - Hidden
           // Positioned(
-          //   top: 20.h,
-          //   right: 16.w,
+          //   top: 20.th,
+          //   right: 16.tw,
           //   child: _buildDownloadButton(),
           // ),
         ],
@@ -108,10 +108,10 @@ class _VideoPlayerScreenFullState extends State<VideoPlayerScreenFull> {
     if (!_isInitialized) {
       return Container(
         width: double.infinity,
-        height: 300.h,
+        height: 300.th,
         decoration: BoxDecoration(
           color: Colors.grey[900],
-          borderRadius: BorderRadius.circular(12.r),
+          borderRadius: BorderRadius.circular(12.tr),
         ),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
@@ -119,11 +119,11 @@ class _VideoPlayerScreenFullState extends State<VideoPlayerScreenFull> {
             const CircularProgressIndicator(
               color: Colors.white,
             ),
-            SizedBox(height: 16.h),
+            SizedBox(height: 16.th),
             Text(
               'Loading video...',
               style: GoogleFonts.poppins(
-                fontSize: 16.sp,
+                fontSize: 16.tsp,
                 color: Colors.white,
                 letterSpacing: 1.0,
               ),
@@ -141,15 +141,15 @@ class _VideoPlayerScreenFullState extends State<VideoPlayerScreenFull> {
 
   Widget _buildTitleOverlay() {
     return Container(
-      padding: EdgeInsets.all(12.w),
+      padding: EdgeInsets.all(12.tw),
       decoration: BoxDecoration(
         color: Colors.black54,
-        borderRadius: BorderRadius.circular(8.r),
+        borderRadius: BorderRadius.circular(8.tr),
       ),
       child: Text(
         widget.media.name,
         style: GoogleFonts.poppins(
-          fontSize: 14.sp,
+          fontSize: 14.tsp,
           color: Colors.white,
           letterSpacing: 1.0,
         ),
@@ -163,7 +163,7 @@ class _VideoPlayerScreenFullState extends State<VideoPlayerScreenFull> {
     return Container(
       decoration: BoxDecoration(
         color: Colors.black54,
-        borderRadius: BorderRadius.circular(8.r),
+        borderRadius: BorderRadius.circular(8.tr),
       ),
       child: IconButton(
         onPressed: () async {
@@ -185,7 +185,7 @@ class _VideoPlayerScreenFullState extends State<VideoPlayerScreenFull> {
         icon: Icon(
           Icons.download,
           color: Colors.white,
-          size: 24.sp,
+          size: 24.tsp,
         ),
       ),
     );
@@ -220,7 +220,7 @@ class _VideoPlayerScreenFullState extends State<VideoPlayerScreenFull> {
                       },
                     ),
 
-                    SizedBox(width: 20.w),
+                    SizedBox(width: 20.tw),
 
                     // Play/Pause button
                     ValueListenableBuilder<VideoPlayerValue>(
@@ -241,7 +241,7 @@ class _VideoPlayerScreenFullState extends State<VideoPlayerScreenFull> {
                             },
                             icon: Icon(
                               value.isPlaying ? Icons.pause : Icons.play_arrow,
-                              size: 50.sp,
+                              size: 50.tsp,
                               color: Colors.white,
                             ),
                           ),
@@ -249,7 +249,7 @@ class _VideoPlayerScreenFullState extends State<VideoPlayerScreenFull> {
                       },
                     ),
 
-                    SizedBox(width: 20.w),
+                    SizedBox(width: 20.tw),
 
                     // Forward button
                     _buildControlButton(
@@ -284,7 +284,7 @@ class _VideoPlayerScreenFullState extends State<VideoPlayerScreenFull> {
       onPressed: onPressed,
       icon: Icon(
         icon,
-        size: 40.sp,
+        size: 40.tsp,
         color: Colors.white,
       ),
     );
@@ -297,7 +297,7 @@ class _VideoPlayerScreenFullState extends State<VideoPlayerScreenFull> {
       valueListenable: _controller,
       builder: (context, value, _) {
         return Container(
-          padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 8.h),
+          padding: EdgeInsets.symmetric(horizontal: 16.tw, vertical: 8.th),
           child: Column(
             children: [
               VideoProgressIndicator(
@@ -309,17 +309,17 @@ class _VideoPlayerScreenFullState extends State<VideoPlayerScreenFull> {
                   backgroundColor: Colors.black54,
                 ),
               ),
-              SizedBox(height: 8.h),
+              SizedBox(height: 8.th),
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   Text(
                     _formatDuration(value.position),
-                    style: TextStyle(color: Colors.white, fontSize: 12.sp),
+                    style: TextStyle(color: Colors.white, fontSize: 12.tsp),
                   ),
                   Text(
                     _formatDuration(value.duration),
-                    style: TextStyle(color: Colors.white, fontSize: 12.sp),
+                    style: TextStyle(color: Colors.white, fontSize: 12.tsp),
                   ),
                 ],
               ),

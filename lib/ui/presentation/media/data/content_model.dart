@@ -8,6 +8,7 @@ class ContentModel {
   final String previewUrl;
   final String? thumbnailUrl;
   final DateTime? dateCreated;
+
   /// Raw file type from API (e.g. 'pdf', 'image', 'video', mime type, etc.)
   final String? fileType;
 
@@ -37,9 +38,10 @@ class ContentModel {
   }
 
   /// URL to use for image display (thumbnail preferred)
-  String get displayImageUrl => (thumbnailUrl != null && thumbnailUrl!.isNotEmpty)
-      ? thumbnailUrl!
-      : previewUrl;
+  String get displayImageUrl =>
+      (thumbnailUrl != null && thumbnailUrl!.isNotEmpty)
+          ? thumbnailUrl!
+          : previewUrl;
 
   factory ContentModel.fromJson(Map<String, dynamic> json) {
     final previewUrls = _extractPreviewUrls(json);
@@ -51,7 +53,8 @@ class ContentModel {
       projectName: json['project_name'] ?? '',
       is360View: json['is_360_view'] ?? false,
       previewUrl: previewUrls.isNotEmpty ? previewUrls.first : '',
-      thumbnailUrl: (thumbnail != null && thumbnail.isNotEmpty) ? thumbnail : null,
+      thumbnailUrl:
+          (thumbnail != null && thumbnail.isNotEmpty) ? thumbnail : null,
       fileType: _extractFileType(json),
       dateCreated: _parseDateTime(json['date_created']) ??
           _parseDateTime(json['uploaded_on']) ??
@@ -68,7 +71,8 @@ class ContentModel {
   static List<ContentModel> fromPhotoJson(Map<String, dynamic> json) {
     final urls = _extractPreviewUrls(json);
     final thumbnail = json['thumbnail']?.toString()?.trim();
-    final thumbnailUrl = (thumbnail != null && thumbnail.isNotEmpty) ? thumbnail : null;
+    final thumbnailUrl =
+        (thumbnail != null && thumbnail.isNotEmpty) ? thumbnail : null;
 
     // If no preview URLs but we have a thumbnail, still create one item using thumbnail
     if (urls.isEmpty && thumbnailUrl == null) return const [];
@@ -139,7 +143,14 @@ class ContentModel {
   }
 
   static String? _extractFileType(Map<String, dynamic> json) {
-    for (final key in const ['file_type', 'type', 'content_type', 'mime_type', 'format', 'media_type']) {
+    for (final key in const [
+      'file_type',
+      'type',
+      'content_type',
+      'mime_type',
+      'format',
+      'media_type'
+    ]) {
       final v = json[key]?.toString().trim();
       if (v != null && v.isNotEmpty) return v;
     }

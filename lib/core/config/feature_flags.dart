@@ -14,6 +14,13 @@ class FeatureFlags {
     defaultValue: true,
   );
 
+  /// "Sign in with biometric" gate over Home after login / long idle.
+  /// Disabled for now; enable with `--dart-define=ENABLE_BIOMETRIC_SIGN_IN_GATE=true`.
+  static const bool enableBiometricSignInGate = bool.fromEnvironment(
+    'ENABLE_BIOMETRIC_SIGN_IN_GATE',
+    defaultValue: false,
+  );
+
   /// Enable the on-device attendance biometric flow (default false).
   static const bool enableLocalBiometrics = bool.fromEnvironment(
     'ENABLE_LOCAL_BIOMETRICS',

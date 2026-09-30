@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:el_race/core/utils/responsive_breakpoints.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../data/media_model.dart';
@@ -22,9 +22,11 @@ class MediaVideosGallerySheet extends StatelessWidget {
     this.singleVideoHero = false,
     this.emptyTitle,
     this.emptySubtitle,
+    this.showHandle = true,
   });
 
   final ScrollController scrollController;
+  final bool showHandle;
   final List<MediaModel> videos;
   final bool isGridView;
   final void Function(MediaModel media) onVideoTap;
@@ -42,6 +44,7 @@ class MediaVideosGallerySheet extends StatelessWidget {
       scrollController: scrollController,
       onHandleTap: onHandleTap,
       filterTabs: filterTabs,
+      showHandle: showHandle,
       bodySlivers: videos.isEmpty
           ? [
               SliverFillRemaining(
@@ -80,7 +83,7 @@ class MediaVideosGallerySheet extends StatelessWidget {
             },
             child: Padding(
               key: const ValueKey('grid'),
-              padding: EdgeInsets.fromLTRB(16.w, 8.h, 16.w, 0),
+              padding: EdgeInsets.fromLTRB(16.tw, 8.th, 16.tw, 0),
               child: MediaStaggeredVideoGrid(
                 videos: videos,
                 onVideoTap: onVideoTap,
@@ -97,7 +100,8 @@ class MediaVideosGallerySheet extends StatelessWidget {
           (context, index) {
             final media = videos[index];
             return Padding(
-              padding: EdgeInsets.fromLTRB(16.w, index == 0 ? 8.h : 0, 8.w, 0),
+              padding:
+                  EdgeInsets.fromLTRB(16.tw, index == 0 ? 8.th : 0, 8.tw, 0),
               child: MediaVideoListTile(
                 media: media,
                 onTap: () => onVideoTap(media),
@@ -139,7 +143,7 @@ class MediaVideosGallerySheet extends StatelessWidget {
 
   Widget _buildEmptySheetMessage(String message, {String? subtitle}) {
     return Padding(
-      padding: EdgeInsets.symmetric(horizontal: 24.w, vertical: 24.h),
+      padding: EdgeInsets.symmetric(horizontal: 24.tw, vertical: 24.th),
       child: Center(
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -148,18 +152,18 @@ class MediaVideosGallerySheet extends StatelessWidget {
               message,
               textAlign: TextAlign.center,
               style: GoogleFonts.poppins(
-                fontSize: 14.sp,
+                fontSize: 14.tsp,
                 fontWeight: FontWeight.w600,
                 color: MediaTheme.textSecondary,
               ),
             ),
             if (subtitle != null && subtitle.isNotEmpty) ...[
-              SizedBox(height: 6.h),
+              SizedBox(height: 6.th),
               Text(
                 subtitle,
                 textAlign: TextAlign.center,
                 style: GoogleFonts.poppins(
-                  fontSize: 12.sp,
+                  fontSize: 12.tsp,
                   fontWeight: FontWeight.w500,
                   color: MediaTheme.textMuted,
                 ),

@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:el_race/core/utils/responsive_breakpoints.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 
@@ -48,122 +48,122 @@ class _MediaContentHeroState extends State<MediaContentHero> {
       return const SizedBox.shrink();
     }
 
-    final topPadding = MediaQuery.paddingOf(context).top + 8.h;
+    final topPadding = MediaQuery.paddingOf(context).top + 8.th;
     final index = widget.currentIndex.clamp(0, widget.items.length - 1);
     final item = widget.items[index];
 
     return Padding(
-      padding: EdgeInsets.fromLTRB(12.w, topPadding, 12.w, 10.h),
+      padding: EdgeInsets.fromLTRB(12.tw, topPadding, 12.tw, 10.th),
       child: ClipRRect(
-          borderRadius: BorderRadius.circular(MediaTheme.heroCardRadius),
-          child: Stack(
-            fit: StackFit.expand,
-            children: [
-              PageView.builder(
-                controller: widget.pageController,
-                itemCount: widget.items.length,
-                onPageChanged: widget.onPageChanged,
-                itemBuilder: (context, index) {
-                  return MediaContentThumbnail(
-                    content: widget.items[index],
-                    imageHeaders: widget.imageHeaders,
-                    borderRadius: BorderRadius.zero,
-                  );
-                },
+        borderRadius: BorderRadius.circular(MediaTheme.heroCardRadius),
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            PageView.builder(
+              controller: widget.pageController,
+              itemCount: widget.items.length,
+              onPageChanged: widget.onPageChanged,
+              itemBuilder: (context, index) {
+                return MediaContentThumbnail(
+                  content: widget.items[index],
+                  imageHeaders: widget.imageHeaders,
+                  borderRadius: BorderRadius.zero,
+                );
+              },
+            ),
+            const DecoratedBox(
+              decoration: BoxDecoration(
+                gradient: MediaTheme.heroBottomScrim,
               ),
-              const DecoratedBox(
-                decoration: BoxDecoration(
-                  gradient: MediaTheme.heroBottomScrim,
-                ),
-              ),
-              Positioned(
-                top: 8.h,
-                left: 8.w,
-                right: 8.w,
-                child: Row(
-                  children: [
-                    if (widget.onBack != null)
-                      MediaTheme.backButton(onTap: widget.onBack!)
-                    else
-                      SizedBox(width: 40.w),
-                    const Spacer(),
-                    if (widget.items.length > 1)
-                      Container(
-                        padding: EdgeInsets.symmetric(
-                          horizontal: 10.w,
-                          vertical: 4.h,
-                        ),
-                        decoration: BoxDecoration(
-                          color: MediaTheme.black.withValues(alpha: 0.45),
-                          borderRadius: BorderRadius.circular(999),
-                        ),
-                        child: Text(
-                          '${index + 1}/${widget.items.length}',
-                          style: GoogleFonts.poppins(
-                            fontSize: 11.sp,
-                            fontWeight: FontWeight.w600,
-                            color: MediaTheme.white,
-                          ),
-                        ),
+            ),
+            Positioned(
+              top: 8.th,
+              left: 8.tw,
+              right: 8.tw,
+              child: Row(
+                children: [
+                  if (widget.onBack != null)
+                    MediaTheme.backButton(onTap: widget.onBack!)
+                  else
+                    SizedBox(width: 40.tw),
+                  const Spacer(),
+                  if (widget.items.length > 1)
+                    Container(
+                      padding: EdgeInsets.symmetric(
+                        horizontal: 10.tw,
+                        vertical: 4.th,
                       ),
-                    SizedBox(width: 8.w),
-                    if (widget.onMore != null)
-                      MediaTheme.moreButton(onTap: widget.onMore!),
-                  ],
-                ),
-              ),
-              Positioned(
-                left: 16.w,
-                right: 16.w,
-                bottom: 16.h,
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.end,
-                  children: [
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Text(
-                            item.displayName,
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
-                            style: MediaTheme.titleLg,
-                          ),
-                          if (item.projectName.isNotEmpty) ...[
-                            SizedBox(height: 4.h),
-                            Text(
-                              item.projectName,
-                              style: GoogleFonts.poppins(
-                                fontSize: 13.sp,
-                                fontWeight: FontWeight.w500,
-                                color: MediaTheme.textSecondary,
-                              ),
-                            ),
-                          ],
-                          if (item.dateCreated != null) ...[
-                            SizedBox(height: 4.h),
-                            Text(
-                              _formatDate(item.dateCreated),
-                              style: MediaTheme.labelSm,
-                            ),
-                          ],
-                        ],
+                      decoration: BoxDecoration(
+                        color: MediaTheme.black.withValues(alpha: 0.45),
+                        borderRadius: BorderRadius.circular(999),
+                      ),
+                      child: Text(
+                        '${index + 1}/${widget.items.length}',
+                        style: GoogleFonts.poppins(
+                          fontSize: 11.tsp,
+                          fontWeight: FontWeight.w600,
+                          color: MediaTheme.white,
+                        ),
                       ),
                     ),
-                    if (widget.onPrimaryAction != null) ...[
-                      SizedBox(width: 12.w),
-                      MediaTheme.pillButton(
-                        label: widget.is360Mode ? 'View 360°' : 'View',
-                        onTap: widget.onPrimaryAction!,
-                      ),
-                    ],
-                  ],
-                ),
+                  SizedBox(width: 8.tw),
+                  if (widget.onMore != null)
+                    MediaTheme.moreButton(onTap: widget.onMore!),
+                ],
               ),
-            ],
-          ),
+            ),
+            Positioned(
+              left: 16.tw,
+              right: 16.tw,
+              bottom: 16.th,
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          item.displayName,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: MediaTheme.titleLg,
+                        ),
+                        if (item.projectName.isNotEmpty) ...[
+                          SizedBox(height: 4.th),
+                          Text(
+                            item.projectName,
+                            style: GoogleFonts.poppins(
+                              fontSize: 13.tsp,
+                              fontWeight: FontWeight.w500,
+                              color: MediaTheme.textSecondary,
+                            ),
+                          ),
+                        ],
+                        if (item.dateCreated != null) ...[
+                          SizedBox(height: 4.th),
+                          Text(
+                            _formatDate(item.dateCreated),
+                            style: MediaTheme.labelSm,
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
+                  if (widget.onPrimaryAction != null) ...[
+                    SizedBox(width: 12.tw),
+                    MediaTheme.pillButton(
+                      label: widget.is360Mode ? 'View 360°' : 'View',
+                      onTap: widget.onPrimaryAction!,
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          ],
         ),
+      ),
     );
   }
 }

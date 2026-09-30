@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:el_race/core/utils/responsive_breakpoints.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../data/media_model.dart';
@@ -48,52 +48,52 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
     // In a real implementation, this would use video_player package
     return Container(
       width: double.infinity,
-      height: 300.h,
+      height: 300.th,
       decoration: BoxDecoration(
         color: Colors.grey[900],
-        borderRadius: BorderRadius.circular(12.r),
+        borderRadius: BorderRadius.circular(12.tr),
       ),
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           Icon(
             Icons.videocam,
-            size: 80.sp,
+            size: 80.tsp,
             color: Colors.white,
           ),
-          SizedBox(height: 16.h),
+          SizedBox(height: 16.th),
           Text(
             'Video Player',
             style: GoogleFonts.poppins(
-              fontSize: 24.sp,
+              fontSize: 24.tsp,
               color: Colors.white,
               letterSpacing: 1.5,
             ),
           ),
-          SizedBox(height: 8.h),
+          SizedBox(height: 8.th),
           Text(
             widget.media.name,
             style: GoogleFonts.poppins(
-              fontSize: 14.sp,
+              fontSize: 14.tsp,
               color: Colors.grey[400],
               letterSpacing: 1.0,
             ),
             textAlign: TextAlign.center,
           ),
-          SizedBox(height: 24.h),
+          SizedBox(height: 24.th),
           Text(
             'Video player package needed',
             style: TextStyle(
-              fontSize: 12.sp,
+              fontSize: 12.tsp,
               color: Colors.orange,
             ),
             textAlign: TextAlign.center,
           ),
-          SizedBox(height: 8.h),
+          SizedBox(height: 8.th),
           Text(
             'Add video_player: ^2.8.1 to pubspec.yaml',
             style: TextStyle(
-              fontSize: 10.sp,
+              fontSize: 10.tsp,
               color: Colors.grey[500],
             ),
             textAlign: TextAlign.center,
@@ -123,12 +123,12 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
                 },
                 icon: Icon(
                   Icons.replay_10,
-                  size: 40.sp,
+                  size: 40.tsp,
                   color: Colors.white,
                 ),
               ),
 
-              SizedBox(width: 20.w),
+              SizedBox(width: 20.tw),
 
               // Play/Pause button
               Container(
@@ -145,13 +145,13 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
                   },
                   icon: Icon(
                     isPlaying ? Icons.pause : Icons.play_arrow,
-                    size: 50.sp,
+                    size: 50.tsp,
                     color: Colors.white,
                   ),
                 ),
               ),
 
-              SizedBox(width: 20.w),
+              SizedBox(width: 20.tw),
 
               // Forward button
               IconButton(
@@ -160,7 +160,7 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
                 },
                 icon: Icon(
                   Icons.forward_10,
-                  size: 40.sp,
+                  size: 40.tsp,
                   color: Colors.white,
                 ),
               ),

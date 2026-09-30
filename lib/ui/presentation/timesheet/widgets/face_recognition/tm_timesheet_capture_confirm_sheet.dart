@@ -1,5 +1,6 @@
 import 'package:el_race/core/theme/timesheet_module_theme.dart';
 import 'package:el_race/core/timesheet/models/timesheet_models.dart';
+import 'package:el_race/core/timesheet/services/tm_project_location_notify_service.dart';
 import 'package:el_race/core/widgets/timesheet/timesheet_widgets.dart';
 import 'package:el_race/ui/presentation/timesheet/models/timesheet_capture_session_entry.dart';
 import 'package:el_race/ui/presentation/timesheet/widgets/tm_fast_network_image.dart';
@@ -22,6 +23,8 @@ abstract final class TmTimesheetCaptureConfirmSheet {
     Project? initialProject,
     ValueChanged<Project>? onProjectChanged,
     ValueChanged<TimesheetCaptureSessionEntry>? onRemoveCapture,
+    Future<List<Project>> Function()? onReloadProjects,
+    TmNotifyMissingLocation? onNotifyMissingLocation,
   }) {
     return showModalBottomSheet<bool>(
       context: context,
@@ -39,10 +42,16 @@ abstract final class TmTimesheetCaptureConfirmSheet {
         initialProject: initialProject,
         onProjectChanged: onProjectChanged,
         onRemoveCapture: onRemoveCapture,
+        onReloadProjects: onReloadProjects,
+        onNotifyMissingLocation: onNotifyMissingLocation,
       ),
     ).then((v) => v ?? false);
   }
 }
+
+/// Background "tell staff the location is missing"; resolves to the number
+/// of staff reached (0 = failed, the Notify button comes back).
+typedef TmNotifyMissingLocation = Future<int> Function(Project project);
 
 class _TmTimesheetCaptureConfirmSheetBody extends StatefulWidget {
   const _TmTimesheetCaptureConfirmSheetBody({
@@ -57,8 +66,12 @@ class _TmTimesheetCaptureConfirmSheetBody extends StatefulWidget {
     this.initialProject,
     this.onProjectChanged,
     this.onRemoveCapture,
+    this.onReloadProjects,
+    this.onNotifyMissingLocation,
   });
 
+  final Future<List<Project>> Function()? onReloadProjects;
+  final TmNotifyMissingLocation? onNotifyMissingLocation;
   final List<TimesheetCaptureSessionEntry> captures;
   final DateTime startDateTime;
   final DateTime endDateTime;
@@ -81,12 +94,50 @@ class _TmTimesheetCaptureConfirmSheetBodyState
   late DateTime _start = widget.startDateTime;
   late DateTime _end = widget.endDateTime;
   late int _break = widget.breakHours;
-  late Project? _project = widget.initialProject ??
-      (widget.projects.isNotEmpty ? widget.projects.first : null);
+  late List<Project> _projects = widget.projects;
+  late Project? _project = _initialLocatedProject();
   late final List<TimesheetCaptureSessionEntry> _captures =
       List.of(widget.captures);
 
-  bool get _needsProject => widget.projects.isNotEmpty;
+  bool get _needsProject => _projects.isNotEmpty;
+
+  /// Only projects with site coordinates can be submitted against; an
+  /// unlocated default is left unselected so the foreman picks consciously.
+  Project? _initialLocatedProject() {
+    final initial = widget.initialProject;
+    if (initial != null) return initial.hasSiteCoordinates ? initial : null;
+    for (final p in widget.projects) {
+      if (p.hasSiteCoordinates) return p;
+    }
+    return null;
+  }
+
+  Future<List<Project>> _reloadProjects() async {
+    final reload = widget.onReloadProjects;
+    if (reload == null) return _projects;
+    final fresh = await reload();
+    if (!mounted) return fresh;
+    setState(() {
+      _projects = fresh;
+      final current = _project;
+      if (current != null) {
+        final match = fresh.where((p) => p.id == current.id);
+        _project = match.isNotEmpty && match.first.hasSiteCoordinates
+            ? match.first
+            : null;
+      } else {
+        final initial = widget.initialProject;
+        final match = initial == null
+            ? const <Project>[]
+            : fresh.where((p) => p.id == initial.id).toList();
+        if (match.isNotEmpty && match.first.hasSiteCoordinates) {
+          _project = match.first;
+          widget.onProjectChanged?.call(match.first);
+        }
+      }
+    });
+    return fresh;
+  }
 
   void _removeCapture(TimesheetCaptureSessionEntry entry) {
     setState(() => _captures.remove(entry));
@@ -116,8 +167,8 @@ class _TmTimesheetCaptureConfirmSheetBodyState
                 width: 44,
                 height: 4,
                 decoration: BoxDecoration(
-                color: TimesheetModuleColors.ink.withValues(alpha: 0.22),
-                borderRadius: BorderRadius.circular(999),
+                  color: TimesheetModuleColors.ink.withValues(alpha: 0.22),
+                  borderRadius: BorderRadius.circular(999),
                 ),
               ),
               Padding(
@@ -146,8 +197,17 @@ class _TmTimesheetCaptureConfirmSheetBodyState
                 Padding(
                   padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
                   child: _ProjectPickerField(
-                    projects: widget.projects,
+                    projects: _projects,
                     selected: _project,
+                    unlocatedDefault: _project == null &&
+                            widget.initialProject != null &&
+                            !widget.initialProject!.hasSiteCoordinates
+                        ? widget.initialProject
+                        : null,
+                    onReload: widget.onReloadProjects == null
+                        ? null
+                        : _reloadProjects,
+                    onNotify: widget.onNotifyMissingLocation,
                     onChanged: (project) {
                       setState(() => _project = project);
                       widget.onProjectChanged?.call(project);
@@ -248,9 +308,19 @@ class _TmTimesheetCaptureConfirmSheetBodyState
                   warm: true,
                   icon: PhosphorIcons.paperPlaneTilt(),
                   onPressed: _captures.isEmpty ||
-                          (_needsProject && _project == null)
+                          (_needsProject &&
+                              (_project == null ||
+                                  !_project!.hasSiteCoordinates))
                       ? null
-                      : () => Navigator.of(context).pop(true),
+                      : () {
+                          // Hosts fall back to their own default project, so
+                          // always hand back the located pick explicitly.
+                          final picked = _project;
+                          if (picked != null) {
+                            widget.onProjectChanged?.call(picked);
+                          }
+                          Navigator.of(context).pop(true);
+                        },
                 ),
               ),
             ],
@@ -287,15 +357,41 @@ class _ProjectPickerField extends StatelessWidget {
     required this.projects,
     required this.selected,
     required this.onChanged,
+    this.unlocatedDefault,
+    this.onReload,
+    this.onNotify,
   });
 
   final List<Project> projects;
   final Project? selected;
   final ValueChanged<Project> onChanged;
 
+  /// Host's default project when it has no coordinates (not selectable).
+  final Project? unlocatedDefault;
+  final Future<List<Project>> Function()? onReload;
+  final TmNotifyMissingLocation? onNotify;
+
   @override
   Widget build(BuildContext context) {
-    final current = selected ?? (projects.isNotEmpty ? projects.first : null);
+    final current = selected;
+    final warn = unlocatedDefault;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _field(context, current),
+        if (warn != null) ...[
+          const SizedBox(height: 6),
+          _MissingLocationStrip(
+            project: warn,
+            onNotify: onNotify,
+            label: 'Location is not set for ${warn.name}',
+          ),
+        ],
+      ],
+    );
+  }
+
+  Widget _field(BuildContext context, Project? current) {
     return Material(
       color: Colors.transparent,
       child: InkWell(
@@ -305,13 +401,15 @@ class _ProjectPickerField extends StatelessWidget {
             context,
             projects: projects,
             selected: current,
+            onReload: onReload,
+            onNotify: onNotify,
           );
           if (picked != null) onChanged(picked);
         },
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
           decoration: BoxDecoration(
-                color: TimesheetModuleColors.glassSurface,
+            color: TimesheetModuleColors.glassSurface,
             borderRadius: BorderRadius.circular(14),
             border: Border.all(
               color: TimesheetModuleColors.glassBorder,
@@ -332,8 +430,7 @@ class _ProjectPickerField extends StatelessWidget {
                     Text(
                       'Project',
                       style: TimesheetModuleTypography.caption().copyWith(
-                        color:
-                            TimesheetModuleColors.warmMuted,
+                        color: TimesheetModuleColors.warmMuted,
                         fontSize: 11,
                       ),
                     ),
@@ -369,22 +466,32 @@ class _ProjectSearchSheet extends StatefulWidget {
   const _ProjectSearchSheet({
     required this.projects,
     required this.selected,
+    this.onReload,
+    this.onNotify,
   });
 
   final List<Project> projects;
   final Project? selected;
+  final Future<List<Project>> Function()? onReload;
+  final TmNotifyMissingLocation? onNotify;
 
   static Future<Project?> show(
     BuildContext context, {
     required List<Project> projects,
     Project? selected,
+    Future<List<Project>> Function()? onReload,
+    TmNotifyMissingLocation? onNotify,
   }) {
     return showModalBottomSheet<Project>(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (_) =>
-          _ProjectSearchSheet(projects: projects, selected: selected),
+      builder: (_) => _ProjectSearchSheet(
+        projects: projects,
+        selected: selected,
+        onReload: onReload,
+        onNotify: onNotify,
+      ),
     );
   }
 
@@ -395,6 +502,11 @@ class _ProjectSearchSheet extends StatefulWidget {
 class _ProjectSearchSheetState extends State<_ProjectSearchSheet> {
   final _controller = TextEditingController();
   String _query = '';
+  late List<Project> _projects = widget.projects;
+  bool _reloading = false;
+
+  /// Unlocated rows the foreman tapped — shows the inline warning strip.
+  final Set<String> _expanded = {};
 
   @override
   void dispose() {
@@ -402,10 +514,46 @@ class _ProjectSearchSheetState extends State<_ProjectSearchSheet> {
     super.dispose();
   }
 
+  Future<void> _reload() async {
+    final reload = widget.onReload;
+    if (reload == null || _reloading) return;
+    setState(() => _reloading = true);
+    final messenger = ScaffoldMessenger.maybeOf(context);
+    try {
+      final fresh = await reload();
+      if (!mounted) return;
+      final nowLocated = fresh
+          .where((p) => _expanded.contains(p.id) && p.hasSiteCoordinates)
+          .length;
+      setState(() {
+        _projects = fresh;
+        _expanded.removeWhere(
+          (id) => fresh.any((p) => p.id == id && p.hasSiteCoordinates),
+        );
+      });
+      messenger?.showSnackBar(
+        SnackBar(
+          content: Text(
+            nowLocated > 0
+                ? 'Projects updated — $nowLocated now available'
+                : 'Projects updated',
+          ),
+          duration: const Duration(seconds: 2),
+        ),
+      );
+    } catch (_) {
+      messenger?.showSnackBar(
+        const SnackBar(content: Text("Couldn't reload projects")),
+      );
+    } finally {
+      if (mounted) setState(() => _reloading = false);
+    }
+  }
+
   List<Project> get _filtered {
     final q = _query.trim().toLowerCase();
-    if (q.isEmpty) return widget.projects;
-    return widget.projects.where((p) {
+    if (q.isEmpty) return _projects;
+    return _projects.where((p) {
       return p.name.toLowerCase().contains(q) ||
           p.code.toLowerCase().contains(q) ||
           p.client.toLowerCase().contains(q);
@@ -432,8 +580,8 @@ class _ProjectSearchSheetState extends State<_ProjectSearchSheet> {
                 width: 44,
                 height: 4,
                 decoration: BoxDecoration(
-                color: TimesheetModuleColors.ink.withValues(alpha: 0.22),
-                borderRadius: BorderRadius.circular(999),
+                  color: TimesheetModuleColors.ink.withValues(alpha: 0.22),
+                  borderRadius: BorderRadius.circular(999),
                 ),
               ),
               Padding(
@@ -448,6 +596,24 @@ class _ProjectSearchSheetState extends State<_ProjectSearchSheet> {
                         ),
                       ),
                     ),
+                    if (widget.onReload != null)
+                      IconButton(
+                        tooltip: 'Reload projects',
+                        onPressed: _reloading ? null : _reload,
+                        icon: _reloading
+                            ? const SizedBox(
+                                width: 20,
+                                height: 20,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  color: TimesheetModuleColors.ink,
+                                ),
+                              )
+                            : Icon(
+                                PhosphorIcons.arrowClockwise(),
+                                color: TimesheetModuleColors.ink,
+                              ),
+                      ),
                     IconButton(
                       onPressed: () => Navigator.of(context).pop(),
                       icon: Icon(
@@ -469,18 +635,15 @@ class _ProjectSearchSheetState extends State<_ProjectSearchSheet> {
                   decoration: InputDecoration(
                     hintText: 'Search projects',
                     hintStyle: TimesheetModuleTypography.body().copyWith(
-                      color:
-                          TimesheetModuleColors.warmMuted,
+                      color: TimesheetModuleColors.warmMuted,
                     ),
                     prefixIcon: Icon(
                       PhosphorIcons.magnifyingGlass(),
-                      color:
-                          TimesheetModuleColors.warmMuted,
+                      color: TimesheetModuleColors.warmMuted,
                       size: 20,
                     ),
                     filled: true,
-                    fillColor:
-                        TimesheetModuleColors.glassSurface,
+                    fillColor: TimesheetModuleColors.glassSurface,
                     contentPadding:
                         const EdgeInsets.symmetric(vertical: 0, horizontal: 12),
                     border: OutlineInputBorder(
@@ -508,10 +671,21 @@ class _ProjectSearchSheetState extends State<_ProjectSearchSheet> {
                         itemBuilder: (context, index) {
                           final project = results[index];
                           final isSelected = widget.selected?.id == project.id;
+                          final located = project.hasSiteCoordinates;
                           return _ProjectSearchRow(
                             project: project,
-                            selected: isSelected,
-                            onTap: () => Navigator.of(context).pop(project),
+                            selected: isSelected && located,
+                            enabled: located,
+                            showMissingLocation:
+                                !located && _expanded.contains(project.id),
+                            onNotify: widget.onNotify,
+                            onTap: located
+                                ? () => Navigator.of(context).pop(project)
+                                : () => setState(() {
+                                      if (!_expanded.remove(project.id)) {
+                                        _expanded.add(project.id);
+                                      }
+                                    }),
                           );
                         },
                       ),
@@ -529,11 +703,19 @@ class _ProjectSearchRow extends StatelessWidget {
     required this.project,
     required this.selected,
     required this.onTap,
+    this.enabled = true,
+    this.showMissingLocation = false,
+    this.onNotify,
   });
 
   final Project project;
   final bool selected;
   final VoidCallback onTap;
+
+  /// False when the project has no site coordinates (can't be submitted).
+  final bool enabled;
+  final bool showMissingLocation;
+  final TmNotifyMissingLocation? onNotify;
 
   @override
   Widget build(BuildContext context) {
@@ -556,62 +738,207 @@ class _ProjectSearchRow extends StatelessWidget {
             border: Border.all(
               color: selected
                   ? TimesheetModuleColors.accent
-                  : TimesheetModuleColors.glassBorder,
+                  : showMissingLocation
+                      ? TimesheetModuleColors.danger.withValues(alpha: 0.45)
+                      : TimesheetModuleColors.glassBorder,
             ),
           ),
-          child: Row(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Container(
-                width: 40,
-                height: 40,
-                decoration: BoxDecoration(
-                  color:
-                      TimesheetModuleColors.iconSurface,
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: Icon(
-                  PhosphorIcons.buildings(),
-                  color: TimesheetModuleColors.ink,
-                  size: 20,
-                ),
+              Opacity(
+                opacity: enabled ? 1 : 0.45,
+                child: _rowContent(subtitleParts),
               ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      project.name,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TimesheetModuleTypography.cardTitle().copyWith(
-                        color: TimesheetModuleColors.ink,
-                      ),
-                    ),
-                    if (subtitleParts.isNotEmpty) ...[
-                      const SizedBox(height: 2),
-                      Text(
-                        subtitleParts.join(' • '),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: TimesheetModuleTypography.caption().copyWith(
-                          color: TimesheetModuleColors.warmMuted,
-                        ),
-                      ),
-                    ],
-                  ],
-                ),
-              ),
-              if (selected)
-                Icon(
-                  PhosphorIcons.checkCircle(PhosphorIconsStyle.fill),
-                  color: TimesheetModuleColors.ink,
-                  size: 22,
-                ),
+              if (showMissingLocation) ...[
+                const SizedBox(height: 10),
+                _MissingLocationStrip(project: project, onNotify: onNotify),
+              ],
             ],
           ),
         ),
       ),
+    );
+  }
+
+  Widget _rowContent(List<String> subtitleParts) {
+    return Row(
+      children: [
+        Container(
+          width: 40,
+          height: 40,
+          decoration: BoxDecoration(
+            color: TimesheetModuleColors.iconSurface,
+            borderRadius: BorderRadius.circular(10),
+          ),
+          child: Icon(
+            PhosphorIcons.buildings(),
+            color: TimesheetModuleColors.ink,
+            size: 20,
+          ),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                project.name,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TimesheetModuleTypography.cardTitle().copyWith(
+                  color: TimesheetModuleColors.ink,
+                ),
+              ),
+              if (subtitleParts.isNotEmpty) ...[
+                const SizedBox(height: 2),
+                Text(
+                  subtitleParts.join(' • '),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TimesheetModuleTypography.caption().copyWith(
+                    color: TimesheetModuleColors.warmMuted,
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ),
+        if (selected)
+          Icon(
+            PhosphorIcons.checkCircle(PhosphorIconsStyle.fill),
+            color: TimesheetModuleColors.ink,
+            size: 22,
+          ),
+        if (!enabled)
+          Icon(
+            PhosphorIcons.mapPinLine(),
+            color: TimesheetModuleColors.danger,
+            size: 20,
+          ),
+      ],
+    );
+  }
+}
+
+/// ⚠ Location is not set  ·  [Notify] → ✓ Notified (delivery runs behind).
+class _MissingLocationStrip extends StatefulWidget {
+  const _MissingLocationStrip({
+    required this.project,
+    this.onNotify,
+    this.label = 'Location is not set',
+  });
+
+  final Project project;
+  final TmNotifyMissingLocation? onNotify;
+  final String label;
+
+  @override
+  State<_MissingLocationStrip> createState() => _MissingLocationStripState();
+}
+
+class _MissingLocationStripState extends State<_MissingLocationStrip> {
+  late bool _notified =
+      TmProjectLocationNotifyService.wasNotified(widget.project.id);
+
+  void _notify() {
+    final notify = widget.onNotify;
+    if (notify == null || _notified) return;
+    final messenger = ScaffoldMessenger.maybeOf(context);
+    final name = widget.project.name;
+    setState(() => _notified = true);
+    notify(widget.project).then((delivered) {
+      if (delivered > 0) {
+        messenger?.showSnackBar(
+          SnackBar(
+            content: Text(
+              'Staff notified about $name ($delivered '
+              '${delivered == 1 ? 'person' : 'people'})',
+            ),
+            duration: const Duration(seconds: 2),
+          ),
+        );
+        return;
+      }
+      if (mounted) setState(() => _notified = false);
+      messenger?.showSnackBar(
+        SnackBar(content: Text("Couldn't notify staff for $name — try again")),
+      );
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Icon(
+          PhosphorIcons.warning(PhosphorIconsStyle.fill),
+          size: 16,
+          color: TimesheetModuleColors.danger,
+        ),
+        const SizedBox(width: 6),
+        Expanded(
+          child: Text(
+            widget.label,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            style: TimesheetModuleTypography.caption().copyWith(
+              color: TimesheetModuleColors.danger,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        ),
+        if (widget.onNotify != null) ...[
+          const SizedBox(width: 8),
+          AnimatedSwitcher(
+            duration: const Duration(milliseconds: 200),
+            child: _notified
+                ? Row(
+                    key: const ValueKey('notified'),
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        PhosphorIcons.checkCircle(PhosphorIconsStyle.fill),
+                        size: 16,
+                        color: const Color(0xFF2E9E5B),
+                      ),
+                      const SizedBox(width: 4),
+                      Text(
+                        'Notified',
+                        style: TimesheetModuleTypography.caption().copyWith(
+                          color: const Color(0xFF2E9E5B),
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ],
+                  )
+                : SizedBox(
+                    key: const ValueKey('notify'),
+                    height: 28,
+                    child: OutlinedButton.icon(
+                      onPressed: _notify,
+                      icon: Icon(PhosphorIcons.bellRinging(), size: 14),
+                      label: const Text('Notify'),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: TimesheetModuleColors.ink,
+                        side: const BorderSide(
+                          color: TimesheetModuleColors.ink,
+                        ),
+                        padding: const EdgeInsets.symmetric(horizontal: 10),
+                        visualDensity: VisualDensity.compact,
+                        textStyle: const TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w700,
+                        ),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(999),
+                        ),
+                      ),
+                    ),
+                  ),
+          ),
+        ],
+      ],
     );
   }
 }
@@ -635,7 +962,7 @@ class _DateTimeChip extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
         decoration: BoxDecoration(
-                color: TimesheetModuleColors.glassSurface,
+          color: TimesheetModuleColors.glassSurface,
           borderRadius: BorderRadius.circular(12),
           border: Border.all(
             color: TimesheetModuleColors.glassBorder,
@@ -681,7 +1008,7 @@ class _BreakChip extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
       decoration: BoxDecoration(
-                color: TimesheetModuleColors.glassSurface,
+        color: TimesheetModuleColors.glassSurface,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
           color: TimesheetModuleColors.glassBorder,
@@ -749,9 +1076,8 @@ class _CaptureRow extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-                color: TimesheetModuleColors.glassSurface,
-        borderRadius:
-            BorderRadius.circular(TimesheetModuleLayout.cardRadiusMd),
+        color: TimesheetModuleColors.glassSurface,
+        borderRadius: BorderRadius.circular(TimesheetModuleLayout.cardRadiusMd),
         border: Border.all(
           color: TimesheetModuleColors.glassBorder,
         ),
@@ -810,8 +1136,7 @@ class _CaptureRow extends StatelessWidget {
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: TimesheetModuleTypography.caption().copyWith(
-                      color:
-                          TimesheetModuleColors.warmMuted,
+                      color: TimesheetModuleColors.warmMuted,
                     ),
                   ),
               ],

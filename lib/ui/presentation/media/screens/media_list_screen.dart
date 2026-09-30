@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:el_race/core/utils/responsive_breakpoints.dart';
 
 import 'package:el_race/core/utils/shared_pref.dart';
 import 'package:el_race/ui/presentation/my_projects/presentation/utils/projects_dashboard_access.dart';
@@ -8,7 +9,6 @@ import 'package:el_race/utils/di.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter_translate/flutter_translate.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:http/http.dart' as http;
@@ -53,7 +53,7 @@ class _MediaListScreenState extends State<MediaListScreen> {
   final bool _showSearch = false;
   late final bool _showProjectVideos =
       ProjectsDashboardAccess.canSeeProjectVideos();
-  _MediaFilterTab _activeTab = _MediaFilterTab.videos;
+  late _MediaFilterTab _activeTab = _visibleTabs.first;
   final GlobalKey _projectVideosTabKey = GlobalKey();
   final GlobalKey _videosTabKey = GlobalKey();
   final GlobalKey _photosTabKey = GlobalKey();
@@ -63,6 +63,10 @@ class _MediaListScreenState extends State<MediaListScreen> {
   int _videoCount = 0;
   int _projectVideoCount = 0;
   ContentsResponse? _cachedContents;
+  MediaLoaded? _cachedMedia;
+
+  bool _isVideoTab(_MediaFilterTab tab) =>
+      tab == _MediaFilterTab.videos || tab == _MediaFilterTab.projectVideos;
 
   List<_MediaFilterTab> get _visibleTabs => [
         if (_showProjectVideos) _MediaFilterTab.projectVideos,
@@ -116,19 +120,19 @@ class _MediaListScreenState extends State<MediaListScreen> {
         mainAxisSize: MainAxisSize.min,
         children: [
           SizedBox(
-            width: 24.w,
-            height: 24.w,
+            width: 24.tw,
+            height: 24.tw,
             child: CircularProgressIndicator(
               strokeWidth: 2.2,
               color: const Color(0xFF6E6E6E),
               value: progress,
             ),
           ),
-          SizedBox(height: 6.h),
+          SizedBox(height: 6.th),
           Text(
             'Loading...',
             style: GoogleFonts.poppins(
-              fontSize: 10.sp,
+              fontSize: 10.tsp,
               fontWeight: FontWeight.w500,
               color: const Color(0xFF6E6E6E),
             ),
@@ -140,12 +144,15 @@ class _MediaListScreenState extends State<MediaListScreen> {
 
   void _setActiveTab(_MediaFilterTab tab) {
     if (_activeTab == tab) return;
+    HapticFeedback.selectionClick();
     setState(() => _activeTab = tab);
 
-    // Fetch appropriate data based on tab
-    if (tab == _MediaFilterTab.videos || tab == _MediaFilterTab.projectVideos) {
-      context.read<MediaBloc>().add(const FetchMediaList());
-    } else {
+    // Already-loaded data renders instantly; fetch only what is missing.
+    if (_isVideoTab(tab)) {
+      if (_cachedMedia == null) {
+        context.read<MediaBloc>().add(const FetchMediaList());
+      }
+    } else if (_cachedContents == null) {
       context.read<MediaBloc>().add(const FetchContents());
     }
 
@@ -232,20 +239,14 @@ class _MediaListScreenState extends State<MediaListScreen> {
     MediaModel media, {
     List<MediaModel>? playlist,
   }) {
-    final preloaded = MediaVideoPreloader.take(media.id);
     Navigator.of(context).push(
       MaterialPageRoute(
         builder: (context) => YoYoVideoPlayerScreen(
           media: media,
           playlist: playlist,
-          preloadedController: preloaded,
         ),
       ),
-    ).then((_) {
-      if (preloaded != null && preloaded.value.isInitialized) {
-        MediaVideoPreloader.release(media.id, preloaded);
-      }
-    });
+    );
   }
 
   Future<void> _loadTabCounts() async {
@@ -286,7 +287,7 @@ class _MediaListScreenState extends State<MediaListScreen> {
         );
       },
       separatorBuilder: (BuildContext context, int index) =>
-          SizedBox(height: 6.w),
+          SizedBox(height: 6.tw),
     );
   }
 
@@ -338,9 +339,7 @@ class _MediaListScreenState extends State<MediaListScreen> {
       return _buildDarkErrorState(state.message);
     }
 
-    final contents = state is ContentsLoaded
-        ? state.contents
-        : _cachedContents;
+    final contents = state is ContentsLoaded ? state.contents : _cachedContents;
 
     if (contents == null) {
       context.read<MediaBloc>().add(const FetchContents());
@@ -350,8 +349,7 @@ class _MediaListScreenState extends State<MediaListScreen> {
     }
 
     final is360 = _activeTab == _MediaFilterTab.view360;
-    final items =
-        is360 ? _filtered360(contents) : _filteredPhotos(contents);
+    final items = is360 ? _filtered360(contents) : _filteredPhotos(contents);
 
     return MediaContentLandingScreen(
       items: items,
@@ -373,69 +371,71 @@ class _MediaListScreenState extends State<MediaListScreen> {
   }
 
   Widget _buildVideosRedesignBody(BuildContext context, MediaState state) {
-    if (state is MediaLoading) {
+    final media = state is MediaLoaded ? state : _cachedMedia;
+
+    if (media == null && state is MediaError) {
+      return _buildDarkErrorState(state.message);
+    }
+
+    if (media == null) {
+      if (state is! MediaLoading) {
+        context.read<MediaBloc>().add(const FetchMediaList());
+      }
       return const Center(
         child: CircularProgressIndicator(color: MediaTheme.white),
       );
     }
 
-    if (state is MediaError) {
-      return _buildDarkErrorState(state.message);
-    }
-
-    if (state is MediaLoaded) {
-      final favoritesOnly = _activeTab == _MediaFilterTab.projectVideos;
-      final videos = _filteredVideos(state, favoritesOnly: favoritesOnly);
-      return MediaVideosLandingScreen(
-        mediaList: videos,
-        onVideoTap: (media) => _openVideoPlayer(
-          context,
-          media,
-          playlist: videos,
-        ),
-        onBack: () => Navigator.of(context).pop(),
-        activeTabIndex: _tabToIndex(_activeTab),
-        videoCount: _videoCount,
-        photoCount: _photoCount,
-        view360Count: _view360Count,
-        showProjectVideos: _showProjectVideos,
-        projectVideoCount: _projectVideoCount,
-        onTabSelected: (index) {
-          _setActiveTab(_indexToTab(index));
-        },
-      );
-    }
-
-    return const SizedBox.shrink();
+    final favoritesOnly = _activeTab == _MediaFilterTab.projectVideos;
+    final videos = _filteredVideos(media, favoritesOnly: favoritesOnly);
+    return MediaVideosLandingScreen(
+      mediaList: videos,
+      onVideoTap: (media) => _openVideoPlayer(
+        context,
+        media,
+        playlist: videos,
+      ),
+      onBack: () => Navigator.of(context).pop(),
+      activeTabIndex: _tabToIndex(_activeTab),
+      videoCount: _videoCount,
+      photoCount: _photoCount,
+      view360Count: _view360Count,
+      showProjectVideos: _showProjectVideos,
+      projectVideoCount: _projectVideoCount,
+      onTabSelected: (index) {
+        _setActiveTab(_indexToTab(index));
+      },
+    );
   }
 
   Widget _buildDarkErrorState(String message) {
     return Padding(
-      padding: EdgeInsets.all(32.w),
+      padding: EdgeInsets.all(32.tw),
       child: Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.error_outline, size: 64.sp, color: MediaTheme.textMuted),
-            SizedBox(height: 16.h),
+            Icon(Icons.error_outline,
+                size: 64.tsp, color: MediaTheme.textMuted),
+            SizedBox(height: 16.th),
             Text(
               'Error loading videos',
               style: GoogleFonts.poppins(
-                fontSize: 18.sp,
+                fontSize: 18.tsp,
                 fontWeight: FontWeight.w600,
                 color: MediaTheme.textSecondary,
               ),
             ),
-            SizedBox(height: 8.h),
+            SizedBox(height: 8.th),
             Text(
               message,
               textAlign: TextAlign.center,
               style: GoogleFonts.poppins(
-                fontSize: 14.sp,
+                fontSize: 14.tsp,
                 color: MediaTheme.textMuted,
               ),
             ),
-            SizedBox(height: 20.h),
+            SizedBox(height: 20.th),
             ElevatedButton(
               onPressed: () {
                 context.read<MediaBloc>().add(const FetchMediaList());
@@ -489,6 +489,7 @@ class _MediaListScreenState extends State<MediaListScreen> {
           );
         }
         if (state is MediaLoaded) {
+          _cachedMedia = state;
           final videos = state.mediaList.where((m) => m.isVideo).toList();
           setState(() {
             _videoCount = videos.where((m) => !m.isFavorite).length;
@@ -510,7 +511,15 @@ class _MediaListScreenState extends State<MediaListScreen> {
             value: MediaTheme.lightStatusBar,
             child: Scaffold(
               backgroundColor: MediaTheme.black,
-              body: _buildRedesignBody(context, state),
+              body: AnimatedSwitcher(
+                duration: const Duration(milliseconds: 220),
+                switchInCurve: Curves.easeOut,
+                switchOutCurve: Curves.easeIn,
+                child: KeyedSubtree(
+                  key: ValueKey(_isVideoTab(_activeTab)),
+                  child: _buildRedesignBody(context, state),
+                ),
+              ),
             ),
           );
         }
@@ -523,7 +532,7 @@ class _MediaListScreenState extends State<MediaListScreen> {
             slivers: [
               SliverToBoxAdapter(
                 child: Padding(
-                  padding: EdgeInsets.only(top: 6.h, bottom: 8.h),
+                  padding: EdgeInsets.only(top: 6.th, bottom: 8.th),
                   child: _buildHeader(),
                 ),
               ),
@@ -536,7 +545,7 @@ class _MediaListScreenState extends State<MediaListScreen> {
               else
                 SliverPadding(
                   padding:
-                      EdgeInsets.only(left: 16.w, right: 16.w, bottom: 40.h),
+                      EdgeInsets.only(left: 16.tw, right: 16.tw, bottom: 40.th),
                   sliver: SliverToBoxAdapter(
                     child: Column(
                       children: [
@@ -571,13 +580,13 @@ class _MediaListScreenState extends State<MediaListScreen> {
         Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Image.asset('assets/png/camera.png', width: 24.w, height: 24.w),
+            Image.asset('assets/png/camera.png', width: 24.tw, height: 24.tw),
             const SizedBox(width: 8),
             if (!_showSearch)
               Text(
                 translate('home.media'),
                 style: GoogleFonts.poppins(
-                  fontSize: 22.sp,
+                  fontSize: 22.tsp,
                   fontWeight: FontWeight.w400,
                   color: appFontColor,
                   letterSpacing: 1.5,
@@ -588,9 +597,9 @@ class _MediaListScreenState extends State<MediaListScreen> {
               Expanded(child: _buildInlineSearchField()),
           ],
         ),
-        SizedBox(height: 10.h),
+        SizedBox(height: 10.th),
         _buildFilterTabs(),
-        SizedBox(height: 14.h),
+        SizedBox(height: 14.th),
       ],
     );
   }
@@ -605,9 +614,9 @@ class _MediaListScreenState extends State<MediaListScreen> {
     final screenWidth = MediaQuery.sizeOf(context).width;
     // Make tabs slightly smaller so a portion of the next tab is visible.
     final contentWidth =
-        screenWidth - 24.w; // header has 12.w horizontal padding
+        screenWidth - 24.tw; // header has 12.tw horizontal padding
     final tabWidth = contentWidth * 0.40;
-    final effectiveTabWidth = tabWidth < 120.w ? 120.w : tabWidth;
+    final effectiveTabWidth = tabWidth < 120.tw ? 120.tw : tabWidth;
 
     Widget buildTab({
       required _MediaFilterTab tab,
@@ -617,17 +626,17 @@ class _MediaListScreenState extends State<MediaListScreen> {
       final bool isActive = _activeTab == tab;
 
       return InkWell(
-        borderRadius: BorderRadius.circular(22.r),
+        borderRadius: BorderRadius.circular(22.tr),
         onTap: () {
           _setActiveTab(tab);
         },
         child: Container(
           key: tabKey,
           width: effectiveTabWidth,
-          height: 44.h,
-          padding: EdgeInsets.symmetric(horizontal: 18.w),
+          height: 44.th,
+          padding: EdgeInsets.symmetric(horizontal: 18.tw),
           decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(22.r),
+            borderRadius: BorderRadius.circular(22.tr),
             gradient: LinearGradient(
               begin: Alignment.topCenter,
               end: Alignment.bottomCenter,
@@ -646,7 +655,7 @@ class _MediaListScreenState extends State<MediaListScreen> {
       return Text(
         text,
         style: GoogleFonts.poppins(
-          fontSize: 16.sp,
+          fontSize: 16.tsp,
           fontWeight: FontWeight.w800,
           color: Colors.white,
           letterSpacing: 1.0,
@@ -666,25 +675,25 @@ class _MediaListScreenState extends State<MediaListScreen> {
                 tab: _MediaFilterTab.projectVideos,
                 tabKey: _projectVideosTabKey,
                 child: label('PROJECTS')),
-            SizedBox(width: 10.w),
+            SizedBox(width: 10.tw),
           ],
           buildTab(
               tab: _MediaFilterTab.videos,
               tabKey: _videosTabKey,
               child: label('VIDEOS')),
-          SizedBox(width: 10.w),
+          SizedBox(width: 10.tw),
           buildTab(
               tab: _MediaFilterTab.photos,
               tabKey: _photosTabKey,
               child: label('PHOTOS')),
-          SizedBox(width: 10.w),
+          SizedBox(width: 10.tw),
           buildTab(
               tab: _MediaFilterTab.view360,
               tabKey: _view360TabKey,
               child: Image.asset(
                 'assets/newapp/newicon/360 degrees.png',
-                width: 50.w,
-                height: 50.w,
+                width: 50.tw,
+                height: 50.tw,
                 fit: BoxFit.contain,
               )),
         ],
@@ -702,7 +711,7 @@ class _MediaListScreenState extends State<MediaListScreen> {
           fit: BoxFit.none,
         ),
         color: Colors.transparent,
-        borderRadius: BorderRadius.circular(29.r),
+        borderRadius: BorderRadius.circular(29.tr),
         boxShadow: [
           BoxShadow(
             color: Colors.grey.withAlpha((0.2 * 255).toInt()),
@@ -716,7 +725,7 @@ class _MediaListScreenState extends State<MediaListScreen> {
         decoration: InputDecoration(
           hintText: 'Find media',
           hintStyle: GoogleFonts.poppins(
-            fontSize: 12.sp,
+            fontSize: 12.tsp,
             color: appFontColor,
           ),
           prefixIcon: const Padding(
@@ -743,7 +752,7 @@ class _MediaListScreenState extends State<MediaListScreen> {
           fit: BoxFit.none,
         ),
         color: Colors.transparent,
-        borderRadius: BorderRadius.circular(29.r),
+        borderRadius: BorderRadius.circular(29.tr),
         boxShadow: [
           BoxShadow(
             color: Colors.grey.withAlpha((0.2 * 255).toInt()),
@@ -758,7 +767,7 @@ class _MediaListScreenState extends State<MediaListScreen> {
         decoration: InputDecoration(
           hintText: 'Find media',
           hintStyle: GoogleFonts.poppins(
-            fontSize: 12.sp,
+            fontSize: 12.tsp,
             color: appFontColor,
           ),
           prefixIcon: const Padding(
@@ -801,15 +810,15 @@ class _MediaListScreenState extends State<MediaListScreen> {
       style: ElevatedButton.styleFrom(
         backgroundColor: appFontColor,
         foregroundColor: Colors.white,
-        padding: EdgeInsets.symmetric(horizontal: 20.w, vertical: 12.h),
+        padding: EdgeInsets.symmetric(horizontal: 20.tw, vertical: 12.th),
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(20.r),
+          borderRadius: BorderRadius.circular(20.tr),
         ),
       ),
       child: Text(
         label,
         style: GoogleFonts.poppins(
-          fontSize: 14.sp,
+          fontSize: 14.tsp,
           fontWeight: FontWeight.w400,
           letterSpacing: 1.0,
         ),
@@ -843,7 +852,7 @@ class _MediaListScreenState extends State<MediaListScreen> {
           return _buildSinglePhotoCard(photos[index]);
         },
         separatorBuilder: (BuildContext context, int index) =>
-            SizedBox(height: 12.h),
+            SizedBox(height: 12.th),
       );
     }
 
@@ -878,7 +887,7 @@ class _MediaListScreenState extends State<MediaListScreen> {
         );
       },
       separatorBuilder: (BuildContext context, int index) =>
-          SizedBox(height: 6.w),
+          SizedBox(height: 6.tw),
     );
   }
 
@@ -890,11 +899,11 @@ class _MediaListScreenState extends State<MediaListScreen> {
     return Container(
       decoration: BoxDecoration(
         color: const Color(0xFFE0E0E0),
-        borderRadius: BorderRadius.circular(28.r),
+        borderRadius: BorderRadius.circular(28.tr),
         border: Border.all(color: const Color(0xB8484848), width: 1),
       ),
       child: Padding(
-        padding: EdgeInsets.symmetric(horizontal: 14.w, vertical: 12.h),
+        padding: EdgeInsets.symmetric(horizontal: 14.tw, vertical: 12.th),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -905,15 +914,15 @@ class _MediaListScreenState extends State<MediaListScreen> {
                     ? 'Uploaded at --/--/----'
                     : 'Uploaded at $uploadedDate',
                 style: GoogleFonts.poppins(
-                  fontSize: 10.sp,
+                  fontSize: 10.tsp,
                   color: const Color(0xFF292929),
                   fontWeight: FontWeight.w500,
                 ),
               ),
             ),
-            SizedBox(height: 6.h),
+            SizedBox(height: 6.th),
             ClipRRect(
-              borderRadius: BorderRadius.circular(20.r),
+              borderRadius: BorderRadius.circular(20.tr),
               child: AspectRatio(
                 aspectRatio: 16 / 7,
                 child: Material(
@@ -930,15 +939,15 @@ class _MediaListScreenState extends State<MediaListScreen> {
                                 Icon(
                                   Icons.picture_as_pdf_rounded,
                                   color: Colors.red.shade700,
-                                  size: 48.sp,
+                                  size: 48.tsp,
                                 ),
-                                SizedBox(height: 6.h),
+                                SizedBox(height: 6.th),
                                 Text(
                                   content.displayName,
                                   maxLines: 1,
                                   overflow: TextOverflow.ellipsis,
                                   style: GoogleFonts.poppins(
-                                    fontSize: 11.sp,
+                                    fontSize: 11.tsp,
                                     color: Colors.black54,
                                   ),
                                 ),
@@ -946,38 +955,38 @@ class _MediaListScreenState extends State<MediaListScreen> {
                             ),
                           )
                         : Image.network(
-                      _safeImageUrl(content.displayImageUrl),
-                      headers: _imageHeaders,
-                      fit: BoxFit.cover,
-                      loadingBuilder: (context, child, loadingProgress) {
-                        if (loadingProgress == null) return child;
-                        return _buildPhotoLoadingPlaceholder(
-                          context,
-                          loadingProgress,
-                        );
-                      },
-                      errorBuilder: (context, error, stackTrace) {
-                        _logPhotoLoadError(
-                          source: 'single-card',
-                          rawUrl: content.displayImageUrl,
-                          error: error,
-                        );
-                        return Container(
-                          color: Colors.white.withOpacity(0.45),
-                          alignment: Alignment.center,
-                          child: Icon(
-                            Icons.image_outlined,
-                            color: appFontColor.withOpacity(0.6),
-                            size: 28.sp,
+                            _safeImageUrl(content.displayImageUrl),
+                            headers: _imageHeaders,
+                            fit: BoxFit.cover,
+                            loadingBuilder: (context, child, loadingProgress) {
+                              if (loadingProgress == null) return child;
+                              return _buildPhotoLoadingPlaceholder(
+                                context,
+                                loadingProgress,
+                              );
+                            },
+                            errorBuilder: (context, error, stackTrace) {
+                              _logPhotoLoadError(
+                                source: 'single-card',
+                                rawUrl: content.displayImageUrl,
+                                error: error,
+                              );
+                              return Container(
+                                color: Colors.white.withOpacity(0.45),
+                                alignment: Alignment.center,
+                                child: Icon(
+                                  Icons.image_outlined,
+                                  color: appFontColor.withOpacity(0.6),
+                                  size: 28.tsp,
+                                ),
+                              );
+                            },
                           ),
-                        );
-                      },
-                    ),
                   ),
                 ),
               ),
             ),
-            SizedBox(height: 10.h),
+            SizedBox(height: 10.th),
             Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -990,18 +999,18 @@ class _MediaListScreenState extends State<MediaListScreen> {
                         maxLines: null,
                         overflow: TextOverflow.visible,
                         style: GoogleFonts.poppins(
-                          fontSize: 18.sp,
+                          fontSize: 18.tsp,
                           fontWeight: FontWeight.w800,
                           color: Colors.black,
                         ),
                       ),
-                      SizedBox(height: 2.h),
+                      SizedBox(height: 2.th),
                       Text(
                         content.projectName,
                         maxLines: null,
                         overflow: TextOverflow.visible,
                         style: GoogleFonts.poppins(
-                          fontSize: 13.sp,
+                          fontSize: 13.tsp,
                           fontWeight: FontWeight.w500,
                           color: Colors.black87,
                         ),
@@ -1009,49 +1018,49 @@ class _MediaListScreenState extends State<MediaListScreen> {
                     ],
                   ),
                 ),
-                SizedBox(width: 6.w),
+                SizedBox(width: 6.tw),
                 Padding(
-                  padding: EdgeInsets.only(top: 2.h),
+                  padding: EdgeInsets.only(top: 2.th),
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       InkWell(
-                        borderRadius: BorderRadius.circular(12.r),
+                        borderRadius: BorderRadius.circular(12.tr),
                         onTap: () => _openPhotoOrPdf(context, content),
                         child: Container(
-                          height: 22.h,
-                          padding: EdgeInsets.symmetric(horizontal: 14.w),
+                          height: 22.th,
+                          padding: EdgeInsets.symmetric(horizontal: 14.tw),
                           alignment: Alignment.center,
                           decoration: BoxDecoration(
                             color: const Color(0xFF6E6E6E),
-                            borderRadius: BorderRadius.circular(12.r),
+                            borderRadius: BorderRadius.circular(12.tr),
                           ),
                           child: Text(
                             'View',
                             style: GoogleFonts.poppins(
-                              fontSize: 12.sp,
+                              fontSize: 12.tsp,
                               fontWeight: FontWeight.w700,
                               color: Colors.white,
                             ),
                           ),
                         ),
                       ),
-                      SizedBox(width: 5.w),
+                      SizedBox(width: 5.tw),
                       InkWell(
-                        borderRadius: BorderRadius.circular(12.r),
+                        borderRadius: BorderRadius.circular(12.tr),
                         onTap: () => _sharePhotoItem(content),
                         child: Container(
-                          width: 28.w,
-                          height: 24.h,
+                          width: 28.tw,
+                          height: 24.th,
                           decoration: BoxDecoration(
                             color: const Color(0xFFD5D5D5),
-                            borderRadius: BorderRadius.circular(12.r),
+                            borderRadius: BorderRadius.circular(12.tr),
                           ),
                           child: Center(
                             child: Image.asset(
                               'assets/newapp/newicon/media_share_icon.png',
-                              width: 30.w,
-                              height: 30.h,
+                              width: 30.tw,
+                              height: 30.th,
                               fit: BoxFit.contain,
                             ),
                           ),
@@ -1071,7 +1080,8 @@ class _MediaListScreenState extends State<MediaListScreen> {
   bool _isPdfContent(ContentModel content) => content.isPdf;
 
   /// Checks URL content-type via HEAD request, then opens PDF viewer or photo preview.
-  Future<void> _openPhotoOrPdf(BuildContext context, ContentModel content) async {
+  Future<void> _openPhotoOrPdf(
+      BuildContext context, ContentModel content) async {
     // First check static indicators (filename / known fileType)
     if (_isPdfContent(content)) {
       if (!context.mounted) return;
@@ -1090,8 +1100,8 @@ class _MediaListScreenState extends State<MediaListScreen> {
     // For URLs without extension (e.g. /my/public/file/12345),
     // do a HEAD request to detect the actual content-type.
     final rawUrl = content.previewUrl.trim();
-    final hasNoExtension = !rawUrl.contains('?') &&
-        !rawUrl.split('/').last.contains('.');
+    final hasNoExtension =
+        !rawUrl.contains('?') && !rawUrl.split('/').last.contains('.');
     if (hasNoExtension && rawUrl.isNotEmpty) {
       try {
         final token = SharedPref.getLoginData().result?.token ?? '';
@@ -1176,31 +1186,31 @@ class _MediaListScreenState extends State<MediaListScreen> {
 
   Widget _buildEmptyState() {
     return Padding(
-      padding: EdgeInsets.all(50.w),
+      padding: EdgeInsets.all(50.tw),
       child: Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Icon(
               Icons.perm_media_outlined,
-              size: 64.sp,
+              size: 64.tsp,
               color: Colors.grey,
             ),
-            SizedBox(height: 16.h),
+            SizedBox(height: 16.th),
             Text(
               'No media files yet',
               style: GoogleFonts.poppins(
-                fontSize: 18.sp,
+                fontSize: 18.tsp,
                 color: Colors.grey,
                 fontWeight: FontWeight.w500,
                 letterSpacing: 1.5,
               ),
             ),
-            SizedBox(height: 8.h),
+            SizedBox(height: 8.th),
             Text(
               'Your media collection will appear here',
               style: GoogleFonts.poppins(
-                fontSize: 14.sp,
+                fontSize: 14.tsp,
                 color: Colors.grey,
                 letterSpacing: 1.0,
               ),
@@ -1213,37 +1223,37 @@ class _MediaListScreenState extends State<MediaListScreen> {
 
   Widget _buildErrorState(String message) {
     return Padding(
-      padding: EdgeInsets.all(50.w),
+      padding: EdgeInsets.all(50.tw),
       child: Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Icon(
               Icons.error_outline,
-              size: 64.sp,
+              size: 64.tsp,
               color: Colors.red,
             ),
-            SizedBox(height: 16.h),
+            SizedBox(height: 16.th),
             Text(
               'Error loading media',
               style: GoogleFonts.poppins(
-                fontSize: 18.sp,
+                fontSize: 18.tsp,
                 color: Colors.grey[700],
                 fontWeight: FontWeight.w500,
                 letterSpacing: 1.5,
               ),
             ),
-            SizedBox(height: 8.h),
+            SizedBox(height: 8.th),
             Text(
               message,
               style: GoogleFonts.poppins(
-                fontSize: 14.sp,
+                fontSize: 14.tsp,
                 color: Colors.grey,
                 letterSpacing: 1.0,
               ),
               textAlign: TextAlign.center,
             ),
-            SizedBox(height: 16.h),
+            SizedBox(height: 16.th),
             ElevatedButton(
               onPressed: () {
                 // Retry based on current tab
@@ -1288,37 +1298,37 @@ class _MediaListScreenState extends State<MediaListScreen> {
             Text(
               'Type: ${media.isImage ? 'Image' : 'Video'}',
               style: GoogleFonts.poppins(
-                fontSize: 14.sp,
+                fontSize: 14.tsp,
                 color: Colors.grey[600],
                 letterSpacing: 1.0,
               ),
             ),
-            SizedBox(height: 8.h),
+            SizedBox(height: 8.th),
             Text(
               'Created: ${media.dateCreated.day}/${media.dateCreated.month}/${media.dateCreated.year}',
               style: GoogleFonts.poppins(
-                fontSize: 14.sp,
+                fontSize: 14.tsp,
                 color: Colors.grey[600],
                 letterSpacing: 1.0,
               ),
             ),
             if (media.size != null) ...[
-              SizedBox(height: 8.h),
+              SizedBox(height: 8.th),
               Text(
                 'Size: ${media.size!.toStringAsFixed(1)} MB',
                 style: GoogleFonts.poppins(
-                  fontSize: 14.sp,
+                  fontSize: 14.tsp,
                   color: Colors.grey[600],
                   letterSpacing: 1.0,
                 ),
               ),
             ],
             if (media.isVideo && media.duration != null) ...[
-              SizedBox(height: 8.h),
+              SizedBox(height: 8.th),
               Text(
                 'Duration: ${media.duration} seconds',
                 style: GoogleFonts.poppins(
-                  fontSize: 14.sp,
+                  fontSize: 14.tsp,
                   color: Colors.grey[600],
                   letterSpacing: 1.0,
                 ),

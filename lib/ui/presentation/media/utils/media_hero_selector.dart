@@ -27,9 +27,7 @@ abstract final class MediaHeroSelector {
       return videos.where((v) => v.isVideo).toList()
         ..sort((a, b) => b.dateCreated.compareTo(a.dateCreated));
     }
-    return videos
-        .where((v) => v.isVideo && v.id != hero.id)
-        .toList()
+    return videos.where((v) => v.isVideo && v.id != hero.id).toList()
       ..sort((a, b) => b.dateCreated.compareTo(a.dateCreated));
   }
 }

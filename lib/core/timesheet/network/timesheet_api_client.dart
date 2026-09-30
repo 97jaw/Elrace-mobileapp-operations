@@ -232,8 +232,7 @@ class TimesheetApiClient {
     }
 
     final parsedProjectId = projectId?.trim();
-    final hasProject =
-        parsedProjectId != null && parsedProjectId.isNotEmpty;
+    final hasProject = parsedProjectId != null && parsedProjectId.isNotEmpty;
     final params = _scoped(<String, dynamic>{
       'include_drivers': includeDrivers,
       if (hasProject)
@@ -286,8 +285,8 @@ class TimesheetApiClient {
     required String debugLabel,
     CancelToken? cancelToken,
   }) async {
-    final body =
-        await _transport.postJsonRpc(path, params: params, cancelToken: cancelToken);
+    final body = await _transport.postJsonRpc(path,
+        params: params, cancelToken: cancelToken);
     final result = _transport.parseResult(body, debugLabel: debugLabel);
     final data = _unwrapOdooSuccessMap(result);
     final rows = _transport.parseMapList(
@@ -323,6 +322,26 @@ class TimesheetApiClient {
     }
   }
 
+  /// Max foreman↔site distance (m) for submit, from Odoo `project.threshold`.
+  /// Null when unavailable (caller falls back to its default).
+  Future<double?> fetchProjectSubmitThresholdM() async {
+    if (!_useLiveOdoo) return null;
+    try {
+      final body = await _transport.postJsonRpc(
+        TimesheetOdooApiCatalog.submitPolicy,
+        params: _scoped(const {}),
+      );
+      final result = _transport.parseResult(body, debugLabel: 'submit_policy');
+      final data = _unwrapOdooSuccessMap(result);
+      final raw = data?['project_threshold_m'];
+      final value = raw is num ? raw.toDouble() : double.tryParse('$raw');
+      return value != null && value > 0 ? value : null;
+    } catch (error) {
+      debugPrint('TimesheetApiClient.fetchProjectSubmitThresholdM: $error');
+      return null;
+    }
+  }
+
   /// Per-foreman submission summary for a project (Site Management monitor).
   ///
   /// Backed by the new `/timesheet/project_foremen_summary` endpoint. Returns an
@@ -341,9 +360,7 @@ class TimesheetApiClient {
           _transport.parseResult(body, debugLabel: 'project_foremen_summary');
       final data = _unwrapOdooSuccessMap(result);
       final rows = _transport.parseMapList(data ?? result, key: 'foremen');
-      return rows
-          .map(TimesheetForemanSummary.fromJson)
-          .toList(growable: false);
+      return rows.map(TimesheetForemanSummary.fromJson).toList(growable: false);
     } catch (error, stack) {
       debugPrint(
         'TimesheetApiClient.fetchProjectForemenSummary failed: $error\n$stack',
@@ -375,7 +392,8 @@ class TimesheetApiClient {
       if (data == null) return null;
       return TimesheetPrintReportResult.fromApiData(data);
     } catch (error, stack) {
-      debugPrint('TimesheetApiClient.printTimesheetReport failed: $error\n$stack');
+      debugPrint(
+          'TimesheetApiClient.printTimesheetReport failed: $error\n$stack');
       return null;
     }
   }
@@ -658,7 +676,8 @@ class TimesheetApiClient {
   }
 
   /// Default **Maintenance** task for capture/submit on a project.
-  Future<TimesheetApiEnvelope<Task>> getMaintenanceTask(String projectId) async {
+  Future<TimesheetApiEnvelope<Task>> getMaintenanceTask(
+      String projectId) async {
     return getTimesheetTaskForProject(projectId);
   }
 
@@ -745,10 +764,8 @@ class TimesheetApiClient {
         // empty labors — fall through to the roster instead of caching that.
         final actingMismatch = _isActing &&
             actingEmployeeId != null &&
-            (scope.loginEmployeeId != actingEmployeeId ||
-                !scope.hasLaborScope);
-        if (!actingMismatch &&
-            (scope.hasLaborScope || scope.hasForemanScope)) {
+            (scope.loginEmployeeId != actingEmployeeId || !scope.hasLaborScope);
+        if (!actingMismatch && (scope.hasLaborScope || scope.hasForemanScope)) {
           _hrScopeCache = scope;
           _touchCache();
           return scope;
@@ -867,9 +884,8 @@ class TimesheetApiClient {
         _projectsCache = rows
             .map((row) => TimesheetOdooMappers.projectFromGetProjects(row))
             .toList();
-        _projectAccessRows = rows
-            .map(TimesheetProjectAccessService.parseAccessRow)
-            .toList();
+        _projectAccessRows =
+            rows.map(TimesheetProjectAccessService.parseAccessRow).toList();
         _cachedProjectsRole = cacheKey;
         _touchCache();
         return;
@@ -917,7 +933,8 @@ class TimesheetApiClient {
       TimesheetOdooApiCatalog.siteProjects,
       params: _scoped({'status': 'completed'}),
     );
-    final result = _transport.parseResult(body, debugLabel: 'site_projects_completed');
+    final result =
+        _transport.parseResult(body, debugLabel: 'site_projects_completed');
     final rows = _transport.parseMapList(result, key: 'data');
     return rows.map(TimesheetOdooMappers.projectFromGetProjects).toList();
   }

@@ -66,17 +66,39 @@ abstract final class FaceRecognitionMatch {
   /// Set false to revert UI + matcher to [defaultThreshold].
   static const bool usePilotThresholdForMatch = true;
 
-  static double get activeMatchThreshold => usePilotThresholdForMatch
-      ? pilotThreshold
-      : defaultThreshold;
+  static double get activeMatchThreshold =>
+      usePilotThresholdForMatch ? pilotThreshold : defaultThreshold;
 
-  static double get activeDisplayThreshold => usePilotThresholdForMatch
-      ? pilotDisplayThreshold
-      : defaultThreshold;
+  static double get activeDisplayThreshold =>
+      usePilotThresholdForMatch ? pilotDisplayThreshold : defaultThreshold;
 
   /// TC-C2 / E.3 bar: same photo vs stored embedding.
   static const double verificationMinCosine = 0.95;
 
   /// Close second match — optional UI hint.
   static const double closeSecondDelta = 0.05;
+}
+
+/// Expected-labor camera ("Your Team"): red "wrong person" only when another
+/// employee clearly beats the labor the camera was opened for.
+abstract final class FaceExpectedLaborMatch {
+  static const double mismatchMinScore = 0.25;
+  static const double mismatchMinLead = 0.08;
+
+  /// Retry window for a just-enrolled labor whose templates aren't synced.
+  static const Duration templateRefreshCooldown = Duration(seconds: 5);
+  static const int maxTemplateRefreshAttempts = 4;
+}
+
+/// Post-capture enrollment checks (run once, after every pose is captured).
+/// Attendance matching never reads these.
+abstract final class FaceEnrollmentChecks {
+  /// Each turned pose vs the front photo (same device, same pipeline).
+  static const double samePersonMinCosine = 0.30;
+
+  /// Mean score (across all poses) against another enrolled employee.
+  /// Different people reach ~0.45 in pilot logs, so warn above that and only
+  /// hard-block on a clearly stronger match.
+  static const double duplicateWarnCosine = 0.52;
+  static const double duplicateBlockCosine = 0.65;
 }

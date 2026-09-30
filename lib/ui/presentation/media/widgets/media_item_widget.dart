@@ -1,7 +1,7 @@
 import 'dart:io';
+import 'package:el_race/core/utils/responsive_breakpoints.dart';
 import 'package:el_race/utils/color_utils.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:http/http.dart' as http;
 import 'package:intl/intl.dart';
@@ -43,7 +43,7 @@ class MediaItemWidget extends StatelessWidget {
 
   Widget _buildThumbnail() {
     final String imageUrl = media.previewUrl;
-    final borderRadius = BorderRadius.circular(18.r);
+    final borderRadius = BorderRadius.circular(18.tr);
     const borderColor = Color(0xB8484848);
 
     Widget placeholder() {
@@ -52,7 +52,7 @@ class MediaItemWidget extends StatelessWidget {
         alignment: Alignment.center,
         child: Icon(
           media.isVideo ? Icons.play_circle_outline : Icons.image_outlined,
-          size: 44.sp,
+          size: 44.tsp,
           color: appFontColor.withOpacity(0.55),
         ),
       );
@@ -81,8 +81,8 @@ class MediaItemWidget extends StatelessWidget {
           if (loadingProgress == null) return child;
           return Center(
             child: SizedBox(
-              width: 22.w,
-              height: 22.w,
+              width: 22.tw,
+              height: 22.tw,
               child: CircularProgressIndicator(
                 strokeWidth: 2,
                 value: loadingProgress.expectedTotalBytes != null
@@ -115,7 +115,7 @@ class MediaItemWidget extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final borderRadius = BorderRadius.circular(22.r);
+    final borderRadius = BorderRadius.circular(22.tr);
     const borderColor = Color(0xB8484848);
 
     return Material(
@@ -141,13 +141,13 @@ class MediaItemWidget extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Padding(
-                padding: EdgeInsets.only(top: 10.h, right: 14.w, left: 14.w),
+                padding: EdgeInsets.only(top: 10.th, right: 14.tw, left: 14.tw),
                 child: Align(
                   alignment: Alignment.centerRight,
                   child: Text(
                     'Uploaded at ${DateFormat('dd/MM/yyyy').format(media.dateCreated)}',
                     style: GoogleFonts.poppins(
-                      fontSize: 10.sp,
+                      fontSize: 10.tsp,
                       fontWeight: FontWeight.w400,
                       color: const Color(0xFF6E6E6E),
                     ),
@@ -157,10 +157,11 @@ class MediaItemWidget extends StatelessWidget {
                 ),
               ),
               Padding(
-                padding: EdgeInsets.symmetric(horizontal: 14.w, vertical: 10.h),
+                padding:
+                    EdgeInsets.symmetric(horizontal: 14.tw, vertical: 10.th),
                 child: SizedBox(
                   width: double.infinity,
-                  height: 170.h,
+                  height: 170.th,
                   child: Stack(
                     children: [
                       Positioned.fill(child: _buildThumbnail()),
@@ -169,7 +170,7 @@ class MediaItemWidget extends StatelessWidget {
                           child: Center(
                             child: Icon(
                               Icons.play_circle_fill,
-                              size: 56.sp,
+                              size: 56.tsp,
                               color: Colors.white.withOpacity(0.9),
                             ),
                           ),
@@ -180,9 +181,9 @@ class MediaItemWidget extends StatelessWidget {
               ),
               Padding(
                 padding: EdgeInsets.only(
-                  left: 16.w,
-                  right: 12.w,
-                  bottom: 14.h,
+                  left: 16.tw,
+                  right: 12.tw,
+                  bottom: 14.th,
                 ),
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.center,
@@ -194,7 +195,7 @@ class MediaItemWidget extends StatelessWidget {
                           Text(
                             media.displayName,
                             style: GoogleFonts.poppins(
-                              fontSize: 16.sp,
+                              fontSize: 16.tsp,
                               fontWeight: FontWeight.w800,
                               color: Colors.black87,
                             ),
@@ -203,11 +204,11 @@ class MediaItemWidget extends StatelessWidget {
                           ),
                           if (media.client != null &&
                               media.client!.trim().isNotEmpty) ...[
-                            SizedBox(height: 2.h),
+                            SizedBox(height: 2.th),
                             Text(
                               media.client!,
                               style: GoogleFonts.poppins(
-                                fontSize: 12.sp,
+                                fontSize: 12.tsp,
                                 fontWeight: FontWeight.w500,
                                 color: const Color(0xFF6E6E6E),
                               ),
@@ -224,13 +225,13 @@ class MediaItemWidget extends StatelessWidget {
                         await _shareMediaAsLink(context);
                       },
                       child: SizedBox(
-                        width: 42.w,
-                        height: 42.w,
+                        width: 42.tw,
+                        height: 42.tw,
                         child: Center(
                           child: Image.asset(
                             'assets/newapp/newicon/media_share_icon.png',
-                            width: 40.w,
-                            height: 24.h,
+                            width: 40.tw,
+                            height: 24.th,
                             fit: BoxFit.contain,
                           ),
                         ),

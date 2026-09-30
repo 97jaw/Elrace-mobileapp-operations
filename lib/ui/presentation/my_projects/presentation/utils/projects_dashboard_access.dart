@@ -58,9 +58,15 @@ class ProjectsDashboardAccess {
   static bool canAccessCompanyDocuments() =>
       isHrManagerUser() || isManagementUser() || isProjectManagerUser();
 
-  /// Media "Projects" tab — management or project manager.
-  static bool canSeeProjectVideos() =>
-      isManagementUser() || isProjectManagerUser();
+  /// Media "Projects" tab — backend `can_see_project_media` (management, PM or
+  /// media role); falls back to management / PM when the flag is absent.
+  static bool canSeeProjectVideos() {
+    final data = SharedPref.getLoginData().result?.data;
+    final fromBackend = data?.canSeeProjectMedia;
+    if (fromBackend != null) return fromBackend;
+    if (data?.roleCapabilities?['x_is_media_role'] == true) return true;
+    return isManagementUser() || isProjectManagerUser();
+  }
 
   /// Domains are applied on the server from the auth token — never pass domains
   /// from the app. Portfolio KPIs / client bars use server aggregates for both

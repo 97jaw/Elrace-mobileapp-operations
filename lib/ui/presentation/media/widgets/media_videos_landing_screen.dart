@@ -1,12 +1,13 @@
 import 'package:flutter/material.dart';
+import 'package:el_race/core/utils/responsive_breakpoints.dart';
 import 'package:flutter/services.dart';
-import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../data/media_model.dart';
 import '../theme/media_theme.dart';
 import '../utils/media_hero_selector.dart';
 import '../utils/media_share_utils.dart';
+import '../utils/media_layout.dart';
 import '../utils/media_video_preloader.dart';
 import 'media_filter_tabs.dart';
 import 'media_hero_trailer.dart';
@@ -47,6 +48,7 @@ class MediaVideosLandingScreen extends StatefulWidget {
 class _MediaVideosLandingScreenState extends State<MediaVideosLandingScreen> {
   final DraggableScrollableController _sheetController =
       DraggableScrollableController();
+  final ScrollController _panelScrollController = ScrollController();
 
   bool _isExpanded = false;
   bool _isGridView = false;
@@ -82,8 +84,7 @@ class _MediaVideosLandingScreenState extends State<MediaVideosLandingScreen> {
 
   void _toggleSheet() {
     if (!_sheetController.isAttached) return;
-    const mid =
-        (MediaTheme.peekSheetSize + MediaTheme.expandedSheetSize) / 2;
+    const mid = (MediaTheme.peekSheetSize + MediaTheme.expandedSheetSize) / 2;
     final target = _sheetController.size < mid
         ? MediaTheme.expandedSheetSize
         : MediaTheme.peekSheetSize;
@@ -110,14 +111,15 @@ class _MediaVideosLandingScreenState extends State<MediaVideosLandingScreen> {
       context: context,
       backgroundColor: MediaTheme.sheetBg,
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20.r)),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20.tr)),
       ),
       builder: (context) => SafeArea(
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             ListTile(
-              leading: const Icon(Icons.play_circle_outline, color: Colors.white),
+              leading:
+                  const Icon(Icons.play_circle_outline, color: Colors.white),
               title: Text(
                 'Play video',
                 style: GoogleFonts.poppins(color: Colors.white),
@@ -148,14 +150,14 @@ class _MediaVideosLandingScreenState extends State<MediaVideosLandingScreen> {
   void dispose() {
     _sheetController.removeListener(_onSheetChanged);
     _sheetController.dispose();
+    _panelScrollController.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     final hero = MediaHeroSelector.selectHeroVideo(widget.mediaList);
-    final remaining =
-        MediaHeroSelector.remainingVideos(widget.mediaList, hero);
+    final remaining = MediaHeroSelector.remainingVideos(widget.mediaList, hero);
     final screenHeight = MediaQuery.sizeOf(context).height;
     final isProjectsTab =
         widget.showProjectVideos && widget.activeTabIndex == 0;
@@ -171,6 +173,54 @@ class _MediaVideosLandingScreenState extends State<MediaVideosLandingScreen> {
       isGridView: _isGridView,
       onToggleView: () => setState(() => _isGridView = !_isGridView),
     );
+
+    Widget buildGallery(ScrollController controller, {bool showHandle = true}) {
+      return MediaVideosGallerySheet(
+        scrollController: controller,
+        videos: remaining,
+        isGridView: _isGridView,
+        onVideoTap: widget.onVideoTap,
+        onHandleTap: _toggleSheet,
+        filterTabs: filterTabs,
+        singleVideoHero: remaining.isEmpty,
+        showHandle: showHandle,
+        emptyTitle: isProjectsTab ? 'No project videos yet' : 'No videos yet',
+        emptySubtitle: isProjectsTab
+            ? 'Favorite project videos from Odoo will appear here'
+            : 'Your video collection will appear here',
+      );
+    }
+
+    if (MediaLayout.useSplitView(context)) {
+      return AnnotatedRegion<SystemUiOverlayStyle>(
+        value: MediaTheme.lightStatusBar,
+        child: Scaffold(
+          backgroundColor: MediaTheme.black,
+          body: Row(
+            children: [
+              Expanded(
+                child: hero == null
+                    ? _buildEmptyHeroBackdrop()
+                    : RepaintBoundary(
+                        child: MediaHeroTrailer(
+                          key: ValueKey(hero.id),
+                          media: hero,
+                          onTap: () => widget.onVideoTap(hero),
+                          onPlay: () => widget.onVideoTap(hero),
+                          onBack: widget.onBack,
+                          onMore: () => _showHeroMenu(hero),
+                        ),
+                      ),
+              ),
+              SizedBox(
+                width: MediaLayout.sidePanelWidth(context),
+                child: buildGallery(_panelScrollController, showHandle: false),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
 
     return AnnotatedRegion<SystemUiOverlayStyle>(
       value: MediaTheme.lightStatusBar,
@@ -218,23 +268,7 @@ class _MediaVideosLandingScreenState extends State<MediaVideosLandingScreen> {
                       MediaTheme.expandedSheetSize,
                     ],
                     builder: (context, scrollController) {
-                      return ClipRect(
-                        child: MediaVideosGallerySheet(
-                          scrollController: scrollController,
-                          videos: remaining,
-                          isGridView: _isGridView,
-                          onVideoTap: widget.onVideoTap,
-                          onHandleTap: _toggleSheet,
-                          filterTabs: filterTabs,
-                          singleVideoHero: remaining.isEmpty,
-                          emptyTitle: isProjectsTab
-                              ? 'No project videos yet'
-                              : 'No videos yet',
-                          emptySubtitle: isProjectsTab
-                              ? 'Favorite project videos from Odoo will appear here'
-                              : 'Your video collection will appear here',
-                        ),
-                      );
+                      return ClipRect(child: buildGallery(scrollController));
                     },
                   ),
                 ],
@@ -253,7 +287,7 @@ class _MediaVideosLandingScreenState extends State<MediaVideosLandingScreen> {
         child: Align(
           alignment: Alignment.topLeft,
           child: Padding(
-            padding: EdgeInsets.only(left: 16.w, top: 8.h),
+            padding: EdgeInsets.only(left: 16.tw, top: 8.th),
             child: MediaTheme.backButton(onTap: widget.onBack),
           ),
         ),
