@@ -14,7 +14,7 @@
 	<key>CFBundleDevelopmentRegion</key>
 	<string>$(DEVELOPMENT_LANGUAGE)</string>
 	<key>CFBundleDisplayName</key>
-	<string>Elrace Company</string>
+	<string>El Race Cont - Operations</string>
 	<key>CFBundleExecutable</key>
 	<string>$(EXECUTABLE_NAME)</string>
 	<key>CFBundleIdentifier</key>
@@ -46,7 +46,7 @@
 	</array>
 	<key>FlutterDeepLinkingEnabled</key>
 	<false/>
-	<!-- Open-in: single app entry ("Elrace Company"). Separate Chat/Sign
+	<!-- Open-in: single app entry ("El Race Cont - Operations"). Separate Chat/Sign
 	     share-sheet icons require iOS Share Extensions (Android already has aliases). -->
 	<key>CFBundleDocumentTypes</key>
 	<array>
