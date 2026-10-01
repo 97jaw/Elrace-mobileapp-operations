@@ -7,7 +7,17 @@ import 'package:el_race/utils/string_utils.dart';
 import 'package:el_race/utils/urll_utils.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+class LoginUnreachableException implements Exception {
+  const LoginUnreachableException();
+
+  @override
+  String toString() =>
+      'Could not reach the server. Check your connection and try again.';
+}
+
 class UserRepo {
+  static const String _loginDb = 'odoo.elrace.com';
+
   ApiQuery apiQuery = ApiQuery();
 
   Future<Response> loginApiCall(
@@ -30,58 +40,33 @@ class UserRepo {
     final headers = {
       'Content-Type': 'application/json',
     };
-    final loginPaths = <String>[
-      UrlUtil.login,
-      'login',
-    ];
-    final candidateDbs = <String>[
-      'odoo.elrace.com',
-      'erp.elrace.com',
-      'elrace',
-    ];
+    // One request only: every failed attempt counts toward Odoo's login
+    // cooldown, and retrying other paths/dbs hides the real error.
+    final body = {
+      "jsonrpc": "2.0",
+      "params": {
+        "db": _loginDb,
+        "login": email,
+        "password": password,
+        "device_id": deviceId,
+        "fcm_token": fcmToken,
+      }
+    };
+    print('\n⏳ Sending login request to: ${UrlUtil.baseUrl}${UrlUtil.login}');
 
     Response? response;
-    for (final path in loginPaths) {
-      for (final db in candidateDbs) {
-        final body = {
-          "jsonrpc": "2.0",
-          "params": {
-            "db": db,
-            "login": email,
-            "password": password,
-            "device_id": deviceId,
-            "fcm_token": fcmToken,
-          }
-        };
-
-        print('\n📤 Login Request Body:');
-        print(const JsonEncoder.withIndent('  ').convert(body));
-        print('\n⏳ Sending login request to: ${UrlUtil.baseUrl}$path');
-
-        response = await apiQuery.postQuery(path, headers, body, 'login', true);
-        final code = response?.statusCode ?? 0;
-        final data = response?.data;
-        final isSuccess = data is Map &&
-            data['result'] is Map &&
-            (data['result']['success'] == true || data['result']['token'] != null);
-        if (code == 200 && isSuccess) {
-          break;
-        }
-      }
-      final data = response?.data;
-      final ok = response?.statusCode == 200 &&
-          data is Map &&
-          data['result'] is Map &&
-          (data['result']['success'] == true || data['result']['token'] != null);
-      if (ok) break;
+    for (var attempt = 0; attempt < 2 && response == null; attempt++) {
+      response =
+          await apiQuery.postQuery(UrlUtil.login, headers, body, 'login', true);
     }
+    if (response == null) throw const LoginUnreachableException();
 
-    print('\n📥 Login Response Status: ${response?.statusCode}');
-    print('📦 Response Data Type: ${response?.data.runtimeType}');
+    print('\n📥 Login Response Status: ${response.statusCode}');
+    print('📦 Response Data Type: ${response.data.runtimeType}');
 
-    if (response?.data != null) {
+    if (response.data != null) {
       print('📄 Full Login Response:');
-      print(const JsonEncoder.withIndent('  ').convert(response!.data));
+      print(const JsonEncoder.withIndent('  ').convert(response.data));
 
       // Parse and display important data
       try {
@@ -114,7 +99,7 @@ class UserRepo {
 
     print('🔐 ========== LOGIN API END ==========\n');
 
-    return response!;
+    return response;
   }
 
   setLoginResponse(
