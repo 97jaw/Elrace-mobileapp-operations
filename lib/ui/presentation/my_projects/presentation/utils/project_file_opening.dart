@@ -1,3 +1,4 @@
+import 'package:el_race/core/security/signed_file_links.dart';
 import 'package:el_race/ui/presentation/my_documents/utils/document_attachment_opener.dart';
 import 'package:el_race/ui/presentation/my_projects/presentation/screens/projects_file_viewer_screen.dart';
 import 'package:el_race/ui/presentation/my_projects/presentation/theme/projects_dashboard_theme.dart';
@@ -51,16 +52,12 @@ String normalizeProjectFileUrl(String rawUrl) {
   return '$_erpBaseUrl/$url';
 }
 
-/// Extracts Odoo attachment id from `/my/public/file/<id>` style URLs.
+/// Extracts Odoo attachment id from `/my/public/file/<id>` or signed
+/// `/public/v2/file/<id>/...` URLs.
 int? extractPublicAttachmentId(String rawUrl) {
   final url = normalizeProjectFileUrl(rawUrl);
   if (url.isEmpty) return null;
-  final match = RegExp(
-    r'/my/public/file/(\d+)',
-    caseSensitive: false,
-  ).firstMatch(url);
-  if (match == null) return null;
-  return int.tryParse(match.group(1) ?? '');
+  return SignedFileLinks.attachmentIdOf(url);
 }
 
 int? parseProjectAttachmentId(String? rawId) {
@@ -325,7 +322,7 @@ Future<void> openProjectFileInApp(
           fileUrl: normalizedUrl,
           title: displayName,
           mode: ProjectsFileViewerMode.pdf,
-          preferUnauthenticated: normalizedUrl.contains('/my/public/file/') ||
+          preferUnauthenticated: SignedFileLinks.isFileLink(normalizedUrl) ||
               isSharePointRemote,
           attachmentId: resolvedId,
           // Never pass large SharePoint payloads via RAM.
@@ -349,7 +346,7 @@ Future<void> openProjectFileInApp(
           fileUrl: normalizedUrl,
           title: displayName,
           mode: ProjectsFileViewerMode.image,
-          preferUnauthenticated: normalizedUrl.contains('/my/public/file/') ||
+          preferUnauthenticated: SignedFileLinks.isFileLink(normalizedUrl) ||
               isSharePointRemote,
           attachmentId: resolvedId,
           initialBytes: isSharePointRemote ? null : seededBytes,
@@ -364,7 +361,8 @@ Future<void> openProjectFileInApp(
   }
 
   // Non-previewable office/binary types only.
-  final uri = Uri.parse(normalizedUrl);
+  final uri = await SignedFileLinks.resolve(Uri.parse(normalizedUrl));
+  if (!context.mounted) return;
   final launched = await launchUrl(
     uri,
     mode: LaunchMode.externalApplication,

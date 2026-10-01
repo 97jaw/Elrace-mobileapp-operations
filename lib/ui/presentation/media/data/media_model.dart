@@ -165,6 +165,8 @@ class MediaModel {
     if (thumbnail != null && thumbnail!.isNotEmpty) {
       return _encodeUrl(thumbnail!);
     }
+    // A video file is not decodable as an image; callers show a placeholder.
+    if (isVideo) return '';
     if (url.isNotEmpty) return _encodeUrl(url);
     if (xWebUrl != null && xWebUrl!.isNotEmpty) return _encodeUrl(xWebUrl!);
     return url;

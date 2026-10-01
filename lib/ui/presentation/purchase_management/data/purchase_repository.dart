@@ -42,10 +42,13 @@ class PurchaseRepository {
         'params': params,
       });
 
+  /// [legacyPath] is retried only when [path] answers 404 (a v2 route that is
+  /// not deployed on the server yet).
   Future<Map<String, dynamic>?> _post(
     String path,
     Map<String, dynamic> params, {
     Duration? timeout,
+    String? legacyPath,
   }) async {
     final url = Uri.parse('$_base$path');
     final body = _body(params);
@@ -60,6 +63,9 @@ class PurchaseRepository {
       final response = await http
           .post(url, headers: _headers, body: body)
           .timeout(timeout ?? _timeout);
+      if (legacyPath != null && response.statusCode == 404) {
+        return _post(legacyPath, params, timeout: timeout);
+      }
       final duration = DateTime.now().difference(start);
       // Decode as UTF-8 with malformation tolerance so bad attachment names
       // (e.g. WhatsApp Scan…) never crash the isolate via response.body.
@@ -73,6 +79,11 @@ class PurchaseRepository {
       );
       if (response.statusCode != 200) return null;
       final rpcError = data['error'];
+      if (legacyPath != null &&
+          rpcError is Map &&
+          rpcError['code']?.toString() == '404') {
+        return _post(legacyPath, params, timeout: timeout);
+      }
       if (rpcError != null) {
         if (kDebugMode) {
           debugPrint('purchase API RPC error on $path: $rpcError');
@@ -312,7 +323,11 @@ class PurchaseRepository {
   }
 
   Future<String?> fetchPoReportUrl(int poId) async {
-    final result = await _post('/po/report_url', {'po_id': poId});
+    final result = await _post(
+      '/v2/po/report_url',
+      {'po_id': poId},
+      legacyPath: '/po/report_url',
+    );
     return result?['report_url']?.toString();
   }
 
@@ -321,7 +336,11 @@ class PurchaseRepository {
   /// PyPDF2 merges often render as 1 page in the mobile viewer).
   /// Throws [RfqNoAttachmentException] when there are no PDF attachments.
   Future<RfqReportPreview> fetchRfqReportPreview(int rfqId) async {
-    final result = await _post('/rfq/report_url', {'rfq_id': rfqId});
+    final result = await _post(
+      '/v2/rfq/report_url',
+      {'rfq_id': rfqId},
+      legacyPath: '/rfq/report_url',
+    );
     if (result == null) {
       throw Exception('Failed to load RFQ attachments');
     }
@@ -552,8 +571,9 @@ class PurchaseRepository {
     PurchaseDevTestRole? testRole,
   }) async {
     final result = await _post(
-      '/purchase/invoice_details',
+      '/v2/purchase/invoice_details',
       _withTestRole({'invoice_id': invoiceId}, testRole),
+      legacyPath: '/purchase/invoice_details',
     );
     final payload = _unwrap(result);
     if (payload == null) return null;
@@ -600,8 +620,11 @@ class PurchaseRepository {
   }
 
   Future<String?> fetchInvoiceReportUrl(int invoiceId) async {
-    final result =
-        await _post('/invoice/report_url', {'invoice_id': invoiceId});
+    final result = await _post(
+      '/v2/invoice/report_url',
+      {'invoice_id': invoiceId},
+      legacyPath: '/invoice/report_url',
+    );
     if (result == null) return null;
     final nested = result['data'];
     if (nested is Map && nested['report_url'] != null) {
@@ -619,9 +642,10 @@ class PurchaseRepository {
     int invoiceId,
   ) async {
     final result = await _post(
-      '/invoice/supporting_documents',
+      '/v2/invoice/supporting_documents',
       {'invoice_id': invoiceId},
       timeout: _overviewTimeout,
+      legacyPath: '/invoice/supporting_documents',
     );
     final payload = _unwrap(result) ?? result;
     if (payload == null) return const [];
@@ -665,11 +689,12 @@ class PurchaseRepository {
     required int attachmentId,
   }) async {
     final result = await _post(
-      '/invoice/supporting_documents/content',
+      '/v2/invoice/supporting_documents/content',
       {
         'invoice_id': invoiceId,
         'attachment_id': attachmentId,
       },
+      legacyPath: '/invoice/supporting_documents/content',
       timeout: _overviewTimeout,
     );
     final payload = _unwrap(result) ?? result;
@@ -711,8 +736,9 @@ class PurchaseRepository {
     int invoiceId,
   ) async {
     final result = await _post(
-      '/invoice/supporting_documents',
+      '/v2/invoice/supporting_documents',
       {'invoice_id': invoiceId},
+      legacyPath: '/invoice/supporting_documents',
     );
     final payload = _unwrap(result) ?? result;
     if (payload == null) return const [];

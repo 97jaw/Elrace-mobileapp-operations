@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'dart:typed_data';
 
+import 'package:el_race/core/security/signed_file_links.dart';
 import 'package:el_race/core/utils/responsive_breakpoints.dart';
 import 'package:el_race/ui/presentation/my_documents/utils/document_attachment_opener.dart';
 import 'package:el_race/ui/presentation/my_documents/widgets/my_documents_silk_background.dart';
@@ -99,7 +100,7 @@ class _AttachmentViewerScreenState extends State<AttachmentViewerScreen> {
     }
 
     // Public Odoo file URLs often have no extension.
-    if (u.contains('/my/public/file/') || mime.isEmpty) {
+    if (SignedFileLinks.isFileLink(u) || mime.isEmpty) {
       return _ViewerKind.pdf;
     }
     return _ViewerKind.unsupported;

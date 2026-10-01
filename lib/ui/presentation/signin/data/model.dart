@@ -1789,8 +1789,7 @@ class LpoWidgetRecord {
     required this.isAuthorized,
     required this.totalAmount,
     required this.totalDisplay,
-    required this.pendingCount,
-    required this.approvedCount,
+    required this.totalCount,
     required this.monthLabel,
     required this.titleLine,
     required this.deltaPercentage,
@@ -1803,8 +1802,7 @@ class LpoWidgetRecord {
   final bool isAuthorized;
   final double totalAmount;
   final String totalDisplay;
-  final int pendingCount;
-  final int approvedCount;
+  final int totalCount;
   final String monthLabel;
   final String titleLine;
   final double? deltaPercentage;
@@ -1828,8 +1826,9 @@ class LpoWidgetRecord {
       isAuthorized: m['is_authorized'] != false,
       totalAmount: readDouble(m['total_amount']),
       totalDisplay: m['total_display']?.toString() ?? 'AED 0',
-      pendingCount: readInt(m['pending_count']),
-      approvedCount: readInt(m['approved_count']),
+      totalCount: m.containsKey('total_count')
+          ? readInt(m['total_count'])
+          : readInt(m['pending_count']) + readInt(m['approved_count']),
       monthLabel: m['month_label']?.toString() ?? '',
       titleLine: m['title_line']?.toString() ?? 'LPO',
       deltaPercentage: m['delta_percentage'] == null
@@ -1846,15 +1845,11 @@ class LpoWidgetRecord {
     final total = m['total'] is int
         ? m['total'] as int
         : int.tryParse(m['total']?.toString() ?? '') ?? 0;
-    final completed = m['completed'] is int
-        ? m['completed'] as int
-        : int.tryParse(m['completed']?.toString() ?? '') ?? 0;
     return LpoWidgetRecord(
       isAuthorized: true,
       totalAmount: total.toDouble(),
       totalDisplay: 'AED $total',
-      pendingCount: (total - completed).clamp(0, total),
-      approvedCount: completed,
+      totalCount: total,
       monthLabel: '',
       titleLine: 'LPO',
       deltaPercentage: null,
@@ -1869,8 +1864,7 @@ class LpoWidgetRecord {
         isAuthorized: true,
         totalAmount: 0,
         totalDisplay: 'AED 0',
-        pendingCount: 0,
-        approvedCount: 0,
+        totalCount: 0,
         monthLabel: '',
         titleLine: 'LPO',
         deltaPercentage: null,
@@ -1880,8 +1874,17 @@ class LpoWidgetRecord {
         trendLabel: '',
       );
 
-  String get pendingLabel => '$pendingCount';
-  String get approvedLabel => '$approvedCount';
+  /// 999 → "999", 1250 → "1.3K", 1500000 → "1.5M".
+  String get totalCountLabel {
+    String compact(double v, String suffix) {
+      final text = v >= 100 ? v.toStringAsFixed(0) : v.toStringAsFixed(1);
+      return '${text.endsWith('.0') ? text.substring(0, text.length - 2) : text}$suffix';
+    }
+
+    if (totalCount >= 1000000) return compact(totalCount / 1000000, 'M');
+    if (totalCount >= 1000) return compact(totalCount / 1000, 'K');
+    return '$totalCount';
+  }
 }
 
 class TimesheetWidgetRecord {

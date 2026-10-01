@@ -9,6 +9,7 @@ import 'package:el_race/core/timesheet/services/capture_queue_service.dart';
 import 'package:el_race/core/utils/app_orientations.dart';
 import 'package:el_race/core/utils/shared_pref.dart';
 import 'package:el_race/core/security/device_security_service.dart';
+import 'package:el_race/core/security/signed_file_links.dart';
 import 'package:el_race/core/security/vpn_block_guard.dart';
 import 'package:el_race/core/security/vpn_security_monitor.dart';
 import 'package:el_race/core/services/incoming_share_service.dart';
@@ -243,6 +244,7 @@ void _checkStackOverflowBreadcrumb() {
 }
 
 void main() async {
+  HttpOverrides.global = SignedFileHttpOverrides(HttpOverrides.current);
   WidgetsFlutterBinding.ensureInitialized();
   debugPrint('🚀 main(): Flutter binding initialized');
 

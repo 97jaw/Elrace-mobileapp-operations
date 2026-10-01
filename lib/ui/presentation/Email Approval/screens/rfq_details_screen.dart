@@ -9,6 +9,7 @@ import 'package:el_race/ui/presentation/Email%20Approval/widgets/approval_reject
 import 'package:el_race/ui/presentation/lpo/screens/lpo_pdf_viewer_screen.dart';
 import 'package:el_race/ui/widgets/contextual_glass_chrome_header.dart';
 import 'package:el_race/utils/safe_insets.dart';
+import 'package:el_race/utils/Util.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:fluttertoast/fluttertoast.dart';
@@ -325,11 +326,18 @@ class _RfqDetailsScreenState extends State<RfqDetailsScreen> {
     );
 
     try {
-      final response = await http.post(
-        Uri.parse('https://erp.elrace.com/api/rfq/report_url'),
+      var response = await http.post(
+        Uri.parse('https://erp.elrace.com/api/v2/rfq/report_url'),
         headers: headers,
         body: jsonEncode(data),
       );
+      if (Util.isRouteMissing(response)) {
+        response = await http.post(
+          Uri.parse('https://erp.elrace.com/api/rfq/report_url'),
+          headers: headers,
+          body: jsonEncode(data),
+        );
+      }
 
       if (mounted && Navigator.canPop(context)) {
         Navigator.of(context).pop();

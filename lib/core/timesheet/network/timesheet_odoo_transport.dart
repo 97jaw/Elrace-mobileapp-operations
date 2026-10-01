@@ -4,7 +4,8 @@ import 'package:dio/dio.dart';
 import 'package:el_race/core/timesheet/network/timesheet_odoo_api_catalog.dart';
 import 'package:el_race/core/timesheet/network/timesheet_odoo_employee.dart';
 import 'package:el_race/core/utils/shared_pref.dart';
-import 'package:el_race/services/api_client.dart' show AuthErrorInterceptor, RetryInterceptor;
+import 'package:el_race/services/api_client.dart'
+    show AuthErrorInterceptor, RetryInterceptor;
 import 'package:flutter/foundation.dart';
 
 /// Low-level JSON-RPC calls to existing Odoo timesheet controllers.
@@ -38,9 +39,7 @@ class TimesheetOdooTransport {
 
   int? get odooUserId {
     final data = SharedPref.getLoginData().result?.data;
-    return data?.odoo_user_id ??
-        data?.uid ??
-        data?.employee_id;
+    return data?.odoo_user_id ?? data?.uid ?? data?.employee_id;
   }
 
   bool get hasSession => authToken != null && authToken!.isNotEmpty;
@@ -60,13 +59,53 @@ class TimesheetOdooTransport {
     bool withAuth = true,
     CancelToken? cancelToken,
   }) async {
-    final response = await _dio.post<dynamic>(
-      '$baseUrl$path',
-      data: {'jsonrpc': '2.0', 'params': params},
-      options: Options(headers: _headers(withAuth: withAuth)),
-      cancelToken: cancelToken,
-    );
-    return _normalizeBody(response.data);
+    final legacyPath = TimesheetOdooApiCatalog.legacyFallback[path];
+    Future<Map<String, dynamic>> post(String p) async {
+      final response = await _dio.post<dynamic>(
+        '$baseUrl$p',
+        data: {'jsonrpc': '2.0', 'params': params},
+        options: Options(headers: _headers(withAuth: withAuth)),
+        cancelToken: cancelToken,
+      );
+      return _normalizeBody(response.data);
+    }
+
+    if (legacyPath == null) return post(path);
+
+    Map<String, dynamic> body;
+    try {
+      body = await post(path);
+    } on DioException catch (error) {
+      if (error.response?.statusCode != 404) rethrow;
+      body = const {
+        'error': {'code': 404}
+      };
+    }
+    if (_isRouteNotFound(body)) {
+      debugPrint(
+        'TimesheetOdooTransport: $path not deployed, using $legacyPath',
+      );
+      return post(legacyPath);
+    }
+    _throwOnAuthError(body, path);
+    return body;
+  }
+
+  static bool _isRouteNotFound(Map<String, dynamic> body) {
+    final error = body['error'];
+    return error is Map && error['code']?.toString() == '404';
+  }
+
+  /// v2 routes answer `{status: 'error', message}` when the JWT is missing,
+  /// expired or the user lost mobile access; surface that instead of letting
+  /// it read as an empty list.
+  void _throwOnAuthError(Map<String, dynamic> body, String path) {
+    final result = body['result'];
+    if (result is Map && result['status']?.toString() == 'error') {
+      final message = result['message']?.toString() ?? 'Not authorised';
+      debugPrint('TimesheetOdooTransport ($path): $message');
+      throw TimesheetOdooException(message);
+    }
   }
 
   Future<Map<String, dynamic>> getJsonRpc(
@@ -122,7 +161,8 @@ class TimesheetOdooTransport {
         lastError = error;
       }
     }
-    throw TimesheetOdooException(lastError?.toString() ?? 'employee list failed');
+    throw TimesheetOdooException(
+        lastError?.toString() ?? 'employee list failed');
   }
 
   Future<List<Map<String, dynamic>>> fetchTimesheetCountsByDays({

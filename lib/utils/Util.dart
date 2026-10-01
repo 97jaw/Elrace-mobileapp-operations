@@ -130,6 +130,18 @@ class Util {
     }
   }
 
+  /// True when a v2 JSON-RPC route is not deployed on the server yet.
+  static bool isRouteMissing(http.Response response) {
+    if (response.statusCode == 404) return true;
+    try {
+      final decoded = jsonDecode(response.body);
+      return decoded is Map &&
+          decoded['error'] is Map &&
+          decoded['error']['code']?.toString() == '404';
+    } catch (_) {
+      return false;
+    }
+  }
   /// Fetches the PDF report URL for a given PO ID and opens it.
   /// Pass [lpoName] (e.g. PO/2026/001) so share uses `{lpoName}.pdf`.
   static Future<bool> openLpoPdfReport(
@@ -147,7 +159,7 @@ class Util {
       );
 
       final token = SharedPref.getLoginData().result?.token ?? '';
-      final url = Uri.parse('https://erp.elrace.com/api/po/report_url');
+      var url = Uri.parse('https://erp.elrace.com/api/v2/po/report_url');
       final headers = {
         'Content-Type': 'application/json',
         'Accept': 'application/json',
@@ -170,7 +182,11 @@ class Util {
       );
 
       final startTime = DateTime.now();
-      final response = await http.post(url, headers: headers, body: body);
+      var response = await http.post(url, headers: headers, body: body);
+      if (isRouteMissing(response)) {
+        url = Uri.parse('https://erp.elrace.com/api/po/report_url');
+        response = await http.post(url, headers: headers, body: body);
+      }
       final duration = DateTime.now().difference(startTime);
 
       if (response.statusCode != 200) {

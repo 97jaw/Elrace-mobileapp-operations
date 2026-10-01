@@ -209,7 +209,7 @@ class _CompanyDocumentsTabState extends State<CompanyDocumentsTab> {
       }
 
       final url =
-          Uri.parse('https://erp.elrace.com/api/company/folder/contents');
+          Uri.parse('https://erp.elrace.com/api/v2/company/folder/contents');
       final headers = {
         'Content-Type': 'application/json',
         'Accept': 'application/json',

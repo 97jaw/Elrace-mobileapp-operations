@@ -17,6 +17,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import '../../../core/app_globals.dart';
+import 'package:el_race/core/utils/shared_pref.dart';
 
 ReportProvider reportProvider =
     Provider.of<ReportProvider>(navKey.currentContext!, listen: false);
@@ -134,6 +135,40 @@ class ReportProvider extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// JWT-protected v2 path for a legacy site-report route
+  /// (`/reports/list` → `/api/v2/reports/list`,
+  /// `/api/create_report` → `/api/v2/create_report`).
+  static String _v2Path(String legacyPath) => legacyPath.startsWith('/api/')
+      ? '/api/v2${legacyPath.substring(4)}'
+      : '/api/v2$legacyPath';
+
+  static Map<String, String> get _authHeaders {
+    final token = SharedPref.getLoginData().result?.token ?? '';
+    return {if (token.isNotEmpty) 'Authorization': 'Bearer $token'};
+  }
+
+  /// Posts multipart to the v2 route; retries the legacy route only when v2
+  /// answers 404 (backend not deployed yet). v2 never uses 404 for errors.
+  Future<http.StreamedResponse> _sendMultipart(
+    String legacyPath,
+    Map<String, String> fields, {
+    Future<void> Function(http.MultipartRequest request)? addFiles,
+  }) async {
+    Future<http.StreamedResponse> send(String path) async {
+      final request = http.MultipartRequest('POST', Uri.parse('$baseUrl$path'))
+        ..headers.addAll(_authHeaders)
+        ..fields.addAll(fields);
+      if (addFiles != null) await addFiles(request);
+      return request.send();
+    }
+
+    final response = await send(_v2Path(legacyPath));
+    if (response.statusCode != 404) return response;
+    await response.stream.drain<void>();
+    debugPrint('ReportProvider: v2 missing for $legacyPath, using legacy');
+    return send(legacyPath);
+  }
+
   Future<Map<String, dynamic>> _handleResponse(http.StreamedResponse response,
       {bool alwaysShowMessage = false, bool neverShowMessage = false}) async {
     final res = await response.stream.bytesToString();
@@ -183,11 +218,9 @@ class ReportProvider extends ChangeNotifier {
       fields['site_management'] = '1';
       fields['require_project'] = '1';
     }
-    var request = http.MultipartRequest(
-        'POST', Uri.parse('$baseUrl/api/create_report_folder'))
-      ..fields.addAll(fields);
-    // print(companyId);
-    final jsonData = await _handleResponse(await request.send());
+    final jsonData = await _handleResponse(
+      await _sendMultipart('/api/create_report_folder', fields),
+    );
     // print(jsonData);
     _setLoading(false);
 
@@ -222,20 +255,19 @@ class ReportProvider extends ChangeNotifier {
     String? reportType,
   }) async {
     _setLoading(true);
-    var request =
-        http.MultipartRequest('POST', Uri.parse('$baseUrl/api/create_report'))
-          ..fields.addAll({
-            'emp_id': empID,
-            'name': title,
-            'company_id': companyId,
-            'folder_id': folderID,
-            'company': (companyName?.trim().isNotEmpty ?? false)
-                ? companyName!.trim()
-                : "test",
-            if (reportType?.trim().isNotEmpty ?? false)
-              'report_type': reportType!.trim(),
-          });
-    final jsonData = await _handleResponse(await request.send());
+    final jsonData = await _handleResponse(
+      await _sendMultipart('/api/create_report', {
+        'emp_id': empID,
+        'name': title,
+        'company_id': companyId,
+        'folder_id': folderID,
+        'company': (companyName?.trim().isNotEmpty ?? false)
+            ? companyName!.trim()
+            : "test",
+        if (reportType?.trim().isNotEmpty ?? false)
+          'report_type': reportType!.trim(),
+      }),
+    );
     print(jsonData);
     _setLoading(false);
     if (jsonData['data'] == null) return null;
@@ -269,16 +301,14 @@ class ReportProvider extends ChangeNotifier {
     }
     if (!append) _setLoading(true);
     try {
-      final request = http.MultipartRequest(
-        'POST',
-        Uri.parse('$baseUrl/api/site_reports/list'),
-      )..fields.addAll({
+      final jsonData = await _handleResponse(
+        await _sendMultipart('/api/site_reports/list', {
           'emp_id': empID,
           'company_id': companyId,
           'offset': '$offset',
           'limit': '$limit',
-        });
-      final jsonData = await _handleResponse(await request.send());
+        }),
+      );
       final rawData = jsonData['data'];
 
       List<Map<String, dynamic>> rawList = const [];
@@ -364,18 +394,16 @@ class ReportProvider extends ChangeNotifier {
     }
     _setLoading(true);
     try {
-      final request = http.MultipartRequest(
-        'POST',
-        Uri.parse('$baseUrl/api/site_reports/create'),
-      )..fields.addAll({
+      final jsonData = await _handleResponse(
+        await _sendMultipart('/api/site_reports/create', {
           'emp_id': empID,
           'name': title,
           'company_id': companyId,
           'company': CompanyRepository.company?.companyName ?? 'test',
           if (reportType?.trim().isNotEmpty ?? false)
             'report_type': reportType!.trim(),
-        });
-      final jsonData = await _handleResponse(await request.send());
+        }),
+      );
       if (jsonData['data'] == null) return null;
       var createdReport = ReportModel.fromJson(
         Map<String, dynamic>.from(jsonData['data'] as Map),
@@ -402,15 +430,13 @@ class ReportProvider extends ChangeNotifier {
   Future<void> updateReport(
       {required String name, required String reportId}) async {
     try {
-      var request =
-          http.MultipartRequest('POST', Uri.parse('$baseUrl/reports/update'))
-            ..fields.addAll({
-              'emp_id': empID,
-              'report_id': reportId,
-              'name': name,
-            });
-
-      final jsonData = await _handleResponse(await request.send());
+      final jsonData = await _handleResponse(
+        await _sendMultipart('/reports/update', {
+          'emp_id': empID,
+          'report_id': reportId,
+          'name': name,
+        }),
+      );
       _setLoading(false);
       final updatedReport = ReportModel.fromJson(jsonData['data']);
       int index = _reports.indexWhere((r) => r.id == updatedReport.id);
@@ -430,14 +456,12 @@ class ReportProvider extends ChangeNotifier {
 
   Future<void> deleteReport({required String reportId}) async {
     try {
-      var request =
-          http.MultipartRequest('POST', Uri.parse('$baseUrl/reports/delete'))
-            ..fields.addAll({
-              'emp_id': empID,
-              'report_id': reportId,
-            });
-
-      await _handleResponse(await request.send());
+      await _handleResponse(
+        await _sendMultipart('/reports/delete', {
+          'emp_id': empID,
+          'report_id': reportId,
+        }),
+      );
       _setLoading(false);
       _reports.removeWhere((r) => r.id == reportId);
       notifyListeners();
@@ -462,11 +486,9 @@ class ReportProvider extends ChangeNotifier {
         fields['x_project_id'] = projectId.trim();
         fields['project_id'] = projectId.trim();
       }
-      var request =
-          http.MultipartRequest('POST', Uri.parse('$baseUrl/reports/list'))
-            ..fields.addAll(fields);
-
-      final jsonData = await _handleResponse(await request.send());
+      final jsonData = await _handleResponse(
+        await _sendMultipart('/reports/list', fields),
+      );
 
       _folders = (jsonData['data'] as List)
           .map((e) => FolderModel.fromJson(e))
@@ -519,10 +541,9 @@ class ReportProvider extends ChangeNotifier {
       fields['x_project_id'] = projectId.trim();
       fields['project_id'] = projectId.trim();
     }
-    var request = http.MultipartRequest(
-        'POST', Uri.parse('$baseUrl/api/get_folder_report_list'))
-      ..fields.addAll(fields);
-    final jsonData = await _handleResponse(await request.send());
+    final jsonData = await _handleResponse(
+      await _sendMultipart('/api/get_folder_report_list', fields),
+    );
 
     if (kDebugMode) {
       print('🔍 get_folder_report_list response: $jsonData');
@@ -631,15 +652,12 @@ class ReportProvider extends ChangeNotifier {
       required String reportId,
       required String folderId}) async {
     try {
-      var request = http.MultipartRequest(
-          'POST', Uri.parse('$baseUrl/api/get_folder_report_list'))
-        ..fields.addAll({
-          'emp_id': empId,
-          'company_id': companyId,
-          'folder_id': folderId,
-          'report_id': reportId,
-        });
-      final streamed = await request.send();
+      final streamed = await _sendMultipart('/api/get_folder_report_list', {
+        'emp_id': empId,
+        'company_id': companyId,
+        'folder_id': folderId,
+        'report_id': reportId,
+      });
       final res = await streamed.stream.bytesToString();
       print('📋 fetchReports (via get_folder_report_list) response: $res');
 
@@ -747,28 +765,40 @@ class ReportProvider extends ChangeNotifier {
         ),
       );
 
-      final formData = dio.FormData.fromMap({
-        'emp_id': empId,
-        'report_id': reportId,
-        'folder_id': folderId,
-        'file_name': uploadName,
-        'file': dio.MultipartFile.fromBytes(pdfBytes, filename: '$uploadName.pdf'),
-      });
+      Future<dio.Response<dynamic>> post(String path) => client.post(
+            '$baseUrl$path',
+            queryParameters: {
+              'folder_id': folderId,
+              'report_id': reportId,
+              'file_name': uploadName,
+            },
+            data: dio.FormData.fromMap({
+              'emp_id': empId,
+              'report_id': reportId,
+              'folder_id': folderId,
+              'file_name': uploadName,
+              'file': dio.MultipartFile.fromBytes(
+                pdfBytes,
+                filename: '$uploadName.pdf',
+              ),
+            }),
+            options: dio.Options(headers: _authHeaders),
+            onSendProgress: (sent, total) {
+              if (onProgress == null || total <= 0) return;
+              final progress = (sent / total).clamp(0.0, 1.0);
+              onProgress(progress.toDouble());
+            },
+          );
 
-      final response = await client.post(
-        '$baseUrl/api/upload_site_report',
-        queryParameters: {
-          'folder_id': folderId,
-          'report_id': reportId,
-          'file_name': uploadName,
-        },
-        data: formData,
-        onSendProgress: (sent, total) {
-          if (onProgress == null || total <= 0) return;
-          final progress = (sent / total).clamp(0.0, 1.0);
-          onProgress(progress.toDouble());
-        },
-      );
+      const legacyPath = '/api/upload_site_report';
+      dio.Response<dynamic> response;
+      try {
+        response = await post(_v2Path(legacyPath));
+      } on dio.DioException catch (e) {
+        if (e.response?.statusCode != 404) rethrow;
+        debugPrint('ReportProvider: v2 missing for $legacyPath, using legacy');
+        response = await post(legacyPath);
+      }
 
       if (response.statusCode == 200) {
         final data = response.data;
@@ -839,10 +869,7 @@ class ReportProvider extends ChangeNotifier {
         'report_id': fileId,
       };
       print('🗑️ deleteReportPdf REQUEST fields: $fields');
-      var request =
-          http.MultipartRequest('POST', Uri.parse('$baseUrl/reports/delete'))
-            ..fields.addAll(fields);
-      final response = await request.send();
+      final response = await _sendMultipart('/reports/delete', fields);
       final res = await response.stream.bytesToString();
       print('🗑️ deleteReportPdf STATUS: ${response.statusCode}');
       print('🗑️ deleteReportPdf RESPONSE: $res');
@@ -867,10 +894,7 @@ class ReportProvider extends ChangeNotifier {
         'name': newFileName,
       };
       print('✏️ renameReportPdf REQUEST fields: $fields');
-      var request =
-          http.MultipartRequest('POST', Uri.parse('$baseUrl/reports/update'))
-            ..fields.addAll(fields);
-      final response = await request.send();
+      final response = await _sendMultipart('/reports/update', fields);
       final res = await response.stream.bytesToString();
       print('✏️ renameReportPdf STATUS: ${response.statusCode}');
       print('✏️ renameReportPdf RESPONSE: $res');
@@ -898,20 +922,19 @@ class ReportProvider extends ChangeNotifier {
     try {
       debugPrint(
           '📤 addReportItem: reportId=$reportId, location=$location, image=${imageFile.path}');
-      var request = http.MultipartRequest(
-          'POST', Uri.parse('$baseUrl/api/upload_report_item'))
-        ..fields.addAll({
+      final response = await _sendMultipart(
+        '/api/upload_report_item',
+        {
           'emp_id': empID,
           'report_id': reportId,
           'location': location,
           'description': description,
           'type': type,
-        });
-
-      request.files
-          .add(await http.MultipartFile.fromPath('item_data', imageFile.path));
-
-      final response = await request.send();
+        },
+        addFiles: (request) async => request.files.add(
+          await http.MultipartFile.fromPath('item_data', imageFile.path),
+        ),
+      );
       final res = await response.stream.bytesToString();
       debugPrint('📤 upload_report_item response: $res');
       final jsonData = json.decode(res);
@@ -945,26 +968,27 @@ class ReportProvider extends ChangeNotifier {
     int index = 0,
   }) async {
     try {
-      var request = http.MultipartRequest(
-          'POST', Uri.parse('$baseUrl/report-items/update'))
-        ..fields.addAll({
-          'emp_id': empID,
-          'report_id': reportId,
-          'item_id': itemId,
-          if (location != null) 'location': location,
-          if (description != null) 'description': description,
-          'index': index.toString(),
-        });
-
-      if (imageFile != null) {
-        request.files
-            .add(await http.MultipartFile.fromPath('image', imageFile.path));
-      }
-
-      debugPrint(
-          '📤 updateReportItem: url=${request.url} fields=${request.fields}');
-      final jsonData =
-          await _handleResponse(await request.send(), neverShowMessage: true);
+      final fields = {
+        'emp_id': empID,
+        'report_id': reportId,
+        'item_id': itemId,
+        if (location != null) 'location': location,
+        if (description != null) 'description': description,
+        'index': index.toString(),
+      };
+      debugPrint('📤 updateReportItem: fields=$fields');
+      final jsonData = await _handleResponse(
+        await _sendMultipart(
+          '/report-items/update',
+          fields,
+          addFiles: imageFile == null
+              ? null
+              : (request) async => request.files.add(
+                    await http.MultipartFile.fromPath('image', imageFile.path),
+                  ),
+        ),
+        neverShowMessage: true,
+      );
       debugPrint('📤 updateReportItem response: $jsonData');
       if (jsonData.containsKey('data') && jsonData['data'] != null) {
         return ReportItemModel.fromJson(jsonData['data'], reportId);
@@ -981,11 +1005,6 @@ class ReportProvider extends ChangeNotifier {
     required String reportId,
     required String itemId,
   }) async {
-    final endpointCandidates = <String>[
-      '$baseUrl/api/delete_report_item',
-      '$baseUrl/report-items/delete',
-    ];
-
     final fieldCandidates = <Map<String, String>>[
       {
         'emp_id': empID,
@@ -999,33 +1018,27 @@ class ReportProvider extends ChangeNotifier {
       },
     ];
 
-    for (final endpoint in endpointCandidates) {
-      for (final fields in fieldCandidates) {
-        try {
-          final request = http.MultipartRequest('POST', Uri.parse(endpoint))
-            ..fields.addAll(fields);
-          debugPrint('🗑️ deleteReportItem: url=$endpoint fields=$fields');
+    for (final fields in fieldCandidates) {
+      try {
+        debugPrint('🗑️ deleteReportItem: fields=$fields');
+        final response = await _sendMultipart('/report-items/delete', fields);
+        final res = await response.stream.bytesToString();
+        debugPrint('🗑️ deleteReportItem response ${response.statusCode}: $res');
 
-          final response = await request.send();
-          final res = await response.stream.bytesToString();
-          debugPrint(
-              '🗑️ deleteReportItem response ${response.statusCode}: $res');
-
-          if (response.statusCode < 200 || response.statusCode >= 300) {
-            continue;
-          }
-
-          final jsonData = json.decode(res);
-          if (jsonData is Map<String, dynamic>) {
-            final status = jsonData['status']?.toString().toLowerCase();
-            final success = jsonData['success'];
-            if (status == 'success' || success == true) {
-              return true;
-            }
-          }
-        } catch (e) {
-          debugPrint('Error deleting report item via $endpoint: $e');
+        if (response.statusCode < 200 || response.statusCode >= 300) {
+          continue;
         }
+
+        final jsonData = json.decode(res);
+        if (jsonData is Map<String, dynamic>) {
+          final status = jsonData['status']?.toString().toLowerCase();
+          final success = jsonData['success'];
+          if (status == 'success' || success == true) {
+            return true;
+          }
+        }
+      } catch (e) {
+        debugPrint('Error deleting report item: $e');
       }
     }
 
@@ -1037,14 +1050,10 @@ class ReportProvider extends ChangeNotifier {
     try {
       debugPrint(
           '🔍 fetchReportDetailFromApi: reportId=$reportId, baseUrl=$baseUrl');
-      var request =
-          http.MultipartRequest('POST', Uri.parse('$baseUrl/reports/detail'))
-            ..fields.addAll({
-              'emp_id': empID,
-              'report_id': reportId,
-            });
-
-      final response = await request.send();
+      final response = await _sendMultipart('/reports/detail', {
+        'emp_id': empID,
+        'report_id': reportId,
+      });
       final res = await response.stream.bytesToString();
       debugPrint('🔍 reports/detail raw response: $res');
       final jsonData = json.decode(res);

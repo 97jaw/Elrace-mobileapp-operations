@@ -6,10 +6,24 @@ import 'package:el_race/core/theme/hr_module_colors.dart';
 import 'package:el_race/core/theme/hr_module_layout.dart';
 import 'package:el_race/core/theme/hr_module_typography.dart';
 import 'package:el_race/core/widgets/hr_management/hr_module_glass_header.dart';
+import 'package:el_race/ui/presentation/circular_announcement/data/circular_announcement_api_service.dart';
 import 'package:el_race/ui/presentation/my_projects/presentation/utils/projects_dashboard_access.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+/// Circulars + announcements dated in the current calendar year.
+final hrCircularYearCountProvider =
+    FutureProvider.autoDispose<int>((ref) async {
+  final api = CircularAnnouncementApiService();
+  final head = await api.fetchCircularAnnouncements(page: 1, pageSize: 1);
+  if (head.currentYearCircularCount != null ||
+      head.currentYearAnnouncementCount != null) {
+    return head.currentYearTotal;
+  }
+  // Server without current_year_counters: count from the full list.
+  return (await api.fetchCircularAnnouncements()).currentYearTotal;
+});
 
 /// First screen inside HR Management — pick a service (hub pattern).
 class HrManagementHubScreen extends ConsumerWidget {
@@ -18,6 +32,7 @@ class HrManagementHubScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final view = ref.watch(hrEffectiveViewProvider);
+    final circularYearCount = ref.watch(hrCircularYearCountProvider).value ?? 0;
     final isManagement = ProjectsDashboardAccess.isManagementUser();
     final canSeeCompanyDocs =
         ProjectsDashboardAccess.canAccessCompanyDocuments();
@@ -29,9 +44,8 @@ class HrManagementHubScreen extends ConsumerWidget {
           ? [
               _HubDevViewMenu(
                 current: view,
-                onSelect: (v) => ref
-                    .read(hrDevViewOverrideProvider.notifier)
-                    .setOverride(v),
+                onSelect: (v) =>
+                    ref.read(hrDevViewOverrideProvider.notifier).setOverride(v),
                 onClear: () => ref
                     .read(hrDevViewOverrideProvider.notifier)
                     .setOverride(null),
@@ -53,6 +67,31 @@ class HrManagementHubScreen extends ConsumerWidget {
               SizedBox(
                 height: 110.th,
                 child: _HubServiceTile(
+                  icon: Icons.campaign_outlined,
+                  title: 'Circulars & announcements',
+                  subtitle: 'Official company circulars and HR announcements',
+                  bgGradient: const [
+                    Color(0xFF2F5A48),
+                    Color(0xFF3A6B55),
+                    Color(0xFF457C62),
+                  ],
+                  titleGradient: const [
+                    Color(0xFFD4EBE0),
+                    Color(0xFFFFFFFF),
+                    Color(0xFFB8DFD0),
+                  ],
+                  badgeCount: circularYearCount,
+                  onTap: () async {
+                    await Navigator.of(context)
+                        .pushNamed(HrRouteNames.circularAnnouncements);
+                    ref.invalidate(hrCircularYearCountProvider);
+                  },
+                ),
+              ),
+              SizedBox(height: 8.th),
+              SizedBox(
+                height: 110.th,
+                child: _HubServiceTile(
                   icon: Icons.folder_shared_outlined,
                   title: 'HR requests',
                   subtitle:
@@ -67,8 +106,8 @@ class HrManagementHubScreen extends ConsumerWidget {
                     Color(0xFFFFFFFF),
                     Color(0xFFE8ECFF),
                   ],
-                  onTap: () => Navigator.of(context)
-                      .pushNamed(HrRouteNames.requests),
+                  onTap: () =>
+                      Navigator.of(context).pushNamed(HrRouteNames.requests),
                 ),
               ),
               if (isManagement) ...[
@@ -114,8 +153,8 @@ class HrManagementHubScreen extends ConsumerWidget {
                     Color(0xFFFFFFFF),
                     Color(0xFFF5B8C4),
                   ],
-                  onTap: () => Navigator.of(context)
-                      .pushNamed(HrRouteNames.recruitment),
+                  onTap: () =>
+                      Navigator.of(context).pushNamed(HrRouteNames.recruitment),
                 ),
               ),
               SizedBox(height: 8.th),
@@ -137,8 +176,8 @@ class HrManagementHubScreen extends ConsumerWidget {
                     Color(0xFFFFFFFF),
                     Color(0xFFC8CDD9),
                   ],
-                  onTap: () => Navigator.of(context)
-                      .pushNamed(HrRouteNames.performance),
+                  onTap: () =>
+                      Navigator.of(context).pushNamed(HrRouteNames.performance),
                 ),
               ),
               SizedBox(height: 8.th),
@@ -164,28 +203,6 @@ class HrManagementHubScreen extends ConsumerWidget {
                       Navigator.of(context).pushNamed(HrRouteNames.payslips),
                 ),
               ),
-              SizedBox(height: 8.th),
-              SizedBox(
-                height: 110.th,
-                child: _HubServiceTile(
-                  icon: Icons.campaign_outlined,
-                  title: 'Circulars & announcements',
-                  subtitle:
-                      'Official company circulars and HR announcements',
-                  bgGradient: const [
-                    Color(0xFF2F5A48),
-                    Color(0xFF3A6B55),
-                    Color(0xFF457C62),
-                  ],
-                  titleGradient: const [
-                    Color(0xFFD4EBE0),
-                    Color(0xFFFFFFFF),
-                    Color(0xFFB8DFD0),
-                  ],
-                  onTap: () => Navigator.of(context)
-                      .pushNamed(HrRouteNames.circularAnnouncements),
-                ),
-              ),
               if (canSeeCompanyDocs) ...[
                 SizedBox(height: 8.th),
                 SizedBox(
@@ -193,8 +210,7 @@ class HrManagementHubScreen extends ConsumerWidget {
                   child: _HubServiceTile(
                     icon: Icons.folder_copy_outlined,
                     title: 'Company Documents',
-                    subtitle:
-                        'Browse operating-unit folders and company files',
+                    subtitle: 'Browse operating-unit folders and company files',
                     bgGradient: const [
                       Color(0xFF2A3F5C),
                       Color(0xFF334E70),
@@ -286,6 +302,7 @@ class _HubServiceTile extends StatelessWidget {
     required this.bgGradient,
     required this.titleGradient,
     required this.onTap,
+    this.badgeCount = 0,
   });
 
   final IconData icon;
@@ -294,6 +311,7 @@ class _HubServiceTile extends StatelessWidget {
   final List<Color> bgGradient;
   final List<Color> titleGradient;
   final VoidCallback onTap;
+  final int badgeCount;
 
   @override
   Widget build(BuildContext context) {
@@ -376,6 +394,10 @@ class _HubServiceTile extends StatelessWidget {
                     ],
                   ),
                 ),
+                if (badgeCount > 0) ...[
+                  _HubBellBadge(count: badgeCount),
+                  SizedBox(width: 6.tw),
+                ],
                 Icon(
                   Icons.chevron_right_rounded,
                   color: Colors.white.withValues(alpha: 0.65),
@@ -385,6 +407,61 @@ class _HubServiceTile extends StatelessWidget {
             ),
           ),
         ),
+      ),
+    );
+  }
+}
+
+class _HubBellBadge extends StatelessWidget {
+  const _HubBellBadge({required this.count});
+
+  final int count;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: 36.tw,
+      height: 36.tw,
+      child: Stack(
+        clipBehavior: Clip.none,
+        children: [
+          Container(
+            width: 36.tw,
+            height: 36.tw,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: Colors.white.withValues(alpha: 0.16),
+            ),
+            child: Icon(
+              Icons.notifications_rounded,
+              color: Colors.white,
+              size: 20.tsp,
+            ),
+          ),
+          Positioned(
+            top: -4.th,
+            right: -4.tw,
+            child: Container(
+              constraints: BoxConstraints(minWidth: 18.tw, minHeight: 18.tw),
+              padding: EdgeInsets.symmetric(horizontal: 4.tw),
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                color: const Color(0xFFE53935),
+                borderRadius: BorderRadius.circular(999),
+                border: Border.all(color: Colors.white, width: 1.5),
+              ),
+              child: Text(
+                count > 99 ? '99+' : '$count',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 10.tsp,
+                  fontWeight: FontWeight.w800,
+                  height: 1,
+                ),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }

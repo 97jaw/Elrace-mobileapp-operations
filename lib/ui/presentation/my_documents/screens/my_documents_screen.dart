@@ -193,7 +193,7 @@ class _MyDocumentsScreenState extends State<MyDocumentsScreen> {
     }
 
     final token = SharedPref.getLoginData().result?.token ?? '';
-    final url = Uri.parse('${UrlUtil.baseUrl}get_attachment_details');
+    final url = Uri.parse('${UrlUtil.baseUrl}v2/get_attachment_details');
     final headers = {
       'Content-Type': 'application/json',
       'Accept': 'application/json',

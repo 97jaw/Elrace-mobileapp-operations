@@ -111,12 +111,37 @@ class CircularAnnouncementResponse {
   final List<CircularAnnouncementItem> circulars;
   final List<CircularAnnouncementItem> announcements;
 
+  /// Records dated this year (`current_year_counters`); null on older servers.
+  final int? currentYearCircularCount;
+  final int? currentYearAnnouncementCount;
+
+  /// From `pagination`; false when the response was not paged.
+  final bool circularHasMore;
+  final bool announcementHasMore;
+
   const CircularAnnouncementResponse({
     required this.circularCount,
     required this.announcementCount,
     required this.circulars,
     required this.announcements,
+    this.currentYearCircularCount,
+    this.currentYearAnnouncementCount,
+    this.circularHasMore = false,
+    this.announcementHasMore = false,
   });
+
+  /// Current-year total, counted locally when the server has no counters.
+  int get currentYearTotal {
+    if (currentYearCircularCount != null ||
+        currentYearAnnouncementCount != null) {
+      return (currentYearCircularCount ?? 0) +
+          (currentYearAnnouncementCount ?? 0);
+    }
+    final year = DateTime.now().year;
+    return [...circulars, ...announcements]
+        .where((item) => item.date?.year == year)
+        .length;
+  }
 
   /// Factory constructor to parse from API response
   factory CircularAnnouncementResponse.fromJson(Map<String, dynamic> json) {
@@ -179,11 +204,24 @@ class CircularAnnouncementResponse {
           .toList(growable: false);
     }
 
+    final yearCounters = result['current_year_counters'];
+    final pagination = result['pagination'];
+
     return CircularAnnouncementResponse(
       circularCount: circularCount,
       announcementCount: announcementCount,
       circulars: finalCirculars,
       announcements: finalAnnouncements,
+      currentYearCircularCount: yearCounters is Map
+          ? (yearCounters['circular'] as num?)?.toInt()
+          : null,
+      currentYearAnnouncementCount: yearCounters is Map
+          ? (yearCounters['announcement'] as num?)?.toInt()
+          : null,
+      circularHasMore:
+          pagination is Map && pagination['circular_has_more'] == true,
+      announcementHasMore:
+          pagination is Map && pagination['announcement_has_more'] == true,
     );
   }
 

@@ -9,6 +9,7 @@ import 'package:el_race/core/services/notification_storage_service.dart';
 import 'package:el_race/core/utils/shared_pref.dart';
 import 'package:el_race/data/services/prayer_audio_service.dart';
 import 'package:el_race/ui/chat/chat_screen.dart';
+import 'package:el_race/ui/presentation/hr_management/hr_circular_announcements_screen.dart';
 import 'package:el_race/ui/presentation/tasks/tasks_screen.dart';
 import 'package:el_race/ui/presentation/tasks_dashboard/screens/task_details.dart'
     as firebase_task_details;
@@ -801,7 +802,55 @@ class FirebaseService {
       return;
     }
 
+    if (_isCircularAnnouncementPayload(payloadData, category)) {
+      _handleCircularAnnouncementTap(payload, payloadData, category);
+      return;
+    }
+
     print('   - View-only notification; no navigation.');
+  }
+
+  static bool _isCircularAnnouncementPayload(
+    Map<String, dynamic> payloadData,
+    String category,
+  ) {
+    return category == 'circular' ||
+        category == 'announcement' ||
+        payloadData['model']?.toString() == 'odx.announcement';
+  }
+
+  static void _handleCircularAnnouncementTap(
+    String? rawPayload,
+    Map<String, dynamic> payloadData,
+    String category,
+  ) {
+    final navigator = navKey.currentState;
+    if (navigator == null || navKey.currentContext == null || !_isHomeReady) {
+      _pendingChatTapPayload = rawPayload;
+      print('   - Circular/announcement tap queued until navigation is ready.');
+      return;
+    }
+
+    final isAnnouncement = category == 'announcement';
+    final recordId = int.tryParse(
+      (payloadData['record_id'] ?? payloadData['id'] ?? '').toString(),
+    );
+
+    try {
+      navigator.push(
+        MaterialPageRoute(
+          builder: (_) => HrCircularAnnouncementsScreen(
+            initialTabIndex: isAnnouncement ? 1 : 0,
+            autoOpenItemId: recordId,
+            autoOpenCategory: isAnnouncement ? 'announcement' : 'circular',
+          ),
+          settings: const RouteSettings(name: '/circular-announcements'),
+        ),
+      );
+      print('   - Opened circulars & announcements (id=$recordId)');
+    } catch (e) {
+      print('   - Failed to navigate for circular/announcement tap: $e');
+    }
   }
 
   static bool _isTaskOrTicketNotificationPayload(

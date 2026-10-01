@@ -434,7 +434,7 @@ class ProjectRemoteDataSource implements ProjectRemoteDataSourceImpl {
       "Authorization": "Bearer $token",
     };
 
-    final url = Uri.parse("${UrlUtil.baseUrl}get_project_attachments");
+    final url = Uri.parse("${UrlUtil.baseUrl}v2/get_project_attachments");
 
     // Build params with optional folder_type
     final params = <String, dynamic>{
