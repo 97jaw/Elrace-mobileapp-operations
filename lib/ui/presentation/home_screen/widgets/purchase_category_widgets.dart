@@ -86,32 +86,15 @@ class PurchaseCategoryLpoCard extends ConsumerWidget {
             ),
           ),
           SizedBox(height: 8.uh),
-          IntrinsicHeight(
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                _LpoStatColumn(
-                  label: 'Total',
-                  value: '${data.pendingCount + data.approvedCount}',
-                  valueColor: Colors.white,
-                  valueFontSize: 26.usp,
-                ),
-                const _LpoStatDivider(),
-                _LpoStatColumn(
-                  label: 'Open',
-                  value: data.pendingLabel,
-                  valueColor: const Color(0xFFF59E0D),
-                  valueFontSize: 26.usp,
-                ),
-                const _LpoStatDivider(),
-                _LpoStatColumn(
-                  label: 'Closed',
-                  value: data.approvedLabel,
-                  valueColor: const Color(0xFF4ADE80),
-                  valueFontSize: 26.usp,
-                ),
-              ],
-            ),
+          Row(
+            children: [
+              _LpoStatColumn(
+                label: 'Total LPO',
+                value: data.totalCountLabel,
+                valueColor: Colors.white,
+                valueFontSize: 26.usp,
+              ),
+            ],
           ),
           SizedBox(height: 6.uh),
           if (data.trendLabel.isNotEmpty)
@@ -204,8 +187,8 @@ class _LpoFullCardShell extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final innerRadius =
-        (22.ur - CategoryWidgetGradientBorder.width).clamp(0.0, double.infinity);
+    final innerRadius = (22.ur - CategoryWidgetGradientBorder.width)
+        .clamp(0.0, double.infinity);
 
     return LayoutBuilder(
       builder: (context, constraints) {
@@ -294,7 +277,8 @@ class _LpoIconBadge extends StatelessWidget {
           ),
         ],
       ),
-      child: Icon(Icons.receipt_long_rounded, size: 18.usp, color: Colors.white),
+      child:
+          Icon(Icons.receipt_long_rounded, size: 18.usp, color: Colors.white),
     );
   }
 }
@@ -345,29 +329,6 @@ class _LpoStatColumn extends StatelessWidget {
             ),
           ),
         ],
-      ),
-    );
-  }
-}
-
-class _LpoStatDivider extends StatelessWidget {
-  const _LpoStatDivider();
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: 1,
-      margin: EdgeInsets.symmetric(horizontal: 8.w),
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          colors: [
-            Colors.transparent,
-            Colors.white.withValues(alpha: 0.18),
-            Colors.transparent,
-          ],
-        ),
       ),
     );
   }

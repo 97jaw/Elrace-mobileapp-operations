@@ -5,6 +5,8 @@ import 'package:intl/intl.dart';
 
 import '../data/content_model.dart';
 import '../theme/media_theme.dart';
+import '../utils/media_pdf_pages.dart';
+import 'media_pdf_cover_image.dart';
 
 class MediaContentThumbnail extends StatelessWidget {
   const MediaContentThumbnail({
@@ -37,8 +39,16 @@ class MediaContentThumbnail extends StatelessWidget {
       );
     }
 
+    final hasCover = (content.thumbnailUrl ?? '').trim().isNotEmpty;
+
     Widget image;
-    if (url.isEmpty) {
+    if (!hasCover && MediaPdfPages.canRender(content)) {
+      image = MediaPdfCoverImage(
+        content: content,
+        headers: imageHeaders,
+        fallback: placeholder(),
+      );
+    } else if (url.isEmpty) {
       image = placeholder();
     } else {
       image = Image.network(

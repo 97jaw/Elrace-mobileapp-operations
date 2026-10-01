@@ -10,6 +10,8 @@ import 'package:el_race/utils/color_utils.dart';
 import 'package:el_race/ui/presentation/task_sheet/task_sheet_screen.dart';
 import 'package:http/http.dart' as http;
 import 'package:el_race/resources/app_colors.dart';
+import 'package:el_race/core/timesheet/network/timesheet_odoo_api_catalog.dart';
+import 'package:el_race/core/utils/shared_pref.dart';
 
 
 class EmployeeShiftRequestPage extends StatefulWidget {
@@ -134,22 +136,44 @@ class _EmployeeShiftRequestPageState extends State<EmployeeShiftRequestPage> {
       }
     };
 
+    final token = SharedPref.getLoginData().result?.token;
+    if (token == null || token.isEmpty) {
+      _showDialogMessage("Your session has expired. Please sign in again.");
+      return false;
+    }
+
+    Future<http.Response> post(String path) => http.post(
+          Uri.parse("https://erp.elrace.com/api$path"),
+          headers: {
+            "Content-Type": "application/json",
+            "Accept": "application/json",
+            "Authorization": "Bearer $token",
+          },
+          body: jsonEncode(body),
+        );
+
     try {
-      final response = await http.post(
-        Uri.parse("https://erp.elrace.com/api/timesheet/submit"),
-        headers: {
-          "Content-Type": "application/json",
-          "Accept": "application/json",
-        },
-        body: jsonEncode(body),
-      );
+      const v2Path = TimesheetOdooApiCatalog.submitTimesheet;
+      var response = await post(v2Path);
+      dynamic result =
+          response.statusCode == 404 ? null : jsonDecode(response.body);
+      final routeMissing = response.statusCode == 404 ||
+          (result is Map && result['error']?['code']?.toString() == '404');
+      if (routeMissing) {
+        response = await post(TimesheetOdooApiCatalog.legacyFallback[v2Path]!);
+        result = jsonDecode(response.body);
+      }
 
-      final result = jsonDecode(response.body);
-
-      if (response.statusCode == 200 && result['result']['success'] == true) {
+      final payload = result is Map ? result['result'] : null;
+      if (response.statusCode == 200 &&
+          payload is Map &&
+          payload['success'] == true) {
         return true;
       } else {
-        _showDialogMessage(result['result']['message'] ?? "Submission failed.");
+        _showDialogMessage(
+          (payload is Map ? payload['message']?.toString() : null) ??
+              "Submission failed.",
+        );
         return false;
       }
     } catch (e) {

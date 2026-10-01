@@ -96,9 +96,11 @@ class MediaItemWidget extends StatelessWidget {
       );
     }
 
-    final Widget inner = imageUrl.startsWith('assets/')
-        ? buildAssetImage()
-        : buildNetworkImage();
+    final Widget inner = imageUrl.isEmpty
+        ? placeholder()
+        : imageUrl.startsWith('assets/')
+            ? buildAssetImage()
+            : buildNetworkImage();
 
     return Container(
       decoration: BoxDecoration(

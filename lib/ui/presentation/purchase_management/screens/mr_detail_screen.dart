@@ -1,4 +1,5 @@
 import 'package:el_race/core/utils/responsive_breakpoints.dart';
+import 'package:el_race/core/security/signed_file_links.dart';
 import 'package:el_race/ui/presentation/purchase_management/data/purchase_models.dart';
 import 'package:el_race/ui/presentation/purchase_management/data/purchase_status.dart';
 import 'package:el_race/ui/presentation/purchase_management/providers/purchase_providers.dart';
@@ -394,7 +395,9 @@ class _AttachmentRow extends StatelessWidget {
             icon: const Icon(Icons.open_in_new_rounded),
             onPressed: () async {
               final uri = Uri.tryParse(file.url);
-              if (uri != null) await launchUrl(uri);
+              if (uri != null) {
+                await launchUrl(await SignedFileLinks.resolve(uri));
+              }
             },
           ),
         ],

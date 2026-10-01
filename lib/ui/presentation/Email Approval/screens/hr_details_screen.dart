@@ -1,4 +1,5 @@
 import 'package:el_race/core/utils/responsive_breakpoints.dart';
+import 'package:el_race/core/security/signed_file_links.dart';
 import 'dart:convert';
 
 import 'package:el_race/core/utils/shared_pref.dart';
@@ -1225,10 +1226,10 @@ class _HrDetailsScreenState extends State<HrDetailsScreen> {
       return;
     }
 
-    final parsed = Uri.tryParse(value);
-    final isValidWebUrl = parsed != null &&
-        parsed.hasScheme &&
-        (parsed.scheme == 'http' || parsed.scheme == 'https');
+    final raw = Uri.tryParse(value);
+    final isValidWebUrl = raw != null &&
+        raw.hasScheme &&
+        (raw.scheme == 'http' || raw.scheme == 'https');
     if (!isValidWebUrl) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -1237,6 +1238,7 @@ class _HrDetailsScreenState extends State<HrDetailsScreen> {
       return;
     }
 
+    final parsed = await SignedFileLinks.resolve(raw);
     final canLaunch = await canLaunchUrl(parsed);
     if (!canLaunch) {
       if (!mounted) return;

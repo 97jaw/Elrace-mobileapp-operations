@@ -35,6 +35,7 @@ import 'package:el_race/ui/presentation/tasks/logic/tasks_provider.dart';
 import 'package:el_race/ui/presentation/home_screen/widgets/home_productivity_navigation.dart';
 import 'package:el_race/core/timesheet/routing/timesheet_route_names.dart';
 import 'package:el_race/utils/custom_navigate.dart';
+import 'package:el_race/utils/dimens.dart';
 import 'package:el_race/utils/Util.dart';
 import 'package:el_race/utils/orientation_helper.dart';
 import 'dart:ui';
@@ -56,8 +57,10 @@ import '../bloc/home_bloc.dart';
 enum HomeTabletWidgetsPane {
   /// HR + Projects + Clients/Vendors
   section3,
+
   /// Purchase + Productivity + Finance + Library + Coming Soon
   section2,
+
   /// Full categorized list (phone / single-column)
   all,
 }
@@ -873,8 +876,7 @@ class _ListViewWidgetsState extends State<ListViewWidgets> {
 
   /// Phone keeps side-by-side rows; tablet columns scale phone-designed cards
   /// into the narrow pane without ScreenUtil overflow.
-  bool get _isTabletPane =>
-      widget.tabletPane != HomeTabletWidgetsPane.all;
+  bool get _isTabletPane => widget.tabletPane != HomeTabletWidgetsPane.all;
 
   static const double _halfDesignWidth = 175;
   static const double _fullDesignWidth = 360;
@@ -1160,8 +1162,8 @@ class _ListViewWidgetsState extends State<ListViewWidgets> {
       children.add(
         _fullWidthCard(
           LibraryCategoryPrayerTimesCard(tabletCompact: tabletCompact),
-          height: _isTabletPane ? 236 : 220.h,
-          designHeight: 220,
+          height: (AppDimen.homeWidgetCardHeight + 13).w,
+          designHeight: AppDimen.homeWidgetCardHeight + 13,
         ),
       );
       children.add(SizedBox(height: _isTabletPane ? 14 : 14.h));

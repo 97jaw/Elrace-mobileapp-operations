@@ -60,16 +60,7 @@ class _CircularAnnouncementFileViewerState
       // Get authentication token
       final token = SharedPref.getLoginData().result?.token;
 
-      // Build URL with access_token (required for Odoo web/content endpoints)
-      String downloadUrl = widget.item.fileUrl!;
-      if (token != null && token.isNotEmpty) {
-        // Add access_token as query parameter for Odoo file access
-        if (downloadUrl.contains('?')) {
-          downloadUrl = '$downloadUrl&access_token=$token';
-        } else {
-          downloadUrl = '$downloadUrl?access_token=$token';
-        }
-      }
+      final downloadUrl = widget.item.fileUrl!;
 
       // Prepare headers (keep Authorization header as backup)
       final headers = <String, String>{

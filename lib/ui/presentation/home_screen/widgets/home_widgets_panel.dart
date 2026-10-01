@@ -68,6 +68,7 @@ class _HomeDraggableWidgetsPanelState extends State<HomeDraggableWidgetsPanel>
   static const _collapseDuration = Duration(milliseconds: 280);
   static const _fullExpandThreshold = 0.98;
   static const _mergedThreshold = 0.82;
+
   /// Scroll only after the panel is effectively full — avoids mid-drag
   /// physics / gesture swaps that feel like hitching.
   static const _scrollEnableAt = 0.995;
@@ -353,7 +354,7 @@ class _HomeDraggableWidgetsPanelState extends State<HomeDraggableWidgetsPanel>
             child: SingleChildScrollView(
               controller: _scrollController,
               physics: scrollPhysics,
-              padding: EdgeInsets.only(bottom: bottomInset + 110.h),
+              padding: EdgeInsets.only(bottom: bottomInset + 80.h),
               child: RepaintBoundary(
                 child: Align(
                   alignment: Alignment.topCenter,
@@ -427,8 +428,7 @@ class _LinkedWidgetList extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     // Soft bottom-edge hint only while collapsed — never a full grey veil over cards.
-    final edgeFade =
-        (1 - ((expandProgress - 0.05) / 0.55)).clamp(0.0, 1.0);
+    final edgeFade = (1 - ((expandProgress - 0.05) / 0.55)).clamp(0.0, 1.0);
 
     return Stack(
       clipBehavior: Clip.hardEdge,
@@ -465,7 +465,8 @@ class _LinkedWidgetList extends StatelessWidget {
                     end: Alignment.bottomCenter,
                     colors: [
                       const Color(0xFFBCC2CB).withValues(alpha: 0),
-                      const Color(0xFFBCC2CB).withValues(alpha: 0.42 * edgeFade),
+                      const Color(0xFFBCC2CB)
+                          .withValues(alpha: 0.42 * edgeFade),
                     ],
                   ),
                 ),

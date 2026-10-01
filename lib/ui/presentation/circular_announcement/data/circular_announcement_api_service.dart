@@ -20,8 +20,15 @@ class CircularAnnouncementApiException implements Exception {
 class CircularAnnouncementApiService {
   static const String baseUrl = 'https://erp.elrace.com/api';
 
-  /// Fetch circulars and announcements from API
-  Future<CircularAnnouncementResponse> fetchCircularAnnouncements() async {
+  /// Fetch circulars and announcements from API.
+  ///
+  /// Without [page] the backend returns every record. [category]
+  /// (`circular` / `announcement`) pages a single tab.
+  Future<CircularAnnouncementResponse> fetchCircularAnnouncements({
+    int? page,
+    int? pageSize,
+    String? category,
+  }) async {
     try {
       // Get authentication token
       final token = SharedPref.getLoginData().result?.token;
@@ -30,7 +37,7 @@ class CircularAnnouncementApiService {
             'Authentication token not found');
       }
 
-      final url = Uri.parse('$baseUrl/get_circular_announcement');
+      final url = Uri.parse('$baseUrl/v3/get_circular_announcement');
 
       final headers = {
         'Content-Type': 'application/json',
@@ -40,7 +47,11 @@ class CircularAnnouncementApiService {
 
       final body = jsonEncode({
         'jsonrpc': '2.0',
-        'params': {},
+        'params': {
+          if (page != null) 'page': page,
+          if (pageSize != null) 'page_size': pageSize,
+          if (category != null) 'category': category,
+        },
       });
 
       // Log request
@@ -88,19 +99,6 @@ class CircularAnnouncementApiService {
       if (e is CircularAnnouncementApiException) rethrow;
       throw CircularAnnouncementApiException(
           'Failed to fetch circulars and announcements: $e');
-    }
-  }
-
-  /// Get file download URL with authentication
-  String getAuthenticatedFileUrl(String fileUrl) {
-    final token = SharedPref.getLoginData().result?.token;
-    if (token == null) return fileUrl;
-
-    // If URL already has query params, append token, else add it
-    if (fileUrl.contains('?')) {
-      return '$fileUrl&access_token=$token';
-    } else {
-      return '$fileUrl?access_token=$token';
     }
   }
 }

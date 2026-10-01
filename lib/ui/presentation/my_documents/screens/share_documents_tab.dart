@@ -454,7 +454,7 @@ class _ShareDocumentsTabState extends State<ShareDocumentsTab> {
       throw Exception('Invalid folder id');
     }
 
-    final url = Uri.parse('https://erp.elrace.com/api/cloud/folder/details');
+    final url = Uri.parse('https://erp.elrace.com/api/v2/cloud/folder/details');
     final headers = {
       'Content-Type': 'application/json',
       'Accept': 'application/json',

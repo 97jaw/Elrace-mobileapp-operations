@@ -48,7 +48,7 @@ class DocumentAttachmentOpener {
     required int attachmentId,
   }) async {
     final token = SharedPref.getLoginData().result?.token ?? '';
-    final url = Uri.parse('${UrlUtil.baseUrl}get_attachment_details');
+    final url = Uri.parse('${UrlUtil.baseUrl}v2/get_attachment_details');
     final headers = {
       'Content-Type': 'application/json',
       'Accept': 'application/json',
@@ -264,8 +264,6 @@ class DocumentAttachmentOpener {
         'https://erp.elrace.com/web/content/$attachmentId?download=true',
         'https://erp.elrace.com/web/content/$attachmentId',
         'https://erp.elrace.com/web/content/ir.attachment/$attachmentId/datas?download=true',
-        if (token.isNotEmpty)
-          'https://erp.elrace.com/web/content/$attachmentId?download=true&access_token=$token',
       ];
       for (final candidate in webUrls) {
         final bytes = await tryGet(Uri.parse(candidate), authHeaders);

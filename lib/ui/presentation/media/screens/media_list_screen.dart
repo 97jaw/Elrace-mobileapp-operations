@@ -11,7 +11,6 @@ import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_translate/flutter_translate.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:http/http.dart' as http;
 import 'package:intl/intl.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -23,12 +22,13 @@ import '../theme/media_theme.dart';
 import '../widgets/media_item_widget.dart';
 import '../widgets/content_item_widget.dart';
 import '../repository/i_media_repository.dart';
+import '../utils/media_pdf_pages.dart';
 import '../utils/media_video_preloader.dart';
 import '../widgets/media_content_landing_screen.dart';
+import '../widgets/media_document_viewer.dart';
 import '../widgets/media_photo_viewer.dart';
 import '../widgets/media_videos_landing_screen.dart';
 import 'yoyo_video_player_screen.dart';
-import '../../lpo/screens/lpo_pdf_viewer_screen.dart';
 
 /// Toggle to roll back to legacy light UI for all media tabs.
 const bool kMediaVideosLandingRedesign = true;
@@ -1079,55 +1079,17 @@ class _MediaListScreenState extends State<MediaListScreen> {
 
   bool _isPdfContent(ContentModel content) => content.isPdf;
 
-  /// Checks URL content-type via HEAD request, then opens PDF viewer or photo preview.
+  /// Opens the file's pages as photos; items without a file fall back to the
+  /// thumbnail gallery.
   Future<void> _openPhotoOrPdf(
       BuildContext context, ContentModel content) async {
-    // First check static indicators (filename / known fileType)
-    if (_isPdfContent(content)) {
-      if (!context.mounted) return;
-      Navigator.push(
+    if (MediaPdfPages.canRender(content)) {
+      await MediaDocumentViewer.open(
         context,
-        MaterialPageRoute(
-          builder: (_) => LpoPdfViewerScreen(
-            pdfUrl: content.previewUrl,
-            title: content.displayName,
-          ),
-        ),
+        content: content,
+        headers: _imageHeaders,
       );
       return;
-    }
-
-    // For URLs without extension (e.g. /my/public/file/12345),
-    // do a HEAD request to detect the actual content-type.
-    final rawUrl = content.previewUrl.trim();
-    final hasNoExtension =
-        !rawUrl.contains('?') && !rawUrl.split('/').last.contains('.');
-    if (hasNoExtension && rawUrl.isNotEmpty) {
-      try {
-        final token = SharedPref.getLoginData().result?.token ?? '';
-        final headers = token.isNotEmpty
-            ? {'Authorization': 'Bearer $token'}
-            : <String, String>{};
-        final headResp = await http
-            .head(Uri.parse(rawUrl), headers: headers)
-            .timeout(const Duration(seconds: 6));
-        final ct = (headResp.headers['content-type'] ?? '').toLowerCase();
-        if (!context.mounted) return;
-        if (ct.contains('pdf')) {
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (_) => LpoPdfViewerScreen(
-                pdfUrl: rawUrl,
-                title: content.displayName,
-              ),
-            ),
-          );
-          return;
-        }
-      } catch (_) {
-        // fall through to photo preview on error
-      }
     }
 
     if (!context.mounted) return;

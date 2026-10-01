@@ -6,10 +6,11 @@ abstract final class TimesheetOdooApiCatalog {
   // --- Existing production endpoints (reuse in FM) ---
 
   /// **Attendance write** — same as HR task sheet "Submit timesheet".
-  static const String submitTimesheet = '/timesheet/submit';
+  /// JWT-protected v2; the public v1 stays live for the old app.
+  static const String submitTimesheet = '/v2/timesheet/submit';
 
-  /// Foreman / user task list (used by `task_sheet_screen.dart`).
-  static const String tasksList = '/tasks/list';
+  /// Foreman / user task list. v2 resolves the user from the JWT.
+  static const String tasksList = '/v2/tasks/list';
 
   /// Projects list (used by `get_projects`, swipe button, horizontal slider).
   static const String getProjects = '/get_projects';
@@ -38,21 +39,32 @@ abstract final class TimesheetOdooApiCatalog {
   static const String timesheetLaborList = '/timesheet/labor_list';
 
   /// Timesheet rows for a task on a date (used by `EmptyShiftPage`).
-  static const String taskTimesheetsList = '/task/timesheets/list';
+  static const String taskTimesheetsList = '/v2/task/timesheets/list';
 
   /// Timesheet rows for a project in a date range (Recent / Show all).
   /// Queries analytic lines by ``project_id`` — does not depend on tasks/list.
-  static const String projectTimesheetsList = '/project/timesheets/list';
+  static const String projectTimesheetsList = '/v2/project/timesheets/list';
 
   /// Aggregated counts per day for a task (used by `TaskDetailsPage`).
-  static const String countTimesheetsByDays = '/count/timesheets/by/days';
+  static const String countTimesheetsByDays = '/v2/count/timesheets/by/days';
 
   /// Geofence check (used by swipe / location flows).
   static const String validateUserLocation = '/validate_user_location';
 
   /// Employee roster for timesheet picker (via `TeamMembersApiService`).
-  static const String employeeList = '/employee/list';
+  static const String employeeList = '/v2/employee/list';
   static const String employeeListX = '/employee/listx';
+
+  /// Public v1 route for each v2 path, used only when the server answers
+  /// 404 because the v2 route is not deployed yet.
+  static const Map<String, String> legacyFallback = {
+    submitTimesheet: '/timesheet/submit',
+    tasksList: '/tasks/list',
+    taskTimesheetsList: '/task/timesheets/list',
+    projectTimesheetsList: '/project/timesheets/list',
+    countTimesheetsByDays: '/count/timesheets/by/days',
+    employeeList: '/employee/list',
+  };
 
   // --- New Module 6 endpoints (SRD §14.1 — implement on Odoo) ---
 

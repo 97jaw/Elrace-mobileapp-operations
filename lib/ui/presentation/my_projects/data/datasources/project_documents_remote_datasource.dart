@@ -84,7 +84,7 @@ class ProjectDocumentsRemoteDataSource {
     ProjectsGroupHubFilters filters,
   ) async {
     final response = await _get(
-      'v2/documents/dashboard',
+      'v3/documents/dashboard',
       _withFilters(filters),
     );
     return ProjectDocumentsDashboardData.fromJson(_decode(response));
@@ -99,7 +99,7 @@ class ProjectDocumentsRemoteDataSource {
     int offset = 0,
   }) async {
     final response = await _get(
-      'v2/documents/folder_projects',
+      'v3/documents/folder_projects',
       _withFilters(
         filters,
         extra: {
@@ -141,7 +141,7 @@ class ProjectDocumentsRemoteDataSource {
     int offset = 0,
   }) async {
     final response = await _get(
-      'v2/documents/files',
+      'v3/documents/files',
       _withFilters(
         filters,
         extra: {
@@ -185,7 +185,7 @@ class ProjectDocumentsRemoteDataSource {
     int offset = 0,
   }) async {
     final response = await _get(
-      'v2/documents/project_files',
+      'v3/documents/project_files',
       _withFilters(
         filters,
         extra: {
@@ -265,7 +265,7 @@ class ProjectDocumentsRemoteDataSource {
     int offset = 0,
   }) async {
     final response = await _get(
-      'v2/documents/uploader_projects',
+      'v3/documents/uploader_projects',
       _withFilters(
         filters,
         extra: {

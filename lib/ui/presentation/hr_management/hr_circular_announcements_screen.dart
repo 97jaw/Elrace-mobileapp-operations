@@ -37,9 +37,18 @@ class _HrCircularAnnouncementsScreenState
   final CircularAnnouncementApiService _apiService =
       CircularAnnouncementApiService();
 
+  static const int _pageSize = 10;
+  static const int _autoOpenMaxPages = 5;
+
   bool _isLoading = true;
   String? _error;
-  CircularAnnouncementResponse? _data;
+  int _circularCount = 0;
+  int _announcementCount = 0;
+  final List<CircularAnnouncementItem> _circulars = [];
+  final List<CircularAnnouncementItem> _announcements = [];
+  final Map<bool, int> _page = {true: 1, false: 1};
+  final Map<bool, bool> _hasMore = {true: false, false: false};
+  final Map<bool, bool> _loadingMore = {true: false, false: false};
 
   @override
   void initState() {
@@ -68,10 +77,24 @@ class _HrCircularAnnouncementsScreenState
     });
 
     try {
-      final response = await _apiService.fetchCircularAnnouncements();
+      final response = await _apiService.fetchCircularAnnouncements(
+        page: 1,
+        pageSize: _pageSize,
+      );
       if (!mounted) return;
       setState(() {
-        _data = response;
+        _circularCount = response.circularCount;
+        _announcementCount = response.announcementCount;
+        _circulars
+          ..clear()
+          ..addAll(response.circulars);
+        _announcements
+          ..clear()
+          ..addAll(response.announcements);
+        _page[true] = 1;
+        _page[false] = 1;
+        _hasMore[true] = response.circularHasMore;
+        _hasMore[false] = response.announcementHasMore;
         _isLoading = false;
       });
       if (widget.autoOpenItemId != null && widget.autoOpenCategory != null) {
@@ -86,37 +109,58 @@ class _HrCircularAnnouncementsScreenState
     }
   }
 
-  void _autoOpenItem() {
-    if (_data == null || widget.autoOpenItemId == null) return;
+  /// Appends the next page of one tab. Returns false when nothing was loaded.
+  Future<bool> _loadMore({required bool isCircular}) async {
+    if (_loadingMore[isCircular]! || !_hasMore[isCircular]!) return false;
+    setState(() => _loadingMore[isCircular] = true);
+    try {
+      final nextPage = _page[isCircular]! + 1;
+      final response = await _apiService.fetchCircularAnnouncements(
+        page: nextPage,
+        pageSize: _pageSize,
+        category: isCircular ? 'circular' : 'announcement',
+      );
+      if (!mounted) return false;
+      final target = isCircular ? _circulars : _announcements;
+      final incoming = isCircular ? response.circulars : response.announcements;
+      final known = target.map((item) => item.id).toSet();
+      setState(() {
+        target.addAll(incoming.where((item) => known.add(item.id)));
+        _page[isCircular] = nextPage;
+        _hasMore[isCircular] = isCircular
+            ? response.circularHasMore
+            : response.announcementHasMore;
+        _loadingMore[isCircular] = false;
+      });
+      return incoming.isNotEmpty;
+    } catch (e) {
+      debugPrint('Circulars load more failed: $e');
+      if (mounted) setState(() => _loadingMore[isCircular] = false);
+      return false;
+    }
+  }
 
-    if (widget.autoOpenCategory?.toLowerCase() == 'announcement') {
-      _tabController.animateTo(1);
-      final item = _data!.announcements.firstWhere(
-        (a) => a.id == widget.autoOpenItemId,
-        orElse: () => const CircularAnnouncementItem(
-          id: -1,
-          title: '',
-          description: '',
-          category: '',
-        ),
-      );
-      if (item.id != -1 && item.hasFile) {
-        Future.delayed(const Duration(milliseconds: 400), () => _openFile(item));
-      }
-    } else {
-      _tabController.animateTo(0);
-      final item = _data!.circulars.firstWhere(
-        (c) => c.id == widget.autoOpenItemId,
-        orElse: () => const CircularAnnouncementItem(
-          id: -1,
-          title: '',
-          description: '',
-          category: '',
-        ),
-      );
-      if (item.id != -1 && item.hasFile) {
-        Future.delayed(const Duration(milliseconds: 400), () => _openFile(item));
-      }
+  Future<void> _autoOpenItem() async {
+    final id = widget.autoOpenItemId;
+    if (id == null) return;
+
+    final isCircular = widget.autoOpenCategory?.toLowerCase() != 'announcement';
+    _tabController.animateTo(isCircular ? 0 : 1);
+    final items = isCircular ? _circulars : _announcements;
+
+    var match = items.where((item) => item.id == id).firstOrNull;
+    var pagesLoaded = 0;
+    while (match == null && pagesLoaded < _autoOpenMaxPages) {
+      if (!await _loadMore(isCircular: isCircular)) break;
+      pagesLoaded++;
+      match = items.where((item) => item.id == id).firstOrNull;
+    }
+
+    if (match != null && match.hasFile && mounted) {
+      final item = match;
+      Future.delayed(const Duration(milliseconds: 400), () {
+        if (mounted) _openFile(item);
+      });
     }
   }
 
@@ -170,8 +214,8 @@ class _HrCircularAnnouncementsScreenState
   }
 
   Widget _buildTabBar() {
-    final circularCount = _data?.circularCount ?? 0;
-    final announcementCount = _data?.announcementCount ?? 0;
+    final circularCount = _circularCount;
+    final announcementCount = _announcementCount;
 
     return Padding(
       padding: EdgeInsets.fromLTRB(16.tw, 14.th, 16.tw, 8.th),
@@ -202,7 +246,9 @@ class _HrCircularAnnouncementsScreenState
             fontWeight: FontWeight.w600,
           ),
           tabs: [
-            Tab(text: 'Circulars${circularCount > 0 ? ' ($circularCount)' : ''}'),
+            Tab(
+                text:
+                    'Circulars${circularCount > 0 ? ' ($circularCount)' : ''}'),
             Tab(
               text:
                   'Announcements${announcementCount > 0 ? ' ($announcementCount)' : ''}',
@@ -224,8 +270,8 @@ class _HrCircularAnnouncementsScreenState
     return TabBarView(
       controller: _tabController,
       children: [
-        _buildList(_data?.circulars ?? const [], isCircular: true),
-        _buildList(_data?.announcements ?? const [], isCircular: false),
+        _buildList(_circulars, isCircular: true),
+        _buildList(_announcements, isCircular: false),
       ],
     );
   }
@@ -237,7 +283,8 @@ class _HrCircularAnnouncementsScreenState
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.error_outline, size: 48.tsp, color: HrModuleColors.danger),
+            Icon(Icons.error_outline,
+                size: 48.tsp, color: HrModuleColors.danger),
             SizedBox(height: 12.th),
             Text(
               translate('common.error_occurred'),
@@ -281,18 +328,41 @@ class _HrCircularAnnouncementsScreenState
       );
     }
 
+    final hasMore = _hasMore[isCircular]!;
     return RefreshIndicator(
       onRefresh: _loadData,
-      child: ListView.separated(
-        padding: EdgeInsets.fromLTRB(
-          16.tw,
-          4.th,
-          16.tw,
-          context.systemBottomInset + 16.th,
+      child: NotificationListener<ScrollNotification>(
+        onNotification: (notification) {
+          if (hasMore && notification.metrics.extentAfter < 300) {
+            _loadMore(isCircular: isCircular);
+          }
+          return false;
+        },
+        child: ListView.separated(
+          padding: EdgeInsets.fromLTRB(
+            16.tw,
+            4.th,
+            16.tw,
+            context.systemBottomInset + 16.th,
+          ),
+          itemCount: items.length + (hasMore ? 1 : 0),
+          separatorBuilder: (_, __) => SizedBox(height: 10.th),
+          itemBuilder: (context, index) {
+            if (index >= items.length) {
+              return Padding(
+                padding: EdgeInsets.symmetric(vertical: 12.th),
+                child: const Center(
+                  child: SizedBox(
+                    width: 22,
+                    height: 22,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  ),
+                ),
+              );
+            }
+            return _buildCard(items[index]);
+          },
         ),
-        itemCount: items.length,
-        separatorBuilder: (_, __) => SizedBox(height: 10.th),
-        itemBuilder: (context, index) => _buildCard(items[index]),
       ),
     );
   }
@@ -311,7 +381,8 @@ class _HrCircularAnnouncementsScreenState
         child: Ink(
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(14.tr),
-            border: Border.all(color: HrModuleColors.border.withValues(alpha: 0.55)),
+            border: Border.all(
+                color: HrModuleColors.border.withValues(alpha: 0.55)),
             boxShadow: HrModuleColors.cardShadow,
           ),
           child: Padding(

@@ -1,4 +1,5 @@
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:el_race/core/security/signed_file_links.dart';
 import 'package:el_race/core/utils/shared_pref.dart';
 import 'package:flutter/material.dart';
 
@@ -41,6 +42,7 @@ class ProjectsCachedImage extends StatelessWidget {
 
     Widget child = CachedNetworkImage(
       imageUrl: url,
+      cacheKey: SignedFileLinks.cacheKeyFor(url),
       width: width,
       height: height,
       fit: fit,
