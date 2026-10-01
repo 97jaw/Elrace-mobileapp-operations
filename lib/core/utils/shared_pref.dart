@@ -106,8 +106,9 @@ class SharedPref {
     final data = checkLoginAndRegistration();
     final isRegistered = data['isRegistered'] as bool;
     final loginData = data['loginResponse'] as LoginResponseModel?;
+    final token = loginData?.result?.token?.trim() ?? '';
 
-    return isRegistered && loginData != null;
+    return isRegistered && token.isNotEmpty;
   }
 
   static LoginResponseModel getLoginData() {
@@ -131,7 +132,8 @@ class SharedPref {
   }
 
   static String getCachedLeaveBalance({String fallback = '0'}) {
-    final modeled = getLoginData().result?.data?.leaveBalance?.toString().trim();
+    final modeled =
+        getLoginData().result?.data?.leaveBalance?.toString().trim();
     if (modeled != null &&
         modeled.isNotEmpty &&
         modeled.toLowerCase() != 'null' &&
@@ -177,7 +179,8 @@ class SharedPref {
   ///
   /// Does **not** replace `default_widgets` with an empty/failed map — that
   /// used to wipe a good login widget payload on session/refresh races.
-  static Future<bool> mergeLoginRoleFields(Map<String, dynamic> roleData) async {
+  static Future<bool> mergeLoginRoleFields(
+      Map<String, dynamic> roleData) async {
     final loginJson = sharedPreferences.getString('loginResponse') ??
         sharedPreferences.getString('LOGIN_RESPONSE');
     if (loginJson == null || loginJson.isEmpty) return false;

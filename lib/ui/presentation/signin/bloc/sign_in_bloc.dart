@@ -61,19 +61,25 @@ class SignInBloc extends Bloc<SignInEvent, SignInState> {
               'Unexpected login payload type: ${decoded.runtimeType}');
         }
         final Map<String, dynamic> json = Map<String, dynamic>.from(decoded);
-        loginResponseModel =
-            await PostLoginSetup.persistLoginResponse(
-                  json,
-                  deviceId: deviceName,
-                ) ??
-                LoginResponseModel.fromJson(json);
+        final candidate = LoginResponseModel.fromJson(
+          PostLoginSetup.normalizeLoginPayload(
+            PostLoginSetup.unwrapRawResponse(json),
+          ),
+        );
+        final token = candidate.result?.token?.trim() ?? '';
 
-        if (loginResponseModel.result?.success == true) {
+        // Persisting a failed response marks the device as signed in.
+        if (candidate.result?.success == true && token.isNotEmpty) {
+          loginResponseModel = await PostLoginSetup.persistLoginResponse(
+                json,
+                deviceId: deviceName,
+              ) ??
+              candidate;
           emit(InitialSignedInST(loginResponse: loginResponseModel));
           emit(const LoadingST(isLoading: false));
         } else {
-          final message = loginResponseModel.result?.message ??
-              'Login failed. Please try again.';
+          final message =
+              candidate.result?.message ?? 'Login failed. Please try again.';
           emit(ErrMsg(msg: message));
           emit(const LoadingST(isLoading: false));
         }

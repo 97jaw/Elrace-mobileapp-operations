@@ -34,3 +34,13 @@ route map and test cases in `elrace_backend_apis/docs/SIGNED_FILE_LINKS_V2.md`).
 - [ ] Deploy `total_count` in `elrace_backend_apis/services/lpo_widget_service.py` (additive; new app shows Total LPO in K/M from it).
 - [ ] Deploy the database-paged `/api/v3/get_circular_announcement` (`services/circular_announcement_service.py`, adds `current_year_counters` and `category`). The new app pages 10 at a time and works against the old server too, but the HRMS badge falls back to downloading the full list until this is deployed.
 - [ ] After old app builds are retired: remove `pending_count` / `approved_count` from the LPO widget payload. The installed app computes Total from them, so removing them now would show 0. Confirm first.
+
+## 5. Rotate the mobile JWT secret (security, critical)
+
+The old signing key `mySuperSecretKey123!` is in git, so anyone with repo access can forge a login token for any user.
+`elrace_backend_apis/utils/jwt_keys.py` signs new tokens with a System Parameter and still accepts old tokens during the transition. No app change is needed and nobody is logged out.
+
+- [ ] Deploy the backend with `utils/jwt_keys.py` (behaves exactly as before until the parameter is set).
+- [ ] Generate a secret on the server (`python3 -c "import secrets; print(secrets.token_urlsafe(64))"`) and set System Parameter `elrace.mobile_jwt_secret` to it. Minimum 32 characters; never commit or share it. Note the date.
+- [ ] 31+ days later (tokens live 30 days): set `elrace.mobile_jwt_accept_legacy` to `False`. Old-key tokens, including forged ones, are rejected from then on.
+- [ ] Not covered, decide separately: the Hub client token (`elrace_web_hub_apis/services/hub_client_login_service.py`) and `pandora_rcchub_apis` QR login still use the old key. Check with the Hub developer whether the Hub verifies the client token itself before changing them.
