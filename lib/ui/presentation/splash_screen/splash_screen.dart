@@ -293,6 +293,7 @@ class _SplashScreenState extends State<SplashScreen> {
     // point splash_screen.dart controls before handing off navigation, since
     // instrumenting the destination screens is out of scope for this file.
     _logGateTiming('navigate-handoff');
+    AppNoticeGate.markAppReady();
 
     try {
       // Check authentication first

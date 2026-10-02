@@ -186,7 +186,7 @@ class _SignInScreenState extends State<SignInScreen> {
           await PostLoginSetup.applyAfterLogin(context);
           if (!mounted) return;
           _hideLoadingDialog();
-          await AppNoticeGate.afterLogin(context);
+          if (!await AppNoticeGate.afterLogin(context)) return;
           if (!mounted) return;
 
           await Navigator.of(context, rootNavigator: true).pushAndRemoveUntil(

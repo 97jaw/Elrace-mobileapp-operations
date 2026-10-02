@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:el_race/core/app_globals.dart';
+import 'package:el_race/core/app_notices/app_notice_gate.dart';
 import 'package:el_race/core/firebase/firebase_session.dart';
 import 'package:el_race/core/services/attendance_status_sync_service.dart';
 import 'package:el_race/core/services/badge_refresh_service.dart';
@@ -89,6 +90,8 @@ class ResumeCoordinator {
       unawaited(PrayerAudioService().enterForegroundMode());
       // VPN block — same resume tier as admin force-logout (popup only).
       unawaited(VpnBlockGuard.instance.checkOnForeground());
+      // App update and maintenance (signed in or not).
+      unawaited(AppNoticeGate.onResume());
       if (SharedPref.isUserAuthenticated()) {
         unawaited(_runAuthenticatedTier1());
       }

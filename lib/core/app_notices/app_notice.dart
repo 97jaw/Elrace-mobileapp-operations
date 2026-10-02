@@ -11,6 +11,7 @@ class AppNotice {
     required this.frequency,
     required this.revision,
     required this.dismissible,
+    this.forceLogout = false,
     this.button,
   });
 
@@ -30,6 +31,9 @@ class AppNotice {
   final String frequency;
   final String revision;
   final bool dismissible;
+
+  /// Maintenance only: sign the user out instead of just blocking.
+  final bool forceLogout;
   final AppNoticeButton? button;
 
   bool get isMaintenance => type == 'maintenance';
@@ -56,6 +60,7 @@ class AppNotice {
       frequency: '${raw['frequency'] ?? 'every_time'}',
       revision: '${raw['revision'] ?? ''}',
       dismissible: raw['dismissible'] != false && type != 'maintenance',
+      forceLogout: type == 'maintenance' && raw['force_logout'] == true,
       button: AppNoticeButton.tryParse(raw['button']),
     );
   }

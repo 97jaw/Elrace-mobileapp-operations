@@ -95,7 +95,7 @@ class _AuthLoadingScreenState extends State<AuthLoadingScreen>
           if (context.mounted) {
             await PostLoginSetup.applyAfterLogin(context);
             if (!context.mounted) return;
-            await AppNoticeGate.afterLogin(context);
+            if (!await AppNoticeGate.afterLogin(context)) return;
             if (!context.mounted) return;
             Navigator.of(context).pushAndRemoveUntil(
               MaterialPageRoute(builder: (_) => const HomeScreen()),
