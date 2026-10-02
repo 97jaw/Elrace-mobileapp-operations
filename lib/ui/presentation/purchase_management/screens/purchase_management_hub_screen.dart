@@ -30,7 +30,7 @@ class PurchaseManagementHubScreen extends ConsumerWidget {
     final testRole = ref.watch(purchaseDevRoleOverrideProvider);
     final overviewAsync = ref.watch(purchaseOverviewProvider);
 
-    ref.watch(recentInvoicesPreviewProvider);
+    if (access.canSeeRecentInvoices) ref.watch(recentInvoicesPreviewProvider);
 
     // Prefer live /purchase/overview authorization so management users are not
     // stuck behind a stale login cache of purchase_scope=none.
@@ -55,8 +55,10 @@ class PurchaseManagementHubScreen extends ConsumerWidget {
         ),
       ),
       data: (overview) {
-        final backendAuthorized = overview.isAuthorized && overview.scope != 'none';
-        if (!access.hasAnyAccess && !backendAuthorized) {
+        final backendAuthorized =
+            overview.isAuthorized && overview.scope != 'none';
+        if (!access.hasAnyAccess &&
+            (access.features != null || !backendAuthorized)) {
           return const _UnauthorizedView();
         }
 
@@ -133,13 +135,14 @@ class _HubBody extends ConsumerWidget {
     return RefreshIndicator(
       color: PurchaseTheme.accentBlue,
       onRefresh: () async {
-        ref.invalidate(recentInvoicesPreviewProvider);
+        final withInvoices = access.canSeeRecentInvoices;
+        if (withInvoices) ref.invalidate(recentInvoicesPreviewProvider);
         final repo = ref.read(purchaseRepositoryProvider);
         final role = ref.read(purchaseDevRoleOverrideProvider);
         await repo.fetchOverview(testRole: role, refresh: true);
         ref.invalidate(purchaseOverviewProvider);
         await ref.read(purchaseOverviewProvider.future);
-        await ref.read(recentInvoicesPreviewProvider.future);
+        if (withInvoices) await ref.read(recentInvoicesPreviewProvider.future);
       },
       child: ListView(
         padding: EdgeInsets.fromLTRB(16.tw, 8.th, 16.tw, 24.th),
@@ -148,53 +151,55 @@ class _HubBody extends ConsumerWidget {
             Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Expanded(
-                  child: PurchaseCompactHubCard(
-                    title: 'RFQs',
-                    primaryValue: formatPurchaseCompact(cards.waitingRfqs),
-                    valueColor: PurchaseTheme.accentDeep,
-                    icon: Icons.request_quote_outlined,
-                    iconColor: const Color(0xFF0D9488),
-                    iconBackground: const Color(0xFFCCFBF1),
-                    badge: cards.rfqQuotationsReceived > 0
-                        ? 'QUOTES'
-                        : 'WAITING',
-                    trendLabel: cards.rfqQuotationsReceived > 0
-                        ? '${formatPurchaseCompact(cards.rfqQuotationsReceived)} recv'
-                        : '${formatPurchaseCompact(cards.totalRfqs)} total',
-                    trendPositive: cards.rfqQuotationsReceived > 0,
-                    subtitle: 'Waiting validation',
-                    onTap: () => Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) =>
-                            PurchaseRfqHubScreen(testRole: testRole),
+                if (access.canSeeRfq)
+                  Expanded(
+                    child: PurchaseCompactHubCard(
+                      title: 'RFQs',
+                      primaryValue: formatPurchaseCompact(cards.waitingRfqs),
+                      valueColor: PurchaseTheme.accentDeep,
+                      icon: Icons.request_quote_outlined,
+                      iconColor: const Color(0xFF0D9488),
+                      iconBackground: const Color(0xFFCCFBF1),
+                      badge: cards.rfqQuotationsReceived > 0
+                          ? 'QUOTES'
+                          : 'WAITING',
+                      trendLabel: cards.rfqQuotationsReceived > 0
+                          ? '${formatPurchaseCompact(cards.rfqQuotationsReceived)} recv'
+                          : '${formatPurchaseCompact(cards.totalRfqs)} total',
+                      trendPositive: cards.rfqQuotationsReceived > 0,
+                      subtitle: 'Waiting validation',
+                      onTap: () => Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) =>
+                              PurchaseRfqHubScreen(testRole: testRole),
+                        ),
                       ),
                     ),
                   ),
-                ),
-                SizedBox(width: 10.tw),
-                Expanded(
-                  child: PurchaseCompactHubCard(
-                    title: 'Material Req.',
-                    primaryValue: formatPurchaseCompact(cards.pendingMrs),
-                    valueColor: const Color(0xFF7C3AED),
-                    icon: Icons.assignment_outlined,
-                    iconColor: const Color(0xFF7C3AED),
-                    iconBackground: const Color(0xFFEDE9FE),
-                    badge: 'PENDING',
-                    trendLabel: cards.pendingMrs > 0 ? 'Action' : 'Clear',
-                    trendPositive: cards.pendingMrs == 0,
-                    subtitle: 'Awaiting approval',
-                    onTap: () => Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) =>
-                            PurchaseMrHubScreen(testRole: testRole),
+                if (access.canSeeRfq && access.canSeeMr) SizedBox(width: 10.tw),
+                if (access.canSeeMr)
+                  Expanded(
+                    child: PurchaseCompactHubCard(
+                      title: 'Material Req.',
+                      primaryValue: formatPurchaseCompact(cards.pendingMrs),
+                      valueColor: const Color(0xFF7C3AED),
+                      icon: Icons.assignment_outlined,
+                      iconColor: const Color(0xFF7C3AED),
+                      iconBackground: const Color(0xFFEDE9FE),
+                      badge: 'PENDING',
+                      trendLabel: cards.pendingMrs > 0 ? 'Action' : 'Clear',
+                      trendPositive: cards.pendingMrs == 0,
+                      subtitle: 'Awaiting approval',
+                      onTap: () => Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) =>
+                              PurchaseMrHubScreen(testRole: testRole),
+                        ),
                       ),
                     ),
                   ),
-                ),
               ],
             ),
             SizedBox(height: 10.th),
@@ -210,27 +215,29 @@ class _HubBody extends ConsumerWidget {
               ),
             ),
           ] else ...[
-            PurchaseHeroCard(
-              title: 'RFQs',
-              subtitle: 'Waiting validation & quotations',
-              metrics: [
-                PurchaseHeroMetric(
-                  label: 'Waiting',
-                  value: formatPurchaseCompact(cards.waitingRfqs),
-                ),
-                PurchaseHeroMetric(
-                  label: 'Total',
-                  value: formatPurchaseCompact(cards.totalRfqs),
-                ),
-              ],
-              onTap: () => Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (_) => PurchaseRfqHubScreen(testRole: testRole),
+            if (access.canSeeRfq) ...[
+              PurchaseHeroCard(
+                title: 'RFQs',
+                subtitle: 'Waiting validation & quotations',
+                metrics: [
+                  PurchaseHeroMetric(
+                    label: 'Waiting',
+                    value: formatPurchaseCompact(cards.waitingRfqs),
+                  ),
+                  PurchaseHeroMetric(
+                    label: 'Total',
+                    value: formatPurchaseCompact(cards.totalRfqs),
+                  ),
+                ],
+                onTap: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => PurchaseRfqHubScreen(testRole: testRole),
+                  ),
                 ),
               ),
-            ),
-            SizedBox(height: 12.th),
+              SizedBox(height: 12.th),
+            ],
             PurchaseHeroCard(
               title: 'LPOs',
               subtitle: 'Confirmed purchase orders',
@@ -259,29 +266,33 @@ class _HubBody extends ConsumerWidget {
                 ),
               ),
             ),
-            SizedBox(height: 12.th),
-            PurchaseHeroCard(
-              title: 'Material Requests',
-              subtitle: 'Pending approval',
-              gradient: PurchaseTheme.mrHeroGradient,
-              borderColor: PurchaseTheme.mrBorderColor,
-              icon: Icons.assignment_outlined,
-              metrics: [
-                PurchaseHeroMetric(
-                  label: 'Pending',
-                  value: formatPurchaseCompact(cards.pendingMrs),
-                ),
-              ],
-              onTap: () => Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (_) => PurchaseMrHubScreen(testRole: testRole),
+            if (access.canSeeMr) ...[
+              SizedBox(height: 12.th),
+              PurchaseHeroCard(
+                title: 'Material Requests',
+                subtitle: 'Pending approval',
+                gradient: PurchaseTheme.mrHeroGradient,
+                borderColor: PurchaseTheme.mrBorderColor,
+                icon: Icons.assignment_outlined,
+                metrics: [
+                  PurchaseHeroMetric(
+                    label: 'Pending',
+                    value: formatPurchaseCompact(cards.pendingMrs),
+                  ),
+                ],
+                onTap: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => PurchaseMrHubScreen(testRole: testRole),
+                  ),
                 ),
               ),
-            ),
+            ],
           ],
-          SizedBox(height: compactLayout ? 12.th : 20.th),
-          _RecentInvoicesSection(testRole: testRole),
+          if (access.canSeeRecentInvoices) ...[
+            SizedBox(height: compactLayout ? 12.th : 20.th),
+            _RecentInvoicesSection(testRole: testRole),
+          ],
         ],
       ),
     );

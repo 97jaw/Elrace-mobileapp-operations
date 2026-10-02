@@ -1,6 +1,7 @@
 import 'package:el_race/core/utils/responsive_breakpoints.dart';
 import 'dart:async';
 
+import 'package:el_race/core/access/feature_access.dart';
 import 'package:el_race/core/ui/device_ui_capability.dart';
 import 'package:el_race/core/utils/shared_pref.dart';
 import 'package:el_race/ui/presentation/my_projects/data/datasources/project_remote_datasource.dart';
@@ -523,6 +524,14 @@ class _MyProjectState extends State<MyProject> {
                                 onMapsTap: _openPortfolioMapScreen,
                                 onGroupByTap: _openGroupByHub,
                                 onDocumentsTap: _openProjectDocumentsHub,
+                                showDocumentsButton: FeatureAccess.allows(
+                                      AppFeature.projectsDocumentsHub,
+                                      legacy: true,
+                                    ) ||
+                                    FeatureAccess.allows(
+                                      AppFeature.projectsDocumentsHubAdmin,
+                                      legacy: false,
+                                    ),
                                 // AI toolbar entry hidden for now.
                                 showAiButton: false,
                                 onAiTap: _openAiAssistant,

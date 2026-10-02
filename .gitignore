@@ -57,3 +57,7 @@ run_log.txt
 .venv_antispoof/
 AssetManifest.json
 assets/antispoof/*.onnx
+
+# Access audit exports (contain staff names/logins)
+docs/access_audit/output/
+__pycache__/

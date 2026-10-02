@@ -41,23 +41,20 @@ class _ProjectAnalyticsDocumentsTabState
       _error = null;
     });
     try {
-      final results = await Future.wait([
-        _repo.getProjectFiles(
-          projectId: widget.projectId,
-          kind: ProjectDocumentHubKind.workOrder,
-        ),
-        _repo.getProjectFiles(
-          projectId: widget.projectId,
-          kind: ProjectDocumentHubKind.estimation,
-        ),
-      ]);
-      if (!mounted) return;
-      final merged = <({ProjectDocumentFileItem file, ProjectDocumentHubKind kind})>[];
-      for (final kind in [
+      final kinds = [
         ProjectDocumentHubKind.workOrder,
         ProjectDocumentHubKind.estimation,
-      ]) {
-        final page = results[kind == ProjectDocumentHubKind.workOrder ? 0 : 1];
+      ].where((k) => k.isAllowed).toList();
+      final results = await Future.wait([
+        for (final kind in kinds)
+          _repo.getProjectFiles(projectId: widget.projectId, kind: kind),
+      ]);
+      if (!mounted) return;
+      final merged =
+          <({ProjectDocumentFileItem file, ProjectDocumentHubKind kind})>[];
+      for (var i = 0; i < kinds.length; i++) {
+        final kind = kinds[i];
+        final page = results[i];
         for (final file in page.files) {
           merged.add((file: file, kind: kind));
         }

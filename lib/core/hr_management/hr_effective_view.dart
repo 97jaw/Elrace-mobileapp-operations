@@ -1,3 +1,4 @@
+import 'package:el_race/core/access/feature_access.dart';
 import 'package:el_race/core/hr_management/hr_module_manager_access.dart';
 import 'package:el_race/core/utils/shared_pref.dart';
 import 'package:el_race/ui/presentation/signin/data/model.dart';
@@ -36,9 +37,30 @@ bool _anyHrSubmoduleManager(Data data) {
       s.evaluation;
 }
 
+const _hrManagerFeatures = {
+  AppFeature.hrRequestsHrManager,
+  AppFeature.hrRecruitmentHrManager,
+};
+
+const _managerFeatures = {
+  AppFeature.hrRequestsManager,
+  AppFeature.hrRecruitmentManager,
+  AppFeature.hrPerformanceManager,
+  AppFeature.hrPayslipHrView,
+  AppFeature.hrAttendanceTeamView,
+};
+
 /// Computes view from login [Data] (no session override).
 HrEffectiveView hrEffectiveViewFromData(Data? data) {
   if (data == null) return HrEffectiveView.employee;
+
+  final codes = FeatureAccess.codesOf(data);
+  if (codes != null) {
+    if (codes.any(_hrManagerFeatures.contains))
+      return HrEffectiveView.hrManager;
+    if (codes.any(_managerFeatures.contains)) return HrEffectiveView.manager;
+    return HrEffectiveView.employee;
+  }
 
   final hasSpec = data.hrModuleManager != null;
   if (hasSpec) {
@@ -68,6 +90,22 @@ HrEffectiveView hrEffectiveViewFromLoginPref() {
 /// When the backend omits [Data.hrModuleManager], falls back to the legacy single
 /// [HrEffectiveView] (any non-employee view counts as manager for every module).
 bool hrServerManagerForModule(Data? data, HrManagedModule module) {
+  final codes = FeatureAccess.codesOf(data);
+  if (codes != null) {
+    return switch (module) {
+      HrManagedModule.payslip => codes.contains(AppFeature.hrPayslipHrView),
+      HrManagedModule.attendance =>
+        codes.contains(AppFeature.hrAttendanceTeamView),
+      HrManagedModule.hrRequest =>
+        codes.contains(AppFeature.hrRequestsManager) ||
+            codes.contains(AppFeature.hrRequestsHrManager),
+      HrManagedModule.recruitment =>
+        codes.contains(AppFeature.hrRecruitmentManager) ||
+            codes.contains(AppFeature.hrRecruitmentHrManager),
+      HrManagedModule.evaluation =>
+        codes.contains(AppFeature.hrPerformanceManager),
+    };
+  }
   final spec = data?.hrModuleManager;
   if (spec != null) return spec.forModule(module);
   return hrEffectiveViewFromData(data) != HrEffectiveView.employee;

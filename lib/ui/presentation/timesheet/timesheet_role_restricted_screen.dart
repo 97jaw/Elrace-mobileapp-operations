@@ -16,10 +16,12 @@ class TimesheetRoleRestrictedScreen extends ConsumerWidget {
   const TimesheetRoleRestrictedScreen({
     super.key,
     this.roleLabel,
+    this.canActAsForeman = true,
   });
 
   /// The user's currently resolved role, shown for support context.
   final String? roleLabel;
+  final bool canActAsForeman;
 
   Future<void> _pickForeman(BuildContext context, WidgetRef ref) async {
     final foreman = await TmActingForemanSheet.show(context);
@@ -84,20 +86,22 @@ class TimesheetRoleRestrictedScreen extends ConsumerWidget {
                 ),
               ),
             ],
-            const SizedBox(height: TimesheetModuleLayout.sectionGap),
-            TmPrimaryButton(
-              warm: true,
-              icon: PhosphorIcons.usersThree(),
-              label: 'Access with Foreman',
-              onPressed: () => _pickForeman(context, ref),
-            ),
-            const SizedBox(height: 10),
-            Text(
-              'Open Timesheet as one of your foremen to see their sites, '
-              'labors and submitted hours.',
-              textAlign: TextAlign.center,
-              style: TimesheetModuleTypography.caption(),
-            ),
+            if (canActAsForeman) ...[
+              const SizedBox(height: TimesheetModuleLayout.sectionGap),
+              TmPrimaryButton(
+                warm: true,
+                icon: PhosphorIcons.usersThree(),
+                label: 'Access with Foreman',
+                onPressed: () => _pickForeman(context, ref),
+              ),
+              const SizedBox(height: 10),
+              Text(
+                'Open Timesheet as one of your foremen to see their sites, '
+                'labors and submitted hours.',
+                textAlign: TextAlign.center,
+                style: TimesheetModuleTypography.caption(),
+              ),
+            ],
           ],
         ),
       ),

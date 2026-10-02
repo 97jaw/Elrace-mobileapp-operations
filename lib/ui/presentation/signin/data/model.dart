@@ -129,6 +129,9 @@ class Data {
   /// From `/api/login/new` `hr_module_manager` — per-submodule manager UI.
   final HrModuleManagerAccess? hrModuleManager;
 
+  /// Mobile Role Access feature codes; null when the server did not send them.
+  final List<String>? features;
+
   /// From `/api/login/new` `role_capabilities` — raw Odoo role-line OR flags.
   final Map<String, bool>? roleCapabilities;
 
@@ -224,6 +227,7 @@ class Data {
     this.isFleet,
     this.canSeeProjectMedia,
     this.hrModuleManager,
+    this.features,
     this.roleCapabilities,
     this.isPurchaseRep,
     this.isPurchaseManager,
@@ -386,6 +390,9 @@ class Data {
         canSeeProjectMedia: _parseBoolLoose(json["can_see_project_media"]),
         hrModuleManager:
             HrModuleManagerAccess.tryParse(json["hr_module_manager"]),
+        features: json["features"] is List
+            ? (json["features"] as List).map((e) => e.toString()).toList()
+            : null,
         roleCapabilities: _parseStringBoolMap(json["role_capabilities"]),
         isPurchaseRep: _parseBoolLoose(json["is_purchase_rep"]),
         isPurchaseManager: _parseBoolLoose(json["is_purchase_manager"]),
@@ -473,6 +480,7 @@ class Data {
                 "recruitment": hrModuleManager!.recruitment,
                 "evaluation": hrModuleManager!.evaluation,
               },
+        "features": features,
         "role_capabilities": roleCapabilities == null
             ? null
             : Map<String, dynamic>.from(roleCapabilities!),

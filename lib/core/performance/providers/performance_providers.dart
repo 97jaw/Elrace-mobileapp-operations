@@ -1,3 +1,4 @@
+import 'package:el_race/core/access/feature_access.dart';
 import 'package:el_race/core/hr_management/hr_effective_view.dart';
 import 'package:el_race/core/hr_management/hr_module_manager_access.dart';
 import 'package:el_race/core/hr_management/providers/hr_management_providers.dart';
@@ -16,6 +17,8 @@ final performanceManagerModeProvider = Provider<bool>((ref) {
   if (hrServerManagerForModule(data, HrManagedModule.evaluation)) {
     return true;
   }
+  final codes = FeatureAccess.codesOf(data);
+  if (codes != null) return codes.contains(AppFeature.hrPerformanceManager);
   final caps = data.roleCapabilities;
   if (caps != null) {
     final mgmt = caps['x_is_management'] == true;
@@ -48,27 +51,65 @@ final performanceEvaluationListProvider =
 
 class PerformanceEvaluationListNotifier
     extends AsyncNotifier<List<PerformanceEvaluationSummary>> {
+  /// Server caps each page at 30 rows.
+  static const _pageSize = 30;
+
+  int _page = 1;
+  bool _hasMore = false;
+  bool _loadingMore = false;
+
+  bool get hasMore => _hasMore;
+
   @override
   Future<List<PerformanceEvaluationSummary>> build() async {
     ref.watch(loginSessionRevisionProvider);
-    final client = ref.watch(performanceApiClientProvider);
-    final env = await client.fetchEvaluations();
-    if (env.success && env.data != null) {
-      return env.data!.map(summaryFromJson).toList();
-    }
-    throw Exception(env.error ?? 'Could not load evaluations');
+    return _firstPage(ref.watch(performanceApiClientProvider));
   }
 
   Future<void> refresh() async {
     state = const AsyncLoading();
-    state = await AsyncValue.guard(() async {
-      final client = ref.read(performanceApiClientProvider);
-      final env = await client.fetchEvaluations();
-      if (env.success && env.data != null) {
-        return env.data!.map(summaryFromJson).toList();
-      }
+    state = await AsyncValue.guard(
+      () => _firstPage(ref.read(performanceApiClientProvider)),
+    );
+  }
+
+  /// Appends the next page; no-op while loading or when nothing is left.
+  Future<void> loadMore() async {
+    final current = state.value;
+    if (current == null || !_hasMore || _loadingMore) return;
+    _loadingMore = true;
+    try {
+      final next = await _fetchPage(
+        ref.read(performanceApiClientProvider),
+        _page + 1,
+      );
+      _page++;
+      state = AsyncData([...current, ...next]);
+    } catch (_) {
+      // Keep the rows already shown; scrolling again retries.
+    } finally {
+      _loadingMore = false;
+    }
+  }
+
+  Future<List<PerformanceEvaluationSummary>> _firstPage(
+    PerformanceApiClient client,
+  ) async {
+    _page = 1;
+    _hasMore = false;
+    return _fetchPage(client, 1);
+  }
+
+  Future<List<PerformanceEvaluationSummary>> _fetchPage(
+    PerformanceApiClient client,
+    int page,
+  ) async {
+    final env = await client.fetchEvaluations(page: page, limit: _pageSize);
+    if (!env.success || env.data == null) {
       throw Exception(env.error ?? 'Could not load evaluations');
-    });
+    }
+    _hasMore = env.data!.length >= _pageSize;
+    return env.data!.map(summaryFromJson).toList();
   }
 }
 

@@ -1,5 +1,6 @@
 import 'package:app_links/app_links.dart';
 import 'package:el_race/auth/uaepass_auth_cubit.dart';
+import 'package:el_race/core/app_notices/app_notice_gate.dart';
 import 'package:el_race/core/session/post_login_setup.dart';
 import 'package:el_race/deep_links/uaepass_link_handler.dart';
 import 'package:el_race/services/uaepass_auth_service.dart';
@@ -93,6 +94,8 @@ class _AuthLoadingScreenState extends State<AuthLoadingScreen>
           UaepassLogger.logSuccess('Navigating to Dashboard');
           if (context.mounted) {
             await PostLoginSetup.applyAfterLogin(context);
+            if (!context.mounted) return;
+            await AppNoticeGate.afterLogin(context);
             if (!context.mounted) return;
             Navigator.of(context).pushAndRemoveUntil(
               MaterialPageRoute(builder: (_) => const HomeScreen()),

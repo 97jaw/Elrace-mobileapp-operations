@@ -1,3 +1,4 @@
+import 'package:el_race/core/hr_management/providers/hr_management_providers.dart';
 import 'package:el_race/core/purchase/purchase_access.dart';
 import 'package:el_race/core/purchase/purchase_dev_role_provider.dart';
 import 'package:el_race/core/utils/shared_pref.dart';
@@ -22,6 +23,7 @@ final purchaseOverviewProvider =
 /// Login-cache access, upgraded from live `/purchase/overview` when management
 /// users still have stale `purchase_scope=none` after a backend deploy.
 final purchaseAccessProvider = Provider<PurchaseAccess>((ref) {
+  ref.watch(loginSessionRevisionProvider);
   final data = SharedPref.getLoginData().result?.data;
   final base = purchaseAccessFromData(data);
   if (kDebugMode) {
@@ -44,6 +46,7 @@ final purchaseAccessProvider = Provider<PurchaseAccess>((ref) {
           overview.scope == 'all' || base.isCostControlOrManagement,
       isDocController: base.isDocController,
       scope: overview.scope,
+      features: base.features,
     );
   }
   return base;

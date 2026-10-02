@@ -62,6 +62,9 @@ class ProjectEntity extends Equatable {
   final int? openIssuesCount;
   final List<ProjectSupervisorEntity> supervisors;
 
+  /// Server `can_view_documents`; null when the API did not send it.
+  final bool? canViewDocuments;
+
   /// Internal / “general” projects must not appear in mobile portfolio UIs
   /// (client bars, lists, KPIs). Covers `x_internal_project` and `wo_type`.
   bool get isGeneralWo {
@@ -102,6 +105,7 @@ class ProjectEntity extends Equatable {
     this.budgetLabel,
     this.openIssuesCount,
     this.supervisors = const [],
+    this.canViewDocuments,
   });
 
   /// Minimal entity for home-widget → analytics navigation (no list fetch).
@@ -156,5 +160,6 @@ class ProjectEntity extends Equatable {
         budgetLabel,
         openIssuesCount,
         supervisors,
+        canViewDocuments,
       ];
 }

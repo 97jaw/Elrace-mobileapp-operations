@@ -37,7 +37,12 @@ class ProjectDocumentsDashboardView extends StatelessWidget {
           return const SizedBox.shrink();
         }
 
-        final folders = dashboard.folders.map((f) => f.toHubFolderItem()).toList();
+        final folders = dashboard.folders
+            .map((f) => f.toHubFolderItem())
+            .where((f) => f.kind.isAllowed)
+            .toList();
+        final recentFiles =
+            dashboard.recentFiles.where((f) => f.kind.isAllowed).toList();
 
         return RefreshIndicator(
           color: ProjectsDashboardTheme.maroon,
@@ -87,7 +92,7 @@ class ProjectDocumentsDashboardView extends StatelessWidget {
                   ),
                 ),
               ),
-              if (dashboard.recentFiles.isEmpty)
+              if (recentFiles.isEmpty)
                 Padding(
                   padding: EdgeInsets.symmetric(vertical: 12.th),
                   child: Center(
@@ -101,17 +106,17 @@ class ProjectDocumentsDashboardView extends StatelessWidget {
                   ),
                 )
               else
-                for (var i = 0; i < dashboard.recentFiles.length; i++) ...[
+                for (var i = 0; i < recentFiles.length; i++) ...[
                   ProjectDocumentsFileRow(
-                    fileName: dashboard.recentFiles[i].name,
-                    subtitle: dashboard.recentFiles[i].projectName.isNotEmpty
-                        ? dashboard.recentFiles[i].projectName
-                        : dashboard.recentFiles[i].kind.title,
-                    updatedLabel: dashboard.recentFiles[i].updatedAt != null
-                        ? 'Updated ${formatDocumentDateLabel(dashboard.recentFiles[i].updatedAt)}'
+                    fileName: recentFiles[i].name,
+                    subtitle: recentFiles[i].projectName.isNotEmpty
+                        ? recentFiles[i].projectName
+                        : recentFiles[i].kind.title,
+                    updatedLabel: recentFiles[i].updatedAt != null
+                        ? 'Updated ${formatDocumentDateLabel(recentFiles[i].updatedAt)}'
                         : null,
-                    kind: dashboard.recentFiles[i].kind,
-                    onTap: () => _openFile(context, dashboard.recentFiles[i]),
+                    kind: recentFiles[i].kind,
+                    onTap: () => _openFile(context, recentFiles[i]),
                   ),
                   SizedBox(height: 8.th),
                 ],

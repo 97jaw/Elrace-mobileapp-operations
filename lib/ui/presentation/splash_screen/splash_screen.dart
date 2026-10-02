@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:el_race/core/app_notices/app_notice_gate.dart';
 import 'package:el_race/core/services/update_service.dart';
 import 'package:el_race/core/services/android_play_update_service.dart';
 import 'package:el_race/core/app_globals.dart' show appInitCompleter;
@@ -269,6 +270,17 @@ class _SplashScreenState extends State<SplashScreen> {
     } catch (e) {
       print('⚠️ Update check error (ignored): $e');
       _logGateTiming('update-check-complete (error, ignored)');
+    }
+
+    if (!mounted) return;
+    try {
+      await AppNoticeGate.atStartup(
+        context,
+        isAuthenticated: SharedPref.isUserAuthenticated(),
+      );
+      _logGateTiming('app-notices-complete');
+    } catch (e) {
+      debugPrint('⚠️ App notices error (ignored): $e');
     }
 
     if (!mounted) return;

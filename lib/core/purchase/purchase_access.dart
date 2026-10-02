@@ -1,3 +1,4 @@
+import 'package:el_race/core/access/feature_access.dart';
 import 'package:el_race/core/utils/shared_pref.dart';
 import 'package:el_race/ui/presentation/signin/data/model.dart';
 
@@ -15,6 +16,7 @@ class PurchaseAccess {
     required this.isCostControlOrManagement,
     required this.isDocController,
     required this.scope,
+    this.features,
   });
 
   final bool isPurchaseRep;
@@ -25,19 +27,41 @@ class PurchaseAccess {
   /// "own" | "department" | "all" | "receiving" | "none"
   final String scope;
 
-  bool get hasAnyAccess =>
-      isPurchaseRep ||
-      isPurchaseManager ||
-      isDocController ||
-      isCostControlOrManagement;
+  /// Mobile Role Access codes; null keeps the role-flag rules below.
+  final List<String>? features;
 
-  bool get canSeeInvoiceReceiving =>
-      isDocController || (isPurchaseRep && !isPurchaseManager);
+  bool _feature(String code, {required bool legacy}) =>
+      features == null ? legacy : features!.contains(code);
+
+  bool get hasAnyAccess => _feature(
+        AppFeature.purchaseHub,
+        legacy: isPurchaseRep ||
+            isPurchaseManager ||
+            isDocController ||
+            isCostControlOrManagement,
+      );
+
+  bool get _legacyMrRfq =>
+      isPurchaseRep || isPurchaseManager || isCostControlOrManagement;
+
+  bool get canSeeMr => _feature(AppFeature.purchaseMrTab, legacy: true);
+
+  bool get canSeeRfq => _feature(AppFeature.purchaseRfqTab, legacy: true);
+
+  bool get canSeeRecentInvoices =>
+      _feature(AppFeature.purchaseRecentInvoices, legacy: true);
+
+  bool get canSeeInvoiceReceiving => _feature(
+        AppFeature.purchaseInvoiceReceivingTab,
+        legacy: isDocController || (isPurchaseRep && !isPurchaseManager),
+      );
 
   List<PurchaseTab> get allowedTabs {
     final tabs = <PurchaseTab>[];
-    if (isPurchaseRep || isPurchaseManager || isCostControlOrManagement) {
+    if (_feature(AppFeature.purchaseMrTab, legacy: _legacyMrRfq)) {
       tabs.add(PurchaseTab.mr);
+    }
+    if (_feature(AppFeature.purchaseRfqTab, legacy: _legacyMrRfq)) {
       tabs.add(PurchaseTab.rfq);
     }
     if (canSeeInvoiceReceiving) {
@@ -49,10 +73,10 @@ class PurchaseAccess {
   bool get canSeeDraftInvoices =>
       isPurchaseManager || isCostControlOrManagement;
 
-  bool get canCreateInvoice => isDocController;
+  bool get canCreateInvoice =>
+      _feature(AppFeature.purchaseInvoiceCreate, legacy: isDocController);
 
-  bool get canReceiveInvoice =>
-      isPurchaseRep && !isPurchaseManager;
+  bool get canReceiveInvoice => isPurchaseRep && !isPurchaseManager;
 
   bool canSeeTab(PurchaseTab tab) => allowedTabs.contains(tab);
 
@@ -147,6 +171,7 @@ PurchaseAccess purchaseAccessFromData(Data? data) {
     isCostControlOrManagement: hasManagement,
     isDocController: isDocController,
     scope: scope,
+    features: FeatureAccess.codesOf(data),
   );
 }
 
