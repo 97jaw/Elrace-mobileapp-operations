@@ -35,14 +35,19 @@ class _SignInScreenState extends State<SignInScreen> {
   bool isPasswordVisible = false;
   late SignInBloc signInBloc;
   bool _isLoadingDialogVisible = false;
+  final _enteringApp = ValueNotifier<bool>(false);
+  bool _signedIn = false;
 
-  void _showLoadingDialog() {
+  void _showLoadingDialog({
+    List<({String en, String ar})> steps = LoginProgressCard.defaultSteps,
+  }) {
     if (!mounted || _isLoadingDialogVisible) return;
     _isLoadingDialogVisible = true;
+    _enteringApp.value = false;
     showDialog(
       context: context,
       barrierDismissible: false,
-      builder: (_) => const LoginProgressCard(),
+      builder: (_) => LoginProgressCard(steps: steps, finishing: _enteringApp),
     );
   }
 
@@ -73,12 +78,11 @@ class _SignInScreenState extends State<SignInScreen> {
   void dispose() {
     usernameController.dispose();
     passwordController.dispose();
-
+    _enteringApp.dispose();
     super.dispose();
   }
 
   bool _uaepassInProgress = false;
-  bool _enteringApp = false;
 
   static const _uaepassStartSteps = <({String en, String ar})>[
     (en: 'Connecting to UAE PASS...', ar: 'جارٍ الاتصال بالهوية الرقمية...'),
@@ -91,30 +95,23 @@ class _SignInScreenState extends State<SignInScreen> {
     (en: 'Preparing your dashboard...', ar: 'تجهيز لوحة التحكم...'),
   ];
 
-  /// Keeps the "Taking you in" cover up through the post-login notices;
-  /// returns false (and uncovers the form) when a notice stopped the login.
-  Future<bool> _enterApp() async {
-    final proceed = await AppNoticeGate.afterLogin(context);
-    if (!mounted) return false;
-    if (!proceed) setState(() => _enteringApp = false);
-    return proceed;
-  }
-
-  Future<T> _withSpinner<T>(
-    List<({String en, String ar})> steps,
-    Future<T> Function() task,
-  ) async {
-    final navigator = Navigator.of(context, rootNavigator: true);
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (_) => LoginProgressCard(steps: steps),
-    );
-    try {
-      return await task();
-    } finally {
-      navigator.pop();
+  /// After a successful login the spinner stays open with "Taking you in..."
+  /// until Home replaces it; it closes only if a notice stops the login.
+  Future<void> _enterApp() async {
+    _signedIn = true;
+    await PostLoginSetup.applyAfterLogin(context);
+    if (!mounted) return;
+    _enteringApp.value = true;
+    if (!await AppNoticeGate.afterLogin(context)) {
+      _signedIn = false;
+      _hideLoadingDialog();
+      return;
     }
+    if (!mounted) return;
+    await Navigator.of(context, rootNavigator: true).pushAndRemoveUntil(
+      MaterialPageRoute(builder: (_) => const HomeScreen()),
+      (route) => false,
+    );
   }
 
   Future<void> _onUaepassPressed() async {
@@ -131,7 +128,9 @@ class _SignInScreenState extends State<SignInScreen> {
     FocusScope.of(context).unfocus();
     final cubit = context.read<UaepassAuthCubit>();
 
-    await _withSpinner(_uaepassStartSteps, cubit.startLogin);
+    _showLoadingDialog(steps: _uaepassStartSteps);
+    await cubit.startLogin();
+    _hideLoadingDialog();
     if (!mounted) return;
     if (cubit.state.status != UaepassAuthStatus.appToApp ||
         cubit.state.appToAppUrl == null) {
@@ -153,28 +152,19 @@ class _SignInScreenState extends State<SignInScreen> {
     if (result == null) {
       cubit.cancelled();
     } else {
-      await _withSpinner(_uaepassFinishSteps, () async {
-        await cubit.handleCallbackOrResult(result);
-        if (cubit.state.status != UaepassAuthStatus.success || !mounted) {
-          return;
-        }
-        setState(() => _enteringApp = true);
-        await PostLoginSetup.applyAfterLogin(context);
-      });
+      _showLoadingDialog(steps: _uaepassFinishSteps);
+      await cubit.handleCallbackOrResult(result);
     }
     if (!mounted) return;
 
     if (cubit.state.status != UaepassAuthStatus.success) {
+      _hideLoadingDialog();
       await ErrorDialog.showForFailure(context, cubit.state.failureType);
       cubit.reset();
       return;
     }
 
-    if (!await _enterApp()) return;
-    Navigator.of(context).pushAndRemoveUntil(
-      MaterialPageRoute(builder: (_) => const HomeScreen()),
-      (route) => false,
-    );
+    await _enterApp();
   }
 
   void _onLoginPressed() {
@@ -271,29 +261,19 @@ class _SignInScreenState extends State<SignInScreen> {
         if (state is LoadingST) {
           if (state.isLoading) {
             _showLoadingDialog();
-          } else {
+          } else if (!_signedIn) {
             WidgetsBinding.instance.addPostFrameCallback((_) {
-              _hideLoadingDialog();
+              if (!_signedIn) _hideLoadingDialog();
             });
           }
         }
         if (state is InitialSignedInST) {
-          setState(() => _enteringApp = true);
           ChatCredentialStorage.instance.save(
             email: usernameController.text,
             password: passwordController.text,
             deviceId: '776655',
           );
-
-          await PostLoginSetup.applyAfterLogin(context);
-          if (!mounted) return;
-          _hideLoadingDialog();
-          if (!await _enterApp()) return;
-
-          await Navigator.of(context, rootNavigator: true).pushAndRemoveUntil(
-            MaterialPageRoute(builder: (context) => const HomeScreen()),
-            (route) => false,
-          );
+          await _enterApp();
         }
       },
       buildWhen: (previous, current) =>
@@ -447,8 +427,6 @@ class _SignInScreenState extends State<SignInScreen> {
                   },
                 ),
               ),
-              if (_enteringApp)
-                const Positioned.fill(child: _EnteringAppCover()),
             ],
           ),
         );
@@ -505,37 +483,6 @@ class _SignInScreenState extends State<SignInScreen> {
               });
             },
           ),
-        ),
-      ),
-    );
-  }
-}
-
-/// Hides the sign-in form between a successful login and the dashboard.
-class _EnteringAppCover extends StatelessWidget {
-  const _EnteringAppCover();
-
-  @override
-  Widget build(BuildContext context) {
-    final arabic = Localizations.localeOf(context).languageCode == 'ar';
-    return ColoredBox(
-      color: Colors.white,
-      child: Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const CircularProgressIndicator(),
-            const SizedBox(height: 16),
-            Text(
-              arabic ? 'جارٍ الدخول...' : 'Taking you in...',
-              textDirection: arabic ? TextDirection.rtl : TextDirection.ltr,
-              style: GoogleFonts.poppins(
-                fontSize: 14,
-                fontWeight: FontWeight.w500,
-                color: Colors.black87,
-              ),
-            ),
-          ],
         ),
       ),
     );

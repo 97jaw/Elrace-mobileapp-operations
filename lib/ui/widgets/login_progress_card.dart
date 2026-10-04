@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:el_race/core/utils/responsive_breakpoints.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
@@ -9,9 +10,18 @@ import 'package:google_fonts/google_fonts.dart';
 /// Login is a single request, so the text advances on a timer and the last
 /// line stays until loading ends.
 class LoginProgressCard extends StatefulWidget {
-  const LoginProgressCard({super.key, this.steps = defaultSteps});
+  const LoginProgressCard({
+    super.key,
+    this.steps = defaultSteps,
+    this.finishing,
+  });
 
   final List<({String en, String ar})> steps;
+
+  /// When true, the text switches to "Taking you in..." until the card closes.
+  final ValueListenable<bool>? finishing;
+
+  static const finishingStep = (en: 'Taking you in...', ar: 'جارٍ الدخول...');
 
   static const defaultSteps = <({String en, String ar})>[
     (en: 'Verifying your credentials...', ar: 'التحقق من بيانات الدخول...'),
@@ -52,8 +62,17 @@ class _LoginProgressCardState extends State<LoginProgressCard> {
 
   @override
   Widget build(BuildContext context) {
+    final finishing = widget.finishing;
+    if (finishing == null) return _buildStep(context, _current);
+    return ValueListenableBuilder<bool>(
+      valueListenable: finishing,
+      builder: (context, done, _) => _buildStep(context, done ? -1 : _current),
+    );
+  }
+
+  Widget _buildStep(BuildContext context, int index) {
     final arabic = Localizations.localeOf(context).languageCode == 'ar';
-    final step = _steps[_current];
+    final step = index < 0 ? LoginProgressCard.finishingStep : _steps[index];
     return PopScope(
       canPop: false,
       child: Center(
@@ -68,7 +87,7 @@ class _LoginProgressCardState extends State<LoginProgressCard> {
                 duration: const Duration(milliseconds: 250),
                 child: Text(
                   arabic ? step.ar : step.en,
-                  key: ValueKey(_current),
+                  key: ValueKey(index),
                   textAlign: TextAlign.center,
                   textDirection:
                       arabic ? TextDirection.rtl : TextDirection.ltr,
