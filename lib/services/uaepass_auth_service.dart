@@ -10,6 +10,7 @@ import 'package:el_race/ui/presentation/signin/data/model.dart';
 import 'package:el_race/utils/api_query.dart';
 import 'package:el_race/utils/string_utils.dart';
 import 'package:el_race/utils/uaepass_logger.dart';
+import 'package:flutter_inappwebview/flutter_inappwebview.dart' as webview;
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:uuid/uuid.dart';
@@ -114,13 +115,17 @@ class UaepassAuthService {
     }
   }
 
-  /// Authorization URL for the in-app WebView that hands off to the UAE PASS app.
-  Future<Uri> prepareAppToAppLogin() async {
-    UaepassLogger.logSection('UAE PASS APP-TO-APP LOGIN START');
+  /// Authorization URL for the in-app WebView. With [appToApp] the page hands
+  /// off to the installed UAE PASS app; otherwise the UAE PASS web login runs
+  /// inside the WebView.
+  Future<Uri> prepareInAppLogin({required bool appToApp}) async {
+    UaepassLogger.logSection(appToApp
+        ? 'UAE PASS APP-TO-APP LOGIN START'
+        : 'UAE PASS APP-TO-WEB LOGIN START');
     final state = _uuid.v4();
     _pendingState = state;
     await secureStorage.write(key: _stateKey, value: state);
-    final authUrl = config.buildAuthorizationUrl(state, appToApp: true);
+    final authUrl = config.buildAuthorizationUrl(state, appToApp: appToApp);
     UaepassLogger.logKV('state', state);
     UaepassLogger.logKV('Full URL', authUrl.toString());
     return authUrl;
@@ -170,13 +175,10 @@ class UaepassAuthService {
         UaepassLogger.logWarning(
             'Error deep link received: $deepLinkErrorCode');
 
-        // Backend frequently returns GENERIC / empty when the user aborts in
-        // UAE PASS. Map those to cancelled so the approved mockup copy shows.
+        // The backend sends CANCELLED when the user aborts in UAE PASS;
+        // GENERIC is a real failure and keeps the generic message.
         final normalizedCode = deepLinkErrorCode.toLowerCase().trim();
-        if (normalizedCode.isEmpty ||
-            normalizedCode == 'generic' ||
-            normalizedCode == 'error' ||
-            normalizedCode.contains('cancel') ||
+        if (normalizedCode.contains('cancel') ||
             normalizedCode.contains('access_denied') ||
             normalizedCode.contains('decline')) {
           UaepassLogger.logWarning(
@@ -320,6 +322,18 @@ class UaepassAuthService {
     return const UaepassAuthResult.failure(AuthFailureType.noSession);
   }
 
+  /// Ends the UAE PASS web session held by the in-app WebView, so the next
+  /// UAE PASS login asks for credentials again.
+  Future<void> clearWebSession() async {
+    try {
+      await webview.CookieManager.instance().deleteAllCookies();
+      await webview.WebStorageManager.instance().deleteAllData();
+      UaepassLogger.logSuccess('WebView cookies and storage cleared');
+    } catch (e) {
+      UaepassLogger.logError('WebView session clear failed (ignored)', e);
+    }
+  }
+
   Future<void> logout() async {
     UaepassLogger.logSection('LOGOUT');
     UaepassLogger.log('Clearing UAE PASS session data');
@@ -329,6 +343,8 @@ class UaepassAuthService {
     await secureStorage.delete(key: _sessionKey);
     await secureStorage.delete(key: _txKey);
     UaepassLogger.logSuccess('Secure storage cleared (state, session, tx)');
+
+    await clearWebSession();
 
     await SharedPref().setPreferencesBoolean('isRegistered', false);
     await SharedPref().removePreference('loginResponse');

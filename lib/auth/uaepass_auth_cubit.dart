@@ -18,15 +18,12 @@ class UaepassAuthCubit extends Cubit<UaepassAuthState> {
     UaepassLogger.log('Cubit: startLogin called');
     emit(const UaepassAuthState.loading());
     try {
-      if (await authService.isUaepassAppInstalled()) {
-        final url = await authService.prepareAppToAppLogin();
-        UaepassLogger.log('Cubit: UAE PASS app installed — app-to-app flow');
-        emit(UaepassAuthState.appToApp(url));
-        return;
-      }
-      await authService.startLogin();
-      UaepassLogger.log('Cubit: Emitting waiting state (browser opened)');
-      emit(const UaepassAuthState.waiting());
+      final appInstalled = await authService.isUaepassAppInstalled();
+      final url = await authService.prepareInAppLogin(appToApp: appInstalled);
+      UaepassLogger.log(appInstalled
+          ? 'Cubit: UAE PASS app installed — app-to-app flow'
+          : 'Cubit: UAE PASS app not installed — web login in WebView');
+      emit(UaepassAuthState.appToApp(url));
     } catch (e) {
       UaepassLogger.logError('Cubit: startLogin failed', e);
       emit(const UaepassAuthState.failure(AuthFailureType.generic));
