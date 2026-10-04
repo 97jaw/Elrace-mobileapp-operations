@@ -17,6 +17,7 @@ import 'package:el_race/utils/orientation_helper.dart';
 import 'package:el_race/utils/string_utils.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:hexcolor/hexcolor.dart';
 
@@ -501,13 +502,12 @@ class _UaepassLoginButton extends StatelessWidget {
       color: Colors.transparent,
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(10),
         child: AspectRatio(
           aspectRatio: 352 / 60,
-          child: Image.asset(
-            'assets/png/uaepass_login_button.png',
+          child: SvgPicture.asset(
+            'assets/svg/uaepass_login_button.svg',
             fit: BoxFit.fill,
-            filterQuality: FilterQuality.high,
           ),
         ),
       ),
