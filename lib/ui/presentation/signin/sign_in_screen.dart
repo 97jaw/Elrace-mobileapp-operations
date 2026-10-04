@@ -7,7 +7,8 @@ import 'package:el_race/chat/services/chat_credential_storage.dart';
 import 'package:el_race/core/config/feature_flags.dart';
 import 'package:el_race/core/session/post_login_setup.dart';
 import 'package:el_race/core/utils/responsive_breakpoints.dart';
-import 'package:el_race/ui/auth/auth_loading_screen.dart';
+import 'package:el_race/ui/auth/error_dialog.dart';
+import 'package:el_race/ui/auth/uaepass_app_to_app_screen.dart';
 import 'package:el_race/ui/presentation/home_screen/screens/home_screen.dart';
 import 'package:el_race/ui/presentation/signin/bloc/sign_in_bloc.dart';
 import 'package:el_race/ui/widgets/login_progress_card.dart';
@@ -74,6 +75,81 @@ class _SignInScreenState extends State<SignInScreen> {
     passwordController.dispose();
 
     super.dispose();
+  }
+
+  bool _uaepassInProgress = false;
+
+  Future<T> _withSpinner<T>(Future<T> Function() task) async {
+    final navigator = Navigator.of(context, rootNavigator: true);
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => const PopScope(
+        canPop: false,
+        child: Center(child: CircularProgressIndicator()),
+      ),
+    );
+    try {
+      return await task();
+    } finally {
+      navigator.pop();
+    }
+  }
+
+  Future<void> _onUaepassPressed() async {
+    if (_uaepassInProgress) return;
+    _uaepassInProgress = true;
+    try {
+      await _runUaepassLogin();
+    } finally {
+      _uaepassInProgress = false;
+    }
+  }
+
+  Future<void> _runUaepassLogin() async {
+    FocusScope.of(context).unfocus();
+    final cubit = context.read<UaepassAuthCubit>();
+
+    await _withSpinner(cubit.startLogin);
+    if (!mounted) return;
+    if (cubit.state.status != UaepassAuthStatus.appToApp ||
+        cubit.state.appToAppUrl == null) {
+      await ErrorDialog.showForFailure(context, cubit.state.failureType);
+      cubit.reset();
+      return;
+    }
+
+    final result = await Navigator.of(context).push<Uri>(
+      MaterialPageRoute(
+        builder: (_) => UaepassAppToAppScreen(
+          config: cubit.config,
+          authorizationUrl: cubit.state.appToAppUrl!,
+        ),
+      ),
+    );
+    if (!mounted) return;
+
+    if (result == null) {
+      cubit.cancelled();
+    } else {
+      await _withSpinner(() => cubit.handleCallbackOrResult(result));
+    }
+    if (!mounted) return;
+
+    if (cubit.state.status != UaepassAuthStatus.success) {
+      await ErrorDialog.showForFailure(context, cubit.state.failureType);
+      cubit.reset();
+      return;
+    }
+
+    await PostLoginSetup.applyAfterLogin(context);
+    if (!mounted) return;
+    if (!await AppNoticeGate.afterLogin(context)) return;
+    if (!mounted) return;
+    Navigator.of(context).pushAndRemoveUntil(
+      MaterialPageRoute(builder: (_) => const HomeScreen()),
+      (route) => false,
+    );
   }
 
   void _onLoginPressed() {
@@ -319,17 +395,7 @@ class _SignInScreenState extends State<SignInScreen> {
                                       SizedBox(
                                         width: loginButtonWidth,
                                         child: _UaepassLoginButton(
-                                          onTap: () {
-                                            final uaepassCubit = context
-                                                .read<UaepassAuthCubit>();
-                                            Navigator.of(context).push(
-                                              MaterialPageRoute(
-                                                builder: (_) =>
-                                                    const AuthLoadingScreen(),
-                                              ),
-                                            );
-                                            uaepassCubit.startLogin();
-                                          },
+                                          onTap: _onUaepassPressed,
                                         ),
                                       ),
                                     ],
