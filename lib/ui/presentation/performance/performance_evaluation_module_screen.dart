@@ -51,117 +51,122 @@ class _EmployeeCompetenciesOnlyScaffold extends ConsumerWidget {
           ),
           Expanded(
             child: async.when(
-        data: (detail) {
-          return ListView(
-            padding: EdgeInsets.fromLTRB(
-              HrModuleLayout.screenPaddingH.w,
-              16.h,
-              HrModuleLayout.screenPaddingH.w,
-              32.h,
-            ),
-            children: [
-              Text(
-                'Evaluation year',
-                style: HrModuleTypography.caption().copyWith(
-                      fontSize: 12.sp,
-                      fontWeight: FontWeight.w600,
-                    ),
-              ),
-              SizedBox(height: 6.h),
-              PerformanceThemedDropdown<int>(
-                value: year,
-                items: years
-                    .map((y) => DropdownMenuItem(value: y, child: Text('$y')))
-                    .toList(),
-                onChanged: (y) {
-                  if (y != null) {
-                    ref.read(employeePerformanceYearProvider.notifier).setYear(y);
-                  }
-                },
-              ),
-              SizedBox(height: 20.h),
-              if (detail == null)
-                Padding(
-                  padding: EdgeInsets.symmetric(vertical: 32.h),
-                  child: Center(
-                    child: Text(
-                      'No evaluation on file for $year.',
-                      textAlign: TextAlign.center,
-                      style: HrModuleTypography.body().copyWith(fontSize: 14.sp),
-                    ),
+              data: (detail) {
+                return ListView(
+                  padding: EdgeInsets.fromLTRB(
+                    HrModuleLayout.screenPaddingH.w,
+                    16.h,
+                    HrModuleLayout.screenPaddingH.w,
+                    32.h,
                   ),
-                )
-              else ...[
-                if (detail.finalScorePercent > 0) ...[
-                  Text(
-                    'Total Score',
-                    style: HrModuleTypography.caption().copyWith(
-                          fontSize: 12.sp,
-                          fontWeight: FontWeight.w600,
-                        ),
-                  ),
-                  SizedBox(height: 6.h),
-                  Container(
-                    width: double.infinity,
-                    padding: EdgeInsets.symmetric(
-                      horizontal: 14.w,
-                      vertical: 14.h,
+                  children: [
+                    Text(
+                      'Evaluation year',
+                      style: HrModuleTypography.caption().copyWith(
+                        fontSize: 12.sp,
+                        fontWeight: FontWeight.w600,
+                      ),
                     ),
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(12),
-                      color: HrModuleColors.surface,
-                      border: Border.all(color: HrModuleColors.border),
+                    SizedBox(height: 6.h),
+                    PerformanceThemedDropdown<int>(
+                      value: year,
+                      items: years
+                          .map((y) =>
+                              DropdownMenuItem(value: y, child: Text('$y')))
+                          .toList(),
+                      onChanged: (y) {
+                        if (y != null) {
+                          ref
+                              .read(employeePerformanceYearProvider.notifier)
+                              .setYear(y);
+                        }
+                      },
                     ),
-                    child: Row(
-                      children: [
-                        Expanded(
+                    SizedBox(height: 20.h),
+                    if (detail == null)
+                      Padding(
+                        padding: EdgeInsets.symmetric(vertical: 32.h),
+                        child: Center(
                           child: Text(
-                            'Overall evaluation score',
+                            'No evaluation on file for $year.',
+                            textAlign: TextAlign.center,
                             style: HrModuleTypography.body()
-                                .copyWith(fontSize: 13.sp),
+                                .copyWith(fontSize: 14.sp),
                           ),
                         ),
+                      )
+                    else ...[
+                      if (detail.finalScorePercent > 0) ...[
                         Text(
-                          '${detail.finalScorePercent}%',
-                          style: HrModuleTypography.sectionHeading().copyWith(
-                                fontSize: 22.sp,
-                                fontWeight: FontWeight.w800,
-                                color: HrModuleColors.primary,
-                              ),
+                          'Total Score',
+                          style: HrModuleTypography.caption().copyWith(
+                            fontSize: 12.sp,
+                            fontWeight: FontWeight.w600,
+                          ),
                         ),
+                        SizedBox(height: 6.h),
+                        Container(
+                          width: double.infinity,
+                          padding: EdgeInsets.symmetric(
+                            horizontal: 14.w,
+                            vertical: 14.h,
+                          ),
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(12),
+                            color: HrModuleColors.surface,
+                            border: Border.all(color: HrModuleColors.border),
+                          ),
+                          child: Row(
+                            children: [
+                              Expanded(
+                                child: Text(
+                                  'Overall evaluation score',
+                                  style: HrModuleTypography.body()
+                                      .copyWith(fontSize: 13.sp),
+                                ),
+                              ),
+                              Text(
+                                '${detail.finalScorePercent}%',
+                                style: HrModuleTypography.sectionHeading()
+                                    .copyWith(
+                                  fontSize: 22.sp,
+                                  fontWeight: FontWeight.w800,
+                                  color: HrModuleColors.primary,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        SizedBox(height: 20.h),
                       ],
-                    ),
+                      PersonalCompetenciesSection(rows: detail.competencies),
+                    ],
+                  ],
+                );
+              },
+              loading: () => const Center(child: CircularProgressIndicator()),
+              error: (e, _) => Center(
+                child: Padding(
+                  padding: EdgeInsets.all(24.w),
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Text(
+                        'Could not load evaluation',
+                        style: HrModuleTypography.sectionHeading(),
+                      ),
+                      SizedBox(height: 8.h),
+                      Text('$e', textAlign: TextAlign.center),
+                      SizedBox(height: 16.h),
+                      FilledButton(
+                        onPressed: () => ref
+                            .invalidate(myPerformanceEvaluationProvider(year)),
+                        child: const Text('Retry'),
+                      ),
+                    ],
                   ),
-                  SizedBox(height: 20.h),
-                ],
-                PersonalCompetenciesSection(rows: detail.competencies),
-              ],
-            ],
-          );
-        },
-        loading: () => const Center(child: CircularProgressIndicator()),
-        error: (e, _) => Center(
-          child: Padding(
-            padding: EdgeInsets.all(24.w),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Text(
-                  'Could not load evaluation',
-                  style: HrModuleTypography.sectionHeading(),
                 ),
-                SizedBox(height: 8.h),
-                Text('$e', textAlign: TextAlign.center),
-                SizedBox(height: 16.h),
-                FilledButton(
-                  onPressed: () =>
-                      ref.invalidate(myPerformanceEvaluationProvider(year)),
-                  child: const Text('Retry'),
-                ),
-              ],
-            ),
-          ),
-        ),
+              ),
             ),
           ),
         ],
@@ -185,71 +190,93 @@ class _ManagerEvaluationListScaffold extends ConsumerWidget {
             title: 'Performance',
             accentTint: HrModuleHeaderTints.performance,
           ),
-          Expanded(child: async.when(
-        data: (list) {
-          if (list.isEmpty) {
-            return Center(
-              child: Text(
-                'No evaluations yet.',
-                style: HrModuleTypography.body(),
-              ),
-            );
-          }
-          return RefreshIndicator(
-            onRefresh: () async {
-              await ref.read(performanceEvaluationListProvider.notifier).refresh();
-            },
-            child: ListView.separated(
-              padding: EdgeInsets.fromLTRB(
-                HrModuleLayout.screenPaddingH.w,
-                12.h,
-                HrModuleLayout.screenPaddingH.w,
-                100.h,
-              ),
-              itemCount: list.length,
-              separatorBuilder: (_, __) => SizedBox(height: 10.h),
-              itemBuilder: (context, i) {
-                final s = list[i];
-                return _EvaluationListTile(
-                  summary: s,
-                  onTap: () {
-                    Navigator.of(context).push(
-                      MaterialPageRoute<void>(
-                        builder: (_) => ManagerEvaluationDetailScreen(
-                          evaluationId: s.id,
-                        ),
-                      ),
-                    );
-                  },
+          Expanded(
+              child: async.when(
+            data: (list) {
+              if (list.isEmpty) {
+                return Center(
+                  child: Text(
+                    'No evaluations yet.',
+                    style: HrModuleTypography.body(),
+                  ),
                 );
-              },
-            ),
-          );
-        },
-        loading: () => const Center(child: CircularProgressIndicator()),
-        error: (e, _) => Center(
-          child: Padding(
-            padding: EdgeInsets.all(24.w),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Text(
-                  'Could not load list',
-                  style: HrModuleTypography.sectionHeading(),
+              }
+              final notifier =
+                  ref.read(performanceEvaluationListProvider.notifier);
+              final hasMore = notifier.hasMore;
+              return RefreshIndicator(
+                onRefresh: notifier.refresh,
+                child: NotificationListener<ScrollNotification>(
+                  onNotification: (n) {
+                    if (hasMore && n.metrics.extentAfter < 300) {
+                      notifier.loadMore();
+                    }
+                    return false;
+                  },
+                  child: ListView.separated(
+                    padding: EdgeInsets.fromLTRB(
+                      HrModuleLayout.screenPaddingH.w,
+                      12.h,
+                      HrModuleLayout.screenPaddingH.w,
+                      100.h,
+                    ),
+                    itemCount: list.length + (hasMore ? 1 : 0),
+                    separatorBuilder: (_, __) => SizedBox(height: 10.h),
+                    itemBuilder: (context, i) {
+                      if (i >= list.length) {
+                        return Padding(
+                          padding: EdgeInsets.symmetric(vertical: 12.h),
+                          child: const Center(
+                            child: SizedBox(
+                              width: 22,
+                              height: 22,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            ),
+                          ),
+                        );
+                      }
+                      final s = list[i];
+                      return _EvaluationListTile(
+                        summary: s,
+                        onTap: () {
+                          Navigator.of(context).push(
+                            MaterialPageRoute<void>(
+                              builder: (_) => ManagerEvaluationDetailScreen(
+                                evaluationId: s.id,
+                              ),
+                            ),
+                          );
+                        },
+                      );
+                    },
+                  ),
                 ),
-                SizedBox(height: 8.h),
-                Text('$e', textAlign: TextAlign.center),
-                SizedBox(height: 16.h),
-                FilledButton(
-                  onPressed: () => ref
-                      .read(performanceEvaluationListProvider.notifier)
-                      .refresh(),
-                  child: const Text('Retry'),
+              );
+            },
+            loading: () => const Center(child: CircularProgressIndicator()),
+            error: (e, _) => Center(
+              child: Padding(
+                padding: EdgeInsets.all(24.w),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Text(
+                      'Could not load list',
+                      style: HrModuleTypography.sectionHeading(),
+                    ),
+                    SizedBox(height: 8.h),
+                    Text('$e', textAlign: TextAlign.center),
+                    SizedBox(height: 16.h),
+                    FilledButton(
+                      onPressed: () => ref
+                          .read(performanceEvaluationListProvider.notifier)
+                          .refresh(),
+                      child: const Text('Retry'),
+                    ),
+                  ],
                 ),
-              ],
+              ),
             ),
-          ),
-        ),
           )),
         ],
       ),
@@ -290,10 +317,10 @@ class _EvaluationListTile extends StatelessWidget {
                     child: Text(
                       summary.pepReference,
                       style: HrModuleTypography.sectionHeading().copyWith(
-                            fontSize: 13.sp,
-                            color: HrModuleColors.danger,
-                            fontWeight: FontWeight.w700,
-                          ),
+                        fontSize: 13.sp,
+                        color: HrModuleColors.danger,
+                        fontWeight: FontWeight.w700,
+                      ),
                     ),
                   ),
                   Container(
@@ -306,9 +333,9 @@ class _EvaluationListTile extends StatelessWidget {
                     child: Text(
                       '${summary.evaluationYear}',
                       style: HrModuleTypography.caption().copyWith(
-                            fontSize: 11.sp,
-                            fontWeight: FontWeight.w700,
-                          ),
+                        fontSize: 11.sp,
+                        fontWeight: FontWeight.w700,
+                      ),
                     ),
                   ),
                   SizedBox(width: 8.w),
@@ -323,9 +350,9 @@ class _EvaluationListTile extends StatelessWidget {
               Text(
                 summary.employeeName,
                 style: HrModuleTypography.body().copyWith(
-                      fontSize: 15.sp,
-                      fontWeight: FontWeight.w600,
-                    ),
+                  fontSize: 15.sp,
+                  fontWeight: FontWeight.w600,
+                ),
               ),
               SizedBox(height: 4.h),
               Text(
@@ -337,10 +364,10 @@ class _EvaluationListTile extends StatelessWidget {
                 Text(
                   '${summary.finalScorePercent}%',
                   style: HrModuleTypography.sectionHeading().copyWith(
-                        fontSize: 22.sp,
-                        color: HrModuleColors.success,
-                        fontWeight: FontWeight.w700,
-                      ),
+                    fontSize: 22.sp,
+                    color: HrModuleColors.success,
+                    fontWeight: FontWeight.w700,
+                  ),
                 ),
               ],
             ],

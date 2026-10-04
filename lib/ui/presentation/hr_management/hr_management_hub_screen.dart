@@ -33,7 +33,8 @@ class HrManagementHubScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final view = ref.watch(hrEffectiveViewProvider);
     final circularYearCount = ref.watch(hrCircularYearCountProvider).value ?? 0;
-    final isManagement = ProjectsDashboardAccess.isManagementUser();
+    final canSeeEmployeesProfile =
+        ProjectsDashboardAccess.canAccessEmployeesProfile();
     final canSeeCompanyDocs =
         ProjectsDashboardAccess.canAccessCompanyDocuments();
 
@@ -110,7 +111,7 @@ class HrManagementHubScreen extends ConsumerWidget {
                       Navigator.of(context).pushNamed(HrRouteNames.requests),
                 ),
               ),
-              if (isManagement) ...[
+              if (canSeeEmployeesProfile) ...[
                 SizedBox(height: 8.th),
                 SizedBox(
                   height: 110.th,

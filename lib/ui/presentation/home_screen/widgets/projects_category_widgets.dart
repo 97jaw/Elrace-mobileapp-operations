@@ -98,12 +98,8 @@ class ProjectsCategoryMyProjectsCard extends ConsumerWidget {
                 ),
               _MyProjectsRow(
                 project: data.topProjects[i],
-                onTap: () => HomeMyProjectsNavigation.openProject(
-                  context,
-                  projectId: data.topProjects[i].id,
-                  name: data.topProjects[i].name,
-                  totalProgress: data.topProjects[i].progressPct,
-                ),
+                onTap: () =>
+                    HomeMyProjectsNavigation.openProjectsModule(context),
               ),
             ],
             if (data.moreProjectsCount > 0) ...[

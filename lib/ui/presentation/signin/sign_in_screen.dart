@@ -2,6 +2,7 @@ import 'dart:developer';
 import 'dart:math' as math;
 
 import 'package:el_race/auth/uaepass_auth_cubit.dart';
+import 'package:el_race/core/app_notices/app_notice_gate.dart';
 import 'package:el_race/chat/services/chat_credential_storage.dart';
 import 'package:el_race/core/config/feature_flags.dart';
 import 'package:el_race/core/session/post_login_setup.dart';
@@ -9,6 +10,7 @@ import 'package:el_race/core/utils/responsive_breakpoints.dart';
 import 'package:el_race/ui/auth/auth_loading_screen.dart';
 import 'package:el_race/ui/presentation/home_screen/screens/home_screen.dart';
 import 'package:el_race/ui/presentation/signin/bloc/sign_in_bloc.dart';
+import 'package:el_race/ui/widgets/login_progress_card.dart';
 import 'package:el_race/utils/color_utils.dart';
 import 'package:el_race/utils/orientation_helper.dart';
 import 'package:el_race/utils/string_utils.dart';
@@ -39,7 +41,7 @@ class _SignInScreenState extends State<SignInScreen> {
     showDialog(
       context: context,
       barrierDismissible: false,
-      builder: (_) => const Center(child: CircularProgressIndicator()),
+      builder: (_) => const LoginProgressCard(),
     );
   }
 
@@ -50,6 +52,14 @@ class _SignInScreenState extends State<SignInScreen> {
     if (navigator.canPop()) {
       navigator.pop();
     }
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) AppNoticeGate.atSignIn(context);
+    });
   }
 
   @override
@@ -174,6 +184,9 @@ class _SignInScreenState extends State<SignInScreen> {
           );
 
           await PostLoginSetup.applyAfterLogin(context);
+          if (!mounted) return;
+          _hideLoadingDialog();
+          if (!await AppNoticeGate.afterLogin(context)) return;
           if (!mounted) return;
 
           await Navigator.of(context, rootNavigator: true).pushAndRemoveUntil(

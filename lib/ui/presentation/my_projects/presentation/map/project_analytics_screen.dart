@@ -6,6 +6,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:el_race/chat/chat_module_helper.dart';
 import 'package:el_race/chat/models/models.dart';
 import 'package:el_race/chat/repositories/chat_repository.dart';
+import 'package:el_race/core/access/feature_access.dart';
 import 'package:el_race/core/utils/app_screen_protection.dart';
 import 'package:el_race/data/repositories/company_repository.dart';
 import 'package:el_race/ui/presentation/my_projects/data/datasources/project_remote_datasource.dart';
@@ -42,13 +43,19 @@ class _ProjectAnalyticsScreenState extends State<ProjectAnalyticsScreen>
   late final Future<ProjectScurveData> _future;
   late Future<_ProjectFinancialsData> _financialsFuture;
   late final bool _showFinancials;
+  late final bool _showAttachments;
   int? _snapshotWeeks = 10; // null => All
 
   @override
   void initState() {
     super.initState();
-    _showFinancials = ProjectsDashboardAccess.isManagementUser();
-    final tabCount = _showFinancials ? 3 : 2;
+    _showFinancials = FeatureAccess.allows(
+      AppFeature.projectsFinancialsTab,
+      legacy: ProjectsDashboardAccess.isManagementUser(),
+    );
+    _showAttachments = widget.project.canViewDocuments != false &&
+        FeatureAccess.allows(AppFeature.projectsAttachmentsTab, legacy: true);
+    final tabCount = 1 + (_showFinancials ? 1 : 0) + (_showAttachments ? 1 : 0);
     _tabController = TabController(length: tabCount, vsync: this);
     _tabController.addListener(_onTabChanged);
     _remoteDataSource = ProjectsModule.remote;
@@ -148,29 +155,19 @@ class _ProjectAnalyticsScreenState extends State<ProjectAnalyticsScreen>
       },
     );
 
-    final documents = ProjectAnalyticsDocumentsTab(
-      projectId: widget.project.projectId,
-    );
-
-    if (_showFinancials) {
-      return [progress, financials, documents];
-    }
-    return [progress, documents];
-  }
-
-  List<Widget> get _tabs {
-    if (_showFinancials) {
-      return const [
-        Tab(text: 'Progress'),
-        Tab(text: 'Financials'),
-        Tab(text: 'Attachments'),
-      ];
-    }
-    return const [
-      Tab(text: 'Progress'),
-      Tab(text: 'Attachments'),
+    return [
+      progress,
+      if (_showFinancials) financials,
+      if (_showAttachments)
+        ProjectAnalyticsDocumentsTab(projectId: widget.project.projectId),
     ];
   }
+
+  List<Widget> get _tabs => [
+        const Tab(text: 'Progress'),
+        if (_showFinancials) const Tab(text: 'Financials'),
+        if (_showAttachments) const Tab(text: 'Attachments'),
+      ];
 
   @override
   Widget build(BuildContext context) {

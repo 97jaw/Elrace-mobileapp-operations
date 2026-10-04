@@ -45,6 +45,7 @@ class ProjectRepositoryImpl implements ProjectRepository {
               budgetLabel: model.budgetLabel,
               openIssuesCount: model.openIssuesCount,
               supervisors: model.supervisors,
+              canViewDocuments: model.canViewDocuments,
             ))
         .toList();
   }
@@ -113,6 +114,7 @@ class ProjectRepositoryImpl implements ProjectRepository {
               budgetLabel: model.budgetLabel,
               openIssuesCount: model.openIssuesCount,
               supervisors: model.supervisors,
+              canViewDocuments: model.canViewDocuments,
             ))
         .toList();
   }
@@ -140,6 +142,7 @@ class ProjectRepositoryImpl implements ProjectRepository {
         budgetLabel: model.budgetLabel,
         openIssuesCount: model.openIssuesCount,
         supervisors: model.supervisors,
+        canViewDocuments: model.canViewDocuments,
       );
 
   @override

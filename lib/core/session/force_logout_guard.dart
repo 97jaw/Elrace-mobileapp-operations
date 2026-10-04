@@ -162,6 +162,11 @@ class ForceLogoutGuard {
     _dialogVisible = false;
   }
 
+  /// Sign out on this device without the admin dialog (maintenance logout).
+  Future<void> signOutLocally() => _clearLocalSession();
+
+  void goToSignIn() => _goToSignIn();
+
   Future<void> _clearLocalSession() async {
     final root = navKey.currentContext;
     try {

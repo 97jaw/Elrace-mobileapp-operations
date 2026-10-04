@@ -11,6 +11,9 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 
 import 'package:el_race/core/theme/day_status_colors.dart';
+import 'package:el_race/core/access/feature_access.dart';
+import 'package:el_race/core/hr_management/hr_effective_view.dart';
+import 'package:el_race/core/hr_management/hr_module_manager_access.dart';
 import 'package:el_race/core/utils/shared_pref.dart';
 import 'package:el_race/utils/di.dart';
 import '../../widgets/header_widget.dart';
@@ -121,6 +124,9 @@ class _AttendancePageState extends State<AttendancePage> {
   bool _loginSuggestsManagerAttendanceScope() {
     final d = SharedPref.getLoginDataOrNull()?.result?.data;
     if (d == null) return false;
+    if (FeatureAccess.codesOf(d) != null) {
+      return hrServerManagerForModule(d, HrManagedModule.attendance);
+    }
     if (d.isAttendanceManager == true) return true;
     if (d.isHrManager == true) return true;
     if (d.isManagement == true || d.isPm == true) return true;

@@ -4,7 +4,7 @@ import 'package:el_race/core/hr_management/hr_effective_view.dart';
 import 'package:el_race/core/hr_management/models/hr_request_detail.dart';
 import 'package:el_race/core/hr_management/models/hr_request_summary.dart';
 import 'package:el_race/core/hr_management/network/hr_api_client.dart';
-import 'package:el_race/services/api_client.dart' show AuthInterceptor, AuthErrorInterceptor, RetryInterceptor;
+import 'package:el_race/services/api_client.dart' show AuthInterceptor, AuthErrorInterceptor, ForceLogoutInterceptor, RetryInterceptor;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 /// Bumped after login persistence or logout so Riverpod re-reads [SharedPref] login
@@ -57,6 +57,7 @@ final hrDioProvider = Provider<Dio>((ref) {
 
   dio.interceptors.addAll([
     AuthInterceptor(),
+    ForceLogoutInterceptor(),
     AuthErrorInterceptor(),
     RetryInterceptor(dio),
   ]);

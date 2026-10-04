@@ -1,3 +1,4 @@
+import 'package:el_race/core/access/feature_access.dart';
 import 'package:el_race/core/utils/shared_pref.dart';
 
 /// Login-based access flags for the projects dashboard module.
@@ -54,13 +55,27 @@ class ProjectsDashboardAccess {
     return false;
   }
 
+  /// HR Management → Employees Profile.
+  static bool canAccessEmployeesProfile() => FeatureAccess.allows(
+        AppFeature.hrEmployeesProfile,
+        legacy: isManagementUser(),
+      );
+
   /// Company Documents (HRMS) — HR manager, management, or project manager.
-  static bool canAccessCompanyDocuments() =>
-      isHrManagerUser() || isManagementUser() || isProjectManagerUser();
+  static bool canAccessCompanyDocuments() => FeatureAccess.allows(
+        AppFeature.hrCompanyDocuments,
+        legacy:
+            isHrManagerUser() || isManagementUser() || isProjectManagerUser(),
+      );
 
   /// Media "Projects" tab — backend `can_see_project_media` (management, PM or
   /// media role); falls back to management / PM when the flag is absent.
-  static bool canSeeProjectVideos() {
+  static bool canSeeProjectVideos() => FeatureAccess.allows(
+        AppFeature.mediaProjectsTab,
+        legacy: _legacyCanSeeProjectVideos(),
+      );
+
+  static bool _legacyCanSeeProjectVideos() {
     final data = SharedPref.getLoginData().result?.data;
     final fromBackend = data?.canSeeProjectMedia;
     if (fromBackend != null) return fromBackend;

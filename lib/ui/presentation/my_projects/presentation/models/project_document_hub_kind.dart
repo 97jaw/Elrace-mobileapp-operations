@@ -1,3 +1,5 @@
+import 'package:el_race/core/access/feature_access.dart';
+
 /// Top-level project document buckets on the documents hub.
 enum ProjectDocumentHubKind {
   workOrder,
@@ -20,6 +22,16 @@ extension ProjectDocumentHubKindX on ProjectDocumentHubKind {
         ProjectDocumentHubKind.estimation =>
           'assets/png/project_docs/estimation_icon.png',
       };
+
+  String get featureCode => switch (this) {
+        ProjectDocumentHubKind.workOrder =>
+          AppFeature.projectsDocumentsWorkOrders,
+        ProjectDocumentHubKind.estimation =>
+          AppFeature.projectsDocumentsEstimation,
+        ProjectDocumentHubKind.cloud => AppFeature.projectsDocumentsSharepoint,
+      };
+
+  bool get isAllowed => FeatureAccess.allows(featureCode, legacy: true);
 
   /// API folder_type for Odoo attachments (cloud uses SharePoint API).
   String? get attachmentFolderType => switch (this) {

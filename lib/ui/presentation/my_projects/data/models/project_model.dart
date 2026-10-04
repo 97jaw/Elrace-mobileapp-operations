@@ -33,6 +33,7 @@ class ProjectModel extends ProjectEntity {
     super.budgetLabel,
     super.openIssuesCount,
     super.supervisors,
+    super.canViewDocuments,
   });
 
   factory ProjectModel.fromJson(Map<String, dynamic> json) {
@@ -213,6 +214,9 @@ class ProjectModel extends ProjectEntity {
           json['issues_count'] ??
           json['issue_count']),
       supervisors: parseSupervisors(json['supervisors']),
+      canViewDocuments: json['can_view_documents'] is bool
+          ? json['can_view_documents'] as bool
+          : null,
     );
   }
 
@@ -253,6 +257,7 @@ class ProjectModel extends ProjectEntity {
             },
           )
           .toList(),
+      'can_view_documents': canViewDocuments,
     };
   }
 }

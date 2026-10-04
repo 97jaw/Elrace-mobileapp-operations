@@ -57,6 +57,7 @@ abstract final class ProjectsGroupHubFilterApplier {
         budgetLabel: p.budgetLabel,
         openIssuesCount: p.openIssuesCount,
         supervisors: p.supervisors,
+        canViewDocuments: p.canViewDocuments,
       ),
       filters,
     );

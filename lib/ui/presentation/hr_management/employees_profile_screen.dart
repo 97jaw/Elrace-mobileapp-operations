@@ -201,7 +201,7 @@ class _EmployeesProfileScreenState extends State<EmployeesProfileScreen> {
   void initState() {
     super.initState();
     _searchController.addListener(_onQueryChanged);
-    if (!ProjectsDashboardAccess.isManagementUser()) {
+    if (!ProjectsDashboardAccess.canAccessEmployeesProfile()) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (!mounted) return;
         HomeNavigation.handleSystemBack(context);
@@ -331,7 +331,7 @@ class _EmployeesProfileScreenState extends State<EmployeesProfileScreen> {
 
   @override
   Widget build(BuildContext context) {
-    if (!ProjectsDashboardAccess.isManagementUser()) {
+    if (!ProjectsDashboardAccess.canAccessEmployeesProfile()) {
       return HrModuleGlassShell(
         title: 'Employees Profile',
         accentTint: HrModuleHeaderTints.employeesProfile,

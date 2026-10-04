@@ -1,3 +1,4 @@
+import 'package:el_race/core/access/feature_access.dart';
 import 'package:el_race/core/utils/shared_pref.dart';
 import 'package:el_race/ui/presentation/my_projects/presentation/utils/projects_dashboard_access.dart';
 
@@ -8,7 +9,11 @@ class DrawingStudioAccess {
   DrawingStudioAccess._();
 
   static bool canShowWidget() {
-    if (!ProjectsDashboardAccess.isManagementUser()) return false;
+    final allowed = FeatureAccess.allows(
+      AppFeature.homeDrawingStudio,
+      legacy: ProjectsDashboardAccess.isManagementUser(),
+    );
+    if (!allowed) return false;
 
     final data = SharedPref.getLoginData().result?.data;
     if (data == null) return false;

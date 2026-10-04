@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:el_race/core/app_notices/app_notice_gate.dart';
 import 'package:el_race/core/services/update_service.dart';
 import 'package:el_race/core/services/android_play_update_service.dart';
 import 'package:el_race/core/app_globals.dart' show appInitCompleter;
@@ -282,6 +283,17 @@ class _SplashScreenState extends State<SplashScreen> {
     }
 
     if (!mounted) return;
+    try {
+      await AppNoticeGate.atStartup(
+        context,
+        isAuthenticated: SharedPref.isUserAuthenticated(),
+      );
+      _logGateTiming('app-notices-complete');
+    } catch (e) {
+      debugPrint('⚠️ App notices error (ignored): $e');
+    }
+
+    if (!mounted) return;
     _doNavigate();
   }
 
@@ -291,6 +303,7 @@ class _SplashScreenState extends State<SplashScreen> {
     // point splash_screen.dart controls before handing off navigation, since
     // instrumenting the destination screens is out of scope for this file.
     _logGateTiming('navigate-handoff');
+    AppNoticeGate.markAppReady();
 
     try {
       // Check authentication first

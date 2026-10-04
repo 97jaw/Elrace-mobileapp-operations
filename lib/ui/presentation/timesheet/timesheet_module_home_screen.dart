@@ -27,7 +27,10 @@ class TimesheetModuleHomeScreen extends ConsumerWidget {
     if (resolution.role == TimesheetEffectiveRole.foreman || acting != null) {
       body = const Fm1ForemanDashboard();
     } else {
-      body = TimesheetRoleRestrictedScreen(roleLabel: resolution.role.label);
+      body = TimesheetRoleRestrictedScreen(
+        roleLabel: resolution.role.label,
+        canActAsForeman: resolution.canActAsForeman,
+      );
     }
 
     return PopScope(

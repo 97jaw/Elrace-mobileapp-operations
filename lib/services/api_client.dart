@@ -1,4 +1,5 @@
 import 'package:dio/dio.dart';
+import 'package:el_race/core/session/force_logout_guard.dart';
 import 'package:el_race/core/utils/shared_pref.dart';
 import 'package:el_race/utils/uaepass_logger.dart';
 import 'package:flutter/foundation.dart';
@@ -125,6 +126,25 @@ class AuthSessionExpiredHandler {
   }
 }
 
+/// Shows the admin force-logout dialog as soon as any API answers
+/// `FORCE_LOGOUT`, instead of waiting for the next app resume check.
+class ForceLogoutInterceptor extends Interceptor {
+  @override
+  void onResponse(Response response, ResponseInterceptorHandler handler) {
+    if (_isForceLogout(response.data)) {
+      Future(() => ForceLogoutGuard.instance.presentForcedLogoutFlow());
+    }
+    handler.next(response);
+  }
+
+  static bool _isForceLogout(dynamic data) {
+    if (data is! Map) return false;
+    final result = data['result'];
+    final code = data['code'] ?? (result is Map ? result['code'] : null);
+    return code == 'FORCE_LOGOUT' && SharedPref.isUserAuthenticated();
+  }
+}
+
 class AuthErrorInterceptor extends Interceptor {
   @override
   void onError(DioException err, ErrorInterceptorHandler handler) {
@@ -195,6 +215,7 @@ class ApiClient {
         ) {
     _dio.interceptors.addAll([
       AuthInterceptor(),
+      ForceLogoutInterceptor(),
       AuthErrorInterceptor(),
       RetryInterceptor(_dio),
     ]);

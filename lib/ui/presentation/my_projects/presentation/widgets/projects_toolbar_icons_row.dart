@@ -16,6 +16,7 @@ class ProjectsToolbarIconsRow extends StatelessWidget {
     required this.onDocumentsTap,
     this.onAiTap,
     this.showAiButton = false,
+    this.showDocumentsButton = true,
   });
 
   final ProjectsViewMode viewMode;
@@ -25,6 +26,7 @@ class ProjectsToolbarIconsRow extends StatelessWidget {
   final VoidCallback onDocumentsTap;
   final VoidCallback? onAiTap;
   final bool showAiButton;
+  final bool showDocumentsButton;
 
   @override
   Widget build(BuildContext context) {
@@ -46,11 +48,12 @@ class ProjectsToolbarIconsRow extends StatelessWidget {
           isActive: false,
           onTap: onGroupByTap,
         ),
-        _ToolbarIcon(
-          icon: Icons.folder_open_rounded,
-          isActive: false,
-          onTap: onDocumentsTap,
-        ),
+        if (showDocumentsButton)
+          _ToolbarIcon(
+            icon: Icons.folder_open_rounded,
+            isActive: false,
+            onTap: onDocumentsTap,
+          ),
         if (showAiButton && onAiTap != null) _AiToolbarIcon(onTap: onAiTap!),
       ],
     );
@@ -132,12 +135,14 @@ class _AiToolbarIcon extends StatelessWidget {
             ),
             boxShadow: [
               BoxShadow(
-                color: ProjectsDashboardTheme.maroonDark.withValues(alpha: 0.45),
+                color:
+                    ProjectsDashboardTheme.maroonDark.withValues(alpha: 0.45),
                 blurRadius: 10,
                 offset: const Offset(0, 3),
               ),
               BoxShadow(
-                color: ProjectsDashboardTheme.maroonLight.withValues(alpha: 0.35),
+                color:
+                    ProjectsDashboardTheme.maroonLight.withValues(alpha: 0.35),
                 blurRadius: 14,
                 spreadRadius: 1,
               ),
@@ -162,7 +167,8 @@ class _AiToolbarIcon extends StatelessWidget {
                 child: Icon(
                   Icons.auto_awesome,
                   size: 6.tsp,
-                  color: ProjectsDashboardTheme.maroonSoft.withValues(alpha: 0.95),
+                  color:
+                      ProjectsDashboardTheme.maroonSoft.withValues(alpha: 0.95),
                 ),
               ),
               Text(
@@ -175,7 +181,8 @@ class _AiToolbarIcon extends StatelessWidget {
                   letterSpacing: -0.5,
                   shadows: [
                     Shadow(
-                      color: ProjectsDashboardTheme.maroonDark.withValues(alpha: 0.55),
+                      color: ProjectsDashboardTheme.maroonDark
+                          .withValues(alpha: 0.55),
                       blurRadius: 4,
                       offset: const Offset(0, 1),
                     ),

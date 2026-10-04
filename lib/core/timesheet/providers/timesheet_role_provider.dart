@@ -1,3 +1,4 @@
+import 'package:el_race/core/access/feature_access.dart';
 import 'package:el_race/core/hr_management/providers/hr_management_providers.dart';
 import 'package:el_race/core/timesheet/providers/timesheet_acting_session_provider.dart';
 import 'package:el_race/core/utils/shared_pref.dart';
@@ -18,10 +19,14 @@ class TimesheetRoleResolution {
     required this.role,
     required this.hrWideScope,
     this.isActingAsForeman = false,
+    this.canActAsForeman = true,
   });
 
   final TimesheetEffectiveRole role;
   final bool hrWideScope;
+
+  /// Non-foreman may open the module as one of their foremen.
+  final bool canActAsForeman;
 
   /// True when a PM / HR user is viewing the module as one of their foremen.
   ///
@@ -91,10 +96,39 @@ final tmEffectiveResolutionProvider = Provider<TimesheetRoleResolution>((ref) {
   );
 });
 
-bool _roleCap(Data? data, String key) =>
-    data?.roleCapabilities?[key] == true;
+bool _roleCap(Data? data, String key) => data?.roleCapabilities?[key] == true;
 
 TimesheetRoleResolution tmRoleResolutionFromData(Data? data) {
+  final codes = FeatureAccess.codesOf(data);
+  if (codes != null) {
+    final canAct = codes.contains(AppFeature.timesheetActAsForeman);
+    if (codes.contains(AppFeature.timesheetHrWide)) {
+      return TimesheetRoleResolution(
+        role: TimesheetEffectiveRole.pm,
+        hrWideScope: true,
+        canActAsForeman: canAct,
+      );
+    }
+    if (codes.contains(AppFeature.timesheetPm)) {
+      return TimesheetRoleResolution(
+        role: TimesheetEffectiveRole.pm,
+        hrWideScope: false,
+        canActAsForeman: canAct,
+      );
+    }
+    if (codes.contains(AppFeature.timesheetForeman)) {
+      return const TimesheetRoleResolution(
+        role: TimesheetEffectiveRole.foreman,
+        hrWideScope: false,
+      );
+    }
+    return TimesheetRoleResolution(
+      role: TimesheetEffectiveRole.pm,
+      hrWideScope: false,
+      canActAsForeman: canAct,
+    );
+  }
+
   if (data?.isHrManager == true || _roleCap(data, 'x_is_hr_manager')) {
     return const TimesheetRoleResolution(
       role: TimesheetEffectiveRole.pm,
