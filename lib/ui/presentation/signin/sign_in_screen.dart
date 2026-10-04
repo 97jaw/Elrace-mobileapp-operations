@@ -78,16 +78,37 @@ class _SignInScreenState extends State<SignInScreen> {
   }
 
   bool _uaepassInProgress = false;
+  bool _enteringApp = false;
 
-  Future<T> _withSpinner<T>(Future<T> Function() task) async {
+  static const _uaepassStartSteps = <({String en, String ar})>[
+    (en: 'Connecting to UAE PASS...', ar: 'جارٍ الاتصال بالهوية الرقمية...'),
+  ];
+
+  static const _uaepassFinishSteps = <({String en, String ar})>[
+    (en: 'Verifying your UAE PASS login...', ar: 'التحقق من تسجيل الدخول...'),
+    (en: 'Checking access rights...', ar: 'التحقق من صلاحيات الوصول...'),
+    (en: 'Applying your role rules...', ar: 'تطبيق قواعد دورك...'),
+    (en: 'Preparing your dashboard...', ar: 'تجهيز لوحة التحكم...'),
+  ];
+
+  /// Keeps the "Taking you in" cover up through the post-login notices;
+  /// returns false (and uncovers the form) when a notice stopped the login.
+  Future<bool> _enterApp() async {
+    final proceed = await AppNoticeGate.afterLogin(context);
+    if (!mounted) return false;
+    if (!proceed) setState(() => _enteringApp = false);
+    return proceed;
+  }
+
+  Future<T> _withSpinner<T>(
+    List<({String en, String ar})> steps,
+    Future<T> Function() task,
+  ) async {
     final navigator = Navigator.of(context, rootNavigator: true);
     showDialog(
       context: context,
       barrierDismissible: false,
-      builder: (_) => const PopScope(
-        canPop: false,
-        child: Center(child: CircularProgressIndicator()),
-      ),
+      builder: (_) => LoginProgressCard(steps: steps),
     );
     try {
       return await task();
@@ -110,7 +131,7 @@ class _SignInScreenState extends State<SignInScreen> {
     FocusScope.of(context).unfocus();
     final cubit = context.read<UaepassAuthCubit>();
 
-    await _withSpinner(cubit.startLogin);
+    await _withSpinner(_uaepassStartSteps, cubit.startLogin);
     if (!mounted) return;
     if (cubit.state.status != UaepassAuthStatus.appToApp ||
         cubit.state.appToAppUrl == null) {
@@ -132,7 +153,14 @@ class _SignInScreenState extends State<SignInScreen> {
     if (result == null) {
       cubit.cancelled();
     } else {
-      await _withSpinner(() => cubit.handleCallbackOrResult(result));
+      await _withSpinner(_uaepassFinishSteps, () async {
+        await cubit.handleCallbackOrResult(result);
+        if (cubit.state.status != UaepassAuthStatus.success || !mounted) {
+          return;
+        }
+        setState(() => _enteringApp = true);
+        await PostLoginSetup.applyAfterLogin(context);
+      });
     }
     if (!mounted) return;
 
@@ -142,10 +170,7 @@ class _SignInScreenState extends State<SignInScreen> {
       return;
     }
 
-    await PostLoginSetup.applyAfterLogin(context);
-    if (!mounted) return;
-    if (!await AppNoticeGate.afterLogin(context)) return;
-    if (!mounted) return;
+    if (!await _enterApp()) return;
     Navigator.of(context).pushAndRemoveUntil(
       MaterialPageRoute(builder: (_) => const HomeScreen()),
       (route) => false,
@@ -253,6 +278,7 @@ class _SignInScreenState extends State<SignInScreen> {
           }
         }
         if (state is InitialSignedInST) {
+          setState(() => _enteringApp = true);
           ChatCredentialStorage.instance.save(
             email: usernameController.text,
             password: passwordController.text,
@@ -262,8 +288,7 @@ class _SignInScreenState extends State<SignInScreen> {
           await PostLoginSetup.applyAfterLogin(context);
           if (!mounted) return;
           _hideLoadingDialog();
-          if (!await AppNoticeGate.afterLogin(context)) return;
-          if (!mounted) return;
+          if (!await _enterApp()) return;
 
           await Navigator.of(context, rootNavigator: true).pushAndRemoveUntil(
             MaterialPageRoute(builder: (context) => const HomeScreen()),
@@ -422,6 +447,8 @@ class _SignInScreenState extends State<SignInScreen> {
                   },
                 ),
               ),
+              if (_enteringApp)
+                const Positioned.fill(child: _EnteringAppCover()),
             ],
           ),
         );
@@ -478,6 +505,37 @@ class _SignInScreenState extends State<SignInScreen> {
               });
             },
           ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Hides the sign-in form between a successful login and the dashboard.
+class _EnteringAppCover extends StatelessWidget {
+  const _EnteringAppCover();
+
+  @override
+  Widget build(BuildContext context) {
+    final arabic = Localizations.localeOf(context).languageCode == 'ar';
+    return ColoredBox(
+      color: Colors.white,
+      child: Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const CircularProgressIndicator(),
+            const SizedBox(height: 16),
+            Text(
+              arabic ? 'جارٍ الدخول...' : 'Taking you in...',
+              textDirection: arabic ? TextDirection.rtl : TextDirection.ltr,
+              style: GoogleFonts.poppins(
+                fontSize: 14,
+                fontWeight: FontWeight.w500,
+                color: Colors.black87,
+              ),
+            ),
+          ],
         ),
       ),
     );

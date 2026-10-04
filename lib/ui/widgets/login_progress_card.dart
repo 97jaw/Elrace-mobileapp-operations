@@ -9,7 +9,16 @@ import 'package:google_fonts/google_fonts.dart';
 /// Login is a single request, so the text advances on a timer and the last
 /// line stays until loading ends.
 class LoginProgressCard extends StatefulWidget {
-  const LoginProgressCard({super.key});
+  const LoginProgressCard({super.key, this.steps = defaultSteps});
+
+  final List<({String en, String ar})> steps;
+
+  static const defaultSteps = <({String en, String ar})>[
+    (en: 'Verifying your credentials...', ar: 'التحقق من بيانات الدخول...'),
+    (en: 'Checking access rights...', ar: 'التحقق من صلاحيات الوصول...'),
+    (en: 'Applying your role rules...', ar: 'تطبيق قواعد دورك...'),
+    (en: 'Preparing your dashboard...', ar: 'تجهيز لوحة التحكم...'),
+  ];
 
   @override
   State<LoginProgressCard> createState() => _LoginProgressCardState();
@@ -18,12 +27,7 @@ class LoginProgressCard extends StatefulWidget {
 class _LoginProgressCardState extends State<LoginProgressCard> {
   static const _stepDuration = Duration(milliseconds: 1300);
 
-  static const _steps = <({String en, String ar})>[
-    (en: 'Verifying your credentials...', ar: 'التحقق من بيانات الدخول...'),
-    (en: 'Checking access rights...', ar: 'التحقق من صلاحيات الوصول...'),
-    (en: 'Applying your role rules...', ar: 'تطبيق قواعد دورك...'),
-    (en: 'Preparing your dashboard...', ar: 'تجهيز لوحة التحكم...'),
-  ];
+  List<({String en, String ar})> get _steps => widget.steps;
 
   int _current = 0;
   Timer? _timer;
