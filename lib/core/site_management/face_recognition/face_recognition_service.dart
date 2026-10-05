@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:math' as math;
 import 'dart:typed_data';
 import 'dart:ui';
@@ -14,6 +15,7 @@ import 'package:el_race/core/site_management/face_recognition/domain/face_prepro
 import 'package:el_race/core/site_management/face_recognition/face_match_logger.dart';
 import 'package:el_race/core/site_management/face_recognition/face_recognition_availability.dart';
 import 'package:el_race/core/site_management/face_recognition/face_recognition_config.dart';
+import 'package:el_race/core/site_management/face_recognition/profile_photo_face_db.dart';
 import 'package:el_race/core/timesheet/network/timesheet_odoo_employee.dart';
 import 'package:el_race/core/timesheet/services/face_capture_service.dart';
 import 'package:flutter/foundation.dart';
@@ -82,6 +84,7 @@ class FaceRecognitionService {
       try {
         await _embedder.ensureLoaded();
         _engineReady = true;
+        _prewarmProfilePhotos();
       } catch (e) {
         debugPrint('FaceRecognition: TFLite preload failed: $e');
         _syncReady = false;
@@ -91,6 +94,11 @@ class FaceRecognitionService {
       }
     }
     return result;
+  }
+
+  void _prewarmProfilePhotos() {
+    if (!ProfilePhotoMatchTest.enabled) return;
+    unawaited(_repository.loadCached().then(_attendanceRoster));
   }
 
   /// Full re-download of face DB (use when Odoo enrollment changed outside the app).
@@ -204,12 +212,27 @@ class FaceRecognitionService {
     for (final v in embedding) {
       probeNormSq += v * v;
     }
-    final roster = await _repository.loadCached();
+    final enrolled = await _repository.loadCached();
+    final roster = await _attendanceRoster(enrolled);
     if (roster.isEmpty) return FaceMatchResult.none;
     _logCacheDiagnostics(roster);
     final matchSw = Stopwatch()..start();
     final result = _matcher.findBestMatch(embedding, roster);
     final matchMs = matchSw.elapsedMilliseconds;
+    if (ProfilePhotoMatchTest.enabled) {
+      final viaEnrollment = _matcher.findBestMatch(embedding, enrolled);
+      debugPrint(
+        'ProfilePhotoMatch: compare '
+        'profile=${result.best?.employeeId} ${result.best?.name} '
+        'best=${result.bestScore.toStringAsFixed(3)} '
+        'margin=${result.winnerMargin.toStringAsFixed(3)} | '
+        'enrollment=${viaEnrollment.best?.employeeId} '
+        '${viaEnrollment.best?.name} '
+        'best=${viaEnrollment.bestScore.toStringAsFixed(3)} '
+        'margin=${viaEnrollment.winnerMargin.toStringAsFixed(3)} '
+        'same=${result.best?.employeeId == viaEnrollment.best?.employeeId}',
+      );
+    }
     final totalMs = totalSw.elapsedMilliseconds + preprocessMs;
     final best = result.best;
     if (best != null && kDebugMode) {
@@ -282,6 +305,21 @@ class FaceRecognitionService {
     return ok;
   }
 
+  /// Templates attendance matches against: enrollment templates, or (test
+  /// build) one profile-photo template per enrolled employee.
+  Future<List<FaceEmbeddingRecord>> _attendanceRoster(
+    List<FaceEmbeddingRecord> enrolled,
+  ) {
+    if (!ProfilePhotoMatchTest.enabled || enrolled.isEmpty) {
+      return Future.value(enrolled);
+    }
+    return ProfilePhotoFaceDb.instance.rowsFor(
+      enrolled,
+      preprocessor: _preprocessor,
+      embedder: _embedder,
+    );
+  }
+
   void _logCacheDiagnostics(List<FaceEmbeddingRecord> roster) {
     for (var i = 0; i < roster.length && i < 3; i++) {
       final row = roster[i];
@@ -320,7 +358,7 @@ class FaceRecognitionService {
       if (kDebugMode) {
         _embedder.debugPrintEmbeddingHead(embedding, label: 'E.3 probe');
       }
-      final roster = await _repository.loadCached();
+      final roster = await _attendanceRoster(await _repository.loadCached());
       final perTemplate = _matcher.scoreTemplatesForEmployee(
         embedding,
         roster,
