@@ -11,7 +11,6 @@ import 'package:phosphor_flutter/phosphor_flutter.dart';
 abstract final class _TmLaborActionColors {
   static const ok = Color(0xFF3DDC84);
   static const warn = Color(0xFFFFB74D);
-  static const idle = Color(0xFFB0BEC5);
 }
 
 /// Signature for opening the camera to capture one labor's attendance.
@@ -580,22 +579,86 @@ class _MemberTile extends StatelessWidget {
                 onTap: onEnroll,
               ),
             ],
-            _ActionIcon(
+            _CaptureButton(
               tooltip: isCaptured
                   ? 'Already captured'
                   : isEnrolled || ProfilePhotoMatchTest.enabled
                       ? 'Capture attendance'
                       : 'Capture attendance (not enrolled yet)',
-              icon: isCaptured
-                  ? PhosphorIcons.checkCircle(PhosphorIconsStyle.fill)
-                  : PhosphorIcons.camera(PhosphorIconsStyle.fill),
-              color: isCaptured || onSubmit != null
-                  ? _TmLaborActionColors.ok
-                  : _TmLaborActionColors.idle,
-              onTap: onSubmit,
+              captured: isCaptured,
+              onTap: isCaptured ? null : onSubmit,
             ),
           ],
         ],
+      ),
+    );
+  }
+}
+
+class _CaptureButton extends StatelessWidget {
+  const _CaptureButton({
+    required this.tooltip,
+    required this.captured,
+    this.onTap,
+  });
+
+  final String tooltip;
+  final bool captured;
+  final VoidCallback? onTap;
+
+  static const double _iconSize = 30;
+
+  @override
+  Widget build(BuildContext context) {
+    final dimmed = !captured && onTap == null;
+    return Tooltip(
+      message: tooltip,
+      child: InkWell(
+        customBorder: const CircleBorder(),
+        onTap: onTap,
+        child: SizedBox(
+          width: 44,
+          height: 44,
+          child: Center(
+            child: SizedBox(
+              width: _iconSize,
+              height: _iconSize,
+              child: Stack(
+                clipBehavior: Clip.none,
+                children: [
+                  Opacity(
+                    opacity: dimmed ? 0.4 : 1,
+                    child: Image.asset(
+                      'assets/png/capture_attendance.png',
+                      width: _iconSize,
+                      height: _iconSize,
+                      filterQuality: FilterQuality.medium,
+                    ),
+                  ),
+                  if (captured)
+                    Positioned(
+                      right: -3,
+                      bottom: -3,
+                      child: Container(
+                        width: 14,
+                        height: 14,
+                        decoration: BoxDecoration(
+                          color: _TmLaborActionColors.ok,
+                          shape: BoxShape.circle,
+                          border: Border.all(color: Colors.white, width: 1.5),
+                        ),
+                        child: const Icon(
+                          Icons.check_rounded,
+                          size: 9,
+                          color: Colors.white,
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+            ),
+          ),
+        ),
       ),
     );
   }
