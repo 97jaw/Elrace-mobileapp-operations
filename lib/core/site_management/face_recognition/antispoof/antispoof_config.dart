@@ -65,6 +65,12 @@ class AntispoofConfig {
   /// 0.78–0.83 live but 0.17–0.33 print + replay.
   static const double maxLiveAttackSum = 0.10;
 
+  /// Largest face width allowed, as a share of the upright frame width. The
+  /// models need the surroundings (2.7× / 4× the face) to see a screen's
+  /// edges; a phone held so close that it fills the camera read as live
+  /// (face ~0.76–0.83 of the width), one at ~0.58 was blocked.
+  static const double maxFaceWidthFraction = 0.55;
+
   /// A spoof frame is "hard" (blocks the burst outright) when both models
   /// vote attack or print + replay reaches this. Below it, with the models
   /// disagreeing, it is a "soft" spoof — typically motion blur or glare on a

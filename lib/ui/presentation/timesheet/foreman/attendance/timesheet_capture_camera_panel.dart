@@ -576,6 +576,23 @@ class TimesheetCaptureCameraPanelState
         }
         return false;
       }
+      if (samples.any(_faceTooLargeForPad)) {
+        debugPrint('FaceCapture: PAD blocked — face too close to the camera');
+        _livenessGate.completeBurstVerification(
+          passed: false,
+          message: 'Move back a little, then capture again',
+        );
+        _syncLivenessSnapshot();
+        _emitChrome();
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Move back a little, then capture again'),
+            ),
+          );
+        }
+        return false;
+      }
       if (kDebugMode) unawaited(_debugDumpPadFrames(samples));
       final verifyResult = await _burstPipeline.verify(samples).timeout(
             AntispoofConfig.maxVerificationBudget,
@@ -706,6 +723,16 @@ class TimesheetCaptureCameraPanelState
       await Future<void>.delayed(const Duration(milliseconds: 100));
     }
     return _preShutterSamplesFromRing();
+  }
+
+  /// The spoof models must see the surroundings of the face; a frame without a
+  /// decoded image can't be measured and counts as too close.
+  bool _faceTooLargeForPad(BurstFrameSample sample) {
+    final frame = sample.rgbFrame;
+    if (frame == null) return true;
+    final uprightWidth = math.min(frame.width, frame.height);
+    return sample.faceBox.width >
+        uprightWidth * AntispoofConfig.maxFaceWidthFraction;
   }
 
   /// Debug builds only, read-only: shows what the spoof models are given

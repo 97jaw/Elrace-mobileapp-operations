@@ -4,6 +4,7 @@ import 'dart:typed_data';
 import 'dart:ui';
 
 import 'package:camera/camera.dart';
+import 'package:el_race/core/site_management/face_recognition/antispoof/antispoof_config.dart';
 import 'package:el_race/core/site_management/face_recognition/antispoof/timesheet_face_classification_snapshot.dart';
 import 'package:el_race/core/site_management/face_recognition/data/models/face_enrollment_pose.dart';
 import 'package:flutter/foundation.dart';
@@ -17,6 +18,7 @@ enum TimesheetFaceQualityStatus {
   pass,
   noFace,
   tooSmall,
+  tooLarge,
   poseOutOfRange,
   eyesClosed,
   tooBlurry,
@@ -850,6 +852,17 @@ class TimesheetFaceCaptureService {
             : 'Move closer to the camera.',
         canCapture: false,
       );
+    }
+    if (liveStream && frameSize != null) {
+      final uprightWidth = math.min(frameSize.width, frameSize.height);
+      if (face.boundingBox.width >
+          uprightWidth * AntispoofConfig.maxFaceWidthFraction) {
+        return const TimesheetFaceQualityResult(
+          status: TimesheetFaceQualityStatus.tooLarge,
+          message: 'Move back a little.',
+          canCapture: false,
+        );
+      }
     }
 
     final maxPose = liveStream ? maxHeadPoseDegreesStream : maxHeadPoseDegrees;

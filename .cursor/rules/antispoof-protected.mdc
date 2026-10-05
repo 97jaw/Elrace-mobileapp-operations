@@ -29,6 +29,9 @@ to mark attendance.
   frames from an earlier attempt or skip the check because one passed before.
 - A frame is live only when print + replay < `maxLiveAttackSum` (0.10).
 - `maxSoftSpoofFramesPerBurst` stays 0: any spoof frame blocks.
+- A face wider than `maxFaceWidthFraction` (0.55) of the frame is refused
+  ("Move back a little"), both on the live check and on every burst frame;
+  a phone screen held so close that it fills the camera otherwise reads as live.
 - Live stream frames given to the spoof models and matching are upright, so
   the ML Kit face box covers the face (`decodeCameraImageUpright`).
 - Implement only the options the user approved, nothing extra.
