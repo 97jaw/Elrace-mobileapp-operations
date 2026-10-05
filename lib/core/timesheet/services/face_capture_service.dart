@@ -366,6 +366,30 @@ class TimesheetFaceCaptureService {
     }
   }
 
+  /// Re-checks a saved turned-pose frame the same way the end-of-enrollment
+  /// check does (a still image, no tracking from earlier frames). Returns the
+  /// face sharpness, or null when that check would find no face.
+  Future<double?> verifiedEnrollmentFrameSharpness(String imagePath) async {
+    final detection = await analyzeImageFile(
+      imagePath,
+      includeCrop: false,
+      trustLiveGate: true,
+    );
+    final face = detection.primaryFace;
+    final analyzedPath = detection.analyzedImagePath;
+    if (face == null || analyzedPath == null) return null;
+    final decoded = await _decodeImage(analyzedPath);
+    if (decoded == null) return 0;
+    final box = face.boundingBox;
+    final left = box.left.clamp(0, decoded.width - 1).toInt();
+    final top = box.top.clamp(0, decoded.height - 1).toInt();
+    final width = box.width.clamp(1, decoded.width - left).toInt();
+    final height = box.height.clamp(1, decoded.height - top).toInt();
+    return _sharpnessScore(
+      img.copyCrop(decoded, x: left, y: top, width: width, height: height),
+    );
+  }
+
   /// Debug / legacy only — do **not** call from the live detect+embed path.
   /// Writes `ts_stream_*.jpg` and forces a full encode+reload cycle.
   @Deprecated('Use decodeCameraImage for the live path (Task 1)')

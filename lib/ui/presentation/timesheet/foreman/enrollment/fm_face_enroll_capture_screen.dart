@@ -70,6 +70,12 @@ class _FmFaceEnrollCaptureScreenState
   bool _autoCaptureInFlight = false;
   int _consecutiveReadyFrames = 0;
 
+  /// Best verified frame so far for the current turned pose.
+  FaceEnrollmentPose? _turnedCandidatePose;
+  String? _turnedCandidatePath;
+  double _turnedCandidateSharpness = -1;
+  int _turnedVerifiedFrames = 0;
+
   /// Bumped on every open/switch so in-flight frame analysis and iOS pollers
   /// drop results from a disposed or replaced camera session.
   int _cameraSessionId = 0;
@@ -84,6 +90,10 @@ class _FmFaceEnrollCaptureScreenState
 
   /// Turned poses sample faster; `_isAnalyzingFrame` still drops overlap.
   static const _turnedPoseStreamInterval = Duration(milliseconds: 120);
+
+  /// Verified turned frames compared before keeping the sharpest; fewer are
+  /// used when the head leaves the pose first.
+  static const _turnedFramesToCompare = 2;
 
   /// Short backoff only after a rejected still — never between good poses.
   static const _failureBackoff = Duration(milliseconds: 400);
@@ -125,6 +135,7 @@ class _FmFaceEnrollCaptureScreenState
   @override
   void dispose() {
     _lifecycleListener?.dispose();
+    _clearTurnedCandidate();
     _cameraSessionId++;
     _iosPollerGeneration++;
     unawaited(_stopStream());
@@ -298,6 +309,7 @@ class _FmFaceEnrollCaptureScreenState
       );
       await _openCamera(next);
       if (!mounted) return;
+      _clearTurnedCandidate();
       setState(() {
         _previewReady = false;
         _qualityStatus = null;
@@ -490,6 +502,11 @@ class _FmFaceEnrollCaptureScreenState
       } else {
         _consecutiveReadyFrames = 0;
         _readySince = null;
+        if (_turnedCandidatePose == _currentPose &&
+            sessionId == _cameraSessionId &&
+            !_cameraSwitching) {
+          await _acceptTurnedCandidate();
+        }
       }
     } catch (e) {
       debugPrint('FmFaceEnroll: frame analysis failed: $e');
@@ -499,7 +516,10 @@ class _FmFaceEnrollCaptureScreenState
   }
 
   /// Left / right / up: the head only passes through the angle briefly, so
-  /// keep the frame that passed instead of stopping the stream for a still.
+  /// keep frames that passed instead of stopping the stream for a still.
+  /// Live detection is helped by face tracking across frames; the final
+  /// enrollment check is not, so each frame is re-checked as a still before
+  /// it counts, and the sharpest of [_turnedFramesToCompare] is kept.
   /// Falls back to the still path if the frame can't be encoded.
   Future<void> _captureTurnedPoseFromFrame(
     CameraImage image,
@@ -509,6 +529,7 @@ class _FmFaceEnrollCaptureScreenState
     if (_capturing || _processing || _autoCaptureInFlight) return;
     final pose = _currentPose;
     _capturing = true;
+    var accept = false;
     try {
       final path = await _captureService.saveEnrollmentStreamFrame(
         image,
@@ -520,24 +541,71 @@ class _FmFaceEnrollCaptureScreenState
         await _autoCapturePose();
         return;
       }
-      _paths[pose] = path;
-      final nextIndex = _nextMissingPoseIndex();
-      if (nextIndex == null) {
-        setState(() => _capturing = false);
-        await _submitEnrollment();
+      final sharpness =
+          await _captureService.verifiedEnrollmentFrameSharpness(path);
+      if (!mounted || sessionId != _cameraSessionId || pose != _currentPose) {
+        _deleteQuietly(path);
         return;
       }
-      setState(() {
-        _poseIndex = nextIndex;
-        _hint = _currentPose.instruction;
-        _qualityStatus = null;
-        _previewReady = false;
-        _consecutiveReadyFrames = 0;
-        _readySince = null;
-      });
+      if (sharpness == null) {
+        _deleteQuietly(path);
+        return;
+      }
+      if (_turnedCandidatePose != pose) _clearTurnedCandidate();
+      if (sharpness > _turnedCandidateSharpness) {
+        final previous = _turnedCandidatePath;
+        if (previous != null) _deleteQuietly(previous);
+        _turnedCandidatePose = pose;
+        _turnedCandidatePath = path;
+        _turnedCandidateSharpness = sharpness;
+      } else {
+        _deleteQuietly(path);
+      }
+      _turnedVerifiedFrames += 1;
+      accept = _turnedVerifiedFrames >= _turnedFramesToCompare;
     } finally {
       _capturing = false;
     }
+    if (accept) await _acceptTurnedCandidate();
+  }
+
+  Future<void> _acceptTurnedCandidate() async {
+    final pose = _turnedCandidatePose;
+    final path = _turnedCandidatePath;
+    _turnedCandidatePose = null;
+    _turnedCandidatePath = null;
+    _turnedCandidateSharpness = -1;
+    _turnedVerifiedFrames = 0;
+    if (pose == null || path == null || pose != _currentPose || !mounted) {
+      return;
+    }
+    _paths[pose] = path;
+    final nextIndex = _nextMissingPoseIndex();
+    if (nextIndex == null) {
+      await _submitEnrollment();
+      return;
+    }
+    setState(() {
+      _poseIndex = nextIndex;
+      _hint = _currentPose.instruction;
+      _qualityStatus = null;
+      _previewReady = false;
+      _consecutiveReadyFrames = 0;
+      _readySince = null;
+    });
+  }
+
+  void _clearTurnedCandidate() {
+    final path = _turnedCandidatePath;
+    if (path != null) _deleteQuietly(path);
+    _turnedCandidatePose = null;
+    _turnedCandidatePath = null;
+    _turnedCandidateSharpness = -1;
+    _turnedVerifiedFrames = 0;
+  }
+
+  void _deleteQuietly(String path) {
+    unawaited(File(path).delete().then((_) {}, onError: (_) {}));
   }
 
   Future<void> _autoCapturePose() async {
@@ -771,6 +839,7 @@ class _FmFaceEnrollCaptureScreenState
 
   void _retakePose(FaceEnrollmentPose pose, String hint) {
     _paths.remove(pose);
+    _clearTurnedCandidate();
     ScaffoldMessenger.maybeOf(context)
       ?..hideCurrentSnackBar()
       ..showSnackBar(SnackBar(content: Text(hint)));
