@@ -28,10 +28,12 @@ import 'package:el_race/ui/presentation/timesheet/timesheet_route_args.dart';
 import 'package:el_race/ui/presentation/timesheet/widgets/face_recognition/tm_face_mesh_painter.dart';
 import 'package:el_race/ui/presentation/timesheet/widgets/face_recognition/tm_aws_face_liveness_screen.dart';
 import 'package:device_info_plus/device_info_plus.dart';
+import 'package:flutter/foundation.dart' show kDebugMode;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:image/image.dart' as img;
+import 'package:path_provider/path_provider.dart';
 import 'package:phosphor_flutter/phosphor_flutter.dart';
 
 /// Live chrome state for parent-built overlays (Add timesheet full screen).
@@ -540,8 +542,6 @@ class TimesheetCaptureCameraPanelState
 
   /// Task 5a — run MiniFASNet burst once at shutter, using the in-memory ring.
   Future<bool> _runCaptureTimePadBurst() async {
-    if (_livenessGate.recognitionAllowed) return true;
-
     _verificationInFlight = true;
     _livenessGate.markVerifying();
     _syncLivenessSnapshot();
@@ -551,6 +551,10 @@ class TimesheetCaptureCameraPanelState
       await MinifasnetFusionEngine.instance.ensureLoaded();
       // The spoof models are shared with the preview check; never run both.
       await _previewPadRun;
+      // Frames from before this press may show a different face (or one a
+      // previous attempt already judged); every attempt gets new frames.
+      await _clearStreamSampleRing();
+      _lastRingSampleAt = DateTime.fromMillisecondsSinceEpoch(0);
       final samples = await _awaitFullPadBurst();
       if (samples.length < AntispoofConfig.burstFrameCount) {
         debugPrint(
@@ -572,6 +576,7 @@ class TimesheetCaptureCameraPanelState
         }
         return false;
       }
+      if (kDebugMode) unawaited(_debugDumpPadFrames(samples));
       final verifyResult = await _burstPipeline.verify(samples).timeout(
             AntispoofConfig.maxVerificationBudget,
             onTimeout: () => const BurstVerificationResult(
@@ -703,6 +708,45 @@ class TimesheetCaptureCameraPanelState
     return _preShutterSamplesFromRing();
   }
 
+  /// Debug builds only, read-only: shows what the spoof models are given
+  /// (frame orientation vs face box) without changing any decision.
+  Future<void> _debugDumpPadFrames(List<BurstFrameSample> samples) async {
+    try {
+      final camera = _camera;
+      final orientation = MediaQuery.maybeOrientationOf(context);
+      final dir = await getTemporaryDirectory();
+      final stamp = DateTime.now().millisecondsSinceEpoch;
+      for (var i = 0; i < samples.length; i++) {
+        final s = samples[i];
+        final frame = s.rgbFrame;
+        debugPrint(
+          'PadDiag: frame ${i + 1}/${samples.length} '
+          'lens=${camera?.lensDirection.name} '
+          'sensorOrientation=${camera?.sensorOrientation} '
+          'screen=${orientation?.name} '
+          'frame=${frame?.width}x${frame?.height} box=${s.faceBox}',
+        );
+        if (frame == null) continue;
+        final marked = img.Image.from(frame);
+        final b = s.faceBox;
+        img.drawRect(
+          marked,
+          x1: b.left.round(),
+          y1: b.top.round(),
+          x2: b.right.round(),
+          y2: b.bottom.round(),
+          color: img.ColorRgb8(255, 0, 0),
+          thickness: 4,
+        );
+        final path = '${dir.path}/pad_diag_${stamp}_$i.jpg';
+        await File(path).writeAsBytes(img.encodeJpg(marked, quality: 80));
+        debugPrint('PadDiag: saved $path');
+      }
+    } catch (e) {
+      debugPrint('PadDiag: dump failed: $e');
+    }
+  }
+
   List<BurstFrameSample> _preShutterSamplesFromRing() {
     const count = AntispoofConfig.burstFrameCount;
     if (_streamSampleRing.length < count) {
@@ -726,7 +770,28 @@ class TimesheetCaptureCameraPanelState
     return !result.passed;
   }
 
+  /// Set when a capture fails the spoof check; capture and names stay blocked
+  /// until no face is in frame, so the same screen can't simply retry.
+  bool _spoofHoldUntilFaceGone = false;
+  int _noFaceFramesSinceSpoof = 0;
+
+  void _noteFacePresence({required bool hasFace, int framesToRelease = 2}) {
+    if (!_spoofHoldUntilFaceGone) return;
+    if (hasFace) {
+      _noFaceFramesSinceSpoof = 0;
+      return;
+    }
+    _noFaceFramesSinceSpoof += 1;
+    if (_noFaceFramesSinceSpoof >= framesToRelease) {
+      _spoofHoldUntilFaceGone = false;
+      _noFaceFramesSinceSpoof = 0;
+      debugPrint('FaceCapture: spoof hold released — face left the frame');
+    }
+  }
+
   void _blockReplayAttempt(String message) {
+    _spoofHoldUntilFaceGone = true;
+    _noFaceFramesSinceSpoof = 0;
     _livenessGate.blockReplay(message);
     _syncLivenessSnapshot();
     _clearLiveOverlay();
@@ -999,6 +1064,10 @@ class TimesheetCaptureCameraPanelState
   }) async {
     if (_lowEndDeviceMode) {
       _clearBadgeNow(reason: 'low_end_no_preview_name');
+      return false;
+    }
+    if (_spoofHoldUntilFaceGone) {
+      _clearBadgeNow(reason: 'spoof_hold');
       return false;
     }
     final cached = _previewLive;
@@ -1487,6 +1556,14 @@ class TimesheetCaptureCameraPanelState
     // can all fire in the same window — only the first one runs.
     if (_isCapturing) {
       debugPrint('FaceCapture: shutter ignored — capture already running');
+      return;
+    }
+    if (_spoofHoldUntilFaceGone) {
+      debugPrint('FaceCapture: shutter blocked — spoof hold');
+      _showCaptureBlockedMessage(
+        'Not a live face. Move it out of the frame, then try again with a '
+        'real face.',
+      );
       return;
     }
     final previewId = _livePreviewEmployeeId;
@@ -2012,7 +2089,10 @@ class TimesheetCaptureCameraPanelState
         trustLiveGate: true,
       );
       final matchPath = result.analyzedImagePath ?? photo.path;
-      // Task 5a — no stream PAD on iOS polling either; badge embed only.
+      _noteFacePresence(
+        hasFace: result.faceBoxes.isNotEmpty,
+        framesToRelease: 1,
+      );
       if (result.faceBoxes.isEmpty) {
         _clearBadgeNow(reason: 'no_face');
       } else if (result.quality.canCapture &&
@@ -2088,6 +2168,7 @@ class TimesheetCaptureCameraPanelState
         _consecutiveReadyFrames = 0;
       }
 
+      _noteFacePresence(hasFace: result.faceBoxes.isNotEmpty);
       // Task 6 — clear badge on no-face / stale (N=3 only gates identity switch).
       if (result.faceBoxes.isEmpty) {
         _clearBadgeNow(reason: 'no_face');
