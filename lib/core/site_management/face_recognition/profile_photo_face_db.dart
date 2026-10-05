@@ -10,6 +10,7 @@ import 'package:el_race/core/timesheet/network/timesheet_odoo_employee.dart';
 import 'package:el_race/core/timesheet/services/face_capture_service.dart';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
+import 'package:image/image.dart' as img;
 import 'package:path_provider/path_provider.dart';
 
 /// TEST ONLY (feature/profile-photo-matching): attendance ignores the
@@ -185,8 +186,13 @@ class ProfilePhotoFaceDb {
     FaceEmbedder embedder,
   ) async {
     try {
-      final file = File('${dir.path}/profile_face_$employeeId.img');
-      await file.writeAsBytes(bytes);
+      final prepared = await compute(_prepareProfilePhoto, bytes);
+      if (prepared == null) {
+        debugPrint('ProfilePhotoMatch: emp=$employeeId undecodable image');
+        return null;
+      }
+      final file = File('${dir.path}/profile_face_$employeeId.jpg');
+      await file.writeAsBytes(prepared);
       final detection = await capture.analyzeImageFile(
         file.path,
         includeCrop: false,
@@ -194,19 +200,68 @@ class ProfilePhotoFaceDb {
       );
       final face = detection.primaryFace;
       final analyzedPath = detection.analyzedImagePath;
-      if (face == null || analyzedPath == null) return null;
-      final tensor = await preprocessor.buildInputTensorFromCaptureAsync(
+      if (face == null || analyzedPath == null) {
+        debugPrint(
+          'ProfilePhotoMatch: emp=$employeeId detector found no face '
+          'faces=${detection.faceCount} img=${detection.imageSize}',
+        );
+        return null;
+      }
+      var tensor = await preprocessor.buildInputTensorFromCaptureAsync(
         imagePath: analyzedPath,
         faceBox: face.boundingBox,
         landmarks: face,
       );
-      if (tensor == null) return null;
+      tensor ??= await preprocessor.buildInputTensorFromCaptureAsync(
+        imagePath: file.path,
+        faceBox: face.boundingBox,
+      );
+      if (tensor == null) {
+        debugPrint(
+          'ProfilePhotoMatch: emp=$employeeId crop failed '
+          'img=${detection.imageSize} box=${face.boundingBox} '
+          'eyes=${face.leftEye}/${face.rightEye} faces=${detection.faceCount}',
+        );
+        return null;
+      }
       return _unit(await embedder.generateEmbedding(tensor));
     } catch (e) {
       debugPrint('ProfilePhotoMatch: emp=$employeeId embed failed: $e');
       return null;
     }
   }
+
+  /// HR photos are often 128 px thumbnails or transparent PNGs cropped tight
+  /// to the head; the detector needs a larger, opaque image with some margin.
+  @visibleForTesting
+  static Uint8List? prepareProfilePhoto(Uint8List bytes) =>
+      _prepareProfilePhoto(bytes);
+
+  static Uint8List? _prepareProfilePhoto(Uint8List bytes) {
+    final decoded = img.decodeImage(bytes);
+    if (decoded == null) return null;
+    var photo = img.bakeOrientation(decoded);
+    final shortSide = math.min(photo.width, photo.height);
+    if (shortSide < _minPhotoShortSidePx) {
+      final scale = _minPhotoShortSidePx / shortSide;
+      photo = img.copyResize(
+        photo,
+        width: (photo.width * scale).round(),
+        height: (photo.height * scale).round(),
+        interpolation: img.Interpolation.cubic,
+      );
+    }
+    final margin = (math.max(photo.width, photo.height) * 0.15).round();
+    final canvas = img.Image(
+      width: photo.width + margin * 2,
+      height: photo.height + margin * 2,
+    );
+    img.fill(canvas, color: img.ColorRgb8(255, 255, 255));
+    img.compositeImage(canvas, photo, dstX: margin, dstY: margin);
+    return img.encodeJpg(canvas, quality: 95);
+  }
+
+  static const int _minPhotoShortSidePx = 480;
 
   static List<double> _unit(List<double> v) {
     var sum = 0.0;

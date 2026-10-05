@@ -308,6 +308,8 @@ class TimesheetFaceCaptureService {
     );
   }
 
+  static int _normalizedFileSeq = 0;
+
   /// Fixes EXIF rotation so still captures match live ML Kit frames.
   Future<String> _normalizedImagePath(String imagePath) async {
     final decoded = await _decodeImage(imagePath);
@@ -315,7 +317,8 @@ class TimesheetFaceCaptureService {
     final oriented = img.bakeOrientation(decoded);
     final dir = await getTemporaryDirectory();
     final out = File(
-      '${dir.path}/ts_norm_${DateTime.now().millisecondsSinceEpoch}.jpg',
+      '${dir.path}/ts_norm_${DateTime.now().millisecondsSinceEpoch}_'
+      '${_normalizedFileSeq++}.jpg',
     );
     await out.writeAsBytes(img.encodeJpg(oriented, quality: 92));
     return out.path;
