@@ -6,6 +6,7 @@ import 'dart:typed_data';
 import 'package:el_race/core/site_management/face_recognition/data/models/face_embedding_record.dart';
 import 'package:el_race/core/site_management/face_recognition/domain/face_embedder.dart';
 import 'package:el_race/core/site_management/face_recognition/domain/face_preprocessor.dart';
+import 'package:el_race/core/timesheet/models/timesheet_team_member.dart';
 import 'package:el_race/core/timesheet/network/timesheet_odoo_employee.dart';
 import 'package:el_race/core/timesheet/services/face_capture_service.dart';
 import 'package:flutter/foundation.dart';
@@ -56,6 +57,29 @@ class ProfilePhotoFaceDb {
   }
 
   bool hasTemplateFor(int employeeId) => _embeddings[employeeId] != null;
+
+  /// Project labour narrowed to the foreman's assigned labour (Your Team).
+  /// Falls back to the whole project list when the login has no team (PM).
+  static List<TimesheetOdooEmployee> yourTeamOnly(
+    List<TimesheetOdooEmployee> projectLabour,
+    List<TimesheetTeamMember> team,
+  ) {
+    if (team.isEmpty) {
+      debugPrint(
+        'ProfilePhotoMatch: no Your Team list — using all '
+        '${projectLabour.length} project labour',
+      );
+      return projectLabour;
+    }
+    final teamIds = {for (final m in team) m.employeeId};
+    final mine =
+        projectLabour.where((e) => teamIds.contains(e.employeeId)).toList();
+    debugPrint(
+      'ProfilePhotoMatch: Your Team ${team.length} → ${mine.length} of '
+      '${projectLabour.length} project labour used',
+    );
+    return mine;
+  }
 
   /// Profile-photo rows for the current labour roster; builds missing ones.
   Future<List<FaceEmbeddingRecord>> rows({

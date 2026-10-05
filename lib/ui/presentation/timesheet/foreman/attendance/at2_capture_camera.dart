@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:el_race/core/theme/timesheet_module_theme.dart';
+import 'package:el_race/core/timesheet/models/timesheet_team_member.dart';
 import 'package:el_race/core/timesheet/network/timesheet_functions_client.dart';
 import 'package:el_race/core/timesheet/network/timesheet_odoo_employee.dart';
 import 'package:el_race/core/timesheet/providers/timesheet_data_providers.dart';
@@ -95,7 +96,16 @@ class _At2CaptureCameraScreenState extends ConsumerState<At2CaptureCameraScreen>
     }
     if (!mounted) return;
     if (ProfilePhotoMatchTest.enabled) {
-      ProfilePhotoFaceDb.instance.setLabour(labors);
+      var team = const <TimesheetTeamMember>[];
+      try {
+        team = await ref.read(timesheetForemanLaborsProvider.future);
+      } catch (e) {
+        debugPrint('ProfilePhotoMatch: Your Team load failed: $e');
+      }
+      if (!mounted) return;
+      ProfilePhotoFaceDb.instance.setLabour(
+        ProfilePhotoFaceDb.yourTeamOnly(labors, team),
+      );
     }
     final faceRoster = _phaseBActive
         ? const <TimesheetOdooEmployee>[]
