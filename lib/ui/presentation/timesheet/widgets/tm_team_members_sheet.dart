@@ -4,6 +4,7 @@ import 'package:el_race/core/site_management/face_recognition/profile_photo_face
 import 'package:el_race/core/theme/timesheet_module_theme.dart';
 import 'package:el_race/core/timesheet/models/timesheet_team_member.dart';
 import 'package:el_race/core/timesheet/providers/timesheet_enrollment_status_provider.dart';
+import 'package:el_race/core/widgets/timesheet/tm_search_field.dart';
 import 'package:el_race/ui/presentation/timesheet/models/timesheet_capture_session_entry.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -105,6 +106,10 @@ class _TmTeamMembersSheetBodyState
   late List<TimesheetTeamMember> _members = widget.members;
   bool _reloading = false;
 
+  static const int _pageSize = 20;
+  String _query = '';
+  int _visibleCount = _pageSize;
+
   /// Employee ids whose enroll flow is currently running (shows a spinner).
   final Set<int> _enrolling = <int>{};
 
@@ -143,7 +148,10 @@ class _TmTeamMembersSheetBodyState
     try {
       final members = await handler();
       if (!mounted) return;
-      setState(() => _members = members);
+      setState(() {
+        _members = members;
+        _visibleCount = _pageSize;
+      });
       if (_gateOnProfileTemplates) {
         ProfilePhotoFaceDb.instance.setTeam(members);
         unawaited(ProfilePhotoFaceDb.instance.retryFailed());
@@ -233,6 +241,30 @@ class _TmTeamMembersSheetBodyState
   bool get _showActions =>
       widget.onEnroll != null || widget.onCaptureAttendance != null;
 
+  List<TimesheetTeamMember> get _filteredMembers {
+    final q = _query.toLowerCase();
+    if (q.isEmpty) return _members;
+    return _members.where((m) {
+      return m.name.toLowerCase().contains(q) ||
+          m.fileId.toLowerCase().contains(q) ||
+          (m.subtitle?.toLowerCase().contains(q) ?? false);
+    }).toList(growable: false);
+  }
+
+  void _onQueryChanged(String value) {
+    setState(() {
+      _query = value.trim();
+      _visibleCount = _pageSize;
+    });
+  }
+
+  bool _onListScroll(ScrollNotification notification, int total) {
+    if (_visibleCount < total && notification.metrics.extentAfter < 300) {
+      setState(() => _visibleCount += _pageSize);
+    }
+    return false;
+  }
+
   Set<int> get _pendingIds => _pending.map((e) => e.employeeId).toSet();
 
   void _notifyPending() => widget.onPendingChanged?.call(List.of(_pending));
@@ -312,10 +344,10 @@ class _TmTeamMembersSheetBodyState
     Map<int, ProfileTemplateState>? faceStates,
   ) {
     final pendingCount = _pending.length;
-    ProfileTemplateState? faceStateOf(TimesheetTeamMember m) => faceStates ==
-            null
-        ? null
-        : faceStates[m.employeeId] ?? ProfileTemplateState.pending;
+    ProfileTemplateState? faceStateOf(TimesheetTeamMember m) =>
+        faceStates == null
+            ? null
+            : faceStates[m.employeeId] ?? ProfileTemplateState.pending;
     final facesDone = faceStates == null
         ? 0
         : _members
@@ -324,6 +356,10 @@ class _TmTeamMembersSheetBodyState
     final showFaceProgress = faceStates != null &&
         _members.isNotEmpty &&
         facesDone < _members.length;
+    final filtered = _filteredMembers;
+    final shownCount =
+        filtered.length < _visibleCount ? filtered.length : _visibleCount;
+    final hasMore = shownCount < filtered.length;
 
     return DraggableScrollableSheet(
       initialChildSize: 0.55,
@@ -405,59 +441,124 @@ class _TmTeamMembersSheetBodyState
                     ],
                   ),
                 ),
+              if (_members.isNotEmpty)
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+                  child: TmSearchField(
+                    hintText: 'Search name or file ID',
+                    onDebouncedChanged: _onQueryChanged,
+                  ),
+                ),
               Expanded(
-                child: _members.isEmpty
+                child: filtered.isEmpty
                     ? Center(
                         child: Text(
-                          'No records',
+                          _members.isEmpty
+                              ? 'No records'
+                              : 'No match for "$_query"',
                           style: TimesheetModuleTypography.body().copyWith(
                             color: TimesheetModuleColors.warmMuted,
                           ),
                         ),
                       )
-                    : ListView.separated(
-                        controller: scrollController,
-                        padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
-                        itemCount: _members.length,
-                        separatorBuilder: (_, __) => const SizedBox(height: 10),
-                        itemBuilder: (context, index) {
-                          final member = _members[index];
-                          final enrolled =
-                              enrollment[member.employeeId] == true;
-                          final captured =
-                              _pendingIds.contains(member.employeeId);
-                          final enrolling =
-                              _enrolling.contains(member.employeeId);
-                          final faceState = faceStateOf(member);
-                          return _MemberTile(
-                            member: member,
-                            isEnrolled: enrolled,
-                            isCaptured: captured,
-                            isEnrolling: enrolling,
-                            showActions: _showActions,
-                            faceState: faceState,
-                            onEnroll: widget.onEnroll == null || enrolling
-                                ? null
-                                : () => _handleEnroll(member, enrolled),
-                            onSubmit: widget.onCaptureAttendance == null ||
-                                    captured ||
-                                    enrolling
-                                ? null
-                                : switch (faceState) {
-                                    ProfileTemplateState.pending => () =>
-                                        _onFacePending(member),
-                                    ProfileTemplateState.failed => () =>
-                                        _onFaceFailed(member),
-                                    _ => () => _capture(member),
-                                  },
-                          );
-                        },
+                    : NotificationListener<ScrollNotification>(
+                        onNotification: (n) =>
+                            _onListScroll(n, filtered.length),
+                        child: ListView.separated(
+                          controller: scrollController,
+                          padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
+                          itemCount: shownCount + 1,
+                          separatorBuilder: (_, __) =>
+                              const SizedBox(height: 10),
+                          itemBuilder: (context, index) {
+                            if (index == shownCount) {
+                              return _ListFooter(
+                                shown: shownCount,
+                                total: filtered.length,
+                                hasMore: hasMore,
+                                onShowMore: () => setState(
+                                  () => _visibleCount += _pageSize,
+                                ),
+                              );
+                            }
+                            final member = filtered[index];
+                            final enrolled =
+                                enrollment[member.employeeId] == true;
+                            final captured =
+                                _pendingIds.contains(member.employeeId);
+                            final enrolling =
+                                _enrolling.contains(member.employeeId);
+                            final faceState = faceStateOf(member);
+                            return _MemberTile(
+                              member: member,
+                              isEnrolled: enrolled,
+                              isCaptured: captured,
+                              isEnrolling: enrolling,
+                              showActions: _showActions,
+                              faceState: faceState,
+                              onEnroll: widget.onEnroll == null || enrolling
+                                  ? null
+                                  : () => _handleEnroll(member, enrolled),
+                              onSubmit: widget.onCaptureAttendance == null ||
+                                      captured ||
+                                      enrolling
+                                  ? null
+                                  : switch (faceState) {
+                                      ProfileTemplateState.pending => () =>
+                                          _onFacePending(member),
+                                      ProfileTemplateState.failed => () =>
+                                          _onFaceFailed(member),
+                                      _ => () => _capture(member),
+                                    },
+                            );
+                          },
+                        ),
                       ),
               ),
             ],
           ),
         );
       },
+    );
+  }
+}
+
+class _ListFooter extends StatelessWidget {
+  const _ListFooter({
+    required this.shown,
+    required this.total,
+    required this.hasMore,
+    required this.onShowMore,
+  });
+
+  final int shown;
+  final int total;
+  final bool hasMore;
+  final VoidCallback onShowMore;
+
+  @override
+  Widget build(BuildContext context) {
+    final caption = TimesheetModuleTypography.caption().copyWith(
+      color: TimesheetModuleColors.warmMuted,
+    );
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Column(
+        children: [
+          Text('Showing $shown of $total', style: caption),
+          if (hasMore)
+            TextButton(
+              onPressed: onShowMore,
+              child: const Text(
+                'Show more',
+                style: TextStyle(
+                  color: TimesheetModuleColors.accent,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ),
+        ],
+      ),
     );
   }
 }
