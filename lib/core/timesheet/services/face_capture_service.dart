@@ -259,11 +259,17 @@ class TimesheetFaceCaptureService {
     bool includeCrop = true,
     bool relaxedQuality = false,
     bool trustLiveGate = false,
+    // Upright JPEG without EXIF: skips the decode/re-encode and size decode.
+    bool alreadyNormalized = false,
   }) async {
-    final normalizedPath = await _normalizedImagePath(imagePath);
+    final normalizedPath = alreadyNormalized
+        ? imagePath
+        : await _normalizedImagePath(imagePath);
     final inputImage = InputImage.fromFilePath(normalizedPath);
     final faces = await _detector.processImage(inputImage);
-    final decoded = await _decodeImage(normalizedPath);
+    final decoded = alreadyNormalized && !includeCrop
+        ? null
+        : await _decodeImage(normalizedPath);
     var quality = _evaluateQuality(
       faces,
       relaxedQuality || trustLiveGate ? null : decoded,

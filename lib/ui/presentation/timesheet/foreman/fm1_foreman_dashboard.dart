@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:el_race/core/site_management/face_recognition/profile_photo_face_db.dart';
 import 'package:el_race/core/theme/timesheet_module_theme.dart';
 import 'package:el_race/core/timesheet/models/timesheet_models.dart';
 import 'package:el_race/core/timesheet/models/timesheet_submit_request.dart';
@@ -62,6 +63,14 @@ class Fm1ForemanDashboard extends ConsumerWidget {
               orElse: () => const <TimesheetCaptureSessionEntry>[],
             );
     ref.watch(timesheetForemanEnrollmentMapProvider);
+
+    if (ProfilePhotoMatchTest.enabled) {
+      final team = laborsAsync.value;
+      // No-op when the team is unchanged; builds missing faces in background.
+      if (team != null && team.isNotEmpty) {
+        scheduleMicrotask(() => ProfilePhotoFaceDb.instance.setTeam(team));
+      }
+    }
 
     final laborCount = laborsAsync.maybeWhen(
       data: (list) => list.length,

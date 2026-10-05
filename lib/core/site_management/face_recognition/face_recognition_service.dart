@@ -110,10 +110,6 @@ class FaceRecognitionService {
       _syncReady = true;
       _engineLoadFailed = false;
       _engineError = null;
-      unawaited(ProfilePhotoFaceDb.instance.rows(
-        preprocessor: _preprocessor,
-        embedder: _embedder,
-      ));
     } catch (e) {
       debugPrint('FaceRecognition: TFLite preload failed: $e');
       _syncReady = false;
@@ -333,10 +329,7 @@ class FaceRecognitionService {
   /// build) one profile-photo template per enrolled employee.
   Future<List<FaceEmbeddingRecord>> _attendanceRoster() {
     if (!ProfilePhotoMatchTest.enabled) return _repository.loadCached();
-    return ProfilePhotoFaceDb.instance.rows(
-      preprocessor: _preprocessor,
-      embedder: _embedder,
-    );
+    return ProfilePhotoFaceDb.instance.rows();
   }
 
   void _logCacheDiagnostics(List<FaceEmbeddingRecord> roster) {

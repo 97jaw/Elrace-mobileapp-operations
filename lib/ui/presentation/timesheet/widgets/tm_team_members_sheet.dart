@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:el_race/core/site_management/face_recognition/profile_photo_face_db.dart';
 import 'package:el_race/core/theme/timesheet_module_theme.dart';
 import 'package:el_race/core/timesheet/models/timesheet_team_member.dart';
@@ -106,6 +108,34 @@ class _TmTeamMembersSheetBodyState
   /// Employee ids whose enroll flow is currently running (shows a spinner).
   final Set<int> _enrolling = <int>{};
 
+  bool get _gateOnProfileTemplates =>
+      ProfilePhotoMatchTest.enabled && widget.onCaptureAttendance != null;
+
+  @override
+  void initState() {
+    super.initState();
+    if (_gateOnProfileTemplates) {
+      ProfilePhotoFaceDb.instance.setTeam(widget.members);
+    }
+  }
+
+  void _showSnack(String message) {
+    ScaffoldMessenger.maybeOf(context)?.showSnackBar(
+      SnackBar(content: Text(message), duration: const Duration(seconds: 2)),
+    );
+  }
+
+  void _onFacePending(TimesheetTeamMember member) {
+    ProfilePhotoFaceDb.instance.prioritize(member.employeeId);
+    _showSnack('Preparing face for ${member.name}…');
+  }
+
+  void _onFaceFailed(TimesheetTeamMember member) {
+    _showSnack(
+      'No usable profile photo for ${member.name}. Ask HR to update it.',
+    );
+  }
+
   Future<void> _reload() async {
     final handler = widget.onReload;
     if (handler == null || _reloading) return;
@@ -114,6 +144,10 @@ class _TmTeamMembersSheetBodyState
       final members = await handler();
       if (!mounted) return;
       setState(() => _members = members);
+      if (_gateOnProfileTemplates) {
+        ProfilePhotoFaceDb.instance.setTeam(members);
+        unawaited(ProfilePhotoFaceDb.instance.retryFailed());
+      }
       ScaffoldMessenger.maybeOf(context)?.showSnackBar(
         SnackBar(
           content: Text('Team updated (${members.length})'),
@@ -266,7 +300,30 @@ class _TmTeamMembersSheetBodyState
             )
         : null;
     final enrollment = liveEnrollment ?? widget.enrollmentByEmployeeId;
+    if (!_gateOnProfileTemplates) return _buildSheet(enrollment, null);
+    return ValueListenableBuilder<Map<int, ProfileTemplateState>>(
+      valueListenable: ProfilePhotoFaceDb.instance.states,
+      builder: (context, faceStates, _) => _buildSheet(enrollment, faceStates),
+    );
+  }
+
+  Widget _buildSheet(
+    Map<int, bool> enrollment,
+    Map<int, ProfileTemplateState>? faceStates,
+  ) {
     final pendingCount = _pending.length;
+    ProfileTemplateState? faceStateOf(TimesheetTeamMember m) => faceStates ==
+            null
+        ? null
+        : faceStates[m.employeeId] ?? ProfileTemplateState.pending;
+    final facesDone = faceStates == null
+        ? 0
+        : _members
+            .where((m) => faceStateOf(m) != ProfileTemplateState.pending)
+            .length;
+    final showFaceProgress = faceStates != null &&
+        _members.isNotEmpty &&
+        facesDone < _members.length;
 
     return DraggableScrollableSheet(
       initialChildSize: 0.55,
@@ -325,6 +382,29 @@ class _TmTeamMembersSheetBodyState
                   ],
                 ),
               ),
+              if (showFaceProgress)
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 0, 20, 10),
+                  child: Row(
+                    children: [
+                      const SizedBox(
+                        width: 12,
+                        height: 12,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 1.8,
+                          color: TimesheetModuleColors.accent,
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        'Preparing faces $facesDone/${_members.length}',
+                        style: TimesheetModuleTypography.caption().copyWith(
+                          color: TimesheetModuleColors.warmMuted,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
               Expanded(
                 child: _members.isEmpty
                     ? Center(
@@ -348,12 +428,14 @@ class _TmTeamMembersSheetBodyState
                               _pendingIds.contains(member.employeeId);
                           final enrolling =
                               _enrolling.contains(member.employeeId);
+                          final faceState = faceStateOf(member);
                           return _MemberTile(
                             member: member,
                             isEnrolled: enrolled,
                             isCaptured: captured,
                             isEnrolling: enrolling,
                             showActions: _showActions,
+                            faceState: faceState,
                             onEnroll: widget.onEnroll == null || enrolling
                                 ? null
                                 : () => _handleEnroll(member, enrolled),
@@ -361,7 +443,13 @@ class _TmTeamMembersSheetBodyState
                                     captured ||
                                     enrolling
                                 ? null
-                                : () => _capture(member),
+                                : switch (faceState) {
+                                    ProfileTemplateState.pending => () =>
+                                        _onFacePending(member),
+                                    ProfileTemplateState.failed => () =>
+                                        _onFaceFailed(member),
+                                    _ => () => _capture(member),
+                                  },
                           );
                         },
                       ),
@@ -457,6 +545,7 @@ class _MemberTile extends StatelessWidget {
     required this.isCaptured,
     required this.isEnrolling,
     required this.showActions,
+    this.faceState,
     this.onEnroll,
     this.onSubmit,
   });
@@ -466,6 +555,9 @@ class _MemberTile extends StatelessWidget {
   final bool isCaptured;
   final bool isEnrolling;
   final bool showActions;
+
+  /// Profile-photo template status; null when capture isn't gated on it.
+  final ProfileTemplateState? faceState;
   final VoidCallback? onEnroll;
   final VoidCallback? onSubmit;
 
@@ -582,10 +674,19 @@ class _MemberTile extends StatelessWidget {
             _CaptureButton(
               tooltip: isCaptured
                   ? 'Already captured'
-                  : isEnrolled || ProfilePhotoMatchTest.enabled
-                      ? 'Capture attendance'
-                      : 'Capture attendance (not enrolled yet)',
+                  : switch (faceState) {
+                      ProfileTemplateState.pending => 'Preparing face…',
+                      ProfileTemplateState.failed => 'No usable profile photo',
+                      _ => isEnrolled || ProfilePhotoMatchTest.enabled
+                          ? 'Capture attendance'
+                          : 'Capture attendance (not enrolled yet)',
+                    },
               captured: isCaptured,
+              dimmed: !isCaptured &&
+                  (onSubmit == null ||
+                      faceState == ProfileTemplateState.pending ||
+                      faceState == ProfileTemplateState.failed),
+              noPhoto: !isCaptured && faceState == ProfileTemplateState.failed,
               onTap: isCaptured ? null : onSubmit,
             ),
           ],
@@ -599,18 +700,23 @@ class _CaptureButton extends StatelessWidget {
   const _CaptureButton({
     required this.tooltip,
     required this.captured,
+    required this.dimmed,
+    required this.noPhoto,
     this.onTap,
   });
 
   final String tooltip;
   final bool captured;
+
+  /// Dimmed icons may still be tappable (e.g. to prioritize a pending face).
+  final bool dimmed;
+  final bool noPhoto;
   final VoidCallback? onTap;
 
   static const double _iconSize = 30;
 
   @override
   Widget build(BuildContext context) {
-    final dimmed = !captured && onTap == null;
     return Tooltip(
       message: tooltip,
       child: InkWell(
@@ -649,6 +755,25 @@ class _CaptureButton extends StatelessWidget {
                         ),
                         child: const Icon(
                           Icons.check_rounded,
+                          size: 9,
+                          color: Colors.white,
+                        ),
+                      ),
+                    ),
+                  if (noPhoto)
+                    Positioned(
+                      right: -3,
+                      bottom: -3,
+                      child: Container(
+                        width: 14,
+                        height: 14,
+                        decoration: BoxDecoration(
+                          color: _TmLaborActionColors.warn,
+                          shape: BoxShape.circle,
+                          border: Border.all(color: Colors.white, width: 1.5),
+                        ),
+                        child: const Icon(
+                          Icons.priority_high_rounded,
                           size: 9,
                           color: Colors.white,
                         ),
