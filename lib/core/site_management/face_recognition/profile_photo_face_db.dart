@@ -35,6 +35,8 @@ class ProfilePhotoFaceDb {
   /// employeeId → unit embedding, or null when the photo is missing or has
   /// no usable face (so it isn't downloaded again this session).
   final Map<int, List<double>?> _embeddings = {};
+  final Map<int, ({int sourceWidth, int sourceHeight, int faceSourcePx})>
+      _photoInfo = {};
   Future<void>? _building;
 
   FacePreprocessor? _preprocessor;
@@ -153,6 +155,7 @@ class ProfilePhotoFaceDb {
       'ProfilePhotoMatch: built ${employees.length} employees '
       'ok=$ok noPhoto=$noPhoto noFace=$noFace in ${sw.elapsedMilliseconds}ms',
     );
+    _logQualityReport(employees);
   }
 
   Future<Uint8List?> _download(TimesheetOdooEmployee employee) async {
@@ -192,7 +195,7 @@ class ProfilePhotoFaceDb {
         return null;
       }
       final file = File('${dir.path}/profile_face_$employeeId.jpg');
-      await file.writeAsBytes(prepared);
+      await file.writeAsBytes(prepared.jpg);
       final detection = await capture.analyzeImageFile(
         file.path,
         includeCrop: false,
@@ -224,6 +227,11 @@ class ProfilePhotoFaceDb {
         );
         return null;
       }
+      _photoInfo[employeeId] = (
+        sourceWidth: prepared.sourceWidth,
+        sourceHeight: prepared.sourceHeight,
+        faceSourcePx: (face.boundingBox.width / prepared.scale).round(),
+      );
       return _unit(await embedder.generateEmbedding(tensor));
     } catch (e) {
       debugPrint('ProfilePhotoMatch: emp=$employeeId embed failed: $e');
@@ -233,17 +241,16 @@ class ProfilePhotoFaceDb {
 
   /// HR photos are often 128 px thumbnails or transparent PNGs cropped tight
   /// to the head; the detector needs a larger, opaque image with some margin.
-  @visibleForTesting
-  static Uint8List? prepareProfilePhoto(Uint8List bytes) =>
-      _prepareProfilePhoto(bytes);
-
-  static Uint8List? _prepareProfilePhoto(Uint8List bytes) {
+  static _PreparedPhoto? _prepareProfilePhoto(Uint8List bytes) {
     final decoded = img.decodeImage(bytes);
     if (decoded == null) return null;
     var photo = img.bakeOrientation(decoded);
+    final sourceWidth = photo.width;
+    final sourceHeight = photo.height;
+    var scale = 1.0;
     final shortSide = math.min(photo.width, photo.height);
     if (shortSide < _minPhotoShortSidePx) {
-      final scale = _minPhotoShortSidePx / shortSide;
+      scale = _minPhotoShortSidePx / shortSide;
       photo = img.copyResize(
         photo,
         width: (photo.width * scale).round(),
@@ -258,10 +265,87 @@ class ProfilePhotoFaceDb {
     );
     img.fill(canvas, color: img.ColorRgb8(255, 255, 255));
     img.compositeImage(canvas, photo, dstX: margin, dstY: margin);
-    return img.encodeJpg(canvas, quality: 95);
+    return (
+      jpg: img.encodeJpg(canvas, quality: 95),
+      sourceWidth: sourceWidth,
+      sourceHeight: sourceHeight,
+      scale: scale,
+    );
   }
 
   static const int _minPhotoShortSidePx = 480;
+
+  /// Face narrower than this in the original upload is upscaled guesswork.
+  static const int _lowResFacePx = 90;
+
+  /// Two different employees' photos closer than this are easily confused.
+  static const double _lookAlikeCosine = 0.45;
+
+  /// One line per profile template, worst first, so HR knows which photos to
+  /// replace.
+  void _logQualityReport(List<TimesheetOdooEmployee> employees) {
+    final names = {for (final e in _labour) e.employeeId: e.name};
+    final built = [
+      for (final e in _labour)
+        if (_embeddings[e.employeeId] != null) e.employeeId,
+    ];
+    final lines = <({int rank, String text})>[];
+    var good = 0;
+    var lowRes = 0;
+    var lookAlike = 0;
+    for (final e in employees) {
+      final id = e.employeeId;
+      final emb = _embeddings[id];
+      final info = _photoInfo[id];
+      if (emb == null || info == null) continue;
+      var closestId = -1;
+      var closest = -1.0;
+      for (final other in built) {
+        if (other == id) continue;
+        final score = _dot(emb, _embeddings[other]!);
+        if (score > closest) {
+          closest = score;
+          closestId = other;
+        }
+      }
+      final isLowRes = info.faceSourcePx < _lowResFacePx;
+      final isLookAlike = closest >= _lookAlikeCosine;
+      final grade = isLowRes && isLookAlike
+          ? 'LOW_RES+LOOK_ALIKE'
+          : isLowRes
+              ? 'LOW_RES'
+              : isLookAlike
+                  ? 'LOOK_ALIKE'
+                  : 'good';
+      if (grade == 'good') good++;
+      if (isLowRes) lowRes++;
+      if (isLookAlike) lookAlike++;
+      lines.add((
+        rank: (isLowRes ? 2 : 0) + (isLookAlike ? 1 : 0),
+        text: 'ProfilePhotoQuality: $grade emp=$id ${e.name} '
+            'photo=${info.sourceWidth}x${info.sourceHeight} '
+            'face=${info.faceSourcePx}px closest=emp $closestId '
+            '${names[closestId] ?? ''} ${closest.toStringAsFixed(3)}',
+      ));
+    }
+    lines.sort((a, b) => b.rank.compareTo(a.rank));
+    for (final line in lines) {
+      debugPrint(line.text);
+    }
+    debugPrint(
+      'ProfilePhotoQuality: summary good=$good lowRes=$lowRes '
+      'lookAlike=$lookAlike (lowRes = face < ${_lowResFacePx}px in upload, '
+      'lookAlike = >= $_lookAlikeCosine to another employee)',
+    );
+  }
+
+  static double _dot(List<double> a, List<double> b) {
+    var sum = 0.0;
+    for (var i = 0; i < a.length; i++) {
+      sum += a[i] * b[i];
+    }
+    return sum;
+  }
 
   static List<double> _unit(List<double> v) {
     var sum = 0.0;
@@ -273,3 +357,10 @@ class ProfilePhotoFaceDb {
     return [for (final x in v) x * inv];
   }
 }
+
+typedef _PreparedPhoto = ({
+  Uint8List jpg,
+  int sourceWidth,
+  int sourceHeight,
+  double scale,
+});
