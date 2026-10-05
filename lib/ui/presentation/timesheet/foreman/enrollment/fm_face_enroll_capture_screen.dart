@@ -1109,6 +1109,7 @@ class _QualityStatusRow extends StatelessWidget {
     return switch (status) {
       TimesheetFaceQualityStatus.noFace => 'Find your face in the oval',
       TimesheetFaceQualityStatus.tooSmall => 'Move closer',
+      TimesheetFaceQualityStatus.tooLarge => 'Move back a little',
       TimesheetFaceQualityStatus.poseOutOfRange => 'Adjust head pose',
       TimesheetFaceQualityStatus.eyesClosed => 'Open your eyes',
       TimesheetFaceQualityStatus.tooBlurry => 'Hold still',
