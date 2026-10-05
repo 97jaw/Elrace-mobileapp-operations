@@ -1,3 +1,4 @@
+import 'package:el_race/core/site_management/face_recognition/profile_photo_face_db.dart';
 import 'package:el_race/core/theme/timesheet_module_theme.dart';
 import 'package:el_race/core/timesheet/models/timesheet_team_member.dart';
 import 'package:el_race/core/timesheet/providers/timesheet_enrollment_status_provider.dart';
@@ -28,6 +29,9 @@ typedef TmSubmitCaptures = Future<bool> Function(
 /// show a spinner while enrollment is in progress.
 typedef TmEnrollMember = Future<void> Function(TimesheetTeamMember member);
 
+/// Signature to fetch the latest team from the server (bypassing caches).
+typedef TmReloadMembers = Future<List<TimesheetTeamMember>> Function();
+
 abstract final class TmTeamMembersSheet {
   static Future<void> show(
     BuildContext context, {
@@ -40,6 +44,7 @@ abstract final class TmTeamMembersSheet {
     TmCaptureAttendance? onCaptureAttendance,
     ValueChanged<List<TimesheetCaptureSessionEntry>>? onPendingChanged,
     TmSubmitCaptures? onSubmitCaptures,
+    TmReloadMembers? onReload,
   }) {
     return showModalBottomSheet<void>(
       context: context,
@@ -55,6 +60,7 @@ abstract final class TmTeamMembersSheet {
         onCaptureAttendance: onCaptureAttendance,
         onPendingChanged: onPendingChanged,
         onSubmitCaptures: onSubmitCaptures,
+        onReload: onReload,
       ),
     );
   }
@@ -71,6 +77,7 @@ class _TmTeamMembersSheetBody extends ConsumerStatefulWidget {
     this.onCaptureAttendance,
     this.onPendingChanged,
     this.onSubmitCaptures,
+    this.onReload,
   });
 
   final String title;
@@ -82,6 +89,7 @@ class _TmTeamMembersSheetBody extends ConsumerStatefulWidget {
   final TmCaptureAttendance? onCaptureAttendance;
   final ValueChanged<List<TimesheetCaptureSessionEntry>>? onPendingChanged;
   final TmSubmitCaptures? onSubmitCaptures;
+  final TmReloadMembers? onReload;
 
   @override
   ConsumerState<_TmTeamMembersSheetBody> createState() =>
@@ -93,9 +101,38 @@ class _TmTeamMembersSheetBodyState
   late final List<TimesheetCaptureSessionEntry> _pending =
       List<TimesheetCaptureSessionEntry>.from(widget.initialCaptures);
   bool _busy = false;
+  late List<TimesheetTeamMember> _members = widget.members;
+  bool _reloading = false;
 
   /// Employee ids whose enroll flow is currently running (shows a spinner).
   final Set<int> _enrolling = <int>{};
+
+  Future<void> _reload() async {
+    final handler = widget.onReload;
+    if (handler == null || _reloading) return;
+    setState(() => _reloading = true);
+    try {
+      final members = await handler();
+      if (!mounted) return;
+      setState(() => _members = members);
+      ScaffoldMessenger.maybeOf(context)?.showSnackBar(
+        SnackBar(
+          content: Text('Team updated (${members.length})'),
+          duration: const Duration(seconds: 2),
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.maybeOf(context)?.showSnackBar(
+        const SnackBar(
+          content: Text('Could not reload the team. Check your connection.'),
+          duration: Duration(seconds: 3),
+        ),
+      );
+    } finally {
+      if (mounted) setState(() => _reloading = false);
+    }
+  }
 
   Future<void> _handleEnroll(
     TimesheetTeamMember member,
@@ -274,6 +311,11 @@ class _TmTeamMembersSheetBodyState
                         ),
                       ),
                     ),
+                    if (widget.onReload != null)
+                      _ReloadButton(
+                        loading: _reloading,
+                        onPressed: _busy ? null : _reload,
+                      ),
                     IconButton(
                       onPressed: () => Navigator.of(context).maybePop(),
                       icon: Icon(
@@ -285,7 +327,7 @@ class _TmTeamMembersSheetBodyState
                 ),
               ),
               Expanded(
-                child: widget.members.isEmpty
+                child: _members.isEmpty
                     ? Center(
                         child: Text(
                           'No records',
@@ -297,10 +339,10 @@ class _TmTeamMembersSheetBodyState
                     : ListView.separated(
                         controller: scrollController,
                         padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
-                        itemCount: widget.members.length,
+                        itemCount: _members.length,
                         separatorBuilder: (_, __) => const SizedBox(height: 10),
                         itemBuilder: (context, index) {
-                          final member = widget.members[index];
+                          final member = _members[index];
                           final enrolled =
                               enrollment[member.employeeId] == true;
                           final captured =
@@ -504,52 +546,99 @@ class _MemberTile extends StatelessWidget {
           ),
           if (showActions) ...[
             const SizedBox(width: 4),
-            if (isEnrolling)
-              const SizedBox(
-                width: 36,
-                height: 36,
-                child: Padding(
-                  padding: EdgeInsets.all(8),
-                  child: CircularProgressIndicator(
-                    strokeWidth: 2.4,
-                    color: _TmLaborActionColors.ok,
+            if (!ProfilePhotoMatchTest.enabled) ...[
+              if (isEnrolling)
+                const SizedBox(
+                  width: 36,
+                  height: 36,
+                  child: Padding(
+                    padding: EdgeInsets.all(8),
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2.4,
+                      color: _TmLaborActionColors.ok,
+                    ),
                   ),
+                )
+              else
+                _ActionIcon(
+                  tooltip: isCaptured
+                      ? 'Captured'
+                      : isEnrolled
+                          ? 'Enrolled'
+                          : 'Not enrolled',
+                  icon: isCaptured || isEnrolled
+                      ? PhosphorIcons.checkCircle(PhosphorIconsStyle.fill)
+                      : PhosphorIcons.warningCircle(PhosphorIconsStyle.fill),
+                  color: isCaptured || isEnrolled
+                      ? _TmLaborActionColors.ok
+                      : _TmLaborActionColors.warn,
                 ),
-              )
-            else
               _ActionIcon(
-                tooltip: isCaptured
-                    ? 'Captured'
-                    : isEnrolled
-                        ? 'Enrolled'
-                        : 'Not enrolled',
-                icon: isCaptured || isEnrolled
-                    ? PhosphorIcons.checkCircle(PhosphorIconsStyle.fill)
-                    : PhosphorIcons.warningCircle(PhosphorIconsStyle.fill),
-                color: isCaptured || isEnrolled
-                    ? _TmLaborActionColors.ok
-                    : _TmLaborActionColors.warn,
+                tooltip: 'Enroll face',
+                icon: PhosphorIcons.userFocus(),
+                color: TimesheetModuleColors.ink,
+                onTap: onEnroll,
               ),
-            _ActionIcon(
-              tooltip: 'Enroll face',
-              icon: PhosphorIcons.userFocus(),
-              color: TimesheetModuleColors.ink,
-              onTap: onEnroll,
-            ),
+            ],
             _ActionIcon(
               tooltip: isCaptured
                   ? 'Already captured'
-                  : isEnrolled
+                  : isEnrolled || ProfilePhotoMatchTest.enabled
                       ? 'Capture attendance'
                       : 'Capture attendance (not enrolled yet)',
-              icon: PhosphorIcons.paperPlaneTilt(),
-              color: onSubmit != null
+              icon: isCaptured
+                  ? PhosphorIcons.checkCircle(PhosphorIconsStyle.fill)
+                  : PhosphorIcons.camera(PhosphorIconsStyle.fill),
+              color: isCaptured || onSubmit != null
                   ? _TmLaborActionColors.ok
                   : _TmLaborActionColors.idle,
               onTap: onSubmit,
             ),
           ],
         ],
+      ),
+    );
+  }
+}
+
+class _ReloadButton extends StatelessWidget {
+  const _ReloadButton({required this.loading, this.onPressed});
+
+  final bool loading;
+  final VoidCallback? onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(right: 2),
+      child: Material(
+        color: TimesheetModuleColors.accentTint,
+        shape: const CircleBorder(),
+        child: InkWell(
+          customBorder: const CircleBorder(),
+          onTap: loading ? null : onPressed,
+          child: SizedBox(
+            width: 34,
+            height: 34,
+            child: Center(
+              child: loading
+                  ? const SizedBox(
+                      width: 16,
+                      height: 16,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: TimesheetModuleColors.accent,
+                      ),
+                    )
+                  : Icon(
+                      PhosphorIcons.arrowClockwise(PhosphorIconsStyle.bold),
+                      color: TimesheetModuleColors.accent,
+                      size: 18,
+                      semanticLabel: 'Reload team',
+                    ),
+            ),
+          ),
+        ),
       ),
     );
   }

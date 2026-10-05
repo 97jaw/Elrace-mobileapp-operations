@@ -8,6 +8,7 @@ import 'package:el_race/core/timesheet/providers/timesheet_data_providers.dart';
 import 'package:el_race/core/timesheet/services/tm_project_location_notify_service.dart';
 import 'package:el_race/ui/presentation/timesheet/widgets/tm_submit_geofence_dialog.dart';
 import 'package:el_race/core/timesheet/providers/timesheet_enrollment_status_provider.dart';
+import 'package:el_race/core/timesheet/providers/timesheet_hr_scope_provider.dart';
 import 'package:el_race/core/timesheet/routing/timesheet_route_names.dart';
 import 'package:el_race/core/timesheet/providers/timesheet_acting_session_provider.dart';
 import 'package:el_race/core/timesheet/services/timesheet_acting_guard.dart';
@@ -250,6 +251,14 @@ class Fm1ForemanDashboard extends ConsumerWidget {
     );
   }
 
+  /// Pulls the foreman's current x_labor_ids from the server so HR changes show
+  /// up without signing out.
+  Future<List<TimesheetTeamMember>> _reloadLabors(WidgetRef ref) {
+    ref.read(timesheetApiClientProvider).clearCache();
+    ref.invalidate(timesheetHrScopeProvider);
+    return ref.refresh(timesheetForemanLaborsProvider.future);
+  }
+
   Future<void> _showLabors(
     BuildContext context,
     WidgetRef ref,
@@ -286,6 +295,7 @@ class Fm1ForemanDashboard extends ConsumerWidget {
           _persistPending(ref, defaultArgs, captures),
       onSubmitCaptures: (captures) =>
           _submitCaptures(context, ref, buckets, captures),
+      onReload: () => _reloadLabors(ref),
     );
 
     if (context.mounted) {
