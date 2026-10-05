@@ -770,28 +770,7 @@ class TimesheetCaptureCameraPanelState
     return !result.passed;
   }
 
-  /// Set when a capture fails the spoof check; capture and names stay blocked
-  /// until no face is in frame, so the same screen can't simply retry.
-  bool _spoofHoldUntilFaceGone = false;
-  int _noFaceFramesSinceSpoof = 0;
-
-  void _noteFacePresence({required bool hasFace, int framesToRelease = 2}) {
-    if (!_spoofHoldUntilFaceGone) return;
-    if (hasFace) {
-      _noFaceFramesSinceSpoof = 0;
-      return;
-    }
-    _noFaceFramesSinceSpoof += 1;
-    if (_noFaceFramesSinceSpoof >= framesToRelease) {
-      _spoofHoldUntilFaceGone = false;
-      _noFaceFramesSinceSpoof = 0;
-      debugPrint('FaceCapture: spoof hold released — face left the frame');
-    }
-  }
-
   void _blockReplayAttempt(String message) {
-    _spoofHoldUntilFaceGone = true;
-    _noFaceFramesSinceSpoof = 0;
     _livenessGate.blockReplay(message);
     _syncLivenessSnapshot();
     _clearLiveOverlay();
@@ -929,7 +908,11 @@ class TimesheetCaptureCameraPanelState
 
     _previewMatchInFlight = true;
     try {
-      final rgb = decodedRgb ?? _faceService.decodeCameraImage(image);
+      final camera = _camera;
+      final rgb = decodedRgb ??
+          (camera == null
+              ? null
+              : _faceService.decodeCameraImageUpright(image, camera));
       if (rgb == null) return;
       await _applyLivePreviewMatchFromImage(result, rgb);
     } catch (e) {
@@ -1064,10 +1047,6 @@ class TimesheetCaptureCameraPanelState
   }) async {
     if (_lowEndDeviceMode) {
       _clearBadgeNow(reason: 'low_end_no_preview_name');
-      return false;
-    }
-    if (_spoofHoldUntilFaceGone) {
-      _clearBadgeNow(reason: 'spoof_hold');
       return false;
     }
     final cached = _previewLive;
@@ -1556,14 +1535,6 @@ class TimesheetCaptureCameraPanelState
     // can all fire in the same window — only the first one runs.
     if (_isCapturing) {
       debugPrint('FaceCapture: shutter ignored — capture already running');
-      return;
-    }
-    if (_spoofHoldUntilFaceGone) {
-      debugPrint('FaceCapture: shutter blocked — spoof hold');
-      _showCaptureBlockedMessage(
-        'Not a live face. Move it out of the frame, then try again with a '
-        'real face.',
-      );
       return;
     }
     final previewId = _livePreviewEmployeeId;
@@ -2089,10 +2060,7 @@ class TimesheetCaptureCameraPanelState
         trustLiveGate: true,
       );
       final matchPath = result.analyzedImagePath ?? photo.path;
-      _noteFacePresence(
-        hasFace: result.faceBoxes.isNotEmpty,
-        framesToRelease: 1,
-      );
+      // Task 5a — no stream PAD on iOS polling either; badge embed only.
       if (result.faceBoxes.isEmpty) {
         _clearBadgeNow(reason: 'no_face');
       } else if (result.quality.canCapture &&
@@ -2168,7 +2136,6 @@ class TimesheetCaptureCameraPanelState
         _consecutiveReadyFrames = 0;
       }
 
-      _noteFacePresence(hasFace: result.faceBoxes.isNotEmpty);
       // Task 6 — clear badge on no-face / stale (N=3 only gates identity switch).
       if (result.faceBoxes.isEmpty) {
         _clearBadgeNow(reason: 'no_face');
@@ -2189,7 +2156,7 @@ class TimesheetCaptureCameraPanelState
           : const Duration(milliseconds: 350);
       img.Image? decodedRgb;
       img.Image? ensureDecoded() =>
-          decodedRgb ??= _faceService.decodeCameraImage(image);
+          decodedRgb ??= _faceService.decodeCameraImageUpright(image, camera);
 
       if (result.faceBoxes.isNotEmpty &&
           DateTime.now().difference(_lastRingSampleAt) >= ringMinInterval) {

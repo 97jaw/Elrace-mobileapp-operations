@@ -1,0 +1,39 @@
+---
+description: Anti-spoof (liveness / PAD) is the core security of the timesheet feature and must not be weakened
+alwaysApply: true
+---
+
+# Anti-spoof is protected
+
+Face anti-spoof (liveness / PAD) is the main security and the purpose of the
+timesheet attendance feature. A photo, video or phone screen must never be able
+to mark attendance.
+
+## Never without the user's explicit approval
+
+- Change thresholds, tolerances or frame counts in
+  `lib/core/site_management/face_recognition/antispoof/` (e.g.
+  `antispoof_config.dart`, `burst_verification_pipeline.dart`,
+  `on_device_pad_evaluator.dart`, `hybrid_liveness_gate.dart`).
+- Skip, shorten, reorder or bypass the spoof check in
+  `timesheet_capture_camera_panel.dart` (`_runCaptureTimePadBurst`,
+  `_awaitFullPadBurst`, `_previewFaceIsLive`, the shutter single-frame check).
+- Add "tolerate", "soft", "fallback", "fast path" or "fewer frames" logic to
+  fix false rejections, crashes or speed. Propose it and wait for approval.
+
+## Required behaviour (do not regress)
+
+- Capture always runs the full burst (`AntispoofConfig.burstFrameCount`
+  frames); never pass on 1–2 frames.
+- Every capture attempt uses new frames taken after the press; never reuse
+  frames from an earlier attempt or skip the check because one passed before.
+- A frame is live only when print + replay < `maxLiveAttackSum` (0.10).
+- `maxSoftSpoofFramesPerBurst` stays 0: any spoof frame blocks.
+- Live stream frames given to the spoof models and matching are upright, so
+  the ML Kit face box covers the face (`decodeCameraImageUpright`).
+- Implement only the options the user approved, nothing extra.
+- No employee name is shown on the camera for a face that fails the spoof check.
+- Performance or crash fixes must keep the same spoof strength; if a trade-off
+  is unavoidable, stop and explain it to the user first.
+- After any change near this code, ask the user to test a photo, a video and
+  another phone's screen on iPhone and Android before merging.

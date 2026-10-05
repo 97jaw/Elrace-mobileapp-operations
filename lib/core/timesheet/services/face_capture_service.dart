@@ -351,6 +351,22 @@ class TimesheetFaceCaptureService {
     return null;
   }
 
+  /// Live frame turned upright so it lines up with ML Kit face boxes, which
+  /// are reported for the rotated image. Android delivers landscape sensor
+  /// buffers; a buffer that is already portrait is left as is.
+  img.Image? decodeCameraImageUpright(
+    CameraImage image,
+    CameraDescription camera,
+  ) {
+    final decoded = decodeCameraImage(image);
+    if (decoded == null) return null;
+    final angle = camera.sensorOrientation % 360;
+    if (angle == 0) return decoded;
+    final quarterTurn = angle == 90 || angle == 270;
+    if (quarterTurn && decoded.height >= decoded.width) return decoded;
+    return img.copyRotate(decoded, angle: angle);
+  }
+
   /// Enrollment turned poses: persist the exact stream frame that passed the
   /// pose gate (upright, un-mirrored like `takePicture`), so the user never
   /// has to hold a turned head while the camera stops for a still.
