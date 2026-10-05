@@ -549,6 +549,8 @@ class TimesheetCaptureCameraPanelState
     try {
       // Ensure PAD interpreters are warm before first capture invoke.
       await MinifasnetFusionEngine.instance.ensureLoaded();
+      // The spoof models are shared with the preview check; never run both.
+      await _previewPadRun;
       final samples = await _awaitFullPadBurst();
       if (samples.length < AntispoofConfig.burstFrameCount) {
         debugPrint(
@@ -913,6 +915,11 @@ class TimesheetCaptureCameraPanelState
       _clearBadgeNow(reason: 'unsure_vs_expected');
       return;
     }
+    if (!captureImmediately &&
+        !await _previewFaceIsLive(faceBox: faceBox, rgbFrame: source)) {
+      return;
+    }
+    if (!mounted) return;
 
     if (!_acceptStablePreviewIdentity(
       emp.employeeId,
@@ -942,7 +949,6 @@ class TimesheetCaptureCameraPanelState
       return;
     }
 
-    // Duplicate hint only — PAD runs at capture (Task 5a), not here.
     if (_isEmployeeAlreadyCaptured(emp.employeeId)) {
       _enterDuplicatePreview(emp);
       return;
@@ -975,6 +981,58 @@ class TimesheetCaptureCameraPanelState
       unawaited(_capture());
     } else {
       _scheduleAutoCapture();
+    }
+  }
+
+  static const Duration _previewPadInterval = Duration(seconds: 1);
+  bool? _previewLive;
+  DateTime _previewPadAt = DateTime.fromMillisecondsSinceEpoch(0);
+  Future<void>? _previewPadRun;
+
+  /// No name is shown for a face that fails a one-frame spoof check (about
+  /// once a second). Low-end phones can't afford PAD on the stream, so they
+  /// show no name until capture passes the full check.
+  Future<bool> _previewFaceIsLive({
+    required Rect faceBox,
+    img.Image? rgbFrame,
+    String? imagePath,
+  }) async {
+    if (_lowEndDeviceMode) {
+      _clearBadgeNow(reason: 'low_end_no_preview_name');
+      return false;
+    }
+    final cached = _previewLive;
+    if (cached != null &&
+        DateTime.now().difference(_previewPadAt) < _previewPadInterval) {
+      if (!cached) _clearBadgeNow(reason: 'preview_spoof');
+      return cached;
+    }
+    if (_previewPadRun != null || _verificationInFlight || _isCapturing) {
+      return false;
+    }
+    final done = Completer<void>();
+    _previewPadRun = done.future;
+    try {
+      final result = await _burstPipeline.verifySingleFrame(
+        BurstFrameSample(
+          rgbFrame: rgbFrame,
+          imagePath: imagePath,
+          faceBox: faceBox,
+        ),
+      );
+      _previewLive = result.passed;
+      _previewPadAt = DateTime.now();
+      if (!result.passed) {
+        debugPrint('FaceCapture: preview spoof — name hidden');
+        _clearBadgeNow(reason: 'preview_spoof');
+      }
+      return result.passed;
+    } catch (e) {
+      debugPrint('FaceCapture: preview PAD failed: $e');
+      return false;
+    } finally {
+      _previewPadRun = null;
+      done.complete();
     }
   }
 
@@ -1019,6 +1077,11 @@ class TimesheetCaptureCameraPanelState
       _clearBadgeNow(reason: 'unsure_vs_expected');
       return;
     }
+    if (!captureImmediately &&
+        !await _previewFaceIsLive(faceBox: faceBox, imagePath: imagePath)) {
+      return;
+    }
+    if (!mounted) return;
 
     if (!_acceptStablePreviewIdentity(
       emp.employeeId,
