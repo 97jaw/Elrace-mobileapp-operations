@@ -542,22 +542,6 @@ class TimesheetCaptureCameraPanelState
   Future<bool> _runCaptureTimePadBurst() async {
     if (_livenessGate.recognitionAllowed) return true;
 
-    var samples = _preShutterSamplesFromRing();
-    if (samples.length < AntispoofConfig.burstFrameCount) {
-      samples = List<BurstFrameSample>.from(_streamSampleRing);
-    }
-    if (samples.isEmpty) {
-      debugPrint('FaceCapture: PAD blocked — no stream frames yet');
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Hold still a moment, then capture again'),
-          ),
-        );
-      }
-      return false;
-    }
-
     _verificationInFlight = true;
     _livenessGate.markVerifying();
     _syncLivenessSnapshot();
@@ -565,30 +549,34 @@ class TimesheetCaptureCameraPanelState
     try {
       // Ensure PAD interpreters are warm before first capture invoke.
       await MinifasnetFusionEngine.instance.ensureLoaded();
-      final BurstVerificationResult verifyResult;
-      if (samples.length >= AntispoofConfig.burstFrameCount) {
-        verifyResult = await _burstPipeline.verify(samples).timeout(
-              AntispoofConfig.maxVerificationBudget,
-              onTimeout: () => const BurstVerificationResult(
-                passed: false,
-                message: 'Verification timed out — retry',
-              ),
-            );
-      } else {
-        // Short ring (just opened camera) — integrity path, still capture-only.
-        verifyResult = await _burstPipeline
-            .verifyIntegrity(
-              samples,
-              requireTemporal: samples.length >= 2,
-            )
-            .timeout(
-              AntispoofConfig.maxVerificationBudget,
-              onTimeout: () => const BurstVerificationResult(
-                passed: false,
-                message: 'Verification timed out — retry',
-              ),
-            );
+      final samples = await _awaitFullPadBurst();
+      if (samples.length < AntispoofConfig.burstFrameCount) {
+        debugPrint(
+          'FaceCapture: PAD blocked — only ${samples.length}/'
+          '${AntispoofConfig.burstFrameCount} frames',
+        );
+        _livenessGate.completeBurstVerification(
+          passed: false,
+          message: 'Hold still a moment, then capture again',
+        );
+        _syncLivenessSnapshot();
+        _emitChrome();
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Hold still a moment, then capture again'),
+            ),
+          );
+        }
+        return false;
       }
+      final verifyResult = await _burstPipeline.verify(samples).timeout(
+            AntispoofConfig.maxVerificationBudget,
+            onTimeout: () => const BurstVerificationResult(
+              passed: false,
+              message: 'Verification timed out — retry',
+            ),
+          );
       _livenessGate.completeBurstVerification(
         passed: verifyResult.passed,
         message: verifyResult.message,
@@ -695,6 +683,22 @@ class TimesheetCaptureCameraPanelState
       if (!await file.exists()) return;
       await file.delete();
     } catch (_) {}
+  }
+
+  /// A 1–2 frame check can read a phone screen as live, so capture waits for
+  /// the full burst (ring fills every 350 ms, 900 ms on low-end phones).
+  Future<List<BurstFrameSample>> _awaitFullPadBurst() async {
+    const need = AntispoofConfig.burstFrameCount;
+    final intervalMs = _lowEndDeviceMode ? 900 : 350;
+    final deadline =
+        DateTime.now().add(Duration(milliseconds: intervalMs * need + 1000));
+    while (mounted &&
+        _isStreaming &&
+        _streamSampleRing.length < need &&
+        DateTime.now().isBefore(deadline)) {
+      await Future<void>.delayed(const Duration(milliseconds: 100));
+    }
+    return _preShutterSamplesFromRing();
   }
 
   List<BurstFrameSample> _preShutterSamplesFromRing() {
