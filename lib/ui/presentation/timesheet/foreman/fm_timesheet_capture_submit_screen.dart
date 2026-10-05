@@ -18,6 +18,7 @@ import 'package:el_race/core/timesheet/services/timesheet_capture_session_store.
 import 'package:el_race/core/site_management/face_recognition/data/repositories/face_db_repository.dart';
 import 'package:el_race/core/site_management/face_recognition/face_match_session.dart';
 import 'package:el_race/core/site_management/face_recognition/face_pilot_log_store.dart';
+import 'package:el_race/core/site_management/face_recognition/profile_photo_face_db.dart';
 import 'package:el_race/core/timesheet/services/timesheet_roster_face_matcher.dart';
 import 'package:el_race/core/utils/app_orientations.dart';
 import 'package:el_race/core/utils/responsive_breakpoints.dart';
@@ -296,6 +297,9 @@ class _FmTimesheetCaptureSubmitScreenState
 
     if (!mounted) return;
     final deduped = dedupeTimesheetEmployeesById(labors);
+    if (ProfilePhotoMatchTest.enabled) {
+      ProfilePhotoFaceDb.instance.setLabour(deduped);
+    }
     setState(() {
       _employees = deduped;
       _faceMatchRoster = faceRoster;

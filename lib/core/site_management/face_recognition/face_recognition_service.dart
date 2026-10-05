@@ -65,6 +65,7 @@ class FaceRecognitionService {
   }
 
   Future<FaceSyncResult> syncFaceDb() async {
+    if (ProfilePhotoMatchTest.enabled) return _profilePhotoSync();
     final result = await _repository.syncIfNeeded();
     _lastSync = result;
     _syncReady = result.status == FaceSyncStatus.upToDate ||
@@ -84,7 +85,6 @@ class FaceRecognitionService {
       try {
         await _embedder.ensureLoaded();
         _engineReady = true;
-        _prewarmProfilePhotos();
       } catch (e) {
         debugPrint('FaceRecognition: TFLite preload failed: $e');
         _syncReady = false;
@@ -96,13 +96,37 @@ class FaceRecognitionService {
     return result;
   }
 
-  void _prewarmProfilePhotos() {
-    if (!ProfilePhotoMatchTest.enabled) return;
-    unawaited(_repository.loadCached().then(_attendanceRoster));
+  /// Test build: never reads the enrollment face DB; templates come from the
+  /// labour roster's profile photos instead.
+  Future<FaceSyncResult> _profilePhotoSync() async {
+    final result = FaceSyncResult.upToDate(count: 0);
+    _lastSync = result;
+    debugPrint(
+      'ProfilePhotoMatch: enrollment face DB ignored — 0 templates used',
+    );
+    try {
+      await _embedder.ensureLoaded();
+      _engineReady = true;
+      _syncReady = true;
+      _engineLoadFailed = false;
+      _engineError = null;
+      unawaited(ProfilePhotoFaceDb.instance.rows(
+        preprocessor: _preprocessor,
+        embedder: _embedder,
+      ));
+    } catch (e) {
+      debugPrint('FaceRecognition: TFLite preload failed: $e');
+      _syncReady = false;
+      _engineReady = false;
+      _engineLoadFailed = true;
+      _engineError = e.toString();
+    }
+    return result;
   }
 
   /// Full re-download of face DB (use when Odoo enrollment changed outside the app).
   Future<FaceSyncResult> syncFaceDbForceRefresh() async {
+    if (ProfilePhotoMatchTest.enabled) return _profilePhotoSync();
     final result = await _repository.forceRefresh();
     _lastSync = result;
     _syncReady = result.status == FaceSyncStatus.upToDate ||
@@ -212,25 +236,20 @@ class FaceRecognitionService {
     for (final v in embedding) {
       probeNormSq += v * v;
     }
-    final enrolled = await _repository.loadCached();
-    final roster = await _attendanceRoster(enrolled);
+    final roster = await _attendanceRoster();
     if (roster.isEmpty) return FaceMatchResult.none;
     _logCacheDiagnostics(roster);
     final matchSw = Stopwatch()..start();
     final result = _matcher.findBestMatch(embedding, roster);
     final matchMs = matchSw.elapsedMilliseconds;
     if (ProfilePhotoMatchTest.enabled) {
-      final viaEnrollment = _matcher.findBestMatch(embedding, enrolled);
       debugPrint(
-        'ProfilePhotoMatch: compare '
-        'profile=${result.best?.employeeId} ${result.best?.name} '
+        'ProfilePhotoMatch: result '
+        'emp=${result.best?.employeeId} ${result.best?.name} '
         'best=${result.bestScore.toStringAsFixed(3)} '
-        'margin=${result.winnerMargin.toStringAsFixed(3)} | '
-        'enrollment=${viaEnrollment.best?.employeeId} '
-        '${viaEnrollment.best?.name} '
-        'best=${viaEnrollment.bestScore.toStringAsFixed(3)} '
-        'margin=${viaEnrollment.winnerMargin.toStringAsFixed(3)} '
-        'same=${result.best?.employeeId == viaEnrollment.best?.employeeId}',
+        'second=${result.secondBestScore.toStringAsFixed(3)} '
+        'margin=${result.winnerMargin.toStringAsFixed(3)} '
+        'match=${result.isMatch} templates=${roster.length} (profile photos)',
       );
     }
     final totalMs = totalSw.elapsedMilliseconds + preprocessMs;
@@ -296,6 +315,10 @@ class FaceRecognitionService {
   /// Full re-download when [employeeId] (e.g. just enrolled) has no templates
   /// in the local cache yet. Returns true once templates are present.
   Future<bool> ensureTemplatesFor(int employeeId) async {
+    if (ProfilePhotoMatchTest.enabled) {
+      await _attendanceRoster();
+      return ProfilePhotoFaceDb.instance.hasTemplateFor(employeeId);
+    }
     var roster = await _repository.loadCached();
     if (roster.any((r) => r.employeeId == employeeId)) return true;
     await syncFaceDbForceRefresh();
@@ -307,14 +330,9 @@ class FaceRecognitionService {
 
   /// Templates attendance matches against: enrollment templates, or (test
   /// build) one profile-photo template per enrolled employee.
-  Future<List<FaceEmbeddingRecord>> _attendanceRoster(
-    List<FaceEmbeddingRecord> enrolled,
-  ) {
-    if (!ProfilePhotoMatchTest.enabled || enrolled.isEmpty) {
-      return Future.value(enrolled);
-    }
-    return ProfilePhotoFaceDb.instance.rowsFor(
-      enrolled,
+  Future<List<FaceEmbeddingRecord>> _attendanceRoster() {
+    if (!ProfilePhotoMatchTest.enabled) return _repository.loadCached();
+    return ProfilePhotoFaceDb.instance.rows(
       preprocessor: _preprocessor,
       embedder: _embedder,
     );
@@ -358,7 +376,7 @@ class FaceRecognitionService {
       if (kDebugMode) {
         _embedder.debugPrintEmbeddingHead(embedding, label: 'E.3 probe');
       }
-      final roster = await _attendanceRoster(await _repository.loadCached());
+      final roster = await _attendanceRoster();
       final perTemplate = _matcher.scoreTemplatesForEmployee(
         embedding,
         roster,

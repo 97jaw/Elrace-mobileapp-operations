@@ -9,6 +9,7 @@ import 'package:el_race/core/timesheet/routing/timesheet_route_names.dart';
 import 'package:el_race/core/timesheet/services/capture_queue_service.dart';
 import 'package:el_race/core/utils/app_orientations.dart';
 import 'package:el_race/core/site_management/face_recognition/data/repositories/face_db_repository.dart';
+import 'package:el_race/core/site_management/face_recognition/profile_photo_face_db.dart';
 import 'package:el_race/core/widgets/timesheet/timesheet_widgets.dart';
 import 'package:el_race/ui/presentation/timesheet/foreman/attendance/timesheet_capture_camera_panel.dart';
 import 'package:el_race/ui/presentation/timesheet/timesheet_route_args.dart';
@@ -93,6 +94,9 @@ class _At2CaptureCameraScreenState extends ConsumerState<At2CaptureCameraScreen>
           : roster;
     }
     if (!mounted) return;
+    if (ProfilePhotoMatchTest.enabled) {
+      ProfilePhotoFaceDb.instance.setLabour(labors);
+    }
     final faceRoster = _phaseBActive
         ? const <TimesheetOdooEmployee>[]
         : labors.where((e) => e.canUseFaceMatch).toList(growable: false);
