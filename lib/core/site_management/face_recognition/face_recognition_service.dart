@@ -316,7 +316,8 @@ class FaceRecognitionService {
   /// in the local cache yet. Returns true once templates are present.
   Future<bool> ensureTemplatesFor(int employeeId) async {
     if (ProfilePhotoMatchTest.enabled) {
-      await _attendanceRoster();
+      // Never wait for the photo build here: the capture screen loads its
+      // project labour list only after this returns.
       return ProfilePhotoFaceDb.instance.hasTemplateFor(employeeId);
     }
     var roster = await _repository.loadCached();
