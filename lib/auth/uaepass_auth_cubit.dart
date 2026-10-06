@@ -22,8 +22,10 @@ class UaepassAuthCubit extends Cubit<UaepassAuthState> {
       final url = await authService.prepareInAppLogin(appToApp: appInstalled);
       UaepassLogger.log(appInstalled
           ? 'Cubit: UAE PASS app installed — app-to-app flow'
-          : 'Cubit: UAE PASS app not installed — web login in WebView');
-      emit(UaepassAuthState.appToApp(url));
+          : 'Cubit: UAE PASS app not installed — web login in system browser');
+      emit(appInstalled
+          ? UaepassAuthState.appToApp(url)
+          : UaepassAuthState.browser(url));
     } catch (e) {
       UaepassLogger.logError('Cubit: startLogin failed', e);
       emit(const UaepassAuthState.failure(AuthFailureType.generic));
@@ -47,6 +49,7 @@ class UaepassAuthCubit extends Cubit<UaepassAuthState> {
       UaepassLogger.logError('Cubit: Emitting failure state');
       UaepassLogger.logKV('Failure type', result.failureType?.toString());
       UaepassLogger.logKV('UI Message', msg);
+      await authService.clearWebSession();
       emit(UaepassAuthState.failure(result.failureType));
     }
   }
@@ -80,6 +83,7 @@ class UaepassAuthCubit extends Cubit<UaepassAuthState> {
         UaepassLogger.logError('Cubit: Finalization failed');
         UaepassLogger.logKV('Failure type', result.failureType?.toString());
         UaepassLogger.logKV('UI Message', msg);
+        await authService.clearWebSession();
         emit(UaepassAuthState.failure(result.failureType));
       }
     } catch (e) {
@@ -95,8 +99,9 @@ class UaepassAuthCubit extends Cubit<UaepassAuthState> {
     emit(const UaepassAuthState.idle());
   }
 
-  void cancelled() {
-    UaepassLogger.log('Cubit: app-to-app flow closed without result');
+  Future<void> cancelled() async {
+    UaepassLogger.log('Cubit: UAE PASS login closed without result');
+    await authService.clearWebSession();
     emit(const UaepassAuthState.failure(AuthFailureType.cancelled));
   }
 

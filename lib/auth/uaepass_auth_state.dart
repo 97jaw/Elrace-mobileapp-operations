@@ -1,15 +1,24 @@
 part of 'uaepass_auth_cubit.dart';
 
-enum UaepassAuthStatus { idle, loading, waiting, appToApp, success, failure }
+enum UaepassAuthStatus {
+  idle,
+  loading,
+  waiting,
+  appToApp,
+  browser,
+  success,
+  failure,
+}
 
 class UaepassAuthState extends Equatable {
   final UaepassAuthStatus status;
   final AuthFailureType? failureType;
 
-  /// Authorization URL to load in the in-app WebView ([UaepassAuthStatus.appToApp]).
-  final Uri? appToAppUrl;
+  /// Authorization URL for [UaepassAuthStatus.appToApp] (hidden WebView) or
+  /// [UaepassAuthStatus.browser] (system browser).
+  final Uri? loginUrl;
 
-  const UaepassAuthState._(this.status, this.failureType, [this.appToAppUrl]);
+  const UaepassAuthState._(this.status, this.failureType, [this.loginUrl]);
 
   const UaepassAuthState.idle() : this._(UaepassAuthStatus.idle, null);
 
@@ -20,11 +29,14 @@ class UaepassAuthState extends Equatable {
   const UaepassAuthState.appToApp(Uri url)
       : this._(UaepassAuthStatus.appToApp, null, url);
 
+  const UaepassAuthState.browser(Uri url)
+      : this._(UaepassAuthStatus.browser, null, url);
+
   const UaepassAuthState.success() : this._(UaepassAuthStatus.success, null);
 
   const UaepassAuthState.failure(AuthFailureType? failure)
       : this._(UaepassAuthStatus.failure, failure);
 
   @override
-  List<Object?> get props => [status, failureType, appToAppUrl];
+  List<Object?> get props => [status, failureType, loginUrl];
 }

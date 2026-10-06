@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:dio/dio.dart';
 import 'package:el_race/config/uaepass_config.dart';
 import 'package:el_race/core/services/mobile_device_id_service.dart';
@@ -10,6 +12,7 @@ import 'package:el_race/ui/presentation/signin/data/model.dart';
 import 'package:el_race/utils/api_query.dart';
 import 'package:el_race/utils/string_utils.dart';
 import 'package:el_race/utils/uaepass_logger.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_inappwebview/flutter_inappwebview.dart' as webview;
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -102,12 +105,24 @@ class UaepassAuthService {
     }
   }
 
+  static const _uaepassChannel = MethodChannel('ae.elrace.mobile/uaepass');
+
   /// True when the UAE PASS app for the active environment is installed.
+  ///
+  /// Android checks the package name: the UAE PASS app does not answer a
+  /// bare `uaepassstg://` link there, so [canLaunchUrl] reports false.
   Future<bool> isUaepassAppInstalled() async {
     try {
-      final installed = await canLaunchUrl(Uri.parse('${config.appScheme}://'));
+      final installed = Platform.isAndroid
+          ? await _uaepassChannel.invokeMethod<bool>(
+                'isPackageInstalled',
+                {'package': config.androidPackage},
+              ) ??
+              false
+          : await canLaunchUrl(Uri.parse('${config.appScheme}://'));
       UaepassLogger.logKV(
-          'UAE PASS app (${config.appScheme}) installed', installed);
+          'UAE PASS app (${Platform.isAndroid ? config.androidPackage : config.appScheme}) installed',
+          installed);
       return installed;
     } catch (e) {
       UaepassLogger.logError('UAE PASS app detection failed', e);
@@ -115,9 +130,9 @@ class UaepassAuthService {
     }
   }
 
-  /// Authorization URL for the in-app WebView. With [appToApp] the page hands
-  /// off to the installed UAE PASS app; otherwise the UAE PASS web login runs
-  /// inside the WebView.
+  /// Authorization URL for the login. With [appToApp] it is loaded in a
+  /// hidden WebView that hands off to the installed UAE PASS app; otherwise
+  /// it opens in the system browser.
   Future<Uri> prepareInAppLogin({required bool appToApp}) async {
     UaepassLogger.logSection(appToApp
         ? 'UAE PASS APP-TO-APP LOGIN START'

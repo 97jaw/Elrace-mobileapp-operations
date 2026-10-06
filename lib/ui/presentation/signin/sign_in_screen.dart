@@ -9,6 +9,7 @@ import 'package:el_race/core/session/post_login_setup.dart';
 import 'package:el_race/core/utils/responsive_breakpoints.dart';
 import 'package:el_race/ui/auth/error_dialog.dart';
 import 'package:el_race/ui/auth/uaepass_app_to_app_screen.dart';
+import 'package:el_race/ui/auth/uaepass_browser_login.dart';
 import 'package:el_race/ui/presentation/home_screen/screens/home_screen.dart';
 import 'package:el_race/ui/presentation/signin/bloc/sign_in_bloc.dart';
 import 'package:el_race/ui/widgets/login_progress_card.dart';
@@ -131,29 +132,49 @@ class _SignInScreenState extends State<SignInScreen> {
 
     _showLoadingDialog(steps: _uaepassStartSteps);
     await cubit.startLogin();
-    _hideLoadingDialog();
     if (!mounted) return;
-    if (cubit.state.status != UaepassAuthStatus.appToApp ||
-        cubit.state.appToAppUrl == null) {
+    var verifying = false;
+    void showVerifying() {
+      if (verifying) return;
+      verifying = true;
+      _hideLoadingDialog();
+      _showLoadingDialog(steps: _uaepassFinishSteps);
+    }
+
+    void onReturned() {
+      if (!verifying) _hideLoadingDialog();
+    }
+
+    final loginUrl = cubit.state.loginUrl;
+    final Uri? result;
+    if (cubit.state.status == UaepassAuthStatus.appToApp && loginUrl != null) {
+      result = await UaepassAppToAppRelay.run(
+        context,
+        config: cubit.config,
+        authorizationUrl: loginUrl,
+        onReturned: onReturned,
+        onApproved: showVerifying,
+      );
+    } else if (cubit.state.status == UaepassAuthStatus.browser &&
+        loginUrl != null) {
+      result = await UaepassBrowserLogin.run(
+        cubit.config,
+        loginUrl,
+        onReturned: onReturned,
+      );
+    } else {
+      _hideLoadingDialog();
       await ErrorDialog.showForFailure(context, cubit.state.failureType);
       cubit.reset();
       return;
     }
-
-    final result = await Navigator.of(context).push<Uri>(
-      MaterialPageRoute(
-        builder: (_) => UaepassAppToAppScreen(
-          config: cubit.config,
-          authorizationUrl: cubit.state.appToAppUrl!,
-        ),
-      ),
-    );
     if (!mounted) return;
 
     if (result == null) {
-      cubit.cancelled();
+      _hideLoadingDialog();
+      await cubit.cancelled();
     } else {
-      _showLoadingDialog(steps: _uaepassFinishSteps);
+      showVerifying();
       await cubit.handleCallbackOrResult(result);
     }
     if (!mounted) return;
