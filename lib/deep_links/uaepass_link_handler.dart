@@ -1,5 +1,6 @@
 import 'package:el_race/config/uaepass_config.dart';
 import 'package:el_race/auth/uaepass_auth_cubit.dart';
+import 'package:el_race/ui/auth/uaepass_browser_login.dart';
 import 'package:el_race/utils/di.dart';
 import 'package:el_race/utils/uaepass_logger.dart';
 
@@ -43,14 +44,20 @@ class UaepassLinkHandler {
     final cubit = sl<UaepassAuthCubit>();
     final config = cubit.config;
 
-    // Returns from the UAE PASS app are consumed by UaepassAppToAppScreen.
+    // Returns from the UAE PASS app are consumed by UaepassAppToAppRelay.
     if (config.isAppReturnLink(uri)) {
-      UaepassLogger.log('UAE PASS app return link — handled by WebView screen');
+      UaepassLogger.log('UAE PASS app return link — handled by app-to-app relay');
       return true;
     }
 
     final isSuccess = config.isSuccessLink(uri);
     final isError = config.isErrorLink(uri);
+
+    if ((isSuccess || isError) && UaepassBrowserLogin.isActive) {
+      UaepassLogger.log('UAE PASS browser return — handled by sign-in screen');
+      return true;
+    }
+
     UaepassLogger.logKV('Is Success Link', isSuccess);
     UaepassLogger.logKV('Is Error Link', isError);
 
