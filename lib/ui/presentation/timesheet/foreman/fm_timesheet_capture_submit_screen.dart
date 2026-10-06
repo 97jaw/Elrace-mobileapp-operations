@@ -4,6 +4,7 @@ import 'dart:math' as math;
 import 'package:el_race/core/theme/timesheet_module_theme.dart';
 import 'package:el_race/core/timesheet/models/timesheet_models.dart';
 import 'package:el_race/core/timesheet/models/timesheet_submit_request.dart';
+import 'package:el_race/core/timesheet/models/timesheet_team_member.dart';
 import 'package:el_race/core/timesheet/network/timesheet_functions_client.dart';
 import 'package:el_race/core/timesheet/network/timesheet_odoo_employee.dart';
 import 'package:el_race/core/timesheet/providers/timesheet_acting_session_provider.dart';
@@ -18,6 +19,7 @@ import 'package:el_race/core/timesheet/services/timesheet_capture_session_store.
 import 'package:el_race/core/site_management/face_recognition/data/repositories/face_db_repository.dart';
 import 'package:el_race/core/site_management/face_recognition/face_match_session.dart';
 import 'package:el_race/core/site_management/face_recognition/face_pilot_log_store.dart';
+import 'package:el_race/core/site_management/face_recognition/profile_photo_face_db.dart';
 import 'package:el_race/core/timesheet/services/timesheet_roster_face_matcher.dart';
 import 'package:el_race/core/utils/app_orientations.dart';
 import 'package:el_race/core/utils/responsive_breakpoints.dart';
@@ -296,12 +298,30 @@ class _FmTimesheetCaptureSubmitScreenState
 
     if (!mounted) return;
     final deduped = dedupeTimesheetEmployeesById(labors);
+    if (ProfilePhotoMatchTest.enabled) {
+      unawaited(_setProfilePhotoTeam(deduped));
+    }
     setState(() {
       _employees = deduped;
       _faceMatchRoster = faceRoster;
     });
     debugPrint(
       'FmTimesheetCaptureSubmit: project labor_list loaded ${deduped.length} employees',
+    );
+  }
+
+  Future<void> _setProfilePhotoTeam(
+    List<TimesheetOdooEmployee> projectLabour,
+  ) async {
+    List<TimesheetTeamMember> team;
+    try {
+      team = await ref.read(timesheetForemanLaborsProvider.future);
+    } catch (e) {
+      debugPrint('ProfilePhotoMatch: Your Team load failed: $e');
+      team = const [];
+    }
+    ProfilePhotoFaceDb.instance.setLabour(
+      ProfilePhotoFaceDb.yourTeamOnly(projectLabour, team),
     );
   }
 

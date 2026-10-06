@@ -7,7 +7,8 @@ import 'package:el_race/chat/services/chat_credential_storage.dart';
 import 'package:el_race/core/config/feature_flags.dart';
 import 'package:el_race/core/session/post_login_setup.dart';
 import 'package:el_race/core/utils/responsive_breakpoints.dart';
-import 'package:el_race/ui/auth/auth_loading_screen.dart';
+import 'package:el_race/ui/auth/error_dialog.dart';
+import 'package:el_race/ui/auth/uaepass_app_to_app_screen.dart';
 import 'package:el_race/ui/presentation/home_screen/screens/home_screen.dart';
 import 'package:el_race/ui/presentation/signin/bloc/sign_in_bloc.dart';
 import 'package:el_race/ui/widgets/login_progress_card.dart';
@@ -16,6 +17,7 @@ import 'package:el_race/utils/orientation_helper.dart';
 import 'package:el_race/utils/string_utils.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:hexcolor/hexcolor.dart';
 
@@ -34,14 +36,19 @@ class _SignInScreenState extends State<SignInScreen> {
   bool isPasswordVisible = false;
   late SignInBloc signInBloc;
   bool _isLoadingDialogVisible = false;
+  final _enteringApp = ValueNotifier<bool>(false);
+  bool _signedIn = false;
 
-  void _showLoadingDialog() {
+  void _showLoadingDialog({
+    List<({String en, String ar})> steps = LoginProgressCard.defaultSteps,
+  }) {
     if (!mounted || _isLoadingDialogVisible) return;
     _isLoadingDialogVisible = true;
+    _enteringApp.value = false;
     showDialog(
       context: context,
       barrierDismissible: false,
-      builder: (_) => const LoginProgressCard(),
+      builder: (_) => LoginProgressCard(steps: steps, finishing: _enteringApp),
     );
   }
 
@@ -72,8 +79,93 @@ class _SignInScreenState extends State<SignInScreen> {
   void dispose() {
     usernameController.dispose();
     passwordController.dispose();
-
+    _enteringApp.dispose();
     super.dispose();
+  }
+
+  bool _uaepassInProgress = false;
+
+  static const _uaepassStartSteps = <({String en, String ar})>[
+    (en: 'Connecting to UAE PASS...', ar: 'جارٍ الاتصال بالهوية الرقمية...'),
+  ];
+
+  static const _uaepassFinishSteps = <({String en, String ar})>[
+    (en: 'Verifying your UAE PASS login...', ar: 'التحقق من تسجيل الدخول...'),
+    (en: 'Checking access rights...', ar: 'التحقق من صلاحيات الوصول...'),
+    (en: 'Applying your role rules...', ar: 'تطبيق قواعد دورك...'),
+    (en: 'Preparing your dashboard...', ar: 'تجهيز لوحة التحكم...'),
+  ];
+
+  /// After a successful login the spinner stays open with "Taking you in..."
+  /// until Home replaces it; it closes only if a notice stops the login.
+  Future<void> _enterApp() async {
+    _signedIn = true;
+    await PostLoginSetup.applyAfterLogin(context);
+    if (!mounted) return;
+    _enteringApp.value = true;
+    if (!await AppNoticeGate.afterLogin(context)) {
+      _signedIn = false;
+      _hideLoadingDialog();
+      return;
+    }
+    if (!mounted) return;
+    await Navigator.of(context, rootNavigator: true).pushAndRemoveUntil(
+      MaterialPageRoute(builder: (_) => const HomeScreen()),
+      (route) => false,
+    );
+  }
+
+  Future<void> _onUaepassPressed() async {
+    if (_uaepassInProgress) return;
+    _uaepassInProgress = true;
+    try {
+      await _runUaepassLogin();
+    } finally {
+      _uaepassInProgress = false;
+    }
+  }
+
+  Future<void> _runUaepassLogin() async {
+    FocusScope.of(context).unfocus();
+    final cubit = context.read<UaepassAuthCubit>();
+
+    _showLoadingDialog(steps: _uaepassStartSteps);
+    await cubit.startLogin();
+    _hideLoadingDialog();
+    if (!mounted) return;
+    if (cubit.state.status != UaepassAuthStatus.appToApp ||
+        cubit.state.appToAppUrl == null) {
+      await ErrorDialog.showForFailure(context, cubit.state.failureType);
+      cubit.reset();
+      return;
+    }
+
+    final result = await Navigator.of(context).push<Uri>(
+      MaterialPageRoute(
+        builder: (_) => UaepassAppToAppScreen(
+          config: cubit.config,
+          authorizationUrl: cubit.state.appToAppUrl!,
+        ),
+      ),
+    );
+    if (!mounted) return;
+
+    if (result == null) {
+      cubit.cancelled();
+    } else {
+      _showLoadingDialog(steps: _uaepassFinishSteps);
+      await cubit.handleCallbackOrResult(result);
+    }
+    if (!mounted) return;
+
+    if (cubit.state.status != UaepassAuthStatus.success) {
+      _hideLoadingDialog();
+      await ErrorDialog.showForFailure(context, cubit.state.failureType);
+      cubit.reset();
+      return;
+    }
+
+    await _enterApp();
   }
 
   void _onLoginPressed() {
@@ -170,9 +262,9 @@ class _SignInScreenState extends State<SignInScreen> {
         if (state is LoadingST) {
           if (state.isLoading) {
             _showLoadingDialog();
-          } else {
+          } else if (!_signedIn) {
             WidgetsBinding.instance.addPostFrameCallback((_) {
-              _hideLoadingDialog();
+              if (!_signedIn) _hideLoadingDialog();
             });
           }
         }
@@ -182,17 +274,7 @@ class _SignInScreenState extends State<SignInScreen> {
             password: passwordController.text,
             deviceId: '776655',
           );
-
-          await PostLoginSetup.applyAfterLogin(context);
-          if (!mounted) return;
-          _hideLoadingDialog();
-          if (!await AppNoticeGate.afterLogin(context)) return;
-          if (!mounted) return;
-
-          await Navigator.of(context, rootNavigator: true).pushAndRemoveUntil(
-            MaterialPageRoute(builder: (context) => const HomeScreen()),
-            (route) => false,
-          );
+          await _enterApp();
         }
       },
       buildWhen: (previous, current) =>
@@ -319,17 +401,7 @@ class _SignInScreenState extends State<SignInScreen> {
                                       SizedBox(
                                         width: loginButtonWidth,
                                         child: _UaepassLoginButton(
-                                          onTap: () {
-                                            final uaepassCubit = context
-                                                .read<UaepassAuthCubit>();
-                                            Navigator.of(context).push(
-                                              MaterialPageRoute(
-                                                builder: (_) =>
-                                                    const AuthLoadingScreen(),
-                                              ),
-                                            );
-                                            uaepassCubit.startLogin();
-                                          },
+                                          onTap: _onUaepassPressed,
                                         ),
                                       ),
                                     ],
@@ -430,13 +502,12 @@ class _UaepassLoginButton extends StatelessWidget {
       color: Colors.transparent,
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(10),
         child: AspectRatio(
           aspectRatio: 352 / 60,
-          child: Image.asset(
-            'assets/png/uaepass_login_button.png',
+          child: SvgPicture.asset(
+            'assets/svg/uaepass_login_button.svg',
             fit: BoxFit.fill,
-            filterQuality: FilterQuality.high,
           ),
         ),
       ),

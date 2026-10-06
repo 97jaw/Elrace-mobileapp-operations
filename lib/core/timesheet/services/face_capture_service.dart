@@ -4,6 +4,7 @@ import 'dart:typed_data';
 import 'dart:ui';
 
 import 'package:camera/camera.dart';
+import 'package:el_race/core/site_management/face_recognition/antispoof/antispoof_config.dart';
 import 'package:el_race/core/site_management/face_recognition/antispoof/timesheet_face_classification_snapshot.dart';
 import 'package:el_race/core/site_management/face_recognition/data/models/face_enrollment_pose.dart';
 import 'package:flutter/foundation.dart';
@@ -17,6 +18,7 @@ enum TimesheetFaceQualityStatus {
   pass,
   noFace,
   tooSmall,
+  tooLarge,
   poseOutOfRange,
   eyesClosed,
   tooBlurry,
@@ -259,11 +261,17 @@ class TimesheetFaceCaptureService {
     bool includeCrop = true,
     bool relaxedQuality = false,
     bool trustLiveGate = false,
+    // Upright JPEG without EXIF: skips the decode/re-encode and size decode.
+    bool alreadyNormalized = false,
   }) async {
-    final normalizedPath = await _normalizedImagePath(imagePath);
+    final normalizedPath = alreadyNormalized
+        ? imagePath
+        : await _normalizedImagePath(imagePath);
     final inputImage = InputImage.fromFilePath(normalizedPath);
     final faces = await _detector.processImage(inputImage);
-    final decoded = await _decodeImage(normalizedPath);
+    final decoded = alreadyNormalized && !includeCrop
+        ? null
+        : await _decodeImage(normalizedPath);
     var quality = _evaluateQuality(
       faces,
       relaxedQuality || trustLiveGate ? null : decoded,
@@ -308,6 +316,8 @@ class TimesheetFaceCaptureService {
     );
   }
 
+  static int _normalizedFileSeq = 0;
+
   /// Fixes EXIF rotation so still captures match live ML Kit frames.
   Future<String> _normalizedImagePath(String imagePath) async {
     final decoded = await _decodeImage(imagePath);
@@ -315,7 +325,8 @@ class TimesheetFaceCaptureService {
     final oriented = img.bakeOrientation(decoded);
     final dir = await getTemporaryDirectory();
     final out = File(
-      '${dir.path}/ts_norm_${DateTime.now().millisecondsSinceEpoch}.jpg',
+      '${dir.path}/ts_norm_${DateTime.now().millisecondsSinceEpoch}_'
+      '${_normalizedFileSeq++}.jpg',
     );
     await out.writeAsBytes(img.encodeJpg(oriented, quality: 92));
     return out.path;
@@ -342,6 +353,22 @@ class TimesheetFaceCaptureService {
     return null;
   }
 
+  /// Live frame turned upright so it lines up with ML Kit face boxes, which
+  /// are reported for the rotated image. Android delivers landscape sensor
+  /// buffers; a buffer that is already portrait is left as is.
+  img.Image? decodeCameraImageUpright(
+    CameraImage image,
+    CameraDescription camera,
+  ) {
+    final decoded = decodeCameraImage(image);
+    if (decoded == null) return null;
+    final angle = camera.sensorOrientation % 360;
+    if (angle == 0) return decoded;
+    final quarterTurn = angle == 90 || angle == 270;
+    if (quarterTurn && decoded.height >= decoded.width) return decoded;
+    return img.copyRotate(decoded, angle: angle);
+  }
+
   /// Enrollment turned poses: persist the exact stream frame that passed the
   /// pose gate (upright, un-mirrored like `takePicture`), so the user never
   /// has to hold a turned head while the camera stops for a still.
@@ -364,6 +391,30 @@ class TimesheetFaceCaptureService {
       debugPrint('TimesheetFaceCapture: enroll frame save failed: $e');
       return null;
     }
+  }
+
+  /// Re-checks a saved turned-pose frame the same way the end-of-enrollment
+  /// check does (a still image, no tracking from earlier frames). Returns the
+  /// face sharpness, or null when that check would find no face.
+  Future<double?> verifiedEnrollmentFrameSharpness(String imagePath) async {
+    final detection = await analyzeImageFile(
+      imagePath,
+      includeCrop: false,
+      trustLiveGate: true,
+    );
+    final face = detection.primaryFace;
+    final analyzedPath = detection.analyzedImagePath;
+    if (face == null || analyzedPath == null) return null;
+    final decoded = await _decodeImage(analyzedPath);
+    if (decoded == null) return 0;
+    final box = face.boundingBox;
+    final left = box.left.clamp(0, decoded.width - 1).toInt();
+    final top = box.top.clamp(0, decoded.height - 1).toInt();
+    final width = box.width.clamp(1, decoded.width - left).toInt();
+    final height = box.height.clamp(1, decoded.height - top).toInt();
+    return _sharpnessScore(
+      img.copyCrop(decoded, x: left, y: top, width: width, height: height),
+    );
   }
 
   /// Debug / legacy only — do **not** call from the live detect+embed path.
@@ -801,6 +852,17 @@ class TimesheetFaceCaptureService {
             : 'Move closer to the camera.',
         canCapture: false,
       );
+    }
+    if (liveStream && frameSize != null) {
+      final uprightWidth = math.min(frameSize.width, frameSize.height);
+      if (face.boundingBox.width >
+          uprightWidth * AntispoofConfig.maxFaceWidthFraction) {
+        return const TimesheetFaceQualityResult(
+          status: TimesheetFaceQualityStatus.tooLarge,
+          message: 'Move back a little.',
+          canCapture: false,
+        );
+      }
     }
 
     final maxPose = liveStream ? maxHeadPoseDegreesStream : maxHeadPoseDegrees;

@@ -57,7 +57,7 @@ class AntispoofLayer1 {
 
       final liveProb = fused.probabilities[AntispoofConfig.liveClassIndex];
       final attackSum = _attackProbabilitySum(fused);
-      if (attackSum >= AntispoofConfig.spoofAttackSumThreshold) {
+      if (attackSum >= AntispoofConfig.maxLiveAttackSum) {
         return Layer1Result(
           verdict: Layer1Verdict.spoof,
           fused: fused,
@@ -117,7 +117,7 @@ class AntispoofLayer1 {
       _logScores(fused);
       final liveProb = fused.probabilities[AntispoofConfig.liveClassIndex];
       final attackSum = _attackProbabilitySum(fused);
-      if (attackSum >= AntispoofConfig.spoofAttackSumThreshold) {
+      if (attackSum >= AntispoofConfig.maxLiveAttackSum) {
         return Layer1Result(
           verdict: Layer1Verdict.spoof,
           fused: fused,

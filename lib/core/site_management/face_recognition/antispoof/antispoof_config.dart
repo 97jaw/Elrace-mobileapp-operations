@@ -60,14 +60,26 @@ class AntispoofConfig {
   /// Spoof if print + replay probabilities exceed this (even when argmax is live).
   static const double spoofAttackSumThreshold = 0.55;
 
+  /// A frame only counts as live when print + replay stays below this. Real
+  /// faces score ~0.005; phone screens on the Galaxy Tab S10 FE camera read
+  /// 0.78–0.83 live but 0.17–0.33 print + replay.
+  static const double maxLiveAttackSum = 0.10;
+
+  /// Largest face width allowed, as a share of the upright frame width. The
+  /// models need the surroundings (2.7× / 4× the face) to see a screen's
+  /// edges; a phone held so close that it fills the camera read as live
+  /// (face ~0.76–0.83 of the width), one at ~0.58 was blocked.
+  static const double maxFaceWidthFraction = 0.55;
+
   /// A spoof frame is "hard" (blocks the burst outright) when both models
   /// vote attack or print + replay reaches this. Below it, with the models
   /// disagreeing, it is a "soft" spoof — typically motion blur or glare on a
   /// real face flipping one model for a single frame.
   static const double hardSpoofAttackSumThreshold = 0.70;
 
-  /// Soft-spoof frames tolerated per burst.
-  static const int maxSoftSpoofFramesPerBurst = 1;
+  /// Soft-spoof frames tolerated per burst. 0 = any spoof frame blocks; a
+  /// phone screen on some tablet cameras reads as a model disagreement.
+  static const int maxSoftSpoofFramesPerBurst = 0;
 
   /// When a soft spoof is tolerated, this many other frames must be
   /// confidently live (not merely uncertain).

@@ -28,10 +28,12 @@ import 'package:el_race/ui/presentation/timesheet/timesheet_route_args.dart';
 import 'package:el_race/ui/presentation/timesheet/widgets/face_recognition/tm_face_mesh_painter.dart';
 import 'package:el_race/ui/presentation/timesheet/widgets/face_recognition/tm_aws_face_liveness_screen.dart';
 import 'package:device_info_plus/device_info_plus.dart';
+import 'package:flutter/foundation.dart' show kDebugMode;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:image/image.dart' as img;
+import 'package:path_provider/path_provider.dart';
 import 'package:phosphor_flutter/phosphor_flutter.dart';
 
 /// Live chrome state for parent-built overlays (Add timesheet full screen).
@@ -540,24 +542,6 @@ class TimesheetCaptureCameraPanelState
 
   /// Task 5a — run MiniFASNet burst once at shutter, using the in-memory ring.
   Future<bool> _runCaptureTimePadBurst() async {
-    if (_livenessGate.recognitionAllowed) return true;
-
-    var samples = _preShutterSamplesFromRing();
-    if (samples.length < AntispoofConfig.burstFrameCount) {
-      samples = List<BurstFrameSample>.from(_streamSampleRing);
-    }
-    if (samples.isEmpty) {
-      debugPrint('FaceCapture: PAD blocked — no stream frames yet');
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Hold still a moment, then capture again'),
-          ),
-        );
-      }
-      return false;
-    }
-
     _verificationInFlight = true;
     _livenessGate.markVerifying();
     _syncLivenessSnapshot();
@@ -565,30 +549,58 @@ class TimesheetCaptureCameraPanelState
     try {
       // Ensure PAD interpreters are warm before first capture invoke.
       await MinifasnetFusionEngine.instance.ensureLoaded();
-      final BurstVerificationResult verifyResult;
-      if (samples.length >= AntispoofConfig.burstFrameCount) {
-        verifyResult = await _burstPipeline.verify(samples).timeout(
-              AntispoofConfig.maxVerificationBudget,
-              onTimeout: () => const BurstVerificationResult(
-                passed: false,
-                message: 'Verification timed out — retry',
-              ),
-            );
-      } else {
-        // Short ring (just opened camera) — integrity path, still capture-only.
-        verifyResult = await _burstPipeline
-            .verifyIntegrity(
-              samples,
-              requireTemporal: samples.length >= 2,
-            )
-            .timeout(
-              AntispoofConfig.maxVerificationBudget,
-              onTimeout: () => const BurstVerificationResult(
-                passed: false,
-                message: 'Verification timed out — retry',
-              ),
-            );
+      // The spoof models are shared with the preview check; never run both.
+      await _previewPadRun;
+      // Frames from before this press may show a different face (or one a
+      // previous attempt already judged); every attempt gets new frames.
+      await _clearStreamSampleRing();
+      _lastRingSampleAt = DateTime.fromMillisecondsSinceEpoch(0);
+      final samples = await _awaitFullPadBurst();
+      if (samples.length < AntispoofConfig.burstFrameCount) {
+        debugPrint(
+          'FaceCapture: PAD blocked — only ${samples.length}/'
+          '${AntispoofConfig.burstFrameCount} frames',
+        );
+        _livenessGate.completeBurstVerification(
+          passed: false,
+          message: 'Hold still a moment, then capture again',
+        );
+        _syncLivenessSnapshot();
+        _emitChrome();
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Hold still a moment, then capture again'),
+            ),
+          );
+        }
+        return false;
       }
+      if (samples.any(_faceTooLargeForPad)) {
+        debugPrint('FaceCapture: PAD blocked — face too close to the camera');
+        _livenessGate.completeBurstVerification(
+          passed: false,
+          message: 'Move back a little, then capture again',
+        );
+        _syncLivenessSnapshot();
+        _emitChrome();
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Move back a little, then capture again'),
+            ),
+          );
+        }
+        return false;
+      }
+      if (kDebugMode) unawaited(_debugDumpPadFrames(samples));
+      final verifyResult = await _burstPipeline.verify(samples).timeout(
+            AntispoofConfig.maxVerificationBudget,
+            onTimeout: () => const BurstVerificationResult(
+              passed: false,
+              message: 'Verification timed out — retry',
+            ),
+          );
       _livenessGate.completeBurstVerification(
         passed: verifyResult.passed,
         message: verifyResult.message,
@@ -695,6 +707,71 @@ class TimesheetCaptureCameraPanelState
       if (!await file.exists()) return;
       await file.delete();
     } catch (_) {}
+  }
+
+  /// A 1–2 frame check can read a phone screen as live, so capture waits for
+  /// the full burst (ring fills every 350 ms, 900 ms on low-end phones).
+  Future<List<BurstFrameSample>> _awaitFullPadBurst() async {
+    const need = AntispoofConfig.burstFrameCount;
+    final intervalMs = _lowEndDeviceMode ? 900 : 350;
+    final deadline =
+        DateTime.now().add(Duration(milliseconds: intervalMs * need + 1000));
+    while (mounted &&
+        _isStreaming &&
+        _streamSampleRing.length < need &&
+        DateTime.now().isBefore(deadline)) {
+      await Future<void>.delayed(const Duration(milliseconds: 100));
+    }
+    return _preShutterSamplesFromRing();
+  }
+
+  /// The spoof models must see the surroundings of the face; a frame without a
+  /// decoded image can't be measured and counts as too close.
+  bool _faceTooLargeForPad(BurstFrameSample sample) {
+    final frame = sample.rgbFrame;
+    if (frame == null) return true;
+    final uprightWidth = math.min(frame.width, frame.height);
+    return sample.faceBox.width >
+        uprightWidth * AntispoofConfig.maxFaceWidthFraction;
+  }
+
+  /// Debug builds only, read-only: shows what the spoof models are given
+  /// (frame orientation vs face box) without changing any decision.
+  Future<void> _debugDumpPadFrames(List<BurstFrameSample> samples) async {
+    try {
+      final camera = _camera;
+      final orientation = MediaQuery.maybeOrientationOf(context);
+      final dir = await getTemporaryDirectory();
+      final stamp = DateTime.now().millisecondsSinceEpoch;
+      for (var i = 0; i < samples.length; i++) {
+        final s = samples[i];
+        final frame = s.rgbFrame;
+        debugPrint(
+          'PadDiag: frame ${i + 1}/${samples.length} '
+          'lens=${camera?.lensDirection.name} '
+          'sensorOrientation=${camera?.sensorOrientation} '
+          'screen=${orientation?.name} '
+          'frame=${frame?.width}x${frame?.height} box=${s.faceBox}',
+        );
+        if (frame == null) continue;
+        final marked = img.Image.from(frame);
+        final b = s.faceBox;
+        img.drawRect(
+          marked,
+          x1: b.left.round(),
+          y1: b.top.round(),
+          x2: b.right.round(),
+          y2: b.bottom.round(),
+          color: img.ColorRgb8(255, 0, 0),
+          thickness: 4,
+        );
+        final path = '${dir.path}/pad_diag_${stamp}_$i.jpg';
+        await File(path).writeAsBytes(img.encodeJpg(marked, quality: 80));
+        debugPrint('PadDiag: saved $path');
+      }
+    } catch (e) {
+      debugPrint('PadDiag: dump failed: $e');
+    }
   }
 
   List<BurstFrameSample> _preShutterSamplesFromRing() {
@@ -858,7 +935,11 @@ class TimesheetCaptureCameraPanelState
 
     _previewMatchInFlight = true;
     try {
-      final rgb = decodedRgb ?? _faceService.decodeCameraImage(image);
+      final camera = _camera;
+      final rgb = decodedRgb ??
+          (camera == null
+              ? null
+              : _faceService.decodeCameraImageUpright(image, camera));
       if (rgb == null) return;
       await _applyLivePreviewMatchFromImage(result, rgb);
     } catch (e) {
@@ -909,6 +990,11 @@ class TimesheetCaptureCameraPanelState
       _clearBadgeNow(reason: 'unsure_vs_expected');
       return;
     }
+    if (!captureImmediately &&
+        !await _previewFaceIsLive(faceBox: faceBox, rgbFrame: source)) {
+      return;
+    }
+    if (!mounted) return;
 
     if (!_acceptStablePreviewIdentity(
       emp.employeeId,
@@ -938,7 +1024,6 @@ class TimesheetCaptureCameraPanelState
       return;
     }
 
-    // Duplicate hint only — PAD runs at capture (Task 5a), not here.
     if (_isEmployeeAlreadyCaptured(emp.employeeId)) {
       _enterDuplicatePreview(emp);
       return;
@@ -971,6 +1056,58 @@ class TimesheetCaptureCameraPanelState
       unawaited(_capture());
     } else {
       _scheduleAutoCapture();
+    }
+  }
+
+  static const Duration _previewPadInterval = Duration(seconds: 1);
+  bool? _previewLive;
+  DateTime _previewPadAt = DateTime.fromMillisecondsSinceEpoch(0);
+  Future<void>? _previewPadRun;
+
+  /// No name is shown for a face that fails a one-frame spoof check (about
+  /// once a second). Low-end phones can't afford PAD on the stream, so they
+  /// show no name until capture passes the full check.
+  Future<bool> _previewFaceIsLive({
+    required Rect faceBox,
+    img.Image? rgbFrame,
+    String? imagePath,
+  }) async {
+    if (_lowEndDeviceMode) {
+      _clearBadgeNow(reason: 'low_end_no_preview_name');
+      return false;
+    }
+    final cached = _previewLive;
+    if (cached != null &&
+        DateTime.now().difference(_previewPadAt) < _previewPadInterval) {
+      if (!cached) _clearBadgeNow(reason: 'preview_spoof');
+      return cached;
+    }
+    if (_previewPadRun != null || _verificationInFlight || _isCapturing) {
+      return false;
+    }
+    final done = Completer<void>();
+    _previewPadRun = done.future;
+    try {
+      final result = await _burstPipeline.verifySingleFrame(
+        BurstFrameSample(
+          rgbFrame: rgbFrame,
+          imagePath: imagePath,
+          faceBox: faceBox,
+        ),
+      );
+      _previewLive = result.passed;
+      _previewPadAt = DateTime.now();
+      if (!result.passed) {
+        debugPrint('FaceCapture: preview spoof — name hidden');
+        _clearBadgeNow(reason: 'preview_spoof');
+      }
+      return result.passed;
+    } catch (e) {
+      debugPrint('FaceCapture: preview PAD failed: $e');
+      return false;
+    } finally {
+      _previewPadRun = null;
+      done.complete();
     }
   }
 
@@ -1015,6 +1152,11 @@ class TimesheetCaptureCameraPanelState
       _clearBadgeNow(reason: 'unsure_vs_expected');
       return;
     }
+    if (!captureImmediately &&
+        !await _previewFaceIsLive(faceBox: faceBox, imagePath: imagePath)) {
+      return;
+    }
+    if (!mounted) return;
 
     if (!_acceptStablePreviewIdentity(
       emp.employeeId,
@@ -2041,7 +2183,7 @@ class TimesheetCaptureCameraPanelState
           : const Duration(milliseconds: 350);
       img.Image? decodedRgb;
       img.Image? ensureDecoded() =>
-          decodedRgb ??= _faceService.decodeCameraImage(image);
+          decodedRgb ??= _faceService.decodeCameraImageUpright(image, camera);
 
       if (result.faceBoxes.isNotEmpty &&
           DateTime.now().difference(_lastRingSampleAt) >= ringMinInterval) {

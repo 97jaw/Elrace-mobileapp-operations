@@ -1,6 +1,10 @@
+import 'dart:async';
+
+import 'package:el_race/core/site_management/face_recognition/profile_photo_face_db.dart';
 import 'package:el_race/core/theme/timesheet_module_theme.dart';
 import 'package:el_race/core/timesheet/models/timesheet_team_member.dart';
 import 'package:el_race/core/timesheet/providers/timesheet_enrollment_status_provider.dart';
+import 'package:el_race/core/widgets/timesheet/tm_search_field.dart';
 import 'package:el_race/ui/presentation/timesheet/models/timesheet_capture_session_entry.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -10,7 +14,6 @@ import 'package:phosphor_flutter/phosphor_flutter.dart';
 abstract final class _TmLaborActionColors {
   static const ok = Color(0xFF3DDC84);
   static const warn = Color(0xFFFFB74D);
-  static const idle = Color(0xFFB0BEC5);
 }
 
 /// Signature for opening the camera to capture one labor's attendance.
@@ -28,6 +31,9 @@ typedef TmSubmitCaptures = Future<bool> Function(
 /// show a spinner while enrollment is in progress.
 typedef TmEnrollMember = Future<void> Function(TimesheetTeamMember member);
 
+/// Signature to fetch the latest team from the server (bypassing caches).
+typedef TmReloadMembers = Future<List<TimesheetTeamMember>> Function();
+
 abstract final class TmTeamMembersSheet {
   static Future<void> show(
     BuildContext context, {
@@ -40,6 +46,7 @@ abstract final class TmTeamMembersSheet {
     TmCaptureAttendance? onCaptureAttendance,
     ValueChanged<List<TimesheetCaptureSessionEntry>>? onPendingChanged,
     TmSubmitCaptures? onSubmitCaptures,
+    TmReloadMembers? onReload,
   }) {
     return showModalBottomSheet<void>(
       context: context,
@@ -55,6 +62,7 @@ abstract final class TmTeamMembersSheet {
         onCaptureAttendance: onCaptureAttendance,
         onPendingChanged: onPendingChanged,
         onSubmitCaptures: onSubmitCaptures,
+        onReload: onReload,
       ),
     );
   }
@@ -71,6 +79,7 @@ class _TmTeamMembersSheetBody extends ConsumerStatefulWidget {
     this.onCaptureAttendance,
     this.onPendingChanged,
     this.onSubmitCaptures,
+    this.onReload,
   });
 
   final String title;
@@ -82,6 +91,7 @@ class _TmTeamMembersSheetBody extends ConsumerStatefulWidget {
   final TmCaptureAttendance? onCaptureAttendance;
   final ValueChanged<List<TimesheetCaptureSessionEntry>>? onPendingChanged;
   final TmSubmitCaptures? onSubmitCaptures;
+  final TmReloadMembers? onReload;
 
   @override
   ConsumerState<_TmTeamMembersSheetBody> createState() =>
@@ -93,9 +103,77 @@ class _TmTeamMembersSheetBodyState
   late final List<TimesheetCaptureSessionEntry> _pending =
       List<TimesheetCaptureSessionEntry>.from(widget.initialCaptures);
   bool _busy = false;
+  late List<TimesheetTeamMember> _members = widget.members;
+  bool _reloading = false;
+
+  static const int _pageSize = 20;
+  String _query = '';
+  int _visibleCount = _pageSize;
 
   /// Employee ids whose enroll flow is currently running (shows a spinner).
   final Set<int> _enrolling = <int>{};
+
+  bool get _gateOnProfileTemplates =>
+      ProfilePhotoMatchTest.enabled && widget.onCaptureAttendance != null;
+
+  @override
+  void initState() {
+    super.initState();
+    if (_gateOnProfileTemplates) {
+      ProfilePhotoFaceDb.instance.setTeam(widget.members);
+    }
+  }
+
+  void _showSnack(String message) {
+    ScaffoldMessenger.maybeOf(context)?.showSnackBar(
+      SnackBar(content: Text(message), duration: const Duration(seconds: 2)),
+    );
+  }
+
+  void _onFacePending(TimesheetTeamMember member) {
+    ProfilePhotoFaceDb.instance.prioritize(member.employeeId);
+    _showSnack('Preparing face for ${member.name}…');
+  }
+
+  void _onFaceFailed(TimesheetTeamMember member) {
+    _showSnack(
+      'No usable profile photo for ${member.name}. Ask HR to update it.',
+    );
+  }
+
+  Future<void> _reload() async {
+    final handler = widget.onReload;
+    if (handler == null || _reloading) return;
+    setState(() => _reloading = true);
+    try {
+      final members = await handler();
+      if (!mounted) return;
+      setState(() {
+        _members = members;
+        _visibleCount = _pageSize;
+      });
+      if (_gateOnProfileTemplates) {
+        ProfilePhotoFaceDb.instance.setTeam(members);
+        unawaited(ProfilePhotoFaceDb.instance.retryFailed());
+      }
+      ScaffoldMessenger.maybeOf(context)?.showSnackBar(
+        SnackBar(
+          content: Text('Team updated (${members.length})'),
+          duration: const Duration(seconds: 2),
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.maybeOf(context)?.showSnackBar(
+        const SnackBar(
+          content: Text('Could not reload the team. Check your connection.'),
+          duration: Duration(seconds: 3),
+        ),
+      );
+    } finally {
+      if (mounted) setState(() => _reloading = false);
+    }
+  }
 
   Future<void> _handleEnroll(
     TimesheetTeamMember member,
@@ -162,6 +240,30 @@ class _TmTeamMembersSheetBodyState
 
   bool get _showActions =>
       widget.onEnroll != null || widget.onCaptureAttendance != null;
+
+  List<TimesheetTeamMember> get _filteredMembers {
+    final q = _query.toLowerCase();
+    if (q.isEmpty) return _members;
+    return _members.where((m) {
+      return m.name.toLowerCase().contains(q) ||
+          m.fileId.toLowerCase().contains(q) ||
+          (m.subtitle?.toLowerCase().contains(q) ?? false);
+    }).toList(growable: false);
+  }
+
+  void _onQueryChanged(String value) {
+    setState(() {
+      _query = value.trim();
+      _visibleCount = _pageSize;
+    });
+  }
+
+  bool _onListScroll(ScrollNotification notification, int total) {
+    if (_visibleCount < total && notification.metrics.extentAfter < 300) {
+      setState(() => _visibleCount += _pageSize);
+    }
+    return false;
+  }
 
   Set<int> get _pendingIds => _pending.map((e) => e.employeeId).toSet();
 
@@ -230,7 +332,34 @@ class _TmTeamMembersSheetBodyState
             )
         : null;
     final enrollment = liveEnrollment ?? widget.enrollmentByEmployeeId;
+    if (!_gateOnProfileTemplates) return _buildSheet(enrollment, null);
+    return ValueListenableBuilder<Map<int, ProfileTemplateState>>(
+      valueListenable: ProfilePhotoFaceDb.instance.states,
+      builder: (context, faceStates, _) => _buildSheet(enrollment, faceStates),
+    );
+  }
+
+  Widget _buildSheet(
+    Map<int, bool> enrollment,
+    Map<int, ProfileTemplateState>? faceStates,
+  ) {
     final pendingCount = _pending.length;
+    ProfileTemplateState? faceStateOf(TimesheetTeamMember m) =>
+        faceStates == null
+            ? null
+            : faceStates[m.employeeId] ?? ProfileTemplateState.pending;
+    final facesDone = faceStates == null
+        ? 0
+        : _members
+            .where((m) => faceStateOf(m) != ProfileTemplateState.pending)
+            .length;
+    final showFaceProgress = faceStates != null &&
+        _members.isNotEmpty &&
+        facesDone < _members.length;
+    final filtered = _filteredMembers;
+    final shownCount =
+        filtered.length < _visibleCount ? filtered.length : _visibleCount;
+    final hasMore = shownCount < filtered.length;
 
     return DraggableScrollableSheet(
       initialChildSize: 0.55,
@@ -274,6 +403,11 @@ class _TmTeamMembersSheetBodyState
                         ),
                       ),
                     ),
+                    if (widget.onReload != null)
+                      _ReloadButton(
+                        loading: _reloading,
+                        onPressed: _busy ? null : _reload,
+                      ),
                     IconButton(
                       onPressed: () => Navigator.of(context).maybePop(),
                       icon: Icon(
@@ -284,51 +418,147 @@ class _TmTeamMembersSheetBodyState
                   ],
                 ),
               ),
+              if (showFaceProgress)
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 0, 20, 10),
+                  child: Row(
+                    children: [
+                      const SizedBox(
+                        width: 12,
+                        height: 12,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 1.8,
+                          color: TimesheetModuleColors.accent,
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        'Preparing faces $facesDone/${_members.length}',
+                        style: TimesheetModuleTypography.caption().copyWith(
+                          color: TimesheetModuleColors.warmMuted,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              if (_members.isNotEmpty)
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+                  child: TmSearchField(
+                    hintText: 'Search name or file ID',
+                    onDebouncedChanged: _onQueryChanged,
+                  ),
+                ),
               Expanded(
-                child: widget.members.isEmpty
+                child: filtered.isEmpty
                     ? Center(
                         child: Text(
-                          'No records',
+                          _members.isEmpty
+                              ? 'No records'
+                              : 'No match for "$_query"',
                           style: TimesheetModuleTypography.body().copyWith(
                             color: TimesheetModuleColors.warmMuted,
                           ),
                         ),
                       )
-                    : ListView.separated(
-                        controller: scrollController,
-                        padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
-                        itemCount: widget.members.length,
-                        separatorBuilder: (_, __) => const SizedBox(height: 10),
-                        itemBuilder: (context, index) {
-                          final member = widget.members[index];
-                          final enrolled =
-                              enrollment[member.employeeId] == true;
-                          final captured =
-                              _pendingIds.contains(member.employeeId);
-                          final enrolling =
-                              _enrolling.contains(member.employeeId);
-                          return _MemberTile(
-                            member: member,
-                            isEnrolled: enrolled,
-                            isCaptured: captured,
-                            isEnrolling: enrolling,
-                            showActions: _showActions,
-                            onEnroll: widget.onEnroll == null || enrolling
-                                ? null
-                                : () => _handleEnroll(member, enrolled),
-                            onSubmit: widget.onCaptureAttendance == null ||
-                                    captured ||
-                                    enrolling
-                                ? null
-                                : () => _capture(member),
-                          );
-                        },
+                    : NotificationListener<ScrollNotification>(
+                        onNotification: (n) =>
+                            _onListScroll(n, filtered.length),
+                        child: ListView.separated(
+                          controller: scrollController,
+                          padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
+                          itemCount: shownCount + 1,
+                          separatorBuilder: (_, __) =>
+                              const SizedBox(height: 10),
+                          itemBuilder: (context, index) {
+                            if (index == shownCount) {
+                              return _ListFooter(
+                                shown: shownCount,
+                                total: filtered.length,
+                                hasMore: hasMore,
+                                onShowMore: () => setState(
+                                  () => _visibleCount += _pageSize,
+                                ),
+                              );
+                            }
+                            final member = filtered[index];
+                            final enrolled =
+                                enrollment[member.employeeId] == true;
+                            final captured =
+                                _pendingIds.contains(member.employeeId);
+                            final enrolling =
+                                _enrolling.contains(member.employeeId);
+                            final faceState = faceStateOf(member);
+                            return _MemberTile(
+                              member: member,
+                              isEnrolled: enrolled,
+                              isCaptured: captured,
+                              isEnrolling: enrolling,
+                              showActions: _showActions,
+                              faceState: faceState,
+                              onEnroll: widget.onEnroll == null || enrolling
+                                  ? null
+                                  : () => _handleEnroll(member, enrolled),
+                              onSubmit: widget.onCaptureAttendance == null ||
+                                      captured ||
+                                      enrolling
+                                  ? null
+                                  : switch (faceState) {
+                                      ProfileTemplateState.pending => () =>
+                                          _onFacePending(member),
+                                      ProfileTemplateState.failed => () =>
+                                          _onFaceFailed(member),
+                                      _ => () => _capture(member),
+                                    },
+                            );
+                          },
+                        ),
                       ),
               ),
             ],
           ),
         );
       },
+    );
+  }
+}
+
+class _ListFooter extends StatelessWidget {
+  const _ListFooter({
+    required this.shown,
+    required this.total,
+    required this.hasMore,
+    required this.onShowMore,
+  });
+
+  final int shown;
+  final int total;
+  final bool hasMore;
+  final VoidCallback onShowMore;
+
+  @override
+  Widget build(BuildContext context) {
+    final caption = TimesheetModuleTypography.caption().copyWith(
+      color: TimesheetModuleColors.warmMuted,
+    );
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Column(
+        children: [
+          Text('Showing $shown of $total', style: caption),
+          if (hasMore)
+            TextButton(
+              onPressed: onShowMore,
+              child: const Text(
+                'Show more',
+                style: TextStyle(
+                  color: TimesheetModuleColors.accent,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ),
+        ],
+      ),
     );
   }
 }
@@ -416,6 +646,7 @@ class _MemberTile extends StatelessWidget {
     required this.isCaptured,
     required this.isEnrolling,
     required this.showActions,
+    this.faceState,
     this.onEnroll,
     this.onSubmit,
   });
@@ -425,6 +656,9 @@ class _MemberTile extends StatelessWidget {
   final bool isCaptured;
   final bool isEnrolling;
   final bool showActions;
+
+  /// Profile-photo template status; null when capture isn't gated on it.
+  final ProfileTemplateState? faceState;
   final VoidCallback? onEnroll;
   final VoidCallback? onSubmit;
 
@@ -504,52 +738,196 @@ class _MemberTile extends StatelessWidget {
           ),
           if (showActions) ...[
             const SizedBox(width: 4),
-            if (isEnrolling)
-              const SizedBox(
-                width: 36,
-                height: 36,
-                child: Padding(
-                  padding: EdgeInsets.all(8),
-                  child: CircularProgressIndicator(
-                    strokeWidth: 2.4,
-                    color: _TmLaborActionColors.ok,
+            if (!ProfilePhotoMatchTest.enabled) ...[
+              if (isEnrolling)
+                const SizedBox(
+                  width: 36,
+                  height: 36,
+                  child: Padding(
+                    padding: EdgeInsets.all(8),
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2.4,
+                      color: _TmLaborActionColors.ok,
+                    ),
                   ),
+                )
+              else
+                _ActionIcon(
+                  tooltip: isCaptured
+                      ? 'Captured'
+                      : isEnrolled
+                          ? 'Enrolled'
+                          : 'Not enrolled',
+                  icon: isCaptured || isEnrolled
+                      ? PhosphorIcons.checkCircle(PhosphorIconsStyle.fill)
+                      : PhosphorIcons.warningCircle(PhosphorIconsStyle.fill),
+                  color: isCaptured || isEnrolled
+                      ? _TmLaborActionColors.ok
+                      : _TmLaborActionColors.warn,
                 ),
-              )
-            else
               _ActionIcon(
-                tooltip: isCaptured
-                    ? 'Captured'
-                    : isEnrolled
-                        ? 'Enrolled'
-                        : 'Not enrolled',
-                icon: isCaptured || isEnrolled
-                    ? PhosphorIcons.checkCircle(PhosphorIconsStyle.fill)
-                    : PhosphorIcons.warningCircle(PhosphorIconsStyle.fill),
-                color: isCaptured || isEnrolled
-                    ? _TmLaborActionColors.ok
-                    : _TmLaborActionColors.warn,
+                tooltip: 'Enroll face',
+                icon: PhosphorIcons.userFocus(),
+                color: TimesheetModuleColors.ink,
+                onTap: onEnroll,
               ),
-            _ActionIcon(
-              tooltip: 'Enroll face',
-              icon: PhosphorIcons.userFocus(),
-              color: TimesheetModuleColors.ink,
-              onTap: onEnroll,
-            ),
-            _ActionIcon(
+            ],
+            _CaptureButton(
               tooltip: isCaptured
                   ? 'Already captured'
-                  : isEnrolled
-                      ? 'Capture attendance'
-                      : 'Capture attendance (not enrolled yet)',
-              icon: PhosphorIcons.paperPlaneTilt(),
-              color: onSubmit != null
-                  ? _TmLaborActionColors.ok
-                  : _TmLaborActionColors.idle,
-              onTap: onSubmit,
+                  : switch (faceState) {
+                      ProfileTemplateState.pending => 'Preparing face…',
+                      ProfileTemplateState.failed => 'No usable profile photo',
+                      _ => isEnrolled || ProfilePhotoMatchTest.enabled
+                          ? 'Capture attendance'
+                          : 'Capture attendance (not enrolled yet)',
+                    },
+              captured: isCaptured,
+              dimmed: !isCaptured &&
+                  (onSubmit == null ||
+                      faceState == ProfileTemplateState.pending ||
+                      faceState == ProfileTemplateState.failed),
+              noPhoto: !isCaptured && faceState == ProfileTemplateState.failed,
+              onTap: isCaptured ? null : onSubmit,
             ),
           ],
         ],
+      ),
+    );
+  }
+}
+
+class _CaptureButton extends StatelessWidget {
+  const _CaptureButton({
+    required this.tooltip,
+    required this.captured,
+    required this.dimmed,
+    required this.noPhoto,
+    this.onTap,
+  });
+
+  final String tooltip;
+  final bool captured;
+
+  /// Dimmed icons may still be tappable (e.g. to prioritize a pending face).
+  final bool dimmed;
+  final bool noPhoto;
+  final VoidCallback? onTap;
+
+  static const double _iconSize = 30;
+
+  @override
+  Widget build(BuildContext context) {
+    return Tooltip(
+      message: tooltip,
+      child: InkWell(
+        customBorder: const CircleBorder(),
+        onTap: onTap,
+        child: SizedBox(
+          width: 44,
+          height: 44,
+          child: Center(
+            child: SizedBox(
+              width: _iconSize,
+              height: _iconSize,
+              child: Stack(
+                clipBehavior: Clip.none,
+                children: [
+                  Opacity(
+                    opacity: dimmed ? 0.4 : 1,
+                    child: Image.asset(
+                      'assets/png/capture_attendance.png',
+                      width: _iconSize,
+                      height: _iconSize,
+                      filterQuality: FilterQuality.medium,
+                    ),
+                  ),
+                  if (captured)
+                    Positioned(
+                      right: -3,
+                      bottom: -3,
+                      child: Container(
+                        width: 14,
+                        height: 14,
+                        decoration: BoxDecoration(
+                          color: _TmLaborActionColors.ok,
+                          shape: BoxShape.circle,
+                          border: Border.all(color: Colors.white, width: 1.5),
+                        ),
+                        child: const Icon(
+                          Icons.check_rounded,
+                          size: 9,
+                          color: Colors.white,
+                        ),
+                      ),
+                    ),
+                  if (noPhoto)
+                    Positioned(
+                      right: -3,
+                      bottom: -3,
+                      child: Container(
+                        width: 14,
+                        height: 14,
+                        decoration: BoxDecoration(
+                          color: _TmLaborActionColors.warn,
+                          shape: BoxShape.circle,
+                          border: Border.all(color: Colors.white, width: 1.5),
+                        ),
+                        child: const Icon(
+                          Icons.priority_high_rounded,
+                          size: 9,
+                          color: Colors.white,
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _ReloadButton extends StatelessWidget {
+  const _ReloadButton({required this.loading, this.onPressed});
+
+  final bool loading;
+  final VoidCallback? onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(right: 2),
+      child: Material(
+        color: TimesheetModuleColors.accentTint,
+        shape: const CircleBorder(),
+        child: InkWell(
+          customBorder: const CircleBorder(),
+          onTap: loading ? null : onPressed,
+          child: SizedBox(
+            width: 34,
+            height: 34,
+            child: Center(
+              child: loading
+                  ? const SizedBox(
+                      width: 16,
+                      height: 16,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: TimesheetModuleColors.accent,
+                      ),
+                    )
+                  : Icon(
+                      PhosphorIcons.arrowClockwise(PhosphorIconsStyle.bold),
+                      color: TimesheetModuleColors.accent,
+                      size: 18,
+                      semanticLabel: 'Reload team',
+                    ),
+            ),
+          ),
+        ),
       ),
     );
   }
