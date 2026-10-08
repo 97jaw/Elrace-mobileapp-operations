@@ -5,7 +5,7 @@ enum UaepassAuthStatus {
   loading,
   waiting,
   appToApp,
-  browser,
+  appToWeb,
   success,
   failure,
 }
@@ -15,7 +15,7 @@ class UaepassAuthState extends Equatable {
   final AuthFailureType? failureType;
 
   /// Authorization URL for [UaepassAuthStatus.appToApp] (hidden WebView) or
-  /// [UaepassAuthStatus.browser] (system browser).
+  /// [UaepassAuthStatus.appToWeb] (in-app web login).
   final Uri? loginUrl;
 
   const UaepassAuthState._(this.status, this.failureType, [this.loginUrl]);
@@ -29,8 +29,8 @@ class UaepassAuthState extends Equatable {
   const UaepassAuthState.appToApp(Uri url)
       : this._(UaepassAuthStatus.appToApp, null, url);
 
-  const UaepassAuthState.browser(Uri url)
-      : this._(UaepassAuthStatus.browser, null, url);
+  const UaepassAuthState.appToWeb(Uri url)
+      : this._(UaepassAuthStatus.appToWeb, null, url);
 
   const UaepassAuthState.success() : this._(UaepassAuthStatus.success, null);
 

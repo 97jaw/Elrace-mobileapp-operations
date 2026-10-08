@@ -342,7 +342,15 @@ class UaepassAuthService {
   Future<void> clearWebSession() async {
     try {
       await webview.CookieManager.instance().deleteAllCookies();
-      await webview.WebStorageManager.instance().deleteAllData();
+      final storage = webview.WebStorageManager.instance();
+      if (Platform.isIOS) {
+        await storage.removeDataModifiedSince(
+          dataTypes: webview.WebsiteDataType.ALL,
+          date: DateTime.fromMillisecondsSinceEpoch(0),
+        );
+      } else {
+        await storage.deleteAllData();
+      }
       UaepassLogger.logSuccess('WebView cookies and storage cleared');
     } catch (e) {
       UaepassLogger.logError('WebView session clear failed (ignored)', e);
