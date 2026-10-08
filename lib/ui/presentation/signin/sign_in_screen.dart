@@ -9,7 +9,7 @@ import 'package:el_race/core/session/post_login_setup.dart';
 import 'package:el_race/core/utils/responsive_breakpoints.dart';
 import 'package:el_race/ui/auth/error_dialog.dart';
 import 'package:el_race/ui/auth/uaepass_app_to_app_screen.dart';
-import 'package:el_race/ui/auth/uaepass_browser_login.dart';
+import 'package:el_race/ui/auth/uaepass_web_login_screen.dart';
 import 'package:el_race/ui/presentation/home_screen/screens/home_screen.dart';
 import 'package:el_race/ui/presentation/signin/bloc/sign_in_bloc.dart';
 import 'package:el_race/ui/widgets/login_progress_card.dart';
@@ -155,12 +155,16 @@ class _SignInScreenState extends State<SignInScreen> {
         onReturned: onReturned,
         onApproved: showVerifying,
       );
-    } else if (cubit.state.status == UaepassAuthStatus.browser &&
+    } else if (cubit.state.status == UaepassAuthStatus.appToWeb &&
         loginUrl != null) {
-      result = await UaepassBrowserLogin.run(
-        cubit.config,
-        loginUrl,
-        onReturned: onReturned,
+      _hideLoadingDialog();
+      result = await Navigator.of(context).push<Uri>(
+        MaterialPageRoute(
+          builder: (_) => UaepassWebLoginScreen(
+            config: cubit.config,
+            authorizationUrl: loginUrl,
+          ),
+        ),
       );
     } else {
       _hideLoadingDialog();

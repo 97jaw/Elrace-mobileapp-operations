@@ -1,6 +1,5 @@
 import 'package:el_race/config/uaepass_config.dart';
 import 'package:el_race/auth/uaepass_auth_cubit.dart';
-import 'package:el_race/ui/auth/uaepass_browser_login.dart';
 import 'package:el_race/utils/di.dart';
 import 'package:el_race/utils/uaepass_logger.dart';
 
@@ -52,11 +51,6 @@ class UaepassLinkHandler {
 
     final isSuccess = config.isSuccessLink(uri);
     final isError = config.isErrorLink(uri);
-
-    if ((isSuccess || isError) && UaepassBrowserLogin.isActive) {
-      UaepassLogger.log('UAE PASS browser return — handled by sign-in screen');
-      return true;
-    }
 
     UaepassLogger.logKV('Is Success Link', isSuccess);
     UaepassLogger.logKV('Is Error Link', isError);
