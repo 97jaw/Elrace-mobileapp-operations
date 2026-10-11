@@ -80,6 +80,9 @@ class UaepassConfig {
   /// UAE PASS app URL scheme (staging: uaepassstg, production: uaepass).
   final String appScheme;
 
+  /// UAE PASS Android package (staging: ae.uaepass.mainapp.stg).
+  final String androidPackage;
+
   /// Backend API base URL for session exchange
   final String baseApiUrl;
 
@@ -145,6 +148,7 @@ class UaepassConfig {
     required this.acrValues,
     required this.appToAppAcrValues,
     required this.appScheme,
+    required this.androidPackage,
     required this.baseApiUrl,
     required this.sessionExchangePath,
     required this.resultPollingPath,
@@ -236,6 +240,7 @@ class UaepassConfig {
       acrValues: 'urn:safelayer:tws:policies:authentication:level:low',
       appToAppAcrValues: 'urn:digitalid:authentication:flow:mobileondevice',
       appScheme: 'uaepassstg',
+      androidPackage: 'ae.uaepass.mainapp.stg',
       baseApiUrl: 'https://erp.elrace.com/api/',
       sessionExchangePath: 'uaepass/mobile/session',
       resultPollingPath: 'uaepass/result',
@@ -281,6 +286,7 @@ class UaepassConfig {
       acrValues: 'urn:safelayer:tws:policies:authentication:level:low',
       appToAppAcrValues: 'urn:digitalid:authentication:flow:mobileondevice',
       appScheme: 'uaepass',
+      androidPackage: 'ae.uaepass.mainapp',
       baseApiUrl: 'https://erp.elrace.com/api/',
       sessionExchangePath: 'uaepass/mobile/session',
       resultPollingPath: 'uaepass/result',

@@ -3,6 +3,7 @@ package ae.elrace.mobile
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.media.AudioAttributes
 import android.net.ConnectivityManager
 import android.net.Network
@@ -38,6 +39,7 @@ class MainActivity : FlutterFragmentActivity() {
     private val VPN_DETECTION_CHANNEL = "ae.elrace.mobile/vpn_detection"
     private val VPN_DETECTION_EVENTS = "ae.elrace.mobile/vpn_detection_events"
     private val SHARE_TARGET_CHANNEL = "ae.elrace.mobile/share_target"
+    private val UAEPASS_CHANNEL = "ae.elrace.mobile/uaepass"
     private val PLAY_UPDATE_REQUEST_CODE = 6317
     private lateinit var appUpdateManager: AppUpdateManager
     private var vpnNetworkCallback: ConnectivityManager.NetworkCallback? = null
@@ -110,6 +112,18 @@ class MainActivity : FlutterFragmentActivity() {
                 when (call.method) {
                     "startImmediateUpdateIfAvailable" -> {
                         startImmediateUpdateIfAvailable(result)
+                    }
+                    else -> result.notImplemented()
+                }
+            }
+
+        // Package lookup needs the <queries><package> entries in the manifest.
+        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, UAEPASS_CHANNEL)
+            .setMethodCallHandler { call, result ->
+                when (call.method) {
+                    "isPackageInstalled" -> {
+                        val pkg = call.argument<String>("package")
+                        result.success(pkg != null && isPackageInstalled(pkg))
                     }
                     else -> result.notImplemented()
                 }
@@ -331,6 +345,20 @@ class MainActivity : FlutterFragmentActivity() {
         mainHandler.removeCallbacks(vpnPollRunnable)
         unregisterVpnNetworkCallback()
         super.onDestroy()
+    }
+
+    private fun isPackageInstalled(pkg: String): Boolean {
+        return try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                packageManager.getPackageInfo(pkg, PackageManager.PackageInfoFlags.of(0))
+            } else {
+                @Suppress("DEPRECATION")
+                packageManager.getPackageInfo(pkg, 0)
+            }
+            true
+        } catch (_: PackageManager.NameNotFoundException) {
+            false
+        }
     }
 
     /// True only when a VPN network is actively connected (not merely configured).

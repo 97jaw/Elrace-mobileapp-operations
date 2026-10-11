@@ -43,14 +43,15 @@ class UaepassLinkHandler {
     final cubit = sl<UaepassAuthCubit>();
     final config = cubit.config;
 
-    // Returns from the UAE PASS app are consumed by UaepassAppToAppScreen.
+    // Returns from the UAE PASS app are consumed by UaepassAppToAppRelay.
     if (config.isAppReturnLink(uri)) {
-      UaepassLogger.log('UAE PASS app return link — handled by WebView screen');
+      UaepassLogger.log('UAE PASS app return link — handled by app-to-app relay');
       return true;
     }
 
     final isSuccess = config.isSuccessLink(uri);
     final isError = config.isErrorLink(uri);
+
     UaepassLogger.logKV('Is Success Link', isSuccess);
     UaepassLogger.logKV('Is Error Link', isError);
 
