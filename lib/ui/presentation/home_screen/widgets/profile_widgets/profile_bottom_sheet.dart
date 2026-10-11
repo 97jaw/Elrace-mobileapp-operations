@@ -10,6 +10,7 @@ import 'package:el_race/ui/presentation/home_screen/widgets/home_glass_theme.dar
 import 'package:el_race/ui/presentation/home_screen/widgets/profile_widgets/profile_logout_helper.dart';
 import 'package:el_race/ui/presentation/home_screen/widgets/profile_widgets/profile_sheet_theme.dart';
 import 'package:el_race/ui/presentation/home_screen/widgets/profile_widgets/profile_user_info.dart';
+import 'package:el_race/ui/presentation/linked_devices/linked_devices_screen.dart';
 import 'package:el_race/ui/presentation/qr_code/data/repository.dart';
 import 'package:el_race/ui/presentation/home_screen/widgets/profile_widgets/business_card_screen.dart';
 import 'package:el_race/ui/presentation/qr_code/qr_scanner_screen.dart';
@@ -114,40 +115,10 @@ class _ProfileBottomSheetBodyState extends State<_ProfileBottomSheetBody> {
   }
 
   void _openLinkedDevices() {
-    showDialog<void>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: Colors.white,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: Text(
-          'Linked Devices',
-          style: TextStyle(
-            color: ProfileSheetTheme.textPrimary,
-            fontWeight: FontWeight.w700,
-            fontSize: 18.tsp,
-          ),
-        ),
-        content: Text(
-          'Linked Devices management is coming soon.',
-          style: TextStyle(
-            color: ProfileSheetTheme.textSecondary,
-            fontSize: 14.tsp,
-            height: 1.45,
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(),
-            child: const Text(
-              'OK',
-              style: TextStyle(
-                color: ProfileSheetTheme.navySoft,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ),
-        ],
-      ),
+    Navigator.of(context).pop();
+    final hostContext = navKey.currentContext ?? context;
+    Navigator.of(hostContext).push(
+      MaterialPageRoute(builder: (_) => const LinkedDevicesScreen()),
     );
   }
 

@@ -314,6 +314,7 @@ class _SplashScreenState extends State<SplashScreen> {
         if (forced) {
           await ForceLogoutGuard.instance.presentForcedLogoutFlow(
             context: context,
+            message: ForceLogoutGuard.instance.lastServerMessage,
           );
           return;
         }

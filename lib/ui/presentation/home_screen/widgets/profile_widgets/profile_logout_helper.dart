@@ -10,6 +10,7 @@ import 'package:el_race/data/services/hive_service.dart';
 import 'package:el_race/ui/presentation/attendance_reports/attendance_reports_session.dart';
 import 'package:el_race/ui/presentation/home_screen/bloc/home_bloc.dart';
 import 'package:el_race/ui/presentation/home_screen/screens/home_screen.dart';
+import 'package:el_race/ui/presentation/linked_devices/linked_devices_repository.dart';
 import 'package:el_race/ui/presentation/my_actions/data/user_stamp_assets.dart';
 import 'package:el_race/ui/presentation/my_projects/presentation/utils/projects_group_list_cache.dart';
 import 'package:el_race/ui/presentation/signin/sign_in_screen.dart';
@@ -70,6 +71,16 @@ class ProfileLogoutHelper {
 
     final nav = navKey.currentState;
     if (nav == null) return;
+
+    final token = SharedPref.getLoginDataOrNull()?.result?.token?.trim();
+    if (token != null && token.isNotEmpty) {
+      unawaited(
+        const LinkedDevicesRepository()
+            .logoutCurrent(token)
+            .timeout(const Duration(seconds: 8))
+            .catchError((Object _) {}),
+      );
+    }
 
     // 1) Reset in-memory session state before navigating away.
     try {

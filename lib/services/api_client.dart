@@ -132,9 +132,19 @@ class ForceLogoutInterceptor extends Interceptor {
   @override
   void onResponse(Response response, ResponseInterceptorHandler handler) {
     if (_isForceLogout(response.data)) {
-      Future(() => ForceLogoutGuard.instance.presentForcedLogoutFlow());
+      final message = _message(response.data);
+      Future(() =>
+          ForceLogoutGuard.instance.presentForcedLogoutFlow(message: message));
     }
     handler.next(response);
+  }
+
+  static String? _message(dynamic data) {
+    final result = data is Map ? data['result'] : null;
+    final message = result is Map ? result['message'] : null;
+    return message is String && message.trim().isNotEmpty
+        ? message.trim()
+        : null;
   }
 
   static bool _isForceLogout(dynamic data) {

@@ -32,9 +32,16 @@ class ForceLogoutGuard {
 
   static const _forceCodes = {'FORCE_LOGOUT', 'SESSION_EXPIRED'};
 
+  static const _defaultMessage =
+      'Your session was forcibly logged out by the Administrator. '
+      'Please sign in again.';
+
   bool _inFlight = false;
   bool _dialogVisible = false;
   DateTime? _lastCheckAt;
+  String? _lastServerMessage;
+
+  String? get lastServerMessage => _lastServerMessage;
 
   /// Skip rapid resume flaps (e.g. notification shade).
   static const _minCheckInterval = Duration(seconds: 8);
@@ -70,10 +77,13 @@ class ForceLogoutGuard {
 
       if (result['success'] == true) return false;
 
+      final rawMessage = (result['message'] ?? '').toString().trim();
+      _lastServerMessage = rawMessage.isEmpty ? null : rawMessage;
+
       final code = (result['code'] ?? '').toString().trim().toUpperCase();
       if (_forceCodes.contains(code)) return true;
 
-      final message = (result['message'] ?? '').toString().toLowerCase();
+      final message = rawMessage.toLowerCase();
       return message.contains('forcibly logged out') ||
           message.contains('force logout') ||
           message.contains('administrator');
@@ -99,14 +109,17 @@ class ForceLogoutGuard {
     try {
       final forced = await isForceLoggedOut();
       if (!forced) return;
-      await presentForcedLogoutFlow();
+      await presentForcedLogoutFlow(message: _lastServerMessage);
     } finally {
       _inFlight = false;
     }
   }
 
   /// Clears local session, shows the admin dialog, then navigates to sign-in.
-  Future<void> presentForcedLogoutFlow({BuildContext? context}) async {
+  Future<void> presentForcedLogoutFlow({
+    BuildContext? context,
+    String? message,
+  }) async {
     if (_dialogVisible) return;
     _dialogVisible = true;
 
@@ -134,10 +147,7 @@ class ForceLogoutGuard {
               'Session Ended',
               style: TextStyle(fontWeight: FontWeight.w700),
             ),
-            content: const Text(
-              'Your session was forcibly logged out by the Administrator. '
-              'Please sign in again.',
-            ),
+            content: Text(message ?? _defaultMessage),
             actions: [
               ElevatedButton(
                 onPressed: () {
