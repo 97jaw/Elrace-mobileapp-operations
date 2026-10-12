@@ -21,6 +21,12 @@ class _LinkedDevicesScreenState extends State<LinkedDevicesScreen> {
   static const _textSecondary = Color(0xFF5F6F89);
   static const _danger = Color(0xFFBA1719);
   static const _navy = Color(0xFF0B387A);
+  static const _green = Color(0xFF2E7D32);
+  static const _cardColor = Color(0xFFF7F9FC);
+  static const _cardBorder = Color(0xFFE1E7F0);
+
+  /// Rows shown on the screen; the rest open in the "See all" sheet.
+  static const _previewCount = 3;
 
   final _repo = const LinkedDevicesRepository();
 
@@ -42,6 +48,12 @@ class _LinkedDevicesScreenState extends State<LinkedDevicesScreen> {
         setState(() => _localDeviceName = name);
       }
     });
+  }
+
+  List<LinkedDevice> get _allDevices {
+    final data = _data;
+    if (data == null) return const [];
+    return [if (data.current != null) data.current!, ...data.others];
   }
 
   Future<void> _load() async {
@@ -156,31 +168,36 @@ class _LinkedDevicesScreenState extends State<LinkedDevicesScreen> {
     return d.isWeb ? 'Web browser' : 'Mobile app';
   }
 
-  String _subtitle(LinkedDevice d) {
-    final parts = <String>[
-      if (d.isWeb) 'Odoo web' else 'El Race app',
-      if (d.isWeb && d.browser.isNotEmpty && d.browser != d.name) d.browser,
-      if (d.os.isNotEmpty) d.os,
-      if (!d.isWeb && d.appVersion.isNotEmpty) 'v${d.appVersion}',
-    ];
-    return parts.join(' · ');
+  String _platform(LinkedDevice d) {
+    if (d.isWeb) {
+      final browser = d.browser.isNotEmpty ? d.browser : 'Odoo web';
+      return d.os.isNotEmpty ? '$browser (${d.os})' : browser;
+    }
+    return d.os.isNotEmpty ? 'El Race app (${d.os})' : 'El Race app';
+  }
+
+  String _formatTime(DateTime at) {
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final day = DateTime(at.year, at.month, at.day);
+    final time = DateFormat.jm().format(at);
+    if (day == today) return 'today at $time';
+    if (today.difference(day).inDays == 1) return 'yesterday at $time';
+    return '${DateFormat('d MMM yyyy').format(at)} at $time';
   }
 
   String _lastActive(LinkedDevice d) {
     if (d.current) return 'Active now';
     final at = d.lastActiveAt;
     if (at == null) return '';
-    final now = DateTime.now();
-    final diff = now.difference(at);
-    if (diff.inMinutes < 15) return 'Active recently';
-    final today = DateTime(now.year, now.month, now.day);
-    final day = DateTime(at.year, at.month, at.day);
-    final time = DateFormat.jm().format(at);
-    if (day == today) return 'Last active today at $time';
-    if (today.difference(day).inDays == 1) {
-      return 'Last active yesterday at $time';
-    }
-    return 'Last active ${DateFormat('d MMM').format(at)} at $time';
+    if (DateTime.now().difference(at).inMinutes < 15) return 'Active recently';
+    return 'Last active ${_formatTime(at)}';
+  }
+
+  String _rowSubtitle(LinkedDevice d) {
+    final active = _lastActive(d);
+    if (d.current) return 'This device · $active';
+    return active.isNotEmpty ? active : _platform(d);
   }
 
   IconData _icon(LinkedDevice d) {
@@ -199,127 +216,205 @@ class _LinkedDevicesScreenState extends State<LinkedDevicesScreen> {
     }
   }
 
+  // ---------------------------------------------------------------- widgets
+
   Widget _sectionLabel(String text) {
     return Padding(
-      padding: EdgeInsets.fromLTRB(4.tw, 6.th, 4.tw, 8.th),
+      padding: EdgeInsets.fromLTRB(4.tw, 0, 4.tw, 8.th),
       child: Text(
-        text.toUpperCase(),
+        text,
         style: GoogleFonts.poppins(
-          fontSize: 11.tsp,
+          fontSize: 13.tsp,
           fontWeight: FontWeight.w600,
-          letterSpacing: 0.6,
           color: _textSecondary,
         ),
       ),
     );
   }
 
-  Widget _deviceTile(LinkedDevice d) {
-    final accent = d.current ? const Color(0xFF2E7D32) : _navy;
+  Widget _card({required List<Widget> children}) {
     return Container(
-      margin: EdgeInsets.only(bottom: 10.th),
-      padding: EdgeInsets.fromLTRB(12.tw, 12.th, 6.tw, 12.th),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(16.tr),
-        color: const Color(0xFFF7F9FC),
-        border: Border.all(color: const Color(0xFFE1E7F0)),
+        color: _cardColor,
+        border: Border.all(color: _cardBorder),
       ),
-      child: Row(
-        children: [
-          Container(
-            width: 42.tw,
-            height: 42.tw,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              color: accent.withValues(alpha: 0.12),
+      clipBehavior: Clip.antiAlias,
+      child: Column(children: children),
+    );
+  }
+
+  Widget _divider() => Divider(
+        height: 1,
+        thickness: 1,
+        indent: 66.tw,
+        color: _cardBorder,
+      );
+
+  Widget _deviceRow(LinkedDevice d, {required VoidCallback onTap}) {
+    final accent = d.current ? _green : _navy;
+    return InkWell(
+      onTap: onTap,
+      child: Padding(
+        padding: EdgeInsets.fromLTRB(12.tw, 12.th, 10.tw, 12.th),
+        child: Row(
+          children: [
+            Container(
+              width: 42.tw,
+              height: 42.tw,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: accent.withValues(alpha: 0.12),
+              ),
+              child: Icon(_icon(d), color: accent, size: 22.tsp),
             ),
-            child: Icon(_icon(d), color: accent, size: 22.tsp),
-          ),
-          SizedBox(width: 12.tw),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  _title(d),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: GoogleFonts.poppins(
-                    fontSize: 14.tsp,
-                    fontWeight: FontWeight.w700,
-                    color: _textPrimary,
+            SizedBox(width: 12.tw),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    _title(d),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: GoogleFonts.poppins(
+                      fontSize: 14.tsp,
+                      fontWeight: FontWeight.w600,
+                      color: _textPrimary,
+                    ),
                   ),
-                ),
-                SizedBox(height: 2.th),
-                Text(
-                  _subtitle(d),
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: GoogleFonts.poppins(
-                    fontSize: 11.5.tsp,
-                    color: _textSecondary,
-                  ),
-                ),
-                if (_lastActive(d).isNotEmpty) ...[
                   SizedBox(height: 2.th),
                   Text(
-                    _lastActive(d),
+                    _rowSubtitle(d),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                     style: GoogleFonts.poppins(
                       fontSize: 11.5.tsp,
                       fontWeight: d.current ? FontWeight.w600 : FontWeight.w400,
-                      color: d.current ? accent : _textSecondary,
+                      color: d.current ? _green : _textSecondary,
                     ),
                   ),
                 ],
-              ],
+              ),
             ),
-          ),
-          if (!d.current)
-            TextButton(
-              onPressed: _isBusy ? null : () => _logoutDevice(d),
-              style: TextButton.styleFrom(foregroundColor: _danger),
+            Icon(
+              Icons.chevron_right_rounded,
+              color: _textSecondary.withValues(alpha: 0.6),
+              size: 22.tsp,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  List<Widget> _deviceRows(List<LinkedDevice> devices) {
+    final rows = <Widget>[];
+    for (var i = 0; i < devices.length; i++) {
+      if (i > 0) rows.add(_divider());
+      rows.add(_deviceRow(
+        devices[i],
+        onTap: () => _showDeviceSheet(devices[i]),
+      ));
+    }
+    return rows;
+  }
+
+  Widget _seeAllRow(int total) {
+    return InkWell(
+      onTap: _showAllSheet,
+      child: Padding(
+        padding: EdgeInsets.symmetric(horizontal: 14.tw, vertical: 13.th),
+        child: Row(
+          children: [
+            Expanded(
               child: Text(
-                'Log out',
+                'See all ($total)',
                 style: GoogleFonts.poppins(
-                  fontSize: 12.5.tsp,
+                  fontSize: 13.tsp,
                   fontWeight: FontWeight.w600,
+                  color: _navy,
                 ),
               ),
             ),
+            Icon(Icons.keyboard_arrow_up_rounded, color: _navy, size: 22.tsp),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _headerCard() {
+    final count = _allDevices.length;
+    final caption = _data == null
+        ? 'See where your account is signed in.'
+        : count == 1
+            ? '1 device signed in to your account.'
+            : '$count devices signed in to your account.';
+    return Container(
+      padding: EdgeInsets.fromLTRB(16.tw, 18.th, 16.tw, 16.th),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(18.tr),
+        color: _cardColor,
+        border: Border.all(color: _cardBorder),
+      ),
+      child: Column(
+        children: [
+          Image.asset(
+            'assets/png/linked_devices.png',
+            height: 72.th,
+            fit: BoxFit.contain,
+          ),
+          SizedBox(height: 12.th),
+          Text(
+            'Linked devices',
+            style: GoogleFonts.poppins(
+              fontSize: 16.tsp,
+              fontWeight: FontWeight.w700,
+              color: _textPrimary,
+            ),
+          ),
+          SizedBox(height: 4.th),
+          Text(
+            caption,
+            textAlign: TextAlign.center,
+            style: GoogleFonts.poppins(
+              fontSize: 12.tsp,
+              color: _textSecondary,
+              height: 1.4,
+            ),
+          ),
         ],
       ),
     );
   }
 
   Widget _logoutOthersButton() {
-    return Padding(
-      padding: EdgeInsets.only(top: 6.th, bottom: 4.th),
-      child: OutlinedButton.icon(
-        onPressed: _isBusy ? null : _logoutOthers,
-        icon: _isBusy
-            ? SizedBox(
-                width: 16.tw,
-                height: 16.tw,
-                child: const CircularProgressIndicator(
-                  strokeWidth: 2,
-                  color: _danger,
-                ),
-              )
-            : const Icon(Icons.logout_rounded),
-        label: Text(
-          'Log out all other devices',
-          style: GoogleFonts.poppins(
-            fontSize: 13.tsp,
-            fontWeight: FontWeight.w600,
-          ),
+    return OutlinedButton.icon(
+      onPressed: _isBusy ? null : _logoutOthers,
+      icon: _isBusy
+          ? SizedBox(
+              width: 16.tw,
+              height: 16.tw,
+              child: const CircularProgressIndicator(
+                strokeWidth: 2,
+                color: _danger,
+              ),
+            )
+          : const Icon(Icons.logout_rounded),
+      label: Text(
+        'Log out all other devices',
+        style: GoogleFonts.poppins(
+          fontSize: 13.tsp,
+          fontWeight: FontWeight.w600,
         ),
-        style: OutlinedButton.styleFrom(
-          foregroundColor: _danger,
-          side: BorderSide(color: _danger.withValues(alpha: 0.5)),
-          padding: EdgeInsets.symmetric(vertical: 12.th),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(14.tr),
-          ),
+      ),
+      style: OutlinedButton.styleFrom(
+        foregroundColor: _danger,
+        side: BorderSide(color: _danger.withValues(alpha: 0.5)),
+        padding: EdgeInsets.symmetric(vertical: 12.th),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(14.tr),
         ),
       ),
     );
@@ -345,50 +440,136 @@ class _LinkedDevicesScreenState extends State<LinkedDevicesScreen> {
     );
   }
 
-  Widget _emptyOthers() {
+  Widget _footnote(String text) {
     return Padding(
-      padding: EdgeInsets.symmetric(vertical: 18.th, horizontal: 8.tw),
+      padding: EdgeInsets.fromLTRB(6.tw, 8.th, 6.tw, 0),
       child: Text(
-        'You are not signed in on any other device.',
-        textAlign: TextAlign.center,
-        style: GoogleFonts.poppins(fontSize: 12.tsp, color: _textSecondary),
+        text,
+        style: GoogleFonts.poppins(
+          fontSize: 11.5.tsp,
+          color: _textSecondary,
+          height: 1.4,
+        ),
       ),
     );
   }
 
-  Widget _headerCard() {
+  // ----------------------------------------------------------------- sheets
+
+  Widget _sheetFrame({
+    required ScrollController controller,
+    required List<Widget> children,
+  }) {
     return Container(
-      padding: EdgeInsets.fromLTRB(16.tw, 18.th, 16.tw, 16.th),
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(18.tr),
-        color: const Color(0xFFF7F9FC),
-        border: Border.all(color: const Color(0xFFE1E7F0)),
+        color: Colors.white,
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20.tr)),
       ),
-      child: Column(
+      child: ListView(
+        controller: controller,
+        padding: EdgeInsets.fromLTRB(
+          14.tw,
+          10.th,
+          14.tw,
+          context.systemBottomInset + 24.th,
+        ),
         children: [
-          Image.asset(
-            'assets/png/linked_devices.png',
-            height: 72.th,
-            fit: BoxFit.contain,
-          ),
-          SizedBox(height: 12.th),
-          Text(
-            'Linked devices',
-            style: GoogleFonts.poppins(
-              fontSize: 16.tsp,
-              fontWeight: FontWeight.w700,
-              color: _textPrimary,
+          Center(
+            child: Container(
+              width: 40.tw,
+              height: 4.th,
+              decoration: BoxDecoration(
+                color: _cardBorder,
+                borderRadius: BorderRadius.circular(4),
+              ),
             ),
           ),
-          SizedBox(height: 4.th),
+          SizedBox(height: 14.th),
+          ...children,
+        ],
+      ),
+    );
+  }
+
+  Widget _sheetTitle(String text) {
+    return Padding(
+      padding: EdgeInsets.only(bottom: 14.th),
+      child: Text(
+        text,
+        textAlign: TextAlign.center,
+        style: GoogleFonts.poppins(
+          fontSize: 16.tsp,
+          fontWeight: FontWeight.w700,
+          color: _textPrimary,
+        ),
+      ),
+    );
+  }
+
+  Future<void> _showDraggable({
+    required double initialSize,
+    required List<Widget> Function(BuildContext sheetContext) children,
+  }) {
+    return showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (sheetContext) => DraggableScrollableSheet(
+        expand: false,
+        initialChildSize: initialSize,
+        minChildSize: 0.3,
+        maxChildSize: 0.92,
+        builder: (_, controller) => _sheetFrame(
+          controller: controller,
+          children: children(sheetContext),
+        ),
+      ),
+    );
+  }
+
+  void _showAllSheet() {
+    final devices = _allDevices;
+    _showDraggable(
+      initialSize: 0.7,
+      children: (sheetContext) => [
+        _sheetTitle('All linked devices'),
+        _card(
+          children: [
+            for (var i = 0; i < devices.length; i++) ...[
+              if (i > 0) _divider(),
+              _deviceRow(
+                devices[i],
+                onTap: () {
+                  Navigator.of(sheetContext).pop();
+                  _showDeviceSheet(devices[i]);
+                },
+              ),
+            ],
+          ],
+        ),
+      ],
+    );
+  }
+
+  Widget _detailRow(String label, String value) {
+    return Padding(
+      padding: EdgeInsets.symmetric(horizontal: 14.tw, vertical: 13.th),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
           Text(
-            'See where your account is signed in and log out any device '
-            'you don\'t recognise.',
-            textAlign: TextAlign.center,
-            style: GoogleFonts.poppins(
-              fontSize: 12.tsp,
-              color: _textSecondary,
-              height: 1.4,
+            label,
+            style: GoogleFonts.poppins(fontSize: 13.tsp, color: _textPrimary),
+          ),
+          SizedBox(width: 12.tw),
+          Expanded(
+            child: Text(
+              value,
+              textAlign: TextAlign.right,
+              style: GoogleFonts.poppins(
+                fontSize: 13.tsp,
+                color: _textSecondary,
+              ),
             ),
           ),
         ],
@@ -396,8 +577,81 @@ class _LinkedDevicesScreenState extends State<LinkedDevicesScreen> {
     );
   }
 
+  void _showDeviceSheet(LinkedDevice d) {
+    final accent = d.current ? _green : _navy;
+    final details = <MapEntry<String, String>>[
+      MapEntry('Activity', _lastActive(d).isNotEmpty ? _lastActive(d) : '—'),
+      MapEntry('Platform', _platform(d)),
+      if (!d.isWeb && d.appVersion.isNotEmpty)
+        MapEntry('App version', d.appVersion),
+      if (d.loginAt != null) MapEntry('Signed in', _formatTime(d.loginAt!)),
+    ];
+    _showDraggable(
+      initialSize: 0.55,
+      children: (sheetContext) => [
+        Center(
+          child: Container(
+            width: 56.tw,
+            height: 56.tw,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: accent.withValues(alpha: 0.12),
+            ),
+            child: Icon(_icon(d), color: accent, size: 28.tsp),
+          ),
+        ),
+        SizedBox(height: 10.th),
+        _sheetTitle(_title(d)),
+        _sectionLabel('Device status'),
+        _card(
+          children: [
+            for (var i = 0; i < details.length; i++) ...[
+              if (i > 0)
+                const Divider(height: 1, thickness: 1, color: _cardBorder),
+              _detailRow(details[i].key, details[i].value),
+            ],
+          ],
+        ),
+        SizedBox(height: 16.th),
+        if (d.current)
+          _footnote('This is the device you are using now. To sign out here, '
+              'use Log out in your profile.')
+        else
+          _card(
+            children: [
+              InkWell(
+                onTap: _isBusy
+                    ? null
+                    : () {
+                        Navigator.of(sheetContext).pop();
+                        _logoutDevice(d);
+                      },
+                child: Padding(
+                  padding: EdgeInsets.symmetric(vertical: 14.th),
+                  child: Center(
+                    child: Text(
+                      'Log out device',
+                      style: GoogleFonts.poppins(
+                        fontSize: 14.tsp,
+                        fontWeight: FontWeight.w600,
+                        color: _danger,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+      ],
+    );
+  }
+
+  // ------------------------------------------------------------------- body
+
   Widget _buildBody() {
-    final data = _data;
+    final devices = _allDevices;
+    final preview = devices.take(_previewCount).toList();
+    final hasOthers = _data?.others.isNotEmpty ?? false;
     return RefreshIndicator(
       onRefresh: _load,
       color: appFontColor,
@@ -413,24 +667,29 @@ class _LinkedDevicesScreenState extends State<LinkedDevicesScreen> {
         ),
         children: [
           _headerCard(),
-          SizedBox(height: 14.th),
+          SizedBox(height: 18.th),
           if (_isLoading)
             Padding(
               padding: EdgeInsets.only(top: 32.th),
               child: const Center(child: CircularProgressIndicator()),
             ),
           if (_error != null) _errorBanner(_error!),
-          if (!_isLoading && data != null) ...[
-            if (data.current != null) ...[
-              _sectionLabel('This device'),
-              _deviceTile(data.current!),
-              SizedBox(height: 8.th),
-            ],
-            _sectionLabel('Other devices'),
-            if (data.others.isEmpty)
-              _emptyOthers()
-            else ...[
-              ...data.others.map(_deviceTile),
+          if (!_isLoading && _data != null) ...[
+            _sectionLabel('Linked devices'),
+            _card(
+              children: [
+                ..._deviceRows(preview),
+                if (devices.length > _previewCount) ...[
+                  const Divider(height: 1, thickness: 1, color: _cardBorder),
+                  _seeAllRow(devices.length),
+                ],
+              ],
+            ),
+            _footnote(hasOthers
+                ? 'Tap a device to see its details or log it out.'
+                : 'You are not signed in on any other device.'),
+            if (hasOthers) ...[
+              SizedBox(height: 18.th),
               _logoutOthersButton(),
             ],
           ],
@@ -448,6 +707,7 @@ class _LinkedDevicesScreenState extends State<LinkedDevicesScreen> {
         children: [
           GlassSubAppScreenHeader(
             roundedBottom: false,
+            showBackButton: false,
             trailing: [
               if (!_isLoading)
                 GlassSubAppHeaderIconButton(

@@ -18,6 +18,7 @@ class GlassSubAppScreenHeader extends StatelessWidget {
     this.showTitleRow = true,
     this.tabsHeight,
     this.roundedBottom = true,
+    this.showBackButton = true,
   });
 
   final String title;
@@ -33,6 +34,8 @@ class GlassSubAppScreenHeader extends StatelessWidget {
 
   /// Rounded bottom edge on the header (off when body uses [mergedGradient]).
   final bool roundedBottom;
+
+  final bool showBackButton;
 
   static double titleRowHeight = 52;
   static double headerTabsHeight = 80;
@@ -75,20 +78,21 @@ class GlassSubAppScreenHeader extends StatelessWidget {
                     padding: EdgeInsets.fromLTRB(14.tw, 2.th, 8.tw, 4.th),
                     child: Row(
                       children: [
-                        IconButton(
-                          onPressed: () =>
-                              HomeNavigation.handleSystemBack(context),
-                          icon: Icon(
-                            Icons.arrow_back_ios_new_rounded,
-                            color: Colors.white,
-                            size: 18.tsp,
+                        if (showBackButton)
+                          IconButton(
+                            onPressed: () =>
+                                HomeNavigation.handleSystemBack(context),
+                            icon: Icon(
+                              Icons.arrow_back_ios_new_rounded,
+                              color: Colors.white,
+                              size: 18.tsp,
+                            ),
+                            padding: EdgeInsets.zero,
+                            constraints: BoxConstraints(
+                              minWidth: 32.tw,
+                              minHeight: 32.tw,
+                            ),
                           ),
-                          padding: EdgeInsets.zero,
-                          constraints: BoxConstraints(
-                            minWidth: 32.tw,
-                            minHeight: 32.tw,
-                          ),
-                        ),
                         if (titleIcon != null) ...[
                           Icon(
                             titleIcon,
