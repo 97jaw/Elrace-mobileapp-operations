@@ -26,7 +26,7 @@ class DeviceDetailsHeaders {
     var os = '';
     if (Platform.isIOS) {
       final ios = await info.iosInfo;
-      name = ios.modelName.isNotEmpty ? ios.modelName : ios.model;
+      name = _iosName(ios);
       os = '${ios.systemName} ${ios.systemVersion}';
     } else if (Platform.isAndroid) {
       final android = await info.androidInfo;
@@ -45,6 +45,33 @@ class DeviceDetailsHeaders {
       if (os.trim().isNotEmpty) 'X-Device-OS': _ascii(os),
       'X-App-Version': '${package.version}+${package.buildNumber}',
     };
+  }
+
+  /// Models newer than device_info_plus's own list, which it reports as
+  /// "Unknown device".
+  static const _iosModels = {
+    'iPhone17,1': 'iPhone 16 Pro',
+    'iPhone17,2': 'iPhone 16 Pro Max',
+    'iPhone17,3': 'iPhone 16',
+    'iPhone17,4': 'iPhone 16 Plus',
+    'iPhone17,5': 'iPhone 16e',
+    'iPhone18,1': 'iPhone 17 Pro',
+    'iPhone18,2': 'iPhone 17 Pro Max',
+    'iPhone18,3': 'iPhone 17',
+    'iPhone18,4': 'iPhone Air',
+  };
+
+  static String _iosName(IosDeviceInfo ios) {
+    if (!ios.isPhysicalDevice) return 'iPhone Simulator';
+    final reported = ios.modelName.trim();
+    if (reported.isNotEmpty && !reported.toLowerCase().startsWith('unknown')) {
+      return reported;
+    }
+    final machine = ios.utsname.machine.trim();
+    final known = _iosModels[machine];
+    if (known != null) return known;
+    final family = ios.model.trim().isNotEmpty ? ios.model.trim() : 'iPhone';
+    return machine.isEmpty ? family : '$family ($machine)';
   }
 
   static String _capitalize(String value) {

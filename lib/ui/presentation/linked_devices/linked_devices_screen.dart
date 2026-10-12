@@ -36,7 +36,11 @@ class _LinkedDevicesScreenState extends State<LinkedDevicesScreen> {
     _load();
     DeviceDetailsHeaders.get().then((headers) {
       final name = headers['X-Device-Name'] ?? '';
-      if (mounted && name.isNotEmpty) setState(() => _localDeviceName = name);
+      if (mounted &&
+          name.isNotEmpty &&
+          !name.toLowerCase().startsWith('unknown')) {
+        setState(() => _localDeviceName = name);
+      }
     });
   }
 
