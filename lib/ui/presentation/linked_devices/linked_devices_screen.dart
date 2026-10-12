@@ -356,10 +356,47 @@ class _LinkedDevicesScreenState extends State<LinkedDevicesScreen> {
     );
   }
 
+  Widget _headerCard() {
+    return Container(
+      padding: EdgeInsets.fromLTRB(16.tw, 18.th, 16.tw, 16.th),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(18.tr),
+        color: const Color(0xFFF7F9FC),
+        border: Border.all(color: const Color(0xFFE1E7F0)),
+      ),
+      child: Column(
+        children: [
+          Image.asset(
+            'assets/png/linked_devices.png',
+            height: 72.th,
+            fit: BoxFit.contain,
+          ),
+          SizedBox(height: 12.th),
+          Text(
+            'Linked devices',
+            style: GoogleFonts.poppins(
+              fontSize: 16.tsp,
+              fontWeight: FontWeight.w700,
+              color: _textPrimary,
+            ),
+          ),
+          SizedBox(height: 4.th),
+          Text(
+            'See where your account is signed in and log out any device '
+            'you don\'t recognise.',
+            textAlign: TextAlign.center,
+            style: GoogleFonts.poppins(
+              fontSize: 12.tsp,
+              color: _textSecondary,
+              height: 1.4,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildBody() {
-    if (_isLoading) {
-      return const Center(child: CircularProgressIndicator());
-    }
     final data = _data;
     return RefreshIndicator(
       onRefresh: _load,
@@ -375,8 +412,15 @@ class _LinkedDevicesScreenState extends State<LinkedDevicesScreen> {
           parent: AlwaysScrollableScrollPhysics(),
         ),
         children: [
+          _headerCard(),
+          SizedBox(height: 14.th),
+          if (_isLoading)
+            Padding(
+              padding: EdgeInsets.only(top: 32.th),
+              child: const Center(child: CircularProgressIndicator()),
+            ),
           if (_error != null) _errorBanner(_error!),
-          if (data != null) ...[
+          if (!_isLoading && data != null) ...[
             if (data.current != null) ...[
               _sectionLabel('This device'),
               _deviceTile(data.current!),
@@ -403,8 +447,6 @@ class _LinkedDevicesScreenState extends State<LinkedDevicesScreen> {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           GlassSubAppScreenHeader(
-            title: 'Linked Devices',
-            titleIcon: Icons.devices_rounded,
             roundedBottom: false,
             trailing: [
               if (!_isLoading)
