@@ -1,11 +1,12 @@
 import 'dart:io';
 
 import 'package:device_info_plus/device_info_plus.dart';
+import 'package:el_race/core/services/mobile_device_id_service.dart';
 import 'package:flutter/foundation.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 
-/// Device name, OS and app version sent as headers at login so Linked
-/// Devices can show which phone a session belongs to.
+/// Install id, device name, OS and app version sent as headers at login so
+/// Linked Devices keeps one entry per phone and shows its name.
 class DeviceDetailsHeaders {
   DeviceDetailsHeaders._();
 
@@ -37,7 +38,9 @@ class DeviceDetailsHeaders {
       os = 'Android ${android.version.release}';
     }
     final package = await PackageInfo.fromPlatform();
+    final installId = await MobileDeviceIdService.getOrCreate();
     return {
+      'X-Device-Install-Id': installId,
       if (name.trim().isNotEmpty) 'X-Device-Name': _ascii(name),
       if (os.trim().isNotEmpty) 'X-Device-OS': _ascii(os),
       'X-App-Version': '${package.version}+${package.buildNumber}',

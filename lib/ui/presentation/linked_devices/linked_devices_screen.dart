@@ -1,3 +1,4 @@
+import 'package:el_race/core/services/device_details_headers.dart';
 import 'package:el_race/core/utils/responsive_breakpoints.dart';
 import 'package:el_race/ui/presentation/linked_devices/linked_devices_repository.dart';
 import 'package:el_race/ui/widgets/glass_sub_app_screen_header.dart';
@@ -27,11 +28,16 @@ class _LinkedDevicesScreenState extends State<LinkedDevicesScreen> {
   bool _isLoading = true;
   bool _isBusy = false;
   String? _error;
+  String _localDeviceName = '';
 
   @override
   void initState() {
     super.initState();
     _load();
+    DeviceDetailsHeaders.get().then((headers) {
+      final name = headers['X-Device-Name'] ?? '';
+      if (mounted && name.isNotEmpty) setState(() => _localDeviceName = name);
+    });
   }
 
   Future<void> _load() async {
@@ -130,8 +136,19 @@ class _LinkedDevicesScreenState extends State<LinkedDevicesScreen> {
     await _run(_repo.logoutOthers, 'All other devices logged out.');
   }
 
+  static const _genericAppNames = {'mobile app', 'iphone', 'android phone'};
+
   String _title(LinkedDevice d) {
-    if (d.name.isNotEmpty) return d.name;
+    final name = d.name.trim();
+    final generic = name.isEmpty ||
+        name.toLowerCase().startsWith('unknown') ||
+        (!d.isWeb && _genericAppNames.contains(name.toLowerCase()));
+    if (d.current && generic && _localDeviceName.isNotEmpty) {
+      return _localDeviceName;
+    }
+    if (name.isNotEmpty && !name.toLowerCase().startsWith('unknown')) {
+      return name;
+    }
     return d.isWeb ? 'Web browser' : 'Mobile app';
   }
 

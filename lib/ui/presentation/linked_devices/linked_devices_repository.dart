@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import 'package:el_race/core/services/device_details_headers.dart';
 import 'package:el_race/services/api_client.dart';
 import 'package:el_race/utils/di.dart';
 
@@ -103,7 +104,11 @@ class LinkedDevicesRepository {
   }
 
   Future<LinkedDevicesData> fetch() async {
-    final data = await _call('linked-devices');
+    final data = await _call(
+      'linked-devices',
+      const {},
+      await DeviceDetailsHeaders.get(),
+    );
     final current = data['current'];
     final devices = data['devices'];
     return LinkedDevicesData(
