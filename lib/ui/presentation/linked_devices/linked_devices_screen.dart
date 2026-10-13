@@ -22,8 +22,11 @@ class _LinkedDevicesScreenState extends State<LinkedDevicesScreen> {
   static const _danger = Color(0xFFBA1719);
   static const _navy = Color(0xFF0B387A);
   static const _green = Color(0xFF2E7D32);
-  static const _cardColor = Color(0xFFF7F9FC);
-  static const _cardBorder = Color(0xFFE1E7F0);
+  static const _pageColor = Color(0xFFF2F4F7);
+  static const _cardBorder = Color(0xFFE7EBF1);
+  static const _rowPadding = 16.0;
+  static const _avatarSize = 44.0;
+  static const _avatarGap = 14.0;
 
   /// Rows shown on the screen; the rest open in the "See all" sheet.
   static const _previewCount = 5;
@@ -220,11 +223,11 @@ class _LinkedDevicesScreenState extends State<LinkedDevicesScreen> {
 
   Widget _sectionLabel(String text) {
     return Padding(
-      padding: EdgeInsets.fromLTRB(4.tw, 0, 4.tw, 8.th),
+      padding: EdgeInsets.fromLTRB(_rowPadding.tw, 0, _rowPadding.tw, 8.th),
       child: Text(
         text,
         style: GoogleFonts.poppins(
-          fontSize: 13.tsp,
+          fontSize: 13.5.tsp,
           fontWeight: FontWeight.w600,
           color: _textSecondary,
         ),
@@ -235,40 +238,55 @@ class _LinkedDevicesScreenState extends State<LinkedDevicesScreen> {
   Widget _card({required List<Widget> children}) {
     return Container(
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(16.tr),
-        color: _cardColor,
-        border: Border.all(color: _cardBorder),
+        borderRadius: BorderRadius.circular(18.tr),
+        color: Colors.white,
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFF0B1F44).withValues(alpha: 0.05),
+            blurRadius: 12,
+            offset: const Offset(0, 3),
+          ),
+        ],
       ),
       clipBehavior: Clip.antiAlias,
       child: Column(children: children),
     );
   }
 
-  Widget _divider() => Divider(
+  Widget _divider({bool inset = true}) => Divider(
         height: 1,
         thickness: 1,
-        indent: 66.tw,
+        indent: inset ? (_rowPadding + _avatarSize + _avatarGap).tw : 0,
         color: _cardBorder,
       );
 
-  Widget _deviceRow(LinkedDevice d, {required VoidCallback onTap}) {
+  Widget _avatar(LinkedDevice d, {double size = _avatarSize}) {
     final accent = d.current ? _green : _navy;
+    return Container(
+      width: size.tw,
+      height: size.tw,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        color: accent.withValues(alpha: 0.10),
+      ),
+      child: Icon(_icon(d), color: accent, size: (size * 0.5).tsp),
+    );
+  }
+
+  Widget _deviceRow(LinkedDevice d, {required VoidCallback onTap}) {
     return InkWell(
       onTap: onTap,
       child: Padding(
-        padding: EdgeInsets.fromLTRB(12.tw, 12.th, 10.tw, 12.th),
+        padding: EdgeInsets.fromLTRB(
+          _rowPadding.tw,
+          13.th,
+          10.tw,
+          13.th,
+        ),
         child: Row(
           children: [
-            Container(
-              width: 42.tw,
-              height: 42.tw,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: accent.withValues(alpha: 0.12),
-              ),
-              child: Icon(_icon(d), color: accent, size: 22.tsp),
-            ),
-            SizedBox(width: 12.tw),
+            _avatar(d),
+            SizedBox(width: _avatarGap.tw),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -324,52 +342,56 @@ class _LinkedDevicesScreenState extends State<LinkedDevicesScreen> {
     return InkWell(
       onTap: _showAllSheet,
       child: Padding(
-        padding: EdgeInsets.symmetric(horizontal: 14.tw, vertical: 13.th),
+        padding: EdgeInsets.fromLTRB(
+          _rowPadding.tw,
+          14.th,
+          10.tw,
+          14.th,
+        ),
         child: Row(
           children: [
             Expanded(
               child: Text(
-                'See all ($total)',
+                'See all devices ($total)',
                 style: GoogleFonts.poppins(
-                  fontSize: 13.tsp,
+                  fontSize: 13.5.tsp,
                   fontWeight: FontWeight.w600,
                   color: _navy,
                 ),
               ),
             ),
-            Icon(Icons.keyboard_arrow_up_rounded, color: _navy, size: 22.tsp),
+            Icon(
+              Icons.chevron_right_rounded,
+              color: _navy.withValues(alpha: 0.7),
+              size: 22.tsp,
+            ),
           ],
         ),
       ),
     );
   }
 
-  Widget _headerCard() {
+  Widget _hero() {
     final count = _allDevices.length;
     final caption = _data == null
         ? 'See where your account is signed in.'
         : count == 1
-            ? '1 device signed in to your account.'
-            : '$count devices signed in to your account.';
-    return Container(
-      padding: EdgeInsets.fromLTRB(16.tw, 18.th, 16.tw, 16.th),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(18.tr),
-        color: _cardColor,
-        border: Border.all(color: _cardBorder),
-      ),
+            ? '1 device is signed in to your account.'
+            : '$count devices are signed in to your account.';
+    return Padding(
+      padding: EdgeInsets.fromLTRB(24.tw, 8.th, 24.tw, 4.th),
       child: Column(
         children: [
           Image.asset(
             'assets/png/linked_devices.png',
-            height: 72.th,
+            height: 96.th,
             fit: BoxFit.contain,
           ),
-          SizedBox(height: 12.th),
+          SizedBox(height: 16.th),
           Text(
             'Linked devices',
             style: GoogleFonts.poppins(
-              fontSize: 16.tsp,
+              fontSize: 19.tsp,
               fontWeight: FontWeight.w700,
               color: _textPrimary,
             ),
@@ -379,9 +401,9 @@ class _LinkedDevicesScreenState extends State<LinkedDevicesScreen> {
             caption,
             textAlign: TextAlign.center,
             style: GoogleFonts.poppins(
-              fontSize: 12.tsp,
+              fontSize: 12.5.tsp,
               color: _textSecondary,
-              height: 1.4,
+              height: 1.45,
             ),
           ),
         ],
@@ -389,34 +411,55 @@ class _LinkedDevicesScreenState extends State<LinkedDevicesScreen> {
     );
   }
 
-  Widget _logoutOthersButton() {
-    return OutlinedButton.icon(
-      onPressed: _isBusy ? null : _logoutOthers,
-      icon: _isBusy
-          ? SizedBox(
-              width: 16.tw,
-              height: 16.tw,
-              child: const CircularProgressIndicator(
-                strokeWidth: 2,
+  Widget _actionRow({
+    required String label,
+    required IconData icon,
+    required VoidCallback? onTap,
+    bool busy = false,
+  }) {
+    return InkWell(
+      onTap: onTap,
+      child: Padding(
+        padding: EdgeInsets.symmetric(vertical: 15.th),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            if (busy)
+              SizedBox(
+                width: 16.tw,
+                height: 16.tw,
+                child: const CircularProgressIndicator(
+                  strokeWidth: 2,
+                  color: _danger,
+                ),
+              )
+            else
+              Icon(icon, color: _danger, size: 19.tsp),
+            SizedBox(width: 8.tw),
+            Text(
+              label,
+              style: GoogleFonts.poppins(
+                fontSize: 14.tsp,
+                fontWeight: FontWeight.w600,
                 color: _danger,
               ),
-            )
-          : const Icon(Icons.logout_rounded),
-      label: Text(
-        'Log out all other devices',
-        style: GoogleFonts.poppins(
-          fontSize: 13.tsp,
-          fontWeight: FontWeight.w600,
+            ),
+          ],
         ),
       ),
-      style: OutlinedButton.styleFrom(
-        foregroundColor: _danger,
-        side: BorderSide(color: _danger.withValues(alpha: 0.5)),
-        padding: EdgeInsets.symmetric(vertical: 12.th),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(14.tr),
+    );
+  }
+
+  Widget _logoutOthersButton() {
+    return _card(
+      children: [
+        _actionRow(
+          label: 'Log out all other devices',
+          icon: Icons.logout_rounded,
+          busy: _isBusy,
+          onTap: _isBusy ? null : _logoutOthers,
         ),
-      ),
+      ],
     );
   }
 
@@ -442,13 +485,13 @@ class _LinkedDevicesScreenState extends State<LinkedDevicesScreen> {
 
   Widget _footnote(String text) {
     return Padding(
-      padding: EdgeInsets.fromLTRB(6.tw, 8.th, 6.tw, 0),
+      padding: EdgeInsets.fromLTRB(_rowPadding.tw, 8.th, _rowPadding.tw, 0),
       child: Text(
         text,
         style: GoogleFonts.poppins(
           fontSize: 11.5.tsp,
           color: _textSecondary,
-          height: 1.4,
+          height: 1.45,
         ),
       ),
     );
@@ -462,15 +505,15 @@ class _LinkedDevicesScreenState extends State<LinkedDevicesScreen> {
   }) {
     return Container(
       decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20.tr)),
+        color: _pageColor,
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24.tr)),
       ),
       child: ListView(
         controller: controller,
         padding: EdgeInsets.fromLTRB(
-          14.tw,
+          16.tw,
           10.th,
-          14.tw,
+          16.tw,
           context.systemBottomInset + 24.th,
         ),
         children: [
@@ -479,12 +522,12 @@ class _LinkedDevicesScreenState extends State<LinkedDevicesScreen> {
               width: 40.tw,
               height: 4.th,
               decoration: BoxDecoration(
-                color: _cardBorder,
+                color: const Color(0xFFCBD3DF),
                 borderRadius: BorderRadius.circular(4),
               ),
             ),
           ),
-          SizedBox(height: 14.th),
+          SizedBox(height: 18.th),
           ...children,
         ],
       ),
@@ -553,7 +596,8 @@ class _LinkedDevicesScreenState extends State<LinkedDevicesScreen> {
 
   Widget _detailRow(String label, String value) {
     return Padding(
-      padding: EdgeInsets.symmetric(horizontal: 14.tw, vertical: 13.th),
+      padding:
+          EdgeInsets.symmetric(horizontal: _rowPadding.tw, vertical: 14.th),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -578,7 +622,6 @@ class _LinkedDevicesScreenState extends State<LinkedDevicesScreen> {
   }
 
   void _showDeviceSheet(LinkedDevice d) {
-    final accent = d.current ? _green : _navy;
     final details = <MapEntry<String, String>>[
       MapEntry('Activity', _lastActive(d).isNotEmpty ? _lastActive(d) : '—'),
       MapEntry('Platform', _platform(d)),
@@ -589,19 +632,31 @@ class _LinkedDevicesScreenState extends State<LinkedDevicesScreen> {
     _showDraggable(
       initialSize: 0.55,
       children: (sheetContext) => [
-        Center(
-          child: Container(
-            width: 56.tw,
-            height: 56.tw,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              color: accent.withValues(alpha: 0.12),
-            ),
-            child: Icon(_icon(d), color: accent, size: 28.tsp),
-          ),
-        ),
-        SizedBox(height: 10.th),
+        Center(child: _avatar(d, size: 64)),
+        SizedBox(height: 12.th),
         _sheetTitle(_title(d)),
+        if (d.current)
+          Padding(
+            padding: EdgeInsets.only(bottom: 16.th),
+            child: Center(
+              child: Container(
+                padding:
+                    EdgeInsets.symmetric(horizontal: 10.tw, vertical: 3.th),
+                decoration: BoxDecoration(
+                  color: _green.withValues(alpha: 0.10),
+                  borderRadius: BorderRadius.circular(20.tr),
+                ),
+                child: Text(
+                  'This device',
+                  style: GoogleFonts.poppins(
+                    fontSize: 11.5.tsp,
+                    fontWeight: FontWeight.w600,
+                    color: _green,
+                  ),
+                ),
+              ),
+            ),
+          ),
         _sectionLabel('Device status'),
         _card(
           children: [
@@ -612,33 +667,22 @@ class _LinkedDevicesScreenState extends State<LinkedDevicesScreen> {
             ],
           ],
         ),
-        SizedBox(height: 16.th),
+        SizedBox(height: 18.th),
         if (d.current)
           _footnote('This is the device you are using now. To sign out here, '
               'use Log out in your profile.')
         else
           _card(
             children: [
-              InkWell(
+              _actionRow(
+                label: 'Log out device',
+                icon: Icons.logout_rounded,
                 onTap: _isBusy
                     ? null
                     : () {
                         Navigator.of(sheetContext).pop();
                         _logoutDevice(d);
                       },
-                child: Padding(
-                  padding: EdgeInsets.symmetric(vertical: 14.th),
-                  child: Center(
-                    child: Text(
-                      'Log out device',
-                      style: GoogleFonts.poppins(
-                        fontSize: 14.tsp,
-                        fontWeight: FontWeight.w600,
-                        color: _danger,
-                      ),
-                    ),
-                  ),
-                ),
               ),
             ],
           ),
@@ -657,17 +701,17 @@ class _LinkedDevicesScreenState extends State<LinkedDevicesScreen> {
       color: appFontColor,
       child: ListView(
         padding: EdgeInsets.fromLTRB(
-          14.tw,
-          12.th,
-          14.tw,
-          context.systemBottomInset + 24.th,
+          16.tw,
+          20.th,
+          16.tw,
+          context.systemBottomInset + 28.th,
         ),
         physics: const BouncingScrollPhysics(
           parent: AlwaysScrollableScrollPhysics(),
         ),
         children: [
-          _headerCard(),
-          SizedBox(height: 18.th),
+          _hero(),
+          SizedBox(height: 24.th),
           if (_isLoading)
             Padding(
               padding: EdgeInsets.only(top: 32.th),
@@ -680,7 +724,7 @@ class _LinkedDevicesScreenState extends State<LinkedDevicesScreen> {
               children: [
                 ..._deviceRows(preview),
                 if (devices.length > _previewCount) ...[
-                  const Divider(height: 1, thickness: 1, color: _cardBorder),
+                  _divider(inset: false),
                   _seeAllRow(devices.length),
                 ],
               ],
@@ -689,7 +733,7 @@ class _LinkedDevicesScreenState extends State<LinkedDevicesScreen> {
                 ? 'Tap a device to see its details or log it out.'
                 : 'You are not signed in on any other device.'),
             if (hasOthers) ...[
-              SizedBox(height: 18.th),
+              SizedBox(height: 24.th),
               _logoutOthersButton(),
             ],
           ],
@@ -711,7 +755,11 @@ class _LinkedDevicesScreenState extends State<LinkedDevicesScreen> {
           ),
           GlassSubAppContentSheet(
             showHandle: false,
-            child: _buildBody(),
+            backgroundColor: Colors.transparent,
+            child: ClipRRect(
+              borderRadius: BorderRadius.vertical(top: Radius.circular(24.tr)),
+              child: ColoredBox(color: _pageColor, child: _buildBody()),
+            ),
           ),
         ],
       ),
