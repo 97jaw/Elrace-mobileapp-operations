@@ -26,7 +26,7 @@ class _LinkedDevicesScreenState extends State<LinkedDevicesScreen> {
   static const _cardBorder = Color(0xFFE1E7F0);
 
   /// Rows shown on the screen; the rest open in the "See all" sheet.
-  static const _previewCount = 3;
+  static const _previewCount = 5;
 
   final _repo = const LinkedDevicesRepository();
 
@@ -705,17 +705,9 @@ class _LinkedDevicesScreenState extends State<LinkedDevicesScreen> {
       body: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          GlassSubAppScreenHeader(
+          const GlassSubAppScreenHeader(
             roundedBottom: false,
-            showBackButton: false,
-            trailing: [
-              if (!_isLoading)
-                GlassSubAppHeaderIconButton(
-                  icon: Icons.refresh_rounded,
-                  tooltip: 'Refresh',
-                  onPressed: _load,
-                ),
-            ],
+            showTitleRow: false,
           ),
           GlassSubAppContentSheet(
             showHandle: false,
