@@ -324,12 +324,13 @@ class TimesheetApiClient {
 
   /// Max foreman↔site distance (m) for submit, from Odoo `project.threshold`.
   /// Null when unavailable (caller falls back to its default).
-  Future<double?> fetchProjectSubmitThresholdM() async {
+  Future<double?> fetchProjectSubmitThresholdM([String? projectId]) async {
     if (!_useLiveOdoo) return null;
+    final pid = int.tryParse(projectId?.trim() ?? '');
     try {
       final body = await _transport.postJsonRpc(
         TimesheetOdooApiCatalog.submitPolicy,
-        params: _scoped(const {}),
+        params: _scoped({if (pid != null) 'project_id': pid}),
       );
       final result = _transport.parseResult(body, debugLabel: 'submit_policy');
       final data = _unwrapOdooSuccessMap(result);

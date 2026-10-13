@@ -28,12 +28,32 @@ abstract final class AppOrientations {
   static final RouteObserver<ModalRoute<void>> routeObserver =
       RouteObserver<ModalRoute<void>>();
 
+  static bool _portraitHeld = false;
+
+  /// True while the splash video is on screen; every orientation request
+  /// (startup, resume, tablet rotation) then resolves to portrait.
+  static bool get isPortraitHeld => _portraitHeld;
+
+  static Future<void> holdPortrait() async {
+    _portraitHeld = true;
+    await lockPortrait();
+  }
+
+  /// Ends [holdPortrait] and restores the device's normal policy.
+  static Future<void> releasePortrait() async {
+    if (!_portraitHeld) return;
+    _portraitHeld = false;
+    await allowTabletRotation();
+  }
+
   static Future<void> lockTabletHomeLandscape() async {
+    if (_portraitHeld) return lockPortrait();
     if (!ResponsiveBreakpoints.isTabletScreen) return;
     await SystemChrome.setPreferredOrientations(tabletHome);
   }
 
   static Future<void> allowTabletRotation() async {
+    if (_portraitHeld) return lockPortrait();
     if (!ResponsiveBreakpoints.isTabletScreen) return;
     await SystemChrome.setPreferredOrientations(tabletFlexible);
   }

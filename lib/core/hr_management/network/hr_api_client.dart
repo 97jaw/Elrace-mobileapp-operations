@@ -75,7 +75,8 @@ class HrApiClient {
         if (keyword != null && keyword.isNotEmpty) 'keyword': keyword,
         'limit': limit,
         'offset': offset,
-        if (department != null && department.isNotEmpty) 'department': department,
+        if (department != null && department.isNotEmpty)
+          'department': department,
         if (status != null && status.isNotEmpty) 'status': status,
         if (type != null && type.isNotEmpty) 'type': type,
       },
@@ -89,9 +90,24 @@ class HrApiClient {
       return HrApiEnvelope<List<Map<String, dynamic>>>(
         success: true,
         data: const [
-          {'id': 1, 'name': 'Leave Request', 'label': 'Leave Request', 'code': 'ANNUALLEAVE'},
-          {'id': 2, 'name': 'Job Mission', 'label': 'Job Mission', 'code': 'JM'},
-          {'id': 3, 'name': 'Temporary Permission', 'label': 'Temporary Permission', 'code': 'TEMP'},
+          {
+            'id': 1,
+            'name': 'Leave Request',
+            'label': 'Leave Request',
+            'code': 'ANNUALLEAVE'
+          },
+          {
+            'id': 2,
+            'name': 'Job Mission',
+            'label': 'Job Mission',
+            'code': 'JM'
+          },
+          {
+            'id': 3,
+            'name': 'Temporary Permission',
+            'label': 'Temporary Permission',
+            'code': 'TEMP'
+          },
         ],
         error: null,
         uiStatus: null,
@@ -126,7 +142,8 @@ class HrApiClient {
     }
   }
 
-  Future<HrApiEnvelope<Map<String, dynamic>>> _kpisFallbackFromTeamList() async {
+  Future<HrApiEnvelope<Map<String, dynamic>>>
+      _kpisFallbackFromTeamList() async {
     final team = await fetchTeamRequests(status: 'all', limit: 500);
     if (!team.success || team.data == null) {
       return HrApiEnvelope<Map<String, dynamic>>(
@@ -198,9 +215,7 @@ class HrApiClient {
             .toList();
       }
       if (requestType != null && requestType.isNotEmpty) {
-        list = list
-            .where((e) => e['type']?.toString() == requestType)
-            .toList();
+        list = list.where((e) => e['type']?.toString() == requestType).toList();
       }
       if (status != null && status.isNotEmpty && status != 'all') {
         list = list
@@ -248,7 +263,8 @@ class HrApiClient {
   }
 
   /// When search route is not deployed yet — uses team queue + client filters.
-  Future<HrApiEnvelope<List<Map<String, dynamic>>>> _searchFallbackFromTeamQueue({
+  Future<HrApiEnvelope<List<Map<String, dynamic>>>>
+      _searchFallbackFromTeamQueue({
     required String query,
     String? department,
     String? requestType,
@@ -262,9 +278,10 @@ class HrApiClient {
       offset: 0,
       department: department,
       type: requestType,
-      status: status != null && status.isNotEmpty && status.toLowerCase() != 'all'
-          ? status
-          : null,
+      status:
+          status != null && status.isNotEmpty && status.toLowerCase() != 'all'
+              ? status
+              : null,
     );
     if (!team.success) {
       return HrApiEnvelope<List<Map<String, dynamic>>>(
@@ -273,12 +290,11 @@ class HrApiClient {
       );
     }
     var list = List<Map<String, dynamic>>.from(team.data ?? []);
-    if (status != null &&
-        status.isNotEmpty &&
-        status.toLowerCase() != 'all') {
+    if (status != null && status.isNotEmpty && status.toLowerCase() != 'all') {
       final want = status.toUpperCase();
       list = list
-          .where((e) => (e['ui_status']?.toString().toUpperCase() ?? '') == want)
+          .where(
+              (e) => (e['ui_status']?.toString().toUpperCase() ?? '') == want)
           .toList();
     }
     final slice = list.skip(offset).take(limit).toList();
@@ -354,8 +370,25 @@ class HrApiClient {
     });
   }
 
+  /// Paged employee picker for requests created on behalf of an employee
+  /// (promotion / resignation / termination).
+  Future<HrApiEnvelope<Map<String, dynamic>>> fetchRequestEmployees({
+    required String code,
+    String search = '',
+    int page = 1,
+    int limit = 20,
+  }) {
+    return _postMap('/api/hr/request_employees', {
+      'code': code,
+      'search': search,
+      'page': page,
+      'limit': limit,
+    });
+  }
+
   Future<HrApiEnvelope<Map<String, dynamic>>> fetchRequestFormMeta({
     required String code,
+    int? employeeId,
   }) async {
     if (useMock) {
       await Future<void>.delayed(const Duration(milliseconds: 80));
@@ -372,7 +405,10 @@ class HrApiClient {
         },
       );
     }
-    return _postMap('/api/hr/request_form_meta', {'code': code});
+    return _postMap('/api/hr/request_form_meta', {
+      'code': code,
+      if (employeeId != null) 'employee_id': employeeId,
+    });
   }
 
   /// Contract eligibility for New request picker (SIM / Car Allowance tiles).
@@ -483,7 +519,8 @@ class HrApiClient {
     );
   }
 
-  HrApiEnvelope<List<Map<String, dynamic>>> _listEnvelopeFromOdoo(dynamic payload) {
+  HrApiEnvelope<List<Map<String, dynamic>>> _listEnvelopeFromOdoo(
+      dynamic payload) {
     if (payload is! Map) {
       return const HrApiEnvelope<List<Map<String, dynamic>>>(
         success: false,

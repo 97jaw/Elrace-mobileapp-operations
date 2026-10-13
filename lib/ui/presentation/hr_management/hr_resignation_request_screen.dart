@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:el_race/core/hr_management/providers/hr_management_providers.dart';
 import 'package:el_race/core/utils/shared_pref.dart';
+import 'package:el_race/ui/presentation/hr_management/widgets/hr_request_employee_picker.dart';
 import 'package:el_race/ui/presentation/hr_management/widgets/hr_request_form_ui.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -22,6 +23,7 @@ class HrResignationRequestScreen extends ConsumerStatefulWidget {
 class _HrResignationRequestScreenState
     extends ConsumerState<HrResignationRequestScreen> {
   final _formKey = GlobalKey<FormState>();
+  HrPickedEmployee? _employee;
   DateTime? _noticeStart;
   DateTime? _lastDay;
   String _resignationType = 'resigned';
@@ -44,6 +46,7 @@ class _HrResignationRequestScreenState
     if (raw.isEmpty) return;
     try {
       final m = jsonDecode(raw) as Map<String, dynamic>;
+      _employee = HrPickedEmployee.fromDraft(m['employee']);
       _resignationType = m['type'] as String? ?? 'resigned';
       _noticePeriod.text = m['notice'] as String? ?? '30';
       _reason.text = m['reason'] as String? ?? '';
@@ -59,6 +62,7 @@ class _HrResignationRequestScreenState
     await SharedPref().setPreferencesString(
       HrResignationRequestScreen.draftKey,
       jsonEncode({
+        'employee': _employee?.toDraft(),
         'type': _resignationType,
         'notice': _noticePeriod.text,
         'reason': _reason.text,
@@ -72,6 +76,11 @@ class _HrResignationRequestScreenState
 
   Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) return;
+    final employee = _employee;
+    if (employee == null) {
+      Fluttertoast.showToast(msg: 'Select employee');
+      return;
+    }
     if (_noticeStart == null || _lastDay == null) {
       Fluttertoast.showToast(msg: 'Select notice start and last day');
       return;
@@ -81,6 +90,7 @@ class _HrResignationRequestScreenState
       api: ref.read(hrApiClientProvider),
       code: 'RESIGNATION',
       fields: {
+        'employee_id': employee.id,
         'resignation_type': _resignationType,
         'notice_period_start_date': HrRequestFormUi.isoDate(_noticeStart!),
         'expected_revealing_date': HrRequestFormUi.isoDate(_lastDay!),
@@ -114,6 +124,13 @@ class _HrResignationRequestScreenState
       onSaveDraft: _saveDraft,
       onSubmit: _submit,
       children: [
+        HrRequestEmployeeField(
+          api: ref.read(hrApiClientProvider),
+          code: 'RESIGNATION',
+          value: _employee,
+          onChanged: (e) => setState(() => _employee = e),
+        ),
+        SizedBox(height: 14.h),
         HrRequestFormUi.dateButton(
           labelText: 'Notice Period Start Date *',
           date: _noticeStart,
@@ -168,7 +185,8 @@ class _HrResignationRequestScreenState
           controller: _description,
           minLines: 3,
           maxLines: 6,
-          decoration: HrRequestFormUi.fieldDecoration('Write your description...'),
+          decoration:
+              HrRequestFormUi.fieldDecoration('Write your description...'),
         ),
       ],
     );

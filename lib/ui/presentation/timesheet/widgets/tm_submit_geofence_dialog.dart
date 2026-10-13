@@ -13,11 +13,12 @@ import 'package:geolocator/geolocator.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:phosphor_flutter/phosphor_flutter.dart';
 
-/// Default when Odoo `project.threshold` can't be read.
-const double kTmDefaultSubmitThresholdM = 800;
+/// Default when the project has no Odoo threshold or it can't be read.
+const double kTmDefaultSubmitThresholdM = 50;
 
 /// Confirm & submit gate: the foreman must be within the project threshold
-/// (Odoo `project.threshold`, all sides) of the site coordinates. Outside →
+/// (Odoo `project.project.x_threshold`, else 50 m, all sides) of the site
+/// coordinates. Outside →
 /// "Submission failed" and the record is **not** created. Inside → the
 /// record is created and the popup reports the real server result.
 abstract final class TmSubmitGeofenceGate {

@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:el_race/core/hr_management/providers/hr_management_providers.dart';
 import 'package:el_race/core/utils/shared_pref.dart';
+import 'package:el_race/ui/presentation/hr_management/widgets/hr_request_employee_picker.dart';
 import 'package:el_race/ui/presentation/hr_management/widgets/hr_request_form_ui.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -21,6 +22,7 @@ class HrPromotionRequestScreen extends ConsumerStatefulWidget {
 class _HrPromotionRequestScreenState
     extends ConsumerState<HrPromotionRequestScreen> {
   final _formKey = GlobalKey<FormState>();
+  HrPickedEmployee? _employee;
   DateTime? _effective;
   int? _jobId;
   int? _managerId;
@@ -38,9 +40,12 @@ class _HrPromotionRequestScreenState
   }
 
   Future<void> _loadMeta() async {
-    final env =
-        await ref.read(hrApiClientProvider).fetchRequestFormMeta(code: 'PROMOTION');
-    if (!mounted || !env.success) return;
+    final employeeId = _employee?.id;
+    final env = await ref.read(hrApiClientProvider).fetchRequestFormMeta(
+          code: 'PROMOTION',
+          employeeId: employeeId,
+        );
+    if (!mounted || !env.success || employeeId != _employee?.id) return;
     final options = env.data?['options'];
     final readonly = env.data?['readonly'];
     setState(() {
@@ -60,9 +65,9 @@ class _HrPromotionRequestScreenState
               .toList();
         }
       }
-      if (readonly is Map) {
-        _currentManager = readonly['current_manager']?.toString();
-      }
+      _currentManager = readonly is Map && employeeId != null
+          ? readonly['current_manager']?.toString()
+          : null;
     });
   }
 
@@ -72,6 +77,7 @@ class _HrPromotionRequestScreenState
     if (raw.isEmpty) return;
     try {
       final m = jsonDecode(raw) as Map<String, dynamic>;
+      _employee = HrPickedEmployee.fromDraft(m['employee']);
       _jobId = m['jobId'] as int?;
       _managerId = m['managerId'] as int?;
       _description.text = m['description'] as String? ?? '';
@@ -84,6 +90,7 @@ class _HrPromotionRequestScreenState
     await SharedPref().setPreferencesString(
       HrPromotionRequestScreen.draftKey,
       jsonEncode({
+        'employee': _employee?.toDraft(),
         'jobId': _jobId,
         'managerId': _managerId,
         'description': _description.text,
@@ -95,6 +102,11 @@ class _HrPromotionRequestScreenState
 
   Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) return;
+    final employee = _employee;
+    if (employee == null) {
+      Fluttertoast.showToast(msg: 'Select employee');
+      return;
+    }
     if (_jobId == null) {
       Fluttertoast.showToast(msg: 'Select new job position');
       return;
@@ -104,6 +116,7 @@ class _HrPromotionRequestScreenState
       api: ref.read(hrApiClientProvider),
       code: 'PROMOTION',
       fields: {
+        'employee_id': employee.id,
         'new_job_id': _jobId,
         if (_managerId != null) 'new_pro_manager': _managerId,
         if (_effective != null)
@@ -134,6 +147,19 @@ class _HrPromotionRequestScreenState
       onSaveDraft: _saveDraft,
       onSubmit: _submit,
       children: [
+        HrRequestEmployeeField(
+          api: ref.read(hrApiClientProvider),
+          code: 'PROMOTION',
+          value: _employee,
+          onChanged: (e) {
+            setState(() {
+              _employee = e;
+              _currentManager = null;
+            });
+            _loadMeta();
+          },
+        ),
+        SizedBox(height: 14.h),
         if (_currentManager != null)
           HrRequestFormUi.readonlyRow('Current Manager', _currentManager!),
         HrRequestFormUi.dateButton(
@@ -188,7 +214,8 @@ class _HrPromotionRequestScreenState
           controller: _description,
           minLines: 3,
           maxLines: 6,
-          decoration: HrRequestFormUi.fieldDecoration('Write your description...'),
+          decoration:
+              HrRequestFormUi.fieldDecoration('Write your description...'),
         ),
       ],
     );

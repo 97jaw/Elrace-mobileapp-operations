@@ -210,7 +210,8 @@ exports.onNewChatMessage = onDocumentCreated(
         sender_id: senderId,
         sender_name: senderName,
         message_id: event.params.messageId || "",
-        message_type: messageData.type || "text",
+        // FCM reserves `message_type` (and `from`, `google.*`, `gcm.*`) in data.
+        chat_message_type: messageData.type || "text",
         click_action: "FLUTTER_NOTIFICATION_CLICK",
       },
       android: {
@@ -257,6 +258,10 @@ exports.onNewChatMessage = onDocumentCreated(
       } else {
         failCount++;
         const error = result.reason;
+        console.log(
+          `Send failed uid=${tokens[index].uid} code=${error?.code || "unknown"} ` +
+          `message=${error?.message || error}`
+        );
         // Remove invalid tokens
         if (
           error?.code === "messaging/invalid-registration-token" ||

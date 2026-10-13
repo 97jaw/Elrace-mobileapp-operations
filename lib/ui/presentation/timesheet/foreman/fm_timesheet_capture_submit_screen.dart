@@ -712,7 +712,8 @@ class _FmTimesheetCaptureSubmitScreenState
         final created = await TmSubmitGeofenceGate.run(
           context,
           project: gateProject,
-          loadThresholdM: client.fetchProjectSubmitThresholdM,
+          loadThresholdM: () =>
+              client.fetchProjectSubmitThresholdM(gateProject.id),
           submit: doSubmit,
         );
         if (!mounted || !created) return;
@@ -798,6 +799,7 @@ class _FmTimesheetCaptureSubmitScreenState
               fillHeight: true,
               externalChrome: true,
               autoCaptureEnabled: false,
+              instantAutoCapture: true,
               expectedEmployeeId: widget.expectedEmployeeId,
               expectedEmployeeName: widget.expectedEmployeeName,
               overlayHint: _overlayHint,

@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:el_race/core/hr_management/providers/hr_management_providers.dart';
 import 'package:el_race/core/utils/shared_pref.dart';
+import 'package:el_race/ui/presentation/hr_management/widgets/hr_request_employee_picker.dart';
 import 'package:el_race/ui/presentation/hr_management/widgets/hr_request_form_ui.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -21,6 +22,7 @@ class HrTerminationRequestScreen extends ConsumerStatefulWidget {
 class _HrTerminationRequestScreenState
     extends ConsumerState<HrTerminationRequestScreen> {
   final _formKey = GlobalKey<FormState>();
+  HrPickedEmployee? _employee;
   String? _type;
   DateTime? _lastDay;
   bool _immediate = false;
@@ -39,6 +41,7 @@ class _HrTerminationRequestScreenState
     if (raw.isEmpty) return;
     try {
       final m = jsonDecode(raw) as Map<String, dynamic>;
+      _employee = HrPickedEmployee.fromDraft(m['employee']);
       _type = m['type'] as String?;
       _immediate = m['immediate'] == true;
       _description.text = m['description'] as String? ?? '';
@@ -51,6 +54,7 @@ class _HrTerminationRequestScreenState
     await SharedPref().setPreferencesString(
       HrTerminationRequestScreen.draftKey,
       jsonEncode({
+        'employee': _employee?.toDraft(),
         'type': _type,
         'immediate': _immediate,
         'description': _description.text,
@@ -62,6 +66,11 @@ class _HrTerminationRequestScreenState
 
   Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) return;
+    final employee = _employee;
+    if (employee == null) {
+      Fluttertoast.showToast(msg: 'Select employee');
+      return;
+    }
     if (_lastDay == null) {
       Fluttertoast.showToast(msg: 'Select expected last day');
       return;
@@ -71,6 +80,7 @@ class _HrTerminationRequestScreenState
       api: ref.read(hrApiClientProvider),
       code: 'TERMINATION',
       fields: {
+        'employee_id': employee.id,
         'termination_type': _type,
         'emp_last_day': HrRequestFormUi.isoDate(_lastDay!),
         'immediate_terminate': _immediate,
@@ -100,6 +110,13 @@ class _HrTerminationRequestScreenState
       onSaveDraft: _saveDraft,
       onSubmit: _submit,
       children: [
+        HrRequestEmployeeField(
+          api: ref.read(hrApiClientProvider),
+          code: 'TERMINATION',
+          value: _employee,
+          onChanged: (e) => setState(() => _employee = e),
+        ),
+        SizedBox(height: 14.h),
         HrRequestFormUi.label('Termination Type *'),
         HrRequestFormUi.dropdown<String>(
           value: _type,
@@ -107,7 +124,8 @@ class _HrTerminationRequestScreenState
           items: const [
             DropdownMenuItem(value: 'performance', child: Text('Performance')),
             DropdownMenuItem(value: 'redundancy', child: Text('Redundancy')),
-            DropdownMenuItem(value: 'disciplinary', child: Text('Disciplinary')),
+            DropdownMenuItem(
+                value: 'disciplinary', child: Text('Disciplinary')),
           ],
           onChanged: (v) => setState(() => _type = v),
           validator: (v) => v == null ? 'Required' : null,
@@ -137,7 +155,8 @@ class _HrTerminationRequestScreenState
           controller: _description,
           minLines: 3,
           maxLines: 6,
-          decoration: HrRequestFormUi.fieldDecoration('Write your description...'),
+          decoration:
+              HrRequestFormUi.fieldDecoration('Write your description...'),
         ),
       ],
     );

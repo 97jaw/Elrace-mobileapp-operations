@@ -104,7 +104,7 @@ abstract final class TimesheetOdooMappers {
             json['x_pr_long'],
       ),
       geofenceRadiusM: tmDoubleFromJson(
-        json['geofence_radius_m'] ?? json['radius'] ?? 100,
+        json['geofence_radius_m'] ?? json['radius'] ?? 50,
       ),
       pmId: tmStringFromJson(json['pm_id'] ?? ''),
       foremanIds: tmStringListFromJson(json['foreman_ids']),

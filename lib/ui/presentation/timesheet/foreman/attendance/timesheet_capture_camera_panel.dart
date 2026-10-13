@@ -154,6 +154,7 @@ class TimesheetCaptureCameraPanel extends StatefulWidget {
     this.fillHeight = false,
     this.externalChrome = false,
     this.autoCaptureEnabled = false,
+    this.instantAutoCapture = false,
     this.overlayHint,
     this.capturedEmployeeIds = const {},
     this.projectLaborEmployeeIds = const {},
@@ -178,6 +179,10 @@ class TimesheetCaptureCameraPanel extends StatefulWidget {
   final bool fillHeight;
   final bool externalChrome;
   final bool autoCaptureEnabled;
+
+  /// Press the shutter as soon as it becomes enabled. Runs the same
+  /// [_capture] path as a manual press (full PAD burst on fresh frames).
+  final bool instantAutoCapture;
   final TimesheetFaceOverlayHint? overlayHint;
   final Set<int> capturedEmployeeIds;
 
@@ -293,6 +298,8 @@ class TimesheetCaptureCameraPanelState
   DateTime _lastFrameDetection = DateTime.fromMillisecondsSinceEpoch(0);
   Timer? _iosPollingTimer;
   Timer? _autoCaptureTimer;
+  Timer? _instantCaptureTimer;
+  DateTime _lastInstantCaptureAt = DateTime.fromMillisecondsSinceEpoch(0);
   Timer? _previewDebounceTimer;
   Timer? _livenessRetryTimer;
   DateTime? _faceReadySince;
@@ -528,6 +535,44 @@ class TimesheetCaptureCameraPanelState
         livenessStepNumber: _livenessSnapshot.stepNumber,
       ),
     );
+    _maybeInstantCapture();
+  }
+
+  static const Duration _instantCaptureGap = Duration(seconds: 2);
+
+  bool get _instantCaptureReady =>
+      mounted &&
+      widget.instantAutoCapture &&
+      _permissionsReady &&
+      _shutterEnabled &&
+      !_livenessSnapshot.showSpoofWarning &&
+      _cameraController?.value.isInitialized == true;
+
+  /// One auto press per face presentation: re-armed only once the face is
+  /// lost or drops below capture quality, so a rejected face doesn't loop.
+  bool _instantCaptureArmed = true;
+
+  void _maybeInstantCapture() {
+    if (!_qualityReady && !_isCapturing && !_verificationInFlight) {
+      _instantCaptureArmed = true;
+    }
+    if (!_instantCaptureArmed || !_instantCaptureReady) {
+      _instantCaptureTimer?.cancel();
+      _instantCaptureTimer = null;
+      return;
+    }
+    if (_instantCaptureTimer?.isActive == true) return;
+    final sinceLast = DateTime.now().difference(_lastInstantCaptureAt);
+    final wait = sinceLast >= _instantCaptureGap
+        ? Duration.zero
+        : _instantCaptureGap - sinceLast;
+    _instantCaptureTimer = Timer(wait, () {
+      _instantCaptureTimer = null;
+      if (!_instantCaptureArmed || !_instantCaptureReady) return;
+      _instantCaptureArmed = false;
+      _lastInstantCaptureAt = DateTime.now();
+      unawaited(_capture());
+    });
   }
 
   /// External chrome (Add timesheet) — retry after spoof block.
@@ -866,7 +911,44 @@ class TimesheetCaptureCameraPanelState
     return _previewCandidateHits >= 3;
   }
 
+  /// Quiet period after a successful capture: the same face stays blocked,
+  /// but the "already added" badge / voice / host card wait until it ends.
+  /// Kept just above the host's 4 s "already attended" cooldown so the
+  /// deferred notice is not swallowed by it.
+  static const Duration _justCapturedQuiet = Duration(milliseconds: 4500);
+  int? _justCapturedEmployeeId;
+  DateTime _justCapturedAt = DateTime.fromMillisecondsSinceEpoch(0);
+  Timer? _duplicateNoticeTimer;
+
+  void _markJustCaptured(int employeeId) {
+    _justCapturedEmployeeId = employeeId;
+    _justCapturedAt = DateTime.now();
+  }
+
   void _enterDuplicatePreview(TimesheetOdooEmployee emp) {
+    final quietLeft =
+        _justCapturedQuiet - DateTime.now().difference(_justCapturedAt);
+    if (emp.employeeId == _justCapturedEmployeeId &&
+        quietLeft > Duration.zero) {
+      _autoCaptureTimer?.cancel();
+      _previewDebounceTimer?.cancel();
+      _faceReadySince = null;
+      if (!mounted) return;
+      setState(() {
+        _liveOverlayHint = null;
+        _livePreviewBlockCapture = true;
+        _livePreviewAllowAutoCapture = false;
+      });
+      _emitChrome();
+      _duplicateNoticeTimer?.cancel();
+      _duplicateNoticeTimer = Timer(quietLeft, () {
+        if (!mounted || !_livePreviewBlockCapture || _liveOverlayHint != null) {
+          return;
+        }
+        _enterDuplicatePreview(emp);
+      });
+      return;
+    }
     final alreadyShowing =
         _livePreviewBlockCapture && _livePreviewEmployeeId == emp.employeeId;
     _autoCaptureTimer?.cancel();
@@ -1347,6 +1429,8 @@ class TimesheetCaptureCameraPanelState
     unawaited(AppOrientations.allowTabletRotation());
     _iosPollingTimer?.cancel();
     _autoCaptureTimer?.cancel();
+    _instantCaptureTimer?.cancel();
+    _duplicateNoticeTimer?.cancel();
     _previewDebounceTimer?.cancel();
     _livenessRetryTimer?.cancel();
     unawaited(_clearStreamSampleRing());
@@ -1845,6 +1929,7 @@ class TimesheetCaptureCameraPanelState
           await _queueService.enqueue(draft);
           _patchState(() => _isCapturing = false);
           _armAutoCaptureCooldown();
+          _markJustCaptured(emp.employeeId);
           widget.onRosterEmployeeMatched!(
             emp,
             draft,
@@ -1914,6 +1999,7 @@ class TimesheetCaptureCameraPanelState
           return;
         }
         await _queueService.enqueue(draft);
+        _markJustCaptured(local.employee.employeeId);
         widget.onRosterEmployeeMatched!(
           local.employee,
           draft,

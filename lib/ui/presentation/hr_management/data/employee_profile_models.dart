@@ -240,8 +240,7 @@ class EmployeeContractSalary {
   final double totalSalary;
 
   factory EmployeeContractSalary.fromJson(Map<String, dynamic>? json) {
-    double n(dynamic v) =>
-        v is num ? v.toDouble() : double.tryParse('$v') ?? 0;
+    double n(dynamic v) => v is num ? v.toDouble() : double.tryParse('$v') ?? 0;
     if (json == null) {
       return const EmployeeContractSalary(
         basicSalary: 0,
@@ -271,9 +270,8 @@ class EmployeeContractAmountRow {
     final amount = json['amount'];
     return EmployeeContractAmountRow(
       date: json['date']?.toString(),
-      amount: amount is num
-          ? amount.toDouble()
-          : double.tryParse('$amount') ?? 0,
+      amount:
+          amount is num ? amount.toDouble() : double.tryParse('$amount') ?? 0,
     );
   }
 }
@@ -341,6 +339,7 @@ class EmployeeProfileDocumentItem {
     this.description,
     required this.isFamily,
     required this.status,
+    this.attachmentIds = const [],
   });
 
   final int id;
@@ -351,8 +350,12 @@ class EmployeeProfileDocumentItem {
   final String? description;
   final bool isFamily;
   final String status;
+  final List<int> attachmentIds;
+
+  bool get hasAttachment => attachmentIds.isNotEmpty;
 
   factory EmployeeProfileDocumentItem.fromJson(Map<String, dynamic> json) {
+    final rawAttachments = json['attachment_ids'];
     return EmployeeProfileDocumentItem(
       id: json['id'] is int
           ? json['id'] as int
@@ -364,6 +367,13 @@ class EmployeeProfileDocumentItem {
       description: json['description']?.toString(),
       isFamily: json['is_family'] == true,
       status: '${json['status'] ?? 'valid'}',
+      attachmentIds: rawAttachments is List
+          ? rawAttachments
+              .map((e) => e is int ? e : int.tryParse('$e'))
+              .whereType<int>()
+              .where((id) => id > 0)
+              .toList()
+          : const [],
     );
   }
 }

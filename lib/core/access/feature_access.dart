@@ -7,6 +7,9 @@ abstract final class AppFeature {
   static const hrCompanyDocuments = 'hr.company_documents';
   static const hrRequestsManager = 'hr.requests.manager';
   static const hrRequestsHrManager = 'hr.requests.hr_manager';
+  static const hrRequestPromotion = 'hr.request.promotion';
+  static const hrRequestResignation = 'hr.request.resignation';
+  static const hrRequestTermination = 'hr.request.termination';
   static const hrRecruitmentManager = 'hr.recruitment.manager';
   static const hrRecruitmentHrManager = 'hr.recruitment.hr_manager';
   static const hrPerformanceManager = 'hr.performance.manager';
