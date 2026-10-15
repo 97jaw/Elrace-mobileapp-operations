@@ -30,7 +30,9 @@ class SplashScreen extends StatefulWidget {
 }
 
 class _SplashScreenState extends State<SplashScreen> {
-  static const Duration _maxDecorativeVideoWait = Duration(seconds: 4);
+  // Navigation normally continues as soon as playback reaches the end. This
+  // longer timeout is only a safety net if the player never reports completion.
+  static const Duration _maxDecorativeVideoWait = Duration(seconds: 30);
 
   bool _isSecurityCheckComplete = false;
   bool _isDeviceSecure = true;
