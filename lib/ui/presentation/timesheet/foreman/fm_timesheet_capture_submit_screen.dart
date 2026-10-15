@@ -340,7 +340,23 @@ class _FmTimesheetCaptureSubmitScreenState
     TmFaceCaptureNoticeKind kind, {
     double? matchScore,
     String? expectedName,
+    bool held = false,
   }) {
+    final current = _noticeToast;
+    if (current != null &&
+        current.held &&
+        !held &&
+        kind != TmFaceCaptureNoticeKind.captured) {
+      return;
+    }
+    if (held &&
+        current != null &&
+        current.held &&
+        current.kind == kind &&
+        current.employee.employeeId == employee.employeeId) {
+      return;
+    }
+    if (held) _cameraKey.currentState?.holdForNotice();
     setState(() {
       _noticeSeq++;
       _noticeToast = TimesheetCaptureNoticeToast(
@@ -349,6 +365,7 @@ class _FmTimesheetCaptureSubmitScreenState
         matchScore: matchScore,
         expectedName: expectedName,
         seq: _noticeSeq,
+        held: held,
       );
     });
   }
@@ -359,12 +376,29 @@ class _FmTimesheetCaptureSubmitScreenState
       resolved,
       TmFaceCaptureNoticeKind.mismatch,
       expectedName: widget.expectedEmployeeName,
+      held: true,
     );
   }
 
   void _clearNoticeToast() {
     if (!mounted) return;
+    final wasHeld = _noticeToast?.held == true;
     setState(() => _noticeToast = null);
+    if (wasHeld) _cameraKey.currentState?.resumeAfterNotice();
+  }
+
+  /// "Try again" / "Next labor" on a held card: ready the camera for one new
+  /// auto capture (full anti-spoof burst runs as usual).
+  void _onNoticeAction() => _clearNoticeToast();
+
+  Future<void> _onManualCapture() async {
+    final camera = _cameraKey.currentState;
+    if (camera == null) return;
+    if (_noticeToast?.held == true) {
+      setState(() => _noticeToast = null);
+      camera.resumeAfterNotice(armAuto: false);
+    }
+    await camera.capturePhoto();
   }
 
   /// Labor row with HR photo — only when employee is on project labor_list.
@@ -469,7 +503,11 @@ class _FmTimesheetCaptureSubmitScreenState
         return;
       }
     }
-    _showCaptureNotice(resolved, TmFaceCaptureNoticeKind.alreadyAttended);
+    _showCaptureNotice(
+      resolved,
+      TmFaceCaptureNoticeKind.alreadyAttended,
+      held: true,
+    );
     debugPrint(
         'FaceCaptureSession: already attended emp=${resolved.employeeId}');
   }
@@ -853,7 +891,7 @@ class _FmTimesheetCaptureSubmitScreenState
                 chrome: chrome,
                 onFlip: camera?.switchCameraExternal,
                 onFlash: camera?.toggleFlashExternal,
-                onCapture: camera?.capturePhoto,
+                onCapture: camera == null ? null : _onManualCapture,
               ),
             ),
             Positioned(
@@ -943,6 +981,12 @@ class _FmTimesheetCaptureSubmitScreenState
                   matchScore: notice.matchScore,
                   expectedName: notice.expectedName,
                   onDismissed: _clearNoticeToast,
+                  actionLabel: !notice.held
+                      ? null
+                      : notice.kind == TmFaceCaptureNoticeKind.mismatch
+                          ? 'Try again'
+                          : 'Next labor',
+                  onAction: notice.held ? _onNoticeAction : null,
                 ),
               ),
             if (_showNoMatchNotice)
@@ -992,6 +1036,7 @@ class TimesheetCaptureNoticeToast {
     this.matchScore,
     this.expectedName,
     this.seq = 0,
+    this.held = false,
   });
 
   final TimesheetOdooEmployee employee;
@@ -1001,6 +1046,9 @@ class TimesheetCaptureNoticeToast {
 
   /// Bumped per show so a repeat alert for the same person replays the card.
   final int seq;
+
+  /// Stays on screen with a button; camera auto capture paused meanwhile.
+  final bool held;
 }
 
 /// Only the title row gets navy gradient; everything else floats on camera.

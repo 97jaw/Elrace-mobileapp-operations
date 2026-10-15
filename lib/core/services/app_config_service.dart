@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'package:dio/dio.dart';
 import 'package:el_race/core/services/splash_video_cache.dart';
+import 'package:el_race/core/site_management/face_recognition/face_recognition_config.dart';
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:el_race/utils/urll_utils.dart';
@@ -14,6 +15,8 @@ class AppConfigService {
   static const _cacheKeyIsTestMode = 'app_config_is_test_mode';
   static const _cacheKeySkipVpnCheck = 'app_config_skip_vpn_check';
   static const _cacheKeyFaceIdEnabled = 'app_config_face_id_enabled';
+  static const _cacheKeyFaceMatchMinScore = 'app_config_face_match_min_score';
+  static const _cacheKeyFaceMatchMinLead = 'app_config_face_match_min_lead';
 
   bool _isTestMode = false;
   bool get isTestMode => _isTestMode;
@@ -43,6 +46,10 @@ class AppConfigService {
       _isTestMode = prefs.getBool(_cacheKeyIsTestMode) ?? false;
       _skipVpnCheck = prefs.getBool(_cacheKeySkipVpnCheck) ?? false;
       _faceIdEnabled = prefs.getBool(_cacheKeyFaceIdEnabled) ?? true;
+      FaceMatchTuning.apply(
+        minScore: prefs.getDouble(_cacheKeyFaceMatchMinScore),
+        minLead: prefs.getDouble(_cacheKeyFaceMatchMinLead),
+      );
     } catch (_) {}
 
     try {
@@ -96,6 +103,13 @@ class AppConfigService {
         } else {
           SplashVideoCache.instance.onConfigUnavailable();
         }
+        if (payload.containsKey('face_match_min_score') ||
+            payload.containsKey('face_match_min_lead')) {
+          await _applyFaceMatchTuning(
+            payload['face_match_min_score'],
+            payload['face_match_min_lead'],
+          );
+        }
       }
 
       if (remoteIsTest != null) {
@@ -124,5 +138,24 @@ class AppConfigService {
       SplashVideoCache.instance.onConfigUnavailable();
       // Keep cached value
     }
+  }
+
+  /// Null (parameter unset) restores the default match bar.
+  Future<void> _applyFaceMatchTuning(Object? rawScore, Object? rawLead) async {
+    double? toDouble(Object? v) => v is num ? v.toDouble() : null;
+    FaceMatchTuning.apply(
+      minScore: toDouble(rawScore),
+      minLead: toDouble(rawLead),
+    );
+    debugPrint(
+      'AppConfigService: face match bar score=${FaceMatchTuning.minScore} '
+      'lead=${FaceMatchTuning.minLead}',
+    );
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setDouble(
+          _cacheKeyFaceMatchMinScore, FaceMatchTuning.minScore);
+      await prefs.setDouble(_cacheKeyFaceMatchMinLead, FaceMatchTuning.minLead);
+    } catch (_) {}
   }
 }

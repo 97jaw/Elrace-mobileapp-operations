@@ -39,29 +39,61 @@ abstract final class FaceRecognitionModel {
   static const int embeddingDim = 512;
 }
 
+/// Match bar set from Odoo system parameters `elrace.face_match_min_score`
+/// and `elrace.face_match_min_lead` (via `/api/app/config`). Out-of-range or
+/// unset values fall back to the defaults.
+abstract final class FaceMatchTuning {
+  static const double defaultMinScore = 0.15;
+  static const double defaultMinLead = 0.02;
+
+  static const double _scoreFloor = 0.10;
+  static const double _scoreCeil = 0.90;
+  static const double _leadCeil = 0.30;
+
+  static double _minScore = defaultMinScore;
+  static double _minLead = defaultMinLead;
+
+  static double get minScore => _minScore;
+  static double get minLead => _minLead;
+
+  static void apply({double? minScore, double? minLead}) {
+    _minScore = (minScore != null &&
+            minScore.isFinite &&
+            minScore >= _scoreFloor &&
+            minScore <= _scoreCeil)
+        ? minScore
+        : defaultMinScore;
+    _minLead = (minLead != null &&
+            minLead.isFinite &&
+            minLead >= 0 &&
+            minLead <= _leadCeil)
+        ? minLead
+        : defaultMinLead;
+  }
+}
+
 abstract final class FaceRecognitionMatch {
   static const double defaultThreshold = 0.75;
   static const double idealThreshold = 0.80;
 
   /// Add-to-list after still capture — pilot bar (iOS + Android, same).
-  /// Product request: 15% so genuine weak stills still detect (no "No Face").
-  static const double pilotThreshold = 0.15;
+  static double get pilotThreshold => FaceMatchTuning.minScore;
 
   /// Soft still accept when live preview already locked the same employee.
-  static const double pilotSoftCaptureThreshold = 0.15;
+  static double get pilotSoftCaptureThreshold => FaceMatchTuning.minScore;
 
   /// Stream score floor before auto-shutter (same as match bar).
-  static const double pilotAutoCaptureMinScore = 0.15;
+  static double get pilotAutoCaptureMinScore => FaceMatchTuning.minScore;
 
   /// Name badge floor — same as match so badge ⇒ eligible to detect.
-  static const double pilotDisplayThreshold = 0.15;
+  static double get pilotDisplayThreshold => FaceMatchTuning.minScore;
 
   /// Minimum winner gap to show employee name on live preview.
-  static const double minDisplayWinnerMargin = 0.02;
+  static double get minDisplayWinnerMargin => FaceMatchTuning.minLead;
 
   /// Best must beat 2nd-best employee by this before roster add.
   /// Aligned with display margin so a shown name can also detect.
-  static const double minWinnerMargin = 0.02;
+  static double get minWinnerMargin => FaceMatchTuning.minLead;
 
   /// Set false to revert UI + matcher to [defaultThreshold].
   static const bool usePilotThresholdForMatch = true;

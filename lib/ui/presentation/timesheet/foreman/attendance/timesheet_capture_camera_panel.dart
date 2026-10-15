@@ -543,6 +543,7 @@ class TimesheetCaptureCameraPanelState
   bool get _instantCaptureReady =>
       mounted &&
       widget.instantAutoCapture &&
+      !_noticeHold &&
       _permissionsReady &&
       _shutterEnabled &&
       !_livenessSnapshot.showSpoofWarning &&
@@ -551,6 +552,30 @@ class TimesheetCaptureCameraPanelState
   /// One auto press per face presentation: re-armed only once the face is
   /// lost or drops below capture quality, so a rejected face doesn't loop.
   bool _instantCaptureArmed = true;
+
+  /// Set while the host shows a wrong-person / already-attended card; no auto
+  /// capture until the user taps the card button ([resumeAfterNotice]).
+  bool _noticeHold = false;
+
+  void holdForNotice() {
+    if (_noticeHold) return;
+    _noticeHold = true;
+    _instantCaptureTimer?.cancel();
+    _instantCaptureTimer = null;
+    _autoCaptureTimer?.cancel();
+    _faceReadySince = null;
+  }
+
+  /// [armAuto] false when the user pressed the shutter themselves.
+  void resumeAfterNotice({bool armAuto = true}) {
+    if (!_noticeHold) return;
+    _noticeHold = false;
+    _instantCaptureArmed = armAuto;
+    _lastInstantCaptureAt = DateTime.fromMillisecondsSinceEpoch(0);
+    _autoCaptureCooldownUntil = null;
+    _clearBadgeNow(reason: 'notice_ack');
+    _emitChrome();
+  }
 
   void _maybeInstantCapture() {
     if (!_qualityReady && !_isCapturing && !_verificationInFlight) {
@@ -1134,7 +1159,7 @@ class TimesheetCaptureCameraPanelState
       );
       return;
     }
-    if (captureImmediately && widget.autoCaptureEnabled) {
+    if (captureImmediately && widget.autoCaptureEnabled && !_noticeHold) {
       unawaited(_capture());
     } else {
       _scheduleAutoCapture();
@@ -1297,7 +1322,7 @@ class TimesheetCaptureCameraPanelState
     unawaited(
         _speech.speakEmployeeDetected(emp.name, employeeId: emp.employeeId));
     if (!mayAutoCapture) return;
-    if (captureImmediately && widget.autoCaptureEnabled) {
+    if (captureImmediately && widget.autoCaptureEnabled && !_noticeHold) {
       unawaited(_capture());
     } else {
       _scheduleAutoCapture();
@@ -1307,6 +1332,7 @@ class TimesheetCaptureCameraPanelState
   void _scheduleAutoCapture() {
     _autoCaptureTimer?.cancel();
     if (!widget.autoCaptureEnabled ||
+        _noticeHold ||
         !_permissionsReady ||
         _isCapturing ||
         !canCapture ||
@@ -1335,6 +1361,7 @@ class TimesheetCaptureCameraPanelState
     }
     _autoCaptureTimer = Timer(wait - elapsed, () {
       if (!mounted ||
+          _noticeHold ||
           _isCapturing ||
           !canCapture ||
           _shouldHoldDuplicateFrame) {
