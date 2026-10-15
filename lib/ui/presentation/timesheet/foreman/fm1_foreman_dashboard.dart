@@ -606,7 +606,8 @@ class Fm1ForemanDashboard extends ConsumerWidget {
         success = await TmSubmitGeofenceGate.run(
           context,
           project: gateProject,
-          loadThresholdM: client.fetchProjectSubmitThresholdM,
+          loadThresholdM: () =>
+              client.fetchProjectSubmitThresholdM(gateProject.id),
           submit: doSubmit,
         );
       } else {

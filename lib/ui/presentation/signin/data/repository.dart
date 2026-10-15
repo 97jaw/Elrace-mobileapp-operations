@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'package:dio/dio.dart';
+import 'package:el_race/core/services/device_details_headers.dart';
 import 'package:el_race/core/utils/shared_pref.dart';
 import 'package:el_race/ui/presentation/signin/data/model.dart';
 import 'package:el_race/utils/api_query.dart';
@@ -39,6 +40,7 @@ class UserRepo {
 
     final headers = {
       'Content-Type': 'application/json',
+      ...await DeviceDetailsHeaders.get(),
     };
     // One request only: every failed attempt counts toward Odoo's login
     // cooldown, and retrying other paths/dbs hides the real error.

@@ -50,8 +50,11 @@ class LoginSessionRefreshService {
       if (result['success'] != true) {
         final code = (result['code'] ?? '').toString().trim().toUpperCase();
         if (code == 'FORCE_LOGOUT' || code == 'SESSION_EXPIRED') {
+          final message = (result['message'] ?? '').toString().trim();
           // ignore: unawaited_futures
-          ForceLogoutGuard.instance.presentForcedLogoutFlow();
+          ForceLogoutGuard.instance.presentForcedLogoutFlow(
+            message: message.isEmpty ? null : message,
+          );
         }
         return false;
       }

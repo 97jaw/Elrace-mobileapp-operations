@@ -1,3 +1,4 @@
+import 'package:el_race/core/access/feature_access.dart';
 import 'package:el_race/core/utils/responsive_breakpoints.dart';
 import 'package:el_race/core/hr_management/providers/hr_management_providers.dart';
 import 'package:el_race/core/hr_management/routing/hr_route_names.dart';
@@ -30,6 +31,7 @@ class _HrNewRequestPickerScreenState
     extends ConsumerState<HrNewRequestPickerScreen> {
   bool _loadingEligibility = true;
   bool _eligibleSim = false;
+
   /// Contract `eligible_car_rent_request` — gates mobile **Car Allowance**
   /// (Odoo `car_rent_request` / Car Allowance type).
   bool _eligibleCarAllowance = false;
@@ -42,8 +44,7 @@ class _HrNewRequestPickerScreenState
 
   Future<void> _loadEligibility() async {
     try {
-      final env =
-          await ref.read(hrApiClientProvider).fetchPickerCapabilities();
+      final env = await ref.read(hrApiClientProvider).fetchPickerCapabilities();
       final raw = env.data?['eligibility'];
       Map<String, dynamic>? elig;
       if (raw is Map) {
@@ -52,8 +53,7 @@ class _HrNewRequestPickerScreenState
       if (mounted) {
         setState(() {
           _eligibleSim = elig?['eligible_sim_card_request'] == true;
-          _eligibleCarAllowance =
-              elig?['eligible_car_rent_request'] == true;
+          _eligibleCarAllowance = elig?['eligible_car_rent_request'] == true;
           _loadingEligibility = false;
         });
       }
@@ -150,16 +150,15 @@ class _HrNewRequestPickerScreenState
           label: 'Car Allowance',
           icon: Icons.local_gas_station_outlined,
           iconColor: const Color(0xFF5D4037),
-          onTap: () => Navigator.of(context)
-              .pushNamed(HrRouteNames.carAllowanceRequest),
+          onTap: () =>
+              Navigator.of(context).pushNamed(HrRouteNames.carAllowanceRequest),
         ),
       if (_eligibleSim)
         _RequestTypeSpec(
           label: 'SIM',
           icon: Icons.sim_card_outlined,
           iconColor: const Color(0xFF0277BD),
-          onTap: () =>
-              Navigator.of(context).pushNamed(HrRouteNames.simRequest),
+          onTap: () => Navigator.of(context).pushNamed(HrRouteNames.simRequest),
         ),
       _RequestTypeSpec(
         label: 'Increment',
@@ -168,27 +167,30 @@ class _HrNewRequestPickerScreenState
         onTap: () =>
             Navigator.of(context).pushNamed(HrRouteNames.incrementRequest),
       ),
-      _RequestTypeSpec(
-        label: 'Promotion',
-        icon: Icons.workspace_premium_outlined,
-        iconColor: const Color(0xFF6A1B9A),
-        onTap: () =>
-            Navigator.of(context).pushNamed(HrRouteNames.promotionRequest),
-      ),
-      _RequestTypeSpec(
-        label: 'Resignation',
-        icon: Icons.logout_outlined,
-        iconColor: HrModuleColors.warning,
-        onTap: () =>
-            Navigator.of(context).pushNamed(HrRouteNames.resignationRequest),
-      ),
-      _RequestTypeSpec(
-        label: 'Termination',
-        icon: Icons.person_off_outlined,
-        iconColor: HrModuleColors.danger,
-        onTap: () =>
-            Navigator.of(context).pushNamed(HrRouteNames.terminationRequest),
-      ),
+      if (FeatureAccess.allows(AppFeature.hrRequestPromotion, legacy: false))
+        _RequestTypeSpec(
+          label: 'Promotion',
+          icon: Icons.workspace_premium_outlined,
+          iconColor: const Color(0xFF6A1B9A),
+          onTap: () =>
+              Navigator.of(context).pushNamed(HrRouteNames.promotionRequest),
+        ),
+      if (FeatureAccess.allows(AppFeature.hrRequestResignation, legacy: false))
+        _RequestTypeSpec(
+          label: 'Resignation',
+          icon: Icons.logout_outlined,
+          iconColor: HrModuleColors.warning,
+          onTap: () =>
+              Navigator.of(context).pushNamed(HrRouteNames.resignationRequest),
+        ),
+      if (FeatureAccess.allows(AppFeature.hrRequestTermination, legacy: false))
+        _RequestTypeSpec(
+          label: 'Termination',
+          icon: Icons.person_off_outlined,
+          iconColor: HrModuleColors.danger,
+          onTap: () =>
+              Navigator.of(context).pushNamed(HrRouteNames.terminationRequest),
+        ),
       _RequestTypeSpec(
         label: 'Certificate',
         icon: Icons.badge_outlined,

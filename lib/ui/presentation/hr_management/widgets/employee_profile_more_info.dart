@@ -1,6 +1,7 @@
 import 'package:el_race/core/utils/responsive_breakpoints.dart';
 import 'package:el_race/ui/presentation/hr_management/data/employee_profile_models.dart';
 import 'package:el_race/ui/presentation/hr_management/data/employees_profile_repository.dart';
+import 'package:el_race/ui/presentation/my_documents/utils/document_attachment_opener.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -178,9 +179,7 @@ class _MoreInfoMenuSheet extends StatelessWidget {
                         ? null
                         : () => _openSection(context, item.section!),
                     leading: Icon(
-                      item.locked
-                          ? Icons.lock_outline_rounded
-                          : item.icon,
+                      item.locked ? Icons.lock_outline_rounded : item.icon,
                       color: item.locked
                           ? _MoreInfoPalette.muted.withValues(alpha: 0.7)
                           : _MoreInfoPalette.navy,
@@ -206,7 +205,8 @@ class _MoreInfoMenuSheet extends StatelessWidget {
                           )
                         : Icon(
                             Icons.chevron_right_rounded,
-                            color: _MoreInfoPalette.navy.withValues(alpha: 0.55),
+                            color:
+                                _MoreInfoPalette.navy.withValues(alpha: 0.55),
                           ),
                   );
                 },
@@ -613,7 +613,8 @@ class _MiniEmployeeCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final meta = [
       if ((employee.empId).isNotEmpty) 'File ID ${employee.empId}',
-      if ((employee.jobTitle ?? '').trim().isNotEmpty) employee.jobTitle!.trim(),
+      if ((employee.jobTitle ?? '').trim().isNotEmpty)
+        employee.jobTitle!.trim(),
       if ((employee.department ?? '').trim().isNotEmpty)
         employee.department!.trim(),
       if ((employee.section ?? '').trim().isNotEmpty) employee.section!.trim(),
@@ -736,9 +737,8 @@ class _HistoryHeader extends StatelessWidget {
             Expanded(
               child: Text(
                 columns[i],
-                textAlign: i == columns.length - 1
-                    ? TextAlign.right
-                    : TextAlign.left,
+                textAlign:
+                    i == columns.length - 1 ? TextAlign.right : TextAlign.left,
                 style: GoogleFonts.poppins(
                   fontSize: 11.tsp,
                   fontWeight: FontWeight.w700,
@@ -861,54 +861,160 @@ class _DocumentsBody extends StatelessWidget {
                   separatorBuilder: (_, __) => SizedBox(height: 8.th),
                   itemBuilder: (context, index) {
                     final doc = detail.documents[index];
-                    return Container(
-                      padding: EdgeInsets.all(12.tw),
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(12.tr),
-                        border: Border.all(color: _MoreInfoPalette.border),
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
+                    final radius = BorderRadius.circular(12.tr);
+                    return Material(
+                      color: Colors.white,
+                      borderRadius: radius,
+                      child: InkWell(
+                        borderRadius: radius,
+                        onTap: () => _openDocument(context, doc),
+                        child: Ink(
+                          padding: EdgeInsets.all(12.tw),
+                          decoration: BoxDecoration(
+                            borderRadius: radius,
+                            border: Border.all(color: _MoreInfoPalette.border),
+                          ),
+                          child: Row(
                             children: [
                               Expanded(
-                                child: Text(
-                                  doc.name.isEmpty
-                                      ? (doc.documentType ?? 'Document')
-                                      : doc.name,
-                                  style: GoogleFonts.poppins(
-                                    fontSize: 13.tsp,
-                                    fontWeight: FontWeight.w700,
-                                    color: _MoreInfoPalette.ink,
-                                  ),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Row(
+                                      children: [
+                                        Expanded(
+                                          child: Text(
+                                            doc.name.isEmpty
+                                                ? (doc.documentType ??
+                                                    'Document')
+                                                : doc.name,
+                                            style: GoogleFonts.poppins(
+                                              fontSize: 13.tsp,
+                                              fontWeight: FontWeight.w700,
+                                              color: _MoreInfoPalette.ink,
+                                            ),
+                                          ),
+                                        ),
+                                        _DocStatusChip(status: doc.status),
+                                      ],
+                                    ),
+                                    SizedBox(height: 4.th),
+                                    Text(
+                                      [
+                                        if ((doc.documentType ?? '').isNotEmpty)
+                                          doc.documentType!,
+                                        doc.isFamily ? 'Family' : 'Employee',
+                                        if ((doc.expiryDate ?? '').isNotEmpty)
+                                          'Exp ${_fmtDateDmy(doc.expiryDate)}',
+                                      ].join(' · '),
+                                      style: GoogleFonts.poppins(
+                                        fontSize: 11.5.tsp,
+                                        color: _MoreInfoPalette.muted,
+                                      ),
+                                    ),
+                                  ],
                                 ),
                               ),
-                              _DocStatusChip(status: doc.status),
+                              SizedBox(width: 8.tw),
+                              Icon(
+                                doc.hasAttachment
+                                    ? Icons.chevron_right_rounded
+                                    : Icons.attach_file_rounded,
+                                size: 20.tw,
+                                color: doc.hasAttachment
+                                    ? _MoreInfoPalette.navy
+                                    : _MoreInfoPalette.border,
+                              ),
                             ],
                           ),
-                          SizedBox(height: 4.th),
-                          Text(
-                            [
-                              if ((doc.documentType ?? '').isNotEmpty)
-                                doc.documentType!,
-                              doc.isFamily ? 'Family' : 'Employee',
-                              if ((doc.expiryDate ?? '').isNotEmpty)
-                                'Exp ${_fmtDateDmy(doc.expiryDate)}',
-                            ].join(' · '),
-                            style: GoogleFonts.poppins(
-                              fontSize: 11.5.tsp,
-                              color: _MoreInfoPalette.muted,
-                            ),
-                          ),
-                        ],
+                        ),
                       ),
                     );
                   },
                 ),
         ),
       ],
+    );
+  }
+
+  static String _docTitle(EmployeeProfileDocumentItem doc) =>
+      doc.name.isEmpty ? (doc.documentType ?? 'Document') : doc.name;
+
+  Future<void> _openDocument(
+    BuildContext context,
+    EmployeeProfileDocumentItem doc,
+  ) async {
+    if (!doc.hasAttachment) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('No file attached to this document')),
+      );
+      return;
+    }
+    final title = _docTitle(doc);
+    var attachmentId = doc.attachmentIds.first;
+    if (doc.attachmentIds.length > 1) {
+      final picked = await _pickAttachment(context, title, doc.attachmentIds);
+      if (picked == null || !context.mounted) return;
+      attachmentId = picked;
+    }
+    if (!context.mounted) return;
+    await DocumentAttachmentOpener.openById(
+      context,
+      attachmentId: attachmentId,
+      hintName: title,
+    );
+  }
+
+  Future<int?> _pickAttachment(
+    BuildContext context,
+    String title,
+    List<int> ids,
+  ) {
+    return showModalBottomSheet<int>(
+      context: context,
+      backgroundColor: Colors.white,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20.tr)),
+      ),
+      builder: (sheetContext) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Padding(
+              padding: EdgeInsets.fromLTRB(20.tw, 18.th, 20.tw, 6.th),
+              child: Text(
+                title,
+                style: GoogleFonts.poppins(
+                  fontSize: 14.tsp,
+                  fontWeight: FontWeight.w700,
+                  color: _MoreInfoPalette.ink,
+                ),
+              ),
+            ),
+            for (var i = 0; i < ids.length; i++)
+              ListTile(
+                leading: const Icon(
+                  Icons.insert_drive_file_outlined,
+                  color: _MoreInfoPalette.navy,
+                ),
+                title: Text(
+                  'File ${i + 1}',
+                  style: GoogleFonts.poppins(
+                    fontSize: 13.tsp,
+                    color: _MoreInfoPalette.ink,
+                  ),
+                ),
+                trailing: const Icon(
+                  Icons.chevron_right_rounded,
+                  color: _MoreInfoPalette.muted,
+                ),
+                onTap: () => Navigator.of(sheetContext).pop(ids[i]),
+              ),
+            SizedBox(height: 8.th),
+          ],
+        ),
+      ),
     );
   }
 }

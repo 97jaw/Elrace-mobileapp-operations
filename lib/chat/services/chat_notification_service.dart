@@ -100,9 +100,8 @@ class ChatNotificationService {
     // Don't re-subscribe if already subscribed
     if (_chatSubscriptions.containsKey(userChat.chatId)) return;
 
-    // Don't notify if muted
-    if (userChat.muted) return;
-
+    // Muted chats are still listened to so they get the delivered ✓✓;
+    // _handleNewMessage skips their banner.
     final subscription = ChatRepository.instance
         .subscribeToMessages(userChat.chatId, pageSize: 1)
         .listen(
@@ -170,9 +169,8 @@ class ChatNotificationService {
         : '${groupTitle ?? "Group"} • $senderName';
 
     // Tap payload uses clean chat title (not "Group • Sender")
-    final chatTitleForTap = userChat.type == ChatType.dm
-        ? senderName
-        : (userChat.title ?? 'Group');
+    final chatTitleForTap =
+        userChat.type == ChatType.dm ? senderName : (userChat.title ?? 'Group');
 
     final body = _getMessagePreview(message);
 
@@ -276,13 +274,8 @@ class ChatNotificationService {
 
   /// Update mute status for a chat
   void updateMuteStatus(String chatId, bool muted) {
-    if (muted) {
-      // Unsubscribe from notifications
-      _chatSubscriptions[chatId]?.cancel();
-      _chatSubscriptions.remove(chatId);
-      cancelNotificationsForChat(chatId);
-    }
-    // Will re-subscribe on next chat list update if unmuted
+    // The subscription stays (delivered ticks); banners check mute per message.
+    if (muted) cancelNotificationsForChat(chatId);
   }
 
   /// Clean up resources

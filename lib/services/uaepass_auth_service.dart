@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:dio/dio.dart';
 import 'package:el_race/config/uaepass_config.dart';
+import 'package:el_race/core/services/device_details_headers.dart';
 import 'package:el_race/core/services/mobile_device_id_service.dart';
 import 'package:el_race/core/session/post_login_setup.dart';
 import 'package:el_race/core/utils/shared_pref.dart';
@@ -431,7 +432,10 @@ class UaepassAuthService {
               : '(empty)');
 
       final apiQuery = ApiQuery();
-      const headers = {'Content-Type': 'application/json'};
+      final headers = {
+        'Content-Type': 'application/json',
+        ...await DeviceDetailsHeaders.get(),
+      };
       final response = await apiQuery.postQuery(
         config.sessionExchangePath,
         headers,

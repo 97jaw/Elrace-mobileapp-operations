@@ -1,5 +1,7 @@
+import 'dart:async';
 import 'dart:convert';
 import 'package:dio/dio.dart';
+import 'package:el_race/core/services/splash_video_cache.dart';
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:el_race/utils/urll_utils.dart';
@@ -88,6 +90,12 @@ class AppConfigService {
         remoteSkipVpn = payload['skipVpnCheck'] as bool?;
         final remoteFaceId = payload['faceIdEnabled'] as bool?;
         if (remoteFaceId != null) _faceIdEnabled = remoteFaceId;
+        if (payload.containsKey('splash_video_url')) {
+          final raw = payload['splash_video_url'];
+          SplashVideoCache.instance.onConfig(raw is String ? raw : '');
+        } else {
+          SplashVideoCache.instance.onConfigUnavailable();
+        }
       }
 
       if (remoteIsTest != null) {
@@ -113,6 +121,7 @@ class AppConfigService {
       if (kDebugMode) {
         // debugPrint('AppConfigService: failed to load config: $e');
       }
+      SplashVideoCache.instance.onConfigUnavailable();
       // Keep cached value
     }
   }
