@@ -163,15 +163,17 @@ class TimesheetFaceCaptureService {
       : _usesSharedDetector = detector == null,
         _detector = detector ?? _acquireSharedDetector();
 
-  /// One shared ML Kit detector for the whole app. Creating a new
-  /// [FaceDetector] per screen spams iOS with
-  /// `Multiple instances of CCTClearcutUploader` and wastes battery.
+  /// One shared ML Kit detector for the app's lifetime. Every native
+  /// [FaceDetector] created (including re-creating one after closing it)
+  /// logs `Multiple instances of CCTClearcutUploader` on iOS, so it is never
+  /// closed.
   static FaceDetector? _sharedDetector;
-  static int _sharedDetectorRefCount = 0;
 
   static FaceDetector _acquireSharedDetector() {
-    _sharedDetectorRefCount++;
-    return _sharedDetector ??= FaceDetector(
+    final existing = _sharedDetector;
+    if (existing != null) return existing;
+    debugPrint('FaceCapture: ML Kit face detector created (shared)');
+    return _sharedDetector = FaceDetector(
       options: FaceDetectorOptions(
         enableClassification: true,
         enableLandmarks: true,
@@ -742,13 +744,7 @@ class TimesheetFaceCaptureService {
   Future<void> dispose() async {
     if (!_usesSharedDetector) {
       await _detector.close();
-      return;
     }
-    _sharedDetectorRefCount = (_sharedDetectorRefCount - 1).clamp(0, 1 << 30);
-    if (_sharedDetectorRefCount > 0) return;
-    final shared = _sharedDetector;
-    _sharedDetector = null;
-    await shared?.close();
   }
 
   static InputImageRotation _rotationFromSensorOrientation(int orientation) {

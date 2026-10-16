@@ -28,6 +28,11 @@ class AttendanceCaptureDraft {
     this.livenessLogJson,
     this.awsLivenessSessionId,
     this.awsLivenessConfidence,
+    this.faceVerified,
+    this.faceScore,
+    this.faceLead,
+    this.faceCohortSize,
+    this.faceLiveness,
   });
 
   final String id;
@@ -42,11 +47,56 @@ class AttendanceCaptureDraft {
   final AttendanceCaptureSyncState syncState;
   final String? error;
   final int attempts;
+
   /// Legacy HR flag — hybrid flow blocks instead of flagging pass-through.
   final bool livenessFlagged;
   final Map<String, dynamic>? livenessLogJson;
   final String? awsLivenessSessionId;
   final double? awsLivenessConfidence;
+
+  /// 1:1 face verification audit sent with the timesheet submit. Null on
+  /// drafts from older builds and on non-verified captures.
+  final bool? faceVerified;
+  final double? faceScore;
+  final double? faceLead;
+  final int? faceCohortSize;
+
+  /// `pass` | `fail` | `not_run`.
+  final String? faceLiveness;
+
+  bool get hasFaceAudit => faceVerified != null;
+
+  AttendanceCaptureDraft withFaceAudit({
+    required bool verified,
+    double? score,
+    double? lead,
+    int? cohortSize,
+    required String liveness,
+  }) {
+    return AttendanceCaptureDraft(
+      id: id,
+      projectId: projectId,
+      taskId: taskId,
+      event: event,
+      createdAt: createdAt,
+      cropLocalPath: cropLocalPath,
+      lat: lat,
+      lon: lon,
+      workerId: workerId,
+      syncState: syncState,
+      error: error,
+      attempts: attempts,
+      livenessFlagged: livenessFlagged,
+      livenessLogJson: livenessLogJson,
+      awsLivenessSessionId: awsLivenessSessionId,
+      awsLivenessConfidence: awsLivenessConfidence,
+      faceVerified: verified,
+      faceScore: score,
+      faceLead: lead,
+      faceCohortSize: cohortSize,
+      faceLiveness: liveness,
+    );
+  }
 
   AttendanceCaptureDraft copyWith({
     AttendanceCaptureSyncState? syncState,
@@ -72,10 +122,14 @@ class AttendanceCaptureDraft {
       attempts: attempts ?? this.attempts,
       livenessFlagged: livenessFlagged ?? this.livenessFlagged,
       livenessLogJson: livenessLogJson ?? this.livenessLogJson,
-      awsLivenessSessionId:
-          awsLivenessSessionId ?? this.awsLivenessSessionId,
+      awsLivenessSessionId: awsLivenessSessionId ?? this.awsLivenessSessionId,
       awsLivenessConfidence:
           awsLivenessConfidence ?? this.awsLivenessConfidence,
+      faceVerified: faceVerified,
+      faceScore: faceScore,
+      faceLead: faceLead,
+      faceCohortSize: faceCohortSize,
+      faceLiveness: faceLiveness,
     );
   }
 
@@ -104,6 +158,14 @@ class AttendanceCaptureDraft {
           : null,
       awsLivenessSessionId: json['aws_liveness_session_id']?.toString(),
       awsLivenessConfidence: _doubleOrNull(json['aws_liveness_confidence']),
+      faceVerified: switch (json['face_verified']) {
+        final bool b => b,
+        _ => null,
+      },
+      faceScore: _doubleOrNull(json['face_score']),
+      faceLead: _doubleOrNull(json['face_lead']),
+      faceCohortSize: int.tryParse(json['face_cohort_size']?.toString() ?? ''),
+      faceLiveness: json['face_liveness']?.toString(),
     );
   }
 
@@ -127,6 +189,11 @@ class AttendanceCaptureDraft {
         'aws_liveness_session_id': awsLivenessSessionId,
       if (awsLivenessConfidence != null)
         'aws_liveness_confidence': awsLivenessConfidence,
+      if (faceVerified != null) 'face_verified': faceVerified,
+      if (faceScore != null) 'face_score': faceScore,
+      if (faceLead != null) 'face_lead': faceLead,
+      if (faceCohortSize != null) 'face_cohort_size': faceCohortSize,
+      if (faceLiveness != null) 'face_liveness': faceLiveness,
     };
   }
 
@@ -134,6 +201,28 @@ class AttendanceCaptureDraft {
     if (value == null) return null;
     if (value is num) return value.toDouble();
     return double.tryParse(value.toString());
+  }
+}
+
+/// Capture photo + queue writes that run after the green card is shown.
+/// Submit must [flush] first so every listed capture has its photo on disk.
+class PendingCaptureWrites {
+  PendingCaptureWrites._();
+
+  static final Set<Future<bool>> _pending = {};
+
+  static bool get isEmpty => _pending.isEmpty;
+
+  static void track(Future<bool> write) {
+    _pending.add(write);
+    write.whenComplete(() => _pending.remove(write));
+  }
+
+  /// Waits for every write started so far (and any started meanwhile).
+  static Future<void> flush() async {
+    while (_pending.isNotEmpty) {
+      await Future.wait(_pending.toList());
+    }
   }
 }
 

@@ -11,7 +11,7 @@ import 'package:el_race/core/site_management/face_recognition/antispoof/antispoo
 import 'package:el_race/core/site_management/face_recognition/antispoof/minifasnet_fusion_engine.dart';
 import 'package:el_race/core/site_management/face_recognition/antispoof/timesheet_liveness_gate.dart';
 import 'package:el_race/core/site_management/face_recognition/antispoof/timesheet_face_classification_snapshot.dart';
-import 'package:el_race/core/site_management/face_recognition/data/models/face_match_result.dart';
+import 'package:el_race/core/site_management/face_recognition/domain/face_verifier.dart';
 import 'package:el_race/core/site_management/face_recognition/face_recognition_config.dart';
 import 'package:el_race/core/site_management/face_recognition/face_recognition_service.dart';
 import 'package:el_race/core/timesheet/services/timesheet_roster_face_matcher.dart';
@@ -28,7 +28,7 @@ import 'package:el_race/ui/presentation/timesheet/timesheet_route_args.dart';
 import 'package:el_race/ui/presentation/timesheet/widgets/face_recognition/tm_face_mesh_painter.dart';
 import 'package:el_race/ui/presentation/timesheet/widgets/face_recognition/tm_aws_face_liveness_screen.dart';
 import 'package:device_info_plus/device_info_plus.dart';
-import 'package:flutter/foundation.dart' show kDebugMode;
+import 'package:flutter/foundation.dart' show compute, kDebugMode;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:geolocator/geolocator.dart';
@@ -36,12 +36,23 @@ import 'package:image/image.dart' as img;
 import 'package:path_provider/path_provider.dart';
 import 'package:phosphor_flutter/phosphor_flutter.dart';
 
+List<int> _encodeCaptureJpeg(img.Image frame) =>
+    img.encodeJpg(frame, quality: 90);
+
+typedef _FastFrames = ({
+  List<BurstFrameSample>? frames,
+  List<TimesheetFaceLandmarkSnapshot?> faces,
+  List<FaceVerifyResult?> verifies,
+  String reason,
+});
+
 /// Live chrome state for parent-built overlays (Add timesheet full screen).
 class TimesheetCaptureChromeSnapshot {
   const TimesheetCaptureChromeSnapshot({
     required this.faceStatus,
     required this.geofenceLabel,
     required this.canCapture,
+    this.targetVerified = false,
     required this.isCapturing,
     required this.permissionsReady,
     this.geofenceOk = false,
@@ -59,6 +70,9 @@ class TimesheetCaptureChromeSnapshot {
   final String faceStatus;
   final String geofenceLabel;
   final bool canCapture;
+
+  /// 1:1: the live preview has verified the target (green shutter).
+  final bool targetVerified;
   final bool isCapturing;
   final bool permissionsReady;
   final bool geofenceOk;
@@ -78,12 +92,7 @@ enum TimesheetFaceFrameKind {
   inTeam,
   outOfTeam,
   duplicate,
-
-  /// Recognised, but not the labor this camera was opened for (red).
-  mismatch,
 }
-
-enum _ExpectedLaborVerdict { mismatch, unsure }
 
 /// Parent-driven face frame color + labels (name / file id on frame).
 class TimesheetFaceOverlayHint {
@@ -127,14 +136,11 @@ class TimesheetFaceOverlayHint {
         fileId: fileId,
       );
 
-  factory TimesheetFaceOverlayHint.mismatch({
-    required String name,
-    required String fileId,
-  }) =>
+  /// Neutral badge text only (no file id), e.g. "Verifying Ahmed…".
+  factory TimesheetFaceOverlayHint.neutral(String text) =>
       TimesheetFaceOverlayHint(
-        kind: TimesheetFaceFrameKind.mismatch,
-        employeeName: name,
-        fileId: fileId,
+        kind: TimesheetFaceFrameKind.quality,
+        employeeName: text,
       );
 }
 
@@ -160,19 +166,48 @@ class TimesheetCaptureCameraPanel extends StatefulWidget {
     this.projectLaborEmployeeIds = const {},
     this.onDuplicateRecognized,
     this.onAlreadyAttended,
-    this.expectedEmployeeId,
-    this.expectedEmployeeName,
-    this.onUnexpectedEmployee,
+    this.verifyTarget = false,
+    this.targetEmployee,
+    this.noTargetHint,
+    this.onTargetVerified,
+    this.onTargetVerifyFailed,
+    this.onCaptureWriteFailed,
   });
 
-  /// Fired when a face other than [expectedEmployeeId] is recognised (host
-  /// shows the red "wrong person" card).
-  final ValueChanged<TimesheetOdooEmployee>? onUnexpectedEmployee;
+  /// 1:1 mode: the face is only ever checked against [targetEmployee]; no
+  /// other employee's name is shown or reported. False = AT2 1:N matching.
+  final bool verifyTarget;
 
-  /// When the camera is opened for one specific labor (Your Team sheet), any
-  /// other recognised face is shown as a mismatch and can't be added.
-  final int? expectedEmployeeId;
-  final String? expectedEmployeeName;
+  /// [verifyTarget] only. Null = no verification and no capture until the
+  /// host picks a labor. May change while the camera stays open.
+  final TimesheetOdooEmployee? targetEmployee;
+
+  /// Badge / shutter message while [targetEmployee] is null; defaults to
+  /// "Select a labor to verify".
+  final String? noTargetHint;
+
+  /// [verifyTarget]: the target verified. After a still the draft is already
+  /// queued; after a fast accept its photo and queue entry are still being
+  /// written ([PendingCaptureWrites]), see [onCaptureWriteFailed].
+  final void Function(
+    TimesheetOdooEmployee target,
+    AttendanceCaptureDraft draft,
+    FaceVerifyResult result,
+  )? onTargetVerified;
+
+  /// [verifyTarget]: the still did not verify the target (any outcome other
+  /// than verified); nothing was queued and the photo is deleted.
+  final void Function(
+    TimesheetOdooEmployee target,
+    FaceVerifyResult result,
+  )? onTargetVerifyFailed;
+
+  /// A fast-accept capture already shown as added could not be saved (photo
+  /// or queue entry); the host must remove it. Nothing was queued.
+  final void Function(
+    TimesheetOdooEmployee target,
+    AttendanceCaptureDraft draft,
+  )? onCaptureWriteFailed;
 
   final TimesheetCaptureArgs capture;
   final bool showShutter;
@@ -283,7 +318,6 @@ class TimesheetCaptureCameraPanelState
   bool _permissionsReady = false;
   TimesheetFaceCapturePermissions? _permissions;
   final TmFaceAlarmService _alarm = TmFaceAlarmService();
-  TimesheetOdooEmployee? _mismatchEmployee;
   AppLifecycleListener? _lifecycleListener;
   bool _preparingCapture = false;
   bool _isCapturing = false;
@@ -323,6 +357,21 @@ class TimesheetCaptureCameraPanelState
   bool _awsLivenessLaunched = false;
   bool _verificationInFlight = false;
   final List<BurstFrameSample> _streamSampleRing = [];
+
+  /// When each [_streamSampleRing] frame was taken (same order).
+  final List<DateTime> _streamSampleTimes = [];
+
+  /// ML Kit landmarks of each ring frame's face (same order), so the fast
+  /// path's 1:1 check uses the same 5-point aligned crop as the preview.
+  final List<TimesheetFaceLandmarkSnapshot?> _streamSampleFaces = [];
+
+  /// 1:1 result the live preview computed on each ring frame (same order);
+  /// null when the preview did not run on that frame.
+  final List<FaceVerifyResult?> _streamSampleVerify = [];
+
+  /// Last stable, live preview verification of the target (1:1).
+  FaceVerifyResult? _previewVerify;
+  int? _previewVerifiedEmployeeId;
   LivenessGateSnapshot _livenessSnapshot = const LivenessGateSnapshot(
     phase: LivenessGatePhase.idle,
     statusMessage: 'Center your face in the frame',
@@ -376,96 +425,52 @@ class TimesheetCaptureCameraPanelState
   bool _isOnProjectLaborList(int employeeId) =>
       widget.projectLaborEmployeeIds.contains(employeeId);
 
-  bool _isUnexpectedEmployee(int employeeId) {
-    final expected = widget.expectedEmployeeId;
-    return expected != null && employeeId != expected;
-  }
+  /// [TimesheetCaptureCameraPanel.verifyTarget] with no labor picked yet.
+  bool get _awaitingTarget =>
+      widget.verifyTarget && widget.targetEmployee == null;
 
-  /// Someone other than the expected labor won the match. Red only when they
-  /// clearly beat the expected labor; a weak or stale-DB winner is "unsure"
-  /// (no name, no alarm) so a random out-of-team name never pops up.
-  _ExpectedLaborVerdict _judgeUnexpected(FaceMatchResult match) {
-    final focus = match.focusScore;
-    if (focus == null) {
-      unawaited(_ensureExpectedTemplates());
-      return _ExpectedLaborVerdict.unsure;
-    }
-    final lead = match.bestScore - focus;
-    if (match.bestScore >= FaceExpectedLaborMatch.mismatchMinScore &&
-        lead >= FaceExpectedLaborMatch.mismatchMinLead) {
-      return _ExpectedLaborVerdict.mismatch;
-    }
-    debugPrint(
-      'FaceCapture: unsure best=${match.best?.employeeId} '
-      '${match.bestScore.toStringAsFixed(3)} expected=${focus.toStringAsFixed(3)}',
+  String get _selectLaborText =>
+      widget.noTargetHint ?? 'Select a labor to verify';
+
+  /// Guard for the AT2-only 1:N paths below.
+  void _assertLegacy1toN(String path) {
+    assert(
+      !widget.verifyTarget,
+      'verifyTarget mode must never enter the 1:N path "$path"',
     );
-    return _ExpectedLaborVerdict.unsure;
   }
 
-  bool _expectedRefreshInFlight = false;
-  int _expectedRefreshAttempts = 0;
-  DateTime _lastExpectedRefreshAt = DateTime.fromMillisecondsSinceEpoch(0);
+  bool _targetRefreshInFlight = false;
+  int _targetRefreshAttempts = 0;
+  DateTime _lastTargetRefreshAt = DateTime.fromMillisecondsSinceEpoch(0);
 
   /// Just-enrolled labor: templates may reach Odoo after this screen synced.
-  Future<void> _ensureExpectedTemplates() async {
-    final expected = widget.expectedEmployeeId;
+  Future<void> _ensureTargetTemplates() async {
+    final target = widget.targetEmployee?.employeeId;
     final phaseB = widget.faceRecognition;
-    if (expected == null || phaseB == null || _expectedRefreshInFlight) return;
-    if (_expectedRefreshAttempts >=
+    if (target == null || phaseB == null || _targetRefreshInFlight) return;
+    if (_targetRefreshAttempts >=
         FaceExpectedLaborMatch.maxTemplateRefreshAttempts) {
       return;
     }
-    if (DateTime.now().difference(_lastExpectedRefreshAt) <
+    if (DateTime.now().difference(_lastTargetRefreshAt) <
         FaceExpectedLaborMatch.templateRefreshCooldown) {
       return;
     }
-    _expectedRefreshInFlight = true;
-    _expectedRefreshAttempts++;
+    _targetRefreshInFlight = true;
+    _targetRefreshAttempts++;
     try {
-      await phaseB.ensureTemplatesFor(expected);
+      await phaseB.ensureTemplatesFor(target);
     } catch (e) {
-      debugPrint('FaceCapture: expected template refresh failed: $e');
+      debugPrint('FaceCapture: target template refresh failed: $e');
     } finally {
-      _lastExpectedRefreshAt = DateTime.now();
-      _expectedRefreshInFlight = false;
+      _lastTargetRefreshAt = DateTime.now();
+      _targetRefreshInFlight = false;
     }
   }
 
-  void _showUnsureStillMessage() {
-    final name = widget.expectedEmployeeName?.trim();
-    _showCaptureBlockedMessage(
-      name == null || name.isEmpty
-          ? "Couldn't confirm the labor — hold still and try again"
-          : "Couldn't confirm $name — hold still and try again",
-    );
-  }
-
-  /// Red badge + red card + alarm, shutter blocked, for a face that isn't the
-  /// labor this camera was opened for. [force] re-alerts for the same person
-  /// (shutter tap / still-capture reject).
-  void _enterMismatchPreview(TimesheetOdooEmployee emp, {bool force = false}) {
-    final alreadyShowing = _mismatchEmployee?.employeeId == emp.employeeId &&
-        _liveOverlayHint?.kind == TimesheetFaceFrameKind.mismatch;
-    _autoCaptureTimer?.cancel();
-    _previewDebounceTimer?.cancel();
-    _faceReadySince = null;
-    _livePreviewEmployeeId = emp.employeeId;
-    _mismatchEmployee = emp;
-    if (!mounted) return;
-    setState(() {
-      _liveOverlayHint = TimesheetFaceOverlayHint.mismatch(
-        name: emp.name,
-        fileId: emp.displayFileId,
-      );
-      _livePreviewBlockCapture = true;
-      _livePreviewAllowAutoCapture = false;
-    });
-    _emitChrome();
-    if (!alreadyShowing || force) {
-      unawaited(_alarm.playMismatch(key: emp.employeeId, force: force));
-      widget.onUnexpectedEmployee?.call(emp);
-    }
-  }
+  /// "Try again" on the photo-unavailable card.
+  Future<void> retryTargetTemplates() => _ensureTargetTemplates();
 
   void _showCaptureBlockedMessage(String message) {
     if (!mounted) return;
@@ -481,17 +486,16 @@ class TimesheetCaptureCameraPanelState
       (_livePreviewEmployeeId != null &&
           _isEmployeeAlreadyCaptured(_livePreviewEmployeeId!));
 
-  /// Live matching keeps running under a red badge so it flips to the right
-  /// person as soon as they step in (shutter stays blocked meanwhile).
-  bool get _holdLiveMatching =>
-      _shouldHoldDuplicateFrame &&
-      _liveOverlayHint?.kind != TimesheetFaceFrameKind.mismatch;
+  bool get _holdLiveMatching => _shouldHoldDuplicateFrame;
 
   bool get isGroup => widget.capture.mode == 'group';
   // The live badge describes the face in frame *now*; the host's post-capture
   // hint is only a fallback, or it paints the last person on the next face.
   TimesheetFaceOverlayHint? get _effectiveOverlayHint =>
-      _liveOverlayHint ?? widget.overlayHint;
+      _liveOverlayHint ??
+      (_awaitingTarget
+          ? TimesheetFaceOverlayHint.neutral(_selectLaborText)
+          : widget.overlayHint);
   bool get _qualityReady => _faceResult?.quality.canCapture == true;
 
   bool get _livenessReady {
@@ -509,7 +513,8 @@ class TimesheetCaptureCameraPanelState
   /// What the shutter button shows: also off while the face in frame is
   /// already added or isn't the expected labor ([canCapture] stays
   /// quality-only because it also drives overlay resets).
-  bool get _shutterEnabled => canCapture && !_shouldHoldDuplicateFrame;
+  bool get _shutterEnabled =>
+      canCapture && !_shouldHoldDuplicateFrame && !_awaitingTarget;
 
   void _syncLivenessSnapshot() {
     _livenessSnapshot = _livenessGate.snapshot;
@@ -521,6 +526,7 @@ class TimesheetCaptureCameraPanelState
         faceStatus: _statusLabel(_faceResult),
         geofenceLabel: _geofencePreview?.label ?? 'Waiting for GPS lock',
         canCapture: _shutterEnabled,
+        targetVerified: _previewTargetVerified,
         isCapturing: _isCapturing,
         permissionsReady: _permissionsReady,
         geofenceOk: _geofencePreview?.isInside == true,
@@ -546,6 +552,8 @@ class TimesheetCaptureCameraPanelState
       !_noticeHold &&
       _permissionsReady &&
       _shutterEnabled &&
+      // 1:1: auto only once the target is verified; manual tap is unchanged.
+      (!widget.verifyTarget || _previewTargetVerified) &&
       !_livenessSnapshot.showSpoofWarning &&
       _cameraController?.value.isInitialized == true;
 
@@ -611,7 +619,13 @@ class TimesheetCaptureCameraPanelState
   }
 
   /// Task 5a — run MiniFASNet burst once at shutter, using the in-memory ring.
-  Future<bool> _runCaptureTimePadBurst() async {
+  ///
+  /// [streamFrames]: fast accept only (user-approved) — the full burst runs on
+  /// the stream frames buffered just before the press instead of new ones.
+  /// Every check and threshold is the same.
+  Future<bool> _runCaptureTimePadBurst({
+    List<BurstFrameSample>? streamFrames,
+  }) async {
     _verificationInFlight = true;
     _livenessGate.markVerifying();
     _syncLivenessSnapshot();
@@ -621,11 +635,16 @@ class TimesheetCaptureCameraPanelState
       await MinifasnetFusionEngine.instance.ensureLoaded();
       // The spoof models are shared with the preview check; never run both.
       await _previewPadRun;
-      // Frames from before this press may show a different face (or one a
-      // previous attempt already judged); every attempt gets new frames.
-      await _clearStreamSampleRing();
-      _lastRingSampleAt = DateTime.fromMillisecondsSinceEpoch(0);
-      final samples = await _awaitFullPadBurst();
+      final List<BurstFrameSample> samples;
+      if (streamFrames != null) {
+        samples = streamFrames;
+      } else {
+        // Frames from before this press may show a different face (or one a
+        // previous attempt already judged); every attempt gets new frames.
+        await _clearStreamSampleRing();
+        _lastRingSampleAt = DateTime.fromMillisecondsSinceEpoch(0);
+        samples = await _awaitFullPadBurst();
+      }
       if (samples.length < AntispoofConfig.burstFrameCount) {
         debugPrint(
           'FaceCapture: PAD blocked — only ${samples.length}/'
@@ -663,7 +682,9 @@ class TimesheetCaptureCameraPanelState
         }
         return false;
       }
-      if (kDebugMode) unawaited(_debugDumpPadFrames(samples));
+      if (kDebugMode && _padDiagDumps) {
+        unawaited(_debugDumpPadFrames(samples));
+      }
       final verifyResult = await _burstPipeline.verify(samples).timeout(
             AntispoofConfig.maxVerificationBudget,
             onTimeout: () => const BurstVerificationResult(
@@ -750,17 +771,41 @@ class TimesheetCaptureCameraPanelState
   Future<void> _clearStreamSampleRing() async {
     final stale = List<BurstFrameSample>.from(_streamSampleRing);
     _streamSampleRing.clear();
+    _streamSampleTimes.clear();
+    _streamSampleFaces.clear();
+    _streamSampleVerify.clear();
     for (final sample in stale) {
       await _safeDeleteSampleTemp(sample);
     }
   }
 
-  void _pushStreamSample(BurstFrameSample sample) {
+  void _pushStreamSample(
+    BurstFrameSample sample, {
+    TimesheetFaceLandmarkSnapshot? landmarks,
+  }) {
     if (_streamSampleRing.length >= 4) {
       final old = _streamSampleRing.removeAt(0);
+      if (_streamSampleTimes.isNotEmpty) _streamSampleTimes.removeAt(0);
+      if (_streamSampleFaces.isNotEmpty) _streamSampleFaces.removeAt(0);
+      if (_streamSampleVerify.isNotEmpty) _streamSampleVerify.removeAt(0);
       unawaited(_safeDeleteSampleTemp(old));
     }
     _streamSampleRing.add(sample);
+    _streamSampleTimes.add(DateTime.now());
+    _streamSampleFaces.add(landmarks);
+    _streamSampleVerify.add(null);
+  }
+
+  /// Keeps the preview's 1:1 result on the ring frame it was computed from
+  /// (same decoded image), so capture can reuse it.
+  void _storeRingVerify(img.Image source, FaceVerifyResult verify) {
+    for (var i = 0; i < _streamSampleRing.length; i++) {
+      if (identical(_streamSampleRing[i].rgbFrame, source) &&
+          i < _streamSampleVerify.length) {
+        _streamSampleVerify[i] = verify;
+        return;
+      }
+    }
   }
 
   Future<void> _safeDeleteSampleTemp(BurstFrameSample sample) async {
@@ -804,6 +849,10 @@ class TimesheetCaptureCameraPanelState
     return sample.faceBox.width >
         uprightWidth * AntispoofConfig.maxFaceWidthFraction;
   }
+
+  /// PadDiag JPEG dumps block the UI; off unless built with
+  /// `--dart-define=PAD_DIAG_DUMPS=true` (debug builds only).
+  static const bool _padDiagDumps = bool.fromEnvironment('PAD_DIAG_DUMPS');
 
   /// Debug builds only, read-only: shows what the spoof models are given
   /// (frame orientation vs face box) without changing any decision.
@@ -885,7 +934,6 @@ class TimesheetCaptureCameraPanelState
   void _resetLiveOverlayFields() {
     _liveOverlayHint = null;
     _livePreviewEmployeeId = null;
-    _mismatchEmployee = null;
     _livePreviewScore = 0;
     _livePreviewBlockCapture = false;
     _livePreviewAllowAutoCapture = false;
@@ -894,6 +942,21 @@ class TimesheetCaptureCameraPanelState
     _previewCandidateSeenAt = DateTime.fromMillisecondsSinceEpoch(0);
     _lastRingSampleAt = DateTime.fromMillisecondsSinceEpoch(0);
     _lastBadgeQualifyingAt = null;
+    _forgetPreviewVerify();
+  }
+
+  void _forgetPreviewVerify() {
+    _previewVerify = null;
+    _previewVerifiedEmployeeId = null;
+  }
+
+  /// 1:1: the preview shows the green badge for the current target.
+  bool get _previewTargetVerified {
+    final target = widget.targetEmployee;
+    return widget.verifyTarget &&
+        target != null &&
+        _livePreviewEmployeeId == target.employeeId &&
+        _liveOverlayHint?.kind == TimesheetFaceFrameKind.inTeam;
   }
 
   /// Task 6 — blank name immediately (does not wait for N=3).
@@ -999,6 +1062,12 @@ class TimesheetCaptureCameraPanelState
   @override
   void didUpdateWidget(covariant TimesheetCaptureCameraPanel oldWidget) {
     super.didUpdateWidget(oldWidget);
+    if (widget.verifyTarget &&
+        oldWidget.targetEmployee?.employeeId !=
+            widget.targetEmployee?.employeeId) {
+      _resetForNewTarget();
+      return;
+    }
     if (oldWidget.capturedEmployeeIds == widget.capturedEmployeeIds) return;
     final previewId = _livePreviewEmployeeId;
     if (previewId == null || !_isEmployeeAlreadyCaptured(previewId)) return;
@@ -1009,6 +1078,36 @@ class TimesheetCaptureCameraPanelState
     // frame (a sync setState on the parent here crashes the tree).
     _livePreviewBlockCapture = true;
     _livePreviewAllowAutoCapture = false;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _emitChrome();
+    });
+  }
+
+  /// New target while the camera stays open: drop everything tied to the old
+  /// one (badge, stable-identity lock, held card, timers, auto-capture
+  /// arming). The stream keeps running, so detection resumes on its own.
+  void _resetForNewTarget() {
+    debugPrint(
+      'FaceCapture: target changed -> ${widget.targetEmployee?.employeeId}',
+    );
+    _autoCaptureTimer?.cancel();
+    _instantCaptureTimer?.cancel();
+    _instantCaptureTimer = null;
+    _previewDebounceTimer?.cancel();
+    _duplicateNoticeTimer?.cancel();
+    _faceReadySince = null;
+    _noticeHold = false;
+    // Disarmed: the face still in frame (often the labor just captured) must
+    // leave first; auto capture re-arms once quality drops / the face goes.
+    _instantCaptureArmed = false;
+    _lastInstantCaptureAt = DateTime.fromMillisecondsSinceEpoch(0);
+    _autoCaptureCooldownUntil = null;
+    _suppressEmbeddingPreviewUntil = null;
+    _justCapturedEmployeeId = null;
+    _targetRefreshAttempts = 0;
+    _lastTargetRefreshAt = DateTime.fromMillisecondsSinceEpoch(0);
+    // Already rebuilding; notify the host after the frame.
+    _resetLiveOverlayFields();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) _emitChrome();
     });
@@ -1031,7 +1130,11 @@ class TimesheetCaptureCameraPanelState
         widget.faceRecognition?.isReady != true) {
       return;
     }
-    if (_livePreviewAllowAutoCapture && _livePreviewEmployeeId != null) {
+    // 1:1 keeps re-verifying a green badge (locked interval) so each check is
+    // stored on its ring frame and a failed one drops the badge.
+    if (!widget.verifyTarget &&
+        _livePreviewAllowAutoCapture &&
+        _livePreviewEmployeeId != null) {
       return;
     }
     final now = DateTime.now();
@@ -1048,121 +1151,16 @@ class TimesheetCaptureCameraPanelState
               ? null
               : _faceService.decodeCameraImageUpright(image, camera));
       if (rgb == null) return;
-      await _applyLivePreviewMatchFromImage(result, rgb);
+      if (widget.verifyTarget) {
+        await _applyLiveVerify(result, source: rgb);
+      } else {
+        await _applyLivePreviewMatchFromImage(result, rgb);
+      }
     } catch (e) {
       debugPrint('Timesheet stream embedding preview failed: $e');
     } finally {
       _previewMatchInFlight = false;
       _lastPreviewMatchAt = DateTime.now();
-    }
-  }
-
-  Future<void> _applyLivePreviewMatchFromImage(
-    TimesheetFaceDetectionResult result,
-    img.Image source, {
-    bool captureImmediately = false,
-  }) async {
-    final suppressed = _suppressEmbeddingPreviewUntil;
-    if (suppressed != null && DateTime.now().isBefore(suppressed)) {
-      return;
-    }
-    final phaseB = widget.faceRecognition;
-    final faceBox = _largestFaceBox(result.faceBoxes);
-    if (phaseB == null || !phaseB.isReady || faceBox == null) return;
-
-    final match = await phaseB.matchImage(
-      source: source,
-      faceBox: faceBox,
-      landmarks: result.primaryFace,
-      focusEmployeeId: widget.expectedEmployeeId,
-    );
-    if (!mounted) return;
-
-    if (match == null || match.best == null || !match.passesDisplayThreshold) {
-      _suppressEmbeddingPreviewUntil =
-          DateTime.now().add(_previewSuppressAfterMiss);
-      _clearBadgeNow(reason: 'sub_threshold');
-      return;
-    }
-    _suppressEmbeddingPreviewUntil = null;
-    _lastBadgeQualifyingAt = DateTime.now();
-
-    final emp = phaseB.employeeFromMatch(match);
-    if (emp == null) {
-      _clearBadgeNow(reason: 'no_employee');
-      return;
-    }
-    if (_isUnexpectedEmployee(emp.employeeId) &&
-        _judgeUnexpected(match) == _ExpectedLaborVerdict.unsure) {
-      _clearBadgeNow(reason: 'unsure_vs_expected');
-      return;
-    }
-    if (!captureImmediately &&
-        !await _previewFaceIsLive(faceBox: faceBox, rgbFrame: source)) {
-      return;
-    }
-    if (!mounted) return;
-
-    if (!_acceptStablePreviewIdentity(
-      emp.employeeId,
-      force: captureImmediately,
-    )) {
-      return;
-    }
-
-    _livePreviewEmployeeId = emp.employeeId;
-
-    if (_isUnexpectedEmployee(emp.employeeId)) {
-      _enterMismatchPreview(emp);
-      return;
-    }
-
-    // Yellow: recognized but not on this project labor list (badge only).
-    if (!_isOnProjectLaborList(emp.employeeId)) {
-      setState(() {
-        _liveOverlayHint = TimesheetFaceOverlayHint.outOfTeam(
-          name: emp.name,
-          fileId: emp.displayFileId,
-        );
-        _livePreviewBlockCapture = true;
-        _livePreviewAllowAutoCapture = false;
-      });
-      _emitChrome();
-      return;
-    }
-
-    if (_isEmployeeAlreadyCaptured(emp.employeeId)) {
-      _enterDuplicatePreview(emp);
-      return;
-    }
-
-    // Stream scores are weak. Show green badge at display bar; only auto-capture
-    // when score is strong enough that the still is likely to clear match bar.
-    final score = match.bestScore;
-    _livePreviewScore = score;
-    final mayAutoCapture =
-        score >= FaceRecognitionMatch.pilotAutoCaptureMinScore;
-    setState(() {
-      _liveOverlayHint = TimesheetFaceOverlayHint.inTeam(
-        name: emp.name,
-        fileId: emp.displayFileId,
-      );
-      _livePreviewBlockCapture = false;
-      _livePreviewAllowAutoCapture = mayAutoCapture;
-    });
-    unawaited(
-        _speech.speakEmployeeDetected(emp.name, employeeId: emp.employeeId));
-    if (!mayAutoCapture) {
-      debugPrint(
-        'FaceCapture: badge only score=${score.toStringAsFixed(3)} '
-        '(need >= ${FaceRecognitionMatch.pilotAutoCaptureMinScore} to auto-capture)',
-      );
-      return;
-    }
-    if (captureImmediately && widget.autoCaptureEnabled && !_noticeHold) {
-      unawaited(_capture());
-    } else {
-      _scheduleAutoCapture();
     }
   }
 
@@ -1218,12 +1216,16 @@ class TimesheetCaptureCameraPanelState
     }
   }
 
-  /// Still-capture path (`ts_norm` / takePicture) — file-based match.
-  Future<void> _applyLivePreviewMatch(
-    TimesheetFaceDetectionResult result,
-    String imagePath, {
-    bool captureImmediately = false,
+  /// 1:1 live preview: green badge with the target's name after 3 stable
+  /// verified frames, otherwise a neutral "Verifying {target}…". Never shows
+  /// another employee's name, never red, no alarm on the stream.
+  Future<void> _applyLiveVerify(
+    TimesheetFaceDetectionResult result, {
+    img.Image? source,
+    String? imagePath,
   }) async {
+    final target = widget.targetEmployee;
+    if (target == null || (source == null && imagePath == null)) return;
     final suppressed = _suppressEmbeddingPreviewUntil;
     if (suppressed != null && DateTime.now().isBefore(suppressed)) {
       return;
@@ -1232,107 +1234,113 @@ class TimesheetCaptureCameraPanelState
     final faceBox = _largestFaceBox(result.faceBoxes);
     if (phaseB == null || !phaseB.isReady || faceBox == null) return;
 
-    final match = await phaseB.matchCapturePhoto(
-      imagePath: imagePath,
-      faceBox: faceBox,
-      landmarks: result.primaryFace,
-      focusEmployeeId: widget.expectedEmployeeId,
-    );
-    if (!mounted) return;
+    final verify = source != null
+        ? await phaseB.verifyImage(
+            source: source,
+            faceBox: faceBox,
+            targetEmployeeId: target.employeeId,
+            landmarks: result.primaryFace,
+          )
+        : await phaseB.verifyCapturePhoto(
+            imagePath: imagePath!,
+            faceBox: faceBox,
+            targetEmployeeId: target.employeeId,
+            landmarks: result.primaryFace,
+          );
+    if (!mounted || widget.targetEmployee?.employeeId != target.employeeId) {
+      return;
+    }
+    if (source != null) _storeRingVerify(source, verify);
 
-    if (match == null || match.best == null || !match.passesDisplayThreshold) {
+    if (!verify.isVerified) {
       _suppressEmbeddingPreviewUntil =
           DateTime.now().add(_previewSuppressAfterMiss);
-      _clearBadgeNow(reason: 'sub_threshold');
+      _showVerifyingHint(target);
       return;
     }
     _suppressEmbeddingPreviewUntil = null;
     _lastBadgeQualifyingAt = DateTime.now();
 
-    final emp = phaseB.employeeFromMatch(match);
-    if (emp == null) {
-      _clearBadgeNow(reason: 'no_employee');
-      return;
-    }
-    if (_isUnexpectedEmployee(emp.employeeId) &&
-        _judgeUnexpected(match) == _ExpectedLaborVerdict.unsure) {
-      _clearBadgeNow(reason: 'unsure_vs_expected');
-      return;
-    }
-    if (!captureImmediately &&
-        !await _previewFaceIsLive(faceBox: faceBox, imagePath: imagePath)) {
-      return;
-    }
-    if (!mounted) return;
-
-    if (!_acceptStablePreviewIdentity(
-      emp.employeeId,
-      force: captureImmediately,
+    if (!await _previewFaceIsLive(
+      faceBox: faceBox,
+      rgbFrame: source,
+      imagePath: imagePath,
     )) {
       return;
     }
-
-    _livePreviewEmployeeId = emp.employeeId;
-
-    if (_isUnexpectedEmployee(emp.employeeId)) {
-      _enterMismatchPreview(emp);
+    if (!mounted || widget.targetEmployee?.employeeId != target.employeeId) {
       return;
     }
 
-    if (!_isOnProjectLaborList(emp.employeeId)) {
-      setState(() {
-        _liveOverlayHint = TimesheetFaceOverlayHint.outOfTeam(
-          name: emp.name,
-          fileId: emp.displayFileId,
-        );
-        _livePreviewBlockCapture = true;
-        _livePreviewAllowAutoCapture = false;
-      });
-      _emitChrome();
+    if (!_acceptStablePreviewIdentity(target.employeeId, force: false)) {
+      _showVerifyingHint(target, keepHits: true);
       return;
     }
 
-    if (_isEmployeeAlreadyCaptured(emp.employeeId)) {
-      final likelyReplay = await _isLikelyReplayFrame(
-        imagePath: imagePath,
-        faceBox: faceBox,
-        classification: result.classification,
-      );
-      if (!mounted) return;
-      if (likelyReplay) {
-        _blockReplayAttempt('Presentation attack detected — use live face');
-        return;
-      }
-      _enterDuplicatePreview(emp);
+    _livePreviewEmployeeId = target.employeeId;
+
+    if (_isEmployeeAlreadyCaptured(target.employeeId)) {
+      _enterDuplicatePreview(target);
       return;
     }
 
-    final score = match.bestScore;
-    _livePreviewScore = score;
-    final mayAutoCapture =
-        score >= FaceRecognitionMatch.pilotAutoCaptureMinScore;
+    _livePreviewScore = verify.targetScore ?? 0;
+    _previewVerify = verify;
+    _previewVerifiedEmployeeId = target.employeeId;
     setState(() {
       _liveOverlayHint = TimesheetFaceOverlayHint.inTeam(
-        name: emp.name,
-        fileId: emp.displayFileId,
+        name: target.name,
+        fileId: target.displayFileId,
       );
       _livePreviewBlockCapture = false;
-      _livePreviewAllowAutoCapture = mayAutoCapture;
+      _livePreviewAllowAutoCapture = true;
     });
-    unawaited(
-        _speech.speakEmployeeDetected(emp.name, employeeId: emp.employeeId));
-    if (!mayAutoCapture) return;
-    if (captureImmediately && widget.autoCaptureEnabled && !_noticeHold) {
-      unawaited(_capture());
-    } else {
-      _scheduleAutoCapture();
+    // The name is spoken when the capture is accepted (green card), not here.
+    _emitChrome();
+    _scheduleAutoCapture();
+  }
+
+  /// Neutral badge while the target is not (yet) verified. Hidden entirely
+  /// while the last preview spoof check failed.
+  void _showVerifyingHint(
+    TimesheetOdooEmployee target, {
+    bool keepHits = false,
+  }) {
+    if (!keepHits) {
+      _previewCandidateEmployeeId = null;
+      _previewCandidateHits = 0;
     }
+    if (_previewLive == false &&
+        DateTime.now().difference(_previewPadAt) < _previewPadInterval) {
+      _clearBadgeNow(reason: 'preview_spoof');
+      return;
+    }
+    final wasLocked = _livePreviewEmployeeId != null ||
+        _livePreviewBlockCapture ||
+        _livePreviewAllowAutoCapture;
+    if (wasLocked) {
+      _autoCaptureTimer?.cancel();
+      _faceReadySince = null;
+    }
+    // The neutral badge stays until the face leaves; no stale timeout.
+    _lastBadgeQualifyingAt = null;
+    _forgetPreviewVerify();
+    setState(() {
+      _liveOverlayHint =
+          TimesheetFaceOverlayHint.neutral('Verifying ${target.name}…');
+      _livePreviewEmployeeId = null;
+      _livePreviewScore = 0;
+      _livePreviewBlockCapture = false;
+      _livePreviewAllowAutoCapture = false;
+    });
+    if (wasLocked) _emitChrome();
   }
 
   void _scheduleAutoCapture() {
     _autoCaptureTimer?.cancel();
     if (!widget.autoCaptureEnabled ||
         _noticeHold ||
+        _awaitingTarget ||
         !_permissionsReady ||
         _isCapturing ||
         !canCapture ||
@@ -1428,6 +1436,7 @@ class TimesheetCaptureCameraPanelState
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       unawaited(MinifasnetFusionEngine.instance.ensureLoaded());
+      unawaited(_tempDir());
     });
     _geofencePreview = _geofenceService.preview(
       point: const TimesheetGeoPoint(lat: 25.2051, lon: 55.271),
@@ -1496,6 +1505,7 @@ class TimesheetCaptureCameraPanelState
                 result: faceResult,
                 overlayHint: _effectiveOverlayHint,
                 fit: _previewFit,
+                verifiedOnly: widget.verifyTarget,
               ),
             ),
           if (!useExternalChrome) ...[
@@ -1557,7 +1567,9 @@ class TimesheetCaptureCameraPanelState
                       (!_permissionsReady || _isCapturing || !_shutterEnabled)
                           ? null
                           : _capture,
-                  backgroundColor: TimesheetModuleColors.primary,
+                  backgroundColor: _previewTargetVerified
+                      ? TmFaceMeshPainter.inTeam
+                      : TimesheetModuleColors.primary,
                   child: _isCapturing
                       ? const SizedBox(
                           width: 24,
@@ -1675,15 +1687,15 @@ class TimesheetCaptureCameraPanelState
       debugPrint('FaceCapture: shutter ignored — capture already running');
       return;
     }
+    if (_awaitingTarget) {
+      debugPrint('FaceCapture: shutter blocked — no target labor');
+      _showCaptureBlockedMessage(_selectLaborText);
+      return;
+    }
     final previewId = _livePreviewEmployeeId;
     if (_shouldHoldDuplicateFrame) {
       final kind = _liveOverlayHint?.kind;
       debugPrint('FaceCapture: shutter blocked — ${kind?.name ?? 'hold'}');
-      final mismatch = _mismatchEmployee;
-      if (kind == TimesheetFaceFrameKind.mismatch && mismatch != null) {
-        _enterMismatchPreview(mismatch, force: true);
-        return;
-      }
       final name = _liveOverlayHint?.employeeName?.trim();
       final who = name == null || name.isEmpty ? 'This labor' : name;
       _showCaptureBlockedMessage(
@@ -1711,6 +1723,16 @@ class TimesheetCaptureCameraPanelState
       _patchState(() => _isCapturing = false);
       return;
     }
+
+    unawaited(HapticFeedback.lightImpact());
+    final tapAt = DateTime.now();
+    final fast = _fastAcceptFrames(tapAt);
+    if (fast.frames != null) {
+      await _fastAccept(tapAt, fast);
+      return;
+    }
+    debugPrint('FaceCapture: slow path reason=${fast.reason}');
+    _slowPathStartedAt = tapAt;
 
     // Task 5a — PAD burst only at capture (never on the live stream).
     final padOk = await _runCaptureTimePadBurst();
@@ -1785,6 +1807,24 @@ class TimesheetCaptureCameraPanelState
       }
     }
 
+    final draft = _buildCaptureDraft(photo.path);
+
+    if (widget.verifyTarget) {
+      await _decideStillVerify(
+        photo: photo,
+        captureResult: captureResult,
+        draft: draft,
+      );
+      return;
+    }
+    await _decideStillLegacy1toN(
+      photo: photo,
+      captureResult: captureResult,
+      draft: draft,
+    );
+  }
+
+  AttendanceCaptureDraft _buildCaptureDraft(String cropPath) {
     final position = _position;
     final capture = widget.capture;
     final now = DateTime.now();
@@ -1799,15 +1839,14 @@ class TimesheetCaptureCameraPanelState
             now.second,
           )
         : now;
-    final draftId = 'capture_${capturedAt.millisecondsSinceEpoch}';
     final livenessLog = _livenessGate.snapshot.lastLog;
-    final draft = AttendanceCaptureDraft(
-      id: draftId,
+    return AttendanceCaptureDraft(
+      id: 'capture_${capturedAt.millisecondsSinceEpoch}',
       projectId: capture.projectId,
       taskId: capture.taskId,
       event: capture.event,
       createdAt: capturedAt,
-      cropLocalPath: photo.path,
+      cropLocalPath: cropPath,
       lat: position?.latitude,
       lon: position?.longitude,
       workerId: capture.targetWorkerId,
@@ -1817,7 +1856,595 @@ class TimesheetCaptureCameraPanelState
       awsLivenessSessionId: livenessLog?.awsSessionId,
       awsLivenessConfidence: livenessLog?.awsConfidence,
     );
+  }
 
+  DateTime? _slowPathStartedAt;
+
+  /// The 4 buffered stream frames (with landmarks and the preview's stored
+  /// 1:1 result per frame) for a fast accept, or why there are none.
+  _FastFrames _fastAcceptFrames(DateTime now) {
+    _FastFrames no(String reason) =>
+        (frames: null, faces: const [], verifies: const [], reason: reason);
+    final target = widget.targetEmployee;
+    if (!widget.verifyTarget) return no('not_1to1');
+    if (target == null) return no('no_target');
+    if (!_isStreaming) return no('no_stream');
+    // Only a green badge at tap time; identity is decided by the burst frames.
+    if (_previewVerify == null ||
+        _previewVerifiedEmployeeId != target.employeeId ||
+        !_previewTargetVerified) {
+      return no('preview_not_verified');
+    }
+    const need = AntispoofConfig.burstFrameCount;
+    if (_streamSampleRing.length < need ||
+        _streamSampleTimes.length != _streamSampleRing.length ||
+        _streamSampleFaces.length != _streamSampleRing.length ||
+        _streamSampleVerify.length != _streamSampleRing.length) {
+      return no('ring ${_streamSampleRing.length}/$need');
+    }
+    final start = _streamSampleRing.length - need;
+    final frames = _streamSampleRing.sublist(start);
+    if (frames.any((f) => f.rgbFrame == null)) return no('ring_no_rgb');
+    final oldest = now.difference(_streamSampleTimes[start]);
+    if (oldest > AntispoofConfig.livenessCaptureTtl) {
+      return no('ring_stale ms=${oldest.inMilliseconds}');
+    }
+    return (
+      frames: List<BurstFrameSample>.unmodifiable(frames),
+      faces: List<TimesheetFaceLandmarkSnapshot?>.unmodifiable(
+        _streamSampleFaces.sublist(start),
+      ),
+      verifies: List<FaceVerifyResult?>.unmodifiable(
+        _streamSampleVerify.sublist(start),
+      ),
+      reason: '',
+    );
+  }
+
+  String? _tempDirPath;
+
+  Future<String> _tempDir() async =>
+      _tempDirPath ??= (await getTemporaryDirectory()).path;
+
+  /// Index of the largest face, latest on ties: the frame closest to the
+  /// press that shows the face best.
+  int _bestStreamFrameIndex(List<BurstFrameSample> frames) {
+    var best = frames.length - 1;
+    var bestArea = frames[best].faceBox.width * frames[best].faceBox.height;
+    for (var i = frames.length - 1; i >= 0; i--) {
+      final box = frames[i].faceBox;
+      final area = box.width * box.height;
+      if (area > bestArea) {
+        best = i;
+        bestArea = area;
+      }
+    }
+    return best;
+  }
+
+  static const int _fastMinBurstVerified = 3;
+
+  /// Background half of a fast accept (the card is already shown): photo
+  /// file, then queue entry. On failure nothing stays queued and the host
+  /// removes the capture.
+  Future<bool> _persistFastCapture({
+    required img.Image frame,
+    required AttendanceCaptureDraft draft,
+    required TimesheetOdooEmployee target,
+  }) async {
+    final sw = Stopwatch()..start();
+    final path = draft.cropLocalPath;
+    try {
+      final bytes = await compute(_encodeCaptureJpeg, frame);
+      await File(path).writeAsBytes(bytes, flush: true);
+      await _queueService.enqueue(draft);
+      debugPrint(
+        'FaceCapture: fast capture saved ms=${sw.elapsedMilliseconds} '
+        'emp=${target.employeeId}',
+      );
+      return true;
+    } catch (e) {
+      debugPrint(
+        'FaceCapture: fast capture save failed emp=${target.employeeId}: $e',
+      );
+      await _safeDeleteFile(path);
+      if (mounted) widget.onCaptureWriteFailed?.call(target, draft);
+      return false;
+    }
+  }
+
+  /// 1:1 fast accept (user-approved): the preview already verified the target
+  /// and the full burst runs on the 4 stream frames buffered before the press
+  /// — no still photo. Those same frames must then verify as the target (best
+  /// frame and at least 3 of 4), reusing the preview's stored result per frame
+  /// and verifying only frames without one. Every outcome is final; the photo
+  /// and queue entry are written after the card is shown.
+  Future<void> _fastAccept(DateTime tapAt, _FastFrames fast) async {
+    final target = widget.targetEmployee!;
+    final frames = fast.frames!;
+    final faces = fast.faces;
+    int ms() => DateTime.now().difference(tapAt).inMilliseconds;
+
+    final padOk = await _runCaptureTimePadBurst(streamFrames: frames);
+    // Frames judged once are never reused by a later attempt.
+    await _clearStreamSampleRing();
+    if (!mounted) return;
+    if (!padOk) {
+      debugPrint('FaceCapture: fast path PAD blocked ms=${ms()}');
+      _patchState(() => _isCapturing = false);
+      _armAutoCaptureCooldown();
+      return;
+    }
+    if (widget.targetEmployee?.employeeId != target.employeeId) {
+      debugPrint('FaceVerify: target changed during capture — discarded');
+      _patchState(() => _isCapturing = false);
+      return;
+    }
+
+    // Identity on the exact frames that passed anti-spoof (same bars/cohort).
+    final phaseB = widget.faceRecognition;
+    if (phaseB == null || !phaseB.isReady) {
+      debugPrint('FaceCapture: fast reject reason=verifier_not_ready');
+      _patchState(() => _isCapturing = false);
+      _armAutoCaptureCooldown();
+      _showCaptureBlockedMessage('Face match failed — try again');
+      return;
+    }
+    final bestIndex = _bestStreamFrameIndex(frames);
+    final results = <FaceVerifyResult>[];
+    var stored = 0;
+    for (var i = 0; i < frames.length; i++) {
+      final cached = fast.verifies[i];
+      if (cached != null && cached.targetEmployeeId == target.employeeId) {
+        results.add(cached);
+        stored++;
+        continue;
+      }
+      results.add(
+        await phaseB.verifyImage(
+          source: frames[i].rgbFrame!,
+          faceBox: frames[i].faceBox,
+          targetEmployeeId: target.employeeId,
+          landmarks: faces[i],
+        ),
+      );
+      if (!mounted) return;
+    }
+    final verify = results[bestIndex];
+    final verifiedCount = results.where((r) => r.isVerified).length;
+    final n = '$verifiedCount/${frames.length} stored=$stored';
+    if (widget.targetEmployee?.employeeId != target.employeeId) {
+      debugPrint('FaceVerify: target changed during capture — discarded');
+      _patchState(() => _isCapturing = false);
+      return;
+    }
+    if (!verify.isVerified || verifiedCount < _fastMinBurstVerified) {
+      debugPrint(
+        'FaceCapture: fast reject reason=burst_identity $n '
+        'best=${verify.outcome.name} '
+        't=${verify.targetScore?.toStringAsFixed(2)} ms=${ms()}',
+      );
+      _patchState(() => _isCapturing = false);
+      _armAutoCaptureCooldown();
+      _clearBadgeNow(reason: 'fast_burst_identity');
+      unawaited(_alarm.playMismatch(key: target.employeeId));
+      widget.onTargetVerifyFailed?.call(
+        target,
+        FaceVerifyResult(
+          outcome: FaceVerifyOutcome.lowScore,
+          targetEmployeeId: target.employeeId,
+          targetScore: verify.targetScore,
+          cohortMaxScore: verify.cohortMaxScore,
+          cohortMaxEmployeeId: verify.cohortMaxEmployeeId,
+          lead: verify.lead,
+          cohortSize: verify.cohortSize,
+          usedNoCohortBar: verify.usedNoCohortBar,
+          faceWidthPx: verify.faceWidthPx,
+        ),
+      );
+      return;
+    }
+
+    final best = frames[bestIndex];
+    if (_isEmployeeAlreadyCaptured(target.employeeId)) {
+      final replay = !(await _burstPipeline.verifySingleFrame(best)).passed;
+      if (!mounted) return;
+      debugPrint('FaceCapture: fast path already attended replay=$replay');
+      _patchState(() => _isCapturing = false);
+      _armAutoCaptureCooldown();
+      if (replay) {
+        _blockReplayAttempt('Presentation attack detected — use live face');
+      } else {
+        _enterDuplicatePreview(target);
+      }
+      return;
+    }
+    if (!_isOnProjectLaborList(target.employeeId)) {
+      _patchState(() => _isCapturing = false);
+      _armAutoCaptureCooldown();
+      _showCaptureBlockedMessage(
+        "${target.name} is not on this project's labor list — cannot add",
+      );
+      return;
+    }
+
+    final path =
+        '${await _tempDir()}/ts_fast_${DateTime.now().microsecondsSinceEpoch}.jpg';
+    if (!mounted) return;
+
+    // Reached only after the full burst anti-spoof passed.
+    final audited = _buildCaptureDraft(path).withFaceAudit(
+      verified: true,
+      score: verify.targetScore,
+      lead: verify.usedNoCohortBar ? null : verify.lead,
+      cohortSize: verify.cohortSize,
+      liveness: 'pass',
+    );
+    debugPrint(
+      'FaceCapture: fast accept ms=${ms()} burstVerified=$n '
+      't=${verify.targetScore?.toStringAsFixed(2)} '
+      'lead=${verify.usedNoCohortBar ? 'n/a' : verify.lead?.toStringAsFixed(2)} '
+      'emp=${target.employeeId}',
+    );
+    _patchState(() => _isCapturing = false);
+    _armAutoCaptureCooldown();
+    _markJustCaptured(target.employeeId);
+    widget.onTargetVerified?.call(target, audited, verify);
+    unawaited(
+      _speech.speakEmployeeDetected(target.name, employeeId: target.employeeId),
+    );
+    PendingCaptureWrites.track(
+      _persistFastCapture(
+        frame: best.rgbFrame!,
+        draft: audited,
+        target: target,
+      ),
+    );
+    _livenessGate.resetSession();
+    _syncLivenessSnapshot();
+    _clearLiveOverlay();
+  }
+
+  /// 1:1 decision on the still (anti-spoof already passed). Only the target
+  /// is ever named; every branch except an accepted capture deletes the photo.
+  Future<void> _decideStillVerify({
+    required XFile photo,
+    required TimesheetFaceDetectionResult captureResult,
+    required AttendanceCaptureDraft draft,
+  }) async {
+    final target = widget.targetEmployee;
+    final phaseB = widget.faceRecognition;
+    final faceBox = _largestFaceBox(captureResult.faceBoxes);
+
+    Future<void> reject() async {
+      _patchState(() => _isCapturing = false);
+      _armAutoCaptureCooldown();
+      await _safeDeleteFile(photo.path);
+    }
+
+    if (target == null) {
+      await reject();
+      _showCaptureBlockedMessage(_selectLaborText);
+      await _startLiveDetection();
+      return;
+    }
+    if (phaseB == null || !phaseB.isReady || faceBox == null) {
+      debugPrint(
+        'FaceVerify: skipped — ready=${phaseB?.isReady} box=${faceBox != null}',
+      );
+      await reject();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Face match failed — try again')),
+        );
+      }
+      await _startLiveDetection();
+      return;
+    }
+
+    final matchImagePath = captureResult.analyzedImagePath ?? photo.path;
+    final verify = await phaseB.verifyCapturePhoto(
+      imagePath: matchImagePath,
+      faceBox: faceBox,
+      targetEmployeeId: target.employeeId,
+      landmarks: captureResult.primaryFace,
+    );
+    if (!mounted) return;
+    if (widget.targetEmployee?.employeeId != target.employeeId) {
+      debugPrint('FaceVerify: target changed during capture — discarded');
+      await reject();
+      await _startLiveDetection();
+      return;
+    }
+
+    switch (verify.outcome) {
+      case FaceVerifyOutcome.verified:
+        if (_isEmployeeAlreadyCaptured(target.employeeId)) {
+          final likelyReplay = await _isLikelyReplayFrame(
+            imagePath: matchImagePath,
+            faceBox: faceBox,
+            classification: captureResult.classification,
+          );
+          await reject();
+          if (likelyReplay) {
+            _blockReplayAttempt('Presentation attack detected — use live face');
+          } else {
+            _enterDuplicatePreview(target);
+          }
+          await _startLiveDetection();
+          return;
+        }
+        if (!_isOnProjectLaborList(target.employeeId)) {
+          await reject();
+          _showCaptureBlockedMessage(
+            "${target.name} is not on this project's labor list — cannot add",
+          );
+          await _startLiveDetection();
+          return;
+        }
+        // Reached only after the burst + shutter anti-spoof passed.
+        final audited = draft.withFaceAudit(
+          verified: true,
+          score: verify.targetScore,
+          lead: verify.usedNoCohortBar ? null : verify.lead,
+          cohortSize: verify.cohortSize,
+          liveness: 'pass',
+        );
+        await _queueService.enqueue(audited);
+        final startedAt = _slowPathStartedAt;
+        debugPrint(
+          'FaceCapture: slow path accept ms='
+          '${startedAt == null ? '?' : DateTime.now().difference(startedAt).inMilliseconds} '
+          'emp=${target.employeeId}',
+        );
+        _patchState(() => _isCapturing = false);
+        _armAutoCaptureCooldown();
+        _markJustCaptured(target.employeeId);
+        widget.onTargetVerified?.call(target, audited, verify);
+        unawaited(
+          _speech.speakEmployeeDetected(
+            target.name,
+            employeeId: target.employeeId,
+          ),
+        );
+      case FaceVerifyOutcome.lowScore:
+      case FaceVerifyOutcome.notDistinct:
+        await reject();
+        _clearBadgeNow(reason: 'verify_${verify.outcome.name}');
+        unawaited(_alarm.playMismatch(key: target.employeeId));
+        widget.onTargetVerifyFailed?.call(target, verify);
+      case FaceVerifyOutcome.noTemplate:
+        await reject();
+        _clearBadgeNow(reason: 'verify_no_template');
+        widget.onTargetVerifyFailed?.call(target, verify);
+      case FaceVerifyOutcome.faceTooSmall:
+        await reject();
+        _instantCaptureArmed = true;
+        _showCaptureBlockedMessage('Come closer to the camera');
+        widget.onTargetVerifyFailed?.call(target, verify);
+      case FaceVerifyOutcome.error:
+        await reject();
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Face match failed — try again')),
+          );
+        }
+        widget.onTargetVerifyFailed?.call(target, verify);
+    }
+    await _startLiveDetection();
+  }
+
+  // ---------------------------------------------------------------------------
+  // AT2 only — legacy 1:N matching. Never reached in verifyTarget mode
+  // (asserted). Remove this whole section once AT2 moves to 1:1.
+  // ---------------------------------------------------------------------------
+
+  Future<void> _applyLivePreviewMatchFromImage(
+    TimesheetFaceDetectionResult result,
+    img.Image source, {
+    bool captureImmediately = false,
+  }) async {
+    _assertLegacy1toN('live preview (stream)');
+    final suppressed = _suppressEmbeddingPreviewUntil;
+    if (suppressed != null && DateTime.now().isBefore(suppressed)) {
+      return;
+    }
+    final phaseB = widget.faceRecognition;
+    final faceBox = _largestFaceBox(result.faceBoxes);
+    if (phaseB == null || !phaseB.isReady || faceBox == null) return;
+
+    final match = await phaseB.matchImage(
+      source: source,
+      faceBox: faceBox,
+      landmarks: result.primaryFace,
+    );
+    if (!mounted) return;
+
+    if (match == null || match.best == null || !match.passesDisplayThreshold) {
+      _suppressEmbeddingPreviewUntil =
+          DateTime.now().add(_previewSuppressAfterMiss);
+      _clearBadgeNow(reason: 'sub_threshold');
+      return;
+    }
+    _suppressEmbeddingPreviewUntil = null;
+    _lastBadgeQualifyingAt = DateTime.now();
+
+    final emp = phaseB.employeeFromMatch(match);
+    if (emp == null) {
+      _clearBadgeNow(reason: 'no_employee');
+      return;
+    }
+    if (!captureImmediately &&
+        !await _previewFaceIsLive(faceBox: faceBox, rgbFrame: source)) {
+      return;
+    }
+    if (!mounted) return;
+
+    if (!_acceptStablePreviewIdentity(
+      emp.employeeId,
+      force: captureImmediately,
+    )) {
+      return;
+    }
+
+    _livePreviewEmployeeId = emp.employeeId;
+
+    // Yellow: recognized but not on this project labor list (badge only).
+    if (!_isOnProjectLaborList(emp.employeeId)) {
+      setState(() {
+        _liveOverlayHint = TimesheetFaceOverlayHint.outOfTeam(
+          name: emp.name,
+          fileId: emp.displayFileId,
+        );
+        _livePreviewBlockCapture = true;
+        _livePreviewAllowAutoCapture = false;
+      });
+      _emitChrome();
+      return;
+    }
+
+    if (_isEmployeeAlreadyCaptured(emp.employeeId)) {
+      _enterDuplicatePreview(emp);
+      return;
+    }
+
+    // Stream scores are weak. Show green badge at display bar; only auto-capture
+    // when score is strong enough that the still is likely to clear match bar.
+    final score = match.bestScore;
+    _livePreviewScore = score;
+    final mayAutoCapture =
+        score >= FaceRecognitionMatch.pilotAutoCaptureMinScore;
+    setState(() {
+      _liveOverlayHint = TimesheetFaceOverlayHint.inTeam(
+        name: emp.name,
+        fileId: emp.displayFileId,
+      );
+      _livePreviewBlockCapture = false;
+      _livePreviewAllowAutoCapture = mayAutoCapture;
+    });
+    unawaited(
+        _speech.speakEmployeeDetected(emp.name, employeeId: emp.employeeId));
+    if (!mayAutoCapture) {
+      debugPrint(
+        'FaceCapture: badge only score=${score.toStringAsFixed(3)} '
+        '(need >= ${FaceRecognitionMatch.pilotAutoCaptureMinScore} to auto-capture)',
+      );
+      return;
+    }
+    if (captureImmediately && widget.autoCaptureEnabled && !_noticeHold) {
+      unawaited(_capture());
+    } else {
+      _scheduleAutoCapture();
+    }
+  }
+
+  /// Still-capture path (`ts_norm` / takePicture) — file-based match.
+  Future<void> _applyLivePreviewMatch(
+    TimesheetFaceDetectionResult result,
+    String imagePath, {
+    bool captureImmediately = false,
+  }) async {
+    _assertLegacy1toN('live preview (iOS polling)');
+    final suppressed = _suppressEmbeddingPreviewUntil;
+    if (suppressed != null && DateTime.now().isBefore(suppressed)) {
+      return;
+    }
+    final phaseB = widget.faceRecognition;
+    final faceBox = _largestFaceBox(result.faceBoxes);
+    if (phaseB == null || !phaseB.isReady || faceBox == null) return;
+
+    final match = await phaseB.matchCapturePhoto(
+      imagePath: imagePath,
+      faceBox: faceBox,
+      landmarks: result.primaryFace,
+    );
+    if (!mounted) return;
+
+    if (match == null || match.best == null || !match.passesDisplayThreshold) {
+      _suppressEmbeddingPreviewUntil =
+          DateTime.now().add(_previewSuppressAfterMiss);
+      _clearBadgeNow(reason: 'sub_threshold');
+      return;
+    }
+    _suppressEmbeddingPreviewUntil = null;
+    _lastBadgeQualifyingAt = DateTime.now();
+
+    final emp = phaseB.employeeFromMatch(match);
+    if (emp == null) {
+      _clearBadgeNow(reason: 'no_employee');
+      return;
+    }
+    if (!captureImmediately &&
+        !await _previewFaceIsLive(faceBox: faceBox, imagePath: imagePath)) {
+      return;
+    }
+    if (!mounted) return;
+
+    if (!_acceptStablePreviewIdentity(
+      emp.employeeId,
+      force: captureImmediately,
+    )) {
+      return;
+    }
+
+    _livePreviewEmployeeId = emp.employeeId;
+
+    if (!_isOnProjectLaborList(emp.employeeId)) {
+      setState(() {
+        _liveOverlayHint = TimesheetFaceOverlayHint.outOfTeam(
+          name: emp.name,
+          fileId: emp.displayFileId,
+        );
+        _livePreviewBlockCapture = true;
+        _livePreviewAllowAutoCapture = false;
+      });
+      _emitChrome();
+      return;
+    }
+
+    if (_isEmployeeAlreadyCaptured(emp.employeeId)) {
+      final likelyReplay = await _isLikelyReplayFrame(
+        imagePath: imagePath,
+        faceBox: faceBox,
+        classification: result.classification,
+      );
+      if (!mounted) return;
+      if (likelyReplay) {
+        _blockReplayAttempt('Presentation attack detected — use live face');
+        return;
+      }
+      _enterDuplicatePreview(emp);
+      return;
+    }
+
+    final score = match.bestScore;
+    _livePreviewScore = score;
+    final mayAutoCapture =
+        score >= FaceRecognitionMatch.pilotAutoCaptureMinScore;
+    setState(() {
+      _liveOverlayHint = TimesheetFaceOverlayHint.inTeam(
+        name: emp.name,
+        fileId: emp.displayFileId,
+      );
+      _livePreviewBlockCapture = false;
+      _livePreviewAllowAutoCapture = mayAutoCapture;
+    });
+    unawaited(
+        _speech.speakEmployeeDetected(emp.name, employeeId: emp.employeeId));
+    if (!mayAutoCapture) return;
+    if (captureImmediately && widget.autoCaptureEnabled && !_noticeHold) {
+      unawaited(_capture());
+    } else {
+      _scheduleAutoCapture();
+    }
+  }
+
+  Future<void> _decideStillLegacy1toN({
+    required XFile photo,
+    required TimesheetFaceDetectionResult captureResult,
+    required AttendanceCaptureDraft draft,
+  }) async {
+    _assertLegacy1toN('still decision');
     final faceBox = _largestFaceBox(captureResult.faceBoxes);
     final faceLandmarks = captureResult.primaryFace;
     final phaseB = widget.faceRecognition;
@@ -1843,37 +2470,10 @@ class TimesheetCaptureCameraPanelState
         imagePath: matchImagePath,
         faceBox: faceBox,
         landmarks: faceLandmarks,
-        focusEmployeeId: widget.expectedEmployeeId,
       );
       if (!mounted) return;
       final score = match?.bestScore ?? 0;
       final best = match?.best;
-      // Expected-labor camera: someone else won — red only if they clearly
-      // beat the expected labor, otherwise "couldn't confirm" (never yellow).
-      if (match != null &&
-          best != null &&
-          _isUnexpectedEmployee(best.employeeId)) {
-        final verdict = _judgeUnexpected(match);
-        final emp = phaseB.employeeFromMatch(match);
-        _patchState(() => _isCapturing = false);
-        _armAutoCaptureCooldown();
-        try {
-          await File(photo.path).delete();
-        } catch (_) {}
-        if (verdict == _ExpectedLaborVerdict.mismatch && emp != null) {
-          debugPrint(
-            'FaceCapture: still matched emp=${emp.employeeId} '
-            '(${match.bestScore.toStringAsFixed(3)}) but camera is for '
-            'emp=${widget.expectedEmployeeId} — not added',
-          );
-          _enterMismatchPreview(emp, force: true);
-        } else {
-          _clearBadgeNow(reason: 'unsure_still');
-          _showUnsureStillMessage();
-        }
-        await _startLiveDetection();
-        return;
-      }
       // Yellow path: soft display bar (name only, cannot add).
       if (match != null &&
           best != null &&
@@ -1917,21 +2517,6 @@ class TimesheetCaptureCameraPanelState
         }
         final emp = phaseB.employeeFromMatch(match);
         if (emp != null) {
-          if (_isUnexpectedEmployee(emp.employeeId)) {
-            debugPrint(
-              'FaceCapture: still matched emp=${emp.employeeId} '
-              '(${match.bestScore.toStringAsFixed(3)}) but camera is for '
-              'emp=${widget.expectedEmployeeId} — not added',
-            );
-            _patchState(() => _isCapturing = false);
-            _armAutoCaptureCooldown();
-            try {
-              await File(photo.path).delete();
-            } catch (_) {}
-            _enterMismatchPreview(emp, force: true);
-            await _startLiveDetection();
-            return;
-          }
           if (_isEmployeeAlreadyCaptured(emp.employeeId)) {
             final likelyReplay = await _isLikelyReplayFrame(
               imagePath: matchImagePath,
@@ -1997,14 +2582,6 @@ class TimesheetCaptureCameraPanelState
       if (!mounted) return;
       _patchState(() => _isCapturing = false);
       if (local != null) {
-        if (_isUnexpectedEmployee(local.employee.employeeId)) {
-          _enterMismatchPreview(local.employee, force: true);
-          try {
-            await File(photo.path).delete();
-          } catch (_) {}
-          await _startLiveDetection();
-          return;
-        }
         if (!_isOnProjectLaborList(local.employee.employeeId)) {
           widget.onOutOfTeamRecognized?.call(
             local.employee,
@@ -2062,6 +2639,8 @@ class TimesheetCaptureCameraPanelState
     widget.onCaptureMatched?.call(match, draft);
     await _startLiveDetection();
   }
+
+  // ------------------------- end of AT2-only legacy 1:N ----------------------
 
   Future<void> _initializeCamera({CameraDescription? cameraOverride}) async {
     if (_cameraInitInFlight) return;
@@ -2207,7 +2786,11 @@ class TimesheetCaptureCameraPanelState
           widget.faceRecognition?.isReady == true &&
           !_isCapturing &&
           !_holdLiveMatching) {
-        await _applyLivePreviewMatch(result, matchPath);
+        if (widget.verifyTarget) {
+          await _applyLiveVerify(result, imagePath: matchPath);
+        } else {
+          await _applyLivePreviewMatch(result, matchPath);
+        }
         _lastPreviewMatchAt = DateTime.now();
       }
       try {
@@ -2281,8 +2864,13 @@ class TimesheetCaptureCameraPanelState
         _clearBadgeNow(reason: 'no_face');
       } else {
         final lastQual = _lastBadgeQualifyingAt;
+        // 1:1 re-checks a green badge every locked interval; between checks
+        // only a safety-net timeout applies.
+        final staleAfter = widget.verifyTarget
+            ? _previewMatchIntervalLocked * 2
+            : _badgeStaleTimeout;
         if (lastQual != null &&
-            now.difference(lastQual) > _badgeStaleTimeout &&
+            now.difference(lastQual) > staleAfter &&
             _liveOverlayHint != null) {
           _clearBadgeNow(reason: 'stale');
         }
@@ -2310,6 +2898,7 @@ class TimesheetCaptureCameraPanelState
               faceBox: ringBox,
               classification: result.classification,
             ),
+            landmarks: result.primaryFace,
           );
         }
       }
@@ -2672,10 +3261,15 @@ class TimesheetFaceOverlayPainter extends CustomPainter {
     required this.result,
     this.overlayHint,
     this.fit = BoxFit.cover,
+    this.verifiedOnly = false,
   });
 
   final TimesheetFaceDetectionResult result;
   final TimesheetFaceOverlayHint? overlayHint;
+
+  /// 1:1 verify mode: no marker on a face until the target is verified, so
+  /// neutral ("Verifying…", "Select a labor") badges are not painted.
+  final bool verifiedOnly;
 
   /// Must match the preview's [BoxFit] so badges land on the face.
   final BoxFit fit;
@@ -2691,6 +3285,7 @@ class TimesheetFaceOverlayPainter extends CustomPainter {
 
     final hint = overlayHint;
     final kind = hint?.kind ?? TimesheetFaceFrameKind.quality;
+    if (verifiedOnly && kind == TimesheetFaceFrameKind.quality) return;
 
     // Boxes come back in upright (rotated) image space while [imageSize] may
     // be the raw sensor frame — align orientation with the view, then map with
@@ -2710,7 +3305,6 @@ class TimesheetFaceOverlayPainter extends CustomPainter {
       TimesheetFaceFrameKind.inTeam => TmFaceMeshPainter.inTeam,
       TimesheetFaceFrameKind.outOfTeam => TmFaceMeshPainter.outOfTeam,
       TimesheetFaceFrameKind.duplicate => TmFaceMeshPainter.duplicate,
-      TimesheetFaceFrameKind.mismatch => TmFaceMeshPainter.mismatch,
       TimesheetFaceFrameKind.quality => TmFaceMeshPainter.neutral,
     };
 
@@ -2746,6 +3340,7 @@ class TimesheetFaceOverlayPainter extends CustomPainter {
   @override
   bool shouldRepaint(covariant TimesheetFaceOverlayPainter oldDelegate) {
     return oldDelegate.result != result ||
-        oldDelegate.overlayHint != overlayHint;
+        oldDelegate.overlayHint != overlayHint ||
+        oldDelegate.verifiedOnly != verifiedOnly;
   }
 }

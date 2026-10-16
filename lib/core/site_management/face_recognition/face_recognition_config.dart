@@ -23,6 +23,12 @@ abstract final class FaceRecognitionPreprocess {
 
   /// P.3 — align eyes horizontal via ML Kit landmarks before 112×112 resize.
   static const bool useLandmarkAlignment = true;
+
+  /// 5-point ArcFace similarity warp for probes compared against phone-built
+  /// profile templates (and for building those templates). Server/enrollment
+  /// templates always use the legacy crop. Flipping this also flips the
+  /// profile template pipeline version, so the cache is rebuilt.
+  static const bool useFivePointAlignment = true;
 }
 
 /// P.1 — performance targets and tuning flags.
@@ -72,6 +78,61 @@ abstract final class FaceMatchTuning {
   }
 }
 
+/// 1:1 verification bars set from Odoo system parameters
+/// `elrace.face_verify_*` (via `/api/app/config`). Out-of-range, non-finite
+/// or unset values fall back to the defaults. Read per decision.
+abstract final class FaceVerifyTuning {
+  static const double defaultMinScore = 0.30;
+  static const double defaultMinLead = 0.05;
+  static const double defaultMinScoreNoCohort = 0.40;
+  static const int defaultMinCohort = 5;
+  static const int defaultMinFacePx = 80;
+
+  static double _minScore = defaultMinScore;
+  static double _minLead = defaultMinLead;
+  static double _minScoreNoCohort = defaultMinScoreNoCohort;
+  static int _minCohort = defaultMinCohort;
+  static int _minFacePx = defaultMinFacePx;
+
+  /// Probe must reach this against the selected labor (cohort big enough).
+  static double get minScore => _minScore;
+
+  /// Probe score on the selected labor minus the best cohort score.
+  static double get minLead => _minLead;
+
+  /// Bar used instead of score + lead when the cohort is too small.
+  static double get minScoreNoCohort => _minScoreNoCohort;
+
+  /// Cohort members needed before [minScore] + [minLead] apply.
+  static int get minCohort => _minCohort;
+
+  /// Smallest face width (px, still image) that is verified at all.
+  static int get minFacePx => _minFacePx;
+
+  static void apply({
+    double? minScore,
+    double? minLead,
+    double? minScoreNoCohort,
+    int? minCohort,
+    int? minFacePx,
+  }) {
+    _minScore = _inRange(minScore, 0.10, 0.90) ? minScore! : defaultMinScore;
+    _minLead = _inRange(minLead, 0, 0.30) ? minLead! : defaultMinLead;
+    _minScoreNoCohort = _inRange(minScoreNoCohort, 0.10, 0.90)
+        ? minScoreNoCohort!
+        : defaultMinScoreNoCohort;
+    _minCohort = minCohort != null && minCohort >= 0 && minCohort <= 50
+        ? minCohort
+        : defaultMinCohort;
+    _minFacePx = minFacePx != null && minFacePx >= 48 && minFacePx <= 300
+        ? minFacePx
+        : defaultMinFacePx;
+  }
+
+  static bool _inRange(double? v, double min, double max) =>
+      v != null && v.isFinite && v >= min && v <= max;
+}
+
 abstract final class FaceRecognitionMatch {
   static const double defaultThreshold = 0.75;
   static const double idealThreshold = 0.80;
@@ -111,12 +172,8 @@ abstract final class FaceRecognitionMatch {
   static const double closeSecondDelta = 0.05;
 }
 
-/// Expected-labor camera ("Your Team"): red "wrong person" only when another
-/// employee clearly beats the labor the camera was opened for.
+/// Target-labor camera ("Your Team").
 abstract final class FaceExpectedLaborMatch {
-  static const double mismatchMinScore = 0.25;
-  static const double mismatchMinLead = 0.08;
-
   /// Retry window for a just-enrolled labor whose templates aren't synced.
   static const Duration templateRefreshCooldown = Duration(seconds: 5);
   static const int maxTemplateRefreshAttempts = 4;

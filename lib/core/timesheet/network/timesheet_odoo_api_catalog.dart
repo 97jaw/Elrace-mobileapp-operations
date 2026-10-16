@@ -91,6 +91,9 @@ abstract final class TimesheetSubmitParams {
   static const String dateTime = 'date_time';
   static const String dateTimeEnd = 'date_time_end';
   static const String coords = 'coords';
+
+  /// Optional, v2 only: `{employeeId: {verified, score, lead, ...}}`.
+  static const String faceVerification = 'face_verification';
 }
 
 /// FM screen / state → submit param source.

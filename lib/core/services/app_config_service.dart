@@ -17,6 +17,23 @@ class AppConfigService {
   static const _cacheKeyFaceIdEnabled = 'app_config_face_id_enabled';
   static const _cacheKeyFaceMatchMinScore = 'app_config_face_match_min_score';
   static const _cacheKeyFaceMatchMinLead = 'app_config_face_match_min_lead';
+  static const _cacheKeyFaceVerifyPrefix = 'app_config_';
+
+  /// `/api/app/config` keys for [FaceVerifyTuning]; cached under
+  /// `app_config_<key>`.
+  static const faceVerifyKeyMinScore = 'face_verify_min_score';
+  static const faceVerifyKeyMinLead = 'face_verify_min_lead';
+  static const faceVerifyKeyMinScoreNoCohort =
+      'face_verify_min_score_no_cohort';
+  static const faceVerifyKeyMinCohort = 'face_verify_min_cohort';
+  static const faceVerifyKeyMinFacePx = 'face_verify_min_face_px';
+  static const faceVerifyKeys = [
+    faceVerifyKeyMinScore,
+    faceVerifyKeyMinLead,
+    faceVerifyKeyMinScoreNoCohort,
+    faceVerifyKeyMinCohort,
+    faceVerifyKeyMinFacePx,
+  ];
 
   bool _isTestMode = false;
   bool get isTestMode => _isTestMode;
@@ -50,6 +67,10 @@ class AppConfigService {
         minScore: prefs.getDouble(_cacheKeyFaceMatchMinScore),
         minLead: prefs.getDouble(_cacheKeyFaceMatchMinLead),
       );
+      applyFaceVerifyConfig({
+        for (final key in faceVerifyKeys)
+          key: prefs.get('$_cacheKeyFaceVerifyPrefix$key'),
+      });
     } catch (_) {}
 
     try {
@@ -110,6 +131,9 @@ class AppConfigService {
             payload['face_match_min_lead'],
           );
         }
+        if (faceVerifyKeys.any(payload.containsKey)) {
+          await _applyAndCacheFaceVerify(payload);
+        }
       }
 
       if (remoteIsTest != null) {
@@ -156,6 +180,54 @@ class AppConfigService {
       await prefs.setDouble(
           _cacheKeyFaceMatchMinScore, FaceMatchTuning.minScore);
       await prefs.setDouble(_cacheKeyFaceMatchMinLead, FaceMatchTuning.minLead);
+    } catch (_) {}
+  }
+
+  /// Applies the `face_verify_*` values in [values] to [FaceVerifyTuning].
+  /// Missing, null, wrong type or out-of-range values keep the defaults
+  /// (older backends don't send the keys). Integers must be whole numbers.
+  @visibleForTesting
+  static void applyFaceVerifyConfig(Map<String, Object?> values) {
+    double? toDouble(Object? v) => v is num ? v.toDouble() : null;
+    int? toInt(Object? v) {
+      if (v is int) return v;
+      if (v is double && v.isFinite && v == v.roundToDouble()) {
+        return v.toInt();
+      }
+      return null;
+    }
+
+    FaceVerifyTuning.apply(
+      minScore: toDouble(values[faceVerifyKeyMinScore]),
+      minLead: toDouble(values[faceVerifyKeyMinLead]),
+      minScoreNoCohort: toDouble(values[faceVerifyKeyMinScoreNoCohort]),
+      minCohort: toInt(values[faceVerifyKeyMinCohort]),
+      minFacePx: toInt(values[faceVerifyKeyMinFacePx]),
+    );
+  }
+
+  Future<void> _applyAndCacheFaceVerify(Map<String, dynamic> payload) async {
+    applyFaceVerifyConfig(payload);
+    debugPrint(
+      'AppConfigService: face verify bars score=${FaceVerifyTuning.minScore} '
+      'lead=${FaceVerifyTuning.minLead} '
+      'noCohort=${FaceVerifyTuning.minScoreNoCohort} '
+      'minCohort=${FaceVerifyTuning.minCohort} '
+      'minFacePx=${FaceVerifyTuning.minFacePx}',
+    );
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setDouble('$_cacheKeyFaceVerifyPrefix$faceVerifyKeyMinScore',
+          FaceVerifyTuning.minScore);
+      await prefs.setDouble('$_cacheKeyFaceVerifyPrefix$faceVerifyKeyMinLead',
+          FaceVerifyTuning.minLead);
+      await prefs.setDouble(
+          '$_cacheKeyFaceVerifyPrefix$faceVerifyKeyMinScoreNoCohort',
+          FaceVerifyTuning.minScoreNoCohort);
+      await prefs.setInt('$_cacheKeyFaceVerifyPrefix$faceVerifyKeyMinCohort',
+          FaceVerifyTuning.minCohort);
+      await prefs.setInt('$_cacheKeyFaceVerifyPrefix$faceVerifyKeyMinFacePx',
+          FaceVerifyTuning.minFacePx);
     } catch (_) {}
   }
 }

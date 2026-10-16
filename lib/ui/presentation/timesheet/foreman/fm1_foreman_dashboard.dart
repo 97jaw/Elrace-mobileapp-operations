@@ -6,6 +6,7 @@ import 'package:el_race/core/timesheet/models/timesheet_models.dart';
 import 'package:el_race/core/timesheet/models/timesheet_submit_request.dart';
 import 'package:el_race/core/timesheet/models/timesheet_team_member.dart';
 import 'package:el_race/core/timesheet/providers/timesheet_data_providers.dart';
+import 'package:el_race/core/timesheet/services/capture_queue_service.dart';
 import 'package:el_race/core/timesheet/services/tm_project_location_notify_service.dart';
 import 'package:el_race/ui/presentation/timesheet/widgets/tm_submit_geofence_dialog.dart';
 import 'package:el_race/core/timesheet/providers/timesheet_enrollment_status_provider.dart';
@@ -450,21 +451,20 @@ class Fm1ForemanDashboard extends ConsumerWidget {
       final task = await _resolveCaptureTask(ref, project.id);
       if (!context.mounted) return const [];
       final today = DateTime.now();
-      final result =
-          await Navigator.of(context).push<List<TimesheetCaptureSessionEntry>>(
-        MaterialPageRoute(
-          builder: (_) => FmTimesheetCaptureSubmitScreen(
-            returnCaptures: true,
-            expectedEmployeeId: member.employeeId,
-            expectedEmployeeName: member.name,
-            alreadyCapturedEmployeeIds: alreadyCapturedIds,
-            args: TimesheetProjectDayArgs(
-              projectId: project.id,
-              projectName: project.name,
-              taskId: task.id,
-              taskName: task.name,
-              date: DateTime(today.year, today.month, today.day),
-            ),
+      final result = await FmTimesheetCaptureSubmitScreen.pushOnce<
+          List<TimesheetCaptureSessionEntry>>(
+        context,
+        FmTimesheetCaptureSubmitScreen(
+          returnCaptures: true,
+          expectedEmployeeId: member.employeeId,
+          expectedEmployeeName: member.name,
+          alreadyCapturedEmployeeIds: alreadyCapturedIds,
+          args: TimesheetProjectDayArgs(
+            projectId: project.id,
+            projectName: project.name,
+            taskId: task.id,
+            taskName: task.name,
+            date: DateTime(today.year, today.month, today.day),
           ),
         ),
       );
@@ -550,6 +550,8 @@ class Fm1ForemanDashboard extends ConsumerWidget {
     );
     if (!confirmed || !context.mounted) return false;
     if (working.isEmpty) return false;
+    await PendingCaptureWrites.flush();
+    if (!context.mounted) return false;
 
     var submitProjectId = selectedProject?.id ?? projects.first.id;
     String submitTaskId;
@@ -594,6 +596,12 @@ class Fm1ForemanDashboard extends ConsumerWidget {
             dateTimeEnd: end,
             breakTimeHours: breakHours,
             coords: coords,
+            faceAudits: [
+              for (final e in working)
+                if (TimesheetSubmitFaceAudit.fromDraft(e.employeeId, e.draft)
+                    case final audit?)
+                  audit,
+            ],
           ),
         );
       }

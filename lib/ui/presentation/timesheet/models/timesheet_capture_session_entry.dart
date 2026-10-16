@@ -8,12 +8,22 @@ class TimesheetCaptureSessionEntry {
     required this.matchScore,
     required this.draft,
     required this.capturedAt,
+    this.verifyLead,
+    this.verifyCohortSize,
+    this.verifyUsedNoCohortBar,
   });
 
   final TimesheetOdooEmployee employee;
+
+  /// 1:1 capture: the target score.
   final double matchScore;
   final AttendanceCaptureDraft draft;
   final DateTime capturedAt;
+
+  /// 1:1 verification details; null for captures made before 1:1.
+  final double? verifyLead;
+  final int? verifyCohortSize;
+  final bool? verifyUsedNoCohortBar;
 
   int get employeeId => employee.employeeId;
 }

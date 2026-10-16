@@ -67,10 +67,10 @@ class _FmDayHubScreenState extends ConsumerState<FmDayHubScreen> {
             warm: true,
             icon: PhosphorIcons.plusCircle(),
             onPressed: () async {
-              final submitted = await Navigator.of(context).push<bool>(
-                MaterialPageRoute(
-                  builder: (_) => FmTimesheetCaptureSubmitScreen(args: args),
-                ),
+              final submitted =
+                  await FmTimesheetCaptureSubmitScreen.pushOnce<bool>(
+                context,
+                FmTimesheetCaptureSubmitScreen(args: args),
               );
               if (submitted == true && context.mounted) {
                 ref.invalidate(

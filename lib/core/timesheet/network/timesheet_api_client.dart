@@ -1,4 +1,5 @@
 import 'package:dio/dio.dart';
+import 'package:el_race/core/services/device_details_headers.dart';
 import 'package:el_race/core/timesheet/models/timesheet_foreman_summary.dart';
 import 'package:el_race/core/timesheet/models/timesheet_model_parsers.dart'
     show tmIntOrNullFromJson;
@@ -608,9 +609,12 @@ class TimesheetApiClient {
     }
 
     try {
+      final appVersion = request.faceAudits.isEmpty
+          ? null
+          : (await DeviceDetailsHeaders.get())['X-App-Version'];
       final response = await _transport.postJsonRpc(
         TimesheetOdooApiCatalog.submitTimesheet,
-        params: request.toJsonRpcParams(),
+        params: request.toJsonRpcParams(appVersion: appVersion),
       );
       final result = _transport.parseResult(response, debugLabel: 'submit');
       if (result is Map && result['success'] == true) {

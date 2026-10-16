@@ -103,6 +103,7 @@ class _TmTeamMembersSheetBodyState
   late final List<TimesheetCaptureSessionEntry> _pending =
       List<TimesheetCaptureSessionEntry>.from(widget.initialCaptures);
   bool _busy = false;
+  bool _capturing = false;
   late List<TimesheetTeamMember> _members = widget.members;
   bool _reloading = false;
 
@@ -271,8 +272,14 @@ class _TmTeamMembersSheetBodyState
 
   Future<void> _capture(TimesheetTeamMember member) async {
     final handler = widget.onCaptureAttendance;
-    if (handler == null || _busy) return;
-    final entries = await handler(member, _pendingIds);
+    if (handler == null || _busy || _capturing) return;
+    _capturing = true;
+    final List<TimesheetCaptureSessionEntry> entries;
+    try {
+      entries = await handler(member, _pendingIds);
+    } finally {
+      _capturing = false;
+    }
     if (!mounted || entries.isEmpty) return;
     final existing = _pendingIds;
     final duplicates = entries

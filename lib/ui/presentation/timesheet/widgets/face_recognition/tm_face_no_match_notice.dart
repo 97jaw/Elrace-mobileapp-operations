@@ -1,5 +1,6 @@
 import 'package:el_race/core/theme/timesheet_module_theme.dart';
 import 'package:el_race/core/widgets/timesheet/timesheet_widgets.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:phosphor_flutter/phosphor_flutter.dart';
 
@@ -9,16 +10,16 @@ class TmFaceNoMatchNotice extends StatelessWidget {
     super.key,
     required this.onDismiss,
     this.bestScore,
-    this.suspectedName,
   });
 
   final VoidCallback onDismiss;
+
+  /// Shown in debug builds only.
   final double? bestScore;
-  final String? suspectedName;
 
   @override
   Widget build(BuildContext context) {
-    final scoreLine = bestScore != null
+    final scoreLine = kDebugMode && bestScore != null
         ? 'Best score ${(bestScore! * 100).toStringAsFixed(0)}% — below threshold.'
         : 'No enrolled face matched this capture.';
 
@@ -58,19 +59,13 @@ class TmFaceNoMatchNotice extends StatelessWidget {
                         ),
                         IconButton(
                           onPressed: onDismiss,
-                          icon: Icon(PhosphorIcons.x(), color: TimesheetModuleColors.mutedText),
+                          icon: Icon(PhosphorIcons.x(),
+                              color: TimesheetModuleColors.mutedText),
                         ),
                       ],
                     ),
                     const SizedBox(height: 8),
                     Text(scoreLine, style: TimesheetModuleTypography.body()),
-                    if (suspectedName != null && suspectedName!.isNotEmpty) ...[
-                      const SizedBox(height: 4),
-                      Text(
-                        'Closest: $suspectedName',
-                        style: TimesheetModuleTypography.caption(),
-                      ),
-                    ],
                     const SizedBox(height: 8),
                     Text(
                       'Select the labor manually from the list below.',
