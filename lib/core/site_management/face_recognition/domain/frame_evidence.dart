@@ -45,6 +45,8 @@ class FrameEvidence {
     required this.identityStatus,
     required this.pad,
     this.rgbFrame,
+    this.modelFaceBox,
+    this.photoJpeg,
     this.identity,
     this.classification,
     this.landmarks,
@@ -54,13 +56,22 @@ class FrameEvidence {
   });
 
   final DateTime timestamp;
+
+  /// Face box in full upright frame space (overlay / eligibility).
   final Rect faceBox;
 
   /// Upright decoded frame size (width × height).
   final Size frameSize;
 
-  /// Pixels kept only while this frame is the current best candidate.
+  /// Small model RGB kept for every frame in the window (Android region crop
+  /// or iOS full frame). Released when the frame leaves the window.
   img.Image? rgbFrame;
+
+  /// [faceBox] remapped into [rgbFrame] coordinates (identity/PAD/save).
+  final Rect? modelFaceBox;
+
+  /// JPEG of a face crop for the saved attendance photo (optional).
+  List<int>? photoJpeg;
 
   final double qualityScore;
   final FrameIdentityStatus identityStatus;
@@ -76,8 +87,14 @@ class FrameEvidence {
       pad == FramePadVerdict.live &&
       identityStatus == FrameIdentityStatus.verified;
 
+  bool get hasPixels => rgbFrame != null || (photoJpeg != null && photoJpeg!.isNotEmpty);
+
+  /// Face box to use with [rgbFrame] (crop-local when present).
+  Rect get rgbFaceBox => modelFaceBox ?? faceBox;
+
   void releasePixels() {
     rgbFrame = null;
+    photoJpeg = null;
   }
 }
 
@@ -133,8 +150,16 @@ abstract final class BestFrameRules {
   static const Duration windowDurationMax = Duration(milliseconds: 2500);
   static const double windowIntervalFactor = 3.5;
   static const Duration minAcceptSpan = Duration(milliseconds: 400);
+
+  /// When [minLiveVerifiedFrames] is 2, require a slightly longer span.
+  static const Duration minAcceptSpanForTwoFrames = Duration(milliseconds: 500);
+
+  /// Temporal (frozen-box/motion) needs ≥3 classified frames spanning this.
+  static const Duration minTemporalSpan = Duration(milliseconds: 600);
+  static const int minTemporalSamples = 3;
+  static const int defaultMinLiveVerifiedFrames = 3;
   static const Duration processInterval = Duration(milliseconds: 200);
-  static const Duration processIntervalLowEnd = Duration(milliseconds: 400);
+  static const Duration processIntervalLowEnd = Duration(milliseconds: 333);
   static const Duration spoofCooldown = Duration(milliseconds: 1500);
   static const Duration manualWait = Duration(milliseconds: 1500);
   static const Duration waitingLogInterval = Duration(seconds: 2);
@@ -384,25 +409,45 @@ abstract final class BestFrameRules {
     return kept;
   }
 
-  /// Keep pixels only on [best]; release the rest.
+  /// Deprecated: pixels are kept for every frame until [pruneWindow].
+  /// Kept as a no-op so older call sites compile.
   static void retainBestPixels(
     List<FrameEvidence> window,
     FrameEvidence? best,
   ) {
-    for (final e in window) {
-      if (!identical(e, best)) e.releasePixels();
-    }
+    // Intentionally empty — releasing non-best pixels caused
+    // best_missing_pixels_or_verify when accept picked another frame.
   }
 
-  /// ACCEPT RULE (exactly as TASK 08 §4).
+  /// Among live+verified frames, pick highest quality that still has pixels.
+  static FrameEvidence? bestLiveVerifiedWithPixels(List<FrameEvidence> window) {
+    FrameEvidence? best;
+    for (final e in window) {
+      if (!e.isLiveVerified || !e.hasPixels) continue;
+      if (best == null || e.qualityScore > best.qualityScore) best = e;
+    }
+    return best;
+  }
+
+  /// ACCEPT RULE (TASK 08 §4 + configurable min live+verified count).
+  ///
+  /// [minLiveVerifiedFrames] defaults to 3 (unchanged behaviour). Valid 2–5;
+  /// when 2, span must be ≥ [minAcceptSpanForTwoFrames] (500 ms), else
+  /// ≥ [minAcceptSpan] (400 ms). Temporal still runs on available frames.
   ///
   /// [temporalOverride] lets unit tests inject a temporal verdict; when null,
-  /// [TemporalPadHeuristics.forBurst] runs on window frames that have
-  /// classification (existing thresholds, unchanged).
+  /// [TemporalPadHeuristics.forBestFrame] runs on classified window frames
+  /// once ≥[minTemporalSamples] span ≥[minTemporalSpan] (frozen/motion
+  /// thresholds unchanged from burst).
   static BestFrameAcceptDecision evaluateAccept(
     List<FrameEvidence> window, {
     TemporalPadVerdict? temporalOverride,
+    int? minLiveVerifiedFrames,
   }) {
+    final minFrames = (minLiveVerifiedFrames ?? defaultMinLiveVerifiedFrames)
+        .clamp(2, 5);
+    final spanRequired = minFrames <= 2 ? minAcceptSpanForTwoFrames : minAcceptSpan;
+
     final spoofCount =
         window.where((e) => e.pad == FramePadVerdict.spoof).length;
     if (spoofCount > 0) {
@@ -416,7 +461,7 @@ abstract final class BestFrameRules {
 
     final accepted =
         window.where((e) => e.isLiveVerified).toList(growable: false);
-    if (accepted.length < 3) {
+    if (accepted.length < minFrames) {
       return BestFrameAcceptDecision(
         accepted: false,
         waitReason: 'need_frames',
@@ -427,7 +472,7 @@ abstract final class BestFrameRules {
 
     accepted.sort((a, b) => a.timestamp.compareTo(b.timestamp));
     final span = accepted.last.timestamp.difference(accepted.first.timestamp);
-    if (span < minAcceptSpan) {
+    if (span < spanRequired) {
       return BestFrameAcceptDecision(
         accepted: false,
         waitReason: 'span',
@@ -477,11 +522,32 @@ abstract final class BestFrameRules {
   }
 
   static TemporalPadVerdict _runTemporal(List<FrameEvidence> window) {
-    final temporal = TemporalPadHeuristics.forBurst();
+    final classified = <FrameEvidence>[];
     for (final e in window) {
-      final c = e.classification;
-      if (c == null) continue;
-      temporal.addSample(face: c, boundingBox: e.faceBox);
+      if (e.classification == null) continue;
+      classified.add(e);
+    }
+    if (classified.length < minTemporalSamples) {
+      return const TemporalPadVerdict(
+        passed: false,
+        reason: 'Collecting motion…',
+        ready: false,
+      );
+    }
+    classified.sort((a, b) => a.timestamp.compareTo(b.timestamp));
+    final span = classified.last.timestamp
+        .difference(classified.first.timestamp);
+    if (span < minTemporalSpan) {
+      return const TemporalPadVerdict(
+        passed: false,
+        reason: 'Collecting motion…',
+        ready: false,
+      );
+    }
+
+    final temporal = TemporalPadHeuristics.forBestFrame();
+    for (final e in classified) {
+      temporal.addSample(face: e.classification!, boundingBox: e.faceBox);
     }
     return temporal.evaluate();
   }

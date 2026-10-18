@@ -2,6 +2,7 @@ import 'dart:io';
 import 'dart:math' as math;
 import 'dart:typed_data';
 
+import 'package:el_race/core/site_management/face_recognition/android_face_capture_perf.dart';
 import 'package:el_race/core/site_management/face_recognition/face_recognition_config.dart';
 import 'package:el_race/core/site_management/face_recognition/tflite_bytebuffer_worker.dart';
 import 'package:el_race/core/site_management/face_recognition/tflite_interpreter_factory.dart';
@@ -66,6 +67,7 @@ class FaceEmbedder {
     }
 
     final android = Platform.isAndroid;
+    final threads = android ? AndroidFaceCapturePerf.tfliteThreads : null;
     _interpreter = await TfliteInterpreterFactory.fromAsset(
       FaceRecognitionModel.assetPath,
       fixedInputShape: const [
@@ -75,7 +77,7 @@ class FaceEmbedder {
         FaceRecognitionPreprocess.inputChannels,
       ],
       preferXnnpack: false,
-      numThreads: android ? 4 : null,
+      numThreads: threads,
     );
     _outputScratch = Float32List(FaceRecognitionModel.embeddingDim);
     _loadCount += 1;
@@ -101,7 +103,8 @@ class FaceEmbedder {
     debugPrint(
       'FaceEmbedder: INTERPRETER_CACHED load#$_loadCount '
       'backend=$factoryBackend invoke=${_backend.name} '
-      'threads=${android ? 4 : "default"} '
+      'threads=${threads ?? "default"} '
+      'lowEnd=${AndroidFaceCapturePerf.isLowEnd} '
       'asset=${FaceRecognitionModel.assetPath} '
       'in=$inShape out=$outShape',
     );
@@ -142,6 +145,8 @@ class FaceEmbedder {
           FaceRecognitionPreprocess.inputWidth *
           FaceRecognitionPreprocess.inputChannels,
     );
+    // Android never selects mainByteBuffer — it blocks the UI isolate every
+    // cycle even when single-call ms is lower. Winner = isolate | worker only.
     final timings = <EmbInvokeBackend, int>{};
 
     // 1) IsolateInterpreter (baseline — already created).
@@ -197,14 +202,13 @@ class FaceEmbedder {
       }
     }
 
-    // 3) Main-isolate ByteBuffer.
+    // 3) Time main-isolate ByteBuffer for logs only — never select it.
+    int? mainMs;
     try {
       await _timeOnce(() => _invokeMainByteBuffer(probe));
-      timings[EmbInvokeBackend.mainByteBuffer] =
-          await _timeOnce(() => _invokeMainByteBuffer(probe));
+      mainMs = await _timeOnce(() => _invokeMainByteBuffer(probe));
       debugPrint(
-        'FaceEmbedder: A/B mainByteBuffer_ms='
-        '${timings[EmbInvokeBackend.mainByteBuffer]}',
+        'FaceEmbedder: A/B mainByteBuffer_ms=$mainMs (excluded on Android)',
       );
     } catch (e) {
       debugPrint('FaceEmbedder: A/B mainByteBuffer failed: $e');
@@ -215,19 +219,32 @@ class FaceEmbedder {
       return;
     }
 
-    var best = EmbInvokeBackend.isolateInterpreter;
-    var bestMs = timings[best] ?? 1 << 30;
-    for (final e in timings.entries) {
-      if (e.value < bestMs) {
-        best = e.key;
-        bestMs = e.value;
+    // Prefer workerByteBuffer whenever it works — keeps invoke off the UI
+    // isolate (main is excluded even when faster). Fall back to isolate.
+    final EmbInvokeBackend best;
+    final int bestMs;
+    final workerMs = timings[EmbInvokeBackend.workerByteBuffer];
+    if (worker != null && workerMs != null) {
+      best = EmbInvokeBackend.workerByteBuffer;
+      bestMs = workerMs;
+    } else {
+      var pick = EmbInvokeBackend.isolateInterpreter;
+      var pickMs = timings[pick] ?? 1 << 30;
+      for (final e in timings.entries) {
+        if (e.key == EmbInvokeBackend.mainByteBuffer) continue;
+        if (e.value < pickMs) {
+          pick = e.key;
+          pickMs = e.value;
+        }
       }
+      best = pick;
+      bestMs = pickMs;
     }
     debugPrint(
       'FaceEmbedder: A/B keep=${best.name} ms=$bestMs '
       '(isolate=${timings[EmbInvokeBackend.isolateInterpreter]} '
       'worker=${timings[EmbInvokeBackend.workerByteBuffer]} '
-      'main=${timings[EmbInvokeBackend.mainByteBuffer]})',
+      'main=$mainMs excluded)',
     );
 
     // Apply winner without closing the shared Interpreter.
@@ -249,13 +266,14 @@ class FaceEmbedder {
         _worker = worker;
         _backend = EmbInvokeBackend.workerByteBuffer;
       case EmbInvokeBackend.mainByteBuffer:
+        // Unreachable on Android — guarded above; keep isolate if hit.
         if (worker != null) {
           try {
             await worker.close();
           } catch (_) {}
         }
         _worker = null;
-        _backend = EmbInvokeBackend.mainByteBuffer;
+        await _forceIsolateInterpreterFallback(reason: 'android_no_main');
     }
   }
 
@@ -309,6 +327,11 @@ class FaceEmbedder {
       throw ArgumentError('input length ${inputNhwc.length}, expected $expected');
     }
 
+    // Hard rule: never invoke MobileFaceNet on the Android UI isolate.
+    if (Platform.isAndroid && _backend == EmbInvokeBackend.mainByteBuffer) {
+      await _forceIsolateInterpreterFallback(reason: 'android_no_main');
+    }
+
     final sw = Stopwatch()..start();
     try {
       switch (_backend) {
@@ -344,7 +367,8 @@ class FaceEmbedder {
           TfliteInterpreterFactory.backendFor(FaceRecognitionModel.assetPath);
       debugPrint(
         'FaceEmbedder: model=${FaceRecognitionModel.assetPath} '
-        'backend=$factoryBackend threads=${Platform.isAndroid ? 4 : "default"} '
+        'backend=$factoryBackend '
+        'threads=${Platform.isAndroid ? AndroidFaceCapturePerf.tfliteThreads : "default"} '
         'isolate=${_backend != EmbInvokeBackend.mainByteBuffer} '
         'invoke=${_backend.name} first_invoke_ms=$lastInferenceMs',
       );

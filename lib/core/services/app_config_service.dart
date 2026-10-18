@@ -40,6 +40,15 @@ class AppConfigService {
   static const _cacheKeyFaceBestFrameEnabled =
       'app_config_face_best_frame_enabled';
 
+  /// Min live+verified frames for best-frame accept (Odoo
+  /// `elrace.face_best_frame_min_live_frames`). Default 3; valid 3–5.
+  /// Values below 3 (e.g. remote `2`) are rejected so accept stays unrelaxed.
+  static const faceBestFrameMinLiveFramesKey =
+      'face_best_frame_min_live_frames';
+  static const _cacheKeyFaceBestFrameMinLiveFrames =
+      'app_config_face_best_frame_min_live_frames';
+  static const int faceBestFrameMinLiveFramesDefault = 3;
+
   /// Code kill switch for best-frame pipeline. When false, the Odoo flag is
   /// ignored and today's fast/slow path is used.
   static const bool faceBestFrameCodeEnabled = true;
@@ -72,6 +81,10 @@ class AppConfigService {
   bool get faceBestFrameEnabled =>
       faceBestFrameCodeEnabled && (_faceBestFrameEnabledRemote ?? true);
 
+  /// Accept-rule minimum live+verified frames. Missing/invalid → 3.
+  int _faceBestFrameMinLiveFrames = faceBestFrameMinLiveFramesDefault;
+  int get faceBestFrameMinLiveFrames => _faceBestFrameMinLiveFrames;
+
   /// Load config from remote API and cache locally
   Future<void> load() async {
     // Try read cached values first
@@ -84,6 +97,10 @@ class AppConfigService {
         _faceBestFrameEnabledRemote =
             prefs.getBool(_cacheKeyFaceBestFrameEnabled);
       }
+      _faceBestFrameMinLiveFrames = parseFaceBestFrameMinLiveFrames(
+            prefs.get(_cacheKeyFaceBestFrameMinLiveFrames),
+          ) ??
+          faceBestFrameMinLiveFramesDefault;
       FaceMatchTuning.apply(
         minScore: prefs.getDouble(_cacheKeyFaceMatchMinScore),
         minLead: prefs.getDouble(_cacheKeyFaceMatchMinLead),
@@ -157,6 +174,11 @@ class AppConfigService {
         }
         if (payload.containsKey(faceBestFrameEnabledKey)) {
           await _applyAndCacheFaceBestFrame(payload[faceBestFrameEnabledKey]);
+        }
+        if (payload.containsKey(faceBestFrameMinLiveFramesKey)) {
+          await _applyAndCacheFaceBestFrameMinLiveFrames(
+            payload[faceBestFrameMinLiveFramesKey],
+          );
         }
       }
 
@@ -289,6 +311,42 @@ class AppConfigService {
         await prefs.remove(_cacheKeyFaceBestFrameEnabled);
       } else {
         await prefs.setBool(_cacheKeyFaceBestFrameEnabled, parsed);
+      }
+    } catch (_) {}
+  }
+
+  /// Parses `face_best_frame_min_live_frames`. Valid ints in 3–5 only;
+  /// null / missing / invalid (including 2) → null (caller keeps default 3).
+  @visibleForTesting
+  static int? parseFaceBestFrameMinLiveFrames(Object? raw) {
+    int? n;
+    if (raw is int) {
+      n = raw;
+    } else if (raw is double && raw.isFinite && raw == raw.roundToDouble()) {
+      n = raw.toInt();
+    } else if (raw is String) {
+      n = int.tryParse(raw.trim());
+    }
+    if (n == null) return null;
+    if (n < 3 || n > 5) return null;
+    return n;
+  }
+
+  Future<void> _applyAndCacheFaceBestFrameMinLiveFrames(Object? raw) async {
+    final parsed = parseFaceBestFrameMinLiveFrames(raw);
+    _faceBestFrameMinLiveFrames =
+        parsed ?? faceBestFrameMinLiveFramesDefault;
+    debugPrint(
+      'AppConfigService: face_best_frame_min_live_frames='
+      '${parsed == null ? 'null→$faceBestFrameMinLiveFramesDefault' : parsed} '
+      'effective=$_faceBestFrameMinLiveFrames',
+    );
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      if (parsed == null) {
+        await prefs.remove(_cacheKeyFaceBestFrameMinLiveFrames);
+      } else {
+        await prefs.setInt(_cacheKeyFaceBestFrameMinLiveFrames, parsed);
       }
     } catch (_) {}
   }

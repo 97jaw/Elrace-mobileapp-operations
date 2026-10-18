@@ -2,6 +2,7 @@ import 'dart:io';
 import 'dart:math' as math;
 import 'dart:ui';
 
+import 'package:el_race/core/site_management/face_recognition/android_face_capture_perf.dart';
 import 'package:el_race/core/site_management/face_recognition/antispoof/antispoof_config.dart';
 import 'package:el_race/core/site_management/face_recognition/antispoof/minifasnet_preprocessor.dart';
 import 'package:el_race/core/site_management/face_recognition/tflite_interpreter_factory.dart';
@@ -81,18 +82,19 @@ class MinifasnetFusionEngine {
     }
 
     final android = Platform.isAndroid;
+    final threads = android ? AndroidFaceCapturePerf.tfliteThreads : null;
     const fasShape = [1, AntispoofConfig.inputSize, AntispoofConfig.inputSize, 3];
     _v2 = await TfliteInterpreterFactory.fromAsset(
       AntispoofConfig.modelV2Asset,
       fixedInputShape: fasShape,
       preferXnnpack: false,
-      numThreads: android ? 4 : null,
+      numThreads: threads,
     );
     _v1Se = await TfliteInterpreterFactory.fromAsset(
       AntispoofConfig.modelV1SeAsset,
       fixedInputShape: fasShape,
       preferXnnpack: false,
-      numThreads: android ? 4 : null,
+      numThreads: threads,
     );
     if (android) {
       _v2Isolate = await IsolateInterpreter.create(
@@ -109,7 +111,9 @@ class MinifasnetFusionEngine {
       'MinifasnetFusionEngine: INTERPRETER_CACHED load#$_loadCount '
       'v2_backend=${TfliteInterpreterFactory.backendFor(AntispoofConfig.modelV2Asset)} '
       'v1se_backend=${TfliteInterpreterFactory.backendFor(AntispoofConfig.modelV1SeAsset)} '
-      'invoke=$invokeMode threads=${android ? 4 : "default"} '
+      'invoke=$invokeMode threads=${threads ?? "default"} '
+      'sequentialPad=${AndroidFaceCapturePerf.sequentialPad} '
+      'lowEnd=${AndroidFaceCapturePerf.isLowEnd} '
       'v2=${AntispoofConfig.modelV2Asset} '
       'v1se=${AntispoofConfig.modelV1SeAsset}',
     );
@@ -154,20 +158,30 @@ class MinifasnetFusionEngine {
     var v1Ms = 0;
 
     if (_v2Isolate != null && _v1SeIsolate != null) {
-      final v2Sw = Stopwatch()..start();
-      final v1Sw = Stopwatch()..start();
-      final pair = await Future.wait([
-        _runIsolate(_v2Isolate!, v2Input, _v2Out).then((r) {
-          v2Ms = v2Sw.elapsedMilliseconds;
-          return r;
-        }),
-        _runIsolate(_v1SeIsolate!, v1Input, _v1Out).then((r) {
-          v1Ms = v1Sw.elapsedMilliseconds;
-          return r;
-        }),
-      ]);
-      v2Probs = pair[0];
-      v1Probs = pair[1];
+      if (AndroidFaceCapturePerf.sequentialPad) {
+        // Low-end Android: avoid 2×4-thread PAD fighting the embedder + ML Kit.
+        final v2Sw = Stopwatch()..start();
+        v2Probs = await _runIsolate(_v2Isolate!, v2Input, _v2Out);
+        v2Ms = v2Sw.elapsedMilliseconds;
+        final v1Sw = Stopwatch()..start();
+        v1Probs = await _runIsolate(_v1SeIsolate!, v1Input, _v1Out);
+        v1Ms = v1Sw.elapsedMilliseconds;
+      } else {
+        final v2Sw = Stopwatch()..start();
+        final v1Sw = Stopwatch()..start();
+        final pair = await Future.wait([
+          _runIsolate(_v2Isolate!, v2Input, _v2Out).then((r) {
+            v2Ms = v2Sw.elapsedMilliseconds;
+            return r;
+          }),
+          _runIsolate(_v1SeIsolate!, v1Input, _v1Out).then((r) {
+            v1Ms = v1Sw.elapsedMilliseconds;
+            return r;
+          }),
+        ]);
+        v2Probs = pair[0];
+        v1Probs = pair[1];
+      }
     } else {
       final v2Sw = Stopwatch()..start();
       v2Probs = await _runMain(_v2!, v2Input);
@@ -194,11 +208,14 @@ class MinifasnetFusionEngine {
     }
     if (!_loggedBackendOnce) {
       _loggedBackendOnce = true;
-      final threads = Platform.isAndroid ? 4 : 'default';
+      final threads = Platform.isAndroid
+          ? AndroidFaceCapturePerf.tfliteThreads
+          : 'default';
       debugPrint(
         'MinifasnetFusionEngine: model=${AntispoofConfig.modelV2Asset} '
         'backend=${TfliteInterpreterFactory.backendFor(AntispoofConfig.modelV2Asset)} '
         'threads=$threads isolate=${_v2Isolate != null} '
+        'sequential=${AndroidFaceCapturePerf.sequentialPad} '
         'first_invoke_ms=$v2Ms',
       );
       debugPrint(

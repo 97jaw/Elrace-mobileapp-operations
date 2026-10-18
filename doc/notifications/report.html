@@ -1,0 +1,1402 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="en" xml:lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="generator" content="pandoc" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
+  <meta name="dcterms.date" content="2026-10-15" />
+  <title>Elrace Mobile App — Notifications Catalogue and Trigger Points</title>
+  <style>
+    /* Default styles provided by pandoc.
+    ** See https://pandoc.org/MANUAL.html#variables-for-html for config info.
+    */
+    span.smallcaps{font-variant: small-caps;}
+    div.columns{display: flex; gap: min(4vw, 1.5em);}
+    div.column{flex: auto; overflow-x: auto;}
+    div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+    /* The extra [class] is a hack that increases specificity enough to
+       override a similar rule in reveal.js */
+    ul.task-list[class]{list-style: none;}
+    ul.task-list li input[type="checkbox"] {
+      font-size: inherit;
+      width: 0.8em;
+      margin: 0 0.8em 0.2em -1.6em;
+      vertical-align: middle;
+    }
+    .display.math{display: block; text-align: center; margin: 0.5rem auto;}
+  </style>
+  <link rel="stylesheet" href="report.css" />
+</head>
+<body>
+<header id="title-block-header">
+<h1 class="title">Elrace Mobile App — Notifications Catalogue and
+Trigger Points</h1>
+<p class="subtitle">Module-wise inventory, backend triggers, app display
+and tap behaviour, and issues</p>
+<p class="date">15 October 2026</p>
+</header>
+<p><strong>Scope.</strong> Every notification the Elrace mobile app can
+show, from three sources:</p>
+<ul>
+<li><strong>Odoo backend</strong> (<code>odoo14-clients</code>, branch
+<code>elrace-addons</code>): FCM pushes and the notification inbox.</li>
+<li><strong>Firebase Cloud Functions</strong> (<code>functions/</code>,
+<code>functions-assignment/</code> in the mobile repo): chat, notes,
+signed documents, tasks and tickets, and announcement fan-out.</li>
+<li><strong>The app itself</strong>
+(<code>Elrace-mobileapp-operations</code>, Flutter): locally scheduled
+notifications (prayer, tasks, check-in reminders).</li>
+</ul>
+<p>Line numbers refer to the code as of 15 October 2026.</p>
+<h1 id="summary">1. Summary</h1>
+<table>
+<colgroup>
+<col style="width: 50%" />
+<col style="width: 50%" />
+</colgroup>
+<thead>
+<tr>
+<th>Item</th>
+<th>Count / finding</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Live push triggers in Odoo</td>
+<td>About 35, across 11 business areas</td>
+</tr>
+<tr>
+<td>Cloud Function push types</td>
+<td>6 (chat, document signed, note shared, task, ticket,
+announcement/circular)</td>
+</tr>
+<tr>
+<td>Local notifications scheduled by the app</td>
+<td>7 active types (prayer x2, task x5); check-in/out reminders are
+disabled</td>
+</tr>
+<tr>
+<td>Push types that open a screen when tapped</td>
+<td><strong>3 only</strong>: chat, task/ticket,
+circular/announcement</td>
+</tr>
+<tr>
+<td>Push types that do nothing when tapped</td>
+<td>All Odoo approval, HR request, project, attendance, document expiry,
+share, widget, admin and note pushes</td>
+</tr>
+<tr>
+<td>Notification Center row tap</td>
+<td><strong>Does nothing</strong></td>
+</tr>
+<tr>
+<td>Confirmed duplicate</td>
+<td>Approving an LPO, invoice or petty cash from the app sends two
+pushes to the requester and two to the next reviewer</td>
+</tr>
+<tr>
+<td>Confirmed tap bug</td>
+<td>After logging in from the sign-in screen, all notification taps are
+ignored until the app is restarted</td>
+</tr>
+</tbody>
+</table>
+<p>The four highest-impact problems are in section 9.1.</p>
+<h1 id="how-a-notification-reaches-the-phone">2. How a notification
+reaches the phone</h1>
+<h2 id="odoo-push-path-most-notifications">2.1 Odoo push path (most
+notifications)</h2>
+<ol type="1">
+<li>A business event runs in Odoo (for example, a leave request is
+submitted, or an LPO tier is approved).</li>
+<li>The code calls
+<code>elrace.notification._send_fcm_push(token, title, body, data)</code>
+(<code>elrace_dashboard/models/elrace_notification.py:2603</code>).</li>
+<li>That method:
+<ul>
+<li>finds the user for the token;</li>
+<li>checks the user’s mute settings
+(<code>mobile.notification.preference</code>); if the category is muted,
+<strong>nothing is sent and nothing is stored</strong>;</li>
+<li>stores an inbox row (<code>expo.notifications</code> +
+<code>expo.notification.users</code>) unless the record is one of the
+four “push-only” approval models (<code>employee.requests</code>,
+<code>purchase.order</code>, <code>account.move</code>,
+<code>hr.expense.sheet</code>);</li>
+<li>sends one FCM HTTP v1 message to the user’s
+<code>res.users.expo_token</code>.</li>
+</ul></li>
+<li>FCM credentials are read from <code>operating.unit</code> record
+<strong>id 6</strong> (hard-coded).</li>
+</ol>
+<p><strong>The data sent to the phone is always only these
+keys:</strong> <code>record_id</code>, <code>model</code>,
+<code>status</code>, <code>category</code>, <code>click_action</code>
+(<code>OPEN_RECORD</code>), and <code>notification_id</code> /
+<code>notification_user_id</code> when an inbox row was stored. Any
+other key (for example <code>type</code>, <code>request_id</code>,
+<code>vendor_name</code>) is dropped from the push. A missing key
+arrives as the literal text <code>"None"</code>.</p>
+<h2 id="pending-reviewer-path-approvals">2.2 Pending-reviewer path
+(approvals)</h2>
+<p>When someone must approve something,
+<code>_notify_pending_reviewer</code>
+(<code>elrace_notification.py:2290</code>) sends three things:</p>
+<ul>
+<li>the FCM push above;</li>
+<li>an inbox row, <strong>always</strong> (it ignores the push-only rule
+and the mute setting);</li>
+<li>a push to the Elrace Hub web app
+(<code>POST {hub}/api/hub/notifications/push</code>).</li>
+</ul>
+<h2 id="cloud-function-path">2.3 Cloud Function path</h2>
+<table>
+<colgroup>
+<col style="width: 33%" />
+<col style="width: 33%" />
+<col style="width: 33%" />
+</colgroup>
+<thead>
+<tr>
+<th>Function</th>
+<th>File</th>
+<th>Fires on</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>onNewChatMessage</code></td>
+<td><code>functions/index.js:58</code></td>
+<td>New Firestore chat message</td>
+</tr>
+<tr>
+<td>Note shared</td>
+<td><code>functions/notes_share_notify.js:62</code></td>
+<td>A note is shared with a user</td>
+</tr>
+<tr>
+<td>Document signed</td>
+<td><code>functions/sign_document_sync.js:136</code></td>
+<td>A document sent for signing is signed</td>
+</tr>
+<tr>
+<td><code>onAssignedTodoCreated</code>, <code>onTodoCompleted</code>,
+<code>onAssignmentPushRequest</code></td>
+<td><code>functions-assignment/index.js:130, 169, 224</code></td>
+<td>Task/ticket created, completed, or queued by the app</td>
+</tr>
+<tr>
+<td><code>onOdooAnnouncementPushJob</code></td>
+<td><code>functions/odoo_announcement_push.js:101</code></td>
+<td>Odoo writes a job to Firestore <code>odoo_push_jobs</code> when a
+circular/announcement is published</td>
+</tr>
+</tbody>
+</table>
+<p>These use Firestore tokens (<code>users/{uid}/fcm_tokens</code>), not
+the Odoo token. The announcement function fetches tokens from Odoo
+(<code>POST /api/internal/staff_fcm_tokens</code>).</p>
+<h2 id="what-the-app-does-with-a-push">2.4 What the app does with a
+push</h2>
+<table>
+<colgroup>
+<col style="width: 33%" />
+<col style="width: 33%" />
+<col style="width: 33%" />
+</colgroup>
+<thead>
+<tr>
+<th>App state</th>
+<th>Handler</th>
+<th>Behaviour</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Open (foreground)</td>
+<td><code>FirebaseService</code> <code>onMessage</code>
+(<code>lib/firebase_service.dart:163</code>)</td>
+<td>Works out the category (<code>category</code>, then
+<code>type</code>, then <code>model</code>). Checks mute. Chat is not
+bannered here. Everything else is shown as a local notification on
+channel <code>high_importance_channel</code>. Saved to the local inbox.
+Badge refreshed.</td>
+</tr>
+<tr>
+<td>Background / killed</td>
+<td><code>_firebaseMessagingBackgroundHandler</code>
+(<code>lib/main.dart:100</code>)</td>
+<td>The phone’s system tray shows the push. The handler saves it to the
+local inbox.</td>
+</tr>
+<tr>
+<td>Tapped</td>
+<td><code>_handleNotificationTap</code>
+(<code>lib/firebase_service.dart:778</code>)</td>
+<td>Routes on <code>category</code> or <code>type</code>: prayer, chat,
+task/ticket, circular/announcement. <strong>Anything else is “view only”
+and nothing opens.</strong></td>
+</tr>
+</tbody>
+</table>
+<h1 id="notification-catalogue-by-module">3. Notification catalogue by
+module</h1>
+<p>Column guide:</p>
+<ul>
+<li><strong>Trigger</strong> — the exact event in code.</li>
+<li><strong>To</strong> — who receives it.</li>
+<li><strong>Inbox</strong> — whether it appears in the Notification
+Center list (server inbox).</li>
+<li><strong>Tap</strong> — what opens when the user taps it.</li>
+</ul>
+<h2
+id="hr-employee-requests-leave-sick-short-leave-job-mission-effective-date-temporary-permission">3.1
+HR — Employee requests (leave, sick, short leave, job mission, effective
+date, temporary permission)</h2>
+<table style="width:100%;">
+<colgroup>
+<col style="width: 16%" />
+<col style="width: 16%" />
+<col style="width: 16%" />
+<col style="width: 16%" />
+<col style="width: 16%" />
+<col style="width: 16%" />
+</colgroup>
+<thead>
+<tr>
+<th>#</th>
+<th>Notification (title / body)</th>
+<th>Trigger</th>
+<th>To</th>
+<th>Inbox</th>
+<th>Tap</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>HR-1</td>
+<td>“Short Leave Request”, “Sick Leave Request”, “Job Mission Request”,
+“Effective Date Update Request”, “Temporary Permission”, “Leave Request”
+— “{employee} has submitted …”. <strong>Annual leave falls back
+to</strong> “New Request Submitted” / “{employee} submitted a new
+request.”</td>
+<td>Request submitted from the app: <code>/api/submit_request</code> and
+<code>/api/hr/submit_request</code> →
+<code>send_employee_request_notification</code>
+(<code>elrace_notification.py:1695</code>; text at 1873-1906)</td>
+<td>Next pending approver(s)</td>
+<td>Yes</td>
+<td>Nothing</td>
+</tr>
+<tr>
+<td>HR-2</td>
+<td>“Request Approved” / “{approver} has approved your request.” — or
+“Request Rejected” / “… has rejected your request.”</td>
+<td>Approver acts in the app:
+<code>/api/approve_reject_hr_request</code> →
+<code>send_employee_request_status_update</code>
+(<code>elrace_notification.py:2933</code>)</td>
+<td>Requester</td>
+<td>No (push only)</td>
+<td>Nothing</td>
+</tr>
+<tr>
+<td>HR-3</td>
+<td>“New Request to Approve” / “A new request from {employee} needs your
+approval.”</td>
+<td>Same call as HR-2, next approval line
+(<code>elrace_notification.py:2979</code>). <strong>Also sent after a
+rejection</strong> (likely bug).</td>
+<td>Next approver</td>
+<td>Yes</td>
+<td>Nothing</td>
+</tr>
+<tr>
+<td>HR-4</td>
+<td>“New Employee Request Approval” / “{request} requires your
+approval.” — or, if no next approver, “Employee Request Processed” /
+“{request} has been fully processed.” (<strong>also sent on
+rejection</strong>)</td>
+<td>Refusal in the Odoo web wizard (<code>request.refuse.reason</code>,
+<code>elrace_notification.py:1304-1440</code>)</td>
+<td>Next approver, or creator</td>
+<td>No</td>
+<td>Nothing</td>
+</tr>
+<tr>
+<td>HR-5</td>
+<td>“New Employee Request” / “{request} requires your approval.”</td>
+<td><code>employee.requests.create</code>
+(<code>elrace_notification.py:1270</code>). <strong>Probably never
+fires</strong>: approvers are added after create.</td>
+<td>First approver</td>
+<td>—</td>
+<td>—</td>
+</tr>
+<tr>
+<td>HR-6</td>
+<td>“New Employee Registered: {name}” / “Employee {name} has been
+confirmed and added to the system”</td>
+<td>Draft employee confirmed
+(<code>draft.hr.employee.action_confirm</code>,
+<code>elrace_notification.py:17</code>)</td>
+<td>Direct manager</td>
+<td>Yes</td>
+<td>Nothing</td>
+</tr>
+</tbody>
+</table>
+<h2
+id="approvals-lpo-purchase.order-invoice-account.move-petty-cash-hr.expense.sheet">3.2
+Approvals — LPO (<code>purchase.order</code>), Invoice
+(<code>account.move</code>), Petty cash
+(<code>hr.expense.sheet</code>)</h2>
+<table style="width:100%;">
+<colgroup>
+<col style="width: 16%" />
+<col style="width: 16%" />
+<col style="width: 16%" />
+<col style="width: 16%" />
+<col style="width: 16%" />
+<col style="width: 16%" />
+</colgroup>
+<thead>
+<tr>
+<th>#</th>
+<th>Notification</th>
+<th>Trigger</th>
+<th>To</th>
+<th>Inbox</th>
+<th>Tap</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>AP-1</td>
+<td>“New LPO Approval Request” / “New Invoice Approval Request” / “New
+Petty Cash Approval Request” — “{name} requires your approval.”</td>
+<td>Record sent for approval: <code>request_validation()</code> (PO
+<code>elrace_notification.py:996</code>, invoice 546, petty cash
+849)</td>
+<td>First reviewer</td>
+<td>Yes</td>
+<td>Nothing</td>
+</tr>
+<tr>
+<td>AP-2</td>
+<td>“LPO Approved” / “INVOICE Approved” / “Petty Cash Approved” —
+“{approver} approved {name}”</td>
+<td>Any tier approved, web or app: <code>validate_tier()</code> (PO
+1042, invoice 568, petty cash 748)</td>
+<td>Creator</td>
+<td>No</td>
+<td>Nothing</td>
+</tr>
+<tr>
+<td>AP-3</td>
+<td>“New LPO Approval Required” / “New INVOICE Approval Required” / “New
+Petty Cash Approval Required” — “Please review {name}”</td>
+<td>Same, when more tiers remain</td>
+<td>Next reviewer</td>
+<td>Yes</td>
+<td>Nothing</td>
+</tr>
+<tr>
+<td>AP-4</td>
+<td>PO: “LPI has been issued” / “{vendor}” (the app rewrites it to “LPO
+has been issued”). Invoice / petty cash: “… Fully Approved” / “{name}
+has been fully approved.”</td>
+<td>Same, final tier</td>
+<td>All reviewers</td>
+<td>No</td>
+<td>Nothing</td>
+</tr>
+<tr>
+<td>AP-5</td>
+<td>“{Purchase Order / Journal Entry / Expense Report} Approved” or “…
+Rejected” — “{approver} approved/rejected {name}.” Then “New Approval
+Required” to the next reviewer, or “… Fully Approved” to the
+requester.</td>
+<td>Approve/reject <strong>from the app</strong>:
+<code>/api/record/tier_review</code> →
+<code>send_tier_review_update</code>
+(<code>elrace_notification.py:2781</code>)</td>
+<td>Requester; next reviewer</td>
+<td>Next reviewer only</td>
+<td>Nothing</td>
+</tr>
+<tr>
+<td>AP-6</td>
+<td>“Petty Cash Request Submitted” / “{employee} submitted a petty cash
+request of {amount} AED.”</td>
+<td>Petty cash submitted from the app: <code>/api/submit_expense</code>
+(<code>petty_cash_controller.py:494</code> →
+<code>elrace_notification.py:2890</code>)</td>
+<td>Current reviewer</td>
+<td>Yes</td>
+<td>Nothing</td>
+</tr>
+<tr>
+<td>AP-7</td>
+<td>“Petty Cash Paid” / “{sheet} has been paid.”</td>
+<td>Sheet paid (<code>approve_expense_sheets</code>,
+<code>elrace_notification.py:871</code>). With several sheets, every
+push names the <strong>last</strong> sheet (bug).</td>
+<td>Reviewers</td>
+<td>No</td>
+<td>Nothing</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Duplicate (confirmed):</strong>
+<code>ApprovalService.tier_review</code>
+(<code>elrace_backend_apis/services/approval_service.py:472-483</code>)
+calls <code>validate_tier()</code>, which already sends AP-2/AP-3/AP-4,
+then calls <code>send_tier_review_update</code>, which sends AP-5. The
+requester receives “LPO Approved” <strong>and</strong> “Purchase Order
+Approved”. The next reviewer receives “New LPO Approval Required”
+<strong>and</strong> “New Approval Required”.</p>
+<p><strong>Possible duplicate (verify):</strong> if submitting petty
+cash from the app also runs <code>request_validation()</code>, the
+reviewer gets both AP-6 and AP-1.</p>
+<h2 id="projects">3.3 Projects</h2>
+<table style="width:100%;">
+<colgroup>
+<col style="width: 16%" />
+<col style="width: 16%" />
+<col style="width: 16%" />
+<col style="width: 16%" />
+<col style="width: 16%" />
+<col style="width: 16%" />
+</colgroup>
+<thead>
+<tr>
+<th>#</th>
+<th>Notification</th>
+<th>Trigger</th>
+<th>To</th>
+<th>Inbox</th>
+<th>Tap</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>PR-1</td>
+<td>“New Project Assigned” / “You have been added to {project}”</td>
+<td>Project created (<code>project.project.create</code>,
+<code>elrace_notification.py:66</code>)</td>
+<td>Everyone on the staff list, plus <strong>hard-coded user id
+874</strong></td>
+<td>Yes</td>
+<td>Nothing</td>
+</tr>
+<tr>
+<td>PR-2</td>
+<td>“Project Completed” / “Project {name} is now completed”</td>
+<td>Project status changes to Completed
+(<code>elrace_notification.py:209</code>)</td>
+<td>Same as PR-1</td>
+<td>Yes</td>
+<td>Nothing</td>
+</tr>
+<tr>
+<td>PR-3</td>
+<td>“New Project Assigned” / “You have been added to {project}”</td>
+<td>Employee added to a project staff list
+(<code>elrace_project_new_theme/models/staff_list.py:137, 163, 200</code>)</td>
+<td>That employee</td>
+<td>Yes</td>
+<td>Nothing</td>
+</tr>
+</tbody>
+</table>
+<p>These three send to <strong>all</strong> the user’s devices (Odoo
+token plus every active <code>mobile.device</code> token). Most other
+senders reach only the last-registered device.</p>
+<h2 id="documents-and-shared-folders">3.4 Documents and shared
+folders</h2>
+<table style="width:100%;">
+<colgroup>
+<col style="width: 16%" />
+<col style="width: 16%" />
+<col style="width: 16%" />
+<col style="width: 16%" />
+<col style="width: 16%" />
+<col style="width: 16%" />
+</colgroup>
+<thead>
+<tr>
+<th>#</th>
+<th>Notification</th>
+<th>Trigger</th>
+<th>To</th>
+<th>Inbox</th>
+<th>Tap</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>DOC-1</td>
+<td>“Document expiring soon” / “{document} expires on {date}. Please
+renew it.” (several: “You have {n} documents expiring soon …”)</td>
+<td><strong>Daily cron</strong> “Mobile: Document Expiry Soon
+Notifications”
+(<code>emp_mobile_conf/models/document_expiry_notify.py:18</code>).
+Documents expiring within 30 days. <strong>Repeats every day</strong>
+until expiry.</td>
+<td>The employee</td>
+<td>Yes</td>
+<td>Nothing</td>
+</tr>
+<tr>
+<td>DOC-2</td>
+<td>“Shared Folder Update” / “New user has been added to the shared
+folder ‘{name}’.” — or “A user has been removed …”</td>
+<td><code>/api/cloud/folder/add_user</code>, <code>/remove_user</code>
+(<code>elrace_backend_apis/controllers/cloud_controller.py:308, 355</code>)</td>
+<td>All folder members, including the actor</td>
+<td>Yes</td>
+<td>Nothing</td>
+</tr>
+<tr>
+<td>DOC-3</td>
+<td>“Document signed”</td>
+<td>A document sent for signing is signed (Cloud Function
+<code>sign_document_sync.js:136</code>)</td>
+<td>Sender</td>
+<td>Yes</td>
+<td>Opens a chat called “Document signed” (wrong). <strong>Not shown at
+all while the app is open</strong> (it carries <code>chat_id</code>, so
+it is treated as chat).</td>
+</tr>
+<tr>
+<td>DOC-4</td>
+<td>Note shared</td>
+<td>A note is shared
+(<code>functions/notes_share_notify.js:62</code>)</td>
+<td>Recipient</td>
+<td>Yes</td>
+<td>Nothing (no notes route)</td>
+</tr>
+</tbody>
+</table>
+<p>Project document expiry (<code>om_project_document</code>) is
+<strong>email only</strong> and does not reach the app.</p>
+<h2 id="announcements-and-circulars">3.5 Announcements and
+circulars</h2>
+<table style="width:100%;">
+<colgroup>
+<col style="width: 16%" />
+<col style="width: 16%" />
+<col style="width: 16%" />
+<col style="width: 16%" />
+<col style="width: 16%" />
+<col style="width: 16%" />
+</colgroup>
+<thead>
+<tr>
+<th>#</th>
+<th>Notification</th>
+<th>Trigger</th>
+<th>To</th>
+<th>Inbox</th>
+<th>Tap</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>ANN-1</td>
+<td>“Circular published” / “Announcement published” — body is the
+description or text (180 characters)</td>
+<td>Announcement made active in Odoo
+(<code>odx.announcement.write</code>,
+<code>elrace_notification.py:3182</code>) → Firestore job → Cloud
+Function <code>odoo_announcement_push.js</code></td>
+<td>All active users (general), or the selected users</td>
+<td>Stored locally, but <strong>hidden</strong> from the Notification
+Center (still counted in the bell badge)</td>
+<td>Opens Circulars &amp; Announcements on the right tab and record</td>
+</tr>
+</tbody>
+</table>
+<h2 id="attendance-face-enrolment-and-timesheet">3.6 Attendance, face
+enrolment and timesheet</h2>
+<table style="width:100%;">
+<colgroup>
+<col style="width: 16%" />
+<col style="width: 16%" />
+<col style="width: 16%" />
+<col style="width: 16%" />
+<col style="width: 16%" />
+<col style="width: 16%" />
+</colgroup>
+<thead>
+<tr>
+<th>#</th>
+<th>Notification</th>
+<th>Trigger</th>
+<th>To</th>
+<th>Inbox</th>
+<th>Tap</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>ATT-1</td>
+<td>“Attendance Updated” / “Your attendance has been synced from
+BioTime. Please update the Project location.”</td>
+<td>New attendance from a <strong>manual</strong> BioTime pull
+(<code>cubes_biotime/models/attendance_sync.py:1074</code>). The
+automatic Lambda crons do <strong>not</strong> push; the live-pull cron
+is inactive.</td>
+<td>The employee</td>
+<td>Yes</td>
+<td>Nothing (refreshes today’s attendance status)</td>
+</tr>
+<tr>
+<td>FACE-1</td>
+<td>“Face enrollment verified” / “{labor} (File ID: {id}) is ready for
+attendance matching. Open Site Management to sync if needed.”</td>
+<td>A labourer’s face enrolment becomes ready
+(<code>elrace_backend_apis/models/user_face_image.py:12</code>,
+processed by a 15-minute cron)</td>
+<td>The labourer’s foreman</td>
+<td>Yes</td>
+<td>Nothing (push data is <code>"None"</code> for all routing keys)</td>
+</tr>
+</tbody>
+</table>
+<p>There are no timesheet submit/approve pushes. Check-in/check-out
+reminders are local and disabled (section 4).</p>
+<h2 id="app-configuration-and-admin">3.7 App configuration and
+admin</h2>
+<table style="width:100%;">
+<colgroup>
+<col style="width: 16%" />
+<col style="width: 16%" />
+<col style="width: 16%" />
+<col style="width: 16%" />
+<col style="width: 16%" />
+<col style="width: 16%" />
+</colgroup>
+<thead>
+<tr>
+<th>#</th>
+<th>Notification</th>
+<th>Trigger</th>
+<th>To</th>
+<th>Inbox</th>
+<th>Tap</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>CFG-1</td>
+<td>“Your app menu changed” / “Your dashboard widgets were updated.
+Please re-login to see the changes.”</td>
+<td>An employee’s custom widget list is changed
+(<code>emp_mobile_conf/models/hr_employee.py:164</code> →
+<code>widget_update_notify.py:25</code>). <strong>Role template changes
+do not push</strong>; they force a logout instead.</td>
+<td>The employee</td>
+<td>Yes</td>
+<td>Nothing (no forced re-login)</td>
+</tr>
+<tr>
+<td>ADM-1</td>
+<td>Admin-written title and message</td>
+<td>“Send” on <strong>Mobile Admin Notification</strong>
+(<code>emp_mobile_conf/models/mobile_admin_notification.py:89</code>)</td>
+<td>All non-labour staff, or selected employees</td>
+<td>Yes</td>
+<td>Nothing</td>
+</tr>
+</tbody>
+</table>
+<h2 id="chat-tasks-and-tickets-cloud-functions-app">3.8 Chat, tasks and
+tickets (Cloud Functions + app)</h2>
+<table style="width:100%;">
+<colgroup>
+<col style="width: 16%" />
+<col style="width: 16%" />
+<col style="width: 16%" />
+<col style="width: 16%" />
+<col style="width: 16%" />
+<col style="width: 16%" />
+</colgroup>
+<thead>
+<tr>
+<th>#</th>
+<th>Notification</th>
+<th>Trigger</th>
+<th>To</th>
+<th>Inbox</th>
+<th>Tap</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>CH-1</td>
+<td>Sender name (DM) or “{group} • {sender}” / message text, or 📷
+Photo, 📎 File, 🎵 Voice message, 🎬 Video, 📝 Document for signing</td>
+<td>New chat message. Background: Cloud Function
+<code>onNewChatMessage</code>. Foreground: the app’s Firestore listener
+(<code>lib/chat/services/chat_notification_service.dart:124</code>),
+which skips own messages, the open chat, muted chats, and messages older
+than 10 seconds.</td>
+<td>Chat members</td>
+<td>Yes (even while that chat is open)</td>
+<td>Opens the chat</td>
+</tr>
+<tr>
+<td>TK-1</td>
+<td>New task assigned</td>
+<td>Task created and assigned
+(<code>functions-assignment/index.js:130, 224</code>)</td>
+<td>Assignee</td>
+<td>Yes</td>
+<td>Opens task details</td>
+</tr>
+<tr>
+<td>TK-2</td>
+<td>Task completed</td>
+<td>Task completed (<code>functions-assignment/index.js:169</code>)</td>
+<td>Creator</td>
+<td>Yes</td>
+<td>Opens task details</td>
+</tr>
+<tr>
+<td>TK-3</td>
+<td>New / completed ticket</td>
+<td>Queued by the app (<code>assignment_push_service.dart</code>)</td>
+<td>Assignee / creator</td>
+<td>Yes</td>
+<td>Opens the Tasks list (not the ticket)</td>
+</tr>
+</tbody>
+</table>
+<p>Task and ticket pushes ask for Android channel
+<code>task_notifications</code>, which the app never creates (it creates
+<code>task_notifications_channel</code>), so they fall back to the
+default channel.</p>
+<h1 id="notifications-scheduled-by-the-app-itself-local">4.
+Notifications scheduled by the app itself (local)</h1>
+<table style="width:100%;">
+<colgroup>
+<col style="width: 16%" />
+<col style="width: 16%" />
+<col style="width: 16%" />
+<col style="width: 16%" />
+<col style="width: 16%" />
+<col style="width: 16%" />
+</colgroup>
+<thead>
+<tr>
+<th>#</th>
+<th>Notification</th>
+<th>Schedule / trigger</th>
+<th>Channel</th>
+<th>Cancelled when</th>
+<th>Location</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>L-1</td>
+<td>“🕌 Prayer Time” / “🔔 It’s now time for {prayer} prayer” (adhan
+sound)</td>
+<td>Today’s 5 prayers, scheduled at app start and nightly (WorkManager).
+Egyptian method, Shafi madhab, last location or Dubai.
+<strong>Inexact</strong> on Android (exact alarm permission
+removed).</td>
+<td><code>prayer_adhan_channel_sound_v3</code></td>
+<td>App returns to foreground, prayer muted, rescheduled. <strong>Not on
+logout.</strong></td>
+<td><code>lib/data/services/prayer_notification_service.dart:114</code></td>
+</tr>
+<tr>
+<td>L-2</td>
+<td>Same text, silent (audio played in-app)</td>
+<td>App open and a prayer is within 5 minutes (30-second timer)</td>
+<td><code>prayer_adhan_channel_silent_v1</code></td>
+<td>On tap</td>
+<td><code>prayer_notification_service.dart:73</code></td>
+</tr>
+<tr>
+<td>L-3</td>
+<td>“📋 New Task Assigned” / “🎫 New Ticket Assigned”</td>
+<td>Creating a task assigned to yourself
+(<code>add_task.dart:328</code>); self-assigned ticket
+(<code>tasks_provider.dart:418</code>)</td>
+<td><code>task_notifications_channel</code></td>
+<td>Muted via task/ticket</td>
+<td><code>task_notification_service.dart:89</code></td>
+</tr>
+<tr>
+<td>L-4</td>
+<td>“⏰ Task Deadline Tomorrow” / “{task} is due in 24 hours”</td>
+<td>Scheduled on task create, <strong>on the creator’s phone
+only</strong></td>
+<td>same</td>
+<td>Task completed on this phone; tasks muted. Not on edit, delete or
+logout.</td>
+<td><code>task_notification_service.dart:136</code></td>
+</tr>
+<tr>
+<td>L-5</td>
+<td>“🚨 Task Due Soon!” / “{task} is due in 1 hour”</td>
+<td>Same</td>
+<td>same</td>
+<td>Same</td>
+<td><code>task_notification_service.dart:163</code></td>
+</tr>
+<tr>
+<td>L-6</td>
+<td>“✅ Task Completed” / “{task} has been completed”</td>
+<td>Completing a task — <strong>notifies the person who completed
+it</strong></td>
+<td>same</td>
+<td>—</td>
+<td><code>task_notification_service.dart:193</code></td>
+</tr>
+<tr>
+<td>L-7</td>
+<td>“💬 New message in {task}” / “{sender}: {text}”</td>
+<td>Sending a task comment — <strong>notifies the sender</strong></td>
+<td>same</td>
+<td>—</td>
+<td><code>task_notification_service.dart:229</code></td>
+</tr>
+<tr>
+<td>L-8</td>
+<td>“⏰ Check In Reminder” / “Don’t forget to Check In” (08:00–09:00
+every 15 min) and “⏰ Check Out Reminder” (16:00–17:00)</td>
+<td><strong>Disabled</strong> (<code>scheduleCheckInReminders()</code>
+returns immediately)</td>
+<td>—</td>
+<td>Cancelled at start, check-in/out, logout</td>
+<td><code>checkin_reminder_notification_service.dart:171, 298</code></td>
+</tr>
+</tbody>
+</table>
+<h1 id="web-only-notifications-never-reach-the-app">5. Web-only
+notifications (never reach the app)</h1>
+<table>
+<colgroup>
+<col style="width: 33%" />
+<col style="width: 33%" />
+<col style="width: 33%" />
+</colgroup>
+<thead>
+<tr>
+<th>Area</th>
+<th>What happens</th>
+<th>Location</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Odoo dashboard bell</td>
+<td><code>elrace.notification</code> records + Odoo bus (categories:
+employee request, LPO, employee register, project open/completed, petty
+cash, widget update, IT custody)</td>
+<td><code>elrace_notification.py:1657, 1835</code></td>
+</tr>
+<tr>
+<td>Live counters</td>
+<td>Pusher channel <code>private-user-{uid}</code> (notification and
+waiting counters). <strong>Pusher keys and secret
+hard-coded.</strong></td>
+<td><code>elrace_realtime/models/pusher_service.py:20</code></td>
+</tr>
+<tr>
+<td>IT custody</td>
+<td>“IT Custody Assigned” (web bell only)</td>
+<td><code>elrace_notification.py:3024</code></td>
+</tr>
+<tr>
+<td>Helpdesk</td>
+<td>Odoo bus + <code>mail.activity</code></td>
+<td><code>pandora_helpdesk_customization/models/helpdesk_ticket.py:28, 87</code></td>
+</tr>
+<tr>
+<td>Delegation</td>
+<td><code>mail.activity</code> to the approver group; hourly cron</td>
+<td><code>delegations/models/delegation.py:101</code></td>
+</tr>
+<tr>
+<td>Elrace Hub</td>
+<td>Pending-approval pushes to the Hub web app</td>
+<td><code>elrace_notification.py:2176</code></td>
+</tr>
+</tbody>
+</table>
+<h1 id="notification-center-badge-and-mute">6. Notification Center,
+badge and mute</h1>
+<h2 id="screens">6.1 Screens</h2>
+<table>
+<colgroup>
+<col style="width: 33%" />
+<col style="width: 33%" />
+<col style="width: 33%" />
+</colgroup>
+<thead>
+<tr>
+<th>Item</th>
+<th>Behaviour</th>
+<th>Location</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Notification Center</td>
+<td>Loads up to 50 items (server + local), <strong>marks everything read
+on open</strong>, hides circulars and announcements, no category filter.
+Swipe to delete; “Clear all”. <strong>Tapping a row does
+nothing.</strong></td>
+<td><code>lib/ui/presentation/Notification/notification_screen.dart:46, 72, 144</code></td>
+</tr>
+<tr>
+<td>Bell badge</td>
+<td>“New since the Notification Center was last opened”. Polls the
+server <strong>every 5 seconds</strong> while the home header is
+visible.</td>
+<td><code>home_glass_app_bar.dart:99</code>;
+<code>notification_storage_service.dart:732</code></td>
+</tr>
+<tr>
+<td>App icon badge</td>
+<td>iOS only. Android does nothing.</td>
+<td><code>ios/Runner/AppDelegate.swift:47</code>;
+<code>MainActivity.kt:100</code></td>
+</tr>
+<tr>
+<td>Mute settings</td>
+<td>Per category, from Odoo categories plus local ones (chat, prayer,
+task, ticket). “waiting” covers all four approval models; “alert” covers
+weather/safety/summer. A second mute popup in the profile card uses
+different rules.</td>
+<td><code>notification_mute_settings_screen.dart</code>;
+<code>profile_box_with_slide_animation.dart:170</code></td>
+</tr>
+</tbody>
+</table>
+<h2 id="inbox-apis-odoo">6.2 Inbox APIs (Odoo)</h2>
+<table>
+<colgroup>
+<col style="width: 50%" />
+<col style="width: 50%" />
+</colgroup>
+<thead>
+<tr>
+<th>Route</th>
+<th>Purpose</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>POST /api/notifications</code></td>
+<td>List (limit 50) + unread count. Model
+<code>expo.notification.users</code> for the logged-in user.</td>
+</tr>
+<tr>
+<td><code>POST /api/notifications/read</code></td>
+<td>Mark one read</td>
+</tr>
+<tr>
+<td><code>POST /api/notifications/delete</code></td>
+<td>Delete one</td>
+</tr>
+<tr>
+<td><code>POST /api/notifications/clear</code></td>
+<td>Delete all</td>
+</tr>
+<tr>
+<td><code>POST /api/mobile/notification/categories</code></td>
+<td>Mute categories (configured in the database, no seed data)</td>
+</tr>
+<tr>
+<td><code>POST /api/mobile/notification/preferences</code>,
+<code>/update</code></td>
+<td>Read / set mute</td>
+</tr>
+<tr>
+<td><code>POST /api/save_expo_token</code></td>
+<td>Register the phone’s FCM token</td>
+</tr>
+</tbody>
+</table>
+<p>A daily cron keeps the last 50 inbox rows per user. The legacy module
+<code>pandora_project_timesheets_apis</code> registers the same routes;
+which one runs depends on module load order.</p>
+<h1 id="device-token-lifecycle">7. Device token lifecycle</h1>
+<table>
+<colgroup>
+<col style="width: 50%" />
+<col style="width: 50%" />
+</colgroup>
+<thead>
+<tr>
+<th>Step</th>
+<th>Behaviour</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Registration</td>
+<td>App calls <code>POST /api/save_expo_token</code> after login, on
+every resume, and on token refresh. Stored in
+<code>res.users.expo_token</code> (one per user). Login also stores the
+token per device in <code>mobile.device.fcm_token</code>.</td>
+</tr>
+<tr>
+<td>Which device gets the push</td>
+<td>Most senders use only <code>expo_token</code>, so <strong>only the
+last device used receives the push</strong>. Projects (PR-1 to PR-3),
+widget update and announcements reach all devices.</td>
+</tr>
+<tr>
+<td>Logout</td>
+<td><strong>The token is not removed.</strong> Neither the app nor the
+backend clears it, so a logged-out phone keeps receiving that user’s
+pushes. Tokens are removed only when FCM reports them invalid.</td>
+</tr>
+<tr>
+<td>Chat tokens</td>
+<td>Separate list in Firestore <code>users/{uid}/fcm_tokens</code>,
+removed on chat sign-out.</td>
+</tr>
+</tbody>
+</table>
+<h1 id="android-and-ios-setup">8. Android and iOS setup</h1>
+<table>
+<colgroup>
+<col style="width: 50%" />
+<col style="width: 50%" />
+</colgroup>
+<thead>
+<tr>
+<th>Item</th>
+<th>Detail</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Android channels</td>
+<td><code>high_importance_channel</code> (default for FCM),
+<code>chat_messages</code>, <code>task_notifications_channel</code>,
+<code>prayer_adhan_channel_sound_v3</code>,
+<code>prayer_adhan_channel_silent_v1</code>. Check-in/out channels are
+never created. <code>task_notifications</code> (used by Cloud Functions)
+does not exist.</td>
+</tr>
+<tr>
+<td>Android icon</td>
+<td>Full-colour launcher icon used as the small icon; no FCM default
+icon/colour in the manifest. Usually shows as a white square.</td>
+</tr>
+<tr>
+<td>Android exact alarms</td>
+<td>Permissions removed, so prayer and task reminders can be late.</td>
+</tr>
+<tr>
+<td>iOS permission</td>
+<td>Requested natively at first launch
+(<code>AppDelegate.swift:22</code>), before the splash.</td>
+</tr>
+<tr>
+<td>iOS foreground</td>
+<td><code>willPresent</code> forces banner + sound + badge for
+<strong>every</strong> notification, while the Dart side also shows its
+own banner and applies mute. Risk of double banners and muted pushes
+still showing. <strong>Needs a device test.</strong></td>
+</tr>
+<tr>
+<td>iOS delegate</td>
+<td><code>didReceive</code> and
+<code>didReceiveRemoteNotification</code> do not call
+<code>super</code>; may stop tap and background handlers. <strong>Needs
+a device test.</strong></td>
+</tr>
+</tbody>
+</table>
+<h1 id="issues-found">9. Issues found</h1>
+<h2 id="high-priority">9.1 High priority</h2>
+<table>
+<colgroup>
+<col style="width: 25%" />
+<col style="width: 25%" />
+<col style="width: 25%" />
+<col style="width: 25%" />
+</colgroup>
+<thead>
+<tr>
+<th>#</th>
+<th>Issue</th>
+<th>Where</th>
+<th>Effect</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1</td>
+<td><strong>Taps ignored after login.</strong>
+<code>markHomeReady()</code> is only called from the splash screen.
+Logging in from the sign-in screen goes straight to
+<code>HomeScreen</code>.</td>
+<td><code>firebase_service.dart:58</code>;
+<code>sign_in_screen.dart:114</code></td>
+<td>Every chat, task and circular tap is queued and never opened until
+the app restarts.</td>
+</tr>
+<tr>
+<td>2</td>
+<td><strong>Most notifications do nothing on tap</strong>, and
+Notification Center rows do nothing on tap. The backend sends
+<code>model</code> + <code>record_id</code> +
+<code>click_action: OPEN_RECORD</code>, but the app does not route
+them.</td>
+<td><code>firebase_service.dart:778-811</code>;
+<code>notification_screen.dart:144</code></td>
+<td>Approvers cannot open the request, LPO, invoice or petty cash from
+the notification.</td>
+</tr>
+<tr>
+<td>3</td>
+<td><strong>Duplicate approval pushes</strong> when approving from the
+app.</td>
+<td><code>approval_service.py:472-483</code></td>
+<td>Requester and next reviewer each get two notifications.</td>
+</tr>
+<tr>
+<td>4</td>
+<td><strong>Token not cleared on logout.</strong></td>
+<td>App logout helpers; backend</td>
+<td>Another user’s approvals and HR notifications can reach a shared or
+handed-over phone.</td>
+</tr>
+<tr>
+<td>5</td>
+<td><strong>Duplicate inbox rows / badge +2</strong> — background
+handler and tap handler store the same push with different ids.</td>
+<td><code>main.dart:162</code>;
+<code>firebase_service.dart:700</code></td>
+<td>Inbox shows the same item twice.</td>
+</tr>
+<tr>
+<td>6</td>
+<td><strong>Legacy token endpoint is open.</strong>
+<code>/api/update/expo/token</code> is <code>auth="public"</code> and
+accepts any <code>user_id</code>.</td>
+<td><code>pandora_tier_validation_apis/controllers/main.py:13</code>;
+<code>pandora_model_based_notifications/controllers/main.py:13</code></td>
+<td>Anyone can redirect a user’s pushes to their own phone.</td>
+</tr>
+</tbody>
+</table>
+<h2 id="medium-priority">9.2 Medium priority</h2>
+<table>
+<colgroup>
+<col style="width: 33%" />
+<col style="width: 33%" />
+<col style="width: 33%" />
+</colgroup>
+<thead>
+<tr>
+<th>#</th>
+<th>Issue</th>
+<th>Where</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>7</td>
+<td>“New Request to Approve” is also sent after an HR request is
+<strong>rejected</strong>; the web refuse wizard sends “fully processed”
+on rejection.</td>
+<td><code>elrace_notification.py:2979, 1418</code></td>
+</tr>
+<tr>
+<td>8</td>
+<td>Annual leave uses the generic text “New Request Submitted”.</td>
+<td><code>elrace_notification.py:1873-1906</code></td>
+</tr>
+<tr>
+<td>9</td>
+<td>“Document signed” is invisible while the app is open and opens a
+fake chat when tapped.</td>
+<td><code>firebase_service.dart:190-198</code></td>
+</tr>
+<tr>
+<td>10</td>
+<td>Document expiry reminder repeats <strong>every day</strong> for 30
+days.</td>
+<td><code>document_expiry_notify.py:18</code></td>
+</tr>
+<tr>
+<td>11</td>
+<td>Petty cash “Paid” names the wrong sheet when several are paid
+together; petty cash final approval reads <code>amount_total</code>,
+which does not exist on <code>hr.expense.sheet</code> (may error —
+verify).</td>
+<td><code>elrace_notification.py:871, 809-837</code></td>
+</tr>
+<tr>
+<td>12</td>
+<td>Push data contains the text <code>"None"</code> for missing keys
+(HR-2 <code>record_id</code>, FACE-1, CFG-1).</td>
+<td><code>elrace_notification.py:2712</code></td>
+</tr>
+<tr>
+<td>13</td>
+<td>Task/ticket channel mismatch (<code>task_notifications</code> vs
+<code>task_notifications_channel</code>).</td>
+<td><code>functions-assignment/index.js:47</code></td>
+</tr>
+<tr>
+<td>14</td>
+<td>Self-notifications: comment sender and task completer notify
+themselves; deadline reminders only on the creator’s phone.</td>
+<td><code>task_details.dart:531, 1122</code>;
+<code>add_task.dart:334</code></td>
+</tr>
+<tr>
+<td>15</td>
+<td>Circulars/announcements raise the bell badge but are hidden from the
+Notification Center.</td>
+<td><code>notification_screen.dart:72</code></td>
+</tr>
+<tr>
+<td>16</td>
+<td>Badge baseline is taken before “mark all read”, so the server-driven
+badge stays at 0 afterwards.</td>
+<td><code>notification_screen.dart:49-52</code></td>
+</tr>
+<tr>
+<td>17</td>
+<td>Muted users: some senders skip the inbox row, others still write it;
+tasks/tickets/prayer mute is phone-only, so background pushes still
+show.</td>
+<td><code>elrace_notification.py:2469</code>;
+<code>notification_service.py:28</code></td>
+</tr>
+<tr>
+<td>18</td>
+<td>Mark-all-read always fires two requests; badge polling every 5
+seconds.</td>
+<td><code>notification_api_service.dart:505</code>;
+<code>home_glass_app_bar.dart:99</code></td>
+</tr>
+<tr>
+<td>19</td>
+<td>Pushes are sent inside the business transaction; a push can go out
+for a change that is later rolled back.</td>
+<td>Most senders</td>
+</tr>
+<tr>
+<td>20</td>
+<td>Hard-coded values: user 874 (projects), <code>operating.unit</code>
+6 (FCM credentials), Pusher secrets, inbox API base URL in the app.</td>
+<td>Various</td>
+</tr>
+</tbody>
+</table>
+<h2 id="dead-or-legacy-code">9.3 Dead or legacy code</h2>
+<ul>
+<li><strong>Expo senders</strong> (tokens are now FCM, so Expo rejects
+them): <code>pandora_expo_notifications</code> (10-minute cron),
+<code>pandora_tier_validation_apis</code>,
+<code>pandora_model_based_notifications</code> (one HTTP call per
+chatter message), legacy <code>_create_and_send</code> in
+<code>my_request_apis</code> / <code>my_approvals_api</code>. If these
+modules are installed they waste a call on every event. Confirm in
+<em>Apps</em> and uninstall.</li>
+<li><strong>Legacy FCM server-key API</strong> (shut down by Google in
+2024): <code>spiffy_theme_backend/models/mail_channel.py</code>.</li>
+<li><strong>Never called / commented out:</strong>
+<code>backup_send_fcm_push</code>, <code>backup_validate_tier</code>,
+<code>send_to_employee_and_validator</code>,
+<code>_send_request_creation_notifications</code>,
+<code>_send_review_notifications</code>,
+<code>_send_hr_request_notifications</code>,
+<code>restart_validation</code> push, BioTime
+<code>_send_biotime_fcm</code>.</li>
+<li><strong>App:</strong> check-in/out reminders (disabled),
+<code>checkUpcomingDeadlines</code> (6-hourly job that only logs), FCM
+role-topic subscription (no sender).</li>
+<li><strong>Duplicate routes:</strong>
+<code>pandora_project_timesheets_apis</code> and
+<code>elrace_backend_apis</code> both register
+<code>/api/submit_request</code>, <code>/api/record/tier_review</code>,
+<code>/api/approve_reject_hr_request</code>,
+<code>/api/submit_expense</code>, <code>/api/save_expo_token</code>, the
+notification routes and the folder routes.</li>
+</ul>
+<h1 id="recommended-next-steps">10. Recommended next steps</h1>
+<ol type="1">
+<li>Call <code>markHomeReady()</code> after login (sign-in and UAE PASS)
+and <code>markHomeNotReady()</code> on logout. <strong>App release
+required.</strong></li>
+<li>Route Odoo pushes and Notification Center rows by <code>model</code>
++ <code>record_id</code> to the matching detail screen (HR request, LPO,
+invoice, petty cash, project, documents). <strong>App release
+required.</strong></li>
+<li>Remove the second push in <code>ApprovalService.tier_review</code>
+(backend only).</li>
+<li>Clear <code>expo_token</code> and the device token on logout
+(backend <code>linked-devices/logout-current</code>; app
+<code>deleteToken()</code>).</li>
+<li>Secure or remove <code>/api/update/expo/token</code> (backend
+only).</li>
+<li>Fix HR rejection texts, the annual-leave title, petty cash “paid”
+naming, and send <code>type</code> in the push data (backend only).</li>
+<li>Make document expiry reminders fire at 30, 7 and 1 day(s) instead of
+daily (backend only).</li>
+<li>Uninstall the Expo modules after confirming they are installed.</li>
+<li>Test on iOS devices: double banners, mute, and tap handling.</li>
+</ol>
+<h1 id="appendix-main-source-files">Appendix — Main source files</h1>
+<p><strong>Backend (<code>odoo14-clients</code>)</strong></p>
+<ul>
+<li><code>elrace_dashboard/models/elrace_notification.py</code> — core
+sender and most triggers</li>
+<li><code>elrace_backend_apis/services/notification_service.py</code>,
+<code>approval_service.py</code>, <code>request_service.py</code>,
+<code>hr_submit_service.py</code>,
+<code>announcement_push_queue.py</code>,
+<code>face_enrollment_notification_service.py</code></li>
+<li><code>elrace_backend_apis/controllers/notification_controller.py</code>,
+<code>auth_controller.py</code>, <code>approval_controller.py</code>,
+<code>petty_cash_controller.py</code>, <code>cloud_controller.py</code>,
+<code>staff_fcm_tokens_controller.py</code></li>
+<li><code>emp_mobile_conf/models/document_expiry_notify.py</code>,
+<code>mobile_admin_notification.py</code>,
+<code>widget_update_notify.py</code>, <code>hr_employee.py</code>,
+<code>mobile_device.py</code></li>
+<li><code>elrace_project_new_theme/models/staff_list.py</code>,
+<code>cubes_biotime/models/attendance_sync.py</code>,
+<code>elrace_backend_apis/models/user_face_image.py</code></li>
+</ul>
+<p><strong>App (<code>Elrace-mobileapp-operations</code>)</strong></p>
+<ul>
+<li><code>lib/firebase_service.dart</code>,
+<code>lib/main.dart</code></li>
+<li><code>lib/core/services/notification_storage_service.dart</code>,
+<code>notification_api_service.dart</code></li>
+<li><code>lib/ui/presentation/Notification/notification_screen.dart</code>,
+<code>notification_mute_settings_screen.dart</code>,
+<code>notification_category_theme.dart</code></li>
+<li><code>lib/chat/services/chat_notification_service.dart</code></li>
+<li><code>lib/data/services/task_notification_service.dart</code>,
+<code>prayer_notification_service.dart</code>,
+<code>checkin_reminder_notification_service.dart</code></li>
+<li><code>functions/index.js</code>,
+<code>functions/notes_share_notify.js</code>,
+<code>functions/sign_document_sync.js</code>,
+<code>functions/odoo_announcement_push.js</code>,
+<code>functions-assignment/index.js</code></li>
+<li><code>android/app/src/main/AndroidManifest.xml</code>,
+<code>ios/Runner/AppDelegate.swift</code></li>
+</ul>
+</body>
+</html>

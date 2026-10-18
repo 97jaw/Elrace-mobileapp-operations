@@ -186,6 +186,105 @@ void main() {
       expect(d.rejectReason, isNull);
     });
 
+    test('temporal waits until ≥3 classified frames span ≥600 ms', () {
+      final t0 = DateTime(2026, 1, 1, 12, 0, 0);
+      final shortSpan = [
+        liveVerified(
+          at: t0,
+          emp: 1,
+          classification: clf(yaw: 1),
+        ),
+        liveVerified(
+          at: t0.add(const Duration(milliseconds: 200)),
+          emp: 1,
+          classification: clf(yaw: 4),
+        ),
+        liveVerified(
+          at: t0.add(const Duration(milliseconds: 450)),
+          emp: 1,
+          classification: clf(yaw: 2),
+        ),
+      ];
+      final short = BestFrameRules.evaluateAccept(shortSpan);
+      expect(short.accepted, isFalse);
+      expect(short.waitReason, 'temporal');
+
+      final ok = [
+        liveVerified(
+          at: t0,
+          emp: 1,
+          quality: 0.6,
+          classification: clf(yaw: 1),
+        ),
+        liveVerified(
+          at: t0.add(const Duration(milliseconds: 300)),
+          emp: 1,
+          quality: 0.9,
+          classification: clf(yaw: 5),
+        ),
+        liveVerified(
+          at: t0.add(const Duration(milliseconds: 650)),
+          emp: 1,
+          quality: 0.7,
+          classification: clf(yaw: 2),
+        ),
+      ];
+      final accepted = BestFrameRules.evaluateAccept(ok);
+      expect(accepted.accepted, isTrue);
+      expect(accepted.liveVerifiedCount, 3);
+      expect(accepted.best!.qualityScore, 0.9);
+    });
+
+    test('with minLiveVerifiedFrames=2 accepts span≥500ms', () {
+      final t0 = DateTime(2026, 1, 1, 12, 0, 0);
+      final short = [
+        liveVerified(at: t0, emp: 1, quality: 0.7),
+        liveVerified(
+          at: t0.add(const Duration(milliseconds: 400)),
+          emp: 1,
+          quality: 0.9,
+        ),
+      ];
+      final shortDecision = BestFrameRules.evaluateAccept(
+        short,
+        temporalOverride: temporalOk,
+        minLiveVerifiedFrames: 2,
+      );
+      expect(shortDecision.accepted, isFalse);
+      expect(shortDecision.waitReason, 'span');
+
+      final ok = [
+        liveVerified(at: t0, emp: 1, quality: 0.7),
+        liveVerified(
+          at: t0.add(const Duration(milliseconds: 500)),
+          emp: 1,
+          quality: 0.9,
+        ),
+      ];
+      final okDecision = BestFrameRules.evaluateAccept(
+        ok,
+        temporalOverride: temporalOk,
+        minLiveVerifiedFrames: 2,
+      );
+      expect(okDecision.accepted, isTrue);
+      expect(okDecision.liveVerifiedCount, 2);
+      expect(okDecision.best!.qualityScore, 0.9);
+    });
+
+    test('default minLiveVerifiedFrames stays 3 (no behaviour change)', () {
+      final t0 = DateTime(2026, 1, 1, 12, 0, 0);
+      final window = [
+        liveVerified(at: t0, emp: 1),
+        liveVerified(at: t0.add(const Duration(milliseconds: 500)), emp: 1),
+      ];
+      final d = BestFrameRules.evaluateAccept(
+        window,
+        temporalOverride: temporalOk,
+      );
+      expect(d.accepted, isFalse);
+      expect(d.waitReason, 'need_frames');
+    });
+
     test('never accepts on a single live+verified frame', () {
       final t0 = DateTime(2026, 1, 1, 12, 0, 0);
       final d = BestFrameRules.evaluateAccept(
