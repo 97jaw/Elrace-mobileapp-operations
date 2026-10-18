@@ -44,7 +44,9 @@ class FmFaceEnrollCaptureScreen extends ConsumerStatefulWidget {
 class _FmFaceEnrollCaptureScreenState
     extends ConsumerState<FmFaceEnrollCaptureScreen>
     with CapturePortraitLock<FmFaceEnrollCaptureScreen> {
-  final _captureService = TimesheetFaceCaptureService();
+  final _captureService = TimesheetFaceCaptureService(
+    profile: FaceDetectorProfile.enrollment,
+  );
   CameraController? _controller;
   Future<XFile>? _pictureInFlight;
   AppLifecycleListener? _lifecycleListener;

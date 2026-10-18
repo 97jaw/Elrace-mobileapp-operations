@@ -6,18 +6,23 @@ import 'package:camera/camera.dart';
 import 'package:el_race/core/theme/timesheet_module_theme.dart';
 import 'package:el_race/core/timesheet/network/timesheet_functions_client.dart';
 import 'package:el_race/core/timesheet/network/timesheet_odoo_employee.dart';
+import 'package:el_race/core/services/app_config_service.dart';
+import 'package:el_race/core/site_management/face_recognition/antispoof/antispoof_layer1.dart';
 import 'package:el_race/core/site_management/face_recognition/antispoof/burst_verification_pipeline.dart';
 import 'package:el_race/core/site_management/face_recognition/antispoof/antispoof_config.dart';
 import 'package:el_race/core/site_management/face_recognition/antispoof/minifasnet_fusion_engine.dart';
 import 'package:el_race/core/site_management/face_recognition/antispoof/timesheet_liveness_gate.dart';
 import 'package:el_race/core/site_management/face_recognition/antispoof/timesheet_face_classification_snapshot.dart';
 import 'package:el_race/core/site_management/face_recognition/domain/face_verifier.dart';
+import 'package:el_race/core/site_management/face_recognition/domain/frame_evidence.dart';
 import 'package:el_race/core/site_management/face_recognition/face_recognition_config.dart';
 import 'package:el_race/core/site_management/face_recognition/face_recognition_service.dart';
 import 'package:el_race/core/timesheet/services/timesheet_roster_face_matcher.dart';
+import 'package:el_race/core/timesheet/services/camera_region_decode.dart';
 import 'package:el_race/core/timesheet/services/capture_queue_service.dart';
 import 'package:el_race/core/timesheet/services/face_capture_service.dart';
 import 'package:el_race/core/timesheet/services/geofence_service.dart';
+import 'package:el_race/core/site_management/face_recognition/domain/face_embedder.dart';
 import 'package:el_race/core/timesheet/services/tm_face_alarm_service.dart';
 import 'package:el_race/core/timesheet/services/tm_face_detection_speech_service.dart';
 import 'package:el_race/core/timesheet/services/timesheet_capture_flow_service.dart';
@@ -45,6 +50,25 @@ typedef _FastFrames = ({
   List<FaceVerifyResult?> verifies,
   String reason,
 });
+
+/// Latest stream frame queued for identity+PAD (marker updates separately).
+class _BestFramePending {
+  const _BestFramePending({
+    required this.modelRgb,
+    required this.modelFaceBox,
+    required this.markerFaceBox,
+    required this.uprightFrameSize,
+    required this.result,
+    this.modelLandmarks,
+  });
+
+  final img.Image modelRgb;
+  final Rect modelFaceBox;
+  final Rect markerFaceBox;
+  final Size uprightFrameSize;
+  final TimesheetFaceDetectionResult result;
+  final TimesheetFaceLandmarkSnapshot? modelLandmarks;
+}
 
 /// Live chrome state for parent-built overlays (Add timesheet full screen).
 class TimesheetCaptureChromeSnapshot {
@@ -306,7 +330,39 @@ class TimesheetCaptureCameraPanelState
       TimesheetRosterFaceMatcher();
   final TimesheetLivenessGate _livenessGate = TimesheetLivenessGate();
   final BurstVerificationPipeline _burstPipeline = BurstVerificationPipeline();
+  final AntispoofLayer1 _padLayer1 = AntispoofLayer1();
   final TmFaceDetectionSpeechService _speech = TmFaceDetectionSpeechService();
+
+  /// TASK 08 best-frame evidence window (1:1 + switch on only).
+  final List<FrameEvidence> _bestFrameWindow = [];
+  BestFrameMarkerState _bestFrameMarker = BestFrameMarkerState.none;
+  DateTime? _bestFrameFirstFaceAt;
+  DateTime? _noUsableFrameSince;
+  FrameUsableDominant _dominantUsableReason = FrameUsableDominant.none;
+  DateTime _lastBestFrameProcessAt = DateTime.fromMillisecondsSinceEpoch(0);
+  DateTime _lastBestFrameWaitingLogAt = DateTime.fromMillisecondsSinceEpoch(0);
+  DateTime? _bestFrameCooldownUntil;
+  bool _bestFrameEvidenceBusy = false;
+  bool _bestFrameManualWaiting = false;
+  _BestFramePending? _bestFramePending;
+
+  /// Adaptive window (A4): rolling average of processed-frame intervals.
+  final List<int> _bestFrameIntervalMs = [];
+  DateTime? _lastBestFrameProcessedAt;
+  Duration _bestFrameWindowDuration = BestFrameRules.windowDuration;
+  DateTime _lastBestFramePerfLogAt = DateTime.fromMillisecondsSinceEpoch(0);
+  int _bestFramePerfEmbMs = 0;
+  int _bestFramePerfPadMs = 0;
+
+  /// Lerped face box (image space) for smooth marker motion (~100 ms).
+  Rect? _markerLerpFrom;
+  Rect? _markerLerpTo;
+  DateTime? _markerLerpStarted;
+  Rect? _markerSmoothBox;
+  int? _markerEmployeeId;
+  Timer? _markerLerpTimer;
+  Timer? _delayedHintTimer;
+  bool _delayedHintVisible = false;
 
   List<CameraDescription> _availableCameras = const [];
   CameraController? _cameraController;
@@ -498,6 +554,15 @@ class TimesheetCaptureCameraPanelState
           : widget.overlayHint);
   bool get _qualityReady => _faceResult?.quality.canCapture == true;
 
+  /// 1:1 + Odoo/code switch: continuous evidence pipeline (TASK 08).
+  bool get _bestFrameModeActive =>
+      widget.verifyTarget && AppConfigService.instance.faceBestFrameEnabled;
+
+  /// Task 09: last time no identity/PAD-usable frame appeared, plus reason.
+  DateTime? get noUsableFrameSince => _noUsableFrameSince;
+  FrameUsableDominant get dominantUsableReason => _dominantUsableReason;
+  BestFrameMarkerState get markerState => _bestFrameMarker;
+
   bool get _livenessReady {
     if (_livenessGate.expireIfNeeded()) {
       _syncLivenessSnapshot();
@@ -507,8 +572,17 @@ class TimesheetCaptureCameraPanelState
   }
 
   /// Quality gate only — PAD runs at capture (Task 5a), not on the live stream.
-  bool get canCapture =>
-      _qualityReady && !_isCapturing && !_verificationInFlight;
+  /// Best-frame mode: quality failures do not block (TASK 08 §6).
+  bool get canCapture {
+    if (_bestFrameModeActive) {
+      final cooled = _bestFrameCooldownUntil;
+      if (cooled != null && DateTime.now().isBefore(cooled)) return false;
+      return !_isCapturing &&
+          !_verificationInFlight &&
+          !_bestFrameManualWaiting;
+    }
+    return _qualityReady && !_isCapturing && !_verificationInFlight;
+  }
 
   /// What the shutter button shows: also off while the face in frame is
   /// already added or isn't the expected labor ([canCapture] stays
@@ -581,9 +655,622 @@ class TimesheetCaptureCameraPanelState
     _instantCaptureArmed = armAuto;
     _lastInstantCaptureAt = DateTime.fromMillisecondsSinceEpoch(0);
     _autoCaptureCooldownUntil = null;
+    _clearBestFrameWindow();
     _clearBadgeNow(reason: 'notice_ack');
     _emitChrome();
   }
+
+  void _clearBestFrameWindow() {
+    for (final e in _bestFrameWindow) {
+      e.releasePixels();
+    }
+    _bestFrameWindow.clear();
+    _bestFrameMarker = BestFrameMarkerState.none;
+    _bestFrameFirstFaceAt = null;
+    _noUsableFrameSince = null;
+    _dominantUsableReason = FrameUsableDominant.none;
+    _bestFrameIntervalMs.clear();
+    _lastBestFrameProcessedAt = null;
+    _bestFrameWindowDuration = BestFrameRules.windowDuration;
+    _bestFramePending = null;
+    _clearBestFrameMarkerVisual();
+  }
+
+  void _clearBestFrameMarkerVisual() {
+    _markerLerpTimer?.cancel();
+    _markerLerpTimer = null;
+    _delayedHintTimer?.cancel();
+    _delayedHintTimer = null;
+    _markerLerpFrom = null;
+    _markerLerpTo = null;
+    _markerLerpStarted = null;
+    _markerSmoothBox = null;
+    _markerEmployeeId = null;
+    _delayedHintVisible = false;
+  }
+
+  /// Smooth the marker box toward [target] over ~100 ms (TASK 09).
+  /// [employeeId] null/0 → neutral brackets; >0 → green + emp-id pill.
+  void _animateMarkerBox(Rect target, {int? employeeId}) {
+    if (employeeId != null) {
+      _markerEmployeeId = employeeId > 0 ? employeeId : null;
+    }
+    final from = _markerSmoothBox ?? target;
+    _markerLerpFrom = from;
+    _markerLerpTo = target;
+    _markerLerpStarted = DateTime.now();
+    _markerSmoothBox = from;
+    if (mounted) setState(() {});
+    _markerLerpTimer?.cancel();
+    _markerLerpTimer = Timer.periodic(const Duration(milliseconds: 16), (t) {
+      if (!mounted) {
+        t.cancel();
+        return;
+      }
+      final started = _markerLerpStarted;
+      final a = _markerLerpFrom;
+      final b = _markerLerpTo;
+      if (started == null || a == null || b == null) {
+        t.cancel();
+        return;
+      }
+      final p = (DateTime.now().difference(started).inMilliseconds / 100.0)
+          .clamp(0.0, 1.0);
+      setState(() {
+        _markerSmoothBox = Rect.lerp(a, b, Curves.easeOut.transform(p));
+      });
+      if (p >= 1.0) {
+        t.cancel();
+        _markerLerpTimer = null;
+        _markerSmoothBox = b;
+      }
+    });
+  }
+
+  /// Marker position tracks ML Kit at camera rate; green/label from evidence.
+  void _updateMarkerPositionFromDetection(Rect faceBox) {
+    final verifiedId = _bestFrameMarker is BestFrameMarkerVerified
+        ? (_bestFrameMarker as BestFrameMarkerVerified).employeeId
+        : null;
+    _animateMarkerBox(faceBox, employeeId: verifiedId);
+  }
+
+  void _noteNoUsableFrame(DateTime now) {
+    if (_noUsableFrameSince == null) {
+      _noUsableFrameSince = now;
+      _delayedHintTimer?.cancel();
+      _delayedHintTimer = Timer(const Duration(seconds: 2), () {
+        if (!mounted || !_bestFrameModeActive) return;
+        if (_bestFrameMarker is BestFrameMarkerVerified) return;
+        if (_noticeHold) return;
+        if (_noUsableFrameSince == null) return;
+        setState(() => _delayedHintVisible = true);
+      });
+    }
+  }
+
+  void _clearNoUsableFrame() {
+    _noUsableFrameSince = null;
+    _delayedHintTimer?.cancel();
+    _delayedHintTimer = null;
+    if (_delayedHintVisible && mounted) {
+      setState(() => _delayedHintVisible = false);
+    } else {
+      _delayedHintVisible = false;
+    }
+  }
+
+  /// TASK 09 delayed hint — only after ≥2 s without usable frames.
+  String? get _bestFrameDelayedHintText {
+    if (!_bestFrameModeActive) return null;
+    if (!_delayedHintVisible) return null;
+    if (_bestFrameMarker is BestFrameMarkerVerified) return null;
+    if (_noticeHold) return null;
+    if (_noUsableFrameSince == null) return null;
+    return switch (_dominantUsableReason) {
+      FrameUsableDominant.tooClose => 'Move back a little',
+      FrameUsableDominant.tooFar => 'Come closer',
+      FrameUsableDominant.angle => 'Look at the camera',
+      FrameUsableDominant.blur => 'Hold still',
+      FrameUsableDominant.dark => 'More light needed',
+      FrameUsableDominant.none => 'Hold still',
+    };
+  }
+
+  void _armBestFrameCooldown([Duration? d]) {
+    _bestFrameCooldownUntil =
+        DateTime.now().add(d ?? BestFrameRules.spoofCooldown);
+  }
+
+  Duration get _bestFrameProcessInterval => _lowEndDeviceMode
+      ? BestFrameRules.processIntervalLowEnd
+      : BestFrameRules.processInterval;
+
+  void _noteBestFrameInterval(DateTime now) {
+    final prev = _lastBestFrameProcessedAt;
+    _lastBestFrameProcessedAt = now;
+    if (prev == null) return;
+    final ms = now.difference(prev).inMilliseconds;
+    if (ms <= 0 || ms > 5000) return;
+    _bestFrameIntervalMs.add(ms);
+    if (_bestFrameIntervalMs.length > 12) {
+      _bestFrameIntervalMs.removeAt(0);
+    }
+    final avg =
+        _bestFrameIntervalMs.reduce((a, b) => a + b) / _bestFrameIntervalMs.length;
+    _bestFrameWindowDuration = BestFrameRules.adaptiveWindowDuration(
+      Duration(milliseconds: avg.round()),
+    );
+  }
+
+  void _maybeLogBestFramePerf(DateTime now) {
+    if (now.difference(_lastBestFramePerfLogAt) <
+        BestFrameRules.waitingLogInterval) {
+      return;
+    }
+    _lastBestFramePerfLogAt = now;
+    final avgMs = _bestFrameIntervalMs.isEmpty
+        ? 0
+        : _bestFrameIntervalMs.reduce((a, b) => a + b) /
+            _bestFrameIntervalMs.length;
+    final fps = avgMs > 0 ? (1000.0 / avgMs) : 0.0;
+    debugPrint(
+      'BestFrame: perf fps=${fps.toStringAsFixed(1)} '
+      'emb_ms=$_bestFramePerfEmbMs pad_ms=$_bestFramePerfPadMs '
+      'window_ms=${_bestFrameWindowDuration.inMilliseconds}',
+    );
+  }
+
+  /// Queue latest detection for identity+PAD (marker already updated separately).
+  void _enqueueBestFrameEvidence(_BestFramePending pending) {
+    if (!_bestFrameModeActive ||
+        _noticeHold ||
+        _isCapturing ||
+        _awaitingTarget) {
+      return;
+    }
+    final cooled = _bestFrameCooldownUntil;
+    if (cooled != null && DateTime.now().isBefore(cooled)) return;
+    _bestFramePending = pending;
+    _kickBestFrameEvidenceIfIdle();
+  }
+
+  void _kickBestFrameEvidenceIfIdle() {
+    if (_bestFrameEvidenceBusy) return;
+    final pending = _bestFramePending;
+    if (pending == null) return;
+    final now = DateTime.now();
+    final since = now.difference(_lastBestFrameProcessAt);
+    if (since < _bestFrameProcessInterval) {
+      final wait = _bestFrameProcessInterval - since;
+      Future<void>.delayed(wait, () {
+        if (!mounted) return;
+        if (!_bestFrameEvidenceBusy && _bestFramePending != null) {
+          _kickBestFrameEvidenceIfIdle();
+        }
+      });
+      return;
+    }
+    _bestFramePending = null;
+    _bestFrameEvidenceBusy = true;
+    _lastBestFrameProcessAt = now;
+    unawaited(_runBestFrameEvidence(pending).whenComplete(() {
+      _bestFrameEvidenceBusy = false;
+      if (_bestFramePending != null) {
+        _kickBestFrameEvidenceIfIdle();
+      }
+    }));
+  }
+
+  /// [modelRgb] / [modelFaceBox] / [modelLandmarks] are what PAD+identity run
+  /// on (full upright frame on iOS; small region crop on Android).
+  /// [markerFaceBox] stays in full upright frame space for the overlay.
+  Future<void> _runBestFrameEvidence(_BestFramePending pending) async {
+    if (!_bestFrameModeActive || _noticeHold || _isCapturing || _awaitingTarget) {
+      return;
+    }
+    final now = DateTime.now();
+    _noteBestFrameInterval(now);
+    final modelRgb = pending.modelRgb;
+    final modelFaceBox = pending.modelFaceBox;
+    final markerFaceBox = pending.markerFaceBox;
+    final uprightFrameSize = pending.uprightFrameSize;
+    final result = pending.result;
+    final modelLandmarks = pending.modelLandmarks;
+    try {
+      await Future.wait([
+        MinifasnetFusionEngine.instance.ensureLoaded(),
+        FaceEmbedder.instance.ensureLoaded(),
+      ]);
+      final landmarks = modelLandmarks ?? result.primaryFace;
+      final classification = result.classification;
+      final sharpness =
+          BestFrameRules.faceSharpness(modelRgb, modelFaceBox);
+      final brightness =
+          BestFrameRules.faceBrightness(modelRgb, modelFaceBox);
+
+      final idOk = BestFrameRules.identityEligible(
+        faceBox: markerFaceBox,
+        frameSize: uprightFrameSize,
+        landmarks: result.primaryFace,
+        classification: classification,
+      );
+      final padReasons = BestFrameRules.padIneligibleReasons(
+        faceBox: markerFaceBox,
+        frameSize: uprightFrameSize,
+        classification: classification,
+        sharpness: sharpness,
+      );
+      final padOk = padReasons.isEmpty;
+
+      if (!idOk && !padOk) {
+        _dominantUsableReason = BestFrameRules.dominantIneligibleReason(
+          faceBox: markerFaceBox,
+          frameSize: uprightFrameSize,
+          landmarks: result.primaryFace,
+          classification: classification,
+          sharpness: sharpness,
+          brightness: brightness,
+        );
+        _noteNoUsableFrame(now);
+      } else {
+        _dominantUsableReason = FrameUsableDominant.none;
+        _clearNoUsableFrame();
+      }
+
+      _bestFrameFirstFaceAt ??= now;
+
+      FaceVerifyResult? identity;
+      var identityStatus = FrameIdentityStatus.notEligible;
+      var pad = FramePadVerdict.notEligible;
+
+      // Same frame: identity + PAD in parallel (separate interpreters/workers).
+      final jobs = <Future<void>>[];
+      if (idOk) {
+        final target = widget.targetEmployee;
+        final phaseB = widget.faceRecognition;
+        if (target != null && phaseB != null && phaseB.isReady) {
+          jobs.add(() async {
+            identity = await phaseB.verifyImage(
+              source: modelRgb,
+              faceBox: modelFaceBox,
+              targetEmployeeId: target.employeeId,
+              landmarks: landmarks,
+            );
+            _bestFramePerfEmbMs = FaceEmbedder.instance.lastInferenceMs;
+            identityStatus = identity!.isVerified
+                ? FrameIdentityStatus.verified
+                : FrameIdentityStatus.notVerified;
+          }());
+        }
+      }
+      if (padOk) {
+        jobs.add(() async {
+          final layer1 = await _padLayer1.evaluateImage(
+            source: modelRgb,
+            faceBox: modelFaceBox,
+          );
+          _bestFramePerfPadMs = MinifasnetFusionEngine.instance.lastInferenceMs;
+          pad = switch (layer1.verdict) {
+            Layer1Verdict.live => FramePadVerdict.live,
+            Layer1Verdict.spoof => FramePadVerdict.spoof,
+            Layer1Verdict.uncertain => FramePadVerdict.uncertain,
+            Layer1Verdict.error => FramePadVerdict.error,
+          };
+        }());
+      }
+      if (jobs.isNotEmpty) {
+        await Future.wait(jobs);
+      }
+      if (!mounted) return;
+
+      final quality = BestFrameRules.qualityScore(
+        faceBox: markerFaceBox,
+        frameSize: uprightFrameSize,
+        classification: classification,
+        sharpness: sharpness,
+        brightness: brightness,
+      );
+
+      final evidence = FrameEvidence(
+        timestamp: now,
+        faceBox: markerFaceBox,
+        frameSize: uprightFrameSize,
+        rgbFrame: modelRgb,
+        qualityScore: quality,
+        identityStatus: identityStatus,
+        identity: identity,
+        pad: pad,
+        classification: classification,
+        landmarks: result.primaryFace,
+        ineligibleReason: _dominantUsableReason,
+        sharpness: sharpness,
+        brightness: brightness,
+      );
+
+      _bestFrameWindow.add(evidence);
+      final pruned = BestFrameRules.pruneWindow(
+        _bestFrameWindow,
+        now,
+        duration: _bestFrameWindowDuration,
+      );
+      _bestFrameWindow
+        ..clear()
+        ..addAll(pruned);
+      _maybeLogBestFramePerf(now);
+
+      final targetId = widget.targetEmployee?.employeeId;
+      if (targetId != null) {
+        _bestFrameMarker = BestFrameRules.markerState(
+          window: _bestFrameWindow,
+          targetEmployeeId: targetId,
+        );
+      } else {
+        _bestFrameMarker = BestFrameMarkerState.none;
+      }
+
+      final liveVerified =
+          _bestFrameWindow.where((e) => e.isLiveVerified).toList();
+      FrameEvidence? bestPixels;
+      if (liveVerified.isNotEmpty) {
+        bestPixels = liveVerified.first;
+        for (final e in liveVerified.skip(1)) {
+          if (e.qualityScore > bestPixels!.qualityScore) bestPixels = e;
+        }
+      }
+      BestFrameRules.retainBestPixels(_bestFrameWindow, bestPixels);
+
+      // Green/label from evidence; position already tracks detection.
+      if (_bestFrameMarker is BestFrameMarkerVerified && targetId != null) {
+        final verified = _bestFrameMarker as BestFrameMarkerVerified;
+        _livePreviewEmployeeId = targetId;
+        _lastBadgeQualifyingAt = now;
+        _liveOverlayHint = null;
+        _markerEmployeeId = verified.employeeId;
+        if (_markerSmoothBox != null) {
+          // Refresh color without jumping the box.
+          if (mounted) setState(() {});
+        } else {
+          _animateMarkerBox(verified.faceBox, employeeId: verified.employeeId);
+        }
+        if (!_isEmployeeAlreadyCaptured(targetId)) {
+          _livePreviewBlockCapture = false;
+          _livePreviewAllowAutoCapture = true;
+        }
+      } else {
+        final last = _lastBadgeQualifyingAt;
+        if (_markerEmployeeId != null &&
+            (last == null ||
+                now.difference(last) > BestFrameRules.markerSafetyStale)) {
+          _markerEmployeeId = null;
+          _livePreviewEmployeeId = null;
+          _livePreviewAllowAutoCapture = false;
+          _liveOverlayHint = null;
+          if (mounted) setState(() {});
+        }
+      }
+
+      final decision = BestFrameRules.evaluateAccept(_bestFrameWindow);
+      if (decision.rejectReason == 'spoof') {
+        debugPrint('BestFrame: reject reason=spoof');
+        _clearBestFrameWindow();
+        _armBestFrameCooldown();
+        _blockReplayAttempt(
+          'Presentation attack detected — use live face',
+        );
+        _emitChrome();
+        return;
+      }
+      if (decision.rejectReason == 'temporal_fail') {
+        debugPrint('BestFrame: reject reason=temporal_fail');
+        _clearBestFrameWindow();
+        _armBestFrameCooldown();
+        _emitChrome();
+        return;
+      }
+
+      if (decision.accepted &&
+          decision.best != null &&
+          !_bestFrameManualWaiting &&
+          !_isCapturing) {
+        _isCapturing = true;
+        await _acceptBestFrame(decision);
+        return;
+      }
+
+      _maybeLogBestFrameWhy(
+        now: now,
+        decision: decision,
+        latestPadReasons: padReasons,
+      );
+      _emitChrome();
+    } catch (e, st) {
+      debugPrint('BestFrame: process failed: $e\n$st');
+    }
+  }
+
+  /// Every 2 s while not accepted: why the accept rule has not fired.
+  void _maybeLogBestFrameWhy({
+    required DateTime now,
+    required BestFrameAcceptDecision decision,
+    required List<String> latestPadReasons,
+  }) {
+    if (now.difference(_lastBestFrameWaitingLogAt) <
+        BestFrameRules.waitingLogInterval) {
+      return;
+    }
+    _lastBestFrameWaitingLogAt = now;
+
+    final liveVerified =
+        _bestFrameWindow.where((e) => e.isLiveVerified).toList()
+          ..sort((a, b) => a.timestamp.compareTo(b.timestamp));
+    final spanMs = liveVerified.length >= 2
+        ? liveVerified.last.timestamp
+            .difference(liveVerified.first.timestamp)
+            .inMilliseconds
+        : 0;
+    final eligibleId = _bestFrameWindow
+        .where((e) => e.identityStatus != FrameIdentityStatus.notEligible)
+        .length;
+    final eligiblePad = _bestFrameWindow
+        .where((e) => e.pad != FramePadVerdict.notEligible)
+        .length;
+    final bestStatus = decision.accepted
+        ? 'accepted'
+        : (decision.rejectReason ?? decision.waitReason ?? 'waiting');
+    final temporal = decision.waitReason == 'temporal'
+        ? 'not_ready'
+        : (decision.rejectReason == 'temporal_fail'
+            ? 'fail:${decision.waitReason ?? ""}'
+            : (liveVerified.length >= 3 ? 'ok_or_n/a' : 'n/a'));
+    final padWhy = latestPadReasons.isEmpty
+        ? 'eligible'
+        : latestPadReasons.join('+');
+    debugPrint(
+      'BestFrame: WHY live_verified=${liveVerified.length} '
+      'eligible_id=$eligibleId eligible_pad=$eligiblePad '
+      'span_ms=$spanMs temporal=$temporal best=$bestStatus '
+      'pad_ineligible=$padWhy dominant=${_dominantUsableReason.name} '
+      'window=${_bestFrameWindow.length}',
+    );
+  }
+
+  Future<void> _captureBestFrameManual() async {
+    final immediate = BestFrameRules.evaluateAccept(_bestFrameWindow);
+    if (immediate.accepted && immediate.best != null) {
+      _patchState(() => _isCapturing = true);
+      await _acceptBestFrame(immediate);
+      return;
+    }
+    _bestFrameManualWaiting = true;
+    _emitChrome();
+    final deadline = DateTime.now().add(BestFrameRules.manualWait);
+    try {
+      while (mounted && DateTime.now().isBefore(deadline)) {
+        await Future<void>.delayed(const Duration(milliseconds: 40));
+        if (!mounted) return;
+        final d = BestFrameRules.evaluateAccept(_bestFrameWindow);
+        if (d.rejectReason == 'spoof') {
+          debugPrint('BestFrame: reject reason=spoof');
+          _clearBestFrameWindow();
+          _armBestFrameCooldown();
+          _blockReplayAttempt(
+            'Presentation attack detected — use live face',
+          );
+          return;
+        }
+        if (d.accepted && d.best != null) {
+          _patchState(() => _isCapturing = true);
+          await _acceptBestFrame(d);
+          return;
+        }
+      }
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+          ..hideCurrentSnackBar()
+          ..showSnackBar(
+            const SnackBar(
+              content: Text('Hold still'),
+              duration: Duration(seconds: 2),
+            ),
+          );
+      }
+    } finally {
+      _bestFrameManualWaiting = false;
+      if (mounted) _emitChrome();
+    }
+  }
+
+  Future<void> _acceptBestFrame(BestFrameAcceptDecision decision) async {
+    final target = widget.targetEmployee;
+    final best = decision.best;
+    if (target == null || best == null) {
+      _patchState(() => _isCapturing = false);
+      return;
+    }
+    final verify = best.identity;
+    final rgb = best.rgbFrame;
+    if (verify == null || !verify.isVerified || rgb == null) {
+      debugPrint('BestFrame: reject reason=best_missing_pixels_or_verify');
+      _patchState(() => _isCapturing = false);
+      _armAutoCaptureCooldown();
+      return;
+    }
+
+    if (_isEmployeeAlreadyCaptured(target.employeeId)) {
+      final replay = !(await _burstPipeline.verifySingleFrame(
+        BurstFrameSample(
+          rgbFrame: rgb,
+          faceBox: best.faceBox,
+          classification: best.classification,
+        ),
+      ))
+          .passed;
+      if (!mounted) return;
+      _patchState(() => _isCapturing = false);
+      _clearBestFrameWindow();
+      _armAutoCaptureCooldown();
+      if (replay) {
+        _blockReplayAttempt('Presentation attack detected — use live face');
+      } else {
+        _enterDuplicatePreview(target);
+      }
+      return;
+    }
+    if (!_isOnProjectLaborList(target.employeeId)) {
+      _patchState(() => _isCapturing = false);
+      _clearBestFrameWindow();
+      _showCaptureBlockedMessage(
+        "${target.name} is not on this project's labor list — cannot add",
+      );
+      return;
+    }
+
+    final firstFace = _bestFrameFirstFaceAt ?? best.timestamp;
+    final msFromFirst = DateTime.now().difference(firstFace).inMilliseconds;
+    final path =
+        '${await _tempDir()}/ts_best_${DateTime.now().microsecondsSinceEpoch}.jpg';
+    if (!mounted) return;
+
+    final audited = _buildCaptureDraft(path).withFaceAudit(
+      verified: true,
+      score: verify.targetScore,
+      lead: verify.usedNoCohortBar ? null : verify.lead,
+      cohortSize: verify.cohortSize,
+      liveness: 'pass',
+    );
+    debugPrint(
+      'BestFrame: accept ms_from_first_face=$msFromFirst '
+      'window=${decision.windowCount} frames '
+      'live=${decision.liveVerifiedCount} '
+      'verified=${decision.liveVerifiedCount} spoof=0 '
+      'best_q=${best.qualityScore.toStringAsFixed(2)} '
+      't=${verify.targetScore?.toStringAsFixed(2)} '
+      'lead=${verify.usedNoCohortBar ? 'n/a' : verify.lead?.toStringAsFixed(2)}',
+    );
+
+    // Hold pixels for background save before clearing the window.
+    final saveFrame = rgb;
+    _clearBestFrameWindow();
+    _patchState(() => _isCapturing = false);
+    _armAutoCaptureCooldown();
+    _markJustCaptured(target.employeeId);
+    widget.onTargetVerified?.call(target, audited, verify);
+    unawaited(
+      _speech.speakEmployeeDetected(target.name, employeeId: target.employeeId),
+    );
+    PendingCaptureWrites.track(
+      _persistFastCapture(
+        frame: saveFrame,
+        draft: audited,
+        target: target,
+      ),
+    );
+    _livenessGate.resetSession();
+    _syncLivenessSnapshot();
+    _clearLiveOverlay();
+  }
+
 
   void _maybeInstantCapture() {
     if (!_qualityReady && !_isCapturing && !_verificationInFlight) {
@@ -951,7 +1638,11 @@ class TimesheetCaptureCameraPanelState
   }
 
   /// 1:1: the preview shows the green badge for the current target.
+  /// Best-frame: green when [markerState] is verified (TASK 08 §7).
   bool get _previewTargetVerified {
+    if (_bestFrameModeActive) {
+      return _bestFrameMarker is BestFrameMarkerVerified;
+    }
     final target = widget.targetEmployee;
     return widget.verifyTarget &&
         target != null &&
@@ -1097,6 +1788,8 @@ class TimesheetCaptureCameraPanelState
     _duplicateNoticeTimer?.cancel();
     _faceReadySince = null;
     _noticeHold = false;
+    _bestFrameManualWaiting = false;
+    _clearBestFrameWindow();
     // Disarmed: the face still in frame (often the labor just captured) must
     // leave first; auto capture re-arms once quality drops / the face goes.
     _instantCaptureArmed = false;
@@ -1469,6 +2162,8 @@ class TimesheetCaptureCameraPanelState
     _duplicateNoticeTimer?.cancel();
     _previewDebounceTimer?.cancel();
     _livenessRetryTimer?.cancel();
+    _markerLerpTimer?.cancel();
+    _delayedHintTimer?.cancel();
     unawaited(_clearStreamSampleRing());
     unawaited(_stopLiveDetection());
     unawaited(_speech.dispose());
@@ -1499,7 +2194,48 @@ class TimesheetCaptureCameraPanelState
         fit: StackFit.expand,
         children: [
           _buildCameraPreview(),
-          if (faceResult != null)
+          // TASK 09: best-frame 1:1 → square + emp id (no oval / name badge).
+          // Switch off → today's name-badge overlay unchanged.
+          if (_bestFrameModeActive) ...[
+            if (_markerSmoothBox != null && faceResult?.imageSize != null)
+              CustomPaint(
+                painter: BestFrameMarkerOverlayPainter(
+                  imageSize: faceResult!.imageSize!,
+                  faceBox: _markerSmoothBox!,
+                  employeeId: _markerEmployeeId != null &&
+                          _markerEmployeeId! > 0
+                      ? _markerEmployeeId
+                      : null,
+                  // Position tracks detection; green+id only when evidence verified.
+                  neutralOnly: _markerEmployeeId == null ||
+                      _markerEmployeeId == 0,
+                  fit: _previewFit,
+                ),
+              ),
+            if (_bestFrameDelayedHintText != null)
+              Positioned(
+                left: 20,
+                right: 20,
+                bottom: useExternalChrome ? 12 : 56,
+                child: IgnorePointer(
+                  child: Text(
+                    _bestFrameDelayedHintText!,
+                    textAlign: TextAlign.center,
+                    style: TimesheetModuleTypography.caption().copyWith(
+                      color: TimesheetModuleColors.surface,
+                      fontWeight: FontWeight.w600,
+                      shadows: const [
+                        Shadow(
+                          color: Colors.black54,
+                          blurRadius: 6,
+                          offset: Offset(0, 1),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+          ] else if (faceResult != null)
             CustomPaint(
               painter: TimesheetFaceOverlayPainter(
                 result: faceResult,
@@ -1683,7 +2419,7 @@ class TimesheetCaptureCameraPanelState
   Future<void> _capture() async {
     // Single-flight: auto-capture timer, manual shutter and external chrome
     // can all fire in the same window — only the first one runs.
-    if (_isCapturing) {
+    if (_isCapturing || _bestFrameManualWaiting) {
       debugPrint('FaceCapture: shutter ignored — capture already running');
       return;
     }
@@ -1709,7 +2445,8 @@ class TimesheetCaptureCameraPanelState
       debugPrint('FaceCapture: shutter blocked — emp $previewId captured');
       return;
     }
-    if (!_qualityReady) {
+    // Best-frame: quality gates do not block the shutter (TASK 08 §6).
+    if (!_bestFrameModeActive && !_qualityReady) {
       debugPrint('FaceCapture: shutter blocked — quality not ready');
       return;
     }
@@ -1717,14 +2454,20 @@ class TimesheetCaptureCameraPanelState
       debugPrint('FaceCapture: shutter blocked — PAD in flight');
       return;
     }
-    _patchState(() => _isCapturing = true);
     final controller = _cameraController;
     if (controller == null || !controller.value.isInitialized) {
-      _patchState(() => _isCapturing = false);
       return;
     }
 
     unawaited(HapticFeedback.lightImpact());
+
+    // TASK 08 — continuous evidence path (switch on, 1:1 only).
+    if (_bestFrameModeActive) {
+      await _captureBestFrameManual();
+      return;
+    }
+
+    _patchState(() => _isCapturing = true);
     final tapAt = DateTime.now();
     final fast = _fastAcceptFrames(tapAt);
     if (fast.frames != null) {
@@ -2719,8 +3462,13 @@ class TimesheetCaptureCameraPanelState
     _clearLiveOverlay();
     await _clearBurstSamples();
     await _clearStreamSampleRing();
+    _clearBestFrameWindow();
     _livenessGate.resetSession();
     _syncLivenessSnapshot();
+    if (Platform.isAndroid) {
+      await _androidTfliteSelfTestOnCameraOpen();
+      _faceService.logDetectorOnCameraOpen();
+    }
     if (Platform.isIOS) {
       try {
         await _startImageStream();
@@ -2733,6 +3481,28 @@ class TimesheetCaptureCameraPanelState
       return;
     }
     await _startImageStream();
+  }
+
+  /// Android only: one dummy inference per model before the stream starts.
+  /// Falls back to IsolateInterpreter if anything is broken.
+  Future<void> _androidTfliteSelfTestOnCameraOpen() async {
+    try {
+      final emb = await FaceEmbedder.instance.runSelfTest();
+      final pad = await MinifasnetFusionEngine.instance.runSelfTest();
+      debugPrint(
+        'BestFrame: selftest emb ok=${emb.ok} backend=${emb.backend} '
+        'ms=${emb.ms} fallback=${FaceEmbedder.instance.usedFallback} | '
+        'pad ok=${pad.ok} mode=${pad.mode} v2_ms=${pad.v2Ms} '
+        'v1se_ms=${pad.v1Ms}',
+      );
+      if (!emb.ok || !pad.ok) {
+        debugPrint(
+          'BestFrame: selftest FAILED — capture may block until interpreters recover',
+        );
+      }
+    } catch (e, st) {
+      debugPrint('BestFrame: selftest error: $e\n$st');
+    }
   }
 
   Future<void> _stopLiveDetection() async {
@@ -2779,6 +3549,43 @@ class TimesheetCaptureCameraPanelState
         trustLiveGate: true,
       );
       final matchPath = result.analyzedImagePath ?? photo.path;
+      if (_bestFrameModeActive) {
+        if (result.faceBoxes.isEmpty) {
+          _clearBadgeNow(reason: 'no_face');
+          _noteNoUsableFrame(DateTime.now());
+        } else if (!_isCapturing && !_holdLiveMatching) {
+          try {
+            final bytes = await File(matchPath).readAsBytes();
+            final decoded = img.decodeImage(bytes);
+            final faceBox = _largestFaceBox(result.faceBoxes);
+            if (decoded != null && faceBox != null && mounted) {
+              final frameSize = Size(
+                decoded.width.toDouble(),
+                decoded.height.toDouble(),
+              );
+              _updateMarkerPositionFromDetection(faceBox);
+              _enqueueBestFrameEvidence(
+                _BestFramePending(
+                  modelRgb: decoded,
+                  modelFaceBox: faceBox,
+                  markerFaceBox: faceBox,
+                  uprightFrameSize: frameSize,
+                  result: result,
+                ),
+              );
+            }
+          } catch (e) {
+            debugPrint('BestFrame: iOS frame decode failed: $e');
+          }
+        }
+        try {
+          await File(photo.path).delete();
+        } catch (_) {}
+        if (!mounted) return;
+        setState(() => _faceResult = result);
+        _emitChrome();
+        return;
+      }
       // Task 5a — no stream PAD on iOS polling either; badge embed only.
       if (result.faceBoxes.isEmpty) {
         _clearBadgeNow(reason: 'no_face');
@@ -2877,14 +3684,85 @@ class TimesheetCaptureCameraPanelState
       }
       _patchState(() => _faceResult = result);
 
+      img.Image? decodedRgb;
+      img.Image? ensureDecoded() =>
+          decodedRgb ??= _faceService.decodeCameraImageUpright(image, camera);
+
+      // TASK 08 — marker from every ML Kit hit; identity+PAD on a slower loop.
+      if (_bestFrameModeActive) {
+        if (result.faceBoxes.isNotEmpty &&
+            !_shouldHoldDuplicateFrame &&
+            !_isCapturing) {
+          final faceBox = _largestFaceBox(result.faceBoxes);
+          if (faceBox == null) {
+            _noteNoUsableFrame(DateTime.now());
+          } else {
+            _updateMarkerPositionFromDetection(faceBox);
+            if (Platform.isAndroid) {
+              // A2/A3 Android only: copy a small region from the camera planes,
+              // then return this CameraImage immediately (processing is async).
+              final lm = result.primaryFace;
+              final region = CameraRegionDecode.extractUprightFaceRegion(
+                image: image,
+                camera: camera,
+                faceBoxUpright: faceBox,
+                leftEye: lm?.leftEye,
+                rightEye: lm?.rightEye,
+                nose: lm?.nose,
+                mouthLeft: lm?.mouthLeft,
+                mouthRight: lm?.mouthRight,
+              );
+              if (region != null) {
+                final modelLm = TimesheetFaceLandmarkSnapshot(
+                  boundingBox: region.faceBoxInCrop,
+                  leftEye: region.leftEye,
+                  rightEye: region.rightEye,
+                  nose: region.nose,
+                  mouthLeft: region.mouthLeft,
+                  mouthRight: region.mouthRight,
+                );
+                _enqueueBestFrameEvidence(
+                  _BestFramePending(
+                    modelRgb: region.rgb,
+                    modelFaceBox: region.faceBoxInCrop,
+                    markerFaceBox: faceBox,
+                    uprightFrameSize: region.uprightFrameSize,
+                    result: result,
+                    modelLandmarks: modelLm,
+                  ),
+                );
+              }
+            } else {
+              // iOS: keep the current full upright decode path.
+              final rgb = ensureDecoded();
+              if (rgb != null) {
+                final frameSize = Size(
+                  rgb.width.toDouble(),
+                  rgb.height.toDouble(),
+                );
+                _enqueueBestFrameEvidence(
+                  _BestFramePending(
+                    modelRgb: rgb,
+                    modelFaceBox: faceBox,
+                    markerFaceBox: faceBox,
+                    uprightFrameSize: frameSize,
+                    result: result,
+                  ),
+                );
+              }
+            }
+          }
+        } else if (result.faceBoxes.isEmpty) {
+          _noteNoUsableFrame(DateTime.now());
+        }
+        return;
+      }
+
       // Keep a short in-memory ring for capture-time PAD only (Task 5a).
       // Do NOT run MiniFASNet on the stream.
       final ringMinInterval = _lowEndDeviceMode
           ? const Duration(milliseconds: 900)
           : const Duration(milliseconds: 350);
-      img.Image? decodedRgb;
-      img.Image? ensureDecoded() =>
-          decodedRgb ??= _faceService.decodeCameraImageUpright(image, camera);
 
       if (result.faceBoxes.isNotEmpty &&
           DateTime.now().difference(_lastRingSampleAt) >= ringMinInterval) {
@@ -3039,6 +3917,15 @@ class TimesheetCaptureCameraPanelState
   String _statusLabel(TimesheetFaceDetectionResult? result) {
     if (_verificationInFlight) {
       return 'Verifying liveness…';
+    }
+    // TASK 09: no immediate quality hints ("Move back", etc.) in best-frame
+    // verify mode — delayed bottom hint only after ≥2 s.
+    if (_bestFrameModeActive) {
+      if (_livenessSnapshot.showSpoofWarning) {
+        return _livenessSnapshot.statusMessage;
+      }
+      if (result == null) return 'Looking for faces';
+      return 'Looking for faces';
     }
     if (_lowEndDeviceMode && result?.quality.canCapture == true) {
       return 'Low-end mode: tap capture to verify identity';
@@ -3256,6 +4143,100 @@ class TimesheetCaptureStatusPill extends StatelessWidget {
   }
 }
 
+/// Maps an upright ML Kit face box into the preview view (BoxFit.cover/contain).
+({double scale, double dx, double dy, Size upright}) mapFaceBoxToPreview({
+  required Size viewSize,
+  required Size imageSize,
+  required BoxFit fit,
+}) {
+  final viewPortrait = viewSize.height >= viewSize.width;
+  final imagePortrait = imageSize.height >= imageSize.width;
+  final upright = viewPortrait == imagePortrait
+      ? imageSize
+      : Size(imageSize.height, imageSize.width);
+  final sx = viewSize.width / upright.width;
+  final sy = viewSize.height / upright.height;
+  final scale = fit == BoxFit.contain ? math.min(sx, sy) : math.max(sx, sy);
+  final dx = (viewSize.width - upright.width * scale) / 2;
+  final dy = (viewSize.height - upright.height * scale) / 2;
+  return (scale: scale, dx: dx, dy: dy, upright: upright);
+}
+
+Rect scaleFaceBoxToView({
+  required Rect box,
+  required Size viewSize,
+  required Size imageSize,
+  required BoxFit fit,
+}) {
+  final m = mapFaceBoxToPreview(
+    viewSize: viewSize,
+    imageSize: imageSize,
+    fit: fit,
+  );
+  return Rect.fromLTRB(
+    m.dx + box.left * m.scale,
+    m.dy + box.top * m.scale,
+    m.dx + box.right * m.scale,
+    m.dy + box.bottom * m.scale,
+  );
+}
+
+/// TASK 09 — BioTime-style corner-bracket square + employee id (no name).
+class BestFrameMarkerOverlayPainter extends CustomPainter {
+  const BestFrameMarkerOverlayPainter({
+    required this.imageSize,
+    required this.faceBox,
+    required this.fit,
+    this.employeeId,
+    this.neutralOnly = false,
+  });
+
+  final Size imageSize;
+  final Rect faceBox;
+  final BoxFit fit;
+  final int? employeeId;
+  final bool neutralOnly;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    if (imageSize.width == 0 || imageSize.height == 0) return;
+    final scaled = scaleFaceBoxToView(
+      box: faceBox,
+      viewSize: size,
+      imageSize: imageSize,
+      fit: fit,
+    );
+    final color = neutralOnly
+        ? TmFaceMeshPainter.neutral.withValues(alpha: 0.55)
+        : TmFaceMeshPainter.inTeam;
+    TmFaceMeshPainter.paintCornerBracketSquare(
+      canvas: canvas,
+      faceBox: scaled,
+      color: color,
+      strokeWidth: neutralOnly ? 1.5 : 3,
+    );
+    if (!neutralOnly && employeeId != null && employeeId! > 0) {
+      final square = TmFaceMeshPainter.expandedSquareForFace(scaled);
+      TmFaceMeshPainter.paintEmployeeIdPill(
+        canvas: canvas,
+        squareBox: square,
+        employeeId: employeeId!,
+        badgeColor: TmFaceMeshPainter.inTeam,
+        viewSize: size,
+      );
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant BestFrameMarkerOverlayPainter oldDelegate) {
+    return oldDelegate.imageSize != imageSize ||
+        oldDelegate.faceBox != faceBox ||
+        oldDelegate.employeeId != employeeId ||
+        oldDelegate.neutralOnly != neutralOnly ||
+        oldDelegate.fit != fit;
+  }
+}
+
 class TimesheetFaceOverlayPainter extends CustomPainter {
   const TimesheetFaceOverlayPainter({
     required this.result,
@@ -3291,16 +4272,6 @@ class TimesheetFaceOverlayPainter extends CustomPainter {
     // be the raw sensor frame — align orientation with the view, then map with
     // the same uniform cover transform the preview uses (BoxFit.cover), so the
     // badge stays on the face on tall phones and wide tablets alike.
-    final viewPortrait = size.height >= size.width;
-    final imagePortrait = imageSize.height >= imageSize.width;
-    final upright = viewPortrait == imagePortrait
-        ? imageSize
-        : Size(imageSize.height, imageSize.width);
-    final sx = size.width / upright.width;
-    final sy = size.height / upright.height;
-    final scale = fit == BoxFit.contain ? math.min(sx, sy) : math.max(sx, sy);
-    final dx = (size.width - upright.width * scale) / 2;
-    final dy = (size.height - upright.height * scale) / 2;
     final frameColor = switch (kind) {
       TimesheetFaceFrameKind.inTeam => TmFaceMeshPainter.inTeam,
       TimesheetFaceFrameKind.outOfTeam => TmFaceMeshPainter.outOfTeam,
@@ -3319,11 +4290,11 @@ class TimesheetFaceOverlayPainter extends CustomPainter {
 
     for (var i = 0; i < boxes.length; i++) {
       final box = boxes[i];
-      final scaled = Rect.fromLTRB(
-        dx + box.left * scale,
-        dy + box.top * scale,
-        dx + box.right * scale,
-        dy + box.bottom * scale,
+      final scaled = scaleFaceBoxToView(
+        box: box,
+        viewSize: size,
+        imageSize: imageSize,
+        fit: fit,
       );
       if (i == 0) {
         TmFaceMeshPainter.paintNameBadge(

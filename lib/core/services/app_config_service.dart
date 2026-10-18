@@ -35,6 +35,15 @@ class AppConfigService {
     faceVerifyKeyMinFacePx,
   ];
 
+  /// `/api/app/config` key for continuous best-frame capture (1:1).
+  static const faceBestFrameEnabledKey = 'face_best_frame_enabled';
+  static const _cacheKeyFaceBestFrameEnabled =
+      'app_config_face_best_frame_enabled';
+
+  /// Code kill switch for best-frame pipeline. When false, the Odoo flag is
+  /// ignored and today's fast/slow path is used.
+  static const bool faceBestFrameCodeEnabled = true;
+
   bool _isTestMode = false;
   bool get isTestMode => _isTestMode;
 
@@ -55,6 +64,14 @@ class AppConfigService {
   /// Note: Test mode no longer bypasses face ID for security
   bool get shouldSkipFaceId => !_faceIdEnabled;
 
+  /// Cached remote value; null means "not set" (treat as enabled).
+  bool? _faceBestFrameEnabledRemote;
+
+  /// Best-frame continuous PAD+identity for 1:1 capture. Missing/null remote
+  /// → true. Forced off when [faceBestFrameCodeEnabled] is false.
+  bool get faceBestFrameEnabled =>
+      faceBestFrameCodeEnabled && (_faceBestFrameEnabledRemote ?? true);
+
   /// Load config from remote API and cache locally
   Future<void> load() async {
     // Try read cached values first
@@ -63,6 +80,10 @@ class AppConfigService {
       _isTestMode = prefs.getBool(_cacheKeyIsTestMode) ?? false;
       _skipVpnCheck = prefs.getBool(_cacheKeySkipVpnCheck) ?? false;
       _faceIdEnabled = prefs.getBool(_cacheKeyFaceIdEnabled) ?? true;
+      if (prefs.containsKey(_cacheKeyFaceBestFrameEnabled)) {
+        _faceBestFrameEnabledRemote =
+            prefs.getBool(_cacheKeyFaceBestFrameEnabled);
+      }
       FaceMatchTuning.apply(
         minScore: prefs.getDouble(_cacheKeyFaceMatchMinScore),
         minLead: prefs.getDouble(_cacheKeyFaceMatchMinLead),
@@ -133,6 +154,9 @@ class AppConfigService {
         }
         if (faceVerifyKeys.any(payload.containsKey)) {
           await _applyAndCacheFaceVerify(payload);
+        }
+        if (payload.containsKey(faceBestFrameEnabledKey)) {
+          await _applyAndCacheFaceBestFrame(payload[faceBestFrameEnabledKey]);
         }
       }
 
@@ -228,6 +252,44 @@ class AppConfigService {
           FaceVerifyTuning.minCohort);
       await prefs.setInt('$_cacheKeyFaceVerifyPrefix$faceVerifyKeyMinFacePx',
           FaceVerifyTuning.minFacePx);
+    } catch (_) {}
+  }
+
+  /// Parses remote `face_best_frame_enabled`. Null / missing → keep prior
+  /// cache (or default true via [faceBestFrameEnabled]). Explicit bool only.
+  @visibleForTesting
+  static bool? parseFaceBestFrameEnabled(Object? raw) {
+    if (raw == null) return null;
+    if (raw is bool) return raw;
+    if (raw is num) {
+      if (raw == 0) return false;
+      if (raw == 1) return true;
+      return null;
+    }
+    if (raw is String) {
+      final s = raw.trim().toLowerCase();
+      if (s == '0' || s == 'false') return false;
+      if (s == '1' || s == 'true') return true;
+    }
+    return null;
+  }
+
+  Future<void> _applyAndCacheFaceBestFrame(Object? raw) async {
+    final parsed = parseFaceBestFrameEnabled(raw);
+    // Key present with null → reset to "missing" (app default true).
+    _faceBestFrameEnabledRemote = parsed;
+    debugPrint(
+      'AppConfigService: face_best_frame_enabled='
+      '${parsed == null ? 'null(default on)' : parsed} '
+      'effective=$faceBestFrameEnabled',
+    );
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      if (parsed == null) {
+        await prefs.remove(_cacheKeyFaceBestFrameEnabled);
+      } else {
+        await prefs.setBool(_cacheKeyFaceBestFrameEnabled, parsed);
+      }
     } catch (_) {}
   }
 }

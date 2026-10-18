@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'dart:math' as math;
 import 'dart:ui';
 
@@ -32,8 +33,9 @@ class MinifasnetFusedScores {
 
 /// Dual MiniFASNet — interpreters created once, tensors pinned.
 ///
-/// Same rule as [FaceEmbedder]: never feed nested Lists through [Interpreter.run]
-/// (that can resize + re-allocateTensors + re-apply XNNPACK every call).
+/// Android: plain CPU + 4 threads + [IsolateInterpreter] per model
+/// (known-good path; ByteBuffer workers removed after allocate-flag crash).
+/// iOS: ByteBuffer + invoke (untouched).
 class MinifasnetFusionEngine {
   MinifasnetFusionEngine._();
   static final MinifasnetFusionEngine instance = MinifasnetFusionEngine._();
@@ -41,18 +43,36 @@ class MinifasnetFusionEngine {
   final MinifasnetPreprocessor _preprocessor = const MinifasnetPreprocessor();
   Interpreter? _v2;
   Interpreter? _v1Se;
+  IsolateInterpreter? _v2Isolate;
+  IsolateInterpreter? _v1SeIsolate;
   Future<void>? _loadFuture;
   int _loadCount = 0;
   int _inferenceCount = 0;
+  bool _loggedBackendOnce = false;
+
+  /// Last fused pair invoke time (ms); for BestFrame perf logs.
+  int lastInferenceMs = 0;
+
+  String get invokeMode =>
+      Platform.isAndroid ? 'isolateInterpreter' : 'mainByteBuffer';
+
+  final List<List<double>> _v2Out = [
+    List<double>.filled(AntispoofConfig.numClasses, 0.0),
+  ];
+  final List<List<double>> _v1Out = [
+    List<double>.filled(AntispoofConfig.numClasses, 0.0),
+  ];
 
   Future<void> ensureLoaded() {
-    _loadFuture ??= _load();
+    _loadFuture ??= _load().catchError((Object e, StackTrace st) {
+      _loadFuture = null;
+      Error.throwWithStackTrace(e, st);
+    });
     return _loadFuture!;
   }
 
   Future<void> _load() async {
     if (_v2 != null && _v1Se != null) return;
-    // Task 0 finish — never rebuild mid-session (causes Replacing 65… again).
     if (_loadCount > 0) {
       debugPrint(
         'MinifasnetFusionEngine: refusing reload (already load#$_loadCount)',
@@ -60,22 +80,36 @@ class MinifasnetFusionEngine {
       return;
     }
 
-    // Separate creates via factory (CPU default; XNNPACK only if safe).
+    final android = Platform.isAndroid;
     const fasShape = [1, AntispoofConfig.inputSize, AntispoofConfig.inputSize, 3];
     _v2 = await TfliteInterpreterFactory.fromAsset(
       AntispoofConfig.modelV2Asset,
       fixedInputShape: fasShape,
       preferXnnpack: false,
+      numThreads: android ? 4 : null,
     );
     _v1Se = await TfliteInterpreterFactory.fromAsset(
       AntispoofConfig.modelV1SeAsset,
       fixedInputShape: fasShape,
       preferXnnpack: false,
+      numThreads: android ? 4 : null,
     );
+    if (android) {
+      _v2Isolate = await IsolateInterpreter.create(
+        address: _v2!.address,
+        debugName: 'MiniFASNetV2Isolate',
+      );
+      _v1SeIsolate = await IsolateInterpreter.create(
+        address: _v1Se!.address,
+        debugName: 'MiniFASNetV1SeIsolate',
+      );
+    }
     _loadCount += 1;
     debugPrint(
       'MinifasnetFusionEngine: INTERPRETER_CACHED load#$_loadCount '
-      'backend=${TfliteInterpreterFactory.backendLabel} '
+      'v2_backend=${TfliteInterpreterFactory.backendFor(AntispoofConfig.modelV2Asset)} '
+      'v1se_backend=${TfliteInterpreterFactory.backendFor(AntispoofConfig.modelV1SeAsset)} '
+      'invoke=$invokeMode threads=${android ? 4 : "default"} '
       'v2=${AntispoofConfig.modelV2Asset} '
       'v1se=${AntispoofConfig.modelV1SeAsset}',
     );
@@ -97,19 +131,87 @@ class MinifasnetFusionEngine {
       cropScale: AntispoofConfig.modelV1SeCropScale,
     );
     if (v2Input == null || v1Input == null) return null;
+    return _scoreFromInputs(v2Input, v1Input);
+  }
 
-    final v2Probs = _runModel(_v2!, v2Input);
-    final v1Probs = _runModel(_v1Se!, v1Input);
+  Future<MinifasnetFusedScores?> scoreImageFile({
+    required String imagePath,
+    required Rect faceBox,
+  }) async {
+    final bytes = await img.decodeImageFile(imagePath);
+    if (bytes == null) return null;
+    return scoreFace(source: bytes, faceBox: faceBox);
+  }
+
+  Future<MinifasnetFusedScores?> _scoreFromInputs(
+    Float32List v2Input,
+    Float32List v1Input,
+  ) async {
+    final sw = Stopwatch()..start();
+    late final List<double> v2Probs;
+    late final List<double> v1Probs;
+    var v2Ms = 0;
+    var v1Ms = 0;
+
+    if (_v2Isolate != null && _v1SeIsolate != null) {
+      final v2Sw = Stopwatch()..start();
+      final v1Sw = Stopwatch()..start();
+      final pair = await Future.wait([
+        _runIsolate(_v2Isolate!, v2Input, _v2Out).then((r) {
+          v2Ms = v2Sw.elapsedMilliseconds;
+          return r;
+        }),
+        _runIsolate(_v1SeIsolate!, v1Input, _v1Out).then((r) {
+          v1Ms = v1Sw.elapsedMilliseconds;
+          return r;
+        }),
+      ]);
+      v2Probs = pair[0];
+      v1Probs = pair[1];
+    } else {
+      final v2Sw = Stopwatch()..start();
+      v2Probs = await _runMain(_v2!, v2Input);
+      v2Ms = v2Sw.elapsedMilliseconds;
+      final v1Sw = Stopwatch()..start();
+      v1Probs = await _runMain(_v1Se!, v1Input);
+      v1Ms = v1Sw.elapsedMilliseconds;
+    }
+    lastInferenceMs = sw.elapsedMilliseconds;
+
     final fused = List<double>.generate(AntispoofConfig.numClasses, (i) {
       return (v2Probs[i] + v1Probs[i]) / 2;
     });
     final labelIndex = _argmax(fused);
 
     _inferenceCount += 1;
+    if (_inferenceCount == 1) {
+      await TfliteInterpreterFactory.notifyFirstInvokeOk(
+        AntispoofConfig.modelV2Asset,
+      );
+      await TfliteInterpreterFactory.notifyFirstInvokeOk(
+        AntispoofConfig.modelV1SeAsset,
+      );
+    }
+    if (!_loggedBackendOnce) {
+      _loggedBackendOnce = true;
+      final threads = Platform.isAndroid ? 4 : 'default';
+      debugPrint(
+        'MinifasnetFusionEngine: model=${AntispoofConfig.modelV2Asset} '
+        'backend=${TfliteInterpreterFactory.backendFor(AntispoofConfig.modelV2Asset)} '
+        'threads=$threads isolate=${_v2Isolate != null} '
+        'first_invoke_ms=$v2Ms',
+      );
+      debugPrint(
+        'MinifasnetFusionEngine: model=${AntispoofConfig.modelV1SeAsset} '
+        'backend=${TfliteInterpreterFactory.backendFor(AntispoofConfig.modelV1SeAsset)} '
+        'threads=$threads isolate=${_v1SeIsolate != null} '
+        'first_invoke_ms=$v1Ms',
+      );
+    }
     if (_inferenceCount == 1 || _inferenceCount % 50 == 0) {
       debugPrint(
         'MinifasnetFusionEngine: invoke ok pair#$_inferenceCount '
-        '(load#$_loadCount — must stay 1)',
+        'ms=$lastInferenceMs (load#$_loadCount — must stay 1)',
       );
     }
 
@@ -122,16 +224,34 @@ class MinifasnetFusionEngine {
     );
   }
 
-  Future<MinifasnetFusedScores?> scoreImageFile({
-    required String imagePath,
-    required Rect faceBox,
-  }) async {
-    final bytes = await img.decodeImageFile(imagePath);
-    if (bytes == null) return null;
-    return scoreFace(source: bytes, faceBox: faceBox);
+  Future<List<double>> _runIsolate(
+    IsolateInterpreter isolate,
+    Float32List nhwc,
+    List<List<double>> isolateOut,
+  ) async {
+    while (isolate.state == IsolateInterpreterState.loading) {
+      await isolate.stateChanges
+          .firstWhere((s) => s == IsolateInterpreterState.idle);
+    }
+    final shaped = nhwc.reshape([
+      1,
+      AntispoofConfig.inputSize,
+      AntispoofConfig.inputSize,
+      3,
+    ]);
+    await isolate.run(shaped, isolateOut);
+    return _softmax(
+      List<double>.generate(
+        AntispoofConfig.numClasses,
+        (i) => isolateOut[0][i],
+      ),
+    );
   }
 
-  List<double> _runModel(Interpreter interpreter, Float32List nhwc) {
+  Future<List<double>> _runMain(
+    Interpreter interpreter,
+    Float32List nhwc,
+  ) async {
     final inputBytes = nhwc.buffer.asUint8List(
       nhwc.offsetInBytes,
       nhwc.lengthInBytes,
@@ -149,6 +269,45 @@ class MinifasnetFusionEngine {
         (i) => outFloats[i].toDouble(),
       ),
     );
+  }
+
+  /// Android camera-open self-test: one dummy pair; returns per-model ms.
+  Future<
+      ({
+        bool ok,
+        int v2Ms,
+        int v1Ms,
+        String mode,
+      })> runSelfTest() async {
+    await ensureLoaded();
+    const n = AntispoofConfig.inputSize * AntispoofConfig.inputSize * 3;
+    final probe = Float32List(n);
+    try {
+      final v2Sw = Stopwatch()..start();
+      if (_v2Isolate != null) {
+        await _runIsolate(_v2Isolate!, probe, _v2Out);
+      } else {
+        await _runMain(_v2!, probe);
+      }
+      final v2Ms = v2Sw.elapsedMilliseconds;
+
+      final v1Sw = Stopwatch()..start();
+      if (_v1SeIsolate != null) {
+        await _runIsolate(_v1SeIsolate!, probe, _v1Out);
+      } else {
+        await _runMain(_v1Se!, probe);
+      }
+      final v1Ms = v1Sw.elapsedMilliseconds;
+
+      debugPrint(
+        'MinifasnetFusionEngine: selftest ok mode=$invokeMode '
+        'v2_ms=$v2Ms v1se_ms=$v1Ms',
+      );
+      return (ok: true, v2Ms: v2Ms, v1Ms: v1Ms, mode: invokeMode);
+    } catch (e, st) {
+      debugPrint('MinifasnetFusionEngine: selftest failed: $e\n$st');
+      return (ok: false, v2Ms: -1, v1Ms: -1, mode: invokeMode);
+    }
   }
 
   List<double> _softmax(List<double> logits) {

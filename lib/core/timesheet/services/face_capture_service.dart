@@ -157,32 +157,126 @@ class TimesheetFaceCapturePermissions {
 ///
 /// Mock-first boundary: this service only detects and crops on-device faces.
 /// It never calls AWS Rekognition directly; matching stays behind Firebase
+/// ML Kit detector profile. Capture keeps contours OFF (avoids ThickFaceDetector
+/// spam + BlazeFace ~65-node XNNPACK churn). Enrollment keeps contours ON for
+/// the mesh painter.
+enum FaceDetectorProfile {
+  /// 1:1 / attendance stream: landmarks + classification, no contours, fast.
+  capture,
+
+  /// Enrollment mesh: landmarks + classification + contours, fast.
+  enrollment,
+}
+
 /// callable clients. // TODO(backend)
 class TimesheetFaceCaptureService {
-  TimesheetFaceCaptureService({FaceDetector? detector})
-      : _usesSharedDetector = detector == null,
-        _detector = detector ?? _acquireSharedDetector();
+  TimesheetFaceCaptureService({
+    FaceDetector? detector,
+    FaceDetectorProfile profile = FaceDetectorProfile.capture,
+  })  : _usesSharedDetector = detector == null,
+        _profile = profile,
+        _detector = detector ?? _acquireSharedDetector(profile),
+        _contoursEnabled = detector == null
+            ? profile == FaceDetectorProfile.enrollment
+            : null;
 
-  /// One shared ML Kit detector for the app's lifetime. Every native
-  /// [FaceDetector] created (including re-creating one after closing it)
-  /// logs `Multiple instances of CCTClearcutUploader` on iOS, so it is never
-  /// closed.
-  static FaceDetector? _sharedDetector;
+  /// Shared detectors for the app lifetime (never closed). Recreating ML Kit
+  /// FaceDetectors reloads BlazeFace (~65 nodes) and logs
+  /// `Replacing 65 out of 65 node(s) with delegate (TfLiteXNNPackDelegate)`.
+  static FaceDetector? _sharedCaptureDetector;
+  static FaceDetector? _sharedEnrollmentDetector;
 
-  static FaceDetector _acquireSharedDetector() {
-    final existing = _sharedDetector;
-    if (existing != null) return existing;
-    debugPrint('FaceCapture: ML Kit face detector created (shared)');
-    return _sharedDetector = FaceDetector(
-      options: FaceDetectorOptions(
-        enableClassification: true,
-        enableLandmarks: true,
-        enableContours: true,
-        enableTracking: true,
-        minFaceSize: minFaceDetectorSize,
-        performanceMode: FaceDetectorMode.fast,
-      ),
+  final FaceDetectorProfile _profile;
+  final bool? _contoursEnabled;
+  int _processImageCount = 0;
+  bool _loggedDetectorOpen = false;
+
+  /// ML Kit detector identity hash (stable for the process-lifetime shared
+  /// instance). Logged at camera open and every 50 frames.
+  int get detectorInstanceId => identityHashCode(_detector);
+
+  FaceDetectorProfile get detectorProfile => _profile;
+
+  bool get contoursEnabled =>
+      _contoursEnabled ?? (_profile == FaceDetectorProfile.enrollment);
+
+  void logDetectorOnCameraOpen() {
+    _loggedDetectorOpen = true;
+    debugPrint(
+      'FaceCapture: ML Kit detector open '
+      'id=$detectorInstanceId profile=${_profile.name} '
+      'contours=$contoursEnabled landmarks=true classification=true '
+      'mode=fast tracking=true '
+      '(1:1 must be profile=capture contours=false)',
     );
+  }
+
+  void _maybeLogDetectorHeartbeat() {
+    _processImageCount += 1;
+    if (!_loggedDetectorOpen) {
+      logDetectorOnCameraOpen();
+    }
+    if (_processImageCount == 1 || _processImageCount % 50 == 0) {
+      debugPrint(
+        'FaceCapture: ML Kit detector heartbeat '
+        'id=$detectorInstanceId frame=#$_processImageCount '
+        'profile=${_profile.name} contours=$contoursEnabled',
+      );
+    }
+  }
+
+  static FaceDetector _acquireSharedDetector(FaceDetectorProfile profile) {
+    switch (profile) {
+      case FaceDetectorProfile.capture:
+        final existing = _sharedCaptureDetector;
+        if (existing != null) {
+          debugPrint(
+            'FaceCapture: reusing shared capture detector '
+            'id=${identityHashCode(existing)} contours=off',
+          );
+          return existing;
+        }
+        final created = FaceDetector(
+          options: FaceDetectorOptions(
+            enableClassification: true,
+            enableLandmarks: true,
+            enableContours: false,
+            enableTracking: true,
+            minFaceSize: minFaceDetectorSize,
+            performanceMode: FaceDetectorMode.fast,
+          ),
+        );
+        debugPrint(
+          'FaceCapture: ML Kit face detector created (shared capture, '
+          'contours=off) id=${identityHashCode(created)} — '
+          'BlazeFace ~65 nodes, long-lived',
+        );
+        return _sharedCaptureDetector = created;
+      case FaceDetectorProfile.enrollment:
+        final existing = _sharedEnrollmentDetector;
+        if (existing != null) {
+          debugPrint(
+            'FaceCapture: reusing shared enrollment detector '
+            'id=${identityHashCode(existing)} contours=on',
+          );
+          return existing;
+        }
+        final created = FaceDetector(
+          options: FaceDetectorOptions(
+            enableClassification: true,
+            enableLandmarks: true,
+            enableContours: true,
+            enableTracking: true,
+            minFaceSize: minFaceDetectorSize,
+            performanceMode: FaceDetectorMode.fast,
+          ),
+        );
+        debugPrint(
+          'FaceCapture: ML Kit face detector created (shared enrollment, '
+          'contours=on) id=${identityHashCode(created)} — long-lived',
+        );
+        return _sharedEnrollmentDetector = created;
+    }
   }
 
   static const int cropSizePx = 224;
@@ -475,6 +569,7 @@ class TimesheetFaceCaptureService {
     Size? imageSize,
     bool liveStream = false,
   }) async {
+    _maybeLogDetectorHeartbeat();
     final faces = await _detector.processImage(inputImage);
     final quality = _evaluateQuality(
       faces,
