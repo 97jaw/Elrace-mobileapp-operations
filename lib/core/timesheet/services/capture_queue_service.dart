@@ -33,6 +33,7 @@ class AttendanceCaptureDraft {
     this.faceLead,
     this.faceCohortSize,
     this.faceLiveness,
+    this.faceMethod,
   });
 
   final String id;
@@ -64,6 +65,9 @@ class AttendanceCaptureDraft {
   /// `pass` | `fail` | `not_run`.
   final String? faceLiveness;
 
+  /// `profile_1to1` (verify) or `profile_walkup`.
+  final String? faceMethod;
+
   bool get hasFaceAudit => faceVerified != null;
 
   AttendanceCaptureDraft withFaceAudit({
@@ -72,6 +76,7 @@ class AttendanceCaptureDraft {
     double? lead,
     int? cohortSize,
     required String liveness,
+    String method = 'profile_1to1',
   }) {
     return AttendanceCaptureDraft(
       id: id,
@@ -95,6 +100,7 @@ class AttendanceCaptureDraft {
       faceLead: lead,
       faceCohortSize: cohortSize,
       faceLiveness: liveness,
+      faceMethod: method,
     );
   }
 
@@ -130,6 +136,7 @@ class AttendanceCaptureDraft {
       faceLead: faceLead,
       faceCohortSize: faceCohortSize,
       faceLiveness: faceLiveness,
+      faceMethod: faceMethod,
     );
   }
 
@@ -166,6 +173,7 @@ class AttendanceCaptureDraft {
       faceLead: _doubleOrNull(json['face_lead']),
       faceCohortSize: int.tryParse(json['face_cohort_size']?.toString() ?? ''),
       faceLiveness: json['face_liveness']?.toString(),
+      faceMethod: json['face_method']?.toString(),
     );
   }
 
@@ -194,6 +202,7 @@ class AttendanceCaptureDraft {
       if (faceLead != null) 'face_lead': faceLead,
       if (faceCohortSize != null) 'face_cohort_size': faceCohortSize,
       if (faceLiveness != null) 'face_liveness': faceLiveness,
+      if (faceMethod != null) 'face_method': faceMethod,
     };
   }
 
@@ -265,6 +274,12 @@ class TimesheetCaptureQueueService {
     // final Submit timesheet action is blocked by TimesheetActingGuard.
     final box = await _openBox();
     await box.put(draft.id, draft.toJson());
+  }
+
+  /// Removes a queued draft (walk-up Undo). No-op when [id] is missing.
+  Future<void> delete(String id) async {
+    final box = await _openBox();
+    await box.delete(id);
   }
 
   Future<List<AttendanceCaptureDraft>> pending() async {

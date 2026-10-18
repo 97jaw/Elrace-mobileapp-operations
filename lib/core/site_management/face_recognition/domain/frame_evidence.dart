@@ -6,6 +6,7 @@ import 'package:el_race/core/site_management/face_recognition/antispoof/temporal
 import 'package:el_race/core/site_management/face_recognition/antispoof/timesheet_face_classification_snapshot.dart';
 import 'package:el_race/core/site_management/face_recognition/domain/face_alignment.dart';
 import 'package:el_race/core/site_management/face_recognition/domain/face_verifier.dart';
+import 'package:el_race/core/site_management/face_recognition/domain/face_walkup.dart';
 import 'package:el_race/core/timesheet/services/face_capture_service.dart';
 import 'package:image/image.dart' as img;
 
@@ -48,6 +49,7 @@ class FrameEvidence {
     this.modelFaceBox,
     this.photoJpeg,
     this.identity,
+    this.walkUp,
     this.classification,
     this.landmarks,
     this.ineligibleReason = FrameUsableDominant.none,
@@ -76,6 +78,9 @@ class FrameEvidence {
   final double qualityScore;
   final FrameIdentityStatus identityStatus;
   final FaceVerifyResult? identity;
+
+  /// Walk-up identification for this frame (null in verify mode).
+  final FaceWalkUpResult? walkUp;
   final FramePadVerdict pad;
   final TimesheetFaceClassificationSnapshot? classification;
   final TimesheetFaceLandmarkSnapshot? landmarks;
@@ -86,6 +91,10 @@ class FrameEvidence {
   bool get isLiveVerified =>
       pad == FramePadVerdict.live &&
       identityStatus == FrameIdentityStatus.verified;
+
+  /// PAD live + walk-up identified as [walkUp.winnerEmployeeId].
+  bool get isLiveIdentified =>
+      pad == FramePadVerdict.live && walkUp?.identified == true;
 
   bool get hasPixels => rgbFrame != null || (photoJpeg != null && photoJpeg!.isNotEmpty);
 
@@ -115,6 +124,28 @@ class BestFrameMarkerVerified extends BestFrameMarkerState {
   });
 
   final int employeeId;
+  final Rect faceBox;
+}
+
+/// Walk-up: identified team labor, evidence still collecting (white square).
+class BestFrameMarkerProgress extends BestFrameMarkerState {
+  const BestFrameMarkerProgress({
+    required this.employeeId,
+    required this.faceBox,
+    required this.progress,
+    this.need = 3,
+  });
+
+  final int employeeId;
+  final Rect faceBox;
+  final int progress;
+  final int need;
+}
+
+/// Walk-up: project labor not in Your Team (amber, no id).
+class BestFrameMarkerOutOfTeam extends BestFrameMarkerState {
+  const BestFrameMarkerOutOfTeam({required this.faceBox});
+
   final Rect faceBox;
 }
 
@@ -518,6 +549,105 @@ abstract final class BestFrameRules {
       best: best,
       windowCount: window.length,
       liveVerifiedCount: accepted.length,
+    );
+  }
+
+  /// Walk-up accept (TASK 10 §4): same PAD/temporal/span as [evaluateAccept],
+  /// but identity is walk-up identification of the **same** winner W.
+  /// Returns [rejectReason] `identity_mix` when two different W appear.
+  static BestFrameAcceptDecision evaluateAcceptWalkUp(
+    List<FrameEvidence> window, {
+    TemporalPadVerdict? temporalOverride,
+    int? minLiveIdentifiedFrames,
+  }) {
+    final minFrames = (minLiveIdentifiedFrames ?? defaultMinLiveVerifiedFrames)
+        .clamp(2, 5);
+    final spanRequired =
+        minFrames <= 2 ? minAcceptSpanForTwoFrames : minAcceptSpan;
+
+    final spoofCount =
+        window.where((e) => e.pad == FramePadVerdict.spoof).length;
+    if (spoofCount > 0) {
+      return BestFrameAcceptDecision(
+        accepted: false,
+        rejectReason: 'spoof',
+        windowCount: window.length,
+        spoofCount: spoofCount,
+      );
+    }
+
+    final identified = window.where((e) => e.isLiveIdentified).toList();
+    final winners = <int>{
+      for (final e in identified)
+        if (e.walkUp?.winnerEmployeeId != null) e.walkUp!.winnerEmployeeId!,
+    };
+    if (winners.length > 1) {
+      return BestFrameAcceptDecision(
+        accepted: false,
+        rejectReason: 'identity_mix',
+        windowCount: window.length,
+        liveVerifiedCount: identified.length,
+      );
+    }
+
+    if (identified.length < minFrames) {
+      return BestFrameAcceptDecision(
+        accepted: false,
+        waitReason: 'need_frames',
+        windowCount: window.length,
+        liveVerifiedCount: identified.length,
+      );
+    }
+
+    identified.sort((a, b) => a.timestamp.compareTo(b.timestamp));
+    final span =
+        identified.last.timestamp.difference(identified.first.timestamp);
+    if (span < spanRequired) {
+      return BestFrameAcceptDecision(
+        accepted: false,
+        waitReason: 'span',
+        windowCount: window.length,
+        liveVerifiedCount: identified.length,
+      );
+    }
+
+    final temporal = temporalOverride ?? _runTemporal(window);
+    if (!temporal.ready) {
+      return BestFrameAcceptDecision(
+        accepted: false,
+        waitReason: 'temporal',
+        windowCount: window.length,
+        liveVerifiedCount: identified.length,
+      );
+    }
+    if (!temporal.passed) {
+      return BestFrameAcceptDecision(
+        accepted: false,
+        rejectReason: 'temporal_fail',
+        waitReason: temporal.reason,
+        windowCount: window.length,
+        liveVerifiedCount: identified.length,
+      );
+    }
+
+    FrameEvidence best = identified.first;
+    for (final e in identified.skip(1)) {
+      if (e.qualityScore > best.qualityScore) best = e;
+    }
+    if (!best.isLiveIdentified) {
+      return BestFrameAcceptDecision(
+        accepted: false,
+        waitReason: 'best_not_live_identified',
+        windowCount: window.length,
+        liveVerifiedCount: identified.length,
+      );
+    }
+
+    return BestFrameAcceptDecision(
+      accepted: true,
+      best: best,
+      windowCount: window.length,
+      liveVerifiedCount: identified.length,
     );
   }
 

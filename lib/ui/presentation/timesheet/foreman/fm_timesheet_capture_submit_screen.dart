@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 import 'dart:math' as math;
 
 import 'package:el_race/core/theme/timesheet_module_theme.dart';
@@ -17,6 +18,7 @@ import 'package:el_race/core/timesheet/services/timesheet_acting_guard.dart';
 import 'package:el_race/core/timesheet/services/timesheet_capture_session_store.dart';
 import 'package:el_race/core/site_management/face_recognition/data/repositories/face_db_repository.dart';
 import 'package:el_race/core/site_management/face_recognition/domain/face_verifier.dart';
+import 'package:el_race/core/site_management/face_recognition/domain/face_walkup.dart';
 import 'package:el_race/ui/presentation/task_sheet/EmployeeShiftRequestPage.dart';
 import 'package:el_race/core/site_management/face_recognition/face_match_session.dart';
 import 'package:el_race/core/site_management/face_recognition/face_pilot_log_store.dart';
@@ -52,6 +54,7 @@ class FmTimesheetCaptureSubmitScreen extends ConsumerStatefulWidget {
     this.expectedEmployeeId,
     this.expectedEmployeeName,
     this.alreadyCapturedEmployeeIds = const {},
+    this.walkUpMode = false,
   });
 
   static bool _opening = false;
@@ -93,6 +96,10 @@ class FmTimesheetCaptureSubmitScreen extends ConsumerStatefulWidget {
   /// Your Team sheet) can accumulate them and drive the confirm/submit flow.
   final bool returnCaptures;
 
+  /// TASK 10 walk-up: auto-identify Your Team (no picker strip / target).
+  /// Labor camera (expectedEmployeeId set) must keep this false.
+  final bool walkUpMode;
+
   @override
   ConsumerState<FmTimesheetCaptureSubmitScreen> createState() =>
       _FmTimesheetCaptureSubmitScreenState();
@@ -125,6 +132,7 @@ class _FmTimesheetCaptureSubmitScreenState
   /// Project camera: Your Team labors on this project, labor list order.
   List<TimesheetOdooEmployee> _pickerLabour = const [];
   bool _pickerLoaded = false;
+  int _walkUpTeamCount = 0;
   int? _pickedEmployeeId;
   Timer? _advanceTimer;
   final ScrollController _pickerScroll = ScrollController();
@@ -133,7 +141,11 @@ class _FmTimesheetCaptureSubmitScreenState
   static const Duration _autoAdvanceDelay = Duration(seconds: 3);
 
   /// Opened without a labor (day hub / project dates): picker strip.
-  bool get _projectMode => widget.expectedEmployeeId == null;
+  /// Walk-up uses no strip (Addendum B / TASK 10 §5).
+  bool get _projectMode =>
+      widget.expectedEmployeeId == null && !widget.walkUpMode;
+
+  bool get _walkUpMode => widget.walkUpMode;
 
   bool get _allPickerCaptured =>
       _pickerLoaded &&
@@ -391,6 +403,11 @@ class _FmTimesheetCaptureSubmitScreenState
         projectLabour,
         targetIds: team.isEmpty ? null : {for (final m in team) m.employeeId},
       );
+      if (_walkUpMode) {
+        _walkUpTeamCount = team.isEmpty ? projectLabour.length : team.length;
+        // Builds + logs the session roster once (candidates / exclusions).
+        unawaited(ProfilePhotoFaceDb.instance.walkUpRoster());
+      }
     }
     if (!_projectMode) return;
     setState(() {
@@ -671,10 +688,131 @@ class _FmTimesheetCaptureSubmitScreenState
       TmFaceCaptureNoticeKind.captured,
       matchScore: matchScore,
     );
-    if (widget.returnCaptures) {
+    // Per-labor returnCaptures pops after one accept. Walk-up stays open so
+    // several team members can walk in; back returns all captures.
+    if (widget.returnCaptures && !_walkUpMode) {
       _scheduleReturnWithCaptures();
     }
     if (_projectMode) _advanceAfterCapture();
+  }
+
+  /// Walk-up accept (TASK 10): same card/haptic path as verify; method logged
+  /// as profile_walkup on the draft.
+  void _onWalkUpAccepted(
+    TimesheetOdooEmployee employee,
+    AttendanceCaptureDraft draft,
+    FaceWalkUpResult result,
+  ) {
+    final resolved = _laborEmployeeOrNull(employee) ?? employee;
+    if (_capturedEmployeeIds.contains(resolved.employeeId)) {
+      _onAlreadyAttended(resolved);
+      return;
+    }
+    final matchScore = result.score ?? 0;
+    setState(() {
+      _captures.add(
+        TimesheetCaptureSessionEntry(
+          employee: resolved,
+          matchScore: matchScore,
+          draft: draft,
+          capturedAt: DateTime.now(),
+          verifyLead: result.lead,
+          verifyCohortSize: null,
+          verifyUsedNoCohortBar: false,
+        ),
+      );
+      _walkUpUndoUntil = DateTime.now().add(const Duration(seconds: 3));
+      _walkUpUndoEmployeeId = resolved.employeeId;
+    });
+    _showCaptureNotice(
+      resolved,
+      TmFaceCaptureNoticeKind.captured,
+      matchScore: matchScore,
+    );
+    _armWalkUpUndoClear();
+  }
+
+  DateTime? _walkUpUndoUntil;
+  int? _walkUpUndoEmployeeId;
+  Timer? _walkUpUndoTimer;
+
+  void _armWalkUpUndoClear() {
+    _walkUpUndoTimer?.cancel();
+    _walkUpUndoTimer = Timer(const Duration(seconds: 3), () {
+      if (!mounted) return;
+      setState(() {
+        _walkUpUndoUntil = null;
+        _walkUpUndoEmployeeId = null;
+      });
+    });
+  }
+
+  void _undoWalkUpCapture() {
+    final id = _walkUpUndoEmployeeId;
+    if (id == null) return;
+    TimesheetCaptureSessionEntry? removed;
+    setState(() {
+      final idx = _captures.lastIndexWhere((e) => e.employee.employeeId == id);
+      if (idx >= 0) {
+        removed = _captures.removeAt(idx);
+      }
+      _walkUpUndoUntil = null;
+      _walkUpUndoEmployeeId = null;
+      _noticeToast = null;
+    });
+    _walkUpUndoTimer?.cancel();
+    debugPrint('WalkUp: undo emp=$id');
+    final draft = removed?.draft;
+    if (draft != null) {
+      unawaited(TimesheetCaptureQueueService().delete(draft.id));
+      final path = draft.cropLocalPath;
+      if (path.isNotEmpty) {
+        unawaited(File(path).delete().catchError((_) => File(path)));
+      }
+    }
+  }
+
+  Future<void> _onWalkUpPickLabor() async {
+    // Opens verify flow for one labor, then returns to this walk-up camera.
+    if (_pickerLabour.isEmpty && _employees.isEmpty) return;
+    final labour = _pickerLabour.isNotEmpty ? _pickerLabour : _employees;
+    final chosen = await showModalBottomSheet<TimesheetOdooEmployee>(
+      context: context,
+      backgroundColor: TimesheetModuleColors.surface,
+      builder: (ctx) => SafeArea(
+        child: ListView(
+          children: [
+            for (final e in labour)
+              if (!_capturedEmployeeIds.contains(e.employeeId))
+                ListTile(
+                  title: Text(e.name),
+                  subtitle: Text(e.displayFileId),
+                  onTap: () => Navigator.pop(ctx, e),
+                ),
+          ],
+        ),
+      ),
+    );
+    if (chosen == null || !mounted) return;
+    final verifyCaptures = await FmTimesheetCaptureSubmitScreen.pushOnce<
+        List<TimesheetCaptureSessionEntry>>(
+      context,
+      FmTimesheetCaptureSubmitScreen(
+        returnCaptures: true,
+        expectedEmployeeId: chosen.employeeId,
+        expectedEmployeeName: chosen.name,
+        alreadyCapturedEmployeeIds: _capturedEmployeeIds,
+        args: widget.args,
+      ),
+    );
+    if (!mounted || verifyCaptures == null || verifyCaptures.isEmpty) return;
+    setState(() {
+      for (final entry in verifyCaptures) {
+        if (!_capturedEmployeeIds.contains(entry.employee.employeeId)) {
+          _captures.add(entry);
+        }
+      }
+    });
   }
 
   /// Suppress the "already attended" prompt for a short, realistic window right
@@ -995,18 +1133,22 @@ class _FmTimesheetCaptureSubmitScreenState
               autoCaptureEnabled: false,
               // Manual capture only for now (bottom Capture button).
               instantAutoCapture: false,
-              verifyTarget: true,
-              targetEmployee: _targetEmployee,
+              verifyTarget: !_walkUpMode,
+              walkUpMode: _walkUpMode,
+              targetEmployee: _walkUpMode ? null : _targetEmployee,
               noTargetHint: _allPickerCaptured ? 'All labors captured' : null,
               overlayHint: _overlayHint,
               capturedEmployeeIds: _capturedEmployeeIds,
               projectLaborEmployeeIds: _projectLaborEmployeeIds,
+              rosterEmployees: _employees,
               faceRecognition: ref.read(faceRecognitionServiceProvider),
               onTargetVerified: _onTargetVerified,
               onTargetVerifyFailed: _onTargetVerifyFailed,
+              onWalkUpAccepted: _walkUpMode ? _onWalkUpAccepted : null,
               onCaptureWriteFailed: _onCaptureWriteFailed,
               onAlreadyAttended: _onAlreadyAttended,
               onChromeChanged: _onChromeChanged,
+              onWalkUpPickLabor: _walkUpMode ? _onWalkUpPickLabor : null,
             ),
             Positioned(
               top: 0,
@@ -1048,6 +1190,51 @@ class _FmTimesheetCaptureSubmitScreenState
                 onFlash: camera?.toggleFlashExternal,
               ),
             ),
+            if (_walkUpMode)
+              Positioned(
+                top: headerTop + 8,
+                left: chromeInset + 8,
+                child: Material(
+                  color: TimesheetModuleColors.accent.withValues(alpha: 0.92),
+                  borderRadius: BorderRadius.circular(999),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 6,
+                    ),
+                    child: Text(
+                      'Captured ${_captures.length} / '
+                      '${_walkUpTeamCount > 0 ? _walkUpTeamCount : '—'}',
+                      style: TimesheetModuleTypography.caption().copyWith(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            if (_walkUpMode &&
+                _walkUpUndoUntil != null &&
+                DateTime.now().isBefore(_walkUpUndoUntil!))
+              Positioned(
+                top: headerTop + 48,
+                left: chromeInset + 8,
+                child: TextButton.icon(
+                  onPressed: _undoWalkUpCapture,
+                  icon: const Icon(Icons.undo, color: Colors.white, size: 18),
+                  label: Text(
+                    'Undo',
+                    style: TimesheetModuleTypography.caption().copyWith(
+                      color: Colors.white,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  style: TextButton.styleFrom(
+                    backgroundColor: Colors.black54,
+                    padding: const EdgeInsets.symmetric(horizontal: 10),
+                  ),
+                ),
+              ),
             Positioned(
               left: 0,
               right: 0,
@@ -1062,6 +1249,17 @@ class _FmTimesheetCaptureSubmitScreenState
                       mainAxisSize: MainAxisSize.min,
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
+                        if (_walkUpMode)
+                          Padding(
+                            padding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
+                            child: Align(
+                              alignment: Alignment.centerRight,
+                              child: TextButton(
+                                onPressed: _onWalkUpPickLabor,
+                                child: const Text('Pick labor'),
+                              ),
+                            ),
+                          ),
                         if (chrome?.livenessShowSpoofWarning == true)
                           Padding(
                             padding: const EdgeInsets.fromLTRB(12, 0, 12, 8),

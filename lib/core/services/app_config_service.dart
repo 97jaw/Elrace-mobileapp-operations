@@ -85,6 +85,18 @@ class AppConfigService {
   int _faceBestFrameMinLiveFrames = faceBestFrameMinLiveFramesDefault;
   int get faceBestFrameMinLiveFrames => _faceBestFrameMinLiveFrames;
 
+  /// `/api/app/config` walk-up mode + bars (TASK 10).
+  static const faceMatchModeKey = 'face_match_mode';
+  static const faceWalkUpMinScoreKey = 'face_walkup_min_score';
+  static const faceWalkUpMinLeadKey = 'face_walkup_min_lead';
+  static const _cacheKeyFaceMatchMode = 'app_config_face_match_mode';
+  static const _cacheKeyFaceWalkUpMinScore = 'app_config_face_walkup_min_score';
+  static const _cacheKeyFaceWalkUpMinLead = 'app_config_face_walkup_min_lead';
+
+  FaceMatchMode _faceMatchMode = FaceMatchMode.verify;
+  FaceMatchMode get faceMatchMode => _faceMatchMode;
+  bool get isWalkUpMode => _faceMatchMode == FaceMatchMode.walkup;
+
   /// Load config from remote API and cache locally
   Future<void> load() async {
     // Try read cached values first
@@ -109,6 +121,13 @@ class AppConfigService {
         for (final key in faceVerifyKeys)
           key: prefs.get('$_cacheKeyFaceVerifyPrefix$key'),
       });
+      _faceMatchMode =
+          parseFaceMatchMode(prefs.getString(_cacheKeyFaceMatchMode)) ??
+              FaceMatchMode.verify;
+      FaceWalkUpTuning.apply(
+        minScore: prefs.getDouble(_cacheKeyFaceWalkUpMinScore),
+        minLead: prefs.getDouble(_cacheKeyFaceWalkUpMinLead),
+      );
     } catch (_) {}
 
     try {
@@ -178,6 +197,15 @@ class AppConfigService {
         if (payload.containsKey(faceBestFrameMinLiveFramesKey)) {
           await _applyAndCacheFaceBestFrameMinLiveFrames(
             payload[faceBestFrameMinLiveFramesKey],
+          );
+        }
+        if (payload.containsKey(faceMatchModeKey) ||
+            payload.containsKey(faceWalkUpMinScoreKey) ||
+            payload.containsKey(faceWalkUpMinLeadKey)) {
+          await _applyAndCacheWalkUp(
+            modeRaw: payload[faceMatchModeKey],
+            scoreRaw: payload[faceWalkUpMinScoreKey],
+            leadRaw: payload[faceWalkUpMinLeadKey],
           );
         }
       }
@@ -348,6 +376,56 @@ class AppConfigService {
       } else {
         await prefs.setInt(_cacheKeyFaceBestFrameMinLiveFrames, parsed);
       }
+    } catch (_) {}
+  }
+
+  /// `"verify"` / `"walkup"` only; unknown / null → null (caller keeps verify).
+  @visibleForTesting
+  static FaceMatchMode? parseFaceMatchMode(Object? raw) {
+    if (raw is! String) return null;
+    switch (raw.trim().toLowerCase()) {
+      case 'verify':
+        return FaceMatchMode.verify;
+      case 'walkup':
+        return FaceMatchMode.walkup;
+      default:
+        return null;
+    }
+  }
+
+  Future<void> _applyAndCacheWalkUp({
+    Object? modeRaw,
+    Object? scoreRaw,
+    Object? leadRaw,
+  }) async {
+    final mode = parseFaceMatchMode(modeRaw);
+    _faceMatchMode = mode ?? FaceMatchMode.verify;
+    double? toDouble(Object? v) => v is num ? v.toDouble() : null;
+    FaceWalkUpTuning.apply(
+      minScore: toDouble(scoreRaw),
+      minLead: toDouble(leadRaw),
+    );
+    debugPrint(
+      'AppConfigService: face_match_mode='
+      '${mode == null ? 'null→verify' : mode.name} '
+      'walkup_score=${FaceWalkUpTuning.minScore} '
+      'walkup_lead=${FaceWalkUpTuning.minLead}',
+    );
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      if (mode == null) {
+        await prefs.remove(_cacheKeyFaceMatchMode);
+      } else {
+        await prefs.setString(_cacheKeyFaceMatchMode, mode.name);
+      }
+      await prefs.setDouble(
+        _cacheKeyFaceWalkUpMinScore,
+        FaceWalkUpTuning.minScore,
+      );
+      await prefs.setDouble(
+        _cacheKeyFaceWalkUpMinLead,
+        FaceWalkUpTuning.minLead,
+      );
     } catch (_) {}
   }
 }

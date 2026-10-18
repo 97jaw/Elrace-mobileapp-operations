@@ -12,6 +12,7 @@ import 'package:el_race/core/site_management/face_recognition/domain/face_embedd
 import 'package:el_race/core/site_management/face_recognition/domain/face_matcher.dart';
 import 'package:el_race/core/site_management/face_recognition/domain/face_preprocessor.dart';
 import 'package:el_race/core/site_management/face_recognition/domain/face_verifier.dart';
+import 'package:el_race/core/site_management/face_recognition/domain/face_walkup.dart';
 import 'package:el_race/core/site_management/face_recognition/face_match_logger.dart';
 import 'package:el_race/core/site_management/face_recognition/face_recognition_availability.dart';
 import 'package:el_race/core/site_management/face_recognition/face_recognition_config.dart';
@@ -357,6 +358,77 @@ class FaceRecognitionService {
           crop: _rosterCrop,
         ),
       );
+
+  /// Walk-up identify on an upright RGB live frame (TASK 10 §3).
+  Future<FaceWalkUpResult> identifyWalkUpImage({
+    required img.Image source,
+    required Rect faceBox,
+    TimesheetFaceLandmarkSnapshot? landmarks,
+  }) async {
+    if (!_syncReady || !ProfilePhotoMatchTest.enabled) {
+      return FaceWalkUpResult.none;
+    }
+    final chip = await _preprocessor.buildInputTensorFromImage(
+      source: source,
+      faceBox: faceBox,
+      landmarks: landmarks,
+      crop: _rosterCrop,
+    );
+    if (chip == null) return FaceWalkUpResult.none;
+    final probe = await _embedder.generateEmbedding(chip.tensor);
+
+    final db = ProfilePhotoFaceDb.instance;
+    // Candidates / exclusions cached per roster+template generation (not per frame).
+    final roster = await db.walkUpRoster();
+    final cohort = await db.cohortCandidates(excludeEmployeeId: -1);
+    final scores = <FaceWalkUpScore>[];
+    for (final c in cohort) {
+      final id = c.row.employeeId;
+      final FaceWalkUpKind kind;
+      if (roster.candidateIds.contains(id)) {
+        kind = FaceWalkUpKind.candidate;
+      } else if (roster.excludedTeamIds.contains(id)) {
+        // Score LOW_RES / look-alike Your Team so we can route to Pick labor.
+        kind = FaceWalkUpKind.excludedTeam;
+      } else if (c.lowRes) {
+        // Project-labor LOW_RES stays out of the competitor pool.
+        continue;
+      } else {
+        kind = FaceWalkUpKind.projectLabor;
+      }
+      scores.add(
+        FaceWalkUpScore(
+          employeeId: id,
+          score: FaceVerifier.cosine(probe, c.row.embedding),
+          kind: kind,
+        ),
+      );
+    }
+    for (final id in roster.candidateIds) {
+      if (scores.any((s) => s.employeeId == id)) continue;
+      final row = await db.templateFor(id);
+      if (row == null) continue;
+      scores.add(
+        FaceWalkUpScore(
+          employeeId: id,
+          score: FaceVerifier.cosine(probe, row.embedding),
+          kind: FaceWalkUpKind.candidate,
+        ),
+      );
+    }
+
+    final result = FaceWalkUp.decide(allScores: scores);
+    debugPrint(
+      'WalkUp: frame W=${result.winnerEmployeeId ?? '-'} '
+      'score=${result.score?.toStringAsFixed(3) ?? '-'} '
+      'lead=${result.lead?.toStringAsFixed(3) ?? '-'} '
+      'second=${result.secondEmployeeId ?? '-'} '
+      'second_score=${result.secondScore?.toStringAsFixed(3) ?? '-'} '
+      'identified=${result.identified} outOfTeam=${result.outOfTeam} '
+      'excludedTeam=${result.excludedTeamMember}',
+    );
+    return result;
+  }
 
   Future<FaceVerifyResult> _verify({
     required int targetEmployeeId,

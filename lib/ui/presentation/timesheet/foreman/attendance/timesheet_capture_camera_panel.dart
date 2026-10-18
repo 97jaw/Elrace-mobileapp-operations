@@ -16,6 +16,7 @@ import 'package:el_race/core/site_management/face_recognition/antispoof/timeshee
 import 'package:el_race/core/site_management/face_recognition/antispoof/timesheet_face_classification_snapshot.dart';
 import 'package:el_race/core/site_management/face_recognition/domain/face_embedder.dart';
 import 'package:el_race/core/site_management/face_recognition/domain/face_verifier.dart';
+import 'package:el_race/core/site_management/face_recognition/domain/face_walkup.dart';
 import 'package:el_race/core/site_management/face_recognition/domain/frame_evidence.dart';
 import 'package:el_race/core/site_management/face_recognition/face_recognition_config.dart';
 import 'package:el_race/core/site_management/face_recognition/face_recognition_service.dart';
@@ -192,16 +193,32 @@ class TimesheetCaptureCameraPanel extends StatefulWidget {
     this.onDuplicateRecognized,
     this.onAlreadyAttended,
     this.verifyTarget = false,
+    this.walkUpMode = false,
     this.targetEmployee,
     this.noTargetHint,
     this.onTargetVerified,
     this.onTargetVerifyFailed,
+    this.onWalkUpAccepted,
+    this.onWalkUpPickLabor,
     this.onCaptureWriteFailed,
   });
 
   /// 1:1 mode: the face is only ever checked against [targetEmployee]; no
   /// other employee's name is shown or reported. False = AT2 1:N matching.
   final bool verifyTarget;
+
+  /// TASK 10 walk-up: auto-identify Your Team (no fixed target).
+  final bool walkUpMode;
+
+  /// Walk-up accept → host shows card / undo / counter.
+  final void Function(
+    TimesheetOdooEmployee employee,
+    AttendanceCaptureDraft draft,
+    FaceWalkUpResult result,
+  )? onWalkUpAccepted;
+
+  /// Walk-up "Pick labor" → host opens verify for one labor.
+  final Future<void> Function()? onWalkUpPickLabor;
 
   /// [verifyTarget] only. Null = no verification and no capture until the
   /// host picks a labor. May change while the camera stays open.
@@ -574,7 +591,8 @@ class TimesheetCaptureCameraPanelState
 
   /// 1:1 + Odoo/code switch: continuous evidence pipeline (TASK 08).
   bool get _bestFrameModeActive =>
-      widget.verifyTarget && AppConfigService.instance.faceBestFrameEnabled;
+      AppConfigService.instance.faceBestFrameEnabled &&
+      (widget.verifyTarget || widget.walkUpMode);
 
   /// Task 09: last time no identity/PAD-usable frame appeared, plus reason.
   DateTime? get noUsableFrameSince => _noUsableFrameSince;
@@ -684,6 +702,7 @@ class TimesheetCaptureCameraPanelState
     }
     _bestFrameWindow.clear();
     _bestFrameMarker = BestFrameMarkerState.none;
+    _walkUpPickLaborHint = null;
     _bestFrameFirstFaceAt = null;
     _bestFrameFirstVerifiedAt = null;
     _bestFrameFirstLiveAt = null;
@@ -901,11 +920,14 @@ class TimesheetCaptureCameraPanelState
   }
 
   /// TASK 09 delayed hint — only after ≥2 s without usable frames.
+  /// Walk-up excluded-team / Pick labor hint takes precedence when set.
   String? get _bestFrameDelayedHintText {
     if (!_bestFrameModeActive) return null;
-    if (!_delayedHintVisible) return null;
-    if (_bestFrameMarker is BestFrameMarkerVerified) return null;
     if (_noticeHold) return null;
+    if (_bestFrameMarker is BestFrameMarkerVerified) return null;
+    final walkUpHint = _walkUpPickLaborHint;
+    if (widget.walkUpMode && walkUpHint != null) return walkUpHint;
+    if (!_delayedHintVisible) return null;
     if (_noUsableFrameSince == null) return null;
     return switch (_dominantUsableReason) {
       FrameUsableDominant.tooClose => 'Move back a little',
@@ -1066,6 +1088,7 @@ class TimesheetCaptureCameraPanelState
       _bestFrameFirstFaceAt ??= now;
 
       FaceVerifyResult? identity;
+      FaceWalkUpResult? walkUp;
       var identityStatus = FrameIdentityStatus.notEligible;
       var pad = FramePadVerdict.notEligible;
       Layer1Result? layer1Result;
@@ -1073,9 +1096,22 @@ class TimesheetCaptureCameraPanelState
       // Fast Android / iOS: identity + PAD in parallel. Low-end Android: run
       // them sequentially so emb (2 threads) and PAD (2 threads) do not fight.
       Future<void> runIdentity() async {
-        final target = widget.targetEmployee;
         final phaseB = widget.faceRecognition;
-        if (target == null || phaseB == null || !phaseB.isReady) return;
+        if (phaseB == null || !phaseB.isReady) return;
+        if (widget.walkUpMode) {
+          walkUp = await phaseB.identifyWalkUpImage(
+            source: modelRgb,
+            faceBox: modelFaceBox,
+            landmarks: landmarks,
+          );
+          _bestFramePerfEmbMs = FaceEmbedder.instance.lastInferenceMs;
+          identityStatus = walkUp!.identified
+              ? FrameIdentityStatus.verified
+              : FrameIdentityStatus.notVerified;
+          return;
+        }
+        final target = widget.targetEmployee;
+        if (target == null) return;
         identity = await phaseB.verifyImage(
           source: modelRgb,
           faceBox: modelFaceBox,
@@ -1151,6 +1187,7 @@ class TimesheetCaptureCameraPanelState
         qualityScore: quality,
         identityStatus: identityStatus,
         identity: identity,
+        walkUp: walkUp,
         pad: pad,
         classification: classification,
         landmarks: result.primaryFace,
@@ -1170,45 +1207,55 @@ class TimesheetCaptureCameraPanelState
         ..addAll(pruned);
       _maybeLogBestFramePerf(now);
 
-      final targetId = widget.targetEmployee?.employeeId;
-      if (targetId != null) {
-        _bestFrameMarker = BestFrameRules.markerState(
-          window: _bestFrameWindow,
-          targetEmployeeId: targetId,
-        );
+      if (widget.walkUpMode) {
+        _updateWalkUpMarker(now: now, latest: evidence);
       } else {
-        _bestFrameMarker = BestFrameMarkerState.none;
-      }
-
-      // Green/label from evidence only — never move marker to evidence boxes.
-      if (_bestFrameMarker is BestFrameMarkerVerified && targetId != null) {
-        _livePreviewEmployeeId = targetId;
-        _lastBadgeQualifyingAt = now;
-        _liveOverlayHint = null;
-        _markerEmployeeId = targetId;
-        if (mounted) setState(() {});
-        if (!_isEmployeeAlreadyCaptured(targetId)) {
-          _livePreviewBlockCapture = false;
-          _livePreviewAllowAutoCapture = true;
+        final targetId = widget.targetEmployee?.employeeId;
+        if (targetId != null) {
+          _bestFrameMarker = BestFrameRules.markerState(
+            window: _bestFrameWindow,
+            targetEmployeeId: targetId,
+          );
+        } else {
+          _bestFrameMarker = BestFrameMarkerState.none;
         }
-      } else {
-        final last = _lastBadgeQualifyingAt;
-        if (_markerEmployeeId != null &&
-            (last == null ||
-                now.difference(last) > BestFrameRules.markerSafetyStale)) {
-          _markerEmployeeId = null;
-          _livePreviewEmployeeId = null;
-          _livePreviewAllowAutoCapture = false;
+
+        // Green/label from evidence only — never move marker to evidence boxes.
+        if (_bestFrameMarker is BestFrameMarkerVerified && targetId != null) {
+          _livePreviewEmployeeId = targetId;
+          _lastBadgeQualifyingAt = now;
           _liveOverlayHint = null;
+          _markerEmployeeId = targetId;
           if (mounted) setState(() {});
+          if (!_isEmployeeAlreadyCaptured(targetId)) {
+            _livePreviewBlockCapture = false;
+            _livePreviewAllowAutoCapture = true;
+          }
+        } else {
+          final last = _lastBadgeQualifyingAt;
+          if (_markerEmployeeId != null &&
+              (last == null ||
+                  now.difference(last) > BestFrameRules.markerSafetyStale)) {
+            _markerEmployeeId = null;
+            _livePreviewEmployeeId = null;
+            _livePreviewAllowAutoCapture = false;
+            _liveOverlayHint = null;
+            if (mounted) setState(() {});
+          }
         }
       }
 
-      final decision = BestFrameRules.evaluateAccept(
-        _bestFrameWindow,
-        minLiveVerifiedFrames:
-            AppConfigService.instance.faceBestFrameMinLiveFrames,
-      );
+      final decision = widget.walkUpMode
+          ? BestFrameRules.evaluateAcceptWalkUp(
+              _bestFrameWindow,
+              minLiveIdentifiedFrames:
+                  AppConfigService.instance.faceBestFrameMinLiveFrames,
+            )
+          : BestFrameRules.evaluateAccept(
+              _bestFrameWindow,
+              minLiveVerifiedFrames:
+                  AppConfigService.instance.faceBestFrameMinLiveFrames,
+            );
       if (decision.rejectReason == 'spoof') {
         debugPrint('BestFrame: reject reason=spoof');
         _logPadSessionMax(reason: 'spoof_reject');
@@ -1228,6 +1275,12 @@ class TimesheetCaptureCameraPanelState
         _emitChrome();
         return;
       }
+      if (decision.rejectReason == 'identity_mix') {
+        debugPrint('WalkUp: identity_mix — reset window');
+        _clearBestFrameWindow();
+        _emitChrome();
+        return;
+      }
 
       // Accept on this cycle as soon as the rule is true.
       if (decision.accepted &&
@@ -1235,7 +1288,11 @@ class TimesheetCaptureCameraPanelState
           !_bestFrameManualWaiting &&
           !_isCapturing) {
         _isCapturing = true;
-        await _acceptBestFrame(decision);
+        if (widget.walkUpMode) {
+          await _acceptBestFrameWalkUp(decision);
+        } else {
+          await _acceptBestFrame(decision);
+        }
         return;
       }
 
@@ -1348,6 +1405,200 @@ class TimesheetCaptureCameraPanelState
       _bestFrameManualWaiting = false;
       if (mounted) _emitChrome();
     }
+  }
+
+  /// Walk-up-only bottom hint (excluded team / unknown → Pick labor).
+  String? _walkUpPickLaborHint;
+
+  void _updateWalkUpMarker({
+    required DateTime now,
+    required FrameEvidence latest,
+  }) {
+    final wu = latest.walkUp;
+    if (wu != null && wu.outOfTeam) {
+      _bestFrameMarker = BestFrameMarkerOutOfTeam(faceBox: latest.faceBox);
+      _markerEmployeeId = null;
+      _walkUpPickLaborHint = null;
+      if (mounted) setState(() {});
+      return;
+    }
+    if (wu != null && wu.excludedTeamMember) {
+      // LOW_RES / look-alike Your Team — never amber; prompt Pick labor.
+      _bestFrameMarker = BestFrameMarkerState.none;
+      _markerEmployeeId = null;
+      _walkUpPickLaborHint = 'Not recognized — Pick labor';
+      if (mounted) setState(() {});
+      return;
+    }
+    if (wu == null || !wu.identified || wu.winnerEmployeeId == null) {
+      _bestFrameMarker = BestFrameMarkerState.none;
+      _markerEmployeeId = null;
+      _walkUpPickLaborHint = null;
+      if (mounted) setState(() {});
+      return;
+    }
+    _walkUpPickLaborHint = null;
+    final winner = wu.winnerEmployeeId!;
+    final count = _bestFrameWindow
+        .where(
+          (e) =>
+              e.isLiveIdentified && e.walkUp?.winnerEmployeeId == winner,
+        )
+        .length;
+    if (count >= 3) {
+      _bestFrameMarker = BestFrameMarkerVerified(
+        employeeId: winner,
+        faceBox: latest.faceBox,
+      );
+    } else {
+      _bestFrameMarker = BestFrameMarkerProgress(
+        employeeId: winner,
+        faceBox: latest.faceBox,
+        progress: count.clamp(1, 3),
+      );
+    }
+    _markerEmployeeId = winner;
+    _livePreviewEmployeeId = winner;
+    _lastBadgeQualifyingAt = now;
+    if (mounted) setState(() {});
+  }
+
+  Future<void> _acceptBestFrameWalkUp(BestFrameAcceptDecision decision) async {
+    var best = decision.best;
+    if (best == null || !best.isLiveIdentified) {
+      _patchState(() => _isCapturing = false);
+      return;
+    }
+    final winnerId = best.walkUp!.winnerEmployeeId!;
+    if (!best.hasPixels) {
+      final alt = _bestFrameWindow
+          .where((e) => e.isLiveIdentified && e.hasPixels)
+          .fold<FrameEvidence?>(null, (bestSoFar, e) {
+        if (bestSoFar == null || e.qualityScore > bestSoFar.qualityScore) {
+          return e;
+        }
+        return bestSoFar;
+      });
+      if (alt == null) {
+        _patchState(() => _isCapturing = false);
+        return;
+      }
+      best = alt;
+    }
+    final employee = TimesheetOdooEmployee(
+      id: winnerId,
+      employeeId: winnerId,
+      name: 'Employee $winnerId',
+    );
+    // Resolve name from face DB / project labor when possible.
+    TimesheetOdooEmployee resolved = employee;
+    for (final e in widget.rosterEmployees ?? const <TimesheetOdooEmployee>[]) {
+      if (e.employeeId == winnerId) {
+        resolved = e;
+        break;
+      }
+    }
+
+    var rgb = best.rgbFrame;
+    if (rgb == null && best.photoJpeg != null) {
+      rgb = img.decodeImage(Uint8List.fromList(best.photoJpeg!));
+    }
+    if (rgb == null) {
+      _patchState(() => _isCapturing = false);
+      return;
+    }
+
+    if (_isEmployeeAlreadyCaptured(winnerId)) {
+      final replay = !(await _burstPipeline.verifySingleFrame(
+        BurstFrameSample(
+          rgbFrame: rgb,
+          faceBox: best.rgbFaceBox,
+          classification: best.classification,
+        ),
+      ))
+          .passed;
+      if (!mounted) return;
+      _patchState(() => _isCapturing = false);
+      _clearBestFrameWindow();
+      if (replay) {
+        _blockReplayAttempt('Presentation attack detected — use live face');
+      } else {
+        widget.onAlreadyAttended?.call(resolved);
+      }
+      return;
+    }
+
+    final acceptAt = DateTime.now();
+    final firstFace = _bestFrameFirstFaceAt ?? best.timestamp;
+    final msFromFirst = acceptAt.difference(firstFace).inMilliseconds;
+    final path =
+        '${await _tempDir()}/ts_walkup_${DateTime.now().microsecondsSinceEpoch}.jpg';
+    if (!mounted) return;
+
+    final audited = _buildCaptureDraft(path).withFaceAudit(
+      verified: true,
+      score: best.walkUp?.score,
+      lead: best.walkUp?.lead,
+      cohortSize: null,
+      liveness: 'pass',
+      method: 'profile_walkup',
+    );
+    final drafted = AttendanceCaptureDraft(
+      id: audited.id,
+      projectId: audited.projectId,
+      taskId: audited.taskId,
+      event: audited.event,
+      createdAt: audited.createdAt,
+      cropLocalPath: audited.cropLocalPath,
+      lat: audited.lat,
+      lon: audited.lon,
+      workerId: winnerId.toString(),
+      syncState: audited.syncState,
+      faceVerified: audited.faceVerified,
+      faceScore: audited.faceScore,
+      faceLead: audited.faceLead,
+      faceCohortSize: audited.faceCohortSize,
+      faceLiveness: audited.faceLiveness,
+      faceMethod: audited.faceMethod,
+      livenessFlagged: audited.livenessFlagged,
+      livenessLogJson: audited.livenessLogJson,
+      awsLivenessSessionId: audited.awsLivenessSessionId,
+      awsLivenessConfidence: audited.awsLivenessConfidence,
+    );
+    debugPrint(
+      'WalkUp: accept emp=$winnerId frames=${decision.liveVerifiedCount} '
+      'min_score=${FaceWalkUpTuning.minScore} '
+      'min_lead=${FaceWalkUpTuning.minLead} '
+      'ms_from_first_face=$msFromFirst',
+    );
+    _logPadSessionMax(reason: 'walkup_accept');
+
+    final saveFrame = rgb;
+    final saveJpeg = best.photoJpeg;
+    _clearBestFrameWindow();
+    _patchState(() => _isCapturing = false);
+    _armAutoCaptureCooldown();
+    _markJustCaptured(winnerId);
+    widget.onWalkUpAccepted?.call(resolved, drafted, best.walkUp!);
+    unawaited(
+      _speech.speakEmployeeDetected(resolved.name, employeeId: winnerId),
+    );
+    PendingCaptureWrites.track(
+      saveJpeg != null
+          ? _persistFastCaptureJpeg(
+              jpegBytes: saveJpeg,
+              draft: drafted,
+              target: resolved,
+            )
+          : _persistFastCapture(
+              frame: saveFrame,
+              draft: drafted,
+              target: resolved,
+            ),
+    );
+    _livenessGate.resetSession();
+    _syncLivenessSnapshot();
+    _clearLiveOverlay();
   }
 
   Future<void> _acceptBestFrame(BestFrameAcceptDecision decision) async {
@@ -2425,9 +2676,20 @@ class TimesheetCaptureCameraPanelState
                           _markerEmployeeId! > 0
                       ? _markerEmployeeId
                       : null,
-                  // Position tracks detection; green+id only when evidence verified.
-                  neutralOnly: _markerEmployeeId == null ||
-                      _markerEmployeeId == 0,
+                  // Verify: green+id while `_markerEmployeeId` is set (same as
+                  // before walk-up). Walk-up: driven by marker type.
+                  neutralOnly: widget.walkUpMode
+                      ? (_bestFrameMarker is! BestFrameMarkerVerified &&
+                          _bestFrameMarker is! BestFrameMarkerProgress &&
+                          _bestFrameMarker is! BestFrameMarkerOutOfTeam)
+                      : (_markerEmployeeId == null || _markerEmployeeId == 0),
+                  progressLabel: widget.walkUpMode &&
+                          _bestFrameMarker is BestFrameMarkerProgress
+                      ? '${(_bestFrameMarker as BestFrameMarkerProgress).progress}/'
+                          '${(_bestFrameMarker as BestFrameMarkerProgress).need}'
+                      : null,
+                  outOfTeam: widget.walkUpMode &&
+                      _bestFrameMarker is BestFrameMarkerOutOfTeam,
                   fit: _previewFit,
                   mirrorX: _markerMirrorX,
                 ),
@@ -4513,6 +4775,8 @@ class BestFrameMarkerOverlayPainter extends CustomPainter {
     required this.fit,
     this.employeeId,
     this.neutralOnly = false,
+    this.progressLabel,
+    this.outOfTeam = false,
     this.mirrorX = false,
   });
 
@@ -4521,6 +4785,12 @@ class BestFrameMarkerOverlayPainter extends CustomPainter {
   final BoxFit fit;
   final int? employeeId;
   final bool neutralOnly;
+
+  /// Walk-up collecting evidence, e.g. `1/3`.
+  final String? progressLabel;
+
+  /// Walk-up: project labor not in Your Team (amber, no id).
+  final bool outOfTeam;
 
   /// Front camera preview is mirrored; ML Kit boxes are not.
   final bool mirrorX;
@@ -4535,23 +4805,59 @@ class BestFrameMarkerOverlayPainter extends CustomPainter {
       fit: fit,
       mirrorX: mirrorX,
     );
-    final color = neutralOnly
-        ? TmFaceMeshPainter.neutral.withValues(alpha: 0.55)
-        : TmFaceMeshPainter.inTeam;
+    final Color color;
+    if (outOfTeam) {
+      color = TmFaceMeshPainter.outOfTeam;
+    } else if (neutralOnly) {
+      color = TmFaceMeshPainter.neutral.withValues(alpha: 0.55);
+    } else if (progressLabel != null) {
+      color = Colors.white;
+    } else {
+      color = TmFaceMeshPainter.inTeam;
+    }
     TmFaceMeshPainter.paintCornerBracketSquare(
       canvas: canvas,
       faceBox: scaled,
       color: color,
       strokeWidth: neutralOnly ? 1.5 : 3,
     );
+    if (outOfTeam) {
+      final square = TmFaceMeshPainter.expandedSquareForFace(scaled);
+      final tp = TextPainter(
+        text: TextSpan(
+          text: 'Not in your team',
+          style: TextStyle(
+            color: Colors.white,
+            fontSize: 12,
+            fontWeight: FontWeight.w700,
+            backgroundColor: color.withValues(alpha: 0.85),
+          ),
+        ),
+        textDirection: TextDirection.ltr,
+      )..layout(maxWidth: size.width * 0.7);
+      tp.paint(
+        canvas,
+        Offset(
+          (square.center.dx - tp.width / 2).clamp(4.0, size.width - tp.width - 4),
+          (square.top - tp.height - 6).clamp(4.0, size.height - tp.height - 4),
+        ),
+      );
+      return;
+    }
     if (!neutralOnly && employeeId != null && employeeId! > 0) {
       final square = TmFaceMeshPainter.expandedSquareForFace(scaled);
+      final label = progressLabel == null
+          ? '$employeeId'
+          : '$employeeId · $progressLabel';
       TmFaceMeshPainter.paintEmployeeIdPill(
         canvas: canvas,
         squareBox: square,
         employeeId: employeeId!,
-        badgeColor: TmFaceMeshPainter.inTeam,
+        badgeColor: progressLabel != null
+            ? const Color(0xFF546E7A)
+            : TmFaceMeshPainter.inTeam,
         viewSize: size,
+        labelOverride: label,
       );
     }
   }
@@ -4562,6 +4868,8 @@ class BestFrameMarkerOverlayPainter extends CustomPainter {
         oldDelegate.faceBox != faceBox ||
         oldDelegate.employeeId != employeeId ||
         oldDelegate.neutralOnly != neutralOnly ||
+        oldDelegate.progressLabel != progressLabel ||
+        oldDelegate.outOfTeam != outOfTeam ||
         oldDelegate.fit != fit ||
         oldDelegate.mirrorX != mirrorX;
   }

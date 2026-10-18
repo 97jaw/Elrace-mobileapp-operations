@@ -25,6 +25,7 @@ class TimesheetSubmitFaceAudit {
     this.score,
     this.lead,
     this.cohortSize,
+    this.method = methodVerify,
   });
 
   final int employeeId;
@@ -33,8 +34,10 @@ class TimesheetSubmitFaceAudit {
   final double? lead;
   final int? cohortSize;
   final String liveness;
+  final String method;
 
-  static const String method = 'profile_1to1';
+  static const String methodVerify = 'profile_1to1';
+  static const String methodWalkUp = 'profile_walkup';
 
   /// From a queued capture draft, or null when it carries no audit.
   static TimesheetSubmitFaceAudit? fromDraft(
@@ -50,6 +53,7 @@ class TimesheetSubmitFaceAudit {
       lead: draft.faceLead,
       cohortSize: draft.faceCohortSize,
       liveness: draft.faceLiveness ?? 'not_run',
+      method: draft.faceMethod ?? methodVerify,
     );
   }
 

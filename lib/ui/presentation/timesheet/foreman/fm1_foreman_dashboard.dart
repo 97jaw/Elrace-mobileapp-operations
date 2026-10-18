@@ -301,6 +301,8 @@ class Fm1ForemanDashboard extends ConsumerWidget {
       onEnroll: (member) => _openEnroll(context, ref, member),
       onCaptureAttendance: (member, alreadyCapturedIds) =>
           _captureForMember(context, ref, buckets, member, alreadyCapturedIds),
+      onWalkUpCapture: (alreadyCapturedIds) =>
+          _captureWalkUp(context, ref, buckets, members, alreadyCapturedIds),
       onPendingChanged: (captures) =>
           _persistPending(ref, defaultArgs, captures),
       onSubmitCaptures: (captures) =>
@@ -471,6 +473,69 @@ class Fm1ForemanDashboard extends ConsumerWidget {
       return result ?? const [];
     } catch (error, stack) {
       debugPrint('Fm1ForemanDashboard._captureForMember: $error\n$stack');
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              error.toString().contains('task')
+                  ? 'Could not open camera: no timesheet task on this site for the foreman.'
+                  : 'Could not open timesheet capture',
+            ),
+          ),
+        );
+      }
+      return const [];
+    }
+  }
+
+  /// Walk-up: same project/task/date as per-labor capture (first in-progress
+  /// site). Multi-project chooser skipped (TASK 10 Addendum B).
+  Future<List<TimesheetCaptureSessionEntry>> _captureWalkUp(
+    BuildContext context,
+    WidgetRef ref,
+    TimesheetProjectBuckets buckets,
+    List<TimesheetTeamMember> members,
+    Set<int> alreadyCapturedIds,
+  ) async {
+    if (buckets.inProgress.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('No active sites available')),
+      );
+      return const [];
+    }
+    if (buckets.inProgress.length > 1) {
+      debugPrint(
+        'WalkUp: WARNING team may span multiple projects today; '
+        'opening camera for first in-progress site '
+        'project=${buckets.inProgress.first.id} '
+        '(${buckets.inProgress.first.name}); '
+        'otherSites=${buckets.inProgress.length - 1}',
+      );
+    }
+    final project = buckets.inProgress.first;
+    try {
+      final task = await _resolveCaptureTask(ref, project.id);
+      if (!context.mounted) return const [];
+      final today = DateTime.now();
+      final result = await FmTimesheetCaptureSubmitScreen.pushOnce<
+          List<TimesheetCaptureSessionEntry>>(
+        context,
+        FmTimesheetCaptureSubmitScreen(
+          returnCaptures: true,
+          walkUpMode: true,
+          alreadyCapturedEmployeeIds: alreadyCapturedIds,
+          args: TimesheetProjectDayArgs(
+            projectId: project.id,
+            projectName: project.name,
+            taskId: task.id,
+            taskName: task.name,
+            date: DateTime(today.year, today.month, today.day),
+          ),
+        ),
+      );
+      return result ?? const [];
+    } catch (error, stack) {
+      debugPrint('Fm1ForemanDashboard._captureWalkUp: $error\n$stack');
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(

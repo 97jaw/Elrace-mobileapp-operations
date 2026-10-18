@@ -78,6 +78,43 @@ abstract final class FaceMatchTuning {
   }
 }
 
+/// Match mode from Odoo `elrace.face_match_mode` (via `/api/app/config`).
+enum FaceMatchMode {
+  /// Today's 1:1 verify (default / fallback).
+  verify,
+
+  /// Auto identification of Your Team labors (TASK 10).
+  walkup,
+}
+
+/// Walk-up identification bars from `elrace.face_walkup_min_score` /
+/// `elrace.face_walkup_min_lead`. Valid score 0.20–0.90, lead 0.05–0.40.
+abstract final class FaceWalkUpTuning {
+  static const double defaultMinScore = 0.40;
+  static const double defaultMinLead = 0.15;
+
+  static double _minScore = defaultMinScore;
+  static double _minLead = defaultMinLead;
+
+  static double get minScore => _minScore;
+  static double get minLead => _minLead;
+
+  static void apply({double? minScore, double? minLead}) {
+    _minScore = (minScore != null &&
+            minScore.isFinite &&
+            minScore >= 0.20 &&
+            minScore <= 0.90)
+        ? minScore
+        : defaultMinScore;
+    _minLead = (minLead != null &&
+            minLead.isFinite &&
+            minLead >= 0.05 &&
+            minLead <= 0.40)
+        ? minLead
+        : defaultMinLead;
+  }
+}
+
 /// 1:1 verification bars set from Odoo system parameters
 /// `elrace.face_verify_*` (via `/api/app/config`). Out-of-range, non-finite
 /// or unset values fall back to the defaults. Read per decision.

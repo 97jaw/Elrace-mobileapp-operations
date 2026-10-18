@@ -192,10 +192,11 @@ class TmFaceMeshPainter {
     required Color badgeColor,
     required Size viewSize,
     double maxWidth = 160,
+    String? labelOverride,
   }) {
     final textPainter = TextPainter(
       text: TextSpan(
-        text: '$employeeId',
+        text: labelOverride ?? '$employeeId',
         style: const TextStyle(
           color: Colors.white,
           fontSize: 13,
