@@ -6,9 +6,11 @@ import 'dart:math' as math;
 import 'package:el_race/core/site_management/face_recognition/data/models/face_embedding_record.dart';
 import 'package:el_race/core/site_management/face_recognition/domain/face_embedder.dart';
 import 'package:el_race/core/site_management/face_recognition/domain/face_preprocessor.dart';
+import 'package:el_race/core/site_management/face_recognition/face_recognition_config.dart';
 import 'package:el_race/core/timesheet/models/timesheet_team_member.dart';
 import 'package:el_race/core/timesheet/network/timesheet_odoo_employee.dart';
 import 'package:el_race/core/timesheet/services/face_capture_service.dart';
+import 'package:el_race/core/utils/shared_pref.dart';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:image/image.dart' as img;
@@ -38,7 +40,15 @@ class ProfilePhotoFaceDb {
   static const int _parallelDownloads = 4;
 
   /// Bump when the build pipeline changes so old saved templates are rebuilt.
-  static const String _pipelineVersion = 'mobilefacenet512-profile-v2';
+  /// v2.1: every template records its source face width (LOW_RES flag).
+  /// v3: 5-point ArcFace aligned crop (`useFivePointAlignment`).
+  static const String _pipelineVersion =
+      FaceRecognitionPreprocess.useFivePointAlignment
+          ? 'mobilefacenet512-profile-v3'
+          : 'mobilefacenet512-profile-v2.1';
+
+  /// Most members (targets + cohort) held for one capture screen.
+  static const int maxMembers = 80;
   static const String _cacheFileName = 'profile_photo_templates.json';
 
   /// The photo URL has no change marker, so saved templates are refreshed
@@ -46,7 +56,8 @@ class ProfilePhotoFaceDb {
   static const Duration _templateMaxAge = Duration(days: 7);
   static const Duration _failedRetryAfter = Duration(days: 1);
 
-  static const int _maxPhotoLongSidePx = 800;
+  /// Long side cap before ML Kit (≤1024). Decode/resize runs in [compute].
+  static const int _maxPhotoLongSidePx = 1024;
   static const int _minPhotoShortSidePx = 480;
 
   final FacePreprocessor _preprocessor = const FacePreprocessor();
@@ -64,26 +75,57 @@ class ProfilePhotoFaceDb {
   final ValueNotifier<Map<int, ProfileTemplateState>> states =
       ValueNotifier(const {});
 
-  /// Capture screens: project labour narrowed to Your Team. Kept as-is when
-  /// the full team is already loaded, so the sheet underneath keeps its icon
-  /// states.
-  void setLabour(List<TimesheetOdooEmployee> labour) {
-    _setRoster(keepIfCovered: true, [
+  /// Employee ids of the last [setTeam] (dashboard / Your Team sheet).
+  Set<int> _teamIds = const {};
+
+  /// Capture screens. [targetIds] are the labours that can be verified or
+  /// matched (Your Team); the rest of [labour] is cohort only (never matched
+  /// or named). Null [targetIds] = every labour is a target. Team members
+  /// already loaded by [setTeam] stay as targets, so the sheet underneath
+  /// keeps its icon states. Targets are built first; the total is capped at
+  /// [maxMembers] (targets always kept). Kept as-is when the current roster
+  /// already covers it with the same roles.
+  void setLabour(
+    List<TimesheetOdooEmployee> labour, {
+    Set<int>? targetIds,
+    bool force = false,
+  }) {
+    bool isTarget(TimesheetOdooEmployee e) =>
+        targetIds == null || targetIds.contains(e.employeeId);
+    final usable = [
       for (final e in labour)
-        if (e.canUseFaceMatch)
-          _Member(
-            id: e.employeeId,
-            name: e.name,
-            fileId: e.displayFileId,
-            department: e.department ?? '',
-            jobTitle: e.jobPosition ?? '',
-            url: e.faceMatchImageUrl!,
-          ),
-    ]);
+        if (e.canUseFaceMatch) e
+    ];
+    final labourIds = {for (final e in usable) e.employeeId};
+    final targets = [
+      for (final e in usable)
+        if (isTarget(e)) e
+    ];
+    final cohort = [
+      for (final e in usable)
+        if (!isTarget(e)) e
+    ];
+    final keptTeam = [
+      for (final m in _members.values)
+        if (m.target && _teamIds.contains(m.id) && !labourIds.contains(m.id)) m,
+    ];
+    final room = math.max(0, maxMembers - targets.length - keptTeam.length);
+    _setRoster(
+      keepIfCovered: !force,
+      force: force,
+      [
+        for (final e in targets) _Member.fromEmployee(e, target: true),
+        ...keptTeam,
+        for (final e in cohort.take(room))
+          _Member.fromEmployee(e, target: false),
+      ],
+    );
   }
 
-  /// Dashboard / Your Team sheet.
+  /// Dashboard / Your Team sheet. No-op while the roster already holds this
+  /// team as targets (a capture screen's cohort is kept).
   void setTeam(List<TimesheetTeamMember> team) {
+    _teamIds = {for (final m in team) m.employeeId};
     _setRoster([
       for (final m in team)
         _Member(
@@ -92,21 +134,36 @@ class ProfilePhotoFaceDb {
           fileId: m.fileId,
           department: '',
           jobTitle: m.subtitle ?? '',
-          url: '$kTimesheetErpPublicBase/public/employee/image/${m.employeeId}',
+          target: true,
         ),
     ]);
   }
 
-  void _setRoster(List<_Member> members, {bool keepIfCovered = false}) {
-    final covered = members.every((m) => _members.containsKey(m.id));
-    if (covered && (keepIfCovered || members.length == _members.length)) {
-      return;
+  DateTime? _rosterSetAt;
+  String _rosterSource = 'cache';
+
+  void _setRoster(
+    List<_Member> members, {
+    bool keepIfCovered = false,
+    bool force = false,
+  }) {
+    if (!force) {
+      final covered =
+          members.every((m) => _members[m.id]?.target == m.target);
+      final currentTargets = _members.values.where((m) => m.target).length;
+      if (covered && (keepIfCovered || members.length == currentTargets)) {
+        return;
+      }
     }
     _members
       ..clear()
       ..addEntries(members.map((m) => MapEntry(m.id, m)));
+    _invalidateWalkUpRoster();
+    _rosterSetAt = DateTime.now();
+    final targets = _members.values.where((m) => m.target).length;
     debugPrint(
-      'ProfilePhotoMatch: labour roster set ${_members.length} employees',
+      'ProfilePhotoMatch: labour roster set ${_members.length} employees '
+      '(targets=$targets cohort=${_members.length - targets})',
     );
     unawaited(_refresh(retryFailed: false));
   }
@@ -128,7 +185,196 @@ class ProfilePhotoFaceDb {
   bool hasTemplateFor(int employeeId) =>
       _templates[employeeId]?.embedding != null;
 
-  /// Ready templates for the current roster. Never waits for the build: a
+  /// LOW_RES: face narrower than [_lowResFacePx] in the source photo. An
+  /// unknown width (0, templates saved before v2.1) also counts as low-res
+  /// for cohort / verify UI. Walk-up does not exclude on LOW_RES.
+  bool isLowRes(int employeeId) {
+    final t = _templates[employeeId];
+    return t != null && _isLowRes(t);
+  }
+
+  /// Source face width (px) for a ready template, or 0 if unknown / missing.
+  int faceSourcePxOf(int employeeId) =>
+      _templates[employeeId]?.faceSourcePx ?? 0;
+
+  static bool _isLowRes(_Template t) => t.faceSourcePx < _lowResFacePx;
+
+  /// Known face width under [_lowResFacePx] (info only for walk-up logs).
+  static bool _isLowResKnown(_Template t) =>
+      t.faceSourcePx > 0 && t.faceSourcePx < _lowResFacePx;
+
+  /// Closest other employee (distinct id) by L2-normalised cosine, same as
+  /// [ProfilePhotoQuality] / [_lookAlikeCosine] (0.45).
+  ({int otherId, double cosine})? _closestOtherEmployee(int employeeId) {
+    final emb = _templates[employeeId]?.embedding;
+    if (emb == null) return null;
+    final probe = _unit(emb);
+    var closestId = -1;
+    var closest = -1.0;
+    // One template per employee id — never self, never a duplicate of same id.
+    for (final e in _templates.entries) {
+      if (e.key == employeeId || e.value.embedding == null) continue;
+      final score = _dot(probe, _unit(e.value.embedding!));
+      if (score > closest) {
+        closest = score;
+        closestId = e.key;
+      }
+    }
+    if (closestId < 0) return null;
+    return (otherId: closestId, cosine: closest);
+  }
+
+  /// Look-alike: L2-normalised cosine ≥ [_lookAlikeCosine] to another employee.
+  bool isLookAlike(int employeeId) {
+    final closest = _closestOtherEmployee(employeeId);
+    return closest != null && closest.cosine >= _lookAlikeCosine;
+  }
+
+  /// Cached once per roster/template generation for walk-up frames (TASK 10).
+  WalkUpRosterSnapshot? _walkUpRoster;
+
+  /// Summary log only once per camera open (templates may rebuild silently).
+  bool _walkUpRosterSummaryLogged = false;
+
+  void _invalidateWalkUpRoster() => _walkUpRoster = null;
+
+  /// Call when opening the walk-up camera so candidates log once for the session.
+  void beginWalkUpCameraSession() {
+    _walkUpRosterSummaryLogged = false;
+    _invalidateWalkUpRoster();
+  }
+
+  /// Camera open: force roster from latest labour/team, rebuild candidates.
+  /// Templates still pending build in the background and join candidates when ready.
+  Future<WalkUpRosterSnapshot> refreshRosterForCameraOpen({
+    required List<TimesheetOdooEmployee> labour,
+    Set<int>? targetIds,
+    required int teamCount,
+    required bool fromNetwork,
+  }) async {
+    _rosterSource = fromNetwork ? 'network' : 'cache';
+    beginWalkUpCameraSession();
+    setLabour(labour, targetIds: targetIds, force: true);
+    // Kick a photo refresh (retry failed) so new team members get templates.
+    unawaited(_refresh(retryFailed: true));
+    final snap = await walkUpRoster();
+    final ageS = _rosterSetAt == null
+        ? 0
+        : DateTime.now().difference(_rosterSetAt!).inSeconds;
+    debugPrint(
+      'WalkUp: roster refreshed team=$teamCount '
+      'candidates=${snap.candidateIds.length} '
+      'source=$_rosterSource age_s=$ageS',
+    );
+    return snap;
+  }
+
+  /// Candidates + look-alike exclusions for the current roster/templates.
+  /// Summary is logged once per [beginWalkUpCameraSession]. LOW_RES is info only.
+  Future<WalkUpRosterSnapshot> walkUpRoster() async {
+    await _ensureCacheLoaded();
+    final cached = _walkUpRoster;
+    if (cached != null) return cached;
+
+    final candidates = <int>[];
+    final lowResInfo = <String>[];
+    final lowResIds = <int>[];
+    final lookAlike = <int>[];
+    final lookAlikeDetails = <String>[];
+    for (final m in _members.values) {
+      if (!m.target || _templates[m.id]?.embedding == null) continue;
+      final t = _templates[m.id]!;
+      final facePx = t.faceSourcePx;
+      final closest = _closestOtherEmployee(m.id);
+      final isAlike =
+          closest != null && closest.cosine >= _lookAlikeCosine;
+
+      if (_isLowResKnown(t)) {
+        lowResIds.add(m.id);
+        lowResInfo.add('${m.id}:$facePx');
+      }
+      if (isAlike) {
+        lookAlike.add(m.id);
+        lookAlikeDetails.add(
+          '${m.id}:cos=${closest.cosine.toStringAsFixed(3)}'
+          '/other=${closest.otherId}',
+        );
+      } else {
+        // Ready Your Team template — candidate even if LOW_RES / unknown px.
+        candidates.add(m.id);
+      }
+    }
+    final snap = WalkUpRosterSnapshot(
+      candidateIds: candidates.toSet(),
+      lowResInfoIds: lowResIds.toSet(),
+      excludedLookAlike: lookAlike.toSet(),
+    );
+    _walkUpRoster = snap;
+    if (!_walkUpRosterSummaryLogged) {
+      _walkUpRosterSummaryLogged = true;
+      debugPrint(
+        'WalkUp: candidates=$candidates '
+        'low_res=$lowResInfo '
+        'excluded_lookalike=$lookAlike',
+      );
+      for (final line in lookAlikeDetails) {
+        debugPrint('WalkUp: exclude lookalike $line');
+      }
+    }
+    return snap;
+  }
+
+  /// After a template becomes ready mid-session, fold them into candidates.
+  void _noteTemplateReadyForWalkUp(int employeeId) {
+    final m = _members[employeeId];
+    if (m == null || !m.target) return;
+    if (isLookAlike(employeeId)) return;
+    final cached = _walkUpRoster;
+    if (cached == null) {
+      _invalidateWalkUpRoster();
+      return;
+    }
+    if (cached.candidateIds.contains(employeeId)) return;
+    final next = WalkUpRosterSnapshot(
+      candidateIds: {...cached.candidateIds, employeeId},
+      lowResInfoIds: cached.lowResInfoIds,
+      excludedLookAlike: cached.excludedLookAlike,
+    );
+    _walkUpRoster = next;
+    debugPrint(
+      'WalkUp: candidate added emp=$employeeId '
+      'candidates=${next.candidateIds.length}',
+    );
+  }
+
+  /// After a build wave, rebuild roster and log any candidates not seen before.
+  Future<void> _reconcileWalkUpCandidatesAfterBuild(
+    Set<int> prevCandidates,
+  ) async {
+    final snap = await walkUpRoster();
+    for (final id in snap.candidateIds) {
+      if (prevCandidates.contains(id)) continue;
+      debugPrint(
+        'WalkUp: candidate added emp=$id '
+        'candidates=${snap.candidateIds.length}',
+      );
+    }
+  }
+
+  /// Your Team targets with a ready template that are not look-alike.
+  Future<List<int>> walkUpCandidateIds() async =>
+      (await walkUpRoster()).candidateIds.toList(growable: false);
+
+  Future<({List<int> lowRes, List<int> lookAlike})> walkUpExcludedIds() async {
+    final r = await walkUpRoster();
+    return (
+      lowRes: r.lowResInfoIds.toList(growable: false),
+      lookAlike: r.excludedLookAlike.toList(growable: false),
+    );
+  }
+
+  /// Ready templates of the verification targets (Your Team) only — the 1:N
+  /// matcher never sees cohort-only members. Never waits for the build: a
   /// labour without a template yet simply can't be matched.
   Future<List<FaceEmbeddingRecord>> rows() async {
     await _ensureCacheLoaded();
@@ -138,19 +384,43 @@ class ProfilePhotoFaceDb {
     }
     return [
       for (final m in _members.values)
-        if (_templates[m.id]?.embedding != null)
-          FaceEmbeddingRecord(
-            employeeId: m.id,
-            empCode: m.fileId,
-            name: m.name,
-            department: m.department,
-            jobTitle: m.jobTitle,
-            inForemanTeam: true,
-            pose: 'profile_photo',
-            embedding: _templates[m.id]!.embedding!,
-          ),
+        if (m.target && _templates[m.id]?.embedding != null) _record(m),
     ];
   }
+
+  /// Template of one roster member (target or cohort), or null when none is
+  /// ready. LOW_RES templates are still returned: they stay usable as the
+  /// verification target.
+  Future<FaceEmbeddingRecord?> templateFor(int employeeId) async {
+    await _ensureCacheLoaded();
+    final m = _members[employeeId];
+    if (m == null || _templates[m.id]?.embedding == null) return null;
+    return _record(m);
+  }
+
+  /// Every other roster member with a ready template (targets and cohort),
+  /// each with its LOW_RES flag. [excludeEmployeeId] is never included.
+  Future<List<({FaceEmbeddingRecord row, bool lowRes})>> cohortCandidates({
+    required int excludeEmployeeId,
+  }) async {
+    await _ensureCacheLoaded();
+    return [
+      for (final m in _members.values)
+        if (m.id != excludeEmployeeId && _templates[m.id]?.embedding != null)
+          (row: _record(m), lowRes: _isLowRes(_templates[m.id]!)),
+    ];
+  }
+
+  FaceEmbeddingRecord _record(_Member m) => FaceEmbeddingRecord(
+        employeeId: m.id,
+        empCode: m.fileId,
+        name: m.name,
+        department: m.department,
+        jobTitle: m.jobTitle,
+        inForemanTeam: m.target,
+        pose: 'profile_photo',
+        embedding: _templates[m.id]!.embedding!,
+      );
 
   /// Project labour narrowed to the foreman's assigned labour (Your Team).
   /// Falls back to the whole project list when the login has no team (PM).
@@ -201,8 +471,14 @@ class ProfilePhotoFaceDb {
     unawaited(_run());
   }
 
+  /// Roster members plus any other saved template (e.g. Your Team labours not
+  /// on the current project), so the team sheet keeps its icons.
   void _publish() {
     states.value = {
+      for (final e in _templates.entries)
+        e.key: e.value.embedding != null
+            ? ProfileTemplateState.ready
+            : ProfileTemplateState.failed,
       for (final m in _members.values)
         m.id: _templates[m.id]?.embedding != null
             ? ProfileTemplateState.ready
@@ -218,12 +494,15 @@ class ProfilePhotoFaceDb {
     if (_running || _queue.isEmpty) return;
     _running = true;
     final sw = Stopwatch()..start();
-    final capture = TimesheetFaceCaptureService();
+    // Owned detector — never the shared capture stream instance.
+    final capture = TimesheetFaceCaptureService.forTemplateBuild();
     final dir = await getTemporaryDirectory();
     final built = <int>[];
     var ok = 0;
     var noPhoto = 0;
+    var noAccess = 0;
     var noFace = 0;
+    debugPrint('ProfilePhotoMatch: photos via ${_Member.faceImagePath}<id>');
     try {
       await _embedder.ensureLoaded();
       while (_queue.isNotEmpty) {
@@ -234,13 +513,21 @@ class ProfilePhotoFaceDb {
         }
         _inFlight.addAll(batch.map((m) => m.id));
         final photos = await Future.wait(batch.map(_download));
+        var unauthorized = false;
         for (var i = 0; i < batch.length; i++) {
           final member = batch[i];
-          final bytes = photos[i];
+          final photo = photos[i];
+          final bytes = photo.bytes;
+          if (photo.status == _unauthorized) {
+            // No template written: the labour stays pending, not failed.
+            _inFlight.remove(member.id);
+            unauthorized = true;
+            continue;
+          }
           _Template template;
           if (bytes == null) {
-            template = _Template.failed('noPhoto');
-            noPhoto++;
+            template = _Template.failed(photo.status);
+            photo.status == 'noAccess' ? noAccess++ : noPhoto++;
           } else {
             template = await _embed(member.id, bytes, dir, capture) ??
                 _Template.failed('noFace');
@@ -252,49 +539,98 @@ class ProfilePhotoFaceDb {
               template.embedding == null && previous?.embedding != null
                   ? previous!.touched()
                   : template;
+          final readyNow = _templates[member.id]?.embedding != null &&
+              previous?.embedding == null;
           _inFlight.remove(member.id);
           built.add(member.id);
           debugPrint(
             'ProfilePhotoMatch: emp=${member.id} ${member.name} '
-            '${template.status}',
+            '${member.target ? 'target' : 'cohort'} ${template.status}',
           );
+          // Mid-wave: add ready targets to candidates without a full rebuild.
+          if (readyNow) {
+            _noteTemplateReadyForWalkUp(member.id);
+          }
           _publish();
         }
         await _save();
+        if (unauthorized) {
+          debugPrint(
+            'ProfilePhotoMatch: photo route 401 after retry — build stopped, '
+            '${_queue.length} more left pending',
+          );
+          _queue.clear();
+          break;
+        }
       }
     } catch (e) {
       debugPrint('ProfilePhotoMatch: build stopped: $e');
     } finally {
       _inFlight.clear();
       _running = false;
+      // Full rebuild so look-alike exclusions stay accurate after the wave.
+      final prevCandidates =
+          Set<int>.of(_walkUpRoster?.candidateIds ?? const {});
+      _invalidateWalkUpRoster();
       _publish();
       await capture.dispose();
+      unawaited(_reconcileWalkUpCandidatesAfterBuild(prevCandidates));
     }
     debugPrint(
       'ProfilePhotoMatch: built ${built.length} employees '
-      'ok=$ok noPhoto=$noPhoto noFace=$noFace in ${sw.elapsedMilliseconds}ms',
+      'ok=$ok noPhoto=$noPhoto noAccess=$noAccess noFace=$noFace '
+      'in ${sw.elapsedMilliseconds}ms',
     );
     _logQualityReport(built);
     if (_queue.isNotEmpty) unawaited(_run());
   }
 
-  Future<Uint8List?> _download(_Member member) async {
+  static const String _unauthorized = 'unauthorized';
+
+  /// Photo bytes with status `ok`, or null bytes with `noPhoto` (404 /
+  /// unusable / network), `noAccess` (403) or [_unauthorized] (401 twice).
+  Future<({Uint8List? bytes, String status})> _download(_Member member) async {
     try {
-      final response = await http
-          .get(Uri.parse(member.url))
-          .timeout(const Duration(seconds: 15));
+      var response = await _getPhoto(member);
+      if (response.statusCode == 401) {
+        debugPrint(
+          'ProfilePhotoMatch: emp=${member.id} 401 — retrying with stored token',
+        );
+        response = await _getPhoto(member);
+      }
+      switch (response.statusCode) {
+        case 401:
+          return (bytes: null, status: _unauthorized);
+        case 403:
+          debugPrint('ProfilePhotoMatch: emp=${member.id} no access (403)');
+          return (bytes: null, status: 'noAccess');
+        case 404:
+          return (bytes: null, status: 'noPhoto');
+      }
       final type = response.headers['content-type'] ?? '';
       if (response.statusCode != 200 ||
           response.bodyBytes.isEmpty ||
           !type.startsWith('image/') ||
           type.contains('svg')) {
-        return null;
+        return (bytes: null, status: 'noPhoto');
       }
-      return response.bodyBytes;
+      return (bytes: response.bodyBytes, status: 'ok');
     } catch (e) {
       debugPrint('ProfilePhotoMatch: emp=${member.id} download failed: $e');
-      return null;
+      return (bytes: null, status: 'noPhoto');
     }
+  }
+
+  /// Token is read from login storage on every call, so a retry picks up a
+  /// token replaced by a re-login.
+  Future<http.Response> _getPhoto(_Member member) {
+    final token = SharedPref.getLoginData().result?.token;
+    return http.get(
+      Uri.parse(member.url),
+      headers: {
+        if (token != null && token.isNotEmpty) 'Authorization': 'Bearer $token',
+      },
+    ).timeout(const Duration(seconds: 15));
   }
 
   Future<_Template?> _embed(
@@ -325,12 +661,13 @@ class ProfilePhotoFaceDb {
         );
         return null;
       }
-      final tensor = await _preprocessor.buildInputTensorFromCaptureAsync(
+      final chip = await _preprocessor.buildInputTensorFromCaptureAsync(
         imagePath: file.path,
         faceBox: face.boundingBox,
         landmarks: face,
+        crop: FaceChipCrop.fivePoint,
       );
-      if (tensor == null) {
+      if (chip == null) {
         debugPrint(
           'ProfilePhotoMatch: emp=$employeeId crop failed '
           'box=${face.boundingBox} eyes=${face.leftEye}/${face.rightEye} '
@@ -338,8 +675,12 @@ class ProfilePhotoFaceDb {
         );
         return null;
       }
+      debugPrint(
+        'ProfilePhotoMatch: emp=$employeeId template built '
+        'align=${chip.align.logName} version=$_pipelineVersion',
+      );
       return _Template(
-        embedding: _unit(await _embedder.generateEmbedding(tensor)),
+        embedding: _unit(await _embedder.generateEmbedding(chip.tensor)),
         builtAt: DateTime.now(),
         status: 'ok',
         sourceWidth: prepared.sourceWidth,
@@ -365,7 +706,11 @@ class ProfilePhotoFaceDb {
       if (!await file.exists()) return;
       final json = jsonDecode(await file.readAsString());
       if (json is! Map || json['version'] != _pipelineVersion) {
-        debugPrint('ProfilePhotoMatch: saved templates outdated — rebuilding');
+        debugPrint(
+          'ProfilePhotoMatch: saved templates outdated '
+          '(${json is Map ? json['version'] : 'n/a'} → $_pipelineVersion) '
+          '— rebuilding',
+        );
         return;
       }
       final entries = json['templates'];
@@ -526,15 +871,29 @@ class _Member {
     required this.fileId,
     required this.department,
     required this.jobTitle,
-    required this.url,
+    required this.target,
   });
+
+  _Member.fromEmployee(TimesheetOdooEmployee e, {required this.target})
+      : id = e.employeeId,
+        name = e.name,
+        fileId = e.displayFileId,
+        department = e.department ?? '',
+        jobTitle = e.jobPosition ?? '';
 
   final int id;
   final String name;
   final String fileId;
   final String department;
   final String jobTitle;
-  final String url;
+
+  /// Authenticated face-matching photo route (avatars keep the public one).
+  String get url => '$kTimesheetErpPublicBase$faceImagePath$id';
+
+  static const String faceImagePath = '/api/v2/employee/face_image/';
+
+  /// Verification / match target (Your Team); false = cohort only.
+  final bool target;
 }
 
 class _Template {
@@ -557,7 +916,7 @@ class _Template {
   final List<double>? embedding;
   final DateTime builtAt;
 
-  /// ok | noPhoto | noFace
+  /// ok | noPhoto | noAccess | noFace
   final String status;
   final int sourceWidth;
   final int sourceHeight;
@@ -608,6 +967,26 @@ class _Template {
       faceSourcePx: (json['f'] as num?)?.toInt() ?? 0,
     );
   }
+}
+
+/// Walk-up candidate / exclusion sets for one roster+template generation.
+class WalkUpRosterSnapshot {
+  const WalkUpRosterSnapshot({
+    required this.candidateIds,
+    required this.lowResInfoIds,
+    required this.excludedLookAlike,
+  });
+
+  final Set<int> candidateIds;
+
+  /// Known face_px &lt; 90 — informational only; still candidates.
+  final Set<int> lowResInfoIds;
+
+  /// Look-alike Your Team — not auto-id candidates (Pick labor).
+  final Set<int> excludedLookAlike;
+
+  /// Team members excluded from walk-up auto-id (look-alike only).
+  Set<int> get excludedTeamIds => excludedLookAlike;
 }
 
 typedef _PreparedPhoto = ({

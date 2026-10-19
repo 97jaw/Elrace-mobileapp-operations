@@ -16,11 +16,12 @@ class FaceChipBuildRequest {
     required this.boxTop,
     required this.boxRight,
     required this.boxBottom,
-    this.useAlignment = FaceRecognitionPreprocess.useLandmarkAlignment,
-    this.leftEyeX,
-    this.leftEyeY,
-    this.rightEyeX,
-    this.rightEyeY,
+    required this.crop,
+    this.leftEye,
+    this.rightEye,
+    this.nose,
+    this.mouthLeft,
+    this.mouthRight,
   });
 
   final String imagePath;
@@ -28,15 +29,17 @@ class FaceChipBuildRequest {
   final double boxTop;
   final double boxRight;
   final double boxBottom;
-  final bool useAlignment;
-  final double? leftEyeX;
-  final double? leftEyeY;
-  final double? rightEyeX;
-  final double? rightEyeY;
+  final FaceChipCrop crop;
+  final Offset? leftEye;
+  final Offset? rightEye;
+  final Offset? nose;
+  final Offset? mouthLeft;
+  final Offset? mouthRight;
 
   factory FaceChipBuildRequest.fromCapture({
     required String imagePath,
     required Rect faceBox,
+    required FaceChipCrop crop,
     TimesheetFaceLandmarkSnapshot? landmarks,
   }) {
     return FaceChipBuildRequest(
@@ -45,53 +48,59 @@ class FaceChipBuildRequest {
       boxTop: faceBox.top,
       boxRight: faceBox.right,
       boxBottom: faceBox.bottom,
-      leftEyeX: landmarks?.leftEye?.dx,
-      leftEyeY: landmarks?.leftEye?.dy,
-      rightEyeX: landmarks?.rightEye?.dx,
-      rightEyeY: landmarks?.rightEye?.dy,
+      crop: crop,
+      leftEye: landmarks?.leftEye,
+      rightEye: landmarks?.rightEye,
+      nose: landmarks?.nose,
+      mouthLeft: landmarks?.mouthLeft,
+      mouthRight: landmarks?.mouthRight,
     );
   }
 
-  Rect get faceBox =>
-      Rect.fromLTRB(boxLeft, boxTop, boxRight, boxBottom);
+  Rect get faceBox => Rect.fromLTRB(boxLeft, boxTop, boxRight, boxBottom);
 
-  TimesheetFaceLandmarkSnapshot? toLandmarks() {
-    if (leftEyeX == null ||
-        leftEyeY == null ||
-        rightEyeX == null ||
-        rightEyeY == null) {
-      return null;
-    }
-    return TimesheetFaceLandmarkSnapshot(
-      boundingBox: faceBox,
-      leftEye: Offset(leftEyeX!, leftEyeY!),
-      rightEye: Offset(rightEyeX!, rightEyeY!),
-    );
-  }
+  TimesheetFaceLandmarkSnapshot toLandmarks() => TimesheetFaceLandmarkSnapshot(
+        boundingBox: faceBox,
+        leftEye: leftEye,
+        rightEye: rightEye,
+        nose: nose,
+        mouthLeft: mouthLeft,
+        mouthRight: mouthRight,
+      );
 }
 
-/// 112×112 RGB bytes (row-major), or null on failure.
-Future<Uint8List?> buildChipRgbBytesOffMainThread(FaceChipBuildRequest request) {
+/// 112×112 RGB bytes (row-major) and the crop used.
+class FaceChipRgb {
+  const FaceChipRgb(this.rgb, this.align);
+
+  final Uint8List rgb;
+  final FaceChipAlign align;
+}
+
+/// Chip bytes, or null on failure.
+Future<FaceChipRgb?> buildChipRgbBytesOffMainThread(
+  FaceChipBuildRequest request,
+) {
   if (!FaceRecognitionPerformance.useIsolateForPreprocess) {
     return Future(() => _buildChipRgbBytesSync(request));
   }
   return compute(_buildChipRgbBytesSync, request);
 }
 
-Uint8List? _buildChipRgbBytesSync(FaceChipBuildRequest request) {
+FaceChipRgb? _buildChipRgbBytesSync(FaceChipBuildRequest request) {
   final bytes = File(request.imagePath).readAsBytesSync();
   final decoded = img.decodeImage(bytes);
   if (decoded == null) return null;
   final oriented = img.bakeOrientation(decoded);
   const preprocessor = FacePreprocessor();
-  final landmarks = request.useAlignment ? request.toLandmarks() : null;
   final chip = preprocessor.buildChip112FromImage(
     oriented,
     request.faceBox,
-    landmarks: landmarks,
+    landmarks: request.toLandmarks(),
+    crop: request.crop,
   );
   if (chip == null) return null;
-  return _packRgb112(chip);
+  return FaceChipRgb(_packRgb112(chip.chip), chip.align);
 }
 
 Uint8List _packRgb112(img.Image chip) {

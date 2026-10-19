@@ -23,6 +23,12 @@ abstract final class FaceRecognitionPreprocess {
 
   /// P.3 — align eyes horizontal via ML Kit landmarks before 112×112 resize.
   static const bool useLandmarkAlignment = true;
+
+  /// 5-point ArcFace similarity warp for probes compared against phone-built
+  /// profile templates (and for building those templates). Server/enrollment
+  /// templates always use the legacy crop. Flipping this also flips the
+  /// profile template pipeline version, so the cache is rebuilt.
+  static const bool useFivePointAlignment = true;
 }
 
 /// P.1 — performance targets and tuning flags.
@@ -39,29 +45,153 @@ abstract final class FaceRecognitionModel {
   static const int embeddingDim = 512;
 }
 
+/// Match bar set from Odoo system parameters `elrace.face_match_min_score`
+/// and `elrace.face_match_min_lead` (via `/api/app/config`). Out-of-range or
+/// unset values fall back to the defaults.
+abstract final class FaceMatchTuning {
+  static const double defaultMinScore = 0.15;
+  static const double defaultMinLead = 0.02;
+
+  static const double _scoreFloor = 0.10;
+  static const double _scoreCeil = 0.90;
+  static const double _leadCeil = 0.30;
+
+  static double _minScore = defaultMinScore;
+  static double _minLead = defaultMinLead;
+
+  static double get minScore => _minScore;
+  static double get minLead => _minLead;
+
+  static void apply({double? minScore, double? minLead}) {
+    _minScore = (minScore != null &&
+            minScore.isFinite &&
+            minScore >= _scoreFloor &&
+            minScore <= _scoreCeil)
+        ? minScore
+        : defaultMinScore;
+    _minLead = (minLead != null &&
+            minLead.isFinite &&
+            minLead >= 0 &&
+            minLead <= _leadCeil)
+        ? minLead
+        : defaultMinLead;
+  }
+}
+
+/// Match mode from Odoo `elrace.face_match_mode` (via `/api/app/config`).
+enum FaceMatchMode {
+  /// Today's 1:1 verify (default / fallback).
+  verify,
+
+  /// Auto identification of Your Team labors (TASK 10).
+  walkup,
+}
+
+/// Walk-up identification bars from `elrace.face_walkup_min_score` /
+/// `elrace.face_walkup_min_lead`. Valid score 0.20–0.90, lead 0.05–0.40.
+abstract final class FaceWalkUpTuning {
+  static const double defaultMinScore = 0.40;
+  static const double defaultMinLead = 0.15;
+
+  static double _minScore = defaultMinScore;
+  static double _minLead = defaultMinLead;
+
+  static double get minScore => _minScore;
+  static double get minLead => _minLead;
+
+  static void apply({double? minScore, double? minLead}) {
+    _minScore = (minScore != null &&
+            minScore.isFinite &&
+            minScore >= 0.20 &&
+            minScore <= 0.90)
+        ? minScore
+        : defaultMinScore;
+    _minLead = (minLead != null &&
+            minLead.isFinite &&
+            minLead >= 0.05 &&
+            minLead <= 0.40)
+        ? minLead
+        : defaultMinLead;
+  }
+}
+
+/// 1:1 verification bars set from Odoo system parameters
+/// `elrace.face_verify_*` (via `/api/app/config`). Out-of-range, non-finite
+/// or unset values fall back to the defaults. Read per decision.
+abstract final class FaceVerifyTuning {
+  static const double defaultMinScore = 0.30;
+  static const double defaultMinLead = 0.05;
+  static const double defaultMinScoreNoCohort = 0.40;
+  static const int defaultMinCohort = 5;
+  static const int defaultMinFacePx = 80;
+
+  static double _minScore = defaultMinScore;
+  static double _minLead = defaultMinLead;
+  static double _minScoreNoCohort = defaultMinScoreNoCohort;
+  static int _minCohort = defaultMinCohort;
+  static int _minFacePx = defaultMinFacePx;
+
+  /// Probe must reach this against the selected labor (cohort big enough).
+  static double get minScore => _minScore;
+
+  /// Probe score on the selected labor minus the best cohort score.
+  static double get minLead => _minLead;
+
+  /// Bar used instead of score + lead when the cohort is too small.
+  static double get minScoreNoCohort => _minScoreNoCohort;
+
+  /// Cohort members needed before [minScore] + [minLead] apply.
+  static int get minCohort => _minCohort;
+
+  /// Smallest face width (px, still image) that is verified at all.
+  static int get minFacePx => _minFacePx;
+
+  static void apply({
+    double? minScore,
+    double? minLead,
+    double? minScoreNoCohort,
+    int? minCohort,
+    int? minFacePx,
+  }) {
+    _minScore = _inRange(minScore, 0.10, 0.90) ? minScore! : defaultMinScore;
+    _minLead = _inRange(minLead, 0, 0.30) ? minLead! : defaultMinLead;
+    _minScoreNoCohort = _inRange(minScoreNoCohort, 0.10, 0.90)
+        ? minScoreNoCohort!
+        : defaultMinScoreNoCohort;
+    _minCohort = minCohort != null && minCohort >= 0 && minCohort <= 50
+        ? minCohort
+        : defaultMinCohort;
+    _minFacePx = minFacePx != null && minFacePx >= 48 && minFacePx <= 300
+        ? minFacePx
+        : defaultMinFacePx;
+  }
+
+  static bool _inRange(double? v, double min, double max) =>
+      v != null && v.isFinite && v >= min && v <= max;
+}
+
 abstract final class FaceRecognitionMatch {
   static const double defaultThreshold = 0.75;
   static const double idealThreshold = 0.80;
 
   /// Add-to-list after still capture — pilot bar (iOS + Android, same).
-  /// Product request: 15% so genuine weak stills still detect (no "No Face").
-  static const double pilotThreshold = 0.15;
+  static double get pilotThreshold => FaceMatchTuning.minScore;
 
   /// Soft still accept when live preview already locked the same employee.
-  static const double pilotSoftCaptureThreshold = 0.15;
+  static double get pilotSoftCaptureThreshold => FaceMatchTuning.minScore;
 
   /// Stream score floor before auto-shutter (same as match bar).
-  static const double pilotAutoCaptureMinScore = 0.15;
+  static double get pilotAutoCaptureMinScore => FaceMatchTuning.minScore;
 
   /// Name badge floor — same as match so badge ⇒ eligible to detect.
-  static const double pilotDisplayThreshold = 0.15;
+  static double get pilotDisplayThreshold => FaceMatchTuning.minScore;
 
   /// Minimum winner gap to show employee name on live preview.
-  static const double minDisplayWinnerMargin = 0.02;
+  static double get minDisplayWinnerMargin => FaceMatchTuning.minLead;
 
   /// Best must beat 2nd-best employee by this before roster add.
   /// Aligned with display margin so a shown name can also detect.
-  static const double minWinnerMargin = 0.02;
+  static double get minWinnerMargin => FaceMatchTuning.minLead;
 
   /// Set false to revert UI + matcher to [defaultThreshold].
   static const bool usePilotThresholdForMatch = true;
@@ -79,12 +209,8 @@ abstract final class FaceRecognitionMatch {
   static const double closeSecondDelta = 0.05;
 }
 
-/// Expected-labor camera ("Your Team"): red "wrong person" only when another
-/// employee clearly beats the labor the camera was opened for.
+/// Target-labor camera ("Your Team").
 abstract final class FaceExpectedLaborMatch {
-  static const double mismatchMinScore = 0.25;
-  static const double mismatchMinLead = 0.08;
-
   /// Retry window for a just-enrolled labor whose templates aren't synced.
   static const Duration templateRefreshCooldown = Duration(seconds: 5);
   static const int maxTemplateRefreshAttempts = 4;

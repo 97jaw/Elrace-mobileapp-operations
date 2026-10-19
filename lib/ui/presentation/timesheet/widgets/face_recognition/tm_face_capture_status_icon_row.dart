@@ -16,8 +16,12 @@ class TmFaceCaptureStatusIconRow extends StatelessWidget {
     this.livenessPhase = LivenessGatePhase.idle,
     this.livenessMessage,
     this.onRetryLiveness,
+    this.showVerifyingSpinner = true,
   });
 
+  /// False while another spinner (the shutter) already shows the capture is
+  /// running: the liveness dot then shows its static icon.
+  final bool showVerifyingSpinner;
   final bool embeddingOn;
   final bool faceDbReady;
   final bool geofenceOk;
@@ -52,6 +56,7 @@ class TmFaceCaptureStatusIconRow extends StatelessWidget {
           phase: livenessPhase,
           message: livenessMessage,
           onRetry: onRetryLiveness,
+          showSpinner: showVerifyingSpinner,
         ),
         const SizedBox(width: 14),
         _StatusDot(
@@ -84,11 +89,13 @@ class _LivenessStatusDot extends StatelessWidget {
     required this.phase,
     this.message,
     this.onRetry,
+    this.showSpinner = true,
   });
 
   final LivenessGatePhase phase;
   final String? message;
   final VoidCallback? onRetry;
+  final bool showSpinner;
 
   bool get _isBlocked =>
       phase == LivenessGatePhase.blocked ||
@@ -115,7 +122,7 @@ class _LivenessStatusDot extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final child = _isVerifying
+    final child = _isVerifying && showSpinner
         ? const Padding(
             padding: EdgeInsets.all(8),
             child: CircularProgressIndicator(

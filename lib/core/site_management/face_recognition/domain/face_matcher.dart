@@ -6,10 +6,13 @@ import 'package:el_race/core/site_management/face_recognition/face_recognition_c
 import 'package:flutter/foundation.dart';
 
 class FaceMatcher {
-  FaceMatcher({double? threshold})
-      : threshold = threshold ?? FaceRecognitionMatch.activeMatchThreshold;
+  FaceMatcher({double? threshold}) : _threshold = threshold;
 
-  final double threshold;
+  final double? _threshold;
+
+  /// Read per match so a match bar changed from Odoo applies without restart.
+  double get threshold =>
+      _threshold ?? FaceRecognitionMatch.activeMatchThreshold;
 
   FaceMatchResult findBestMatch(
     List<double> captured,
@@ -89,7 +92,8 @@ class FaceMatcher {
   }
 
   /// E.3 — per-template scores for one employee (debug / verification).
-  List<({String? pose, int? faceImageId, double score})> scoreTemplatesForEmployee(
+  List<({String? pose, int? faceImageId, double score})>
+      scoreTemplatesForEmployee(
     List<double> captured,
     List<FaceEmbeddingRecord> roster,
     int employeeId,

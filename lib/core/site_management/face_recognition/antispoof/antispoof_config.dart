@@ -52,9 +52,16 @@ class AntispoofConfig {
   static const int numClasses = 3;
 
   /// Fused softmax probability for class index 1 (live / real).
+  /// Unchanged — only frames at/above this count toward min live frames.
   static const double liveConfidenceThreshold = 0.70;
 
-  /// Below live threshold but still live argmax → uncertain; AWS still required.
+  /// Spoof band: fused live below this → spoof (zero-spoof reset).
+  static const double fusedLiveSpoofBand = 0.50;
+
+  /// Spoof band: both models' live class below this → spoof.
+  static const double modelLiveSpoofBand = 0.50;
+
+  /// Legacy floor (burst/AWS path); best-frame uses [fusedLiveSpoofBand].
   static const double liveUncertainFloor = 0.45;
 
   /// Spoof if print + replay probabilities exceed this (even when argmax is live).

@@ -1,4 +1,5 @@
 import 'package:el_race/core/site_management/face_recognition/data/models/face_match_result.dart';
+import 'package:el_race/core/site_management/face_recognition/domain/face_verifier.dart';
 
 /// M.2 — last capture outcome for pilot logging (P.4).
 enum FaceMatchUiOutcome {
@@ -26,7 +27,35 @@ class FaceMatchSessionRecord {
     this.inForemanTeam = false,
     this.followUp = FaceForemanFollowUp.pending,
     this.capturedAt,
+    this.verifyOutcome,
+    this.verifyLead,
+    this.verifyCohortSize,
   });
+
+  /// 1:1 attempt on the target labor. Scores are target vs cohort; the
+  /// cohort member's identity is never recorded.
+  factory FaceMatchSessionRecord.fromVerify(
+    FaceVerifyResult result, {
+    String? targetName,
+  }) {
+    final outcome = switch (result.outcome) {
+      FaceVerifyOutcome.verified => FaceMatchUiOutcome.inTeam,
+      FaceVerifyOutcome.error => FaceMatchUiOutcome.engineError,
+      _ => FaceMatchUiOutcome.belowThreshold,
+    };
+    return FaceMatchSessionRecord(
+      outcome: outcome,
+      bestScore: result.targetScore ?? 0,
+      secondBestScore: result.cohortMaxScore ?? 0,
+      employeeId: result.targetEmployeeId,
+      employeeName: targetName,
+      inForemanTeam: result.isVerified,
+      capturedAt: DateTime.now(),
+      verifyOutcome: result.outcome,
+      verifyLead: result.lead,
+      verifyCohortSize: result.cohortSize,
+    );
+  }
 
   final FaceMatchUiOutcome outcome;
   final double bestScore;
@@ -36,6 +65,9 @@ class FaceMatchSessionRecord {
   final bool inForemanTeam;
   final FaceForemanFollowUp followUp;
   final DateTime? capturedAt;
+  final FaceVerifyOutcome? verifyOutcome;
+  final double? verifyLead;
+  final int? verifyCohortSize;
 
   FaceMatchSessionRecord copyWith({FaceForemanFollowUp? followUp}) {
     return FaceMatchSessionRecord(
@@ -47,6 +79,9 @@ class FaceMatchSessionRecord {
       inForemanTeam: inForemanTeam,
       followUp: followUp ?? this.followUp,
       capturedAt: capturedAt,
+      verifyOutcome: verifyOutcome,
+      verifyLead: verifyLead,
+      verifyCohortSize: verifyCohortSize,
     );
   }
 

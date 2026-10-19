@@ -36,6 +36,11 @@ abstract final class TimesheetCaptureSessionStore {
         for (final entry in captures)
           {
             'match_score': entry.matchScore,
+            if (entry.verifyLead != null) 'verify_lead': entry.verifyLead,
+            if (entry.verifyCohortSize != null)
+              'verify_cohort_size': entry.verifyCohortSize,
+            if (entry.verifyUsedNoCohortBar != null)
+              'verify_used_no_cohort_bar': entry.verifyUsedNoCohortBar,
             'captured_at': entry.capturedAt.toIso8601String(),
             'employee': {
               'id': entry.employee.id,
@@ -52,8 +57,11 @@ abstract final class TimesheetCaptureSessionStore {
     await prefs.setString(_prefsKey, jsonEncode(payload));
   }
 
-  static Future<({TimesheetProjectDayArgs args, List<TimesheetCaptureSessionEntry> captures})?>
-      loadMatching(TimesheetProjectDayArgs args) async {
+  static Future<
+      ({
+        TimesheetProjectDayArgs args,
+        List<TimesheetCaptureSessionEntry> captures
+      })?> loadMatching(TimesheetProjectDayArgs args) async {
     final session = await loadAny();
     if (session == null) return null;
     final stored = session.args;
@@ -78,8 +86,8 @@ abstract final class TimesheetCaptureSessionStore {
     if (raw == null || raw.isEmpty) return null;
     try {
       final map = jsonDecode(raw) as Map<String, dynamic>;
-      final savedAt =
-          DateTime.tryParse(map['saved_at']?.toString() ?? '') ?? DateTime.now();
+      final savedAt = DateTime.tryParse(map['saved_at']?.toString() ?? '') ??
+          DateTime.now();
       if (DateTime.now().difference(savedAt) > ttl) {
         await prefs.remove(_prefsKey);
         return null;
@@ -114,6 +122,13 @@ abstract final class TimesheetCaptureSessionStore {
             ),
             matchScore:
                 double.tryParse(item['match_score']?.toString() ?? '') ?? 0,
+            verifyLead: double.tryParse(item['verify_lead']?.toString() ?? ''),
+            verifyCohortSize:
+                int.tryParse(item['verify_cohort_size']?.toString() ?? ''),
+            verifyUsedNoCohortBar: switch (item['verify_used_no_cohort_bar']) {
+              final bool b => b,
+              _ => null,
+            },
             draft: AttendanceCaptureDraft.fromJson(draftMap),
             capturedAt:
                 DateTime.tryParse(item['captured_at']?.toString() ?? '') ??

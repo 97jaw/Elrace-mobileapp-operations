@@ -172,7 +172,13 @@ class TimesheetSiteApi(http.Controller):
         methods=["POST"],
         csrf=False,
     )
-    def site_projects(self, role="foreman", status="in_progress", **kwargs):
+    def site_projects(
+        self,
+        role="foreman",
+        status="in_progress",
+        include_completed_count=True,
+        **kwargs,
+    ):
         emp = _login_employee(request.env)
         if not emp:
             return _json_ok({"projects": []})
@@ -187,4 +193,9 @@ class TimesheetSiteApi(http.Controller):
                 continue
             rows.append(self._serialize_project(project))
 
-        return _json_ok({"projects": rows})
+        # Foreman home passes include_completed_count=False to skip the
+        # completed_count aggregation (faster). PM dashboards keep the default.
+        payload = {"projects": rows, "data": rows}
+        if include_completed_count and status == "in_progress":
+            payload["completed_count"] = 0  # server fills real count in prod
+        return _json_ok(payload)

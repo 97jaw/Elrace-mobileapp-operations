@@ -1,11 +1,11 @@
 import 'dart:math' as math;
-import 'dart:typed_data';
 import 'dart:ui';
 
 import 'package:el_race/core/site_management/face_recognition/antispoof/antispoof_config.dart';
+import 'package:flutter/foundation.dart';
 import 'package:image/image.dart' as img;
 
-/// Face crop + resize matching Silent-Face-Anti-Spoofing [CropImage] logic.
+/// Face crop + resize matching Silent-Face-Anti-Spoofing [CropImage._get_new_box].
 class MinifasnetPreprocessor {
   const MinifasnetPreprocessor();
 
@@ -14,18 +14,19 @@ class MinifasnetPreprocessor {
     required img.Image source,
     required Rect faceBox,
     required double cropScale,
+    String model = 'pad',
+    double? yawDeg,
   }) {
-    final bbox = _xywhFromRect(faceBox);
     final cropped = _cropFace(
       source: source,
-      bbox: bbox,
-      scale: cropScale,
-      outW: AntispoofConfig.inputSize,
-      outH: AntispoofConfig.inputSize,
+      faceBox: faceBox,
+      scaleReq: cropScale,
+      model: model,
+      yawDeg: yawDeg,
     );
     if (cropped == null) return null;
 
-    final size = AntispoofConfig.inputSize;
+    const size = AntispoofConfig.inputSize;
     final buffer = Float32List(1 * size * size * 3);
     var i = 0;
     for (var y = 0; y < size; y++) {
@@ -39,74 +40,109 @@ class MinifasnetPreprocessor {
     return buffer;
   }
 
-  List<int> _xywhFromRect(Rect box) {
-    return [
-      box.left.round(),
-      box.top.round(),
-      box.width.round(),
-      box.height.round(),
-    ];
-  }
-
-  img.Image? _cropFace({
-    required img.Image source,
-    required List<int> bbox,
-    required double scale,
-    required int outW,
-    required int outH,
+  /// Official MiniFASNet box: shrink [scaleReq] until it fits, then shift in.
+  /// Never fails for a valid face box inside the frame.
+  static ({int left, int top, int right, int bottom, double scaleUsed, bool shifted})
+      getNewBox({
+    required int srcW,
+    required int srcH,
+    required Rect faceBox,
+    required double scaleReq,
   }) {
-    final srcW = source.width;
-    final srcH = source.height;
-    final x = bbox[0];
-    final y = bbox[1];
-    final boxW = bbox[2];
-    final boxH = bbox[3];
-    if (boxW <= 0 || boxH <= 0) return null;
-
-    final effectiveScale = math.min(
+    final boxW = math.max(1.0, faceBox.width);
+    final boxH = math.max(1.0, faceBox.height);
+    final scaleUsed = math.min(
       (srcH - 1) / boxH,
-      math.min((srcW - 1) / boxW, scale),
+      math.min((srcW - 1) / boxW, scaleReq),
     );
-    final newW = boxW * effectiveScale;
-    final newH = boxH * effectiveScale;
-    final centerX = x + boxW / 2;
-    final centerY = y + boxH / 2;
+    final newW = boxW * scaleUsed;
+    final newH = boxH * scaleUsed;
+    final centerX = faceBox.left + boxW / 2;
+    final centerY = faceBox.top + boxH / 2;
 
     var left = (centerX - newW / 2).round();
     var top = (centerY - newH / 2).round();
     var right = (centerX + newW / 2).round();
     var bottom = (centerY + newH / 2).round();
+    var shifted = false;
 
     if (left < 0) {
       right -= left;
       left = 0;
+      shifted = true;
     }
     if (top < 0) {
       bottom -= top;
       top = 0;
+      shifted = true;
     }
     if (right > srcW - 1) {
       left -= right - (srcW - 1);
       right = srcW - 1;
+      shifted = true;
     }
     if (bottom > srcH - 1) {
       top -= bottom - (srcH - 1);
       bottom = srcH - 1;
+      shifted = true;
     }
 
-    final w = (right - left + 1).clamp(1, srcW);
-    final h = (bottom - top + 1).clamp(1, srcH);
+    left = left.clamp(0, srcW - 1);
+    top = top.clamp(0, srcH - 1);
+    right = right.clamp(left, srcW - 1);
+    bottom = bottom.clamp(top, srcH - 1);
+
+    return (
+      left: left,
+      top: top,
+      right: right,
+      bottom: bottom,
+      scaleUsed: scaleUsed,
+      shifted: shifted,
+    );
+  }
+
+  img.Image? _cropFace({
+    required img.Image source,
+    required Rect faceBox,
+    required double scaleReq,
+    required String model,
+    double? yawDeg,
+  }) {
+    final srcW = source.width;
+    final srcH = source.height;
+    if (faceBox.width <= 0 || faceBox.height <= 0 || srcW < 8 || srcH < 8) {
+      return null;
+    }
+
+    final box = getNewBox(
+      srcW: srcW,
+      srcH: srcH,
+      faceBox: faceBox,
+      scaleReq: scaleReq,
+    );
+    debugPrint(
+      'PadCrop: model=$model scale_req=${scaleReq.toStringAsFixed(1)} '
+      'scale_used=${box.scaleUsed.toStringAsFixed(2)} '
+      'shifted=${box.shifted}'
+      '${yawDeg != null ? ' yaw=${yawDeg.toStringAsFixed(1)}' : ''}',
+    );
+
+    final w = box.right - box.left + 1;
+    final h = box.bottom - box.top + 1;
+    if (w < 1 || h < 1) return null;
+
     final cropped = img.copyCrop(
       source,
-      x: left.clamp(0, srcW - 1),
-      y: top.clamp(0, srcH - 1),
+      x: box.left,
+      y: box.top,
       width: w,
       height: h,
     );
     return img.copyResize(
       cropped,
-      width: outW,
-      height: outH,
+      width: AntispoofConfig.inputSize,
+      height: AntispoofConfig.inputSize,
       interpolation: img.Interpolation.linear,
     );
   }

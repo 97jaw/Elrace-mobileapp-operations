@@ -4,6 +4,7 @@ import 'dart:typed_data';
 import 'dart:ui';
 
 import 'package:camera/camera.dart';
+import 'package:el_race/core/site_management/face_recognition/android_face_capture_perf.dart';
 import 'package:el_race/core/site_management/face_recognition/antispoof/antispoof_config.dart';
 import 'package:el_race/core/site_management/face_recognition/antispoof/timesheet_face_classification_snapshot.dart';
 import 'package:el_race/core/site_management/face_recognition/data/models/face_enrollment_pose.dart';
@@ -157,30 +158,194 @@ class TimesheetFaceCapturePermissions {
 ///
 /// Mock-first boundary: this service only detects and crops on-device faces.
 /// It never calls AWS Rekognition directly; matching stays behind Firebase
+/// ML Kit detector profile. Capture keeps contours OFF (avoids ThickFaceDetector
+/// spam + BlazeFace ~65-node XNNPACK churn). Enrollment keeps contours ON for
+/// the mesh painter. Template builds use a private detector (never shared with
+/// the live stream) so processImage cannot overlap on one instance.
+enum FaceDetectorProfile {
+  /// 1:1 / attendance stream: landmarks + classification, no contours, fast.
+  capture,
+
+  /// Enrollment mesh: landmarks + classification + contours, fast.
+  enrollment,
+
+  /// Profile-photo template build: same options as capture, owned instance.
+  templateBuild,
+}
+
 /// callable clients. // TODO(backend)
 class TimesheetFaceCaptureService {
-  TimesheetFaceCaptureService({FaceDetector? detector})
-      : _usesSharedDetector = detector == null,
-        _detector = detector ?? _acquireSharedDetector();
+  TimesheetFaceCaptureService({
+    FaceDetector? detector,
+    FaceDetectorProfile profile = FaceDetectorProfile.capture,
+  })  : assert(
+          profile != FaceDetectorProfile.templateBuild || detector != null,
+          'templateBuild must use [forTemplateBuild] (owned detector)',
+        ),
+        _usesSharedDetector = detector == null,
+        _profile = profile,
+        _detector = detector ?? _acquireSharedDetector(profile),
+        _contoursEnabled = detector == null
+            ? profile == FaceDetectorProfile.enrollment
+            : null;
 
-  /// One shared ML Kit detector for the whole app. Creating a new
-  /// [FaceDetector] per screen spams iOS with
-  /// `Multiple instances of CCTClearcutUploader` and wastes battery.
-  static FaceDetector? _sharedDetector;
-  static int _sharedDetectorRefCount = 0;
-
-  static FaceDetector _acquireSharedDetector() {
-    _sharedDetectorRefCount++;
-    return _sharedDetector ??= FaceDetector(
+  /// Dedicated FaceDetector for profile-photo template builds. Never shares
+  /// the capture stream detector; [dispose] closes it after the batch.
+  factory TimesheetFaceCaptureService.forTemplateBuild() {
+    final created = FaceDetector(
       options: FaceDetectorOptions(
         enableClassification: true,
         enableLandmarks: true,
-        enableContours: true,
+        enableContours: false,
         enableTracking: true,
         minFaceSize: minFaceDetectorSize,
         performanceMode: FaceDetectorMode.fast,
       ),
     );
+    debugPrint(
+      'FaceCapture: ML Kit face detector created (template_build, owned, '
+      'contours=off) id=${identityHashCode(created)}',
+    );
+    return TimesheetFaceCaptureService(
+      detector: created,
+      profile: FaceDetectorProfile.templateBuild,
+    );
+  }
+
+  /// Shared detectors for the app lifetime (never closed). Recreating ML Kit
+  /// FaceDetectors reloads BlazeFace (~65 nodes) and logs
+  /// `Replacing 65 out of 65 node(s) with delegate (TfLiteXNNPackDelegate)`.
+  /// Template builds must NOT use these — see [forTemplateBuild].
+  static FaceDetector? _sharedCaptureDetector;
+  static FaceDetector? _sharedEnrollmentDetector;
+
+  /// In-flight processImage caller per detector id (overlap = crash risk).
+  static final Map<int, String> _inFlightCallerByDetectorId = {};
+
+  final FaceDetectorProfile _profile;
+  final bool? _contoursEnabled;
+  int _processImageCount = 0;
+  bool _loggedDetectorOpen = false;
+
+  /// ML Kit detector identity hash (stable for the process-lifetime shared
+  /// instance). Logged at camera open and every 50 frames.
+  int get detectorInstanceId => identityHashCode(_detector);
+
+  FaceDetectorProfile get detectorProfile => _profile;
+
+  bool get contoursEnabled =>
+      _contoursEnabled ?? (_profile == FaceDetectorProfile.enrollment);
+
+  void logDetectorOnCameraOpen() {
+    _loggedDetectorOpen = true;
+    debugPrint(
+      'FaceCapture: ML Kit detector open '
+      'id=$detectorInstanceId profile=${_profile.name} '
+      'contours=$contoursEnabled landmarks=true classification=true '
+      'mode=fast tracking=true '
+      '(1:1 must be profile=capture contours=false)',
+    );
+  }
+
+  void _maybeLogDetectorHeartbeat() {
+    _processImageCount += 1;
+    if (!_loggedDetectorOpen) {
+      logDetectorOnCameraOpen();
+    }
+    if (_processImageCount == 1 || _processImageCount % 50 == 0) {
+      debugPrint(
+        'FaceCapture: ML Kit detector heartbeat '
+        'id=$detectorInstanceId frame=#$_processImageCount '
+        'profile=${_profile.name} contours=$contoursEnabled',
+      );
+    }
+  }
+
+  /// Single entry for every ML Kit processImage — logs caller and asserts no
+  /// overlapping use of the same detector instance.
+  Future<List<Face>> _processImageGuarded(
+    InputImage inputImage, {
+    required String caller,
+  }) async {
+    final id = detectorInstanceId;
+    final existing = _inFlightCallerByDetectorId[id];
+    if (existing != null) {
+      debugPrint(
+        'Detector: OVERLAP id=$id existing=$existing new=$caller',
+      );
+      assert(
+        false,
+        'FaceDetector processImage overlap id=$id '
+        'existing=$existing new=$caller',
+      );
+    }
+    debugPrint('Detector: use id=$id caller=$caller');
+    _inFlightCallerByDetectorId[id] = caller;
+    try {
+      return await _detector.processImage(inputImage);
+    } finally {
+      if (_inFlightCallerByDetectorId[id] == caller) {
+        _inFlightCallerByDetectorId.remove(id);
+      }
+    }
+  }
+
+  static FaceDetector _acquireSharedDetector(FaceDetectorProfile profile) {
+    switch (profile) {
+      case FaceDetectorProfile.capture:
+        final existing = _sharedCaptureDetector;
+        if (existing != null) {
+          debugPrint(
+            'FaceCapture: reusing shared capture detector '
+            'id=${identityHashCode(existing)} contours=off',
+          );
+          return existing;
+        }
+        final created = FaceDetector(
+          options: FaceDetectorOptions(
+            enableClassification: true,
+            enableLandmarks: true,
+            enableContours: false,
+            enableTracking: true,
+            minFaceSize: minFaceDetectorSize,
+            performanceMode: FaceDetectorMode.fast,
+          ),
+        );
+        debugPrint(
+          'FaceCapture: ML Kit face detector created (shared capture, '
+          'contours=off) id=${identityHashCode(created)} — '
+          'BlazeFace ~65 nodes, long-lived',
+        );
+        return _sharedCaptureDetector = created;
+      case FaceDetectorProfile.enrollment:
+        final existing = _sharedEnrollmentDetector;
+        if (existing != null) {
+          debugPrint(
+            'FaceCapture: reusing shared enrollment detector '
+            'id=${identityHashCode(existing)} contours=on',
+          );
+          return existing;
+        }
+        final created = FaceDetector(
+          options: FaceDetectorOptions(
+            enableClassification: true,
+            enableLandmarks: true,
+            enableContours: true,
+            enableTracking: true,
+            minFaceSize: minFaceDetectorSize,
+            performanceMode: FaceDetectorMode.fast,
+          ),
+        );
+        debugPrint(
+          'FaceCapture: ML Kit face detector created (shared enrollment, '
+          'contours=on) id=${identityHashCode(created)} — long-lived',
+        );
+        return _sharedEnrollmentDetector = created;
+      case FaceDetectorProfile.templateBuild:
+        throw StateError(
+          'templateBuild must use TimesheetFaceCaptureService.forTemplateBuild()',
+        );
+    }
   }
 
   static const int cropSizePx = 224;
@@ -268,7 +433,10 @@ class TimesheetFaceCaptureService {
         ? imagePath
         : await _normalizedImagePath(imagePath);
     final inputImage = InputImage.fromFilePath(normalizedPath);
-    final faces = await _detector.processImage(inputImage);
+    final caller = _profile == FaceDetectorProfile.templateBuild
+        ? 'template_build'
+        : 'still';
+    final faces = await _processImageGuarded(inputImage, caller: caller);
     final decoded = alreadyNormalized && !includeCrop
         ? null
         : await _decodeImage(normalizedPath);
@@ -472,24 +640,83 @@ class TimesheetFaceCaptureService {
     InputImage inputImage, {
     Size? imageSize,
     bool liveStream = false,
+    double boxScaleX = 1,
+    double boxScaleY = 1,
   }) async {
-    final faces = await _detector.processImage(inputImage);
+    _maybeLogDetectorHeartbeat();
+    final faces = await _processImageGuarded(
+      inputImage,
+      caller: liveStream ? 'stream' : 'still',
+    );
+    final sx = boxScaleX;
+    final sy = boxScaleY;
+    final scaleBoxes = sx != 1.0 || sy != 1.0;
+    Rect mapBox(Rect r) => scaleBoxes
+        ? Rect.fromLTRB(r.left * sx, r.top * sy, r.right * sx, r.bottom * sy)
+        : r;
+    Offset? mapPt(Offset? p) =>
+        p == null || !scaleBoxes ? p : Offset(p.dx * sx, p.dy * sy);
+
+    // Face/frame fractions are scale-invariant: evaluate in detect space when
+    // downscaled, then return boxes mapped to full [imageSize].
+    final qualityFrameSize = !scaleBoxes || imageSize == null
+        ? imageSize
+        : Size(imageSize.width / sx, imageSize.height / sy);
     final quality = _evaluateQuality(
       faces,
       null,
-      frameSize: imageSize,
+      frameSize: qualityFrameSize,
       liveStream: liveStream,
     );
     final primary = faces.isNotEmpty ? _largestFace(faces) : null;
+    final boxes = faces.map((face) => mapBox(face.boundingBox)).toList();
+    TimesheetFaceLandmarkSnapshot? primarySnap;
+    TimesheetFaceClassificationSnapshot? classification;
+    if (primary != null) {
+      final snap = _landmarkSnapshot(primary);
+      primarySnap = scaleBoxes
+          ? TimesheetFaceLandmarkSnapshot(
+              boundingBox: mapBox(snap.boundingBox),
+              leftEye: mapPt(snap.leftEye),
+              rightEye: mapPt(snap.rightEye),
+              nose: mapPt(snap.nose),
+              leftCheek: mapPt(snap.leftCheek),
+              rightCheek: mapPt(snap.rightCheek),
+              mouthLeft: mapPt(snap.mouthLeft),
+              mouthRight: mapPt(snap.mouthRight),
+              mouthBottom: mapPt(snap.mouthBottom),
+              leftEar: mapPt(snap.leftEar),
+              rightEar: mapPt(snap.rightEar),
+              meshContours: snap.meshContours
+                  .map(
+                    (line) => line
+                        .map((p) => Offset(p.dx * sx, p.dy * sy))
+                        .toList(growable: false),
+                  )
+                  .toList(growable: false),
+            )
+          : snap;
+      final clf = TimesheetFaceClassificationSnapshot.fromFace(primary);
+      classification = scaleBoxes
+          ? TimesheetFaceClassificationSnapshot(
+              boundingBox: mapBox(clf.boundingBox),
+              leftEyeOpenProbability: clf.leftEyeOpenProbability,
+              rightEyeOpenProbability: clf.rightEyeOpenProbability,
+              headEulerAngleX: clf.headEulerAngleX,
+              headEulerAngleY: clf.headEulerAngleY,
+              headEulerAngleZ: clf.headEulerAngleZ,
+              smilingProbability: clf.smilingProbability,
+              trackingId: clf.trackingId,
+            )
+          : clf;
+    }
     return TimesheetFaceDetectionResult(
       faceCount: faces.length,
-      faceBoxes: faces.map((face) => face.boundingBox).toList(),
+      faceBoxes: boxes,
       quality: quality,
       imageSize: imageSize,
-      primaryFace: primary == null ? null : _landmarkSnapshot(primary),
-      classification: primary == null
-          ? null
-          : TimesheetFaceClassificationSnapshot.fromFace(primary),
+      primaryFace: primarySnap,
+      classification: classification,
     );
   }
 
@@ -554,6 +781,133 @@ class TimesheetFaceCaptureService {
     );
   }
 
+  /// Last CameraImage → InputImage conversion time (ms).
+  int lastInputConversionMs = 0;
+
+  /// Multiply ML Kit boxes/landmarks by these to map back to full upright.
+  double lastDetectBoxScaleX = 1;
+  double lastDetectBoxScaleY = 1;
+
+  /// Reused NV21 scratch (Android). Safe while detection is single-flight:
+  /// next conversion starts only after ML Kit finishes with this buffer.
+  Uint8List? _nv21Scratch;
+  Uint8List? _nv21DownscaleScratch;
+  int _allocLogRemaining = 10;
+
+  /// Re-arm per-step alloc logs for the next camera-open session.
+  void resetAllocLogForCameraOpen() {
+    _allocLogRemaining = 10;
+  }
+
+  /// Instance path with NV21 buffer reuse + [lastInputConversionMs].
+  /// On Android, feeds ML Kit a ~640-wide NV21 and sets
+  /// [lastDetectBoxScaleX]/[lastDetectBoxScaleY] so callers map to full-res.
+  InputImage? buildInputImageFromCameraImage({
+    required CameraImage image,
+    required CameraDescription camera,
+  }) {
+    final sw = Stopwatch()..start();
+    lastDetectBoxScaleX = 1;
+    lastDetectBoxScaleY = 1;
+    final rotation = _rotationFromSensorOrientation(camera.sensorOrientation);
+    final size = Size(image.width.toDouble(), image.height.toDouble());
+    InputImage? result;
+    var nv21Ms = 0;
+    var downscaleMs = 0;
+    var nv21Bytes = 0;
+    var downscaleBytes = 0;
+    var reusedNv21 = false;
+    var reusedDown = false;
+    if (Platform.isIOS && image.format.group == ImageFormatGroup.bgra8888) {
+      final plane = image.planes.first;
+      result = InputImage.fromBytes(
+        bytes: plane.bytes,
+        metadata: InputImageMetadata(
+          size: size,
+          rotation: rotation,
+          format: InputImageFormat.bgra8888,
+          bytesPerRow: plane.bytesPerRow,
+        ),
+      );
+    } else if (Platform.isIOS &&
+        image.format.group == ImageFormatGroup.yuv420) {
+      result = InputImage.fromBytes(
+        bytes: _concatenatePlanes(image),
+        metadata: InputImageMetadata(
+          size: size,
+          rotation: rotation,
+          format: InputImageFormat.yuv420,
+          bytesPerRow: image.planes.first.bytesPerRow,
+        ),
+      );
+    } else if (Platform.isAndroid &&
+        image.format.group == ImageFormatGroup.yuv420) {
+      final needed =
+          image.width * image.height + (image.width * image.height ~/ 2);
+      reusedNv21 =
+          _nv21Scratch != null && _nv21Scratch!.length >= needed;
+      final nv21Sw = Stopwatch()..start();
+      final full = _yuv420ToNv21Reused(image);
+      nv21Ms = nv21Sw.elapsedMilliseconds;
+      nv21Bytes = full?.length ?? 0;
+      if (full != null) {
+        final downscaled = AndroidFaceCapturePerf.downscaleMlKit
+            ? _maybeDownscaleNv21(
+                fullNv21: full,
+                srcWidth: image.width,
+                srcHeight: image.height,
+              )
+            : null;
+        if (downscaled != null) {
+          reusedDown = identical(downscaled.bytes, _nv21DownscaleScratch);
+          downscaleMs = sw.elapsedMilliseconds - nv21Ms;
+          downscaleBytes = downscaled.bytes.length;
+          lastDetectBoxScaleX = image.width / downscaled.width;
+          lastDetectBoxScaleY = image.height / downscaled.height;
+          // ML Kit boxes are in the same rotated space as full upright after
+          // sensor rotation; scale factors on buffer axes match upright scale
+          // when both dimensions use the same resize ratio.
+          result = InputImage.fromBytes(
+            bytes: downscaled.bytes,
+            metadata: InputImageMetadata(
+              size: Size(
+                downscaled.width.toDouble(),
+                downscaled.height.toDouble(),
+              ),
+              rotation: rotation,
+              format: InputImageFormat.nv21,
+              bytesPerRow: downscaled.width,
+            ),
+          );
+        } else {
+          result = InputImage.fromBytes(
+            bytes: full,
+            metadata: InputImageMetadata(
+              size: size,
+              rotation: rotation,
+              format: InputImageFormat.nv21,
+              bytesPerRow: image.width,
+            ),
+          );
+        }
+      }
+    } else {
+      debugPrint('Unsupported camera image format: ${image.format.group}');
+    }
+    lastInputConversionMs = sw.elapsedMilliseconds;
+    if (Platform.isAndroid && _allocLogRemaining > 0) {
+      _allocLogRemaining -= 1;
+      debugPrint(
+        'Alloc: frame=${10 - _allocLogRemaining} '
+        'src=${image.width}x${image.height} '
+        'nv21_ms=$nv21Ms nv21_bytes=$nv21Bytes reused_nv21=$reusedNv21 '
+        'down_ms=$downscaleMs down_bytes=$downscaleBytes reused_down=$reusedDown '
+        'total_ms=$lastInputConversionMs',
+      );
+    }
+    return result;
+  }
+
   static InputImage? inputImageFromCameraImage({
     required CameraImage image,
     required CameraDescription camera,
@@ -610,7 +964,10 @@ class TimesheetFaceCaptureService {
     FaceEnrollmentPose pose, {
     bool frontCamera = true,
   }) async {
-    final faces = await _detector.processImage(inputImage);
+    final faces = await _processImageGuarded(
+      inputImage,
+      caller: 'enrollment_stream',
+    );
     return _previewFromFaces(
       faces,
       pose,
@@ -628,7 +985,10 @@ class TimesheetFaceCaptureService {
   }) async {
     final normalizedPath = await _normalizedImagePath(imagePath);
     final inputImage = InputImage.fromFilePath(normalizedPath);
-    final faces = await _detector.processImage(inputImage);
+    final faces = await _processImageGuarded(
+      inputImage,
+      caller: 'enrollment_still',
+    );
     final decoded = await _decodeImage(normalizedPath);
     final preview = _previewFromFaces(
       faces,
@@ -740,15 +1100,10 @@ class TimesheetFaceCaptureService {
   }
 
   Future<void> dispose() async {
+    _inFlightCallerByDetectorId.remove(detectorInstanceId);
     if (!_usesSharedDetector) {
       await _detector.close();
-      return;
     }
-    _sharedDetectorRefCount = (_sharedDetectorRefCount - 1).clamp(0, 1 << 30);
-    if (_sharedDetectorRefCount > 0) return;
-    final shared = _sharedDetector;
-    _sharedDetector = null;
-    await shared?.close();
   }
 
   static InputImageRotation _rotationFromSensorOrientation(int orientation) {
@@ -765,25 +1120,36 @@ class TimesheetFaceCaptureService {
     }
   }
 
-  static Uint8List? _yuv420ToNv21(CameraImage image) {
+  /// Fills [out] (or allocates) with NV21 from YUV420. Returns null if planes
+  /// are incomplete.
+  static Uint8List? _yuv420ToNv21Into(CameraImage image, Uint8List? reuse) {
     if (image.planes.length < 3) return null;
     final width = image.width;
     final height = image.height;
     final yPlane = image.planes[0];
     final uPlane = image.planes[1];
     final vPlane = image.planes[2];
-    final out = Uint8List(width * height + (width * height ~/ 2));
+    final needed = width * height + (width * height ~/ 2);
+    final out = (reuse != null && reuse.length >= needed)
+        ? reuse
+        : Uint8List(needed);
     var offset = 0;
 
-    for (var row = 0; row < height; row += 1) {
-      final rowStart = row * yPlane.bytesPerRow;
-      out.setRange(
-        offset,
-        offset + width,
-        yPlane.bytes,
-        rowStart,
-      );
-      offset += width;
+    // Fast path: tightly packed Y plane.
+    if (yPlane.bytesPerRow == width && yPlane.bytes.length >= width * height) {
+      out.setRange(0, width * height, yPlane.bytes, 0);
+      offset = width * height;
+    } else {
+      for (var row = 0; row < height; row += 1) {
+        final rowStart = row * yPlane.bytesPerRow;
+        out.setRange(
+          offset,
+          offset + width,
+          yPlane.bytes,
+          rowStart,
+        );
+        offset += width;
+      }
     }
 
     final uvWidth = width ~/ 2;
@@ -795,7 +1161,7 @@ class TimesheetFaceCaptureService {
       for (var col = 0; col < uvWidth; col += 1) {
         final uIndex = row * uPlane.bytesPerRow + col * uPixelStride;
         final vIndex = row * vPlane.bytesPerRow + col * vPixelStride;
-        if (offset + 1 >= out.length ||
+        if (offset + 1 >= needed ||
             uIndex >= uPlane.bytes.length ||
             vIndex >= vPlane.bytes.length) {
           return out;
@@ -807,6 +1173,70 @@ class TimesheetFaceCaptureService {
     }
 
     return out;
+  }
+
+  Uint8List? _yuv420ToNv21Reused(CameraImage image) {
+    final filled = _yuv420ToNv21Into(image, _nv21Scratch);
+    if (filled != null) _nv21Scratch = filled;
+    return filled;
+  }
+
+  static Uint8List? _yuv420ToNv21(CameraImage image) {
+    return _yuv420ToNv21Into(image, null);
+  }
+
+  /// Nearest-neighbor NV21 downscale to ~[AndroidFaceCapturePerf.mlKitTargetWidth]
+  /// wide. Returns null when already small enough (caller uses full NV21).
+  ({Uint8List bytes, int width, int height})? _maybeDownscaleNv21({
+    required Uint8List fullNv21,
+    required int srcWidth,
+    required int srcHeight,
+  }) {
+    final targetW = AndroidFaceCapturePerf.mlKitTargetWidth;
+    if (srcWidth <= targetW) return null;
+    final targetH = math.max(2, (srcHeight * targetW / srcWidth).round() & ~1);
+    final evenW = targetW & ~1;
+    final evenH = targetH & ~1;
+    if (evenW < 32 || evenH < 32) return null;
+
+    final ySrc = srcWidth * srcHeight;
+    final needed = evenW * evenH + (evenW * evenH ~/ 2);
+    final out = (_nv21DownscaleScratch != null &&
+            _nv21DownscaleScratch!.length >= needed)
+        ? _nv21DownscaleScratch!
+        : Uint8List(needed);
+    _nv21DownscaleScratch = out;
+
+    for (var y = 0; y < evenH; y++) {
+      final srcY = (y * srcHeight) ~/ evenH;
+      final srcRow = srcY * srcWidth;
+      final dstRow = y * evenW;
+      for (var x = 0; x < evenW; x++) {
+        final srcX = (x * srcWidth) ~/ evenW;
+        out[dstRow + x] = fullNv21[srcRow + srcX];
+      }
+    }
+
+    final dstYSize = evenW * evenH;
+    final srcUvBase = ySrc;
+    final dstUvW = evenW ~/ 2;
+    final dstUvH = evenH ~/ 2;
+    final srcUvW = srcWidth ~/ 2;
+    final srcUvH = srcHeight ~/ 2;
+    for (var y = 0; y < dstUvH; y++) {
+      final srcY = (y * srcUvH) ~/ dstUvH;
+      for (var x = 0; x < dstUvW; x++) {
+        final srcX = (x * srcUvW) ~/ dstUvW;
+        final srcIndex = srcUvBase + (srcY * srcUvW + srcX) * 2;
+        final dstIndex = dstYSize + (y * dstUvW + x) * 2;
+        if (srcIndex + 1 >= fullNv21.length || dstIndex + 1 >= needed) {
+          return (bytes: out, width: evenW, height: evenH);
+        }
+        out[dstIndex] = fullNv21[srcIndex];
+        out[dstIndex + 1] = fullNv21[srcIndex + 1];
+      }
+    }
+    return (bytes: out, width: evenW, height: evenH);
   }
 
   static Uint8List _concatenatePlanes(CameraImage image) {

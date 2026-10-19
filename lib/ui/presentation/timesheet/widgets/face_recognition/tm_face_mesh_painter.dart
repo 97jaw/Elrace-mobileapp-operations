@@ -117,6 +117,141 @@ class TmFaceMeshPainter {
     return Offset(x / points.length, y / points.length);
   }
 
+  /// BioTime-style corner brackets: square side = max(w,h)×[expand], centred
+  /// on [faceBox]. Each L-corner is ~[cornerFraction] of the side.
+  static void paintCornerBracketSquare({
+    required Canvas canvas,
+    required Rect faceBox,
+    required Color color,
+    double expand = 1.15,
+    double cornerFraction = 0.22,
+    double strokeWidth = 3,
+  }) {
+    final side = math.max(faceBox.width, faceBox.height) * expand;
+    if (side <= 1) return;
+    final square = Rect.fromCenter(
+      center: faceBox.center,
+      width: side,
+      height: side,
+    );
+    final len = side * cornerFraction;
+    final paint = Paint()
+      ..color = color
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = strokeWidth
+      ..strokeCap = StrokeCap.round
+      ..strokeJoin = StrokeJoin.round;
+
+    void corner(Offset a, Offset b, Offset c) {
+      canvas.drawLine(a, b, paint);
+      canvas.drawLine(b, c, paint);
+    }
+
+    // Top-left
+    corner(
+      Offset(square.left, square.top + len),
+      Offset(square.left, square.top),
+      Offset(square.left + len, square.top),
+    );
+    // Top-right
+    corner(
+      Offset(square.right - len, square.top),
+      Offset(square.right, square.top),
+      Offset(square.right, square.top + len),
+    );
+    // Bottom-left
+    corner(
+      Offset(square.left, square.bottom - len),
+      Offset(square.left, square.bottom),
+      Offset(square.left + len, square.bottom),
+    );
+    // Bottom-right
+    corner(
+      Offset(square.right - len, square.bottom),
+      Offset(square.right, square.bottom),
+      Offset(square.right, square.bottom - len),
+    );
+  }
+
+  /// Expanded square rect used by [paintCornerBracketSquare] (for pill layout).
+  static Rect expandedSquareForFace(Rect faceBox, {double expand = 1.15}) {
+    final side = math.max(faceBox.width, faceBox.height) * expand;
+    return Rect.fromCenter(
+      center: faceBox.center,
+      width: side,
+      height: side,
+    );
+  }
+
+  /// Employee id only (e.g. `4255`) in a small green pill above [squareBox],
+  /// or below when there is no room at the top. No name.
+  static void paintEmployeeIdPill({
+    required Canvas canvas,
+    required Rect squareBox,
+    required int employeeId,
+    required Color badgeColor,
+    required Size viewSize,
+    double maxWidth = 160,
+    String? labelOverride,
+  }) {
+    final textPainter = TextPainter(
+      text: TextSpan(
+        text: labelOverride ?? '$employeeId',
+        style: const TextStyle(
+          color: Colors.white,
+          fontSize: 13,
+          fontWeight: FontWeight.w800,
+          letterSpacing: 0.3,
+          height: 1.1,
+        ),
+      ),
+      textAlign: TextAlign.center,
+      textDirection: TextDirection.ltr,
+      maxLines: 1,
+    )..layout(maxWidth: maxWidth);
+
+    const padH = 12.0;
+    const padV = 5.0;
+    final badgeW = textPainter.width + padH * 2;
+    final badgeH = textPainter.height + padV * 2;
+    final left =
+        (squareBox.center.dx - badgeW / 2).clamp(4.0, viewSize.width - badgeW - 4);
+    var top = squareBox.top - badgeH - 10;
+    if (top < 8) {
+      top = squareBox.bottom + 10;
+      if (top + badgeH > viewSize.height - 4) {
+        top = (viewSize.height - badgeH - 4).clamp(8.0, viewSize.height);
+      }
+    }
+    final badgeRect = Rect.fromLTWH(left, top, badgeW, badgeH);
+
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(badgeRect, const Radius.circular(999)),
+      Paint()
+        ..color = badgeColor.withValues(alpha: 0.94)
+        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 4),
+    );
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(badgeRect, const Radius.circular(999)),
+      Paint()..color = badgeColor.withValues(alpha: 0.94),
+    );
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(badgeRect, const Radius.circular(999)),
+      Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 1.25
+        ..color = Colors.white.withValues(alpha: 0.35),
+    );
+
+    textPainter.paint(
+      canvas,
+      Offset(
+        badgeRect.left + (badgeRect.width - textPainter.width) / 2,
+        badgeRect.top + padV,
+      ),
+    );
+  }
+
   static void paintNameBadge({
     required Canvas canvas,
     required Rect faceBox,
