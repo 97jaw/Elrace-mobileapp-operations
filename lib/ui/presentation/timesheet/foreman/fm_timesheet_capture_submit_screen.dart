@@ -21,6 +21,7 @@ import 'package:el_race/core/site_management/face_recognition/domain/face_verifi
 import 'package:el_race/core/site_management/face_recognition/domain/face_walkup.dart';
 import 'package:el_race/ui/presentation/task_sheet/EmployeeShiftRequestPage.dart';
 import 'package:el_race/core/site_management/face_recognition/face_match_session.dart';
+import 'package:el_race/core/site_management/face_recognition/face_min_device_check.dart';
 import 'package:el_race/core/site_management/face_recognition/face_pilot_log_store.dart';
 import 'package:el_race/core/site_management/face_recognition/profile_photo_face_db.dart';
 import 'package:el_race/ui/presentation/timesheet/widgets/tm_fast_network_image.dart';
@@ -55,6 +56,8 @@ class FmTimesheetCaptureSubmitScreen extends ConsumerStatefulWidget {
     this.expectedEmployeeName,
     this.alreadyCapturedEmployeeIds = const {},
     this.walkUpMode = false,
+    this.onSessionCapturesChanged,
+    this.teamEmployeeIds = const {},
   });
 
   static bool _opening = false;
@@ -99,6 +102,14 @@ class FmTimesheetCaptureSubmitScreen extends ConsumerStatefulWidget {
   /// TASK 10 walk-up: auto-identify Your Team (no picker strip / target).
   /// Labor camera (expectedEmployeeId set) must keep this false.
   final bool walkUpMode;
+
+  /// Walk-up: notify the Your Team sheet on each accept/undo so ticks update
+  /// while this route is still open (same pending list as verify).
+  final ValueChanged<List<TimesheetCaptureSessionEntry>>?
+      onSessionCapturesChanged;
+
+  /// Your Team [TimesheetTeamMember.employeeId]s — for tick-key logging.
+  final Set<int> teamEmployeeIds;
 
   @override
   ConsumerState<FmTimesheetCaptureSubmitScreen> createState() =>
@@ -160,10 +171,10 @@ class _FmTimesheetCaptureSubmitScreenState
   Set<int> get _projectLaborEmployeeIds =>
       _employees.map((e) => e.employeeId).toSet();
 
-  /// The labor this camera verifies (1:1): the picked chip on the project
-  /// camera; otherwise the caller's labor (project row when loaded, for the
-  /// photo / file id).
+  /// The labor this camera verifies (1:1): walk-up pick target, project strip
+  /// pick, or the caller's expected labor.
   TimesheetOdooEmployee? get _targetEmployee {
+    if (_walkUpMode) return _walkUpPickVerifyTarget;
     if (_projectMode) {
       final picked = _pickedEmployeeId;
       if (picked == null) return null;
@@ -172,7 +183,8 @@ class _FmTimesheetCaptureSubmitScreenState
       }
       return null;
     }
-    final id = widget.expectedEmployeeId!;
+    final id = widget.expectedEmployeeId;
+    if (id == null) return null;
     for (final e in _employees) {
       if (e.employeeId == id) return e;
     }
@@ -215,6 +227,13 @@ class _FmTimesheetCaptureSubmitScreenState
   }
 
   Future<void> _bootCapture() async {
+    // Block before the camera opens (verify + walk-up).
+    if (!mounted) return;
+    final deviceOk = await FaceMinDeviceCheck.ensureSupported(context);
+    if (!deviceOk) {
+      if (mounted) Navigator.of(context).maybePop();
+      return;
+    }
     // In return-captures mode the caller owns the accumulated session, so we
     // don't restore/merge the shared persisted session here.
     if (!widget.returnCaptures) {
@@ -338,6 +357,10 @@ class _FmTimesheetCaptureSubmitScreenState
 
   Future<void> _loadEmployees() async {
     final client = ref.read(timesheetApiClientProvider);
+    // Every camera open: refresh HR scope + Your Team from network.
+    ref.invalidate(timesheetHrScopeProvider);
+    ref.invalidate(timesheetForemanLaborsProvider);
+    var fromNetwork = true;
     List<TimesheetOdooEmployee> labors;
     try {
       labors = await client.fetchLaborEmployeesForReport(
@@ -346,14 +369,20 @@ class _FmTimesheetCaptureSubmitScreenState
         useHrScopeWhenNoProject: false,
       );
     } catch (e) {
+      fromNetwork = false;
       debugPrint('FmTimesheetCaptureSubmit: labor_list failed: $e');
-      final scope = await ref.read(timesheetHrScopeProvider.future);
-      final roster = await client.fetchEmployeeRoster();
-      labors = scope.hasLaborScope
-          ? roster
-              .where((e) => scope.laborEmployeeIds.contains(e.employeeId))
-              .toList()
-          : roster;
+      try {
+        final scope = await ref.read(timesheetHrScopeProvider.future);
+        final roster = await client.fetchEmployeeRoster();
+        labors = scope.hasLaborScope
+            ? roster
+                .where((e) => scope.laborEmployeeIds.contains(e.employeeId))
+                .toList()
+            : roster;
+      } catch (e2) {
+        debugPrint('FmTimesheetCaptureSubmit: roster fallback failed: $e2');
+        labors = _employees;
+      }
     }
 
     final faceRoster = _phaseBActive
@@ -375,7 +404,8 @@ class _FmTimesheetCaptureSubmitScreenState
 
     if (!mounted) return;
     final deduped = dedupeTimesheetEmployeesById(labors);
-    unawaited(_applyYourTeam(deduped));
+    await _applyYourTeam(deduped, fromNetwork: fromNetwork);
+    if (!mounted) return;
     setState(() {
       _employees = deduped;
     });
@@ -384,37 +414,44 @@ class _FmTimesheetCaptureSubmitScreenState
     );
   }
 
-  /// Loads Your Team once for the profile-photo roster and the picker strip.
+  /// Loads Your Team for the profile-photo roster and the picker strip.
+  /// Forces a network refresh on every camera open (cache only if offline).
   Future<void> _applyYourTeam(
-    List<TimesheetOdooEmployee> projectLabour,
-  ) async {
+    List<TimesheetOdooEmployee> projectLabour, {
+    required bool fromNetwork,
+  }) async {
     List<TimesheetTeamMember> team;
     try {
-      team = await ref.read(timesheetForemanLaborsProvider.future);
+      team = await ref.refresh(timesheetForemanLaborsProvider.future);
     } catch (e) {
+      fromNetwork = false;
       debugPrint('ProfilePhotoMatch: Your Team load failed: $e');
       team = const [];
     }
     if (!mounted) return;
+    final teamOnly = ProfilePhotoFaceDb.yourTeamOnly(projectLabour, team);
     if (ProfilePhotoMatchTest.enabled) {
       // Whole project labour: Your Team are the targets, the rest is the
       // verification cohort. No team (PM login) = everyone is a target.
-      ProfilePhotoFaceDb.instance.setLabour(
-        projectLabour,
-        targetIds: team.isEmpty ? null : {for (final m in team) m.employeeId},
+      final teamCount =
+          team.isEmpty ? projectLabour.length : team.length;
+      await ProfilePhotoFaceDb.instance.refreshRosterForCameraOpen(
+        labour: projectLabour,
+        targetIds:
+            team.isEmpty ? null : {for (final m in team) m.employeeId},
+        teamCount: teamCount,
+        fromNetwork: fromNetwork,
       );
-      if (_walkUpMode) {
-        _walkUpTeamCount = team.isEmpty ? projectLabour.length : team.length;
-        // Builds + logs the session roster once (candidates / exclusions).
-        unawaited(ProfilePhotoFaceDb.instance.walkUpRoster());
-      }
     }
-    if (!_projectMode) return;
-    setState(() {
-      _pickerLabour = ProfilePhotoFaceDb.yourTeamOnly(projectLabour, team);
-      _pickerLoaded = true;
-    });
-    _selectTarget(_initialPick(), scroll: true);
+    // Picker strip (verify) + Pick labor panel (verify + walk-up): Your Team.
+    if (_projectMode || _walkUpMode) {
+      setState(() {
+        _pickerLabour = teamOnly;
+        _pickerLoaded = true;
+        if (_walkUpMode) _walkUpTeamCount = teamOnly.length;
+      });
+      if (_projectMode) _selectTarget(_initialPick(), scroll: true);
+    }
   }
 
   bool _templateReady(int employeeId) =>
@@ -444,12 +481,12 @@ class _FmTimesheetCaptureSubmitScreenState
     return null;
   }
 
-  /// Picker strip order: uncaptured first, captured (done) last.
+  /// Picker strip / Pick labor order: captured first, remaining below.
   List<TimesheetOdooEmployee> get _pickerOrder => [
         for (final e in _pickerLabour)
-          if (!_capturedEmployeeIds.contains(e.employeeId)) e,
-        for (final e in _pickerLabour)
           if (_capturedEmployeeIds.contains(e.employeeId)) e,
+        for (final e in _pickerLabour)
+          if (!_capturedEmployeeIds.contains(e.employeeId)) e,
       ];
 
   /// Project camera target switch. The panel resets its live state for the
@@ -540,21 +577,25 @@ class _FmTimesheetCaptureSubmitScreenState
     TmFaceCaptureNoticeKind kind, {
     double? matchScore,
     bool held = false,
+    bool sticky = false,
   }) {
     final current = _noticeToast;
     if (current != null &&
         current.held &&
         !held &&
+        !sticky &&
         kind != TmFaceCaptureNoticeKind.captured) {
       return;
     }
-    if (held &&
+    if ((held || sticky) &&
         current != null &&
-        current.held &&
+        (current.held || current.sticky) &&
         current.kind == kind &&
         current.employee.employeeId == employee.employeeId) {
       return;
     }
+    // Verify held cards freeze the camera. Walk-up sticky keeps identify
+    // running (stranger clear) but skips PAD-reject on the held person.
     if (held) _cameraKey.currentState?.holdForNotice();
     setState(() {
       _noticeSeq++;
@@ -564,8 +605,25 @@ class _FmTimesheetCaptureSubmitScreenState
         matchScore: matchScore,
         seq: _noticeSeq,
         held: held,
+        sticky: sticky,
       );
     });
+  }
+
+  void _onWalkUpAlreadySticky(TimesheetOdooEmployee employee) {
+    final resolved = _resolveWalkUpEmployee(employee);
+    _showCaptureNotice(
+      resolved,
+      TmFaceCaptureNoticeKind.alreadyAttended,
+      sticky: true,
+    );
+  }
+
+  void _onWalkUpCardCleared() {
+    if (!mounted) return;
+    final toast = _noticeToast;
+    if (toast == null || !toast.sticky) return;
+    setState(() => _noticeToast = null);
   }
 
   /// Still did not verify the target. Cards name the target only.
@@ -656,6 +714,8 @@ class _FmTimesheetCaptureSubmitScreenState
       return;
     }
     final matchScore = result.targetScore ?? 0;
+    final fromWalkUpPick = _walkUpPickVerifyTarget != null &&
+        _walkUpPickVerifyTarget!.employeeId == resolved.employeeId;
 
     ref.read(faceMatchSessionProvider.notifier).record(
         FaceMatchSessionRecord.fromVerify(result, targetName: resolved.name));
@@ -679,7 +739,16 @@ class _FmTimesheetCaptureSubmitScreenState
           verifyUsedNoCohortBar: result.usedNoCohortBar,
         ),
       );
+      if (fromWalkUpPick) {
+        _walkUpPickVerifyTarget = null;
+      }
     });
+    if (fromWalkUpPick) {
+      debugPrint(
+        'WalkUp: pick_labor emp=${resolved.employeeId} result=success',
+      );
+      _notifyWalkUpSessionCaptures();
+    }
     if (!widget.returnCaptures) {
       unawaited(_persistSession());
     }
@@ -696,6 +765,27 @@ class _FmTimesheetCaptureSubmitScreenState
     if (_projectMode) _advanceAfterCapture();
   }
 
+  /// Prefer labor_list row; else match by employeeId or Odoo id so the sheet
+  /// tick key ([TimesheetTeamMember.employeeId]) matches.
+  TimesheetOdooEmployee _resolveWalkUpEmployee(TimesheetOdooEmployee raw) {
+    final fromLabor = _laborEmployeeOrNull(raw);
+    if (fromLabor != null) return fromLabor;
+    for (final e in _employees) {
+      if (e.employeeId == raw.employeeId ||
+          e.id == raw.employeeId ||
+          e.employeeId == raw.id ||
+          e.id == raw.id) {
+        return e;
+      }
+    }
+    return raw;
+  }
+
+  void _notifyWalkUpSessionCaptures() {
+    widget.onSessionCapturesChanged
+        ?.call(List<TimesheetCaptureSessionEntry>.from(_captures));
+  }
+
   /// Walk-up accept (TASK 10): same card/haptic path as verify; method logged
   /// as profile_walkup on the draft.
   void _onWalkUpAccepted(
@@ -703,12 +793,20 @@ class _FmTimesheetCaptureSubmitScreenState
     AttendanceCaptureDraft draft,
     FaceWalkUpResult result,
   ) {
-    final resolved = _laborEmployeeOrNull(employee) ?? employee;
-    if (_capturedEmployeeIds.contains(resolved.employeeId)) {
+    final resolved = _resolveWalkUpEmployee(employee);
+    final key = resolved.employeeId;
+    if (_capturedEmployeeIds.contains(key)) {
       _onAlreadyAttended(resolved);
       return;
     }
     final matchScore = result.score ?? 0;
+    final listKeys = widget.teamEmployeeIds.isNotEmpty
+        ? widget.teamEmployeeIds.take(12).toList()
+        : _employees.map((e) => e.employeeId).take(12).toList();
+    debugPrint(
+      'WalkUp: mark captured emp=${employee.employeeId} '
+      'key=$key id=${resolved.id} listKeys=$listKeys',
+    );
     setState(() {
       _captures.add(
         TimesheetCaptureSessionEntry(
@@ -722,12 +820,14 @@ class _FmTimesheetCaptureSubmitScreenState
         ),
       );
       _walkUpUndoUntil = DateTime.now().add(const Duration(seconds: 3));
-      _walkUpUndoEmployeeId = resolved.employeeId;
+      _walkUpUndoEmployeeId = key;
     });
+    _notifyWalkUpSessionCaptures();
     _showCaptureNotice(
       resolved,
       TmFaceCaptureNoticeKind.captured,
       matchScore: matchScore,
+      sticky: true,
     );
     _armWalkUpUndoClear();
   }
@@ -735,6 +835,18 @@ class _FmTimesheetCaptureSubmitScreenState
   DateTime? _walkUpUndoUntil;
   int? _walkUpUndoEmployeeId;
   Timer? _walkUpUndoTimer;
+
+  /// Walk-up: labor chosen from Pick labor → temporary 1:1 verify on this
+  /// camera (no nested route). Cleared after success → back to walk-up.
+  TimesheetOdooEmployee? _walkUpPickVerifyTarget;
+
+  bool get _inWalkUpPickVerify => _walkUpPickVerifyTarget != null;
+
+  /// Effective walk-up identify (false while pick-labor 1:1 is active).
+  bool get _effectiveWalkUp => _walkUpMode && !_inWalkUpPickVerify;
+
+  bool get _showPickLaborButton =>
+      (_walkUpMode || _projectMode) && _pickerLabour.isNotEmpty;
 
   void _armWalkUpUndoClear() {
     _walkUpUndoTimer?.cancel();
@@ -762,6 +874,8 @@ class _FmTimesheetCaptureSubmitScreenState
     });
     _walkUpUndoTimer?.cancel();
     debugPrint('WalkUp: undo emp=$id');
+    // Camera syncs via capturedEmployeeIds didUpdateWidget (session + card).
+    _notifyWalkUpSessionCaptures();
     final draft = removed?.draft;
     if (draft != null) {
       unawaited(TimesheetCaptureQueueService().delete(draft.id));
@@ -772,47 +886,91 @@ class _FmTimesheetCaptureSubmitScreenState
     }
   }
 
-  Future<void> _onWalkUpPickLabor() async {
-    // Opens verify flow for one labor, then returns to this walk-up camera.
-    if (_pickerLabour.isEmpty && _employees.isEmpty) return;
-    final labour = _pickerLabour.isNotEmpty ? _pickerLabour : _employees;
-    final chosen = await showModalBottomSheet<TimesheetOdooEmployee>(
-      context: context,
-      backgroundColor: TimesheetModuleColors.surface,
-      builder: (ctx) => SafeArea(
-        child: ListView(
-          children: [
-            for (final e in labour)
-              if (!_capturedEmployeeIds.contains(e.employeeId))
-                ListTile(
-                  title: Text(e.name),
-                  subtitle: Text(e.displayFileId),
-                  onTap: () => Navigator.pop(ctx, e),
-                ),
-          ],
-        ),
-      ),
+  /// Pick labor panel (walk-up + project verify): pause pipeline → drawer →
+  /// walk-up: in-place 1:1 for that labor; verify: same as strip tap.
+  Future<void> _onPickLabor() async {
+    if (_pickerLabour.isEmpty) return;
+    final camera = _cameraKey.currentState;
+    await camera?.pausePipelineForPanel();
+    if (!mounted) return;
+    final chosen = await _showPickLaborDrawer(
+      labour: _pickerOrder,
+      capturedIds: _capturedEmployeeIds,
     );
-    if (chosen == null || !mounted) return;
-    final verifyCaptures = await FmTimesheetCaptureSubmitScreen.pushOnce<
-        List<TimesheetCaptureSessionEntry>>(
-      context,
-      FmTimesheetCaptureSubmitScreen(
-        returnCaptures: true,
-        expectedEmployeeId: chosen.employeeId,
-        expectedEmployeeName: chosen.name,
-        alreadyCapturedEmployeeIds: _capturedEmployeeIds,
-        args: widget.args,
-      ),
-    );
-    if (!mounted || verifyCaptures == null || verifyCaptures.isEmpty) return;
-    setState(() {
-      for (final entry in verifyCaptures) {
-        if (!_capturedEmployeeIds.contains(entry.employee.employeeId)) {
-          _captures.add(entry);
-        }
+    if (!mounted) return;
+    if (chosen == null) {
+      if (_walkUpMode) {
+        debugPrint('WalkUp: pick_labor emp=- result=cancel');
       }
-    });
+      await camera?.resumePipelineAfterPanel();
+      return;
+    }
+    if (_capturedEmployeeIds.contains(chosen.employeeId)) {
+      await camera?.resumePipelineAfterPanel();
+      return;
+    }
+    if (_walkUpMode) {
+      setState(() => _walkUpPickVerifyTarget = chosen);
+      await camera?.resumePipelineAfterPanel();
+      return;
+    }
+    // Project verify: same as tapping the picker strip.
+    _selectTarget(chosen.employeeId, scroll: true);
+    await camera?.resumePipelineAfterPanel();
+  }
+
+  Future<TimesheetOdooEmployee?> _showPickLaborDrawer({
+    required List<TimesheetOdooEmployee> labour,
+    required Set<int> capturedIds,
+  }) {
+    final screenW = MediaQuery.sizeOf(context).width;
+    final width = math.min(420.0, screenW * 0.85);
+    final messenger = ScaffoldMessenger.of(context);
+    return showGeneralDialog<TimesheetOdooEmployee>(
+      context: context,
+      barrierDismissible: true,
+      barrierLabel: 'Pick labor',
+      barrierColor: Colors.black.withValues(alpha: 0.45),
+      transitionDuration: const Duration(milliseconds: 260),
+      pageBuilder: (ctx, animation, secondaryAnimation) {
+        return Align(
+          alignment: Alignment.centerRight,
+          child: Material(
+            color: TimesheetModuleColors.surface,
+            elevation: 8,
+            child: SizedBox(
+              width: width,
+              height: double.infinity,
+              child: _PickLaborDrawer(
+                labour: labour,
+                capturedIds: capturedIds,
+                onSelect: (e) => Navigator.of(ctx).pop(e),
+                onClose: () => Navigator.of(ctx).pop(),
+                onAlreadyCaptured: () {
+                  messenger
+                    ..hideCurrentSnackBar()
+                    ..showSnackBar(
+                      const SnackBar(
+                        content: Text('Already captured'),
+                        duration: Duration(seconds: 2),
+                      ),
+                    );
+                },
+              ),
+            ),
+          ),
+        );
+      },
+      transitionBuilder: (ctx, animation, secondaryAnimation, child) {
+        final offset = Tween<Offset>(
+          begin: const Offset(1, 0),
+          end: Offset.zero,
+        ).animate(
+          CurvedAnimation(parent: animation, curve: Curves.easeOutCubic),
+        );
+        return SlideTransition(position: offset, child: child);
+      },
+    );
   }
 
   /// Suppress the "already attended" prompt for a short, realistic window right
@@ -1032,40 +1190,19 @@ class _FmTimesheetCaptureSubmitScreenState
       );
     }
 
-    final gateProject = selectedProject;
     if (!mounted) return;
     setState(() => _isSubmitting = true);
     try {
-      if (gateProject != null && gateProject.hasSiteCoordinates) {
-        // Popup decides by foreman distance to site; creates only if inside.
-        final created = await TmSubmitGeofenceGate.run(
-          context,
-          project: gateProject,
-          loadThresholdM: () =>
-              client.fetchProjectSubmitThresholdM(gateProject.id),
-          submit: doSubmit,
-        );
-        if (!mounted || !created) return;
-        await TimesheetCaptureSessionStore.clear();
-        if (!mounted) return;
-        Navigator.of(context).pop(true);
-        return;
-      }
-
-      final result = await doSubmit();
+      // Location already enforced at camera open; submit shows result only.
+      final created = await TmTimesheetSubmitDialog.run(
+        context,
+        projectName: selectedProject?.name ?? widget.args.projectName,
+        submit: doSubmit,
+      );
+      if (!mounted || !created) return;
+      await TimesheetCaptureSessionStore.clear();
       if (!mounted) return;
-      if (result.success) {
-        await TimesheetCaptureSessionStore.clear();
-        if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(result.message ?? 'Timesheet submitted')),
-        );
-        Navigator.of(context).pop(true);
-      } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(result.message ?? 'Submission failed')),
-        );
-      }
+      Navigator.of(context).pop(true);
     } finally {
       if (mounted) setState(() => _isSubmitting = false);
     }
@@ -1112,9 +1249,20 @@ class _FmTimesheetCaptureSubmitScreenState
         showPicker ? _LaborPickerStrip.blockHeight(tablet) + 8 : 0.0;
 
     return PopScope(
-      canPop: widget.returnCaptures || _captures.isEmpty,
+      // Walk-up: never auto-pop without the capture list (iOS swipe otherwise
+      // returns null and the Your Team tick never appears). Verify unchanged.
+      canPop: _walkUpMode
+          ? false
+          : (widget.returnCaptures || _captures.isEmpty),
       onPopInvokedWithResult: (didPop, _) async {
         if (didPop) return;
+        if (_walkUpMode && widget.returnCaptures) {
+          Navigator.of(this.context)
+              .pop<List<TimesheetCaptureSessionEntry>>(
+            List<TimesheetCaptureSessionEntry>.from(_captures),
+          );
+          return;
+        }
         final leave = await _confirmLeaveIfNeeded();
         if (!mounted) return;
         if (leave) Navigator.of(this.context).pop();
@@ -1133,9 +1281,9 @@ class _FmTimesheetCaptureSubmitScreenState
               autoCaptureEnabled: false,
               // Manual capture only for now (bottom Capture button).
               instantAutoCapture: false,
-              verifyTarget: !_walkUpMode,
-              walkUpMode: _walkUpMode,
-              targetEmployee: _walkUpMode ? null : _targetEmployee,
+              verifyTarget: !_effectiveWalkUp,
+              walkUpMode: _effectiveWalkUp,
+              targetEmployee: _effectiveWalkUp ? null : _targetEmployee,
               noTargetHint: _allPickerCaptured ? 'All labors captured' : null,
               overlayHint: _overlayHint,
               capturedEmployeeIds: _capturedEmployeeIds,
@@ -1144,11 +1292,14 @@ class _FmTimesheetCaptureSubmitScreenState
               faceRecognition: ref.read(faceRecognitionServiceProvider),
               onTargetVerified: _onTargetVerified,
               onTargetVerifyFailed: _onTargetVerifyFailed,
-              onWalkUpAccepted: _walkUpMode ? _onWalkUpAccepted : null,
+              onWalkUpAccepted: _effectiveWalkUp ? _onWalkUpAccepted : null,
+              onWalkUpAlreadySticky:
+                  _effectiveWalkUp ? _onWalkUpAlreadySticky : null,
+              onWalkUpCardCleared:
+                  _effectiveWalkUp ? _onWalkUpCardCleared : null,
               onCaptureWriteFailed: _onCaptureWriteFailed,
               onAlreadyAttended: _onAlreadyAttended,
               onChromeChanged: _onChromeChanged,
-              onWalkUpPickLabor: _walkUpMode ? _onWalkUpPickLabor : null,
             ),
             Positioned(
               top: 0,
@@ -1174,10 +1325,62 @@ class _FmTimesheetCaptureSubmitScreenState
               top: headerTop,
               left: chromeInset,
               right: chromeInset,
-              child: _CaptureProjectHeader(
-                projectName: widget.args.projectName,
-                taskName: widget.args.taskName,
-                dateLabel: dateLabel,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  _CaptureProjectHeader(
+                    projectName: widget.args.projectName,
+                    taskName: widget.args.taskName,
+                    dateLabel: dateLabel,
+                  ),
+                  if (_walkUpMode) ...[
+                    const SizedBox(height: 8),
+                    Material(
+                      color: TimesheetModuleColors.accent
+                          .withValues(alpha: 0.92),
+                      borderRadius: BorderRadius.circular(999),
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 6,
+                        ),
+                        child: Text(
+                          'Captured ${_captures.length} / '
+                          '${_walkUpTeamCount > 0 ? _walkUpTeamCount : '—'}',
+                          style: TimesheetModuleTypography.caption().copyWith(
+                            color: Colors.white,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                  if (_walkUpMode &&
+                      _walkUpUndoUntil != null &&
+                      DateTime.now().isBefore(_walkUpUndoUntil!)) ...[
+                    const SizedBox(height: 8),
+                    TextButton.icon(
+                      onPressed: _undoWalkUpCapture,
+                      icon: const Icon(
+                        Icons.undo,
+                        color: Colors.white,
+                        size: 18,
+                      ),
+                      label: Text(
+                        'Undo',
+                        style: TimesheetModuleTypography.caption().copyWith(
+                          color: Colors.white,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                      style: TextButton.styleFrom(
+                        backgroundColor: Colors.black54,
+                        padding: const EdgeInsets.symmetric(horizontal: 10),
+                      ),
+                    ),
+                  ],
+                ],
               ),
             ),
             Positioned(
@@ -1188,53 +1391,9 @@ class _FmTimesheetCaptureSubmitScreenState
                 chrome: chrome,
                 onFlip: camera?.switchCameraExternal,
                 onFlash: camera?.toggleFlashExternal,
+                onPickLabor: _showPickLaborButton ? _onPickLabor : null,
               ),
             ),
-            if (_walkUpMode)
-              Positioned(
-                top: headerTop + 8,
-                left: chromeInset + 8,
-                child: Material(
-                  color: TimesheetModuleColors.accent.withValues(alpha: 0.92),
-                  borderRadius: BorderRadius.circular(999),
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 6,
-                    ),
-                    child: Text(
-                      'Captured ${_captures.length} / '
-                      '${_walkUpTeamCount > 0 ? _walkUpTeamCount : '—'}',
-                      style: TimesheetModuleTypography.caption().copyWith(
-                        color: Colors.white,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-            if (_walkUpMode &&
-                _walkUpUndoUntil != null &&
-                DateTime.now().isBefore(_walkUpUndoUntil!))
-              Positioned(
-                top: headerTop + 48,
-                left: chromeInset + 8,
-                child: TextButton.icon(
-                  onPressed: _undoWalkUpCapture,
-                  icon: const Icon(Icons.undo, color: Colors.white, size: 18),
-                  label: Text(
-                    'Undo',
-                    style: TimesheetModuleTypography.caption().copyWith(
-                      color: Colors.white,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                  style: TextButton.styleFrom(
-                    backgroundColor: Colors.black54,
-                    padding: const EdgeInsets.symmetric(horizontal: 10),
-                  ),
-                ),
-              ),
             Positioned(
               left: 0,
               right: 0,
@@ -1249,17 +1408,6 @@ class _FmTimesheetCaptureSubmitScreenState
                       mainAxisSize: MainAxisSize.min,
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
-                        if (_walkUpMode)
-                          Padding(
-                            padding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
-                            child: Align(
-                              alignment: Alignment.centerRight,
-                              child: TextButton(
-                                onPressed: _onWalkUpPickLabor,
-                                child: const Text('Pick labor'),
-                              ),
-                            ),
-                          ),
                         if (chrome?.livenessShowSpoofWarning == true)
                           Padding(
                             padding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
@@ -1334,13 +1482,20 @@ class _FmTimesheetCaptureSubmitScreenState
                   employee: notice.employee,
                   kind: notice.kind,
                   matchScore: notice.matchScore,
-                  onDismissed: _clearNoticeToast,
-                  actionLabel: !notice.held
+                  // Walk-up sticky: stay until camera replaces (autoDismiss 0).
+                  autoDismissSeconds: notice.sticky ? 0 : 3,
+                  onDismissed: notice.sticky ? null : _clearNoticeToast,
+                  actionLabel: notice.sticky
                       ? null
-                      : notice.kind == TmFaceCaptureNoticeKind.alreadyAttended
-                          ? 'Next labor'
-                          : 'Try again',
-                  onAction: notice.held ? _onNoticeAction : null,
+                      : !notice.held
+                          ? null
+                          : notice.kind ==
+                                  TmFaceCaptureNoticeKind.alreadyAttended
+                              ? 'Next labor'
+                              : 'Try again',
+                  onAction: notice.sticky || !notice.held
+                      ? null
+                      : _onNoticeAction,
                   secondaryActions: [
                     if (notice.held &&
                         notice.kind == TmFaceCaptureNoticeKind.mismatch &&
@@ -1406,6 +1561,7 @@ class TimesheetCaptureNoticeToast {
     this.matchScore,
     this.seq = 0,
     this.held = false,
+    this.sticky = false,
   });
 
   final TimesheetOdooEmployee employee;
@@ -1417,6 +1573,9 @@ class TimesheetCaptureNoticeToast {
 
   /// Stays on screen with a button; camera auto capture paused meanwhile.
   final bool held;
+
+  /// Walk-up: no auto-dismiss until the camera clears the card.
+  final bool sticky;
 }
 
 /// Only the title row gets navy gradient; everything else floats on camera.
@@ -1537,6 +1696,7 @@ class _CaptureCameraRail extends StatelessWidget {
     required this.chrome,
     required this.onFlip,
     required this.onFlash,
+    this.onPickLabor,
     this.large = false,
   });
 
@@ -1545,10 +1705,14 @@ class _CaptureCameraRail extends StatelessWidget {
   final Future<void> Function()? onFlip;
   final Future<void> Function()? onFlash;
 
+  /// Walk-up only: pick labor (always shown when non-null).
+  final Future<void> Function()? onPickLabor;
+
   @override
   Widget build(BuildContext context) {
     final isCapturing = chrome?.isCapturing == true;
     final iconSize = large ? 26.0 : 22.0;
+    final gap = large ? 10.0 : 0.0;
 
     return Column(
       mainAxisSize: MainAxisSize.min,
@@ -1559,13 +1723,24 @@ class _CaptureCameraRail extends StatelessWidget {
           onPressed: isCapturing ? null : onFlip,
           iconSize: iconSize,
         ),
-        SizedBox(height: large ? 10 : 0),
+        SizedBox(height: gap),
         _RailIconButton(
           icon: PhosphorIcons.lightning(),
           tooltip: 'Flash',
           onPressed: onFlash,
           iconSize: iconSize,
         ),
+        if (onPickLabor != null) ...[
+          SizedBox(height: gap),
+          _RailIconButton(
+            icon: PhosphorIcons.userList(PhosphorIconsStyle.fill),
+            tooltip: 'Pick labor',
+            onPressed: isCapturing ? null : onPickLabor,
+            iconSize: iconSize,
+            backgroundColor:
+                TimesheetModuleColors.accent.withValues(alpha: 0.85),
+          ),
+        ],
       ],
     );
   }
@@ -1577,24 +1752,338 @@ class _RailIconButton extends StatelessWidget {
     required this.tooltip,
     required this.onPressed,
     this.iconSize = 22,
+    this.backgroundColor,
   });
 
   final IconData icon;
   final String tooltip;
   final Future<void> Function()? onPressed;
   final double iconSize;
+  final Color? backgroundColor;
 
   @override
   Widget build(BuildContext context) {
     return DecoratedBox(
       decoration: BoxDecoration(
-        color: Colors.black.withValues(alpha: 0.35),
+        color: backgroundColor ?? Colors.black.withValues(alpha: 0.35),
         shape: BoxShape.circle,
       ),
       child: IconButton(
         tooltip: tooltip,
         onPressed: onPressed == null ? null : () => onPressed!(),
         icon: Icon(icon, color: TimesheetModuleColors.surface, size: iconSize),
+      ),
+    );
+  }
+}
+
+/// Side panel (walk-up + verify): search + remaining then captured labors.
+class _PickLaborDrawer extends StatefulWidget {
+  const _PickLaborDrawer({
+    required this.labour,
+    required this.capturedIds,
+    required this.onSelect,
+    required this.onClose,
+    required this.onAlreadyCaptured,
+  });
+
+  /// Already ordered: captured first, then remaining.
+  final List<TimesheetOdooEmployee> labour;
+  final Set<int> capturedIds;
+  final ValueChanged<TimesheetOdooEmployee> onSelect;
+  final VoidCallback onClose;
+  final VoidCallback onAlreadyCaptured;
+
+  @override
+  State<_PickLaborDrawer> createState() => _PickLaborDrawerState();
+}
+
+class _PickLaborDrawerState extends State<_PickLaborDrawer> {
+  final _query = TextEditingController();
+  String _filter = '';
+
+  @override
+  void dispose() {
+    _query.dispose();
+    super.dispose();
+  }
+
+  List<TimesheetOdooEmployee> get _filtered {
+    final q = _filter.trim().toLowerCase();
+    if (q.isEmpty) return widget.labour;
+    return [
+      for (final e in widget.labour)
+        if (e.matchesSearchQuery(q)) e,
+    ];
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final items = _filtered;
+    final remaining = [
+      for (final e in items)
+        if (!widget.capturedIds.contains(e.employeeId)) e,
+    ];
+    final captured = [
+      for (final e in items)
+        if (widget.capturedIds.contains(e.employeeId)) e,
+    ];
+    return SafeArea(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(8, 8, 4, 0),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    'Pick labor',
+                    style: TimesheetModuleTypography.h2().copyWith(
+                      color: TimesheetModuleColors.ink,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ),
+                IconButton(
+                  tooltip: 'Close',
+                  onPressed: widget.onClose,
+                  icon: Icon(
+                    PhosphorIcons.x(),
+                    color: TimesheetModuleColors.ink,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(12, 4, 12, 8),
+            child: TextField(
+              controller: _query,
+              onChanged: (v) => setState(() => _filter = v),
+              style: TimesheetModuleTypography.body().copyWith(
+                color: TimesheetModuleColors.ink,
+              ),
+              decoration: InputDecoration(
+                hintText: 'Search name or file id',
+                hintStyle: TimesheetModuleTypography.caption().copyWith(
+                  color: TimesheetModuleColors.warmMuted,
+                ),
+                prefixIcon: Icon(
+                  PhosphorIcons.magnifyingGlass(),
+                  color: TimesheetModuleColors.warmMuted,
+                  size: 20,
+                ),
+                filled: true,
+                fillColor: TimesheetModuleColors.glassSurface,
+                contentPadding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 10,
+                ),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(
+                    TimesheetModuleLayout.cardRadiusMd,
+                  ),
+                  borderSide: const BorderSide(
+                    color: TimesheetModuleColors.glassBorder,
+                  ),
+                ),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(
+                    TimesheetModuleLayout.cardRadiusMd,
+                  ),
+                  borderSide: const BorderSide(
+                    color: TimesheetModuleColors.glassBorder,
+                  ),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(
+                    TimesheetModuleLayout.cardRadiusMd,
+                  ),
+                  borderSide: const BorderSide(
+                    color: TimesheetModuleColors.accent,
+                    width: 1.5,
+                  ),
+                ),
+              ),
+            ),
+          ),
+          Expanded(
+            child: items.isEmpty
+                ? Center(
+                    child: Text(
+                      _filter.trim().isEmpty
+                          ? 'All labors captured'
+                          : 'No matches',
+                      style: TimesheetModuleTypography.body().copyWith(
+                        color: TimesheetModuleColors.warmMuted,
+                      ),
+                    ),
+                  )
+                : ListView(
+                    padding: const EdgeInsets.fromLTRB(12, 0, 12, 16),
+                    children: [
+                      if (captured.isNotEmpty) ...[
+                        Padding(
+                          padding: const EdgeInsets.fromLTRB(4, 0, 4, 8),
+                          child: Text(
+                            'Captured (${captured.length})',
+                            style:
+                                TimesheetModuleTypography.caption().copyWith(
+                              color: TimesheetModuleColors.warmMuted,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ),
+                        for (var i = 0; i < captured.length; i++) ...[
+                          if (i > 0) const SizedBox(height: 8),
+                          _PickLaborTile(
+                            employee: captured[i],
+                            captured: true,
+                            onTap: widget.onAlreadyCaptured,
+                          ),
+                        ],
+                      ],
+                      if (remaining.isNotEmpty) ...[
+                        Padding(
+                          padding: EdgeInsets.fromLTRB(
+                            4,
+                            captured.isEmpty ? 0 : 16,
+                            4,
+                            8,
+                          ),
+                          child: Text(
+                            'Remaining (${remaining.length})',
+                            style:
+                                TimesheetModuleTypography.caption().copyWith(
+                              color: TimesheetModuleColors.warmMuted,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ),
+                        for (var i = 0; i < remaining.length; i++) ...[
+                          if (i > 0) const SizedBox(height: 8),
+                          _PickLaborTile(
+                            employee: remaining[i],
+                            captured: false,
+                            onTap: () => widget.onSelect(remaining[i]),
+                          ),
+                        ],
+                      ],
+                    ],
+                  ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _PickLaborCapturedTick extends StatelessWidget {
+  const _PickLaborCapturedTick();
+
+  static const Color _tick = Color(0xFF1E8E3E);
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: 36,
+      height: 36,
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          color: _tick.withValues(alpha: 0.15),
+        ),
+        child: const Icon(
+          Icons.check_circle_rounded,
+          size: 30,
+          color: _tick,
+        ),
+      ),
+    );
+  }
+}
+
+class _PickLaborTile extends StatelessWidget {
+  const _PickLaborTile({
+    required this.employee,
+    required this.captured,
+    required this.onTap,
+  });
+
+  final TimesheetOdooEmployee employee;
+  final bool captured;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final url = employee.faceMatchImageUrl?.trim() ?? '';
+    final name = employee.name.trim();
+    final initial = name.isEmpty ? '?' : name.characters.first.toUpperCase();
+    return Material(
+      color: TimesheetModuleColors.glassSurface,
+      borderRadius: BorderRadius.circular(TimesheetModuleLayout.cardRadiusMd),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(TimesheetModuleLayout.cardRadiusMd),
+        child: Padding(
+          padding: const EdgeInsets.all(12),
+          child: Row(
+            children: [
+              Container(
+                width: 44,
+                height: 44,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: TimesheetModuleColors.accentTint,
+                  border: Border.all(color: TimesheetModuleColors.iconSurface),
+                ),
+                clipBehavior: Clip.antiAlias,
+                child: url.isNotEmpty
+                    ? TmFastNetworkImage(url: url, fit: BoxFit.cover)
+                    : Center(
+                        child: Text(
+                          initial,
+                          style: TimesheetModuleTypography.h2().copyWith(
+                            color: TimesheetModuleColors.accent,
+                          ),
+                        ),
+                      ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      employee.name,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TimesheetModuleTypography.cardTitle().copyWith(
+                        color: TimesheetModuleColors.ink,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      employee.displayFileId,
+                      style: TimesheetModuleTypography.caption().copyWith(
+                        color: TimesheetModuleColors.warmMuted,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              if (captured)
+                const _PickLaborCapturedTick()
+              else
+                Icon(
+                  PhosphorIcons.caretRight(),
+                  color: TimesheetModuleColors.warmMuted,
+                  size: 18,
+                ),
+            ],
+          ),
+        ),
       ),
     );
   }

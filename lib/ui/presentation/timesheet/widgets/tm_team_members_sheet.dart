@@ -22,10 +22,15 @@ abstract final class _TmLaborActionColors {
 typedef TmCaptureAttendance = Future<List<TimesheetCaptureSessionEntry>>
     Function(TimesheetTeamMember member, Set<int> alreadyCapturedIds);
 
-/// Walk-up: open the team camera (no target). Returns new captures.
+/// Walk-up: open the team camera (no target). Returns session captures when
+/// the camera closes. [onSessionCapturesChanged] fires on each accept/undo so
+/// the labor-list tick updates while the camera is still open (same keys as
+/// verify: [TimesheetTeamMember.employeeId]).
 typedef TmWalkUpCapture = Future<List<TimesheetCaptureSessionEntry>> Function(
-  Set<int> alreadyCapturedIds,
-);
+  Set<int> alreadyCapturedIds, {
+  void Function(List<TimesheetCaptureSessionEntry> sessionCaptures)?
+      onSessionCapturesChanged,
+});
 
 /// Signature to run the confirm + submit flow for accumulated captures.
 /// Returns `true` when submission succeeded.
@@ -258,36 +263,87 @@ class _TmTeamMembersSheetBodyState
       widget.onCaptureAttendance != null ||
       widget.onWalkUpCapture != null;
 
-  Future<void> _walkUpCapture() async {
-    final handler = widget.onWalkUpCapture;
-    if (handler == null || _busy || _capturing) return;
-    _capturing = true;
-    final List<TimesheetCaptureSessionEntry> entries;
-    try {
-      entries = await handler(_pendingIds);
-    } finally {
-      _capturing = false;
-    }
-    if (!mounted || entries.isEmpty) return;
-    final existing = _pendingIds;
-    setState(() {
-      for (final entry in entries) {
-        if (!existing.contains(entry.employeeId)) {
-          _pending.add(entry);
+  /// Baseline pending before this walk-up session (prior ticks stay).
+  List<TimesheetCaptureSessionEntry> _walkUpBaseline = const [];
+
+  /// Merge walk-up session captures into [_pending] using team [employeeId].
+  void _applyWalkUpSessionCaptures(
+    List<TimesheetCaptureSessionEntry> sessionCaptures,
+  ) {
+    if (!mounted) return;
+    final baselineIds = _walkUpBaseline.map((e) => e.employeeId).toSet();
+    final remapped = <TimesheetCaptureSessionEntry>[];
+    for (final entry in sessionCaptures) {
+      final key = entry.employeeId;
+      TimesheetTeamMember? team;
+      for (final m in _members) {
+        if (m.employeeId == key || m.employeeId == entry.employee.id) {
+          team = m;
+          break;
         }
       }
+      final resolved = team != null
+          ? TimesheetCaptureSessionEntry(
+              employee: team.toOdooEmployee(),
+              matchScore: entry.matchScore,
+              draft: entry.draft,
+              capturedAt: entry.capturedAt,
+              verifyLead: entry.verifyLead,
+              verifyCohortSize: entry.verifyCohortSize,
+              verifyUsedNoCohortBar: entry.verifyUsedNoCohortBar,
+            )
+          : entry;
+      if (baselineIds.contains(resolved.employeeId)) continue;
+      remapped.add(resolved);
+    }
+    setState(() {
+      _pending
+        ..clear()
+        ..addAll(_walkUpBaseline)
+        ..addAll(remapped);
     });
     _notifyPending();
   }
 
+  Future<void> _walkUpCapture() async {
+    final handler = widget.onWalkUpCapture;
+    if (handler == null || _busy || _capturing) return;
+    _capturing = true;
+    _walkUpBaseline = List.of(_pending);
+    final List<TimesheetCaptureSessionEntry> entries;
+    try {
+      entries = await handler(
+        _pendingIds,
+        onSessionCapturesChanged: _applyWalkUpSessionCaptures,
+      );
+    } finally {
+      _capturing = false;
+    }
+    if (!mounted) return;
+    // Final merge after camera close (also covers gesture-back with data).
+    _applyWalkUpSessionCaptures(entries);
+  }
+
+  /// Captured first (green tick), then remaining — same as Pick labor panel.
   List<TimesheetTeamMember> get _filteredMembers {
     final q = _query.toLowerCase();
-    if (q.isEmpty) return _members;
-    return _members.where((m) {
-      return m.name.toLowerCase().contains(q) ||
-          m.fileId.toLowerCase().contains(q) ||
-          (m.subtitle?.toLowerCase().contains(q) ?? false);
-    }).toList(growable: false);
+    final matched = q.isEmpty
+        ? _members
+        : _members
+            .where(
+              (m) =>
+                  m.name.toLowerCase().contains(q) ||
+                  m.fileId.toLowerCase().contains(q) ||
+                  (m.subtitle?.toLowerCase().contains(q) ?? false),
+            )
+            .toList(growable: false);
+    final pending = _pendingIds;
+    return [
+      for (final m in matched)
+        if (pending.contains(m.employeeId)) m,
+      for (final m in matched)
+        if (!pending.contains(m.employeeId)) m,
+    ];
   }
 
   void _onQueryChanged(String value) {
@@ -887,18 +943,29 @@ class _CaptureButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Addendum C: captured → green tick at camera-icon size (both modes).
+    // Captured → strong green tick on light-green circle (verify + walk-up).
     if (captured) {
+      const tick = Color(0xFF1E8E3E);
       return Tooltip(
         message: tooltip,
         child: SizedBox(
           width: 44,
           height: 44,
           child: Center(
-            child: Icon(
-              Icons.check_circle_rounded,
-              size: iconSize,
-              color: _TmLaborActionColors.ok,
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: tick.withValues(alpha: 0.15),
+              ),
+              child: const SizedBox(
+                width: 36,
+                height: 36,
+                child: Icon(
+                  Icons.check_circle_rounded,
+                  size: iconSize,
+                  color: tick,
+                ),
+              ),
             ),
           ),
         ),
