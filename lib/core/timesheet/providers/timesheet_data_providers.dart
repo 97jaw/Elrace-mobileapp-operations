@@ -308,11 +308,15 @@ final timesheetProjectBucketsProvider =
     FutureProvider<TimesheetProjectBuckets>((ref) async {
   final resolution = ref.watch(tmEffectiveResolutionProvider);
   final role = resolution.role == TimesheetEffectiveRole.pm ? 'pm' : 'foreman';
+  // Foreman home does not show completed stats — skip that server work.
+  // PM dashboards still need completedTotal.
+  final includeCompletedCount = role == 'pm';
   final client = ref.watch(timesheetApiClientProvider);
   final env = await client.getProjects(
     role: role,
     hrWideScope: resolution.hrWideScope,
     status: 'in_progress',
+    includeCompletedCount: includeCompletedCount,
   );
   final all = env.data ?? const <Project>[];
   final inProgress = <Project>[];
@@ -327,8 +331,9 @@ final timesheetProjectBucketsProvider =
   final listed = inProgress.isNotEmpty ? inProgress : all;
   return TimesheetProjectBuckets(
     inProgress: listed,
-    completed: completed,
-    completedCount: client.siteCompletedProjectCount,
+    completed: includeCompletedCount ? completed : const [],
+    completedCount:
+        includeCompletedCount ? client.siteCompletedProjectCount : 0,
   );
 });
 

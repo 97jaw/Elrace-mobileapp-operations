@@ -16,7 +16,6 @@ import 'package:el_race/core/timesheet/providers/timesheet_acting_session_provid
 import 'package:el_race/core/timesheet/services/timesheet_acting_guard.dart';
 import 'package:el_race/core/timesheet/services/timesheet_capture_session_store.dart';
 import 'package:el_race/core/timesheet/timesheet_defaults.dart';
-import 'package:el_race/core/widgets/timesheet/tm_acting_banner.dart';
 import 'package:el_race/core/widgets/timesheet/timesheet_widgets.dart';
 import 'package:el_race/ui/presentation/timesheet/foreman/fm_timesheet_capture_submit_screen.dart';
 import 'package:el_race/ui/presentation/timesheet/foreman/fm_timesheet_submitted_list_screen.dart';
@@ -26,13 +25,17 @@ import 'package:el_race/ui/presentation/timesheet/timesheet_async_state.dart';
 import 'package:el_race/ui/presentation/timesheet/timesheet_chat_launcher.dart';
 import 'package:el_race/ui/presentation/timesheet/timesheet_route_args.dart';
 import 'package:el_race/ui/presentation/timesheet/widgets/face_recognition/tm_timesheet_capture_confirm_sheet.dart';
+import 'package:el_race/ui/presentation/home_screen/repository/location_reop.dart';
 import 'package:el_race/ui/presentation/timesheet/widgets/tm_active_sites_sheet.dart';
+import 'package:el_race/ui/presentation/timesheet/widgets/tm_foreman_site_location_card.dart';
+import 'package:el_race/ui/presentation/timesheet/widgets/tm_site_location_dialog.dart';
 import 'package:el_race/ui/presentation/timesheet/widgets/tm_team_members_sheet.dart';
 import 'package:el_race/ui/presentation/timesheet/widgets/tm_timesheet_entry_row.dart';
 import 'package:el_race/ui/widgets/contextual_glass_chrome_header.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:geolocator/geolocator.dart';
 import 'package:phosphor_flutter/phosphor_flutter.dart';
 
 /// Foreman home — warm parchment glass tokens.
@@ -50,12 +53,84 @@ abstract final class _FmHomeTheme {
   static const double cardRadius = 12;
 }
 
-class Fm1ForemanDashboard extends ConsumerWidget {
+class Fm1ForemanDashboard extends ConsumerStatefulWidget {
   const Fm1ForemanDashboard({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<Fm1ForemanDashboard> createState() =>
+      _Fm1ForemanDashboardState();
+}
+
+class _Fm1ForemanDashboardState extends ConsumerState<Fm1ForemanDashboard> {
+  TmForemanSiteLocation? _siteLocation;
+  bool _siteLocLoading = false;
+  String? _siteLocProjectsKey;
+  bool _submitInFlight = false;
+
+  Future<void> _resolveSiteLocation(
+    List<Project> inProgress, {
+    bool force = false,
+  }) async {
+    final key = inProgress.map((p) => p.id).join(',');
+    if (!force &&
+        key == _siteLocProjectsKey &&
+        (_siteLocation != null || _siteLocLoading)) {
+      return;
+    }
+    if (_siteLocLoading && !force) return;
+    setState(() => _siteLocLoading = true);
+    try {
+      final client = ref.read(timesheetApiClientProvider);
+      final result = await TmForemanSiteLocation.resolve(
+        inProgress: inProgress,
+        loadThresholdM: client.fetchProjectSubmitThresholdM,
+        readGps: () => LocationRepo()
+            .getCurrentLocation(timeLimit: const Duration(seconds: 12))
+            .then<Position?>((p) => p)
+            .catchError((_) => null),
+      );
+      if (!mounted) return;
+      setState(() {
+        _siteLocation = result;
+        _siteLocProjectsKey = key;
+        _siteLocLoading = false;
+      });
+    } catch (e, st) {
+      debugPrint('Fm1ForemanDashboard._resolveSiteLocation: $e\n$st');
+      if (mounted) setState(() => _siteLocLoading = false);
+    }
+  }
+
+  void _openSiteLocationPopup() {
+    final loc = _siteLocation ?? const TmForemanSiteLocation();
+    unawaited(TmSiteLocationDialog.show(context, location: loc));
+  }
+
+  /// Capture / walk-up project: matched site only (within threshold).
+  Project? get _captureProject => _siteLocation?.matched;
+
+  @override
+  Widget build(BuildContext context) {
     final bucketsAsync = ref.watch(timesheetProjectBucketsProvider);
+    ref.listen<AsyncValue<TimesheetProjectBuckets>>(
+      timesheetProjectBucketsProvider,
+      (prev, next) {
+        next.whenData((buckets) {
+          unawaited(_resolveSiteLocation(buckets.inProgress));
+        });
+      },
+    );
+    // First paint (listen does not fire for the current value).
+    final initialBuckets = bucketsAsync.asData?.value;
+    if (initialBuckets != null) {
+      final key = initialBuckets.inProgress.map((p) => p.id).join(',');
+      if (key != _siteLocProjectsKey && !_siteLocLoading) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (!mounted) return;
+          unawaited(_resolveSiteLocation(initialBuckets.inProgress));
+        });
+      }
+    }
     final laborsAsync = ref.watch(timesheetForemanLaborsProvider);
     final recentAsync = ref.watch(timesheetForemanRecentRowsProvider);
     final pendingCaptures =
@@ -153,9 +228,8 @@ class Fm1ForemanDashboard extends ConsumerWidget {
                             ref.invalidate(timesheetProjectBucketsProvider),
                       ),
                       data: (buckets) {
-                        final assignedCount =
-                            buckets.inProgress.length + buckets.completedTotal;
-                        if (assignedCount == 0 && laborCount == 0) {
+                        final activeCount = buckets.inProgress.length;
+                        if (activeCount == 0 && laborCount == 0) {
                           return const Center(
                             child: Text(
                               'No projects assigned',
@@ -176,23 +250,40 @@ class Fm1ForemanDashboard extends ConsumerWidget {
                                 children: [
                                   Expanded(
                                     child: _HomeStatCard(
-                                      value: '$assignedCount',
-                                      label: 'Assigned Projects',
-                                      icon: PhosphorIcons.buildings(),
+                                      value: '$activeCount',
+                                      label: 'Active Sites',
+                                      icon: PhosphorIcons.briefcase(),
+                                      onTap: () => TmActiveSitesSheet.show(
+                                        context,
+                                        projects: buckets.inProgress,
+                                        onReload: () =>
+                                            TmProjectLocationNotifyService
+                                                .reloadInProgressProjects(ref),
+                                        onNotify: (project) =>
+                                            TmProjectLocationNotifyService
+                                                .notifyStaff(
+                                          client: ref.read(
+                                            timesheetApiClientProvider,
+                                          ),
+                                          project: project,
+                                        ),
+                                      ),
                                     ),
                                   ),
                                   const SizedBox(
                                     width: TimesheetModuleLayout.cardSpacing,
                                   ),
                                   Expanded(
-                                    child: _HomeStatCard(
-                                      value: '${buckets.inProgress.length}',
-                                      label: 'Active Sites',
-                                      icon: PhosphorIcons.briefcase(),
-                                      onTap: () => TmActiveSitesSheet.show(
-                                        context,
-                                        projects: buckets.inProgress,
+                                    child: TmForemanSiteLocationCard(
+                                      location: _siteLocation,
+                                      loading: _siteLocLoading,
+                                      onReload: () => unawaited(
+                                        _resolveSiteLocation(
+                                          buckets.inProgress,
+                                          force: true,
+                                        ),
                                       ),
+                                      onOpen: _openSiteLocationPopup,
                                     ),
                                   ),
                                 ],
@@ -204,7 +295,7 @@ class Fm1ForemanDashboard extends ConsumerWidget {
                             _YourTeamBox(
                               laborCount: laborCount,
                               labors: labors,
-                              onTap: () => _showLabors(context, ref, buckets),
+                              onTap: () => _showLabors(buckets),
                             ),
                             const SizedBox(
                               height: TimesheetModuleLayout.sectionGap,
@@ -240,8 +331,6 @@ class Fm1ForemanDashboard extends ConsumerWidget {
                               child: _FloatingSubmitButton(
                                 count: pendingCaptures.length,
                                 onPressed: () => _submitFromStore(
-                                  context,
-                                  ref,
                                   buckets,
                                   pendingCaptures,
                                 ),
@@ -263,17 +352,13 @@ class Fm1ForemanDashboard extends ConsumerWidget {
 
   /// Pulls the foreman's current x_labor_ids from the server so HR changes show
   /// up without signing out.
-  Future<List<TimesheetTeamMember>> _reloadLabors(WidgetRef ref) {
+  Future<List<TimesheetTeamMember>> _reloadLabors() {
     ref.read(timesheetApiClientProvider).clearCache();
     ref.invalidate(timesheetHrScopeProvider);
     return ref.refresh(timesheetForemanLaborsProvider.future);
   }
 
-  Future<void> _showLabors(
-    BuildContext context,
-    WidgetRef ref,
-    TimesheetProjectBuckets buckets,
-  ) async {
+  Future<void> _showLabors(TimesheetProjectBuckets buckets) async {
     final members = ref.read(timesheetForemanLaborsProvider).maybeWhen(
           data: (value) => value,
           orElse: () => <TimesheetTeamMember>[],
@@ -288,8 +373,8 @@ class Fm1ForemanDashboard extends ConsumerWidget {
           data: (value) => value,
           orElse: () => const <TimesheetCaptureSessionEntry>[],
         );
-    final defaultArgs = await _resolveDefaultArgs(ref, buckets);
-    if (!context.mounted) return;
+    final defaultArgs = await _resolveDefaultArgs(buckets);
+    if (!mounted) return;
 
     await TmTeamMembersSheet.show(
       context,
@@ -298,19 +383,22 @@ class Fm1ForemanDashboard extends ConsumerWidget {
       enrollmentByEmployeeId: enrollment,
       watchForemanEnrollment: true,
       initialCaptures: pending,
-      onEnroll: (member) => _openEnroll(context, ref, member),
+      onEnroll: (member) => _openEnroll(member),
       onCaptureAttendance: (member, alreadyCapturedIds) =>
-          _captureForMember(context, ref, buckets, member, alreadyCapturedIds),
-      onWalkUpCapture: (alreadyCapturedIds) =>
-          _captureWalkUp(context, ref, buckets, members, alreadyCapturedIds),
-      onPendingChanged: (captures) =>
-          _persistPending(ref, defaultArgs, captures),
-      onSubmitCaptures: (captures) =>
-          _submitCaptures(context, ref, buckets, captures),
-      onReload: () => _reloadLabors(ref),
+          _captureForMember(buckets, member, alreadyCapturedIds),
+      onWalkUpCapture: (alreadyCapturedIds, {onSessionCapturesChanged}) =>
+          _captureWalkUp(
+            buckets,
+            members,
+            alreadyCapturedIds,
+            onSessionCapturesChanged: onSessionCapturesChanged,
+          ),
+      onPendingChanged: (captures) => _persistPending(defaultArgs, captures),
+      onSubmitCaptures: (captures) => _submitCaptures(buckets, captures),
+      onReload: _reloadLabors,
     );
 
-    if (context.mounted) {
+    if (mounted) {
       ref.invalidate(timesheetForemanEnrollmentMapProvider);
       ref.invalidate(timesheetForemanRecentRowsProvider);
       ref.invalidate(timesheetPendingCaptureProvider);
@@ -324,7 +412,7 @@ class Fm1ForemanDashboard extends ConsumerWidget {
   /// Real foreman login still requires a real Odoo task id. While a PM is
   /// acting as a foreman, capture is browse-only (submit is blocked), so we
   /// open the camera with a stub task when none is configured on the site.
-  Future<Task> _resolveCaptureTask(WidgetRef ref, String projectId) async {
+  Future<Task> _resolveCaptureTask(String projectId) async {
     final acting = ref.read(tmActingSessionProvider);
     final profile = ref.read(timesheetLoginProfileProvider);
     final client = ref.read(timesheetApiClientProvider);
@@ -370,13 +458,12 @@ class Fm1ForemanDashboard extends ConsumerWidget {
   }
 
   Future<TimesheetProjectDayArgs?> _resolveDefaultArgs(
-    WidgetRef ref,
     TimesheetProjectBuckets buckets,
   ) async {
-    if (buckets.inProgress.isEmpty) return null;
-    final project = buckets.inProgress.first;
+    final project = _captureProject;
+    if (project == null) return null;
     try {
-      final task = await _resolveCaptureTask(ref, project.id);
+      final task = await _resolveCaptureTask(project.id);
       final today = DateTime.now();
       return TimesheetProjectDayArgs(
         projectId: project.id,
@@ -391,7 +478,6 @@ class Fm1ForemanDashboard extends ConsumerWidget {
   }
 
   Future<void> _persistPending(
-    WidgetRef ref,
     TimesheetProjectDayArgs? args,
     List<TimesheetCaptureSessionEntry> captures,
   ) async {
@@ -404,19 +490,13 @@ class Fm1ForemanDashboard extends ConsumerWidget {
   }
 
   Future<void> _submitFromStore(
-    BuildContext context,
-    WidgetRef ref,
     TimesheetProjectBuckets buckets,
     List<TimesheetCaptureSessionEntry> captures,
   ) async {
-    await _submitCaptures(context, ref, buckets, captures);
+    await _submitCaptures(buckets, captures);
   }
 
-  Future<void> _openEnroll(
-    BuildContext context,
-    WidgetRef ref,
-    TimesheetTeamMember member,
-  ) async {
+  Future<void> _openEnroll(TimesheetTeamMember member) async {
     // Camera opens while acting; the enroll upload is blocked at submit time.
     // Employee is already known from the team list — skip the file-ID step and
     // go straight to pose capture.
@@ -427,31 +507,47 @@ class Fm1ForemanDashboard extends ConsumerWidget {
         employee: member.toOdooEmployee(),
       ),
     );
-    if (context.mounted) {
+    if (mounted) {
       ref.invalidate(timesheetForemanEnrollmentMapProvider);
     }
+  }
+
+  /// Ensures a site is resolved within threshold; otherwise shows the map
+  /// popup and returns null (camera must not open).
+  Future<Project?> _requireCaptureProject(
+    TimesheetProjectBuckets buckets,
+  ) async {
+    if (buckets.inProgress.isEmpty) {
+      if (!mounted) return null;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('No active sites available')),
+      );
+      return null;
+    }
+    var project = _captureProject;
+    if (project == null) {
+      await _resolveSiteLocation(buckets.inProgress, force: true);
+      project = _captureProject;
+    }
+    if (project != null) return project;
+    if (!mounted) return null;
+    _openSiteLocationPopup();
+    return null;
   }
 
   /// Opens the camera to capture a single labor and returns the captured
   /// entries so the Your Team sheet can accumulate them.
   Future<List<TimesheetCaptureSessionEntry>> _captureForMember(
-    BuildContext context,
-    WidgetRef ref,
     TimesheetProjectBuckets buckets,
     TimesheetTeamMember member,
     Set<int> alreadyCapturedIds,
   ) async {
-    if (buckets.inProgress.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('No active sites available')),
-      );
-      return const [];
-    }
+    final project = await _requireCaptureProject(buckets);
+    if (project == null) return const [];
 
-    final project = buckets.inProgress.first;
     try {
-      final task = await _resolveCaptureTask(ref, project.id);
-      if (!context.mounted) return const [];
+      final task = await _resolveCaptureTask(project.id);
+      if (!mounted) return const [];
       final today = DateTime.now();
       final result = await FmTimesheetCaptureSubmitScreen.pushOnce<
           List<TimesheetCaptureSessionEntry>>(
@@ -473,7 +569,7 @@ class Fm1ForemanDashboard extends ConsumerWidget {
       return result ?? const [];
     } catch (error, stack) {
       debugPrint('Fm1ForemanDashboard._captureForMember: $error\n$stack');
-      if (context.mounted) {
+      if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
@@ -488,34 +584,23 @@ class Fm1ForemanDashboard extends ConsumerWidget {
     }
   }
 
-  /// Walk-up: same project/task/date as per-labor capture (first in-progress
-  /// site). Multi-project chooser skipped (TASK 10 Addendum B).
+  /// Walk-up: camera for the GPS-resolved in-threshold site (not first list).
   Future<List<TimesheetCaptureSessionEntry>> _captureWalkUp(
-    BuildContext context,
-    WidgetRef ref,
     TimesheetProjectBuckets buckets,
     List<TimesheetTeamMember> members,
-    Set<int> alreadyCapturedIds,
-  ) async {
-    if (buckets.inProgress.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('No active sites available')),
-      );
-      return const [];
-    }
-    if (buckets.inProgress.length > 1) {
-      debugPrint(
-        'WalkUp: WARNING team may span multiple projects today; '
-        'opening camera for first in-progress site '
-        'project=${buckets.inProgress.first.id} '
-        '(${buckets.inProgress.first.name}); '
-        'otherSites=${buckets.inProgress.length - 1}',
-      );
-    }
-    final project = buckets.inProgress.first;
+    Set<int> alreadyCapturedIds, {
+    void Function(List<TimesheetCaptureSessionEntry> sessionCaptures)?
+        onSessionCapturesChanged,
+  }) async {
+    final project = await _requireCaptureProject(buckets);
+    if (project == null) return const [];
+    debugPrint(
+      'WalkUp: opening camera for resolved site '
+      'project=${project.id} (${project.name})',
+    );
     try {
-      final task = await _resolveCaptureTask(ref, project.id);
-      if (!context.mounted) return const [];
+      final task = await _resolveCaptureTask(project.id);
+      if (!mounted) return const [];
       final today = DateTime.now();
       final result = await FmTimesheetCaptureSubmitScreen.pushOnce<
           List<TimesheetCaptureSessionEntry>>(
@@ -524,6 +609,8 @@ class Fm1ForemanDashboard extends ConsumerWidget {
           returnCaptures: true,
           walkUpMode: true,
           alreadyCapturedEmployeeIds: alreadyCapturedIds,
+          onSessionCapturesChanged: onSessionCapturesChanged,
+          teamEmployeeIds: {for (final m in members) m.employeeId},
           args: TimesheetProjectDayArgs(
             projectId: project.id,
             projectName: project.name,
@@ -536,7 +623,7 @@ class Fm1ForemanDashboard extends ConsumerWidget {
       return result ?? const [];
     } catch (error, stack) {
       debugPrint('Fm1ForemanDashboard._captureWalkUp: $error\n$stack');
-      if (context.mounted) {
+      if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
@@ -553,8 +640,6 @@ class Fm1ForemanDashboard extends ConsumerWidget {
 
   /// Confirm + submit accumulated captures. Returns true on success.
   Future<bool> _submitCaptures(
-    BuildContext context,
-    WidgetRef ref,
     TimesheetProjectBuckets buckets,
     List<TimesheetCaptureSessionEntry> captures,
   ) async {
@@ -578,8 +663,8 @@ class Fm1ForemanDashboard extends ConsumerWidget {
     // Mutable working copy so the confirm sheet can drop captured labors, with
     // removals persisted live so the floating submit counter updates too.
     final working = List.of(captures);
-    final pendingArgs = await _resolveDefaultArgs(ref, buckets);
-    if (!context.mounted) return false;
+    final pendingArgs = await _resolveDefaultArgs(buckets);
+    if (!mounted) return false;
 
     final today = DateTime.now();
     final day = DateTime(today.year, today.month, today.day);
@@ -587,7 +672,7 @@ class Fm1ForemanDashboard extends ConsumerWidget {
         .subtract(const Duration(hours: 9));
     var end = DateTime(day.year, day.month, day.day, today.hour, today.minute);
     var breakHours = 1;
-    Project? selectedProject = projects.first;
+    Project? selectedProject = _captureProject ?? projects.first;
 
     final confirmed = await TmTimesheetCaptureConfirmSheet.show(
       context,
@@ -603,7 +688,7 @@ class Fm1ForemanDashboard extends ConsumerWidget {
       onProjectChanged: (project) => selectedProject = project,
       onRemoveCapture: (entry) {
         working.remove(entry);
-        unawaited(_persistPending(ref, pendingArgs, List.of(working)));
+        unawaited(_persistPending(pendingArgs, List.of(working)));
       },
       onReloadProjects: () =>
           TmProjectLocationNotifyService.reloadInProgressProjects(ref),
@@ -613,18 +698,18 @@ class Fm1ForemanDashboard extends ConsumerWidget {
         project: project,
       ),
     );
-    if (!confirmed || !context.mounted) return false;
+    if (!confirmed || !mounted) return false;
     if (working.isEmpty) return false;
     await PendingCaptureWrites.flush();
-    if (!context.mounted) return false;
+    if (!mounted) return false;
 
     var submitProjectId = selectedProject?.id ?? projects.first.id;
     String submitTaskId;
     try {
-      final task = await _resolveCaptureTask(ref, submitProjectId);
+      final task = await _resolveCaptureTask(submitProjectId);
       submitTaskId = task.id;
     } catch (_) {
-      if (context.mounted) {
+      if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('Could not resolve task for selected project'),
@@ -671,33 +756,13 @@ class Fm1ForemanDashboard extends ConsumerWidget {
         );
       }
 
-      final gateProject = selectedProject;
-      bool success;
-      if (gateProject != null && gateProject.hasSiteCoordinates) {
-        if (!context.mounted) return false;
-        // Popup decides by foreman distance to site; creates only if inside.
-        success = await TmSubmitGeofenceGate.run(
-          context,
-          project: gateProject,
-          loadThresholdM: () =>
-              client.fetchProjectSubmitThresholdM(gateProject.id),
-          submit: doSubmit,
-        );
-      } else {
-        final result = await doSubmit();
-        success = result.success;
-        if (context.mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(
-                result.success
-                    ? (result.message ?? 'Timesheet submitted')
-                    : (result.message ?? 'Submission failed'),
-              ),
-            ),
-          );
-        }
-      }
+      if (!mounted) return false;
+      // Location already enforced at camera open; submit shows result only.
+      final success = await TmTimesheetSubmitDialog.run(
+        context,
+        projectName: selectedProject?.name,
+        submit: doSubmit,
+      );
       if (success) {
         await TimesheetCaptureSessionStore.clear();
         ref.invalidate(timesheetForemanRecentRowsProvider);
@@ -705,7 +770,7 @@ class Fm1ForemanDashboard extends ConsumerWidget {
       }
       return success;
     } catch (_) {
-      if (context.mounted) {
+      if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Submission failed')),
         );
@@ -715,9 +780,6 @@ class Fm1ForemanDashboard extends ConsumerWidget {
       _submitInFlight = false;
     }
   }
-
-  /// One submit at a time (a second tap during a slow request duplicated it).
-  static bool _submitInFlight = false;
 }
 
 class _FmHomeHeader extends ConsumerWidget {

@@ -87,6 +87,8 @@ class TimesheetApiClient {
     required String role,
     bool hrWideScope = false,
     String status = 'in_progress',
+    /// When false (foreman home), skip server-side completed_count work.
+    bool includeCompletedCount = true,
   }) async {
     if (!_useLiveOdoo) {
       return _ok(_mockProjects(hrWideScope: hrWideScope));
@@ -96,6 +98,7 @@ class TimesheetApiClient {
         role: role,
         hrWideScope: hrWideScope,
         status: status,
+        includeCompletedCount: includeCompletedCount,
       );
       final projects = _projectsCache ?? const <Project>[];
       return _ok(projects);
@@ -856,8 +859,9 @@ class TimesheetApiClient {
     String role = 'foreman',
     bool hrWideScope = false,
     String status = 'in_progress',
+    bool includeCompletedCount = true,
   }) async {
-    final cacheKey = '$role|$status';
+    final cacheKey = '$role|$status|c=$includeCompletedCount';
     if (_isCacheFresh &&
         _projectsCache != null &&
         _cachedProjectsRole == cacheKey) {
@@ -877,14 +881,21 @@ class TimesheetApiClient {
       try {
         final body = await _transport.postJsonRpc(
           TimesheetOdooApiCatalog.siteProjects,
-          params: _scoped({'status': status}),
+          params: _scoped({
+            'status': status,
+            if (!includeCompletedCount) 'include_completed_count': false,
+          }),
         );
         final result =
             _transport.parseResult(body, debugLabel: 'site_projects');
         final rows = _transport.parseMapList(result, key: 'data');
-        if (result is Map && status == 'in_progress') {
+        if (includeCompletedCount &&
+            result is Map &&
+            status == 'in_progress') {
           _siteCompletedCount =
               tmIntOrNullFromJson(result['completed_count']) ?? 0;
+        } else if (!includeCompletedCount) {
+          _siteCompletedCount = 0;
         }
         _projectsCache = rows
             .map((row) => TimesheetOdooMappers.projectFromGetProjects(row))
