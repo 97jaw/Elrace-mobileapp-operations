@@ -160,13 +160,17 @@ class TimesheetFaceCapturePermissions {
 /// It never calls AWS Rekognition directly; matching stays behind Firebase
 /// ML Kit detector profile. Capture keeps contours OFF (avoids ThickFaceDetector
 /// spam + BlazeFace ~65-node XNNPACK churn). Enrollment keeps contours ON for
-/// the mesh painter.
+/// the mesh painter. Template builds use a private detector (never shared with
+/// the live stream) so processImage cannot overlap on one instance.
 enum FaceDetectorProfile {
   /// 1:1 / attendance stream: landmarks + classification, no contours, fast.
   capture,
 
   /// Enrollment mesh: landmarks + classification + contours, fast.
   enrollment,
+
+  /// Profile-photo template build: same options as capture, owned instance.
+  templateBuild,
 }
 
 /// callable clients. // TODO(backend)
@@ -174,18 +178,49 @@ class TimesheetFaceCaptureService {
   TimesheetFaceCaptureService({
     FaceDetector? detector,
     FaceDetectorProfile profile = FaceDetectorProfile.capture,
-  })  : _usesSharedDetector = detector == null,
+  })  : assert(
+          profile != FaceDetectorProfile.templateBuild || detector != null,
+          'templateBuild must use [forTemplateBuild] (owned detector)',
+        ),
+        _usesSharedDetector = detector == null,
         _profile = profile,
         _detector = detector ?? _acquireSharedDetector(profile),
         _contoursEnabled = detector == null
             ? profile == FaceDetectorProfile.enrollment
             : null;
 
+  /// Dedicated FaceDetector for profile-photo template builds. Never shares
+  /// the capture stream detector; [dispose] closes it after the batch.
+  factory TimesheetFaceCaptureService.forTemplateBuild() {
+    final created = FaceDetector(
+      options: FaceDetectorOptions(
+        enableClassification: true,
+        enableLandmarks: true,
+        enableContours: false,
+        enableTracking: true,
+        minFaceSize: minFaceDetectorSize,
+        performanceMode: FaceDetectorMode.fast,
+      ),
+    );
+    debugPrint(
+      'FaceCapture: ML Kit face detector created (template_build, owned, '
+      'contours=off) id=${identityHashCode(created)}',
+    );
+    return TimesheetFaceCaptureService(
+      detector: created,
+      profile: FaceDetectorProfile.templateBuild,
+    );
+  }
+
   /// Shared detectors for the app lifetime (never closed). Recreating ML Kit
   /// FaceDetectors reloads BlazeFace (~65 nodes) and logs
   /// `Replacing 65 out of 65 node(s) with delegate (TfLiteXNNPackDelegate)`.
+  /// Template builds must NOT use these — see [forTemplateBuild].
   static FaceDetector? _sharedCaptureDetector;
   static FaceDetector? _sharedEnrollmentDetector;
+
+  /// In-flight processImage caller per detector id (overlap = crash risk).
+  static final Map<int, String> _inFlightCallerByDetectorId = {};
 
   final FaceDetectorProfile _profile;
   final bool? _contoursEnabled;
@@ -223,6 +258,35 @@ class TimesheetFaceCaptureService {
         'id=$detectorInstanceId frame=#$_processImageCount '
         'profile=${_profile.name} contours=$contoursEnabled',
       );
+    }
+  }
+
+  /// Single entry for every ML Kit processImage — logs caller and asserts no
+  /// overlapping use of the same detector instance.
+  Future<List<Face>> _processImageGuarded(
+    InputImage inputImage, {
+    required String caller,
+  }) async {
+    final id = detectorInstanceId;
+    final existing = _inFlightCallerByDetectorId[id];
+    if (existing != null) {
+      debugPrint(
+        'Detector: OVERLAP id=$id existing=$existing new=$caller',
+      );
+      assert(
+        false,
+        'FaceDetector processImage overlap id=$id '
+        'existing=$existing new=$caller',
+      );
+    }
+    debugPrint('Detector: use id=$id caller=$caller');
+    _inFlightCallerByDetectorId[id] = caller;
+    try {
+      return await _detector.processImage(inputImage);
+    } finally {
+      if (_inFlightCallerByDetectorId[id] == caller) {
+        _inFlightCallerByDetectorId.remove(id);
+      }
     }
   }
 
@@ -277,6 +341,10 @@ class TimesheetFaceCaptureService {
           'contours=on) id=${identityHashCode(created)} — long-lived',
         );
         return _sharedEnrollmentDetector = created;
+      case FaceDetectorProfile.templateBuild:
+        throw StateError(
+          'templateBuild must use TimesheetFaceCaptureService.forTemplateBuild()',
+        );
     }
   }
 
@@ -365,7 +433,10 @@ class TimesheetFaceCaptureService {
         ? imagePath
         : await _normalizedImagePath(imagePath);
     final inputImage = InputImage.fromFilePath(normalizedPath);
-    final faces = await _detector.processImage(inputImage);
+    final caller = _profile == FaceDetectorProfile.templateBuild
+        ? 'template_build'
+        : 'still';
+    final faces = await _processImageGuarded(inputImage, caller: caller);
     final decoded = alreadyNormalized && !includeCrop
         ? null
         : await _decodeImage(normalizedPath);
@@ -573,7 +644,10 @@ class TimesheetFaceCaptureService {
     double boxScaleY = 1,
   }) async {
     _maybeLogDetectorHeartbeat();
-    final faces = await _detector.processImage(inputImage);
+    final faces = await _processImageGuarded(
+      inputImage,
+      caller: liveStream ? 'stream' : 'still',
+    );
     final sx = boxScaleX;
     final sy = boxScaleY;
     final scaleBoxes = sx != 1.0 || sy != 1.0;
@@ -718,9 +792,15 @@ class TimesheetFaceCaptureService {
   /// next conversion starts only after ML Kit finishes with this buffer.
   Uint8List? _nv21Scratch;
   Uint8List? _nv21DownscaleScratch;
+  int _allocLogRemaining = 10;
+
+  /// Re-arm per-step alloc logs for the next camera-open session.
+  void resetAllocLogForCameraOpen() {
+    _allocLogRemaining = 10;
+  }
 
   /// Instance path with NV21 buffer reuse + [lastInputConversionMs].
-  /// On Android low-end, feeds ML Kit a ~640-wide NV21 and sets
+  /// On Android, feeds ML Kit a ~640-wide NV21 and sets
   /// [lastDetectBoxScaleX]/[lastDetectBoxScaleY] so callers map to full-res.
   InputImage? buildInputImageFromCameraImage({
     required CameraImage image,
@@ -732,6 +812,12 @@ class TimesheetFaceCaptureService {
     final rotation = _rotationFromSensorOrientation(camera.sensorOrientation);
     final size = Size(image.width.toDouble(), image.height.toDouble());
     InputImage? result;
+    var nv21Ms = 0;
+    var downscaleMs = 0;
+    var nv21Bytes = 0;
+    var downscaleBytes = 0;
+    var reusedNv21 = false;
+    var reusedDown = false;
     if (Platform.isIOS && image.format.group == ImageFormatGroup.bgra8888) {
       final plane = image.planes.first;
       result = InputImage.fromBytes(
@@ -756,7 +842,14 @@ class TimesheetFaceCaptureService {
       );
     } else if (Platform.isAndroid &&
         image.format.group == ImageFormatGroup.yuv420) {
+      final needed =
+          image.width * image.height + (image.width * image.height ~/ 2);
+      reusedNv21 =
+          _nv21Scratch != null && _nv21Scratch!.length >= needed;
+      final nv21Sw = Stopwatch()..start();
       final full = _yuv420ToNv21Reused(image);
+      nv21Ms = nv21Sw.elapsedMilliseconds;
+      nv21Bytes = full?.length ?? 0;
       if (full != null) {
         final downscaled = AndroidFaceCapturePerf.downscaleMlKit
             ? _maybeDownscaleNv21(
@@ -766,6 +859,9 @@ class TimesheetFaceCaptureService {
               )
             : null;
         if (downscaled != null) {
+          reusedDown = identical(downscaled.bytes, _nv21DownscaleScratch);
+          downscaleMs = sw.elapsedMilliseconds - nv21Ms;
+          downscaleBytes = downscaled.bytes.length;
           lastDetectBoxScaleX = image.width / downscaled.width;
           lastDetectBoxScaleY = image.height / downscaled.height;
           // ML Kit boxes are in the same rotated space as full upright after
@@ -799,6 +895,16 @@ class TimesheetFaceCaptureService {
       debugPrint('Unsupported camera image format: ${image.format.group}');
     }
     lastInputConversionMs = sw.elapsedMilliseconds;
+    if (Platform.isAndroid && _allocLogRemaining > 0) {
+      _allocLogRemaining -= 1;
+      debugPrint(
+        'Alloc: frame=${10 - _allocLogRemaining} '
+        'src=${image.width}x${image.height} '
+        'nv21_ms=$nv21Ms nv21_bytes=$nv21Bytes reused_nv21=$reusedNv21 '
+        'down_ms=$downscaleMs down_bytes=$downscaleBytes reused_down=$reusedDown '
+        'total_ms=$lastInputConversionMs',
+      );
+    }
     return result;
   }
 
@@ -858,7 +964,10 @@ class TimesheetFaceCaptureService {
     FaceEnrollmentPose pose, {
     bool frontCamera = true,
   }) async {
-    final faces = await _detector.processImage(inputImage);
+    final faces = await _processImageGuarded(
+      inputImage,
+      caller: 'enrollment_stream',
+    );
     return _previewFromFaces(
       faces,
       pose,
@@ -876,7 +985,10 @@ class TimesheetFaceCaptureService {
   }) async {
     final normalizedPath = await _normalizedImagePath(imagePath);
     final inputImage = InputImage.fromFilePath(normalizedPath);
-    final faces = await _detector.processImage(inputImage);
+    final faces = await _processImageGuarded(
+      inputImage,
+      caller: 'enrollment_still',
+    );
     final decoded = await _decodeImage(normalizedPath);
     final preview = _previewFromFaces(
       faces,
@@ -988,6 +1100,7 @@ class TimesheetFaceCaptureService {
   }
 
   Future<void> dispose() async {
+    _inFlightCallerByDetectorId.remove(detectorInstanceId);
     if (!_usesSharedDetector) {
       await _detector.close();
     }
