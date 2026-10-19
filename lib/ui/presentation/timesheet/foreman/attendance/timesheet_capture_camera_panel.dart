@@ -18,10 +18,11 @@ import 'package:el_race/core/site_management/face_recognition/domain/face_embedd
 import 'package:el_race/core/site_management/face_recognition/domain/face_verifier.dart';
 import 'package:el_race/core/site_management/face_recognition/domain/face_walkup.dart';
 import 'package:el_race/core/site_management/face_recognition/domain/frame_evidence.dart';
+import 'package:el_race/core/site_management/face_recognition/face_min_device_check.dart';
 import 'package:el_race/core/site_management/face_recognition/face_recognition_config.dart';
 import 'package:el_race/core/site_management/face_recognition/face_recognition_service.dart';
+import 'package:el_race/core/site_management/face_recognition/profile_photo_face_db.dart';
 import 'package:el_race/core/timesheet/services/timesheet_roster_face_matcher.dart';
-import 'package:el_race/core/timesheet/services/camera_region_decode.dart';
 import 'package:el_race/core/timesheet/services/capture_queue_service.dart';
 import 'package:el_race/core/timesheet/services/face_capture_service.dart';
 import 'package:el_race/core/timesheet/services/geofence_service.dart';
@@ -32,11 +33,14 @@ import 'package:el_race/core/utils/app_orientations.dart';
 import 'package:el_race/core/utils/responsive_breakpoints.dart';
 import 'package:el_race/core/utils/shared_pref.dart';
 import 'package:el_race/ui/presentation/timesheet/timesheet_route_args.dart';
+import 'package:el_race/ui/presentation/timesheet/widgets/face_recognition/tm_distance_ghost_silhouette.dart';
 import 'package:el_race/ui/presentation/timesheet/widgets/face_recognition/tm_face_mesh_painter.dart';
+import 'package:el_race/ui/presentation/timesheet/widgets/face_recognition/tm_face_preview_map.dart';
 import 'package:el_race/ui/presentation/timesheet/widgets/face_recognition/tm_aws_face_liveness_screen.dart';
 import 'package:device_info_plus/device_info_plus.dart';
 import 'package:flutter/foundation.dart' show compute, kDebugMode;
 import 'package:flutter/material.dart';
+import 'package:flutter/scheduler.dart';
 import 'package:flutter/services.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:image/image.dart' as img;
@@ -61,7 +65,6 @@ class _BestFramePending {
     required this.markerFaceBox,
     required this.uprightFrameSize,
     required this.result,
-    this.modelLandmarks,
   });
 
   final img.Image modelRgb;
@@ -69,7 +72,6 @@ class _BestFramePending {
   final Rect markerFaceBox;
   final Size uprightFrameSize;
   final TimesheetFaceDetectionResult result;
-  final TimesheetFaceLandmarkSnapshot? modelLandmarks;
 }
 
 /// Live chrome state for parent-built overlays (Add timesheet full screen).
@@ -91,6 +93,7 @@ class TimesheetCaptureChromeSnapshot {
     this.livenessVerifying = false,
     this.livenessPhase = LivenessGatePhase.idle,
     this.livenessStepNumber = 1,
+    this.showWalkUpPickLabor = false,
   });
 
   final String faceStatus;
@@ -111,6 +114,9 @@ class TimesheetCaptureChromeSnapshot {
   final bool livenessVerifying;
   final LivenessGatePhase livenessPhase;
   final int livenessStepNumber;
+
+  /// Walk-up: face present but not identified long enough → show Pick labor.
+  final bool showWalkUpPickLabor;
 }
 
 enum TimesheetFaceFrameKind {
@@ -199,6 +205,8 @@ class TimesheetCaptureCameraPanel extends StatefulWidget {
     this.onTargetVerified,
     this.onTargetVerifyFailed,
     this.onWalkUpAccepted,
+    this.onWalkUpAlreadySticky,
+    this.onWalkUpCardCleared,
     this.onWalkUpPickLabor,
     this.onCaptureWriteFailed,
   });
@@ -216,6 +224,12 @@ class TimesheetCaptureCameraPanel extends StatefulWidget {
     AttendanceCaptureDraft draft,
     FaceWalkUpResult result,
   )? onWalkUpAccepted;
+
+  /// Walk-up: already-captured W identified on 2 frames → sticky blue card.
+  final void Function(TimesheetOdooEmployee employee)? onWalkUpAlreadySticky;
+
+  /// Walk-up: sticky card replaced (other labor / stranger) → host clears it.
+  final VoidCallback? onWalkUpCardCleared;
 
   /// Walk-up "Pick labor" → host opens verify for one labor.
   final Future<void> Function()? onWalkUpPickLabor;
@@ -316,9 +330,7 @@ class TimesheetCaptureCameraPanel extends StatefulWidget {
 
 class TimesheetCaptureCameraPanelState
     extends State<TimesheetCaptureCameraPanel> {
-  static const double _minSupportedAndroidRamGb = 4.5;
-  static const int _minSupportedAndroidCpuCores = 6;
-  static const double _lowTierAndroidRamGb = 6.5;
+  // Min device gate lives in [FaceMinDeviceCheck] (Odoo-configurable).
   static const Duration _streamDetectInterval = Duration(milliseconds: 280);
   static const Duration _streamDetectIntervalFast = Duration(milliseconds: 180);
   static const Duration _previewMatchInterval = Duration(milliseconds: 550);
@@ -377,6 +389,13 @@ class TimesheetCaptureCameraPanelState
   /// ML Kit detection rate (camera-rate loop, independent of evidence).
   int _detectFrameCount = 0;
   int _detectSkippedWhileBusy = 0;
+  int _streamCallbackCount = 0;
+  int _streamProcessedCount = 0;
+  int _streamDropIndex = 0;
+  int _uiJankFrames = 0;
+  int _uiStallMs = 0;
+  DateTime _lastPerfUiLogAt = DateTime.fromMillisecondsSinceEpoch(0);
+  void Function(List<FrameTiming>)? _frameTimingsCallback;
   int _detectConversionMsSum = 0;
   int _detectMsSum = 0;
   DateTime _detectFpsWindowStart = DateTime.fromMillisecondsSinceEpoch(0);
@@ -399,6 +418,14 @@ class TimesheetCaptureCameraPanelState
   Timer? _delayedHintTimer;
   bool _delayedHintVisible = false;
 
+  /// Distance ghost silhouette — ValueNotifier only (no panel setState).
+  final ValueNotifier<DistanceSilhouetteHintState> _distanceSilhouette =
+      ValueNotifier(DistanceSilhouetteHintState.hidden);
+  DateTime? _silhouetteShownAt;
+  Timer? _silhouetteMinHoldTimer;
+  /// Timer fired but image size not ready yet — show when size arrives.
+  bool _silhouettePendingShow = false;
+
   List<CameraDescription> _availableCameras = const [];
   CameraController? _cameraController;
   CameraDescription? _camera;
@@ -416,7 +443,13 @@ class TimesheetCaptureCameraPanelState
   bool _isInitializingCamera = false;
   bool _isDetectingFrame = false;
   bool _isStreaming = false;
+
+  /// Pick-labor side panel open: no stream processing / ML / PAD until resume.
+  bool _pipelinePausedForPanel = false;
   bool _lowEndDeviceMode = false;
+  String? _lowEndDeviceModel;
+  int? _lowEndDeviceCores;
+  double? _lowEndDeviceRamGb;
   bool _iosPollingDetection = false;
   bool _cameraInitInFlight = false;
   String? _cameraError;
@@ -510,8 +543,142 @@ class TimesheetCaptureCameraPanelState
         : _autoCaptureHoldLocked;
   }
 
-  bool _isEmployeeAlreadyCaptured(int employeeId) =>
-      widget.capturedEmployeeIds.contains(employeeId);
+  bool _isEmployeeAlreadyCaptured(int employeeId) {
+    if (widget.capturedEmployeeIds.contains(employeeId)) return true;
+    // Walk-up: include ids accepted this session before the host rebuilds.
+    if (widget.walkUpMode && _walkUpSessionCaptured.contains(employeeId)) {
+      return true;
+    }
+    return false;
+  }
+
+  /// Immediate accept set (host [capturedEmployeeIds] can lag one frame).
+  final Set<int> _walkUpSessionCaptured = {};
+
+  /// Sticky success/already card for this employee (ignore W while held).
+  int? _walkUpHeldCardEmpId;
+  bool _walkUpHeldCardIsSuccess = false;
+  DateTime? _walkUpStrangerSince;
+  int? _walkUpAlreadyCandidateId;
+  int _walkUpAlreadyIdFrames = 0;
+  static const _walkUpAlreadyNeedFrames = 2;
+  static const _walkUpStrangerClearDelay = Duration(seconds: 2);
+
+  TimesheetOdooEmployee _walkUpResolveEmp(int employeeId) {
+    for (final e in widget.rosterEmployees ?? const <TimesheetOdooEmployee>[]) {
+      if (e.employeeId == employeeId || e.id == employeeId) return e;
+    }
+    return TimesheetOdooEmployee(
+      id: employeeId,
+      employeeId: employeeId,
+      name: 'Employee $employeeId',
+    );
+  }
+
+  void _clearWalkUpCardHold({required String reason}) {
+    final was = _walkUpHeldCardEmpId;
+    if (was == null) return;
+    debugPrint('WalkUp: card replaced by $reason');
+    _walkUpHeldCardEmpId = null;
+    _walkUpHeldCardIsSuccess = false;
+    _walkUpStrangerSince = null;
+    widget.onWalkUpCardCleared?.call();
+  }
+
+  void _holdWalkUpCard(int empId, {required bool success}) {
+    _walkUpHeldCardEmpId = empId;
+    _walkUpHeldCardIsSuccess = success;
+    _walkUpStrangerSince = null;
+    _walkUpAlreadyCandidateId = null;
+    _walkUpAlreadyIdFrames = 0;
+    debugPrint('WalkUp: card hold emp=$empId');
+    _maybeSuppressDistanceSilhouette();
+  }
+
+  void _stripIdentifiedEmpFromWindow(int empId) {
+    _bestFrameWindow.removeWhere(
+      (e) =>
+          e.walkUp?.identified == true && e.walkUp?.winnerEmployeeId == empId,
+    );
+  }
+
+  /// Sticky card + already-attended (2 identified frames). Returns true when
+  /// the normal accept path must be skipped for this frame.
+  bool _handleWalkUpStickyAndAlready({
+    required DateTime now,
+    required FrameEvidence evidence,
+  }) {
+    final wu = evidence.walkUp;
+    final identified =
+        (wu != null && wu.identified) ? wu.winnerEmployeeId : null;
+
+    final held = _walkUpHeldCardEmpId;
+    if (held != null) {
+      if (identified == held) {
+        // Same W still in front — keep success/already; ignore for evidence.
+        _walkUpStrangerSince = null;
+        _stripIdentifiedEmpFromWindow(held);
+        return true;
+      }
+      if (identified != null && identified != held) {
+        _clearWalkUpCardHold(reason: 'emp=$identified');
+        _clearBestFrameWindow();
+        _bestFrameWindow.add(evidence);
+        // Fall through so the new labor can collect evidence / already / accept.
+      } else {
+        // Face present but not the held labor → stranger clock.
+        _walkUpStrangerSince ??= now;
+        if (now.difference(_walkUpStrangerSince!) >=
+            _walkUpStrangerClearDelay) {
+          _clearWalkUpCardHold(reason: 'stranger');
+          _clearBestFrameWindow();
+          _bestFrameWindow.add(evidence);
+          // Fall through after clear.
+        } else {
+          // Ignore frames while the sticky card is up.
+          _bestFrameWindow.removeWhere((e) => identical(e, evidence));
+          _stripIdentifiedEmpFromWindow(held);
+          return true;
+        }
+      }
+    }
+
+    // Already-attended: only PAD-live + identified frames count (same as
+    // capture). Uncertain / notEligible / pad_ms=0 must not show the blue card.
+    // Spoof is handled before this method (attack message, no card).
+    if (identified != null && _isEmployeeAlreadyCaptured(identified)) {
+      // After a fresh success for W, keep the green card — do not flip to blue.
+      if (_walkUpHeldCardEmpId == identified && _walkUpHeldCardIsSuccess) {
+        _stripIdentifiedEmpFromWindow(identified);
+        return true;
+      }
+      if (!evidence.isLiveIdentified) {
+        // Identified on a non-live PAD frame — do not advance already counter.
+        return true;
+      }
+      if (_walkUpAlreadyCandidateId != identified) {
+        _walkUpAlreadyCandidateId = identified;
+        _walkUpAlreadyIdFrames = 1;
+      } else {
+        _walkUpAlreadyIdFrames++;
+      }
+      if (_walkUpAlreadyIdFrames >= _walkUpAlreadyNeedFrames) {
+        debugPrint(
+          'WalkUp: already emp=$identified frames=$_walkUpAlreadyIdFrames '
+          'pad=live',
+        );
+        _holdWalkUpCard(identified, success: false);
+        _clearBestFrameWindow();
+        widget.onWalkUpAlreadySticky?.call(_walkUpResolveEmp(identified));
+      }
+      _stripIdentifiedEmpFromWindow(identified);
+      return true;
+    }
+
+    _walkUpAlreadyCandidateId = null;
+    _walkUpAlreadyIdFrames = 0;
+    return false;
+  }
 
   bool _isOnProjectLaborList(int employeeId) =>
       widget.projectLaborEmployeeIds.contains(employeeId);
@@ -649,6 +816,8 @@ class TimesheetCaptureCameraPanelState
         livenessVerifying: _livenessSnapshot.isVerifying,
         livenessPhase: _livenessSnapshot.phase,
         livenessStepNumber: _livenessSnapshot.stepNumber,
+        showWalkUpPickLabor:
+            widget.walkUpMode && _walkUpPickLaborHint != null,
       ),
     );
     _maybeInstantCapture();
@@ -682,6 +851,10 @@ class TimesheetCaptureCameraPanelState
     _instantCaptureTimer = null;
     _autoCaptureTimer?.cancel();
     _faceReadySince = null;
+    // Drop pending evidence so post-accept frames cannot PAD-reject.
+    _bestFramePending = null;
+    _clearBestFrameWindow();
+    _maybeSuppressDistanceSilhouette();
   }
 
   /// [armAuto] false when the user pressed the shutter themselves.
@@ -702,7 +875,7 @@ class TimesheetCaptureCameraPanelState
     }
     _bestFrameWindow.clear();
     _bestFrameMarker = BestFrameMarkerState.none;
-    _walkUpPickLaborHint = null;
+    _clearWalkUpUnrecognized();
     _bestFrameFirstFaceAt = null;
     _bestFrameFirstVerifiedAt = null;
     _bestFrameFirstLiveAt = null;
@@ -738,11 +911,13 @@ class TimesheetCaptureCameraPanelState
             fused.probabilities[AntispoofConfig.replayAttackClassIndex];
     final target = widget.targetEmployee?.employeeId ?? 0;
     final attackTest = AppConfigService.instance.isTestMode;
+    final reason = layer1.reason ?? '-';
     debugPrint(
       'PadScore: live=${live.toStringAsFixed(3)} '
       'spoof=${spoof.toStringAsFixed(3)} frame=#$frameSeq '
       'target=$target attack_test=${attackTest ? 1 : 0} '
-      'verdict=${layer1.verdict.name} id=${identityStatus.name}',
+      'verdict=${layer1.verdict.name} reason=$reason '
+      'id=${identityStatus.name}',
     );
 
     final unverified = identityStatus != FrameIdentityStatus.verified;
@@ -786,22 +961,34 @@ class TimesheetCaptureCameraPanelState
     _markerSmoothBox = null;
     _markerEmployeeId = null;
     _delayedHintVisible = false;
+    _hideDistanceSilhouette(force: true);
   }
 
   /// Smooth the marker box toward [target] over ~100 ms (TASK 09).
+  /// Cap repaint at 30 fps to cut overlay jank on mid-range Android.
   /// [employeeId] null/0 → neutral brackets; >0 → green + emp-id pill.
   void _animateMarkerBox(Rect target, {int? employeeId}) {
     if (employeeId != null) {
       _markerEmployeeId = employeeId > 0 ? employeeId : null;
     }
     final from = _markerSmoothBox ?? target;
+    // Skip restarting lerp when the box barely moved.
+    final prevTo = _markerLerpTo;
+    if (prevTo != null &&
+        (prevTo.left - target.left).abs() < 2 &&
+        (prevTo.top - target.top).abs() < 2 &&
+        (prevTo.width - target.width).abs() < 2 &&
+        (prevTo.height - target.height).abs() < 2) {
+      _markerLerpTo = target;
+      return;
+    }
     _markerLerpFrom = from;
     _markerLerpTo = target;
     _markerLerpStarted = DateTime.now();
     _markerSmoothBox = from;
     if (mounted) setState(() {});
     _markerLerpTimer?.cancel();
-    _markerLerpTimer = Timer.periodic(const Duration(milliseconds: 16), (t) {
+    _markerLerpTimer = Timer.periodic(const Duration(milliseconds: 33), (t) {
       if (!mounted) {
         t.cancel();
         return;
@@ -869,12 +1056,6 @@ class TimesheetCaptureCameraPanelState
       'lowEnd=${AndroidFaceCapturePerf.isLowEnd} '
       'downscale=${AndroidFaceCapturePerf.downscaleMlKit}',
     );
-    if (Platform.isAndroid &&
-        AndroidFaceCapturePerf.promoteIfSlow(detectMs: avgDetect.round()) &&
-        mounted &&
-        !_lowEndDeviceMode) {
-      _lowEndDeviceMode = true;
-    }
     _detectFpsWindowStart = now;
     _detectFrameCount = 0;
     _detectSkippedWhileBusy = 0;
@@ -882,29 +1063,170 @@ class TimesheetCaptureCameraPanelState
     _detectMsSum = 0;
   }
 
+  void _noteDetectMsForLowEnd(int detectMs) {
+    if (!Platform.isAndroid) return;
+    if (AndroidFaceCapturePerf.noteDetectMs(
+          detectMs,
+          model: _lowEndDeviceModel,
+          cores: _lowEndDeviceCores,
+          ramGb: _lowEndDeviceRamGb,
+        ) &&
+        mounted &&
+        !_lowEndDeviceMode) {
+      _lowEndDeviceMode = true;
+    }
+  }
+
   bool get _markerMirrorX =>
       _camera?.lensDirection == CameraLensDirection.front;
 
-  /// Upright size matching ML Kit boxes after sensor rotation.
+  /// Upright size matching ML Kit boxes (same space as the distance guide).
+  /// Prefer sensor rotation; if orientation is 0 but the buffer is still
+  /// landscape (common on some iOS paths), swap so boxes and guide agree.
   Size _uprightImageSize(CameraImage image, CameraDescription camera) {
     final angle = camera.sensorOrientation % 360;
     if (angle == 90 || angle == 270) {
       return Size(image.height.toDouble(), image.width.toDouble());
     }
+    if (image.width > image.height) {
+      return Size(image.height.toDouble(), image.width.toDouble());
+    }
     return Size(image.width.toDouble(), image.height.toDouble());
   }
+
+  bool get _isTooCloseHintReason =>
+      _dominantUsableReason == FrameUsableDominant.tooClose;
+
+  /// Card / green marker / spoof — never show the distance ghost.
+  bool get _suppressDistanceSilhouette =>
+      _noticeHold ||
+      _walkUpHeldCardEmpId != null ||
+      _bestFrameMarker is BestFrameMarkerVerified ||
+      (_markerEmployeeId != null &&
+          _markerEmployeeId! > 0 &&
+          !widget.walkUpMode) ||
+      _livenessSnapshot.showSpoofWarning;
 
   void _noteNoUsableFrame(DateTime now) {
     if (_noUsableFrameSince == null) {
       _noUsableFrameSince = now;
       _delayedHintTimer?.cancel();
-      _delayedHintTimer = Timer(const Duration(seconds: 2), () {
+      // tooClose: silhouette after 1 s. tooFar and other reasons: text at 2 s.
+      final delay = _isTooCloseHintReason
+          ? const Duration(seconds: 1)
+          : const Duration(seconds: 2);
+      _delayedHintTimer = Timer(delay, () {
         if (!mounted || !_bestFrameModeActive) return;
+        if (_noUsableFrameSince == null) return;
+        if (_isTooCloseHintReason) {
+          if (_suppressDistanceSilhouette) return;
+          debugPrint(
+            'Hint: show reason=${_dominantUsableReason.name}',
+          );
+          _silhouettePendingShow = true;
+          _showDistanceSilhouette();
+          return;
+        }
         if (_bestFrameMarker is BestFrameMarkerVerified) return;
         if (_noticeHold) return;
-        if (_noUsableFrameSince == null) return;
+        if (!_delayedHintVisible) {
+          debugPrint(
+            'Hint: show reason=${_dominantUsableReason.name}',
+          );
+        }
         setState(() => _delayedHintVisible = true);
       });
+    }
+  }
+
+  /// Preview insets so the SVG head clears header / bottom chrome.
+  ({double top, double bottom}) _distanceGuideSafeInsets() {
+    final pad = MediaQuery.paddingOf(context);
+    final external = widget.fillHeight && widget.externalChrome;
+    // External chrome: host header + capture bar overlay the preview.
+    // In-panel chrome: status row top + geofence / shutter bottom.
+    final top = pad.top + (external ? 72.0 : 56.0);
+    final bottom = pad.bottom + (external ? 120.0 : 88.0);
+    return (top: top, bottom: bottom);
+  }
+
+  void _showDistanceSilhouette() {
+    if (_suppressDistanceSilhouette) {
+      _silhouettePendingShow = false;
+      return;
+    }
+    final imageSize = _markerImageSize;
+    if (imageSize == null ||
+        imageSize.width <= 0 ||
+        imageSize.height <= 0) {
+      return;
+    }
+    _silhouettePendingShow = false;
+    _silhouetteMinHoldTimer?.cancel();
+    _silhouetteMinHoldTimer = null;
+    _silhouetteShownAt = DateTime.now();
+    final safe = _distanceGuideSafeInsets();
+    final next = DistanceSilhouetteHintState(
+      show: true,
+      imageSize: imageSize,
+      fit: _previewFit,
+      mirrorX: _markerMirrorX,
+      safeTop: safe.top,
+      safeBottom: safe.bottom,
+    );
+    if (_distanceSilhouette.value != next) {
+      _distanceSilhouette.value = next;
+    }
+  }
+
+  /// Hide silhouette; once shown, keep ≥600 ms to avoid flicker.
+  void _hideDistanceSilhouette({bool force = false}) {
+    _silhouettePendingShow = false;
+    if (!_distanceSilhouette.value.show) {
+      _silhouetteMinHoldTimer?.cancel();
+      _silhouetteMinHoldTimer = null;
+      _silhouetteShownAt = null;
+      return;
+    }
+    if (!force && _silhouetteShownAt != null) {
+      final elapsed = DateTime.now().difference(_silhouetteShownAt!);
+      const minHold = Duration(milliseconds: 600);
+      if (elapsed < minHold) {
+        _silhouetteMinHoldTimer?.cancel();
+        _silhouetteMinHoldTimer = Timer(minHold - elapsed, () {
+          _hideDistanceSilhouette(force: true);
+        });
+        return;
+      }
+    }
+    _silhouetteMinHoldTimer?.cancel();
+    _silhouetteMinHoldTimer = null;
+    _silhouetteShownAt = null;
+    if (_distanceSilhouette.value.show) {
+      debugPrint('Hint: hide');
+      _distanceSilhouette.value = _distanceSilhouette.value.copyWith(show: false);
+    }
+  }
+
+  void _syncDistanceSilhouetteMeta() {
+    final cur = _distanceSilhouette.value;
+    if (!cur.show) return;
+    final imageSize = _markerImageSize;
+    if (imageSize == null) return;
+    final safe = _distanceGuideSafeInsets();
+    final next = cur.copyWith(
+      imageSize: imageSize,
+      fit: _previewFit,
+      mirrorX: _markerMirrorX,
+      safeTop: safe.top,
+      safeBottom: safe.bottom,
+    );
+    if (next != cur) _distanceSilhouette.value = next;
+  }
+
+  void _maybeSuppressDistanceSilhouette() {
+    if (_suppressDistanceSilhouette) {
+      _hideDistanceSilhouette(force: true);
     }
   }
 
@@ -912,25 +1234,30 @@ class TimesheetCaptureCameraPanelState
     _noUsableFrameSince = null;
     _delayedHintTimer?.cancel();
     _delayedHintTimer = null;
-    if (_delayedHintVisible && mounted) {
-      setState(() => _delayedHintVisible = false);
+    _hideDistanceSilhouette();
+    if (_delayedHintVisible) {
+      debugPrint('Hint: hide');
+      if (mounted) {
+        setState(() => _delayedHintVisible = false);
+      } else {
+        _delayedHintVisible = false;
+      }
     } else {
       _delayedHintVisible = false;
     }
   }
 
-  /// TASK 09 delayed hint — only after ≥2 s without usable frames.
-  /// Walk-up excluded-team / Pick labor hint takes precedence when set.
+  /// Delayed text hint — tooFar / angle / blur / dark (tooClose uses silhouette).
+  /// Walk-up "Pick labor" is a host pill (not overlay text).
   String? get _bestFrameDelayedHintText {
     if (!_bestFrameModeActive) return null;
     if (_noticeHold) return null;
     if (_bestFrameMarker is BestFrameMarkerVerified) return null;
-    final walkUpHint = _walkUpPickLaborHint;
-    if (widget.walkUpMode && walkUpHint != null) return walkUpHint;
+    // Pick labor is chrome (`showWalkUpPickLabor`), not floating camera text.
     if (!_delayedHintVisible) return null;
     if (_noUsableFrameSince == null) return null;
     return switch (_dominantUsableReason) {
-      FrameUsableDominant.tooClose => 'Move back a little',
+      FrameUsableDominant.tooClose => null,
       FrameUsableDominant.tooFar => 'Come closer',
       FrameUsableDominant.angle => 'Look at the camera',
       FrameUsableDominant.blur => 'Hold still',
@@ -1029,8 +1356,8 @@ class TimesheetCaptureCameraPanelState
     }));
   }
 
-  /// [modelRgb] / [modelFaceBox] / [modelLandmarks] are what PAD+identity run
-  /// on (full upright frame on iOS; small region crop on Android).
+  /// [modelRgb] / [modelFaceBox] are what PAD+identity run on (full upright
+  /// frame; same path on iOS and Android). Landmarks come from [result].
   /// [markerFaceBox] stays in full upright frame space for the overlay.
   Future<void> _runBestFrameEvidence(_BestFramePending pending) async {
     if (!_bestFrameModeActive || _noticeHold || _isCapturing || _awaitingTarget) {
@@ -1043,13 +1370,12 @@ class TimesheetCaptureCameraPanelState
     final markerFaceBox = pending.markerFaceBox;
     final uprightFrameSize = pending.uprightFrameSize;
     final result = pending.result;
-    final modelLandmarks = pending.modelLandmarks;
     try {
       await Future.wait([
         MinifasnetFusionEngine.instance.ensureLoaded(),
         FaceEmbedder.instance.ensureLoaded(),
       ]);
-      final landmarks = modelLandmarks ?? result.primaryFace;
+      final landmarks = result.primaryFace;
       final classification = result.classification;
       final sharpness =
           BestFrameRules.faceSharpness(modelRgb, modelFaceBox);
@@ -1070,7 +1396,10 @@ class TimesheetCaptureCameraPanelState
       );
       final padOk = padReasons.isEmpty;
 
-      if (!idOk && !padOk) {
+      // Hint tracks PAD-eligible frames (what can count toward accept), not
+      // identity-only eligibility. idOk=true + padOk=false was clearing the
+      // hint while pad_ineligible=too_close (dominant stayed none).
+      if (!padOk) {
         _dominantUsableReason = BestFrameRules.dominantIneligibleReason(
           faceBox: markerFaceBox,
           frameSize: uprightFrameSize,
@@ -1078,6 +1407,7 @@ class TimesheetCaptureCameraPanelState
           classification: classification,
           sharpness: sharpness,
           brightness: brightness,
+          padReasons: padReasons,
         );
         _noteNoUsableFrame(now);
       } else {
@@ -1128,6 +1458,7 @@ class TimesheetCaptureCameraPanelState
         final layer1 = await _padLayer1.evaluateImage(
           source: modelRgb,
           faceBox: modelFaceBox,
+          yawDeg: classification?.headEulerAngleY,
         );
         layer1Result = layer1;
         _bestFramePerfPadMs = MinifasnetFusionEngine.instance.lastInferenceMs;
@@ -1139,15 +1470,19 @@ class TimesheetCaptureCameraPanelState
         };
       }
 
+      // Success/already card held: identify may continue (walk-up stranger
+      // clear) but PAD must not run — no spoof alarm / window reset.
+      final skipPadWhileCardHeld =
+          _noticeHold || _walkUpHeldCardEmpId != null;
       final serialEvidence =
           Platform.isAndroid && AndroidFaceCapturePerf.isLowEnd;
       if (serialEvidence) {
         if (idOk) await runIdentity();
-        if (padOk) await runPad();
+        if (padOk && !skipPadWhileCardHeld) await runPad();
       } else {
         final jobs = <Future<void>>[];
         if (idOk) jobs.add(runIdentity());
-        if (padOk) jobs.add(runPad());
+        if (padOk && !skipPadWhileCardHeld) jobs.add(runPad());
         if (jobs.isNotEmpty) await Future.wait(jobs);
       }
       if (!mounted) return;
@@ -1208,7 +1543,84 @@ class TimesheetCaptureCameraPanelState
       _maybeLogBestFramePerf(now);
 
       if (widget.walkUpMode) {
+        if (pad == FramePadVerdict.spoof && !skipPadWhileCardHeld) {
+          debugPrint('BestFrame: reject reason=spoof');
+          _logPadSessionMax(reason: 'spoof_reject');
+          _bestFrameMarker = BestFrameMarkerState.none;
+          _markerEmployeeId = null;
+          _livePreviewEmployeeId = null;
+          _clearBestFrameWindow();
+          _armBestFrameCooldown();
+          _blockReplayAttempt(
+            'Presentation attack detected — use live face',
+          );
+          _emitChrome();
+          return;
+        }
+
+        final skipAccept = _handleWalkUpStickyAndAlready(
+          now: now,
+          evidence: evidence,
+        );
         _updateWalkUpMarker(now: now, latest: evidence);
+        if (skipAccept) {
+          _emitChrome();
+          return;
+        }
+
+        final decision = BestFrameRules.evaluateAcceptWalkUp(
+          _bestFrameWindow,
+          minLiveIdentifiedFrames:
+              AppConfigService.instance.faceBestFrameMinLiveFrames,
+        );
+        if (decision.rejectReason == 'temporal_fail') {
+          debugPrint('BestFrame: reject reason=temporal_fail');
+          _logPadSessionMax(reason: 'temporal_fail');
+          _clearBestFrameWindow();
+          _armBestFrameCooldown();
+          _emitChrome();
+          return;
+        }
+        if (decision.rejectReason == 'identity_mix') {
+          debugPrint('WalkUp: identity_mix — reset window');
+          _clearBestFrameWindow();
+          _emitChrome();
+          return;
+        }
+        if (decision.rejectReason == 'spoof' && !skipPadWhileCardHeld) {
+          // Window-level spoof (should be rare after per-frame check).
+          debugPrint('BestFrame: reject reason=spoof');
+          _logPadSessionMax(reason: 'spoof_reject');
+          _clearBestFrameWindow();
+          _armBestFrameCooldown();
+          _blockReplayAttempt(
+            'Presentation attack detected — use live face',
+          );
+          _emitChrome();
+          return;
+        }
+
+        if (decision.accepted &&
+            decision.best != null &&
+            !_bestFrameManualWaiting &&
+            !_isCapturing) {
+          final w = decision.best!.walkUp?.winnerEmployeeId;
+          if (w != null && _isEmployeeAlreadyCaptured(w)) {
+            // Never create a duplicate entry.
+            _clearBestFrameWindow();
+            _patchState(() => _isCapturing = false);
+            return;
+          }
+          _isCapturing = true;
+          await _acceptBestFrameWalkUp(decision);
+          return;
+        }
+
+        _maybeLogBestFrameWhy(
+          now: now,
+          decision: decision,
+          latestPadReasons: padReasons,
+        );
       } else {
         final targetId = widget.targetEmployee?.employeeId;
         if (targetId != null) {
@@ -1226,6 +1638,7 @@ class TimesheetCaptureCameraPanelState
           _lastBadgeQualifyingAt = now;
           _liveOverlayHint = null;
           _markerEmployeeId = targetId;
+          _maybeSuppressDistanceSilhouette();
           if (mounted) setState(() {});
           if (!_isEmployeeAlreadyCaptured(targetId)) {
             _livePreviewBlockCapture = false;
@@ -1243,64 +1656,50 @@ class TimesheetCaptureCameraPanelState
             if (mounted) setState(() {});
           }
         }
-      }
 
-      final decision = widget.walkUpMode
-          ? BestFrameRules.evaluateAcceptWalkUp(
-              _bestFrameWindow,
-              minLiveIdentifiedFrames:
-                  AppConfigService.instance.faceBestFrameMinLiveFrames,
-            )
-          : BestFrameRules.evaluateAccept(
-              _bestFrameWindow,
-              minLiveVerifiedFrames:
-                  AppConfigService.instance.faceBestFrameMinLiveFrames,
-            );
-      if (decision.rejectReason == 'spoof') {
-        debugPrint('BestFrame: reject reason=spoof');
-        _logPadSessionMax(reason: 'spoof_reject');
-        _clearBestFrameWindow();
-        _armBestFrameCooldown();
-        _blockReplayAttempt(
-          'Presentation attack detected — use live face',
+        final decision = BestFrameRules.evaluateAccept(
+          _bestFrameWindow,
+          minLiveVerifiedFrames:
+              AppConfigService.instance.faceBestFrameMinLiveFrames,
         );
-        _emitChrome();
-        return;
-      }
-      if (decision.rejectReason == 'temporal_fail') {
-        debugPrint('BestFrame: reject reason=temporal_fail');
-        _logPadSessionMax(reason: 'temporal_fail');
-        _clearBestFrameWindow();
-        _armBestFrameCooldown();
-        _emitChrome();
-        return;
-      }
-      if (decision.rejectReason == 'identity_mix') {
-        debugPrint('WalkUp: identity_mix — reset window');
-        _clearBestFrameWindow();
-        _emitChrome();
-        return;
-      }
-
-      // Accept on this cycle as soon as the rule is true.
-      if (decision.accepted &&
-          decision.best != null &&
-          !_bestFrameManualWaiting &&
-          !_isCapturing) {
-        _isCapturing = true;
-        if (widget.walkUpMode) {
-          await _acceptBestFrameWalkUp(decision);
-        } else {
-          await _acceptBestFrame(decision);
+        if (decision.rejectReason == 'spoof' && !_noticeHold) {
+          debugPrint('BestFrame: reject reason=spoof');
+          _logPadSessionMax(reason: 'spoof_reject');
+          _bestFrameMarker = BestFrameMarkerState.none;
+          _markerEmployeeId = null;
+          _livePreviewEmployeeId = null;
+          _clearBestFrameWindow();
+          _armBestFrameCooldown();
+          _blockReplayAttempt(
+            'Presentation attack detected — use live face',
+          );
+          _emitChrome();
+          return;
         }
-        return;
-      }
+        if (decision.rejectReason == 'temporal_fail') {
+          debugPrint('BestFrame: reject reason=temporal_fail');
+          _logPadSessionMax(reason: 'temporal_fail');
+          _clearBestFrameWindow();
+          _armBestFrameCooldown();
+          _emitChrome();
+          return;
+        }
 
-      _maybeLogBestFrameWhy(
-        now: now,
-        decision: decision,
-        latestPadReasons: padReasons,
-      );
+        if (decision.accepted &&
+            decision.best != null &&
+            !_bestFrameManualWaiting &&
+            !_isCapturing) {
+          _isCapturing = true;
+          await _acceptBestFrame(decision);
+          return;
+        }
+
+        _maybeLogBestFrameWhy(
+          now: now,
+          decision: decision,
+          latestPadReasons: padReasons,
+        );
+      }
       _emitChrome();
     } catch (e, st) {
       debugPrint('BestFrame: process failed: $e\n$st');
@@ -1344,11 +1743,15 @@ class TimesheetCaptureCameraPanelState
     final padWhy = latestPadReasons.isEmpty
         ? 'eligible'
         : latestPadReasons.join('+');
+    // Never log dominant=none when pad_ineligible has a concrete reason.
+    final dominant = latestPadReasons.isNotEmpty
+        ? BestFrameRules.dominantFromPadReasons(latestPadReasons)
+        : _dominantUsableReason;
     debugPrint(
       'BestFrame: WHY live_verified=${liveVerified.length} '
       'eligible_id=$eligibleId eligible_pad=$eligiblePad '
       'span_ms=$spanMs temporal=$temporal best=$bestStatus '
-      'pad_ineligible=$padWhy dominant=${_dominantUsableReason.name} '
+      'pad_ineligible=$padWhy dominant=${dominant.name} '
       'window=${_bestFrameWindow.length}',
     );
   }
@@ -1407,59 +1810,134 @@ class TimesheetCaptureCameraPanelState
     }
   }
 
-  /// Walk-up-only bottom hint (excluded team / unknown → Pick labor).
+  /// Walk-up-only bottom hint (not identified ~3 s → Pick labor).
   String? _walkUpPickLaborHint;
+  DateTime? _walkUpUnrecognizedSince;
+  DateTime? _walkUpUnrecognizedLastSeen;
+  static const _walkUpUnrecognizedDelay = Duration(seconds: 3);
+
+  void _clearWalkUpUnrecognized() {
+    final hadHint = _walkUpPickLaborHint != null;
+    _walkUpUnrecognizedSince = null;
+    _walkUpUnrecognizedLastSeen = null;
+    _walkUpPickLaborHint = null;
+    if (hadHint) _emitChrome();
+  }
+
+  /// Face present but not identified: show Pick labor after ~3 s continuous.
+  void _noteWalkUpUnrecognized(DateTime now) {
+    final last = _walkUpUnrecognizedLastSeen;
+    if (last != null &&
+        now.difference(last) > const Duration(milliseconds: 800)) {
+      // Face left the stream — restart the clock.
+      final hadHint = _walkUpPickLaborHint != null;
+      _walkUpUnrecognizedSince = now;
+      _walkUpPickLaborHint = null;
+      if (hadHint) _emitChrome();
+    } else {
+      _walkUpUnrecognizedSince ??= now;
+    }
+    _walkUpUnrecognizedLastSeen = now;
+    if (now.difference(_walkUpUnrecognizedSince!) < _walkUpUnrecognizedDelay) {
+      return;
+    }
+    if (_walkUpPickLaborHint == null) {
+      _walkUpPickLaborHint = 'Not recognized — Pick labor';
+      _emitChrome();
+    }
+  }
 
   void _updateWalkUpMarker({
     required DateTime now,
     required FrameEvidence latest,
   }) {
     final wu = latest.walkUp;
+    // Spoof: progress → 0, hide marker (attack UI is raised by caller).
+    if (latest.pad == FramePadVerdict.spoof) {
+      _bestFrameMarker = BestFrameMarkerState.none;
+      _markerEmployeeId = null;
+      _livePreviewEmployeeId = null;
+      if (mounted) setState(() {});
+      return;
+    }
     if (wu != null && wu.outOfTeam) {
       _bestFrameMarker = BestFrameMarkerOutOfTeam(faceBox: latest.faceBox);
       _markerEmployeeId = null;
-      _walkUpPickLaborHint = null;
+      _clearWalkUpUnrecognized();
       if (mounted) setState(() {});
       return;
     }
-    if (wu != null && wu.excludedTeamMember) {
-      // LOW_RES / look-alike Your Team — never amber; prompt Pick labor.
-      _bestFrameMarker = BestFrameMarkerState.none;
-      _markerEmployeeId = null;
-      _walkUpPickLaborHint = 'Not recognized — Pick labor';
+    // Progress / green only from identified AND PAD-live frames.
+    // Identified + PAD pending/ineligible must not advance or invent 1/3.
+    if (latest.isLiveIdentified && wu?.winnerEmployeeId != null) {
+      _clearWalkUpUnrecognized();
+      final winner = wu!.winnerEmployeeId!;
+      final count = _bestFrameWindow
+          .where(
+            (e) =>
+                e.isLiveIdentified && e.walkUp?.winnerEmployeeId == winner,
+          )
+          .length;
+      if (count <= 0) {
+        _bestFrameMarker = BestFrameMarkerState.none;
+        _markerEmployeeId = null;
+      } else if (count >= 3) {
+        _bestFrameMarker = BestFrameMarkerVerified(
+          employeeId: winner,
+          faceBox: latest.faceBox,
+        );
+        _markerEmployeeId = winner;
+        _livePreviewEmployeeId = winner;
+        _lastBadgeQualifyingAt = now;
+        _maybeSuppressDistanceSilhouette();
+      } else {
+        _bestFrameMarker = BestFrameMarkerProgress(
+          employeeId: winner,
+          faceBox: latest.faceBox,
+          progress: count,
+        );
+        _markerEmployeeId = winner;
+        _livePreviewEmployeeId = winner;
+        _lastBadgeQualifyingAt = now;
+      }
       if (mounted) setState(() {});
       return;
     }
-    if (wu == null || !wu.identified || wu.winnerEmployeeId == null) {
-      _bestFrameMarker = BestFrameMarkerState.none;
-      _markerEmployeeId = null;
-      _walkUpPickLaborHint = null;
+    // Identified but not PAD-live: keep marker only if prior live hits exist.
+    if (wu != null && wu.identified && wu.winnerEmployeeId != null) {
+      final winner = wu.winnerEmployeeId!;
+      final count = _bestFrameWindow
+          .where(
+            (e) =>
+                e.isLiveIdentified && e.walkUp?.winnerEmployeeId == winner,
+          )
+          .length;
+      if (count <= 0) {
+        _bestFrameMarker = BestFrameMarkerState.none;
+        _markerEmployeeId = null;
+      } else if (count >= 3) {
+        _bestFrameMarker = BestFrameMarkerVerified(
+          employeeId: winner,
+          faceBox: latest.faceBox,
+        );
+        _markerEmployeeId = winner;
+        _maybeSuppressDistanceSilhouette();
+      } else {
+        _bestFrameMarker = BestFrameMarkerProgress(
+          employeeId: winner,
+          faceBox: latest.faceBox,
+          progress: count,
+        );
+        _markerEmployeeId = winner;
+      }
+      _clearWalkUpUnrecognized();
       if (mounted) setState(() {});
       return;
     }
-    _walkUpPickLaborHint = null;
-    final winner = wu.winnerEmployeeId!;
-    final count = _bestFrameWindow
-        .where(
-          (e) =>
-              e.isLiveIdentified && e.walkUp?.winnerEmployeeId == winner,
-        )
-        .length;
-    if (count >= 3) {
-      _bestFrameMarker = BestFrameMarkerVerified(
-        employeeId: winner,
-        faceBox: latest.faceBox,
-      );
-    } else {
-      _bestFrameMarker = BestFrameMarkerProgress(
-        employeeId: winner,
-        faceBox: latest.faceBox,
-        progress: count.clamp(1, 3),
-      );
-    }
-    _markerEmployeeId = winner;
-    _livePreviewEmployeeId = winner;
-    _lastBadgeQualifyingAt = now;
+    // Face in frame, not identified (unknown / look-alike / below bars).
+    _bestFrameMarker = BestFrameMarkerState.none;
+    _markerEmployeeId = null;
+    _noteWalkUpUnrecognized(now);
     if (mounted) setState(() {});
   }
 
@@ -1508,23 +1986,10 @@ class TimesheetCaptureCameraPanelState
       return;
     }
 
+    // Duplicate guard (session + host set). Never create a second entry.
     if (_isEmployeeAlreadyCaptured(winnerId)) {
-      final replay = !(await _burstPipeline.verifySingleFrame(
-        BurstFrameSample(
-          rgbFrame: rgb,
-          faceBox: best.rgbFaceBox,
-          classification: best.classification,
-        ),
-      ))
-          .passed;
-      if (!mounted) return;
       _patchState(() => _isCapturing = false);
       _clearBestFrameWindow();
-      if (replay) {
-        _blockReplayAttempt('Presentation attack detected — use live face');
-      } else {
-        widget.onAlreadyAttended?.call(resolved);
-      }
       return;
     }
 
@@ -1535,6 +2000,12 @@ class TimesheetCaptureCameraPanelState
         '${await _tempDir()}/ts_walkup_${DateTime.now().microsecondsSinceEpoch}.jpg';
     if (!mounted) return;
 
+    // Mark captured immediately so the next frames cannot re-accept W.
+    _walkUpSessionCaptured.add(winnerId);
+    _holdWalkUpCard(winnerId, success: true);
+
+    final facePx = ProfilePhotoFaceDb.instance.faceSourcePxOf(winnerId);
+    final lowRes = facePx > 0 && facePx < 90;
     final audited = _buildCaptureDraft(path).withFaceAudit(
       verified: true,
       score: best.walkUp?.score,
@@ -1565,11 +2036,13 @@ class TimesheetCaptureCameraPanelState
       awsLivenessSessionId: audited.awsLivenessSessionId,
       awsLivenessConfidence: audited.awsLivenessConfidence,
     );
+    // No audit notes field — low_res / face_px logged only.
     debugPrint(
       'WalkUp: accept emp=$winnerId frames=${decision.liveVerifiedCount} '
       'min_score=${FaceWalkUpTuning.minScore} '
       'min_lead=${FaceWalkUpTuning.minLead} '
-      'ms_from_first_face=$msFromFirst',
+      'ms_from_first_face=$msFromFirst '
+      'low_res=$lowRes face_px=$facePx',
     );
     _logPadSessionMax(reason: 'walkup_accept');
 
@@ -2077,6 +2550,7 @@ class TimesheetCaptureCameraPanelState
     _syncLivenessSnapshot();
     _clearLiveOverlay();
     _autoCaptureTimer?.cancel();
+    _maybeSuppressDistanceSilhouette();
     if (mounted) {
       setState(() {});
       _emitChrome();
@@ -2222,25 +2696,39 @@ class TimesheetCaptureCameraPanelState
   @override
   void didUpdateWidget(covariant TimesheetCaptureCameraPanel oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (widget.verifyTarget &&
-        oldWidget.targetEmployee?.employeeId !=
-            widget.targetEmployee?.employeeId) {
+    if (oldWidget.walkUpMode != widget.walkUpMode ||
+        oldWidget.verifyTarget != widget.verifyTarget ||
+        (widget.verifyTarget &&
+            oldWidget.targetEmployee?.employeeId !=
+                widget.targetEmployee?.employeeId)) {
       _resetForNewTarget();
       return;
     }
-    if (oldWidget.capturedEmployeeIds == widget.capturedEmployeeIds) return;
-    final previewId = _livePreviewEmployeeId;
-    if (previewId == null || !_isEmployeeAlreadyCaptured(previewId)) return;
-    _autoCaptureTimer?.cancel();
-    _previewDebounceTimer?.cancel();
-    _faceReadySince = null;
-    // Already rebuilding; the host is mid-build too, so notify it after the
-    // frame (a sync setState on the parent here crashes the tree).
-    _livePreviewBlockCapture = true;
-    _livePreviewAllowAutoCapture = false;
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) _emitChrome();
-    });
+    if (oldWidget.capturedEmployeeIds != widget.capturedEmployeeIds) {
+      // Undo / host list: drop session ids no longer in the host set.
+      final removed = oldWidget.capturedEmployeeIds
+          .difference(widget.capturedEmployeeIds);
+      for (final id in removed) {
+        _walkUpSessionCaptured.remove(id);
+        if (_walkUpHeldCardEmpId == id) {
+          _clearWalkUpCardHold(reason: 'undo');
+        }
+      }
+      for (final id in widget.capturedEmployeeIds) {
+        _walkUpSessionCaptured.add(id);
+      }
+      final previewId = _livePreviewEmployeeId;
+      if (previewId != null && _isEmployeeAlreadyCaptured(previewId)) {
+        _autoCaptureTimer?.cancel();
+        _previewDebounceTimer?.cancel();
+        _faceReadySince = null;
+        _livePreviewBlockCapture = true;
+        _livePreviewAllowAutoCapture = false;
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) _emitChrome();
+        });
+      }
+    }
   }
 
   /// New target while the camera stays open: drop everything tied to the old
@@ -2557,6 +3045,73 @@ class TimesheetCaptureCameraPanelState
 
   Future<void> toggleFlashExternal() => _toggleFlash();
 
+  /// Host opened Pick labor panel: stop frame processing + pause preview.
+  Future<void> pausePipelineForPanel() async {
+    if (_pipelinePausedForPanel) return;
+    _pipelinePausedForPanel = true;
+    _instantCaptureTimer?.cancel();
+    _instantCaptureTimer = null;
+    _autoCaptureTimer?.cancel();
+    _previewDebounceTimer?.cancel();
+    _bestFramePending = null;
+    _clearBestFrameWindow();
+    await _stopLiveDetection();
+    final controller = _cameraController;
+    if (controller != null && controller.value.isInitialized) {
+      try {
+        await controller.pausePreview();
+      } catch (e) {
+        debugPrint('FaceCapture: pausePreview failed: $e');
+      }
+    }
+    debugPrint('WalkUp: pipeline paused (panel)');
+  }
+
+  /// Host closed Pick labor panel: clear evidence, resume preview + stream.
+  Future<void> resumePipelineAfterPanel() async {
+    if (!_pipelinePausedForPanel) {
+      _clearBestFrameWindow();
+      return;
+    }
+    _pipelinePausedForPanel = false;
+    _clearBestFrameWindow();
+    final controller = _cameraController;
+    if (controller != null && controller.value.isInitialized) {
+      try {
+        await controller.resumePreview();
+      } catch (e) {
+        debugPrint('FaceCapture: resumePreview failed: $e');
+      }
+    }
+    if (!mounted || _pipelinePausedForPanel) return;
+    // Restart processing only — do not reset PAD / liveness session.
+    if (Platform.isIOS) {
+      try {
+        await _startImageStream();
+      } catch (error) {
+        debugPrint(
+          'Timesheet iOS image stream unavailable, using polling: $error',
+        );
+        await _startIosPollingDetection();
+      }
+    } else {
+      await _startImageStream();
+    }
+    debugPrint('WalkUp: pipeline resumed');
+  }
+
+  /// App backgrounded while panel open: keep pipeline stopped.
+  Future<void> _reassertPanelPause() async {
+    if (!_pipelinePausedForPanel) return;
+    await _stopLiveDetection();
+    final controller = _cameraController;
+    if (controller != null && controller.value.isInitialized) {
+      try {
+        await controller.pausePreview();
+      } catch (_) {}
+    }
+  }
+
   Map<String, String>? _faceMatchHttpHeaders() {
     final token = SharedPref.getLoginData().result?.token?.trim();
     if (token == null || token.isEmpty) return null;
@@ -2613,7 +3168,17 @@ class TimesheetCaptureCameraPanelState
     // Returning from Settings after granting access should unlock the camera
     // without leaving and re-opening the screen.
     _lifecycleListener = AppLifecycleListener(
+      onPause: () {
+        if (_pipelinePausedForPanel) {
+          unawaited(_reassertPanelPause());
+        }
+      },
       onResume: () {
+        if (_pipelinePausedForPanel) {
+          // Panel still open — do not restart ML / stream.
+          unawaited(_reassertPanelPause());
+          return;
+        }
         if (mounted && !_permissionsReady) {
           unawaited(_prepareCapture().then((_) => _emitChrome()));
         }
@@ -2624,6 +3189,11 @@ class TimesheetCaptureCameraPanelState
   @override
   void dispose() {
     _lifecycleListener?.dispose();
+    final timingsCb = _frameTimingsCallback;
+    if (timingsCb != null) {
+      SchedulerBinding.instance.removeTimingsCallback(timingsCb);
+      _frameTimingsCallback = null;
+    }
     unawaited(AppOrientations.allowTabletRotation());
     _iosPollingTimer?.cancel();
     _autoCaptureTimer?.cancel();
@@ -2633,6 +3203,9 @@ class TimesheetCaptureCameraPanelState
     _livenessRetryTimer?.cancel();
     _markerLerpTimer?.cancel();
     _delayedHintTimer?.cancel();
+    _silhouetteMinHoldTimer?.cancel();
+    _hideDistanceSilhouette(force: true);
+    _distanceSilhouette.dispose();
     unawaited(_clearStreamSampleRing());
     unawaited(_stopLiveDetection());
     unawaited(_speech.dispose());
@@ -2640,6 +3213,47 @@ class TimesheetCaptureCameraPanelState
     _cameraController?.dispose();
     _faceService.dispose();
     super.dispose();
+  }
+
+  /// Android: FrameTiming jank + stream vs processed fps every 2 s.
+  void _startAndroidPerfUiLog() {
+    if (!Platform.isAndroid) return;
+    if (_frameTimingsCallback != null) return;
+    _uiJankFrames = 0;
+    _uiStallMs = 0;
+    _streamCallbackCount = 0;
+    _streamProcessedCount = 0;
+    _lastPerfUiLogAt = DateTime.now();
+    void onTimings(List<FrameTiming> timings) {
+      for (final t in timings) {
+        final totalMs = t.totalSpan.inMilliseconds;
+        if (totalMs > 17) {
+          _uiJankFrames += 1;
+          _uiStallMs += totalMs - 16;
+        }
+      }
+      final now = DateTime.now();
+      if (now.difference(_lastPerfUiLogAt) < const Duration(seconds: 2)) {
+        return;
+      }
+      final elapsedMs =
+          now.difference(_lastPerfUiLogAt).inMilliseconds.clamp(1, 60000);
+      final streamFps = _streamCallbackCount * 1000.0 / elapsedMs;
+      final processedFps = _streamProcessedCount * 1000.0 / elapsedMs;
+      // stall_ms approximates GC/UI stalls from over-budget frames.
+      debugPrint(
+        'Perf: ui_jank_frames=$_uiJankFrames gc_ms=$_uiStallMs '
+        'stream_fps=${streamFps.toStringAsFixed(1)} '
+        'processed_fps=${processedFps.toStringAsFixed(1)}',
+      );
+      _lastPerfUiLogAt = now;
+      _uiJankFrames = 0;
+      _uiStallMs = 0;
+      _streamCallbackCount = 0;
+      _streamProcessedCount = 0;
+    }
+    _frameTimingsCallback = onTimings;
+    SchedulerBinding.instance.addTimingsCallback(onTimings);
   }
 
   /// External shutter (AT2 Cancel + Shutter row).
@@ -2666,6 +3280,12 @@ class TimesheetCaptureCameraPanelState
           // TASK 09: best-frame 1:1 → square + emp id (no oval / name badge).
           // Switch off → today's name-badge overlay unchanged.
           if (_bestFrameModeActive) ...[
+            // Distance ghost — own RepaintBoundary; ValueListenable only.
+            RepaintBoundary(
+              child: TmDistanceGhostSilhouette(
+                listenable: _distanceSilhouette,
+              ),
+            ),
             if (_markerSmoothBox != null &&
                 (_markerImageSize ?? faceResult?.imageSize) != null)
               CustomPaint(
@@ -2844,8 +3464,18 @@ class TimesheetCaptureCameraPanelState
         _permissionsReady = permissions.canOpenCamera;
       });
       if (!permissions.canOpenCamera) return;
-      final supported = await _checkAndroidDeviceSupport();
-      if (!supported) return;
+      // Host screen usually gated already; re-check uses cache (no self-test).
+      final deviceOk = await FaceMinDeviceCheck.ensureSupported(context);
+      if (!mounted) return;
+      if (!deviceOk) {
+        _patchState(() {
+          _permissionsReady = false;
+          _cameraError = 'Device not supported for face attendance';
+        });
+        return;
+      }
+      await _applyAndroidPerfProfile();
+      if (!mounted) return;
       await Future.wait([_initializeCamera(), _updateCurrentLocation()]);
     } finally {
       _preparingCapture = false;
@@ -2865,40 +3495,29 @@ class TimesheetCaptureCameraPanelState
     );
   }
 
-  Future<bool> _checkAndroidDeviceSupport() async {
-    if (!Platform.isAndroid) return true;
+  /// Sync panel flags from [AndroidFaceCapturePerf] after [FaceMinDeviceCheck].
+  Future<void> _applyAndroidPerfProfile() async {
+    if (!Platform.isAndroid) return;
     try {
+      AndroidFaceCapturePerf.resetLowEndWhyLogForCameraOpen();
       final info = await DeviceInfoPlugin().androidInfo;
       final ramGb =
-          info.physicalRamSize > 0 ? info.physicalRamSize / 1024.0 : 0;
+          info.physicalRamSize > 0 ? info.physicalRamSize / 1024.0 : 0.0;
       final cores = Platform.numberOfProcessors;
-      final unsupported = (ramGb > 0 && ramGb < _minSupportedAndroidRamGb) ||
-          cores < _minSupportedAndroidCpuCores;
-      final lowTier = !unsupported &&
-          ((ramGb > 0 && ramGb <= _lowTierAndroidRamGb) || cores <= 8);
-      if (unsupported) {
-        if (!mounted) return false;
-        final ramLabel = ramGb > 0 ? ramGb.toStringAsFixed(1) : 'unknown';
-        _patchState(() {
-          _cameraError =
-              'This device is not supported for reliable face attendance.\n'
-              'Device: ${info.brand} ${info.model}\n'
-              'RAM: ${ramLabel}GB, CPU cores: $cores\n'
-              'Minimum required: ${_minSupportedAndroidRamGb.toStringAsFixed(1)}GB RAM and $_minSupportedAndroidCpuCores CPU cores.\n'
-              'Please use a newer device.';
-        });
-        return false;
-      }
-      if (lowTier && mounted) {
-        _patchState(() => _lowEndDeviceMode = true);
-        AndroidFaceCapturePerf.configure(lowEnd: true);
+      final model = '${info.brand} ${info.model}'.trim();
+      _lowEndDeviceModel = model;
+      _lowEndDeviceCores = cores;
+      _lowEndDeviceRamGb = ramGb.toDouble();
+      // lowEnd already decided in FaceMinDeviceCheck (self-test / cache).
+      final lowEnd = AndroidFaceCapturePerf.isLowEnd;
+      if (mounted) {
+        _patchState(() => _lowEndDeviceMode = lowEnd);
       } else {
-        AndroidFaceCapturePerf.configure(lowEnd: false);
+        _lowEndDeviceMode = lowEnd;
       }
     } catch (e) {
-      debugPrint('Timesheet device capability check failed: $e');
+      debugPrint('Timesheet Android perf profile failed: $e');
     }
-    return true;
   }
 
   Future<void> _capture() async {
@@ -3897,6 +4516,14 @@ class TimesheetCaptureCameraPanelState
 
   Future<void> _initializeCamera({CameraDescription? cameraOverride}) async {
     if (_cameraInitInFlight) return;
+    // Re-running prepare (DeviceCheck / resume) must not dispose+recreate the
+    // live controller — that kills the image stream and often drops the
+    // debugger connection on iOS ("Lost connection to device").
+    if (cameraOverride == null &&
+        _cameraController?.value.isInitialized == true) {
+      debugPrint('FaceCapture: camera already initialized — skip re-init');
+      return;
+    }
     _cameraInitInFlight = true;
     if (mounted) {
       setState(() {
@@ -3915,9 +4542,15 @@ class TimesheetCaptureCameraPanelState
             (camera) => camera.lensDirection == CameraLensDirection.back,
             orElse: () => cameras.first,
           );
-      // Android: high (≈720p) — medium hurt still-match scores (0.20–0.27).
-      // Stream cost is controlled by Task 5a (no PAD) + throttle, not preset alone.
-      const preset = ResolutionPreset.high;
+      // Low-end: medium (≈640×480) for smoother stream; others keep ≈720p.
+      // Preview and image stream share the same preset in camera plugin.
+      final preset = Platform.isAndroid && AndroidFaceCapturePerf.preferMediumStream
+          ? ResolutionPreset.medium
+          : ResolutionPreset.high;
+      debugPrint(
+        'FaceCapture: camera preset=$preset '
+        'lowEnd=${AndroidFaceCapturePerf.isLowEnd}',
+      );
       final controller = CameraController(
         selected,
         preset,
@@ -3967,6 +4600,7 @@ class TimesheetCaptureCameraPanelState
   }
 
   Future<void> _startLiveDetection() async {
+    if (_pipelinePausedForPanel) return;
     _awsLivenessLaunched = false;
     _livenessRetryTimer?.cancel();
     _clearLiveOverlay();
@@ -3990,9 +4624,12 @@ class TimesheetCaptureCameraPanelState
         'attack_test=${AppConfigService.instance.isTestMode ? 1 : 0}',
       );
     }
+    FaceRecognitionService.resetDebugAlignDumpForCameraOpen();
     if (Platform.isAndroid) {
-      await _androidTfliteSelfTestOnCameraOpen();
+      // Self-test runs in FaceMinDeviceCheck (cached per app version+device).
+      _faceService.resetAllocLogForCameraOpen();
       _faceService.logDetectorOnCameraOpen();
+      _startAndroidPerfUiLog();
     }
     if (Platform.isIOS) {
       try {
@@ -4006,41 +4643,6 @@ class TimesheetCaptureCameraPanelState
       return;
     }
     await _startImageStream();
-  }
-
-  /// Android only: one dummy inference per model before the stream starts.
-  /// Falls back to IsolateInterpreter if anything is broken.
-  Future<void> _androidTfliteSelfTestOnCameraOpen() async {
-    try {
-      // Thread count is fixed at first load — apply device tier first.
-      AndroidFaceCapturePerf.configure(lowEnd: _lowEndDeviceMode);
-      final emb = await FaceEmbedder.instance.runSelfTest();
-      final pad = await MinifasnetFusionEngine.instance.runSelfTest();
-      final padPairMs =
-          (pad.v2Ms > 0 && pad.v1Ms > 0) ? pad.v2Ms + pad.v1Ms : null;
-      debugPrint(
-        'BestFrame: selftest emb ok=${emb.ok} backend=${emb.backend} '
-        'ms=${emb.ms} fallback=${FaceEmbedder.instance.usedFallback} | '
-        'pad ok=${pad.ok} mode=${pad.mode} v2_ms=${pad.v2Ms} '
-        'v1se_ms=${pad.v1Ms} lowEnd=${AndroidFaceCapturePerf.isLowEnd} '
-        'threads=${AndroidFaceCapturePerf.tfliteThreads} '
-        'sequentialPad=${AndroidFaceCapturePerf.sequentialPad}',
-      );
-      if (AndroidFaceCapturePerf.promoteIfSlow(
-            embMs: emb.ms,
-            padPairMs: padPairMs,
-          ) &&
-          mounted) {
-        _lowEndDeviceMode = true;
-      }
-      if (!emb.ok || !pad.ok) {
-        debugPrint(
-          'BestFrame: selftest FAILED — capture may block until interpreters recover',
-        );
-      }
-    } catch (e, st) {
-      debugPrint('BestFrame: selftest error: $e\n$st');
-    }
   }
 
   Future<void> _stopLiveDetection() async {
@@ -4067,7 +4669,8 @@ class TimesheetCaptureCameraPanelState
 
   Future<void> _runIosPollingFrame() async {
     final controller = _cameraController;
-    if (!_iosPollingDetection ||
+    if (_pipelinePausedForPanel ||
+        !_iosPollingDetection ||
         controller == null ||
         !controller.value.isInitialized ||
         _isCapturing ||
@@ -4090,7 +4693,8 @@ class TimesheetCaptureCameraPanelState
       if (_bestFrameModeActive) {
         if (result.faceBoxes.isEmpty) {
           _clearBadgeNow(reason: 'no_face');
-          _noteNoUsableFrame(DateTime.now());
+          // Hint is for face-present + PAD-ineligible, not no-face.
+          _clearNoUsableFrame();
         } else if (!_isCapturing && !_holdLiveMatching) {
           try {
             final bytes = await File(matchPath).readAsBytes();
@@ -4102,6 +4706,8 @@ class TimesheetCaptureCameraPanelState
                 decoded.height.toDouble(),
               );
               _markerImageSize = frameSize;
+              _syncDistanceSilhouetteMeta();
+              if (_silhouettePendingShow) _showDistanceSilhouette();
               _updateMarkerPositionFromDetection(faceBox);
               _enqueueBestFrameEvidence(
                 _BestFramePending(
@@ -4162,6 +4768,35 @@ class TimesheetCaptureCameraPanelState
       return;
     }
     await controller.startImageStream((image) {
+      // Drop BEFORE touching planes / NV21 / decode. Claim busy synchronously
+      // so overlapping callbacks cannot all start copies.
+      _streamCallbackCount += 1;
+      if (_pipelinePausedForPanel ||
+          _isDetectingFrame ||
+          _noticeHold ||
+          _isCapturing) {
+        _detectSkippedWhileBusy += 1;
+        return;
+      }
+      final now = DateTime.now();
+      final minGap = _bestFrameModeActive
+          ? _bestFrameProcessInterval
+          : _detectInterval;
+      if (now.difference(_lastFrameDetection) < minGap) {
+        _detectSkippedWhileBusy += 1;
+        return;
+      }
+      final nth = AndroidFaceCapturePerf.streamProcessEveryNth;
+      if (Platform.isAndroid && nth > 1) {
+        _streamDropIndex += 1;
+        if (_streamDropIndex % nth != 0) {
+          _detectSkippedWhileBusy += 1;
+          return;
+        }
+      }
+      _isDetectingFrame = true;
+      _lastFrameDetection = now;
+      _streamProcessedCount += 1;
       unawaited(_processCameraImage(image, camera));
     });
     _isStreaming = true;
@@ -4180,24 +4815,11 @@ class TimesheetCaptureCameraPanelState
     CameraImage image,
     CameraDescription camera,
   ) async {
-    final now = DateTime.now();
-    // Drop-while-busy only for best-frame (target ≥8 detect fps). Legacy path
-    // keeps a min interval so embedding preview does not starve the UI.
-    if (_isDetectingFrame) {
-      _detectSkippedWhileBusy += 1;
-      return;
-    }
-    if (!_bestFrameModeActive &&
-        now.difference(_lastFrameDetection) < _detectInterval) {
-      _detectSkippedWhileBusy += 1;
-      return;
-    }
-    _isDetectingFrame = true;
-    _lastFrameDetection = now;
+    // Busy flag already claimed in the stream callback (before plane access).
+    final now = _lastFrameDetection;
 
-    // Evidence after releasing the detect lock (marker already updated).
     TimesheetFaceDetectionResult? detectResult;
-    Rect? bestFrameFaceBox;
+    _BestFramePending? pendingEvidence;
     img.Image? decodedRgb;
     img.Image? ensureDecoded() =>
         decodedRgb ??= _faceService.decodeCameraImageUpright(image, camera);
@@ -4211,6 +4833,8 @@ class TimesheetCaptureCameraPanelState
       if (inputImage == null) return;
       final uprightSize = _uprightImageSize(image, camera);
       _markerImageSize = uprightSize;
+      _syncDistanceSilhouetteMeta();
+      if (_silhouettePendingShow) _showDistanceSilhouette();
       final detectSw = Stopwatch()..start();
       final result = await _faceService.analyzeInputImage(
         inputImage,
@@ -4221,6 +4845,7 @@ class TimesheetCaptureCameraPanelState
       );
       final detectMs = detectSw.elapsedMilliseconds;
       if (!mounted) return;
+      _noteDetectMsForLowEnd(detectMs);
       _noteDetectionFps(
         now: DateTime.now(),
         conversionMs: conversionMs,
@@ -4251,71 +4876,21 @@ class TimesheetCaptureCameraPanelState
       _patchState(() => _faceResult = result);
       detectResult = result;
 
-      // Marker only under the detect lock — evidence runs after finally.
+      // Copy face region while busy (before releasing planes to next frame).
       if (_bestFrameModeActive) {
         if (result.faceBoxes.isNotEmpty &&
             !_shouldHoldDuplicateFrame &&
             !_isCapturing) {
           final faceBox = _largestFaceBox(result.faceBoxes);
           if (faceBox == null) {
-            _noteNoUsableFrame(DateTime.now());
+            _clearNoUsableFrame();
           } else {
             _updateMarkerPositionFromDetection(faceBox);
-            bestFrameFaceBox = faceBox;
-          }
-        } else if (result.faceBoxes.isEmpty) {
-          _noteNoUsableFrame(DateTime.now());
-        }
-      }
-    } catch (error) {
-      debugPrint('Timesheet live face detection failed: $error');
-    } finally {
-      _isDetectingFrame = false;
-    }
-
-    // Evidence / ring / badge after detect lock is free so ML Kit can keep pace.
-    if (_bestFrameModeActive) {
-      final result = detectResult;
-      final faceBox = bestFrameFaceBox;
-      if (result == null || faceBox == null) return;
-      try {
-        if (Platform.isAndroid) {
-          final lm = result.primaryFace;
-          final region = CameraRegionDecode.extractUprightFaceRegion(
-            image: image,
-            camera: camera,
-            faceBoxUpright: faceBox,
-            leftEye: lm?.leftEye,
-            rightEye: lm?.rightEye,
-            nose: lm?.nose,
-            mouthLeft: lm?.mouthLeft,
-            mouthRight: lm?.mouthRight,
-          );
-          if (region != null) {
-            final modelLm = TimesheetFaceLandmarkSnapshot(
-              boundingBox: region.faceBoxInCrop,
-              leftEye: region.leftEye,
-              rightEye: region.rightEye,
-              nose: region.nose,
-              mouthLeft: region.mouthLeft,
-              mouthRight: region.mouthRight,
-            );
-            _enqueueBestFrameEvidence(
-              _BestFramePending(
-                modelRgb: region.rgb,
-                modelFaceBox: region.faceBoxInCrop,
-                markerFaceBox: faceBox,
-                uprightFrameSize: region.uprightFrameSize,
-                result: result,
-                modelLandmarks: modelLm,
-              ),
-            );
-          }
-        } else {
-          final rgb = ensureDecoded();
-          if (rgb != null) {
-            _enqueueBestFrameEvidence(
-              _BestFramePending(
+            // Android + iOS: full upright decode so landmarks/box share one
+            // space with the embedding input (pre-region/downscale path).
+            final rgb = ensureDecoded();
+            if (rgb != null) {
+              pendingEvidence = _BestFramePending(
                 modelRgb: rgb,
                 modelFaceBox: faceBox,
                 markerFaceBox: faceBox,
@@ -4324,12 +4899,45 @@ class TimesheetCaptureCameraPanelState
                   rgb.height.toDouble(),
                 ),
                 result: result,
+              );
+            }
+          }
+        } else if (result.faceBoxes.isEmpty) {
+          // Delayed hint only when a face is present but PAD-ineligible.
+          _clearNoUsableFrame();
+        }
+      } else {
+        // Legacy ring / preview: copy while busy still holds the CameraImage.
+        final ringMinInterval = _lowEndDeviceMode
+            ? const Duration(milliseconds: 900)
+            : const Duration(milliseconds: 350);
+        if (result.faceBoxes.isNotEmpty &&
+            DateTime.now().difference(_lastRingSampleAt) >= ringMinInterval) {
+          final ringBox = _largestFaceBox(result.faceBoxes);
+          final rgb = ensureDecoded();
+          if (ringBox != null && rgb != null) {
+            _lastRingSampleAt = DateTime.now();
+            _pushStreamSample(
+              BurstFrameSample(
+                rgbFrame: rgb,
+                faceBox: ringBox,
+                classification: result.classification,
               ),
+              landmarks: result.primaryFace,
             );
           }
         }
-      } catch (error) {
-        debugPrint('BestFrame: evidence enqueue failed: $error');
+      }
+    } catch (error) {
+      debugPrint('Timesheet live face detection failed: $error');
+    } finally {
+      _isDetectingFrame = false;
+    }
+
+    if (_bestFrameModeActive) {
+      final pending = pendingEvidence;
+      if (pending != null) {
+        _enqueueBestFrameEvidence(pending);
       }
       return;
     }
@@ -4337,30 +4945,8 @@ class TimesheetCaptureCameraPanelState
     if (streamResult == null) return;
 
     try {
-      // Keep a short in-memory ring for capture-time PAD only (Task 5a).
-      // Do NOT run MiniFASNet on the stream.
-      final ringMinInterval = _lowEndDeviceMode
-          ? const Duration(milliseconds: 900)
-          : const Duration(milliseconds: 350);
-
-      if (streamResult.faceBoxes.isNotEmpty &&
-          DateTime.now().difference(_lastRingSampleAt) >= ringMinInterval) {
-        final ringBox = _largestFaceBox(streamResult.faceBoxes);
-        final rgb = ensureDecoded();
-        if (ringBox != null && rgb != null) {
-          _lastRingSampleAt = DateTime.now();
-          _pushStreamSample(
-            BurstFrameSample(
-              rgbFrame: rgb,
-              faceBox: ringBox,
-              classification: streamResult.classification,
-            ),
-            landmarks: streamResult.primaryFace,
-          );
-        }
-      }
-
-      // Badge embed only (no PAD on stream).
+      // Badge embed only (no PAD on stream). RGB already captured above when
+      // needed for the ring; decode again only if preview still wants it.
       if (streamResult.quality.canCapture &&
           _isStreaming &&
           !_shouldHoldDuplicateFrame &&
@@ -4370,7 +4956,7 @@ class TimesheetCaptureCameraPanelState
           _runStreamEmbeddingPreview(
             image,
             streamResult,
-            decodedRgb: ensureDecoded(),
+            decodedRgb: decodedRgb,
           ),
         );
       }
@@ -4718,53 +5304,6 @@ class TimesheetCaptureStatusPill extends StatelessWidget {
       ),
     );
   }
-}
-
-/// Maps an upright ML Kit face box into the preview view (BoxFit.cover/contain).
-({double scale, double dx, double dy, Size upright}) mapFaceBoxToPreview({
-  required Size viewSize,
-  required Size imageSize,
-  required BoxFit fit,
-}) {
-  final viewPortrait = viewSize.height >= viewSize.width;
-  final imagePortrait = imageSize.height >= imageSize.width;
-  final upright = viewPortrait == imagePortrait
-      ? imageSize
-      : Size(imageSize.height, imageSize.width);
-  final sx = viewSize.width / upright.width;
-  final sy = viewSize.height / upright.height;
-  final scale = fit == BoxFit.contain ? math.min(sx, sy) : math.max(sx, sy);
-  final dx = (viewSize.width - upright.width * scale) / 2;
-  final dy = (viewSize.height - upright.height * scale) / 2;
-  return (scale: scale, dx: dx, dy: dy, upright: upright);
-}
-
-Rect scaleFaceBoxToView({
-  required Rect box,
-  required Size viewSize,
-  required Size imageSize,
-  required BoxFit fit,
-  bool mirrorX = false,
-}) {
-  final m = mapFaceBoxToPreview(
-    viewSize: viewSize,
-    imageSize: imageSize,
-    fit: fit,
-  );
-  final mapped = mirrorX
-      ? Rect.fromLTRB(
-          m.upright.width - box.right,
-          box.top,
-          m.upright.width - box.left,
-          box.bottom,
-        )
-      : box;
-  return Rect.fromLTRB(
-    m.dx + mapped.left * m.scale,
-    m.dy + mapped.top * m.scale,
-    m.dx + mapped.right * m.scale,
-    m.dy + mapped.bottom * m.scale,
-  );
 }
 
 /// TASK 09 — BioTime-style corner-bracket square + employee id (no name).

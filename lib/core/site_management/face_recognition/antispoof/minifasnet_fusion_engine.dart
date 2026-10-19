@@ -122,17 +122,22 @@ class MinifasnetFusionEngine {
   Future<MinifasnetFusedScores?> scoreFace({
     required img.Image source,
     required Rect faceBox,
+    double? yawDeg,
   }) async {
     await ensureLoaded();
     final v2Input = _preprocessor.buildInput(
       source: source,
       faceBox: faceBox,
       cropScale: AntispoofConfig.modelV2CropScale,
+      model: 'v2',
+      yawDeg: yawDeg,
     );
     final v1Input = _preprocessor.buildInput(
       source: source,
       faceBox: faceBox,
       cropScale: AntispoofConfig.modelV1SeCropScale,
+      model: 'v1se',
+      yawDeg: yawDeg,
     );
     if (v2Input == null || v1Input == null) return null;
     return _scoreFromInputs(v2Input, v1Input);
@@ -141,10 +146,11 @@ class MinifasnetFusionEngine {
   Future<MinifasnetFusedScores?> scoreImageFile({
     required String imagePath,
     required Rect faceBox,
+    double? yawDeg,
   }) async {
     final bytes = await img.decodeImageFile(imagePath);
     if (bytes == null) return null;
-    return scoreFace(source: bytes, faceBox: faceBox);
+    return scoreFace(source: bytes, faceBox: faceBox, yawDeg: yawDeg);
   }
 
   Future<MinifasnetFusedScores?> _scoreFromInputs(

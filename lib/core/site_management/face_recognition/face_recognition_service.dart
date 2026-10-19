@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 import 'dart:math' as math;
 import 'dart:ui';
 
@@ -21,6 +22,7 @@ import 'package:el_race/core/timesheet/network/timesheet_odoo_employee.dart';
 import 'package:el_race/core/timesheet/services/face_capture_service.dart';
 import 'package:flutter/foundation.dart';
 import 'package:image/image.dart' as img;
+import 'package:path_provider/path_provider.dart';
 
 /// Site Management Phase B — on-device embed + match (no UI).
 class FaceRecognitionService {
@@ -359,27 +361,71 @@ class FaceRecognitionService {
         ),
       );
 
+  /// Debug-only: one aligned 112×112 dump per camera open.
+  static bool _debugAlignDumped = false;
+
+  /// Call on every camera open so the next identify may dump once.
+  static void resetDebugAlignDumpForCameraOpen() {
+    _debugAlignDumped = false;
+  }
+
   /// Walk-up identify on an upright RGB live frame (TASK 10 §3).
+  ///
+  /// [source] / [faceBox] / [landmarks] must share one coordinate space
+  /// (full upright frame after [decodeCameraImageUpright]).
   Future<FaceWalkUpResult> identifyWalkUpImage({
     required img.Image source,
     required Rect faceBox,
     TimesheetFaceLandmarkSnapshot? landmarks,
   }) async {
     if (!_syncReady || !ProfilePhotoMatchTest.enabled) {
+      debugPrint('WalkUp: no_result reason=not_ready');
       return FaceWalkUpResult.none;
     }
-    final chip = await _preprocessor.buildInputTensorFromImage(
-      source: source,
-      faceBox: faceBox,
+    final facePx = faceBox.width;
+    if (facePx < 112) {
+      debugPrint(
+        'WalkUp: no_result reason=face_too_small face_px=${facePx.toStringAsFixed(0)} '
+        'src=${source.width}x${source.height}',
+      );
+      return FaceWalkUpResult.none;
+    }
+    final built = _preprocessor.buildChip112FromImage(
+      source,
+      faceBox,
       landmarks: landmarks,
       crop: _rosterCrop,
     );
-    if (chip == null) return FaceWalkUpResult.none;
+    if (built == null) {
+      debugPrint(
+        'WalkUp: no_result reason=no_embedding '
+        'face_px=${facePx.toStringAsFixed(0)} '
+        'src=${source.width}x${source.height} '
+        'has_lm=${landmarks != null}',
+      );
+      return FaceWalkUpResult.none;
+    }
+    if (kDebugMode && !_debugAlignDumped) {
+      _debugAlignDumped = true;
+      unawaited(_dumpDebugAlignChip(built.chip));
+    }
+    final chip = FaceChipTensor(
+      _preprocessor.buildInputTensorFromRgbChip(built.chip),
+      built.align,
+    );
     final probe = await _embedder.generateEmbedding(chip.tensor);
+    if (probe.any((v) => v.isNaN || v.isInfinite)) {
+      debugPrint('WalkUp: no_result reason=embed_nan');
+      return FaceWalkUpResult.none;
+    }
 
     final db = ProfilePhotoFaceDb.instance;
     // Candidates / exclusions cached per roster+template generation (not per frame).
     final roster = await db.walkUpRoster();
+    if (roster.candidateIds.isEmpty) {
+      debugPrint('WalkUp: no_result reason=no_candidates');
+      return FaceWalkUpResult.none;
+    }
     final cohort = await db.cohortCandidates(excludeEmployeeId: -1);
     final scores = <FaceWalkUpScore>[];
     for (final c in cohort) {
@@ -388,7 +434,7 @@ class FaceRecognitionService {
       if (roster.candidateIds.contains(id)) {
         kind = FaceWalkUpKind.candidate;
       } else if (roster.excludedTeamIds.contains(id)) {
-        // Score LOW_RES / look-alike Your Team so we can route to Pick labor.
+        // Score look-alike Your Team so we can route to Pick labor.
         kind = FaceWalkUpKind.excludedTeam;
       } else if (c.lowRes) {
         // Project-labor LOW_RES stays out of the competitor pool.
@@ -418,6 +464,17 @@ class FaceRecognitionService {
     }
 
     final result = FaceWalkUp.decide(allScores: scores);
+    if (!result.identified && result.winnerEmployeeId == null) {
+      FaceWalkUpScore? best;
+      for (final s in scores) {
+        if (best == null || s.score > best.score) best = s;
+      }
+      final filter = best == null
+          ? 'empty_scores'
+          : 'winner_filtered(emp=${best.employeeId} '
+              'score=${best.score.toStringAsFixed(3)} kind=${best.kind.name})';
+      debugPrint('WalkUp: no_result reason=$filter');
+    }
     debugPrint(
       'WalkUp: frame W=${result.winnerEmployeeId ?? '-'} '
       'score=${result.score?.toStringAsFixed(3) ?? '-'} '
@@ -425,9 +482,23 @@ class FaceRecognitionService {
       'second=${result.secondEmployeeId ?? '-'} '
       'second_score=${result.secondScore?.toStringAsFixed(3) ?? '-'} '
       'identified=${result.identified} outOfTeam=${result.outOfTeam} '
-      'excludedTeam=${result.excludedTeamMember}',
+      'excludedTeam=${result.excludedTeamMember} '
+      'face_px=${facePx.toStringAsFixed(0)} align=${chip.align.logName}',
     );
     return result;
+  }
+
+  /// Debug builds: first aligned 112×112 embedding input per camera open.
+  static Future<void> _dumpDebugAlignChip(img.Image chip) async {
+    try {
+      final dir = await getApplicationDocumentsDirectory();
+      final ts = DateTime.now().millisecondsSinceEpoch;
+      final path = '${dir.path}/debug_align_$ts.png';
+      await File(path).writeAsBytes(img.encodePng(chip));
+      debugPrint('WalkUp: debug_align saved $path');
+    } catch (e) {
+      debugPrint('WalkUp: debug_align save failed: $e');
+    }
   }
 
   Future<FaceVerifyResult> _verify({

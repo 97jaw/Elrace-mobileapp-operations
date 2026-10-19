@@ -2,10 +2,10 @@ import 'package:el_race/core/site_management/face_recognition/face_recognition_c
 
 /// Role of a scored template in walk-up matching (TASK 10).
 enum FaceWalkUpKind {
-  /// Your Team, ready, not LOW_RES / look-alike — may auto-identify.
+  /// Your Team, ready, not look-alike — may auto-identify (LOW_RES allowed).
   candidate,
 
-  /// Your Team with a ready template but LOW_RES or look-alike — Pick labor only.
+  /// Your Team look-alike — Pick labor only (not auto-id).
   excludedTeam,
 
   /// Project labor not in Your Team — may show amber when bars pass.
@@ -37,7 +37,7 @@ class FaceWalkUpResult {
   /// Global best is project labor (not Your Team) and bars pass → amber.
   final bool outOfTeam;
 
-  /// Global best is Your Team but LOW_RES / look-alike → Pick labor, never amber.
+  /// Global best is Your Team look-alike → Pick labor, never amber.
   final bool excludedTeamMember;
 }
 

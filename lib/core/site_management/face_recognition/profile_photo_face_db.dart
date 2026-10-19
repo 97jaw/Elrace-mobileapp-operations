@@ -56,7 +56,8 @@ class ProfilePhotoFaceDb {
   static const Duration _templateMaxAge = Duration(days: 7);
   static const Duration _failedRetryAfter = Duration(days: 1);
 
-  static const int _maxPhotoLongSidePx = 800;
+  /// Long side cap before ML Kit (≤1024). Decode/resize runs in [compute].
+  static const int _maxPhotoLongSidePx = 1024;
   static const int _minPhotoShortSidePx = 480;
 
   final FacePreprocessor _preprocessor = const FacePreprocessor();
@@ -84,7 +85,11 @@ class ProfilePhotoFaceDb {
   /// keeps its icon states. Targets are built first; the total is capped at
   /// [maxMembers] (targets always kept). Kept as-is when the current roster
   /// already covers it with the same roles.
-  void setLabour(List<TimesheetOdooEmployee> labour, {Set<int>? targetIds}) {
+  void setLabour(
+    List<TimesheetOdooEmployee> labour, {
+    Set<int>? targetIds,
+    bool force = false,
+  }) {
     bool isTarget(TimesheetOdooEmployee e) =>
         targetIds == null || targetIds.contains(e.employeeId);
     final usable = [
@@ -105,11 +110,16 @@ class ProfilePhotoFaceDb {
         if (m.target && _teamIds.contains(m.id) && !labourIds.contains(m.id)) m,
     ];
     final room = math.max(0, maxMembers - targets.length - keptTeam.length);
-    _setRoster(keepIfCovered: true, [
-      for (final e in targets) _Member.fromEmployee(e, target: true),
-      ...keptTeam,
-      for (final e in cohort.take(room)) _Member.fromEmployee(e, target: false),
-    ]);
+    _setRoster(
+      keepIfCovered: !force,
+      force: force,
+      [
+        for (final e in targets) _Member.fromEmployee(e, target: true),
+        ...keptTeam,
+        for (final e in cohort.take(room))
+          _Member.fromEmployee(e, target: false),
+      ],
+    );
   }
 
   /// Dashboard / Your Team sheet. No-op while the roster already holds this
@@ -129,16 +139,27 @@ class ProfilePhotoFaceDb {
     ]);
   }
 
-  void _setRoster(List<_Member> members, {bool keepIfCovered = false}) {
-    final covered = members.every((m) => _members[m.id]?.target == m.target);
-    final currentTargets = _members.values.where((m) => m.target).length;
-    if (covered && (keepIfCovered || members.length == currentTargets)) {
-      return;
+  DateTime? _rosterSetAt;
+  String _rosterSource = 'cache';
+
+  void _setRoster(
+    List<_Member> members, {
+    bool keepIfCovered = false,
+    bool force = false,
+  }) {
+    if (!force) {
+      final covered =
+          members.every((m) => _members[m.id]?.target == m.target);
+      final currentTargets = _members.values.where((m) => m.target).length;
+      if (covered && (keepIfCovered || members.length == currentTargets)) {
+        return;
+      }
     }
     _members
       ..clear()
       ..addEntries(members.map((m) => MapEntry(m.id, m)));
     _invalidateWalkUpRoster();
+    _rosterSetAt = DateTime.now();
     final targets = _members.values.where((m) => m.target).length;
     debugPrint(
       'ProfilePhotoMatch: labour roster set ${_members.length} employees '
@@ -165,72 +186,189 @@ class ProfilePhotoFaceDb {
       _templates[employeeId]?.embedding != null;
 
   /// LOW_RES: face narrower than [_lowResFacePx] in the source photo. An
-  /// unknown width (0, templates saved before v2.1) also counts as low-res.
+  /// unknown width (0, templates saved before v2.1) also counts as low-res
+  /// for cohort / verify UI. Walk-up does not exclude on LOW_RES.
   bool isLowRes(int employeeId) {
     final t = _templates[employeeId];
     return t != null && _isLowRes(t);
   }
 
+  /// Source face width (px) for a ready template, or 0 if unknown / missing.
+  int faceSourcePxOf(int employeeId) =>
+      _templates[employeeId]?.faceSourcePx ?? 0;
+
   static bool _isLowRes(_Template t) => t.faceSourcePx < _lowResFacePx;
 
-  /// Look-alike: cosine ≥ [_lookAlikeCosine] to another ready template.
-  bool isLookAlike(int employeeId) {
+  /// Known face width under [_lowResFacePx] (info only for walk-up logs).
+  static bool _isLowResKnown(_Template t) =>
+      t.faceSourcePx > 0 && t.faceSourcePx < _lowResFacePx;
+
+  /// Closest other employee (distinct id) by L2-normalised cosine, same as
+  /// [ProfilePhotoQuality] / [_lookAlikeCosine] (0.45).
+  ({int otherId, double cosine})? _closestOtherEmployee(int employeeId) {
     final emb = _templates[employeeId]?.embedding;
-    if (emb == null) return false;
-    for (final other in _templates.entries) {
-      if (other.key == employeeId || other.value.embedding == null) continue;
-      if (_dot(emb, other.value.embedding!) >= _lookAlikeCosine) return true;
+    if (emb == null) return null;
+    final probe = _unit(emb);
+    var closestId = -1;
+    var closest = -1.0;
+    // One template per employee id — never self, never a duplicate of same id.
+    for (final e in _templates.entries) {
+      if (e.key == employeeId || e.value.embedding == null) continue;
+      final score = _dot(probe, _unit(e.value.embedding!));
+      if (score > closest) {
+        closest = score;
+        closestId = e.key;
+      }
     }
-    return false;
+    if (closestId < 0) return null;
+    return (otherId: closestId, cosine: closest);
+  }
+
+  /// Look-alike: L2-normalised cosine ≥ [_lookAlikeCosine] to another employee.
+  bool isLookAlike(int employeeId) {
+    final closest = _closestOtherEmployee(employeeId);
+    return closest != null && closest.cosine >= _lookAlikeCosine;
   }
 
   /// Cached once per roster/template generation for walk-up frames (TASK 10).
   WalkUpRosterSnapshot? _walkUpRoster;
 
+  /// Summary log only once per camera open (templates may rebuild silently).
+  bool _walkUpRosterSummaryLogged = false;
+
   void _invalidateWalkUpRoster() => _walkUpRoster = null;
 
-  /// Candidates + excluded ids for the current roster/templates. Logs once
-  /// per rebuild: `WalkUp: candidates=… excluded_low_res=… excluded_lookalike=…`.
+  /// Call when opening the walk-up camera so candidates log once for the session.
+  void beginWalkUpCameraSession() {
+    _walkUpRosterSummaryLogged = false;
+    _invalidateWalkUpRoster();
+  }
+
+  /// Camera open: force roster from latest labour/team, rebuild candidates.
+  /// Templates still pending build in the background and join candidates when ready.
+  Future<WalkUpRosterSnapshot> refreshRosterForCameraOpen({
+    required List<TimesheetOdooEmployee> labour,
+    Set<int>? targetIds,
+    required int teamCount,
+    required bool fromNetwork,
+  }) async {
+    _rosterSource = fromNetwork ? 'network' : 'cache';
+    beginWalkUpCameraSession();
+    setLabour(labour, targetIds: targetIds, force: true);
+    // Kick a photo refresh (retry failed) so new team members get templates.
+    unawaited(_refresh(retryFailed: true));
+    final snap = await walkUpRoster();
+    final ageS = _rosterSetAt == null
+        ? 0
+        : DateTime.now().difference(_rosterSetAt!).inSeconds;
+    debugPrint(
+      'WalkUp: roster refreshed team=$teamCount '
+      'candidates=${snap.candidateIds.length} '
+      'source=$_rosterSource age_s=$ageS',
+    );
+    return snap;
+  }
+
+  /// Candidates + look-alike exclusions for the current roster/templates.
+  /// Summary is logged once per [beginWalkUpCameraSession]. LOW_RES is info only.
   Future<WalkUpRosterSnapshot> walkUpRoster() async {
     await _ensureCacheLoaded();
     final cached = _walkUpRoster;
     if (cached != null) return cached;
 
     final candidates = <int>[];
-    final lowRes = <int>[];
+    final lowResInfo = <String>[];
+    final lowResIds = <int>[];
     final lookAlike = <int>[];
+    final lookAlikeDetails = <String>[];
     for (final m in _members.values) {
       if (!m.target || _templates[m.id]?.embedding == null) continue;
       final t = _templates[m.id]!;
-      final isLow = _isLowRes(t);
-      final isAlike = isLookAlike(m.id);
-      if (isLow) lowRes.add(m.id);
-      if (isAlike) lookAlike.add(m.id);
-      if (!isLow && !isAlike) candidates.add(m.id);
+      final facePx = t.faceSourcePx;
+      final closest = _closestOtherEmployee(m.id);
+      final isAlike =
+          closest != null && closest.cosine >= _lookAlikeCosine;
+
+      if (_isLowResKnown(t)) {
+        lowResIds.add(m.id);
+        lowResInfo.add('${m.id}:$facePx');
+      }
+      if (isAlike) {
+        lookAlike.add(m.id);
+        lookAlikeDetails.add(
+          '${m.id}:cos=${closest.cosine.toStringAsFixed(3)}'
+          '/other=${closest.otherId}',
+        );
+      } else {
+        // Ready Your Team template — candidate even if LOW_RES / unknown px.
+        candidates.add(m.id);
+      }
     }
     final snap = WalkUpRosterSnapshot(
       candidateIds: candidates.toSet(),
-      excludedLowRes: lowRes.toSet(),
+      lowResInfoIds: lowResIds.toSet(),
       excludedLookAlike: lookAlike.toSet(),
     );
     _walkUpRoster = snap;
-    debugPrint(
-      'WalkUp: candidates=$candidates '
-      'excluded_low_res=$lowRes '
-      'excluded_lookalike=$lookAlike',
-    );
+    if (!_walkUpRosterSummaryLogged) {
+      _walkUpRosterSummaryLogged = true;
+      debugPrint(
+        'WalkUp: candidates=$candidates '
+        'low_res=$lowResInfo '
+        'excluded_lookalike=$lookAlike',
+      );
+      for (final line in lookAlikeDetails) {
+        debugPrint('WalkUp: exclude lookalike $line');
+      }
+    }
     return snap;
   }
 
-  /// Your Team targets with a ready template that are neither LOW_RES nor
-  /// look-alike — walk-up auto-id candidates (TASK 10 §3).
+  /// After a template becomes ready mid-session, fold them into candidates.
+  void _noteTemplateReadyForWalkUp(int employeeId) {
+    final m = _members[employeeId];
+    if (m == null || !m.target) return;
+    if (isLookAlike(employeeId)) return;
+    final cached = _walkUpRoster;
+    if (cached == null) {
+      _invalidateWalkUpRoster();
+      return;
+    }
+    if (cached.candidateIds.contains(employeeId)) return;
+    final next = WalkUpRosterSnapshot(
+      candidateIds: {...cached.candidateIds, employeeId},
+      lowResInfoIds: cached.lowResInfoIds,
+      excludedLookAlike: cached.excludedLookAlike,
+    );
+    _walkUpRoster = next;
+    debugPrint(
+      'WalkUp: candidate added emp=$employeeId '
+      'candidates=${next.candidateIds.length}',
+    );
+  }
+
+  /// After a build wave, rebuild roster and log any candidates not seen before.
+  Future<void> _reconcileWalkUpCandidatesAfterBuild(
+    Set<int> prevCandidates,
+  ) async {
+    final snap = await walkUpRoster();
+    for (final id in snap.candidateIds) {
+      if (prevCandidates.contains(id)) continue;
+      debugPrint(
+        'WalkUp: candidate added emp=$id '
+        'candidates=${snap.candidateIds.length}',
+      );
+    }
+  }
+
+  /// Your Team targets with a ready template that are not look-alike.
   Future<List<int>> walkUpCandidateIds() async =>
       (await walkUpRoster()).candidateIds.toList(growable: false);
 
   Future<({List<int> lowRes, List<int> lookAlike})> walkUpExcludedIds() async {
     final r = await walkUpRoster();
     return (
-      lowRes: r.excludedLowRes.toList(growable: false),
+      lowRes: r.lowResInfoIds.toList(growable: false),
       lookAlike: r.excludedLookAlike.toList(growable: false),
     );
   }
@@ -356,7 +494,8 @@ class ProfilePhotoFaceDb {
     if (_running || _queue.isEmpty) return;
     _running = true;
     final sw = Stopwatch()..start();
-    final capture = TimesheetFaceCaptureService();
+    // Owned detector — never the shared capture stream instance.
+    final capture = TimesheetFaceCaptureService.forTemplateBuild();
     final dir = await getTemporaryDirectory();
     final built = <int>[];
     var ok = 0;
@@ -400,13 +539,18 @@ class ProfilePhotoFaceDb {
               template.embedding == null && previous?.embedding != null
                   ? previous!.touched()
                   : template;
-          _invalidateWalkUpRoster();
+          final readyNow = _templates[member.id]?.embedding != null &&
+              previous?.embedding == null;
           _inFlight.remove(member.id);
           built.add(member.id);
           debugPrint(
             'ProfilePhotoMatch: emp=${member.id} ${member.name} '
             '${member.target ? 'target' : 'cohort'} ${template.status}',
           );
+          // Mid-wave: add ready targets to candidates without a full rebuild.
+          if (readyNow) {
+            _noteTemplateReadyForWalkUp(member.id);
+          }
           _publish();
         }
         await _save();
@@ -424,8 +568,13 @@ class ProfilePhotoFaceDb {
     } finally {
       _inFlight.clear();
       _running = false;
+      // Full rebuild so look-alike exclusions stay accurate after the wave.
+      final prevCandidates =
+          Set<int>.of(_walkUpRoster?.candidateIds ?? const {});
+      _invalidateWalkUpRoster();
       _publish();
       await capture.dispose();
+      unawaited(_reconcileWalkUpCandidatesAfterBuild(prevCandidates));
     }
     debugPrint(
       'ProfilePhotoMatch: built ${built.length} employees '
@@ -824,15 +973,20 @@ class _Template {
 class WalkUpRosterSnapshot {
   const WalkUpRosterSnapshot({
     required this.candidateIds,
-    required this.excludedLowRes,
+    required this.lowResInfoIds,
     required this.excludedLookAlike,
   });
 
   final Set<int> candidateIds;
-  final Set<int> excludedLowRes;
+
+  /// Known face_px &lt; 90 — informational only; still candidates.
+  final Set<int> lowResInfoIds;
+
+  /// Look-alike Your Team — not auto-id candidates (Pick labor).
   final Set<int> excludedLookAlike;
 
-  Set<int> get excludedTeamIds => {...excludedLowRes, ...excludedLookAlike};
+  /// Team members excluded from walk-up auto-id (look-alike only).
+  Set<int> get excludedTeamIds => excludedLookAlike;
 }
 
 typedef _PreparedPhoto = ({

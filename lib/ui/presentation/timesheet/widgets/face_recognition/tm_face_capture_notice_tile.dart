@@ -111,7 +111,8 @@ class _TmFaceCaptureNoticeTileState extends State<TmFaceCaptureNoticeTile>
       vsync: this,
       duration: const Duration(milliseconds: 380),
     )..forward();
-    if (!widget._hasAction) {
+    // autoDismissSeconds <= 0 → sticky until host clears (walk-up cards).
+    if (!widget._hasAction && widget.autoDismissSeconds > 0) {
       _timer = Timer(Duration(seconds: widget.autoDismissSeconds), _dismiss);
     }
   }

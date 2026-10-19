@@ -299,7 +299,21 @@ abstract final class BestFrameRules {
     return reasons;
   }
 
+  /// Map [padIneligibleReasons] → hint dominant. Prefer size, then angle, blur.
+  /// Never returns [none] when [reasons] is non-empty.
+  static FrameUsableDominant dominantFromPadReasons(List<String> reasons) {
+    if (reasons.isEmpty) return FrameUsableDominant.none;
+    if (reasons.contains('too_close')) return FrameUsableDominant.tooClose;
+    if (reasons.contains('too_far')) return FrameUsableDominant.tooFar;
+    if (reasons.contains('angle') || reasons.contains('out_of_frame')) {
+      return FrameUsableDominant.angle;
+    }
+    if (reasons.contains('blur')) return FrameUsableDominant.blur;
+    return FrameUsableDominant.angle;
+  }
+
   /// Dominant ineligibility reason for Task 09 delayed hints.
+  /// Prefers PAD gates when [padReasons] is provided / non-empty.
   static FrameUsableDominant dominantIneligibleReason({
     required Rect faceBox,
     required Size frameSize,
@@ -307,7 +321,17 @@ abstract final class BestFrameRules {
     required TimesheetFaceClassificationSnapshot? classification,
     required double sharpness,
     required double brightness,
+    List<String>? padReasons,
   }) {
+    final pad = padReasons ??
+        padIneligibleReasons(
+          faceBox: faceBox,
+          frameSize: frameSize,
+          classification: classification,
+          sharpness: sharpness,
+        );
+    if (pad.isNotEmpty) return dominantFromPadReasons(pad);
+
     final frac = faceWidthFraction(faceBox, frameSize);
     if (frac > AntispoofConfig.maxFaceWidthFraction) {
       return FrameUsableDominant.tooClose;
@@ -682,9 +706,9 @@ abstract final class BestFrameRules {
     return temporal.evaluate();
   }
 
-  /// Marker/shutter green when: target verified on ≥2 of last 3
-  /// identity-eligible frames AND ≥1 frame in the window has PAD = live
-  /// (uncertain / notEligible do not count) AND no spoof in the window.
+  /// Marker/shutter green when: target is **live+verified** on ≥2 of the last
+  /// 3 live+verified-or-attempted frames. PAD pending/ineligible/uncertain do
+  /// not count; any spoof clears the marker.
   static BestFrameMarkerState markerState({
     required List<FrameEvidence> window,
     required int targetEmployeeId,
@@ -692,28 +716,20 @@ abstract final class BestFrameRules {
     if (window.any((e) => e.pad == FramePadVerdict.spoof)) {
       return BestFrameMarkerState.none;
     }
-    if (!window.any((e) => e.pad == FramePadVerdict.live)) {
-      return BestFrameMarkerState.none;
-    }
-    final idEligible = window
-        .where((e) => e.identityStatus != FrameIdentityStatus.notEligible)
+    final liveVerified = window
+        .where((e) {
+          if (!e.isLiveVerified) return false;
+          final id = e.identity;
+          return id != null &&
+              id.targetEmployeeId == targetEmployeeId &&
+              id.isVerified;
+        })
         .toList(growable: false);
-    if (idEligible.isEmpty) return BestFrameMarkerState.none;
-    final last3 = idEligible.length <= 3
-        ? idEligible
-        : idEligible.sublist(idEligible.length - 3);
-    final verifiedHits = last3.where((e) {
-      final id = e.identity;
-      return e.identityStatus == FrameIdentityStatus.verified &&
-          id != null &&
-          id.targetEmployeeId == targetEmployeeId &&
-          id.isVerified;
-    }).length;
-    if (verifiedHits < 2) return BestFrameMarkerState.none;
-    final latest = last3.last;
+    if (liveVerified.length < 2) return BestFrameMarkerState.none;
+    final last = liveVerified.last;
     return BestFrameMarkerVerified(
       employeeId: targetEmployeeId,
-      faceBox: latest.faceBox,
+      faceBox: last.faceBox,
     );
   }
 }
