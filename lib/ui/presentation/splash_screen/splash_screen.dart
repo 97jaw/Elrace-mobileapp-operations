@@ -12,7 +12,8 @@ import 'package:el_race/core/utils/shared_pref.dart';
 import 'package:el_race/firebase_service.dart';
 import 'package:el_race/ui/presentation/signin/sign_in_screen.dart';
 import 'package:el_race/ui/widgets/update_dialog.dart';
-import 'package:flutter/foundation.dart' show kDebugMode;
+import 'package:flutter/foundation.dart'
+    show TargetPlatform, defaultTargetPlatform, kDebugMode;
 import 'package:flutter/material.dart';
 import 'package:el_race/ui/presentation/home_screen/screens/home_screen.dart';
 import 'package:el_race/utils/Util.dart';
@@ -33,6 +34,7 @@ class _SplashScreenState extends State<SplashScreen> {
   // Navigation normally continues as soon as playback reaches the end. This
   // longer timeout is only a safety net if the player never reports completion.
   static const Duration _maxDecorativeVideoWait = Duration(seconds: 30);
+  static const Duration _localVideoInitTimeout = Duration(seconds: 8);
 
   bool _isSecurityCheckComplete = false;
   bool _isDeviceSecure = true;
@@ -107,18 +109,35 @@ class _SplashScreenState extends State<SplashScreen> {
     if (!mounted) return;
     _logGateTiming(
         'video-source ${source.file != null ? 'saved' : source.url != null ? 'stream' : 'bundled'}');
-    final VideoPlayerController controller;
+    _startVideo(_createVideoController(source), source: source);
+  }
+
+  VideoPlayerController _createVideoController(SplashVideoSource source) {
+    final viewType = defaultTargetPlatform == TargetPlatform.android
+        ? VideoViewType.platformView
+        : VideoViewType.textureView;
+    final options = VideoPlayerOptions(mixWithOthers: true);
+
     if (source.file != null) {
-      controller = VideoPlayerController.file(source.file!);
-    } else if (source.url != null) {
-      controller = VideoPlayerController.networkUrl(
+      return VideoPlayerController.file(
+        source.file!,
+        videoPlayerOptions: options,
+        viewType: viewType,
+      );
+    }
+    if (source.url != null) {
+      return VideoPlayerController.networkUrl(
         Uri.parse(source.url!),
         formatHint: source.isHls ? VideoFormat.hls : null,
+        videoPlayerOptions: options,
+        viewType: viewType,
       );
-    } else {
-      controller = VideoPlayerController.asset(_bundledSplashVideo);
     }
-    _startVideo(controller, source: source);
+    return VideoPlayerController.asset(
+      _bundledSplashVideo,
+      videoPlayerOptions: options,
+      viewType: viewType,
+    );
   }
 
   void _startVideo(
@@ -130,6 +149,8 @@ class _SplashScreenState extends State<SplashScreen> {
     if (source.url != null) {
       init.catchError((_) {});
       init = init.timeout(_networkStartTimeout);
+    } else {
+      init = init.timeout(_localVideoInitTimeout);
     }
     init.then((_) {
       if (!identical(_videoController, controller)) return;
@@ -154,7 +175,7 @@ class _SplashScreenState extends State<SplashScreen> {
         _videoController = null;
         unawaited(controller.dispose().catchError((_) {}));
         _startVideo(
-          VideoPlayerController.asset(_bundledSplashVideo),
+          _createVideoController(const SplashVideoSource.bundled()),
           source: const SplashVideoSource.bundled(),
         );
         return;
