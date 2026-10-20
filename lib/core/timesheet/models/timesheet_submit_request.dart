@@ -1,4 +1,5 @@
 import '../network/timesheet_odoo_api_catalog.dart' show TimesheetSubmitParams;
+import '../services/capture_queue_service.dart' show AttendanceCaptureDraft;
 import '../timesheet_defaults.dart';
 
 /// Per-employee captured GPS point sent with a timesheet submission.
@@ -12,6 +13,60 @@ class TimesheetSubmitCoord {
   final double? lon;
 
   bool get hasLocation => lat != null && lon != null;
+}
+
+/// Per-employee 1:1 face verification audit (v2 submit `face_verification`).
+/// Manually added labors have none.
+class TimesheetSubmitFaceAudit {
+  const TimesheetSubmitFaceAudit({
+    required this.employeeId,
+    required this.verified,
+    required this.liveness,
+    this.score,
+    this.lead,
+    this.cohortSize,
+    this.method = methodVerify,
+  });
+
+  final int employeeId;
+  final bool verified;
+  final double? score;
+  final double? lead;
+  final int? cohortSize;
+  final String liveness;
+  final String method;
+
+  static const String methodVerify = 'profile_1to1';
+  static const String methodWalkUp = 'profile_walkup';
+
+  /// From a queued capture draft, or null when it carries no audit.
+  static TimesheetSubmitFaceAudit? fromDraft(
+    int employeeId,
+    AttendanceCaptureDraft draft,
+  ) {
+    final verified = draft.faceVerified;
+    if (verified == null) return null;
+    return TimesheetSubmitFaceAudit(
+      employeeId: employeeId,
+      verified: verified,
+      score: draft.faceScore,
+      lead: draft.faceLead,
+      cohortSize: draft.faceCohortSize,
+      liveness: draft.faceLiveness ?? 'not_run',
+      method: draft.faceMethod ?? methodVerify,
+    );
+  }
+
+  Map<String, dynamic> toJson({String? appVersion}) => {
+        'verified': verified,
+        if (score != null) 'score': score,
+        if (lead != null) 'lead': lead,
+        if (cohortSize != null) 'cohort_size': cohortSize,
+        'liveness': liveness,
+        'method': method,
+        if (appVersion != null && appVersion.isNotEmpty)
+          'app_version': appVersion,
+      };
 }
 
 /// Payload for Odoo `POST /api/timesheet/submit`.
@@ -31,6 +86,7 @@ class TimesheetSubmitRequest {
     this.breakTimeHours = 0,
     this.leaveTypeId = false,
     this.coords = const [],
+    this.faceAudits = const [],
   });
 
   final String projectId;
@@ -47,6 +103,9 @@ class TimesheetSubmitRequest {
   /// location are dropped when building the request payload.
   final List<TimesheetSubmitCoord> coords;
 
+  /// Face verification audit for verified captures only; omitted when empty.
+  final List<TimesheetSubmitFaceAudit> faceAudits;
+
   /// Builds submit params from a site capture (check-in / check-out).
   factory TimesheetSubmitRequest.fromSiteCapture({
     required String projectId,
@@ -60,9 +119,8 @@ class TimesheetSubmitRequest {
     double? lat,
     double? lon,
   }) {
-    final start = isCheckOut
-        ? capturedAt.subtract(const Duration(hours: 8))
-        : capturedAt;
+    final start =
+        isCheckOut ? capturedAt.subtract(const Duration(hours: 8)) : capturedAt;
     return TimesheetSubmitRequest(
       projectId: projectId,
       taskId: taskId,
@@ -79,8 +137,9 @@ class TimesheetSubmitRequest {
     );
   }
 
-  Map<String, dynamic> toJsonRpcParams() {
+  Map<String, dynamic> toJsonRpcParams({String? appVersion}) {
     final located = coords.where((c) => c.hasLocation);
+    final audited = faceAudits.where((a) => employeeIds.contains(a.employeeId));
     return {
       TimesheetSubmitParams.projectId: _coerceOdooId(projectId),
       TimesheetSubmitParams.taskId: TimesheetDefaults.submitTaskIdParam(taskId),
@@ -95,6 +154,11 @@ class TimesheetSubmitRequest {
         TimesheetSubmitParams.coords: {
           for (final c in located)
             c.employeeId.toString(): {'x_lat': c.lat, 'x_long': c.lon},
+        },
+      if (audited.isNotEmpty)
+        TimesheetSubmitParams.faceVerification: {
+          for (final a in audited)
+            a.employeeId.toString(): a.toJson(appVersion: appVersion),
         },
     };
   }

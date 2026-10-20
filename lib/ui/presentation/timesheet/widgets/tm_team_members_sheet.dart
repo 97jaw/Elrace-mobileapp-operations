@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:el_race/core/services/app_config_service.dart';
 import 'package:el_race/core/site_management/face_recognition/profile_photo_face_db.dart';
 import 'package:el_race/core/theme/timesheet_module_theme.dart';
 import 'package:el_race/core/timesheet/models/timesheet_team_member.dart';
@@ -20,6 +21,16 @@ abstract final class _TmLaborActionColors {
 /// Returns the captured session entries (empty if none captured).
 typedef TmCaptureAttendance = Future<List<TimesheetCaptureSessionEntry>>
     Function(TimesheetTeamMember member, Set<int> alreadyCapturedIds);
+
+/// Walk-up: open the team camera (no target). Returns session captures when
+/// the camera closes. [onSessionCapturesChanged] fires on each accept/undo so
+/// the labor-list tick updates while the camera is still open (same keys as
+/// verify: [TimesheetTeamMember.employeeId]).
+typedef TmWalkUpCapture = Future<List<TimesheetCaptureSessionEntry>> Function(
+  Set<int> alreadyCapturedIds, {
+  void Function(List<TimesheetCaptureSessionEntry> sessionCaptures)?
+      onSessionCapturesChanged,
+});
 
 /// Signature to run the confirm + submit flow for accumulated captures.
 /// Returns `true` when submission succeeded.
@@ -44,6 +55,7 @@ abstract final class TmTeamMembersSheet {
     List<TimesheetCaptureSessionEntry> initialCaptures = const [],
     TmEnrollMember? onEnroll,
     TmCaptureAttendance? onCaptureAttendance,
+    TmWalkUpCapture? onWalkUpCapture,
     ValueChanged<List<TimesheetCaptureSessionEntry>>? onPendingChanged,
     TmSubmitCaptures? onSubmitCaptures,
     TmReloadMembers? onReload,
@@ -60,6 +72,7 @@ abstract final class TmTeamMembersSheet {
         initialCaptures: initialCaptures,
         onEnroll: onEnroll,
         onCaptureAttendance: onCaptureAttendance,
+        onWalkUpCapture: onWalkUpCapture,
         onPendingChanged: onPendingChanged,
         onSubmitCaptures: onSubmitCaptures,
         onReload: onReload,
@@ -77,6 +90,7 @@ class _TmTeamMembersSheetBody extends ConsumerStatefulWidget {
     required this.initialCaptures,
     this.onEnroll,
     this.onCaptureAttendance,
+    this.onWalkUpCapture,
     this.onPendingChanged,
     this.onSubmitCaptures,
     this.onReload,
@@ -89,6 +103,7 @@ class _TmTeamMembersSheetBody extends ConsumerStatefulWidget {
   final List<TimesheetCaptureSessionEntry> initialCaptures;
   final TmEnrollMember? onEnroll;
   final TmCaptureAttendance? onCaptureAttendance;
+  final TmWalkUpCapture? onWalkUpCapture;
   final ValueChanged<List<TimesheetCaptureSessionEntry>>? onPendingChanged;
   final TmSubmitCaptures? onSubmitCaptures;
   final TmReloadMembers? onReload;
@@ -103,6 +118,7 @@ class _TmTeamMembersSheetBodyState
   late final List<TimesheetCaptureSessionEntry> _pending =
       List<TimesheetCaptureSessionEntry>.from(widget.initialCaptures);
   bool _busy = false;
+  bool _capturing = false;
   late List<TimesheetTeamMember> _members = widget.members;
   bool _reloading = false;
 
@@ -114,7 +130,8 @@ class _TmTeamMembersSheetBodyState
   final Set<int> _enrolling = <int>{};
 
   bool get _gateOnProfileTemplates =>
-      ProfilePhotoMatchTest.enabled && widget.onCaptureAttendance != null;
+      ProfilePhotoMatchTest.enabled &&
+      (widget.onCaptureAttendance != null || widget.onWalkUpCapture != null);
 
   @override
   void initState() {
@@ -238,17 +255,95 @@ class _TmTeamMembersSheetBodyState
     );
   }
 
-  bool get _showActions =>
-      widget.onEnroll != null || widget.onCaptureAttendance != null;
+  bool get _walkUpMode =>
+      AppConfigService.instance.isWalkUpMode && widget.onWalkUpCapture != null;
 
+  bool get _showActions =>
+      widget.onEnroll != null ||
+      widget.onCaptureAttendance != null ||
+      widget.onWalkUpCapture != null;
+
+  /// Baseline pending before this walk-up session (prior ticks stay).
+  List<TimesheetCaptureSessionEntry> _walkUpBaseline = const [];
+
+  /// Merge walk-up session captures into [_pending] using team [employeeId].
+  void _applyWalkUpSessionCaptures(
+    List<TimesheetCaptureSessionEntry> sessionCaptures,
+  ) {
+    if (!mounted) return;
+    final baselineIds = _walkUpBaseline.map((e) => e.employeeId).toSet();
+    final remapped = <TimesheetCaptureSessionEntry>[];
+    for (final entry in sessionCaptures) {
+      final key = entry.employeeId;
+      TimesheetTeamMember? team;
+      for (final m in _members) {
+        if (m.employeeId == key || m.employeeId == entry.employee.id) {
+          team = m;
+          break;
+        }
+      }
+      final resolved = team != null
+          ? TimesheetCaptureSessionEntry(
+              employee: team.toOdooEmployee(),
+              matchScore: entry.matchScore,
+              draft: entry.draft,
+              capturedAt: entry.capturedAt,
+              verifyLead: entry.verifyLead,
+              verifyCohortSize: entry.verifyCohortSize,
+              verifyUsedNoCohortBar: entry.verifyUsedNoCohortBar,
+            )
+          : entry;
+      if (baselineIds.contains(resolved.employeeId)) continue;
+      remapped.add(resolved);
+    }
+    setState(() {
+      _pending
+        ..clear()
+        ..addAll(_walkUpBaseline)
+        ..addAll(remapped);
+    });
+    _notifyPending();
+  }
+
+  Future<void> _walkUpCapture() async {
+    final handler = widget.onWalkUpCapture;
+    if (handler == null || _busy || _capturing) return;
+    _capturing = true;
+    _walkUpBaseline = List.of(_pending);
+    final List<TimesheetCaptureSessionEntry> entries;
+    try {
+      entries = await handler(
+        _pendingIds,
+        onSessionCapturesChanged: _applyWalkUpSessionCaptures,
+      );
+    } finally {
+      _capturing = false;
+    }
+    if (!mounted) return;
+    // Final merge after camera close (also covers gesture-back with data).
+    _applyWalkUpSessionCaptures(entries);
+  }
+
+  /// Captured first (green tick), then remaining — same as Pick labor panel.
   List<TimesheetTeamMember> get _filteredMembers {
     final q = _query.toLowerCase();
-    if (q.isEmpty) return _members;
-    return _members.where((m) {
-      return m.name.toLowerCase().contains(q) ||
-          m.fileId.toLowerCase().contains(q) ||
-          (m.subtitle?.toLowerCase().contains(q) ?? false);
-    }).toList(growable: false);
+    final matched = q.isEmpty
+        ? _members
+        : _members
+            .where(
+              (m) =>
+                  m.name.toLowerCase().contains(q) ||
+                  m.fileId.toLowerCase().contains(q) ||
+                  (m.subtitle?.toLowerCase().contains(q) ?? false),
+            )
+            .toList(growable: false);
+    final pending = _pendingIds;
+    return [
+      for (final m in matched)
+        if (pending.contains(m.employeeId)) m,
+      for (final m in matched)
+        if (!pending.contains(m.employeeId)) m,
+    ];
   }
 
   void _onQueryChanged(String value) {
@@ -271,8 +366,14 @@ class _TmTeamMembersSheetBodyState
 
   Future<void> _capture(TimesheetTeamMember member) async {
     final handler = widget.onCaptureAttendance;
-    if (handler == null || _busy) return;
-    final entries = await handler(member, _pendingIds);
+    if (handler == null || _busy || _capturing) return;
+    _capturing = true;
+    final List<TimesheetCaptureSessionEntry> entries;
+    try {
+      entries = await handler(member, _pendingIds);
+    } finally {
+      _capturing = false;
+    }
     if (!mounted || entries.isEmpty) return;
     final existing = _pendingIds;
     final duplicates = entries
@@ -403,6 +504,19 @@ class _TmTeamMembersSheetBodyState
                         ),
                       ),
                     ),
+                    if (_walkUpMode)
+                      Tooltip(
+                        message: 'Capture attendance',
+                        child: IconButton(
+                          onPressed: _busy || _capturing ? null : _walkUpCapture,
+                          icon: Image.asset(
+                            'assets/png/capture_attendance.png',
+                            width: _CaptureButton.iconSize,
+                            height: _CaptureButton.iconSize,
+                            filterQuality: FilterQuality.medium,
+                          ),
+                        ),
+                      ),
                     if (widget.onReload != null)
                       _ReloadButton(
                         loading: _reloading,
@@ -495,11 +609,13 @@ class _TmTeamMembersSheetBodyState
                               isCaptured: captured,
                               isEnrolling: enrolling,
                               showActions: _showActions,
+                              walkUpMode: _walkUpMode,
                               faceState: faceState,
                               onEnroll: widget.onEnroll == null || enrolling
                                   ? null
                                   : () => _handleEnroll(member, enrolled),
-                              onSubmit: widget.onCaptureAttendance == null ||
+                              onSubmit: _walkUpMode ||
+                                      widget.onCaptureAttendance == null ||
                                       captured ||
                                       enrolling
                                   ? null
@@ -646,6 +762,7 @@ class _MemberTile extends StatelessWidget {
     required this.isCaptured,
     required this.isEnrolling,
     required this.showActions,
+    this.walkUpMode = false,
     this.faceState,
     this.onEnroll,
     this.onSubmit,
@@ -656,6 +773,7 @@ class _MemberTile extends StatelessWidget {
   final bool isCaptured;
   final bool isEnrolling;
   final bool showActions;
+  final bool walkUpMode;
 
   /// Profile-photo template status; null when capture isn't gated on it.
   final ProfileTemplateState? faceState;
@@ -775,20 +893,25 @@ class _MemberTile extends StatelessWidget {
             _CaptureButton(
               tooltip: isCaptured
                   ? 'Already captured'
-                  : switch (faceState) {
-                      ProfileTemplateState.pending => 'Preparing face…',
-                      ProfileTemplateState.failed => 'No usable profile photo',
-                      _ => isEnrolled || ProfilePhotoMatchTest.enabled
-                          ? 'Capture attendance'
-                          : 'Capture attendance (not enrolled yet)',
-                    },
+                  : walkUpMode
+                      ? ''
+                      : switch (faceState) {
+                          ProfileTemplateState.pending => 'Preparing face…',
+                          ProfileTemplateState.failed =>
+                            'No usable profile photo',
+                          _ => isEnrolled || ProfilePhotoMatchTest.enabled
+                              ? 'Capture attendance'
+                              : 'Capture attendance (not enrolled yet)',
+                        },
               captured: isCaptured,
+              walkUpMode: walkUpMode,
               dimmed: !isCaptured &&
+                  !walkUpMode &&
                   (onSubmit == null ||
                       faceState == ProfileTemplateState.pending ||
                       faceState == ProfileTemplateState.failed),
               noPhoto: !isCaptured && faceState == ProfileTemplateState.failed,
-              onTap: isCaptured ? null : onSubmit,
+              onTap: isCaptured || walkUpMode ? null : onSubmit,
             ),
           ],
         ],
@@ -803,21 +926,55 @@ class _CaptureButton extends StatelessWidget {
     required this.captured,
     required this.dimmed,
     required this.noPhoto,
+    this.walkUpMode = false,
     this.onTap,
   });
 
   final String tooltip;
   final bool captured;
+  final bool walkUpMode;
 
   /// Dimmed icons may still be tappable (e.g. to prioritize a pending face).
   final bool dimmed;
   final bool noPhoto;
   final VoidCallback? onTap;
 
-  static const double _iconSize = 30;
+  static const double iconSize = 30;
 
   @override
   Widget build(BuildContext context) {
+    // Captured → strong green tick on light-green circle (verify + walk-up).
+    if (captured) {
+      const tick = Color(0xFF1E8E3E);
+      return Tooltip(
+        message: tooltip,
+        child: SizedBox(
+          width: 44,
+          height: 44,
+          child: Center(
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: tick.withValues(alpha: 0.15),
+              ),
+              child: const SizedBox(
+                width: 36,
+                height: 36,
+                child: Icon(
+                  Icons.check_circle_rounded,
+                  size: iconSize,
+                  color: tick,
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+    // Walk-up: empty slot (header camera opens capture).
+    if (walkUpMode) {
+      return const SizedBox(width: 44, height: 44);
+    }
     return Tooltip(
       message: tooltip,
       child: InkWell(
@@ -828,8 +985,8 @@ class _CaptureButton extends StatelessWidget {
           height: 44,
           child: Center(
             child: SizedBox(
-              width: _iconSize,
-              height: _iconSize,
+              width: iconSize,
+              height: iconSize,
               child: Stack(
                 clipBehavior: Clip.none,
                 children: [
@@ -837,30 +994,11 @@ class _CaptureButton extends StatelessWidget {
                     opacity: dimmed ? 0.4 : 1,
                     child: Image.asset(
                       'assets/png/capture_attendance.png',
-                      width: _iconSize,
-                      height: _iconSize,
+                      width: iconSize,
+                      height: iconSize,
                       filterQuality: FilterQuality.medium,
                     ),
                   ),
-                  if (captured)
-                    Positioned(
-                      right: -3,
-                      bottom: -3,
-                      child: Container(
-                        width: 14,
-                        height: 14,
-                        decoration: BoxDecoration(
-                          color: _TmLaborActionColors.ok,
-                          shape: BoxShape.circle,
-                          border: Border.all(color: Colors.white, width: 1.5),
-                        ),
-                        child: const Icon(
-                          Icons.check_rounded,
-                          size: 9,
-                          color: Colors.white,
-                        ),
-                      ),
-                    ),
                   if (noPhoto)
                     Positioned(
                       right: -3,

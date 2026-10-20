@@ -14,8 +14,7 @@ abstract final class FacePilotLogStore {
 
   static String? get lastExportPath => _lastExportPath;
 
-  static List<Map<String, dynamic>> snapshot() =>
-      List.unmodifiable(_buffer);
+  static List<Map<String, dynamic>> snapshot() => List.unmodifiable(_buffer);
 
   static void recordMatchAttempt({
     required double bestScore,
@@ -48,6 +47,50 @@ abstract final class FacePilotLogStore {
       'total_ms': totalMs,
       if (outcome != null) 'outcome': outcome.name,
       if (followUp != null) 'follow_up': followUp.name,
+      if (imagePath != null && kDebugMode) 'image': imagePath,
+    };
+    _buffer.add(entry);
+    while (_buffer.length > maxEntries) {
+      _buffer.removeAt(0);
+    }
+    if (kDebugMode) {
+      unawaited(_appendJsonl(entry));
+    }
+  }
+
+  /// 1:1 verify attempt. Cohort member is logged by id only (tuning).
+  static void recordVerifyAttempt({
+    required int targetEmployeeId,
+    required String outcome,
+    required double? targetScore,
+    required double? cohortMaxScore,
+    required int? cohortMaxEmployeeId,
+    required double? lead,
+    required int cohortSize,
+    required bool usedNoCohortBar,
+    required double? faceWidthPx,
+    required int preprocessMs,
+    required int embedMs,
+    required int verifyMs,
+    required int totalMs,
+    String? imagePath,
+  }) {
+    final entry = <String, dynamic>{
+      'ts': DateTime.now().toIso8601String(),
+      'event': 'verify',
+      'target_id': targetEmployeeId,
+      'outcome': outcome,
+      't': targetScore,
+      'c_max': cohortMaxScore,
+      'c_max_id': cohortMaxEmployeeId,
+      'lead': lead,
+      'cohort': cohortSize,
+      'no_cohort_bar': usedNoCohortBar,
+      'face_px': faceWidthPx,
+      'preprocess_ms': preprocessMs,
+      'embed_ms': embedMs,
+      'verify_ms': verifyMs,
+      'total_ms': totalMs,
       if (imagePath != null && kDebugMode) 'image': imagePath,
     };
     _buffer.add(entry);
@@ -94,7 +137,8 @@ abstract final class FacePilotLogStore {
       final lines = _buffer.map(jsonEncode).join('\n');
       await file.writeAsString('$lines\n', mode: FileMode.write);
       _lastExportPath = file.path;
-      debugPrint('FacePilotLog: exported ${_buffer.length} entries → ${file.path}');
+      debugPrint(
+          'FacePilotLog: exported ${_buffer.length} entries → ${file.path}');
       return file.path;
     } catch (e) {
       debugPrint('FacePilotLog: export failed: $e');

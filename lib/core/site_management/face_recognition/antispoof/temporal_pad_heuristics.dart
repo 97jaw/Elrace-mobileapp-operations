@@ -24,6 +24,15 @@ class TemporalPadHeuristics {
         minEyeVariance: AntispoofConfig.burstMinEyeVariance,
       );
 
+  /// Best-frame window: ≥3 classified frames (span gated separately).
+  /// Same frozen / motion thresholds as [forBurst].
+  factory TemporalPadHeuristics.forBestFrame() => TemporalPadHeuristics(
+        minSamples: 3,
+        maxFrameSimilarity: AntispoofConfig.burstMaxFrameSimilarity,
+        minYawVariance: AntispoofConfig.burstMinHeadMotionVariance,
+        minEyeVariance: AntispoofConfig.burstMinEyeVariance,
+      );
+
   factory TemporalPadHeuristics.forShutter() => TemporalPadHeuristics(
         minSamples: AntispoofConfig.preShutterFrameCount,
         maxFrameSimilarity: AntispoofConfig.burstMaxFrameSimilarity,

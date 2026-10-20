@@ -2,48 +2,61 @@ import 'dart:async';
 import 'dart:io';
 import 'dart:math' as math;
 
-import 'package:device_info_plus/device_info_plus.dart';
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:tflite_flutter/tflite_flutter.dart';
 
-/// Creates TFLite interpreters once with a safe Android XNNPACK policy.
+/// Creates TFLite interpreters once with a safe Android policy.
 ///
-/// Native SIGSEGV in `TfLiteXNNPackDelegateCreateWithThreadpool` (seen on
-/// MediaTek / Samsung XCover7) cannot be caught in Dart. Strategy:
-/// 1. Default / fallback = plain CPU interpreter (always works).
-/// 2. Crash-loop guard: persist `attempted` before each XNNPACK create; clear
-///    only after that create succeeds. If still set on next launch, permanently
-///    skip XNNPACK for this install.
-/// 3. Chipset denylist (MediaTek / XCover) as belt-and-suspenders.
-/// 4. Explicit `numThreads` (never rely on auto threadpool sizing).
+/// **Android:** never attach an explicit [XNNPackDelegate]. Creating one with
+/// [XNNPackDelegateOptions] against LiteRT 1.4.0 mis-reads the options struct
+/// (`weights_cache` / path seen as `'PK'` zip bytes → `__next_prime overflow`).
+/// Use plain CPU [InterpreterOptions] + `numThreads` only. Crash-loop / per-model
+/// XNN prefs are cleared on startup; guard helpers remain for a future upgrade
+/// but do not enable XNNPACK on Android today.
+///
+/// **iOS:** plain CPU path as well (no explicit XNNPACK).
 abstract final class TfliteInterpreterFactory {
-  static const _prefAttempted = 'tflite_xnnpack_init_attempted';
-  static const _prefDisabled = 'tflite_xnnpack_disabled';
+  static const _prefAttemptPrefix = 'tflite_xnn_attempt:';
+  static const _prefDisabledPrefix = 'tflite_xnn_disabled:';
+  static const _prefAttemptedLegacy = 'tflite_xnnpack_init_attempted';
+  static const _prefDisabledLegacy = 'tflite_xnnpack_disabled';
 
-  static bool? _useXnnpack;
-  static String _backendLabel = 'cpu';
+  static final Map<String, String> _backendByAsset = {};
 
-  /// Serialize creates so parallel FaceEmbedder / MiniFASNet loads cannot
-  /// clear the crash-loop flag while another create is in-flight.
+  /// Retain options for process lifetime (same isolate as the interpreter).
+  static final Map<String, InterpreterOptions> _retainedOptions = {};
+
   static Future<void> _createChain = Future<void>.value();
+  static bool _clearedStaleXnnFlags = false;
 
-  static String get backendLabel => _backendLabel;
+  static String get backendLabel =>
+      _backendByAsset.values.isEmpty ? 'cpu' : _backendByAsset.values.last;
 
-  /// Build interpreter from asset. Prefer calling once per model (Task 0).
+  static String backendFor(String assetPath) =>
+      _backendByAsset[assetPath] ?? 'unknown';
+
+  /// Build interpreter from asset. Prefer calling once per model.
   ///
-  /// [fixedInputShape] pins dims once after create so XNNPACK is never
-  /// re-applied via resize+allocate mid-session.
+  /// [preferXnnpack] is accepted for call-site compat but **ignored** — Android
+  /// never creates an explicit XNNPACK delegate in this build.
   static Future<Interpreter> fromAsset(
     String assetPath, {
     List<int>? fixedInputShape,
-
-    /// Opt-in only. XNNPACK SIGSEGVs inside `TfLiteInterpreterCreate` on
-    /// chipsets outside the denylist (Samsung Exynos Galaxy Tab S10 FE), and
-    /// the crash-loop guard only kicks in after the first crash — so plain CPU
-    /// is the default for every model.
     bool preferXnnpack = false,
+    int? numThreads,
   }) {
+    // preferXnnpack intentionally unused (unsafe with current LiteRT binding).
+    assert(() {
+      if (preferXnnpack && Platform.isAndroid) {
+        debugPrint(
+          'TfliteInterpreterFactory: preferXnnpack=true ignored on Android '
+          '(explicit XNNPackDelegate unsafe with LiteRT 1.4.0)',
+        );
+      }
+      return true;
+    }());
+
     final done = Completer<Interpreter>();
     _createChain = _createChain.then((_) async {
       try {
@@ -51,7 +64,7 @@ abstract final class TfliteInterpreterFactory {
           await _fromAssetImpl(
             assetPath,
             fixedInputShape: fixedInputShape,
-            preferXnnpack: preferXnnpack,
+            numThreads: numThreads,
           ),
         );
       } catch (e, st) {
@@ -61,59 +74,27 @@ abstract final class TfliteInterpreterFactory {
     return done.future;
   }
 
+  /// No-op while Android never enables XNNPACK. Kept so call sites stay valid.
+  static Future<void> notifyFirstInvokeOk(String assetPath) async {}
+
   static Future<Interpreter> _fromAssetImpl(
     String assetPath, {
     List<int>? fixedInputShape,
-    bool preferXnnpack = false,
+    int? numThreads,
   }) async {
-    final threads = _cpuThreads();
-    final tryXnn = preferXnnpack && await _shouldTryXnnpack();
+    await _clearStaleXnnFlagsOnce();
 
-    late final Interpreter interpreter;
-    if (!tryXnn) {
-      _backendLabel = preferXnnpack ? 'cpu' : 'cpu_forced';
-      debugPrint(
-        'TfliteInterpreterFactory: CPU interpreter '
-        '(xnn=${preferXnnpack ? "skipped_policy" : "disabled_for_model"}) '
-        'asset=$assetPath threads=$threads',
-      );
-      interpreter = await Interpreter.fromAsset(
-        assetPath,
-        options: InterpreterOptions()..threads = threads,
-      );
-    } else {
-      // Persist BEFORE native create — SIGSEGV cannot be caught.
-      await _setAttempted(true);
-
-      try {
-        final options = InterpreterOptions()..threads = threads;
-        options.addDelegate(
-          XNNPackDelegate(
-            options: XNNPackDelegateOptions(numThreads: threads),
-          ),
-        );
-        interpreter = await Interpreter.fromAsset(
-          assetPath,
-          options: options,
-        );
-        await _setAttempted(false);
-        _backendLabel = 'xnnpack';
-        debugPrint(
-          'TfliteInterpreterFactory: XNNPACK interpreter ok '
-          'asset=$assetPath threads=$threads',
-        );
-      } catch (e, st) {
-        debugPrint(
-          'TfliteInterpreterFactory: XNNPACK failed, CPU fallback: $e\n$st',
-        );
-        await _disableXnnpackPermanently(reason: 'dart_exception');
-        _backendLabel = 'cpu_fallback';
-        interpreter = await Interpreter.fromAsset(
-          assetPath,
-          options: InterpreterOptions()..threads = threads,
-        );
-      }
-    }
+    final threads = numThreads ?? _cpuThreads();
+    _backendByAsset[assetPath] = 'cpu';
+    debugPrint(
+      'TfliteInterpreterFactory: CPU interpreter '
+      '(xnn=never_explicit_delegate) '
+      'asset=$assetPath threads=$threads',
+    );
+    final options = InterpreterOptions()..threads = threads;
+    _retainedOptions[assetPath] = options;
+    final interpreter =
+        await Interpreter.fromAsset(assetPath, options: options);
 
     if (fixedInputShape != null) {
       _pinInputShape(interpreter, fixedInputShape);
@@ -121,7 +102,34 @@ abstract final class TfliteInterpreterFactory {
     return interpreter;
   }
 
-  /// Pin once. Subsequent frames must never resize (that re-applies XNNPACK).
+  /// Clear persisted XNN attempt/disable keys so a prior crash does not leave
+  /// stale state. Guard helpers below are unused until a safe upgrade.
+  static Future<void> _clearStaleXnnFlagsOnce() async {
+    if (_clearedStaleXnnFlags) return;
+    _clearedStaleXnnFlags = true;
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final keys = prefs.getKeys().toList(growable: false);
+      var n = 0;
+      for (final k in keys) {
+        if (k == _prefAttemptedLegacy ||
+            k == _prefDisabledLegacy ||
+            k.startsWith(_prefAttemptPrefix) ||
+            k.startsWith(_prefDisabledPrefix)) {
+          await prefs.remove(k);
+          n++;
+        }
+      }
+      if (n > 0) {
+        debugPrint(
+          'TfliteInterpreterFactory: cleared $n stale xnn_attempt/disable flags',
+        );
+      }
+    } catch (e) {
+      debugPrint('TfliteInterpreterFactory: clear xnn flags failed: $e');
+    }
+  }
+
   static void _pinInputShape(Interpreter interpreter, List<int> shape) {
     final current = interpreter.getInputTensor(0).shape;
     final same = current.length == shape.length &&
@@ -146,78 +154,20 @@ abstract final class TfliteInterpreterFactory {
     return math.min(2, math.max(1, cores - 1));
   }
 
-  static Future<bool> _shouldTryXnnpack() async {
-    if (_useXnnpack != null) return _useXnnpack!;
-    if (!Platform.isAndroid) {
-      _useXnnpack = false;
-      return false;
-    }
+  // ---------------------------------------------------------------------------
+  // Crash-loop guard (unused — Android never enables XNNPACK). Kept for a
+  // future binding upgrade that matches LiteRT's TfLiteXNNPackDelegateOptions.
+  // ---------------------------------------------------------------------------
 
-    final prefs = await SharedPreferences.getInstance();
+  // ignore: unused_element
+  static String _attemptKey(String assetPath) =>
+      '$_prefAttemptPrefix$assetPath';
 
-    if (prefs.getBool(_prefDisabled) == true) {
-      debugPrint('TfliteInterpreterFactory: XNNPACK permanently disabled');
-      _useXnnpack = false;
-      return false;
-    }
+  // ignore: unused_element
+  static String _disabledKey(String assetPath) =>
+      '$_prefDisabledPrefix$assetPath';
 
-    // Previous launch crashed mid-create.
-    if (prefs.getBool(_prefAttempted) == true) {
-      await _disableXnnpackPermanently(reason: 'crash_loop_guard');
-      _useXnnpack = false;
-      return false;
-    }
-
-    if (await _isKnownBadChipset()) {
-      debugPrint(
-        'TfliteInterpreterFactory: XNNPACK skipped (chipset denylist)',
-      );
-      _useXnnpack = false;
-      return false;
-    }
-
-    _useXnnpack = true;
-    return true;
-  }
-
-  static Future<void> _setAttempted(bool value) async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool(_prefAttempted, value);
-  }
-
-  static Future<void> _disableXnnpackPermanently({
-    required String reason,
-  }) async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool(_prefDisabled, true);
-    await prefs.setBool(_prefAttempted, false);
-    _useXnnpack = false;
-    debugPrint('TfliteInterpreterFactory: XNNPACK disabled ($reason)');
-  }
-
-  static Future<bool> _isKnownBadChipset() async {
-    try {
-      final info = await DeviceInfoPlugin().androidInfo;
-      final blob = [
-        info.board,
-        info.hardware,
-        info.device,
-        info.model,
-        info.product,
-        info.brand,
-        info.manufacturer,
-      ].join(' ').toLowerCase();
-      const bad = [
-        'mt6',
-        'mt8',
-        'mediatek',
-        'helio',
-        'dimensity',
-        'xcover',
-      ];
-      return bad.any(blob.contains);
-    } catch (_) {
-      return false;
-    }
-  }
+  /// Would gate XNNPACK create; always false today.
+  // ignore: unused_element
+  static Future<bool> _shouldTryXnnpack(String assetPath) async => false;
 }

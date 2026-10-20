@@ -1,0 +1,810 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="en" xml:lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="generator" content="pandoc" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
+  <meta name="dcterms.date" content="2026-10-15" />
+  <title>Elrace Mobile App — Notifications Guide</title>
+  <style>
+    /* Default styles provided by pandoc.
+    ** See https://pandoc.org/MANUAL.html#variables-for-html for config info.
+    */
+    span.smallcaps{font-variant: small-caps;}
+    div.columns{display: flex; gap: min(4vw, 1.5em);}
+    div.column{flex: auto; overflow-x: auto;}
+    div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+    /* The extra [class] is a hack that increases specificity enough to
+       override a similar rule in reveal.js */
+    ul.task-list[class]{list-style: none;}
+    ul.task-list li input[type="checkbox"] {
+      font-size: inherit;
+      width: 0.8em;
+      margin: 0 0.8em 0.2em -1.6em;
+      vertical-align: middle;
+    }
+    .display.math{display: block; text-align: center; margin: 0.5rem auto;}
+  </style>
+  <link rel="stylesheet" href="report.css" />
+</head>
+<body>
+<header id="title-block-header">
+<h1 class="title">Elrace Mobile App — Notifications Guide</h1>
+<p class="subtitle">What notifications users receive, when they are
+sent, and what they say</p>
+<p class="date">15 October 2026</p>
+</header>
+<p><strong>About this document.</strong> This document lists every
+notification the Elrace mobile app shows, grouped by module. For each
+notification, it shows:</p>
+<ul>
+<li>when it is sent;</li>
+<li>who receives it;</li>
+<li>the title and message text the user sees;</li>
+<li>what happens when the user taps it.</li>
+</ul>
+<p>Words in <em>{curly brackets}</em> are filled in automatically (for
+example <em>{Employee name}</em>).</p>
+<h1 id="how-notifications-work">1. How notifications work</h1>
+<h2 id="where-notifications-come-from">1.1 Where notifications come
+from</h2>
+<table>
+<colgroup>
+<col style="width: 50%" />
+<col style="width: 50%" />
+</colgroup>
+<thead>
+<tr>
+<th>Source</th>
+<th>Examples</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Odoo (ERP)</strong></td>
+<td>HR requests, LPO / invoice / petty cash approvals, projects,
+documents, attendance, admin messages</td>
+</tr>
+<tr>
+<td><strong>Chat and Tasks</strong></td>
+<td>Chat messages, tasks and tickets, shared notes, signed
+documents</td>
+</tr>
+<tr>
+<td><strong>Announcements</strong></td>
+<td>Circulars and announcements published in Odoo</td>
+</tr>
+<tr>
+<td><strong>The phone itself</strong></td>
+<td>Prayer times, task reminders</td>
+</tr>
+</tbody>
+</table>
+<h2 id="notification-flow">1.2 Notification flow</h2>
+<ol type="1">
+<li>Something happens in the business, for example an employee submits a
+leave request or a manager approves an LPO.</li>
+<li>The system checks whether the receiver has <strong>muted</strong>
+this category in the app settings. If it is muted, nothing is sent.</li>
+<li>The receiver gets a notification on their phone:
+<ul>
+<li><strong>App closed or in background:</strong> it appears in the
+phone’s notification bar.</li>
+<li><strong>App open:</strong> it appears as a banner at the top of the
+screen. Chat messages are not shown for the chat the user currently has
+open.</li>
+</ul></li>
+<li>Most notifications are also saved in the app’s <strong>Notification
+Center</strong> (the bell icon).</li>
+<li>The <strong>bell badge</strong> shows how many new notifications
+arrived since the user last opened the Notification Center.</li>
+<li>When the user opens the Notification Center, all notifications are
+marked as read.</li>
+</ol>
+<h2 id="muting-notifications">1.3 Muting notifications</h2>
+<p>Users can mute notifications by category from <strong>Profile →
+Notification settings</strong>. The categories are:</p>
+<ul>
+<li><strong>Waiting approvals:</strong> HR requests, LPOs, invoices and
+petty cash</li>
+<li><strong>Chat</strong></li>
+<li><strong>Tasks</strong></li>
+<li><strong>Tickets</strong></li>
+<li><strong>Prayer</strong></li>
+<li><strong>Alerts:</strong> weather and safety</li>
+<li>other categories configured in Odoo</li>
+</ul>
+<h1 id="notifications-by-module">2. Notifications by module</h1>
+<h2 id="hr-employee-requests">2.1 HR — Employee Requests</h2>
+<p>Covers leave, sick leave, short leave, job mission, effective date
+update and temporary permission.</p>
+<table style="width:100%;">
+<colgroup>
+<col style="width: 16%" />
+<col style="width: 16%" />
+<col style="width: 16%" />
+<col style="width: 16%" />
+<col style="width: 16%" />
+<col style="width: 16%" />
+</colgroup>
+<thead>
+<tr>
+<th>Notification</th>
+<th>When it is sent</th>
+<th>Who receives it</th>
+<th>Title</th>
+<th>Message</th>
+<th>On tap</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>New request</td>
+<td>Employee submits a request from the app</td>
+<td>Next approver</td>
+<td>Depends on type: “Leave Request”, “Sick Leave Request”, “Short Leave
+Request”, “Job Mission Request”, “Effective Date Update Request”,
+“Temporary Permission”. Other types: “New Request Submitted”</td>
+<td>“<em>{Employee name}</em> has submitted a <em>{request type}</em>.”
+Other types: “<em>{Employee name}</em> submitted a new request.”</td>
+<td>Nothing opens</td>
+</tr>
+<tr>
+<td>Request approved</td>
+<td>Approver approves the request in the app</td>
+<td>Employee who submitted</td>
+<td>“Request Approved”</td>
+<td>“<em>{Approver name}</em> has approved your request.”</td>
+<td>Nothing opens</td>
+</tr>
+<tr>
+<td>Request rejected</td>
+<td>Approver rejects the request in the app</td>
+<td>Employee who submitted</td>
+<td>“Request Rejected”</td>
+<td>“<em>{Approver name}</em> has rejected your request.”</td>
+<td>Nothing opens</td>
+</tr>
+<tr>
+<td>Next approval needed</td>
+<td>Request moves to the next approver</td>
+<td>Next approver</td>
+<td>“New Request to Approve”</td>
+<td>“A new request from <em>{Employee name}</em> needs your
+approval.”</td>
+<td>Nothing opens</td>
+</tr>
+<tr>
+<td>Request rejected (from Odoo web)</td>
+<td>Approver rejects with a reason in Odoo web</td>
+<td>Next approver, or the employee</td>
+<td>“New Employee Request Approval”, or “Employee Request
+Processed”</td>
+<td>“<em>{Request}</em> requires your approval.”, or “<em>{Request}</em>
+has been fully processed.”</td>
+<td>Nothing opens</td>
+</tr>
+<tr>
+<td>New employee registered</td>
+<td>HR confirms a new employee in Odoo</td>
+<td>Employee’s direct manager</td>
+<td>“New Employee Registered: <em>{Name}</em>”</td>
+<td>“Employee <em>{Name}</em> has been confirmed and added to the
+system”</td>
+<td>Nothing opens</td>
+</tr>
+</tbody>
+</table>
+<h2 id="approvals-lpo-invoice-and-petty-cash">2.2 Approvals — LPO,
+Invoice and Petty Cash</h2>
+<table style="width:100%;">
+<colgroup>
+<col style="width: 16%" />
+<col style="width: 16%" />
+<col style="width: 16%" />
+<col style="width: 16%" />
+<col style="width: 16%" />
+<col style="width: 16%" />
+</colgroup>
+<thead>
+<tr>
+<th>Notification</th>
+<th>When it is sent</th>
+<th>Who receives it</th>
+<th>Title</th>
+<th>Message</th>
+<th>On tap</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Approval request</td>
+<td>Document is sent for approval</td>
+<td>First reviewer</td>
+<td>“New LPO Approval Request” / “New Invoice Approval Request” / “New
+Petty Cash Approval Request”</td>
+<td>“<em>{Document no.}</em> requires your approval.”</td>
+<td>Nothing opens</td>
+</tr>
+<tr>
+<td>Level approved</td>
+<td>A reviewer approves one level</td>
+<td>Person who created the document</td>
+<td>“LPO Approved” / “INVOICE Approved” / “Petty Cash Approved”</td>
+<td>“<em>{Approver name}</em> approved <em>{Document no.}</em>”</td>
+<td>Nothing opens</td>
+</tr>
+<tr>
+<td>Next level needed</td>
+<td>Document needs another approval level</td>
+<td>Next reviewer</td>
+<td>“New LPO Approval Required” / “New INVOICE Approval Required” / “New
+Petty Cash Approval Required”</td>
+<td>“Please review <em>{Document no.}</em>”</td>
+<td>Nothing opens</td>
+</tr>
+<tr>
+<td>Fully approved — LPO</td>
+<td>Last level approved</td>
+<td>All reviewers</td>
+<td>“LPO has been issued”</td>
+<td>“<em>{Vendor name}</em>”</td>
+<td>Nothing opens</td>
+</tr>
+<tr>
+<td>Fully approved — Invoice / Petty cash</td>
+<td>Last level approved</td>
+<td>All reviewers</td>
+<td>“Invoice Fully Approved” / “Petty Cash Fully Approved”</td>
+<td>“<em>{Document no.}</em> has been fully approved.”</td>
+<td>Nothing opens</td>
+</tr>
+<tr>
+<td>Approved / rejected from the app</td>
+<td>Reviewer approves or rejects from the app</td>
+<td>Person who requested</td>
+<td>“Purchase Order Approved” / “Journal Entry Approved” / “Expense
+Report Approved” (or “… Rejected”)</td>
+<td>“<em>{Approver name}</em> approved / rejected <em>{Document
+no.}</em>.”</td>
+<td>Nothing opens</td>
+</tr>
+<tr>
+<td>Next approval (from the app)</td>
+<td>Same as above, when another level remains</td>
+<td>Next reviewer</td>
+<td>“New Approval Required”</td>
+<td>“Please review <em>{Document no.}</em>”</td>
+<td>Nothing opens</td>
+</tr>
+<tr>
+<td>Petty cash submitted</td>
+<td>Employee submits petty cash from the app</td>
+<td>Reviewer</td>
+<td>“Petty Cash Request Submitted”</td>
+<td>“<em>{Employee name}</em> submitted a petty cash request of
+<em>{amount}</em> AED.”</td>
+<td>Nothing opens</td>
+</tr>
+<tr>
+<td>Petty cash paid</td>
+<td>Petty cash is paid</td>
+<td>Reviewers</td>
+<td>“Petty Cash Paid”</td>
+<td>“<em>{Petty cash no.}</em> has been paid.”</td>
+<td>Nothing opens</td>
+</tr>
+</tbody>
+</table>
+<h2 id="projects">2.3 Projects</h2>
+<table style="width:100%;">
+<colgroup>
+<col style="width: 16%" />
+<col style="width: 16%" />
+<col style="width: 16%" />
+<col style="width: 16%" />
+<col style="width: 16%" />
+<col style="width: 16%" />
+</colgroup>
+<thead>
+<tr>
+<th>Notification</th>
+<th>When it is sent</th>
+<th>Who receives it</th>
+<th>Title</th>
+<th>Message</th>
+<th>On tap</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>New project</td>
+<td>A new project is created</td>
+<td>Everyone on the project staff list</td>
+<td>“New Project Assigned”</td>
+<td>“You have been added to <em>{Project name}</em>”</td>
+<td>Nothing opens</td>
+</tr>
+<tr>
+<td>Added to project</td>
+<td>An employee is added to a project’s staff list</td>
+<td>That employee</td>
+<td>“New Project Assigned”</td>
+<td>“You have been added to <em>{Project name}</em>”</td>
+<td>Nothing opens</td>
+</tr>
+<tr>
+<td>Project completed</td>
+<td>Project status changes to Completed</td>
+<td>Everyone on the project staff list</td>
+<td>“Project Completed”</td>
+<td>“Project <em>{Project name}</em> is now completed”</td>
+<td>Nothing opens</td>
+</tr>
+</tbody>
+</table>
+<h2 id="documents-and-shared-folders">2.4 Documents and Shared
+Folders</h2>
+<table style="width:100%;">
+<colgroup>
+<col style="width: 16%" />
+<col style="width: 16%" />
+<col style="width: 16%" />
+<col style="width: 16%" />
+<col style="width: 16%" />
+<col style="width: 16%" />
+</colgroup>
+<thead>
+<tr>
+<th>Notification</th>
+<th>When it is sent</th>
+<th>Who receives it</th>
+<th>Title</th>
+<th>Message</th>
+<th>On tap</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Document expiring</td>
+<td>Every day, for documents expiring within 30 days</td>
+<td>Employee who owns the document</td>
+<td>“Document expiring soon”</td>
+<td>“<em>{Document}</em> expires on <em>{date}</em>. Please renew it.”
+If there are several: “You have <em>{n}</em> documents expiring
+soon…”</td>
+<td>Nothing opens</td>
+</tr>
+<tr>
+<td>User added to folder</td>
+<td>A user is added to a shared folder</td>
+<td>All folder members</td>
+<td>“Shared Folder Update”</td>
+<td>“New user has been added to the shared folder
+‘<em>{Folder}</em>’.”</td>
+<td>Nothing opens</td>
+</tr>
+<tr>
+<td>User removed from folder</td>
+<td>A user is removed from a shared folder</td>
+<td>All folder members</td>
+<td>“Shared Folder Update”</td>
+<td>“A user has been removed from the shared folder
+‘<em>{Folder}</em>’.”</td>
+<td>Nothing opens</td>
+</tr>
+<tr>
+<td>Document signed</td>
+<td>A document sent for signature is signed</td>
+<td>Person who sent it</td>
+<td>“Document signed”</td>
+<td>“<em>{Signer name}</em> signed”<em>{File name}</em>””</td>
+<td>Opens a chat screen (incorrect)</td>
+</tr>
+<tr>
+<td>Note shared</td>
+<td>Someone shares a note</td>
+<td>Person it was shared with</td>
+<td>“Note shared with you”</td>
+<td>“<em>{Owner name}</em> shared”<em>{Note title}</em>””</td>
+<td>Nothing opens</td>
+</tr>
+</tbody>
+</table>
+<h2 id="circulars-and-announcements">2.5 Circulars and
+Announcements</h2>
+<table style="width:100%;">
+<colgroup>
+<col style="width: 16%" />
+<col style="width: 16%" />
+<col style="width: 16%" />
+<col style="width: 16%" />
+<col style="width: 16%" />
+<col style="width: 16%" />
+</colgroup>
+<thead>
+<tr>
+<th>Notification</th>
+<th>When it is sent</th>
+<th>Who receives it</th>
+<th>Title</th>
+<th>Message</th>
+<th>On tap</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Circular / Announcement</td>
+<td>A circular or announcement is published in Odoo</td>
+<td>All employees, or the selected employees</td>
+<td>“Circular published” / “Announcement published”</td>
+<td>First 180 characters of the circular or announcement text</td>
+<td>Opens <strong>Circulars &amp; Announcements</strong> on that
+item</td>
+</tr>
+</tbody>
+</table>
+<h2 id="attendance-and-face-enrolment">2.6 Attendance and Face
+Enrolment</h2>
+<table style="width:100%;">
+<colgroup>
+<col style="width: 16%" />
+<col style="width: 16%" />
+<col style="width: 16%" />
+<col style="width: 16%" />
+<col style="width: 16%" />
+<col style="width: 16%" />
+</colgroup>
+<thead>
+<tr>
+<th>Notification</th>
+<th>When it is sent</th>
+<th>Who receives it</th>
+<th>Title</th>
+<th>Message</th>
+<th>On tap</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Attendance updated</td>
+<td>Attendance is pulled manually from BioTime</td>
+<td>Employee</td>
+<td>“Attendance Updated”</td>
+<td>“Your attendance has been synced from BioTime. Please update the
+Project location.”</td>
+<td>Refreshes today’s attendance</td>
+</tr>
+<tr>
+<td>Face enrolment ready</td>
+<td>A labourer’s face photo is ready for attendance matching</td>
+<td>Labourer’s foreman</td>
+<td>“Face enrollment verified”</td>
+<td>“<em>{Labourer name}</em> (File ID: <em>{ID}</em>) is ready for
+attendance matching. Open Site Management to sync if needed.”</td>
+<td>Nothing opens</td>
+</tr>
+</tbody>
+</table>
+<p>There are no notifications for timesheet submission or approval.</p>
+<h2 id="app-menu-and-admin-messages">2.7 App Menu and Admin
+Messages</h2>
+<table style="width:100%;">
+<colgroup>
+<col style="width: 16%" />
+<col style="width: 16%" />
+<col style="width: 16%" />
+<col style="width: 16%" />
+<col style="width: 16%" />
+<col style="width: 16%" />
+</colgroup>
+<thead>
+<tr>
+<th>Notification</th>
+<th>When it is sent</th>
+<th>Who receives it</th>
+<th>Title</th>
+<th>Message</th>
+<th>On tap</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>App menu changed</td>
+<td>An employee’s dashboard widgets are changed in Odoo</td>
+<td>That employee</td>
+<td>“Your app menu changed”</td>
+<td>“Your dashboard widgets were updated. Please re-login to see the
+changes.”</td>
+<td>Nothing opens</td>
+</tr>
+<tr>
+<td>Admin message</td>
+<td>Admin sends a message from <strong>Mobile Admin
+Notification</strong> in Odoo</td>
+<td>All staff (not labour), or selected employees</td>
+<td>Written by admin</td>
+<td>Written by admin</td>
+<td>Nothing opens</td>
+</tr>
+</tbody>
+</table>
+<h2 id="chat">2.8 Chat</h2>
+<table style="width:100%;">
+<colgroup>
+<col style="width: 16%" />
+<col style="width: 16%" />
+<col style="width: 16%" />
+<col style="width: 16%" />
+<col style="width: 16%" />
+<col style="width: 16%" />
+</colgroup>
+<thead>
+<tr>
+<th>Notification</th>
+<th>When it is sent</th>
+<th>Who receives it</th>
+<th>Title</th>
+<th>Message</th>
+<th>On tap</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>New message (one-to-one)</td>
+<td>Someone sends a chat message</td>
+<td>The other person</td>
+<td>“<em>{Sender name}</em>”</td>
+<td>Message text, or “📷 Photo”, “📎 File”, “🎵 Voice message”, “🎬
+Video”, “📝 Document for signing”</td>
+<td>Opens the chat</td>
+</tr>
+<tr>
+<td>New message (group)</td>
+<td>Someone sends a group message</td>
+<td>All group members except the sender</td>
+<td>“<em>{Group name}</em> • <em>{Sender name}</em>”</td>
+<td>Same as above</td>
+<td>Opens the chat</td>
+</tr>
+</tbody>
+</table>
+<p>The user does not get a notification for a chat they already have
+open, or for a chat they have muted.</p>
+<h2 id="tasks-and-tickets">2.9 Tasks and Tickets</h2>
+<table style="width:100%;">
+<colgroup>
+<col style="width: 16%" />
+<col style="width: 16%" />
+<col style="width: 16%" />
+<col style="width: 16%" />
+<col style="width: 16%" />
+<col style="width: 16%" />
+</colgroup>
+<thead>
+<tr>
+<th>Notification</th>
+<th>When it is sent</th>
+<th>Who receives it</th>
+<th>Title</th>
+<th>Message</th>
+<th>On tap</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>New task</td>
+<td>A task is assigned</td>
+<td>Assignee</td>
+<td>“📋 New Task Assigned”</td>
+<td>“<em>{Assigned by}</em> assigned you:”<em>{Task title}</em>””</td>
+<td>Opens the task</td>
+</tr>
+<tr>
+<td>New ticket</td>
+<td>A ticket is assigned</td>
+<td>Assignee</td>
+<td>“🎫 New Ticket Assigned”</td>
+<td>“<em>{Assigned by}</em> assigned you:”<em>{Ticket title}</em>””</td>
+<td>Opens the Tasks list</td>
+</tr>
+<tr>
+<td>Task completed</td>
+<td>A task is completed</td>
+<td>Person who created the task</td>
+<td>“✅ Task Completed”</td>
+<td>“<em>{Completed by}</em> completed:”<em>{Task title}</em>””</td>
+<td>Opens the task</td>
+</tr>
+<tr>
+<td>Ticket completed</td>
+<td>A ticket is completed</td>
+<td>Person who created the ticket</td>
+<td>“✅ Ticket Completed”</td>
+<td>“<em>{Completed by}</em> completed:”<em>{Ticket title}</em>””</td>
+<td>Opens the Tasks list</td>
+</tr>
+<tr>
+<td>Deadline tomorrow</td>
+<td>24 hours before the task due time</td>
+<td>Task creator (on the phone used to create it)</td>
+<td>“⏰ Task Deadline Tomorrow”</td>
+<td>“<em>{Task title}</em> is due in 24 hours”</td>
+<td>Opens the task</td>
+</tr>
+<tr>
+<td>Due soon</td>
+<td>1 hour before the task due time</td>
+<td>Task creator (on the phone used to create it)</td>
+<td>“🚨 Task Due Soon!”</td>
+<td>“<em>{Task title}</em> is due in 1 hour”</td>
+<td>Opens the task</td>
+</tr>
+<tr>
+<td>New comment</td>
+<td>A comment is added to a task</td>
+<td>The person who wrote it (should be the others)</td>
+<td>“💬 New message in <em>{Task title}</em>”</td>
+<td>“<em>{Sender}</em>: <em>{Comment}</em>”</td>
+<td>Opens the task</td>
+</tr>
+</tbody>
+</table>
+<h2 id="prayer-times">2.10 Prayer Times</h2>
+<table style="width:100%;">
+<colgroup>
+<col style="width: 16%" />
+<col style="width: 16%" />
+<col style="width: 16%" />
+<col style="width: 16%" />
+<col style="width: 16%" />
+<col style="width: 16%" />
+</colgroup>
+<thead>
+<tr>
+<th>Notification</th>
+<th>When it is sent</th>
+<th>Who receives it</th>
+<th>Title</th>
+<th>Message</th>
+<th>On tap</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Prayer time</td>
+<td>At each of the 5 daily prayer times, based on the phone’s location
+(Dubai if unknown)</td>
+<td>Every user who has not muted prayer</td>
+<td>“🕌 Prayer Time”</td>
+<td>“🔔 It’s now time for <em>{Prayer}</em> prayer” (with adhan
+sound)</td>
+<td>Opens the app</td>
+</tr>
+</tbody>
+</table>
+<h2 id="check-in-check-out-reminders-currently-switched-off">2.11
+Check-in / Check-out Reminders (currently switched off)</h2>
+<table>
+<colgroup>
+<col style="width: 25%" />
+<col style="width: 25%" />
+<col style="width: 25%" />
+<col style="width: 25%" />
+</colgroup>
+<thead>
+<tr>
+<th>Notification</th>
+<th>Planned schedule</th>
+<th>Title</th>
+<th>Message</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Check-in reminder</td>
+<td>08:00–09:00, every 15 minutes, until checked in</td>
+<td>“⏰ Check In Reminder”</td>
+<td>“Don’t forget to Check In”</td>
+</tr>
+<tr>
+<td>Check-out reminder</td>
+<td>16:00–17:00, every 15 minutes, until checked out</td>
+<td>“⏰ Check Out Reminder”</td>
+<td>“Don’t forget to Check Out”</td>
+</tr>
+</tbody>
+</table>
+<h1 id="notification-center-bell-icon">3. Notification Center (bell
+icon)</h1>
+<table>
+<colgroup>
+<col style="width: 50%" />
+<col style="width: 50%" />
+</colgroup>
+<thead>
+<tr>
+<th>Feature</th>
+<th>Behaviour</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>List</td>
+<td>Shows the latest 50 notifications</td>
+</tr>
+<tr>
+<td>Read status</td>
+<td>All notifications are marked as read when the screen is opened</td>
+</tr>
+<tr>
+<td>Delete</td>
+<td>Swipe a notification to delete it, or use <strong>Clear
+all</strong></td>
+</tr>
+<tr>
+<td>Tap on a notification</td>
+<td>Nothing opens</td>
+</tr>
+<tr>
+<td>Circulars and announcements</td>
+<td>Not shown in this list (they are in <strong>Circulars &amp;
+Announcements</strong>), but they are counted in the bell badge</td>
+</tr>
+<tr>
+<td>Filter by category</td>
+<td>Not available</td>
+</tr>
+</tbody>
+</table>
+<h1 id="points-for-functional-review">4. Points for functional
+review</h1>
+<p>These behaviours are in the app today and need a business decision or
+a fix:</p>
+<ol type="1">
+<li><strong>Most notifications do not open anything when
+tapped.</strong> Only chat, tasks, tickets and circulars open a screen.
+Approvers cannot go from an approval notification (HR request, LPO,
+invoice, petty cash) to the record.</li>
+<li><strong>After a normal login, tapping a notification does
+nothing</strong> until the app is closed and opened again.</li>
+<li><strong>Approvals done from the app send two notifications</strong>
+to the requester (for example “LPO Approved” and “Purchase Order
+Approved”). The next reviewer also gets two (“New LPO Approval Required”
+and “New Approval Required”).</li>
+<li><strong>After logout, the phone still receives that user’s
+notifications.</strong> This matters if a phone is shared or handed
+over.</li>
+<li><strong>The same notification sometimes appears twice</strong> in
+the Notification Center.</li>
+<li><strong>Rejected HR requests</strong> also send “New Request to
+Approve” to the next approver. From Odoo web, the employee is told the
+request was “fully processed”.</li>
+<li><strong>Annual leave</strong> uses the general title “New Request
+Submitted” instead of “Annual Leave Request”.</li>
+<li><strong>Document expiry</strong> reminders repeat every day for 30
+days. Suggestion: send them 30, 7 and 1 day(s) before expiry.</li>
+<li><strong>“Document signed”</strong> is not shown while the app is
+open, and tapping it opens the wrong screen.</li>
+<li><strong>Task comments and task completion</strong> notify the person
+who did the action instead of the other people on the task.</li>
+<li><strong>Task deadline reminders</strong> only appear on the
+creator’s phone, not the assignee’s.</li>
+<li><strong>When several petty cash requests are paid together</strong>,
+every notification names the same petty cash number.</li>
+<li><strong>Users with more than one phone</strong> receive most
+notifications only on the phone they used last. Projects, app menu
+changes and announcements reach all their phones.</li>
+<li><strong>No timesheet notifications</strong> (submitted, approved,
+rejected). Please confirm whether these are needed.</li>
+<li><strong>Check-in / check-out reminders</strong> exist but are
+switched off. Please confirm whether they should be enabled.</li>
+</ol>
+<p><strong>Please confirm for each module:</strong></p>
+<ul>
+<li>Which screen should open when the user taps the notification?</li>
+<li>Are the titles and messages correct?</li>
+<li>Should any notification be added or removed?</li>
+</ul>
+</body>
+</html>

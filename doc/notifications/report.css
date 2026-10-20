@@ -1,0 +1,80 @@
+@page {
+  size: A4 landscape;
+  margin: 14mm 12mm 16mm 12mm;
+  @bottom-right {
+    content: "Page " counter(page) " of " counter(pages);
+    font-size: 8pt;
+    color: #666;
+  }
+  @bottom-left {
+    content: "Elrace Mobile App — Notifications Guide";
+    font-size: 8pt;
+    color: #666;
+  }
+}
+
+body {
+  font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+  font-size: 9pt;
+  line-height: 1.35;
+  color: #1d1d1f;
+}
+
+header#title-block-header {
+  border-bottom: 3px solid #7a1f2b;
+  margin-bottom: 10pt;
+  padding-bottom: 6pt;
+}
+h1.title { font-size: 20pt; color: #7a1f2b; margin: 0 0 4pt 0; }
+p.subtitle { font-size: 11pt; color: #444; margin: 0; }
+p.date { font-size: 9pt; color: #666; margin: 2pt 0 0 0; }
+
+h1 {
+  font-size: 14pt;
+  color: #7a1f2b;
+  border-bottom: 1px solid #d9c3c6;
+  padding-bottom: 2pt;
+  margin-top: 14pt;
+  page-break-after: avoid;
+}
+h2 {
+  font-size: 11pt;
+  color: #333;
+  margin-top: 10pt;
+  page-break-after: avoid;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 6pt 0 8pt 0;
+  font-size: 8pt;
+}
+thead { display: table-header-group; }
+tr { page-break-inside: avoid; }
+th {
+  background: #7a1f2b;
+  color: #fff;
+  text-align: left;
+  padding: 4pt 5pt;
+  font-weight: 600;
+}
+td {
+  border-bottom: 1px solid #e3e3e3;
+  padding: 3.5pt 5pt;
+  vertical-align: top;
+}
+tbody tr:nth-child(even) td { background: #faf6f6; }
+
+code {
+  font-family: "SF Mono", Menlo, Consolas, monospace;
+  font-size: 7.5pt;
+  background: #f2f2f2;
+  padding: 0 2pt;
+  border-radius: 2pt;
+  word-break: break-all;
+}
+
+ul, ol { margin: 3pt 0 6pt 0; padding-left: 16pt; }
+li { margin: 1.5pt 0; }
+strong { color: #000; }

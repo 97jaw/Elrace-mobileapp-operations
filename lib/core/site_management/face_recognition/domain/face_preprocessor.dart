@@ -3,13 +3,25 @@ import 'dart:math' as math;
 import 'dart:typed_data';
 import 'dart:ui' show Offset, Rect;
 
+import 'package:el_race/core/site_management/face_recognition/domain/face_alignment.dart';
 import 'package:el_race/core/site_management/face_recognition/domain/face_chip_isolate.dart';
 import 'package:el_race/core/site_management/face_recognition/face_recognition_config.dart';
 import 'package:el_race/core/timesheet/services/face_capture_service.dart';
 import 'package:flutter/foundation.dart';
 import 'package:image/image.dart' as img;
 
-/// Lambda-parity chip: padded bbox → 112×112 RGB → normalized NHWC float tensor.
+export 'package:el_race/core/site_management/face_recognition/domain/face_alignment.dart'
+    show FaceChipAlign, FaceChipCrop;
+
+/// Model input tensor plus the crop that produced it.
+class FaceChipTensor {
+  const FaceChipTensor(this.tensor, this.align);
+
+  final Float32List tensor;
+  final FaceChipAlign align;
+}
+
+/// Face chip → 112×112 RGB → normalized NHWC float tensor.
 class FacePreprocessor {
   const FacePreprocessor();
 
@@ -34,30 +46,41 @@ class FacePreprocessor {
     return tensor;
   }
 
-  Future<Float32List?> buildInputTensorFromCaptureAsync({
+  Future<FaceChipTensor?> buildInputTensorFromCaptureAsync({
     required String imagePath,
     required Rect faceBox,
+    required FaceChipCrop crop,
     TimesheetFaceLandmarkSnapshot? landmarks,
   }) async {
     final request = FaceChipBuildRequest.fromCapture(
       imagePath: imagePath,
       faceBox: faceBox,
       landmarks: landmarks,
+      crop: crop,
     );
-    final rgb = await buildChipRgbBytesOffMainThread(request);
-    if (rgb == null) return null;
-    return buildInputTensorFromRgbBytes(rgb);
+    final chip = await buildChipRgbBytesOffMainThread(request);
+    if (chip == null) return null;
+    return FaceChipTensor(
+      buildInputTensorFromRgbBytes(chip.rgb),
+      chip.align,
+    );
   }
 
   /// Live-path chip from an already-decoded RGB frame (no JPEG encode/decode).
-  Float32List? buildInputTensorFromImage({
+  FaceChipTensor? buildInputTensorFromImage({
     required img.Image source,
     required Rect faceBox,
+    required FaceChipCrop crop,
     TimesheetFaceLandmarkSnapshot? landmarks,
   }) {
-    final chip = buildChip112FromImage(source, faceBox, landmarks: landmarks);
+    final chip = buildChip112FromImage(
+      source,
+      faceBox,
+      landmarks: landmarks,
+      crop: crop,
+    );
     if (chip == null) return null;
-    return buildInputTensorFromRgbChip(chip);
+    return FaceChipTensor(buildInputTensorFromRgbChip(chip.chip), chip.align);
   }
 
   Float32List buildInputTensorFromRgbChip(img.Image chip112) {
@@ -85,12 +108,60 @@ class FacePreprocessor {
     return tensor;
   }
 
-  /// Largest-face bbox with optional P.3 eye alignment → 112×112 RGB.
-  img.Image? buildChip112FromImage(
+  /// 112×112 RGB chip. [FaceChipCrop.fivePoint] warps the 5 ML Kit landmarks
+  /// onto the ArcFace reference, falling back to the legacy crop when a
+  /// landmark is missing or the transform is degenerate.
+  ({img.Image chip, FaceChipAlign align})? buildChip112FromImage(
     img.Image source,
     Rect faceBox, {
     TimesheetFaceLandmarkSnapshot? landmarks,
+    FaceChipCrop crop = FaceChipCrop.legacy,
   }) {
+    if (crop == FaceChipCrop.fivePoint &&
+        FaceRecognitionPreprocess.useFivePointAlignment) {
+      final aligned = _chipFromFivePoints(source, landmarks);
+      if (aligned != null) {
+        return (chip: aligned, align: FaceChipAlign.fivePoint);
+      }
+      debugPrint('FacePreprocess: align fallback');
+      final legacy = _legacyChip(source, faceBox, landmarks);
+      return legacy == null
+          ? null
+          : (chip: legacy, align: FaceChipAlign.fallback);
+    }
+    final legacy = _legacyChip(source, faceBox, landmarks);
+    return legacy == null ? null : (chip: legacy, align: FaceChipAlign.legacy);
+  }
+
+  img.Image? _chipFromFivePoints(
+    img.Image source,
+    TimesheetFaceLandmarkSnapshot? landmarks,
+  ) {
+    if (landmarks == null) return null;
+    final src = FaceAlignment.sourcePoints(
+      eyeA: landmarks.leftEye,
+      eyeB: landmarks.rightEye,
+      nose: landmarks.nose,
+      mouthA: landmarks.mouthLeft,
+      mouthB: landmarks.mouthRight,
+    );
+    if (src == null) return null;
+    final t = FaceAlignment.estimate(src, FaceAlignment.reference);
+    if (t == null) return null;
+    return FaceAlignment.warp(
+      source,
+      t,
+      width: FaceRecognitionPreprocess.inputWidth,
+      height: FaceRecognitionPreprocess.inputHeight,
+    );
+  }
+
+  /// Box crop + 15 % pad, eyes levelled when both eyes are known.
+  img.Image? _legacyChip(
+    img.Image source,
+    Rect faceBox,
+    TimesheetFaceLandmarkSnapshot? landmarks,
+  ) {
     if (FaceRecognitionPreprocess.useLandmarkAlignment &&
         landmarks != null &&
         landmarks.leftEye != null &&
@@ -148,12 +219,14 @@ class FacePreprocessor {
     final leftX = math.max(0.0, box.left - pad).round();
     final topY = math.max(0.0, box.top - pad).round();
     final rightX = math.min(source.width.toDouble(), box.right + pad).round();
-    final bottomY = math.min(source.height.toDouble(), box.bottom + pad).round();
+    final bottomY =
+        math.min(source.height.toDouble(), box.bottom + pad).round();
     final w = rightX - leftX;
     final h = bottomY - topY;
     if (w < 8 || h < 8) return null;
 
-    final cropped = img.copyCrop(source, x: leftX, y: topY, width: w, height: h);
+    final cropped =
+        img.copyCrop(source, x: leftX, y: topY, width: w, height: h);
     final leftLocal = Offset(left.dx - leftX, left.dy - topY);
     final rightLocal = Offset(right.dx - leftX, right.dy - topY);
     final dx = rightLocal.dx - leftLocal.dx;
@@ -175,12 +248,18 @@ class FacePreprocessor {
     String imagePath,
     Rect faceBox, {
     TimesheetFaceLandmarkSnapshot? landmarks,
+    FaceChipCrop crop = FaceChipCrop.legacy,
   }) async {
     final fileBytes = await File(imagePath).readAsBytes();
     final bytes = img.decodeImage(fileBytes);
     if (bytes == null) return null;
     final oriented = img.bakeOrientation(bytes);
-    return buildChip112FromImage(oriented, faceBox, landmarks: landmarks);
+    return buildChip112FromImage(
+      oriented,
+      faceBox,
+      landmarks: landmarks,
+      crop: crop,
+    )?.chip;
   }
 
   img.Image _toRgb(img.Image src) {
