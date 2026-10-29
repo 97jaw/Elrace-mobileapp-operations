@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:developer';
 import 'dart:math' as math;
 
@@ -5,7 +6,9 @@ import 'package:el_race/auth/uaepass_auth_cubit.dart';
 import 'package:el_race/core/app_notices/app_notice_gate.dart';
 import 'package:el_race/chat/services/chat_credential_storage.dart';
 import 'package:el_race/core/config/feature_flags.dart';
+import 'package:el_race/core/notifications/notification_config_service.dart';
 import 'package:el_race/core/session/post_login_setup.dart';
+import 'package:el_race/firebase_service.dart';
 import 'package:el_race/core/utils/responsive_breakpoints.dart';
 import 'package:el_race/ui/auth/error_dialog.dart';
 import 'package:el_race/ui/auth/uaepass_app_to_app_screen.dart';
@@ -110,10 +113,15 @@ class _SignInScreenState extends State<SignInScreen> {
       return;
     }
     if (!mounted) return;
-    await Navigator.of(context, rootNavigator: true).pushAndRemoveUntil(
+    final entered = Navigator.of(context, rootNavigator: true).pushAndRemoveUntil(
       MaterialPageRoute(builder: (_) => const HomeScreen()),
       (route) => false,
     );
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      FirebaseService.markHomeReady();
+    });
+    unawaited(NotificationConfigService.refresh());
+    await entered;
   }
 
   Future<void> _onUaepassPressed() async {

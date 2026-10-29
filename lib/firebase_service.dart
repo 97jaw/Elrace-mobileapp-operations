@@ -3,6 +3,9 @@ import 'dart:convert';
 
 import 'package:el_race/chat/models/models.dart';
 import 'package:el_race/core/app_globals.dart';
+import 'package:el_race/core/notifications/notification_config_service.dart';
+import 'package:el_race/core/notifications/notification_payload.dart';
+import 'package:el_race/core/notifications/notification_router.dart';
 import 'package:el_race/core/services/attendance_status_sync_service.dart';
 import 'package:el_race/core/services/incoming_share_service.dart';
 import 'package:el_race/core/services/notification_storage_service.dart';
@@ -10,12 +13,7 @@ import 'package:el_race/core/utils/shared_pref.dart';
 import 'package:el_race/data/services/prayer_audio_service.dart';
 import 'package:el_race/ui/chat/chat_screen.dart';
 import 'package:el_race/core/timesheet/providers/labor_transfer_providers.dart';
-import 'package:el_race/core/timesheet/routing/timesheet_route_names.dart';
 import 'package:el_race/core/timesheet/services/labor_transfer_roster_refresh.dart';
-import 'package:el_race/ui/presentation/hr_management/hr_circular_announcements_screen.dart';
-import 'package:el_race/ui/presentation/tasks/tasks_screen.dart';
-import 'package:el_race/ui/presentation/tasks_dashboard/screens/task_details.dart'
-    as firebase_task_details;
 import 'package:el_race/utils/string_utils.dart';
 import 'package:el_race/utils/urll_utils.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -96,6 +94,8 @@ class FirebaseService {
     required bool requestPermissions,
     required bool fetchToken,
   }) async {
+    await NotificationConfigService.loadCached();
+    unawaited(NotificationConfigService.refresh());
     await _firebaseMessaging.setAutoInitEnabled(true);
 
     // Permission prompts are slow on iOS and must NOT gate splash navigation.
@@ -816,32 +816,22 @@ class FirebaseService {
     }
 
     final payloadData = _parseNotificationPayload(payload);
-    final category = (payloadData['category'] ?? payloadData['type'] ?? '')
-        .toString()
-        .trim()
-        .toLowerCase();
+    final parsed = NotificationPayload.fromData(payloadData);
+    if (navKey.currentState == null ||
+        navKey.currentContext == null ||
+        !_isHomeReady) {
+      _pendingChatTapPayload = payload;
+      print('   - Notification tap queued until navigation is ready.');
+      return;
+    }
 
-    if (_isChatNotificationPayload(payloadData, category)) {
+    if (parsed.action == 'open_chat' ||
+        _isChatNotificationPayload(payloadData, parsed.category)) {
       _handleChatNotificationTap(payload, payloadData);
       return;
     }
 
-    if (_isTaskOrTicketNotificationPayload(payloadData, category)) {
-      _handleTaskNotificationTap(payload, payloadData, category);
-      return;
-    }
-
-    if (_isCircularAnnouncementPayload(payloadData, category)) {
-      _handleCircularAnnouncementTap(payload, payloadData, category);
-      return;
-    }
-
-    if (_isLaborTransferPayload(payloadData, category)) {
-      _handleLaborTransferTap(payload, payloadData);
-      return;
-    }
-
-    print('   - View-only notification; no navigation.');
+    unawaited(NotificationRouter.open(parsed));
   }
 
   static bool _isLaborTransferPayload(
@@ -850,155 +840,6 @@ class FirebaseService {
   ) {
     return category == 'labor_transfer' ||
         payloadData['model']?.toString() == 'elrace.labor.transfer';
-  }
-
-  static void _handleLaborTransferTap(
-    String? rawPayload,
-    Map<String, dynamic> payloadData,
-  ) {
-    final navigator = navKey.currentState;
-    final context = navKey.currentContext;
-    if (navigator == null || context == null || !_isHomeReady) {
-      _pendingChatTapPayload = rawPayload;
-      print('   - Labor transfer tap queued until navigation is ready.');
-      return;
-    }
-
-    final transferId = int.tryParse(
-      (payloadData['id'] ?? payloadData['record_id'] ?? '').toString(),
-    );
-    if (transferId == null || transferId <= 0) {
-      print('   - Labor transfer tap missing id.');
-      return;
-    }
-
-    final state = (payloadData['state'] ?? '').toString().trim().toLowerCase();
-    try {
-      final container = ProviderScope.containerOf(context);
-      container.invalidate(laborTransferCountsProvider);
-      if (state == 'approved' || state == 'rejected') {
-        unawaited(LaborTransferRosterRefresh.afterTeamChange(container));
-      }
-    } catch (e) {
-      print('   - Labor transfer push refresh skipped: $e');
-    }
-
-    try {
-      navigator.pushNamed(
-        TimesheetRouteNames.laborTransferDetail,
-        arguments: transferId,
-      );
-      print('   - Opened labor transfer detail id=$transferId state=$state');
-    } catch (e) {
-      print('   - Failed to navigate for labor transfer tap: $e');
-    }
-  }
-
-  static bool _isCircularAnnouncementPayload(
-    Map<String, dynamic> payloadData,
-    String category,
-  ) {
-    return category == 'circular' ||
-        category == 'announcement' ||
-        payloadData['model']?.toString() == 'odx.announcement';
-  }
-
-  static void _handleCircularAnnouncementTap(
-    String? rawPayload,
-    Map<String, dynamic> payloadData,
-    String category,
-  ) {
-    final navigator = navKey.currentState;
-    if (navigator == null || navKey.currentContext == null || !_isHomeReady) {
-      _pendingChatTapPayload = rawPayload;
-      print('   - Circular/announcement tap queued until navigation is ready.');
-      return;
-    }
-
-    final isAnnouncement = category == 'announcement';
-    final recordId = int.tryParse(
-      (payloadData['record_id'] ?? payloadData['id'] ?? '').toString(),
-    );
-
-    try {
-      navigator.push(
-        MaterialPageRoute(
-          builder: (_) => HrCircularAnnouncementsScreen(
-            initialTabIndex: isAnnouncement ? 1 : 0,
-            autoOpenItemId: recordId,
-            autoOpenCategory: isAnnouncement ? 'announcement' : 'circular',
-          ),
-          settings: const RouteSettings(name: '/circular-announcements'),
-        ),
-      );
-      print('   - Opened circulars & announcements (id=$recordId)');
-    } catch (e) {
-      print('   - Failed to navigate for circular/announcement tap: $e');
-    }
-  }
-
-  static bool _isTaskOrTicketNotificationPayload(
-    Map<String, dynamic> payloadData,
-    String category,
-  ) {
-    return category == 'task' ||
-        category == 'ticket' ||
-        payloadData.containsKey('task_id') ||
-        payloadData.containsKey('taskId') ||
-        payloadData.containsKey('is_firebase_task');
-  }
-
-  static bool _parseBoolFlag(dynamic value) {
-    if (value is bool) return value;
-    final normalized = value?.toString().trim().toLowerCase() ?? '';
-    return normalized == '1' ||
-        normalized == 'true' ||
-        normalized == 'yes' ||
-        normalized == 'y';
-  }
-
-  static void _handleTaskNotificationTap(
-    String? rawPayload,
-    Map<String, dynamic> payloadData,
-    String category,
-  ) {
-    final navigator = navKey.currentState;
-    if (navigator == null || navKey.currentContext == null || !_isHomeReady) {
-      _pendingChatTapPayload = rawPayload;
-      print('   - Task/ticket tap queued until navigation is ready.');
-      return;
-    }
-
-    final taskId =
-        (payloadData['task_id'] ?? payloadData['taskId'] ?? '').toString();
-    final isFirebase = _parseBoolFlag(payloadData['is_firebase_task']);
-    final isTicket = category == 'ticket' || !isFirebase;
-
-    try {
-      if (isFirebase && taskId.isNotEmpty) {
-        navigator.push(
-          MaterialPageRoute(
-            builder: (_) => firebase_task_details.TaskDetailsScreen(
-              taskId: taskId,
-            ),
-            settings: const RouteSettings(name: '/task-details'),
-          ),
-        );
-        print('   - Opened Firebase task details for $taskId');
-        return;
-      }
-
-      // Odoo tickets / non-firebase tasks → Tickets list
-      navigator.push(
-        MaterialPageRoute(
-          builder: (_) => const TasksScreen(),
-          settings: const RouteSettings(name: '/tickets'),
-        ),
-      );
-      print('   - Opened Tickets screen (taskId=$taskId)');
-    } catch (e) {
-      print('   - Failed to navigate for task/ticket tap: $e');
-    }
   }
 
   static void processPendingNotificationTap({String? forcePayload}) {

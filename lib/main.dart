@@ -13,6 +13,7 @@ import 'package:el_race/core/security/signed_file_links.dart';
 import 'package:el_race/core/security/vpn_block_guard.dart';
 import 'package:el_race/core/security/vpn_security_monitor.dart';
 import 'package:el_race/core/services/incoming_share_service.dart';
+import 'package:el_race/core/notifications/notification_config_service.dart';
 import 'package:el_race/core/services/resume_coordinator.dart';
 import 'package:el_race/chat/chat.dart';
 import 'package:el_race/data/services/hive_service.dart';
@@ -818,6 +819,7 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
       // Tiered resume work (prayer foreground handover, badge refresh,
       // attendance sync) — single owner, never blocks the UI.
       ResumeCoordinator.instance.onResumed();
+      unawaited(NotificationConfigService.refresh());
 
       _backgroundedAt = null;
       return;
