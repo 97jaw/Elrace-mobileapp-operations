@@ -38,6 +38,17 @@ abstract final class TimesheetOdooApiCatalog {
   /// All site labors (+ drivers) for report picker — same pool as `/employee/list`.
   static const String timesheetLaborList = '/timesheet/labor_list';
 
+  // --- Labor transfer (LT2 / LT3) ---
+  static const String laborTransferLabors = '/labor_transfer/labors';
+  static const String laborTransferForemen = '/labor_transfer/foremen';
+  static const String laborTransferCreate = '/labor_transfer/create';
+  static const String laborTransferList = '/labor_transfer/list';
+  static const String laborTransferCounts = '/labor_transfer/counts';
+  static const String laborTransferDetail = '/labor_transfer/detail';
+  static const String laborTransferApprove = '/labor_transfer/approve';
+  static const String laborTransferReject = '/labor_transfer/reject';
+  static const String laborTransferCancel = '/labor_transfer/cancel';
+
   /// Timesheet rows for a task on a date (used by `EmptyShiftPage`).
   static const String taskTimesheetsList = '/v2/task/timesheets/list';
 

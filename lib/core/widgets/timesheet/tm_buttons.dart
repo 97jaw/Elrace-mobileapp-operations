@@ -19,17 +19,29 @@ class TmPrimaryButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final content = _TmButtonContent(label: label, icon: icon);
+    final disabled = onPressed == null;
+    // Disabled: muted fill + readable ink (not white-on-divider).
+    final disabledBg = warm
+        ? TimesheetModuleColors.glassBorder
+        : TimesheetModuleColors.divider;
+    final disabledFg = warm
+        ? TimesheetModuleColors.warmMuted
+        : TimesheetModuleColors.mutedText;
+    final content = _TmButtonContent(
+      label: label,
+      icon: icon,
+      color: disabled ? disabledFg : TimesheetModuleColors.surface,
+    );
     final enabledGradient = warm
         ? TimesheetModuleColors.warmButtonGradient
         : TimesheetModuleColors.primaryGradient;
 
     return DecoratedBox(
       decoration: BoxDecoration(
-        gradient: onPressed == null ? null : enabledGradient,
-        color: onPressed == null ? TimesheetModuleColors.divider : null,
+        gradient: disabled ? null : enabledGradient,
+        color: disabled ? disabledBg : null,
         borderRadius: BorderRadius.circular(TimesheetModuleLayout.cardRadiusMd),
-        boxShadow: onPressed == null ? null : TimesheetModuleShadows.fabShadow,
+        boxShadow: disabled ? null : TimesheetModuleShadows.fabShadow,
       ),
       child: SizedBox(
         height: TimesheetModuleLayout.buttonHeight,
@@ -37,7 +49,8 @@ class TmPrimaryButton extends StatelessWidget {
         child: TextButton(
           onPressed: onPressed,
           style: TextButton.styleFrom(
-            foregroundColor: TimesheetModuleColors.surface,
+            foregroundColor:
+                disabled ? disabledFg : TimesheetModuleColors.surface,
             shape: RoundedRectangleBorder(
               borderRadius:
                   BorderRadius.circular(TimesheetModuleLayout.cardRadiusMd),
