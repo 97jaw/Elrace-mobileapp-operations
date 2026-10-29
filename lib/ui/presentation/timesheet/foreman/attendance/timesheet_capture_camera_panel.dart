@@ -889,6 +889,7 @@ class TimesheetCaptureCameraPanelState
   }
 
   void _logPadSessionMax({required String reason}) {
+    if (!kDebugMode) return;
     debugPrint(
       'PadScore: session max_live_score_on_unverified_or_rejected_frames='
       '${_maxLiveOnUnverifiedOrRejected.toStringAsFixed(3)} reason=$reason',
@@ -909,16 +910,18 @@ class TimesheetCaptureCameraPanelState
         ? 0.0
         : fused.probabilities[AntispoofConfig.printAttackClassIndex] +
             fused.probabilities[AntispoofConfig.replayAttackClassIndex];
-    final target = widget.targetEmployee?.employeeId ?? 0;
-    final attackTest = AppConfigService.instance.isTestMode;
-    final reason = layer1.reason ?? '-';
-    debugPrint(
-      'PadScore: live=${live.toStringAsFixed(3)} '
-      'spoof=${spoof.toStringAsFixed(3)} frame=#$frameSeq '
-      'target=$target attack_test=${attackTest ? 1 : 0} '
-      'verdict=${layer1.verdict.name} reason=$reason '
-      'id=${identityStatus.name}',
-    );
+    if (kDebugMode) {
+      final target = widget.targetEmployee?.employeeId ?? 0;
+      final attackTest = AppConfigService.instance.isTestMode;
+      final reason = layer1.reason ?? '-';
+      debugPrint(
+        'PadScore: live=${live.toStringAsFixed(3)} '
+        'spoof=${spoof.toStringAsFixed(3)} frame=#$frameSeq '
+        'target=$target attack_test=${attackTest ? 1 : 0} '
+        'verdict=${layer1.verdict.name} reason=$reason '
+        'id=${identityStatus.name}',
+      );
+    }
 
     final unverified = identityStatus != FrameIdentityStatus.verified;
     final rejectedPad = layer1.verdict != Layer1Verdict.live;
