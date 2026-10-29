@@ -42,6 +42,9 @@ class TimesheetApiClient {
   final bool fallbackToMockOnError;
   final String baseUrl;
 
+  /// Shared Odoo JSON-RPC transport (JWT + base URL) for sibling module APIs.
+  TimesheetOdooTransport get transport => _transport;
+
   /// Foreman being acted as by a PM / HR user, or `null` for a normal session.
   ///
   /// Reads resolve against this employee instead of the logged-in one. The

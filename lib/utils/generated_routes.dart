@@ -50,6 +50,7 @@ import '../ui/presentation/hr_management/hr_circular_announcements_screen.dart';
 import '../ui/presentation/hr_management/employees_profile_screen.dart';
 import '../ui/presentation/hr_management/company_documents_screen.dart';
 import '../core/hr_management/routing/hr_route_names.dart';
+import '../core/timesheet/models/labor_transfer_models.dart';
 import '../core/timesheet/routing/timesheet_route_names.dart';
 import '../core/drawing_studio/drawing_studio_route_names.dart';
 import '../core/drawing_studio/drawing_studio_project.dart';
@@ -66,6 +67,9 @@ import '../ui/presentation/timesheet/foreman/attendance/at1_capture_mode_sheet.d
 import '../ui/presentation/timesheet/foreman/attendance/at2_capture_camera.dart';
 import '../ui/presentation/timesheet/foreman/attendance/at4_capture_summary.dart';
 import '../ui/presentation/timesheet/foreman/fm1_foreman_dashboard.dart';
+import '../ui/presentation/timesheet/labor_transfer/lt_new_request_screen.dart';
+import '../ui/presentation/timesheet/labor_transfer/lt_transfer_detail_screen.dart';
+import '../ui/presentation/timesheet/labor_transfer/lt_transfers_list_screen.dart';
 import '../ui/presentation/timesheet/foreman/fm3_task_detail.dart';
 import '../ui/presentation/timesheet/foreman/fm_day_hub_screen.dart';
 import '../ui/presentation/timesheet/foreman/fm_project_dates_screen.dart';
@@ -371,6 +375,26 @@ class OnGeneratedRoutes {
             projectId: projectArgs?.projectId,
             projectName: projectArgs?.projectName,
           ),
+        );
+      case TimesheetRouteNames.laborTransferList:
+        final listArgs = settings.arguments;
+        final audience = listArgs is LtListAudience
+            ? listArgs
+            : LtListAudience.foreman;
+        return CupertinoPageRoute(
+          builder: (_) => LtTransfersListScreen(audience: audience),
+        );
+      case TimesheetRouteNames.laborTransferNew:
+        return CupertinoPageRoute(
+          builder: (_) => const LtNewRequestScreen(),
+        );
+      case TimesheetRouteNames.laborTransferDetail:
+        final detailArgs = settings.arguments;
+        final transferId = detailArgs is int
+            ? detailArgs
+            : int.tryParse(detailArgs?.toString() ?? '') ?? 0;
+        return CupertinoPageRoute(
+          builder: (_) => LtTransferDetailScreen(transferId: transferId),
         );
       case TimesheetRouteNames.workerEnrol:
         final args = settings.arguments;

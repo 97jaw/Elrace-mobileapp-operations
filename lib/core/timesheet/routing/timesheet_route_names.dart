@@ -15,6 +15,9 @@ abstract final class TimesheetRouteNames {
   static const String foremanTasksHub = '/timesheet/foreman/tasks_hub';
   static const String foremanTimesheetRecords =
       '/timesheet/foreman/timesheet_records';
+  static const String laborTransferList = '/timesheet/labor_transfer';
+  static const String laborTransferNew = '/timesheet/labor_transfer/new';
+  static const String laborTransferDetail = '/timesheet/labor_transfer/detail';
   static const String workerEnrol = '/timesheet/worker/enrol';
   static const String faceEnrollEntry = '/timesheet/face/enroll';
   static const String faceEnrollCapture = '/timesheet/face/enroll/capture';

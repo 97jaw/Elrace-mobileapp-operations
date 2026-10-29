@@ -2,9 +2,11 @@ import 'dart:async';
 
 import 'package:el_race/core/site_management/face_recognition/profile_photo_face_db.dart';
 import 'package:el_race/core/theme/timesheet_module_theme.dart';
+import 'package:el_race/core/timesheet/models/labor_transfer_models.dart';
 import 'package:el_race/core/timesheet/models/timesheet_models.dart';
 import 'package:el_race/core/timesheet/models/timesheet_submit_request.dart';
 import 'package:el_race/core/timesheet/models/timesheet_team_member.dart';
+import 'package:el_race/core/timesheet/providers/labor_transfer_providers.dart';
 import 'package:el_race/core/timesheet/providers/timesheet_data_providers.dart';
 import 'package:el_race/core/timesheet/services/capture_queue_service.dart';
 import 'package:el_race/core/timesheet/services/tm_project_location_notify_service.dart';
@@ -66,6 +68,14 @@ class _Fm1ForemanDashboardState extends ConsumerState<Fm1ForemanDashboard> {
   bool _siteLocLoading = false;
   String? _siteLocProjectsKey;
   bool _submitInFlight = false;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      ref.invalidate(laborTransferCountsProvider);
+    });
+  }
 
   Future<void> _resolveSiteLocation(
     List<Project> inProgress, {
@@ -296,6 +306,21 @@ class _Fm1ForemanDashboardState extends ConsumerState<Fm1ForemanDashboard> {
                               laborCount: laborCount,
                               labors: labors,
                               onTap: () => _showLabors(buckets),
+                            ),
+                            const SizedBox(
+                              height: TimesheetModuleLayout.sectionGap,
+                            ),
+                            _LaborTransferEntry(
+                              toApproveCount: ref
+                                      .watch(laborTransferCountsProvider)
+                                      .asData
+                                      ?.value
+                                      .toApprove ??
+                                  0,
+                              onTap: () => Navigator.of(context).pushNamed(
+                                TimesheetRouteNames.laborTransferList,
+                                arguments: LtListAudience.foreman,
+                              ),
                             ),
                             const SizedBox(
                               height: TimesheetModuleLayout.sectionGap,
@@ -1226,6 +1251,103 @@ class _HomeStatCard extends StatelessWidget {
                 ),
               ],
             ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _LaborTransferEntry extends StatelessWidget {
+  const _LaborTransferEntry({
+    required this.onTap,
+    this.toApproveCount = 0,
+  });
+
+  final VoidCallback onTap;
+  final int toApproveCount;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(_FmHomeTheme.cardRadius),
+        child: Ink(
+          decoration: BoxDecoration(
+            color: _FmHomeTheme.card,
+            borderRadius: BorderRadius.circular(_FmHomeTheme.cardRadius),
+            border: Border.all(color: _FmHomeTheme.cardBorder),
+          ),
+          padding: const EdgeInsets.all(16),
+          child: Row(
+            children: [
+              Container(
+                width: 48,
+                height: 48,
+                decoration: BoxDecoration(
+                  color: _FmHomeTheme.iconBadge,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: _FmHomeTheme.cardBorder),
+                ),
+                child: Icon(
+                  PhosphorIcons.arrowsLeftRight(),
+                  size: 26,
+                  color: _FmHomeTheme.orange,
+                ),
+              ),
+              const SizedBox(width: 12),
+              const Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Labor transfer',
+                      style: TextStyle(
+                        color: _FmHomeTheme.ink,
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    SizedBox(height: 2),
+                    Text(
+                      'Request or approve team moves',
+                      style: TextStyle(
+                        color: _FmHomeTheme.mutedSlate,
+                        fontSize: 13,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              if (toApproveCount > 0) ...[
+                Container(
+                  constraints:
+                      const BoxConstraints(minWidth: 20, minHeight: 20),
+                  padding: const EdgeInsets.symmetric(horizontal: 6),
+                  decoration: const BoxDecoration(
+                    color: TimesheetModuleColors.danger,
+                    borderRadius: BorderRadius.all(Radius.circular(999)),
+                  ),
+                  alignment: Alignment.center,
+                  child: Text(
+                    toApproveCount > 99 ? '99+' : '$toApproveCount',
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 11,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+              ],
+              const Icon(
+                Icons.chevron_right_rounded,
+                color: _FmHomeTheme.mutedSlate,
+              ),
+            ],
           ),
         ),
       ),
