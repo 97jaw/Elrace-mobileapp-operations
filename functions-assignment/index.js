@@ -13,10 +13,15 @@ const { initializeApp } = require("firebase-admin/app");
 const { getFirestore, Timestamp } = require("firebase-admin/firestore");
 const { getMessaging } = require("firebase-admin/messaging");
 const { emitViaOdoo, ingestToken } = require("./lib/odoo_notify");
+const ticketTriggers = require("./tickets");
 
 initializeApp();
 
 setGlobalOptions({ region: "asia-south1" });
+
+exports.onTicketCreated = ticketTriggers.onTicketCreated;
+exports.onTicketUpdated = ticketTriggers.onTicketUpdated;
+exports.onTicketCommentCreated = ticketTriggers.onTicketCommentCreated;
 
 const db = getFirestore();
 const messaging = getMessaging();
