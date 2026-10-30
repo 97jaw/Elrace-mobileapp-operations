@@ -69,10 +69,11 @@ class NotificationRouteRegistry {
         );
       case 'project.project':
         if (payload.resId.isEmpty) return null;
-        return ProjectByIdLoader(
-          projectId: payload.resId,
-          name: (payload.params['name'] ?? payload.params['project_name'])?.toString(),
-        );
+        return ProjectByIdLoader(projectId: payload.resId);
+      case 'it.hardware.request':
+        // No IT request screen exists yet, so the tap stays on the
+        // Notification Center.
+        return null;
       case 'hr.employee':
         if (payload.resId.isEmpty) return null;
         return EmployeeByIdLoader(employeeId: payload.resId);

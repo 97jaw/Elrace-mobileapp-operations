@@ -10,7 +10,7 @@ import 'package:el_race/ui/presentation/my_documents/screens/document_details_sc
 import 'package:el_race/ui/presentation/my_notes/data/note_model.dart';
 import 'package:el_race/ui/presentation/my_notes/repository/firebase_notes_repository.dart';
 import 'package:el_race/ui/presentation/my_notes/screens/note_detail_screen.dart';
-import 'package:el_race/ui/presentation/my_projects/domain/entities/project_entity.dart';
+import 'package:el_race/ui/presentation/my_projects/data/models/project_model.dart';
 import 'package:el_race/ui/presentation/my_projects/presentation/map/project_analytics_screen.dart';
 import 'package:el_race/utils/urll_utils.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -177,30 +177,61 @@ class _SignatureByIdLoaderState extends State<SignatureByIdLoader> {
   }
 }
 
-class ProjectByIdLoader extends StatelessWidget {
-  const ProjectByIdLoader({
-    super.key,
-    required this.projectId,
-    this.name,
-  });
+class ProjectByIdLoader extends StatefulWidget {
+  const ProjectByIdLoader({super.key, required this.projectId});
 
   final String projectId;
-  final String? name;
+
+  @override
+  State<ProjectByIdLoader> createState() => _ProjectByIdLoaderState();
+}
+
+class _ProjectByIdLoaderState extends State<ProjectByIdLoader> {
+  late Future<ProjectModel?> _future;
+
+  @override
+  void initState() {
+    super.initState();
+    _future = _load();
+  }
+
+  Future<ProjectModel?> _load() async {
+    final id = int.tryParse(widget.projectId);
+    if (id == null || id <= 0) return null;
+    final token = SharedPref.getLoginDataOrNull()?.result?.token ?? '';
+    if (token.isEmpty) return null;
+    final response = await http.post(
+      Uri.parse('${UrlUtil.baseUrl}v2/get_project'),
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+        'Authorization': 'Bearer $token',
+      },
+      body: jsonEncode({
+        'jsonrpc': '2.0',
+        'method': 'call',
+        'params': {'project_id': id},
+      }),
+    );
+    if (response.statusCode < 200 || response.statusCode >= 300) return null;
+    final decoded = jsonDecode(response.body);
+    final result = decoded is Map ? decoded['result'] : null;
+    if (result is! Map || result['status'] != 'success') return null;
+    final data = result['data'];
+    if (data is! Map) return null;
+    final project = ProjectModel.fromJson(Map<String, dynamic>.from(data));
+    if (project.projectId <= 0) return null;
+    return project;
+  }
 
   @override
   Widget build(BuildContext context) {
-    final id = int.tryParse(projectId);
-    if (id == null || id <= 0) {
-      return const _MessagePage(
-        title: 'Project',
-        message: 'This project could not be opened.',
-      );
-    }
-    return ProjectAnalyticsScreen(
-      project: ProjectEntity.stub(
-        projectId: id,
-        name: name?.trim() ?? '',
-      ),
+    return _LoaderShell<ProjectModel?>(
+      future: _future,
+      title: 'Project',
+      emptyMessage: 'This project could not be opened.',
+      onRetry: () => setState(() => _future = _load()),
+      builder: (project) => ProjectAnalyticsScreen(project: project!),
     );
   }
 }
