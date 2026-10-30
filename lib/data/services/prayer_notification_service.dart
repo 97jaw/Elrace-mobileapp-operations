@@ -1,3 +1,4 @@
+import 'package:el_race/core/notifications/notification_config_service.dart';
 import 'package:el_race/data/services/hive_service.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:timezone/data/latest.dart' as tz;
@@ -101,10 +102,11 @@ class PrayerNotificationService {
       iOS: iosDetails,
     );
 
+    final copy = _prayerCopy(prayerName);
     await _notificationsPlugin.show(
       0, // notification ID - استخدام 0 لاستبدال الإشعار السابق
-      '🕌 Prayer Time',
-      '🔔 It\'s now time for ${_englishPrayerName(prayerName)} prayer',
+      copy.$1,
+      copy.$2,
       details,
     );
 
@@ -128,10 +130,11 @@ class PrayerNotificationService {
     // Replace any prior schedule for this prayer/day (stable ID).
     await _notificationsPlugin.cancel(id);
 
+    final copy = _prayerCopy(prayerName);
     await _notificationsPlugin.zonedSchedule(
       id,
-      '🕌 Prayer Time',
-      '🔔 It\'s now time for ${_englishPrayerName(prayerName)} prayer',
+      copy.$1,
+      copy.$2,
       tzTime,
       const NotificationDetails(
         android: AndroidNotificationDetails(
@@ -200,6 +203,14 @@ class PrayerNotificationService {
     final day =
         '${time.year}${time.month.toString().padLeft(2, '0')}${time.day.toString().padLeft(2, '0')}';
     return ('$normalized:$day').hashCode & 0x7fffffff;
+  }
+
+  (String, String) _prayerCopy(String prayerName) {
+    final name = _englishPrayerName(prayerName);
+    if (NotificationConfigService.current.prayerTextV2) {
+      return ('Prayer Time', 'It is time for $name.');
+    }
+    return ('🕌 Prayer Time', '🔔 It\'s now time for $name prayer');
   }
 
   String _englishPrayerName(String prayerName) {

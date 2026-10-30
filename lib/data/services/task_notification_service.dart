@@ -87,6 +87,17 @@ class TaskNotificationService {
           showBadge: true,
         ),
       );
+      await androidImpl.createNotificationChannel(
+        const AndroidNotificationChannel(
+          'task_notifications',
+          channelName,
+          description: channelDescription,
+          importance: Importance.high,
+          playSound: true,
+          enableVibration: true,
+          showBadge: true,
+        ),
+      );
     }
 
     _initialized = true;
