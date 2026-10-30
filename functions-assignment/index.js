@@ -11,6 +11,7 @@ const { onDocumentCreated, onDocumentUpdated } = require("firebase-functions/v2/
 const { initializeApp } = require("firebase-admin/app");
 const { getFirestore } = require("firebase-admin/firestore");
 const { getMessaging } = require("firebase-admin/messaging");
+const { emitViaOdoo, ingestToken } = require("./lib/odoo_notify");
 
 initializeApp();
 
@@ -44,7 +45,7 @@ async function sendPushToUserUid({ uid, title, body, data }) {
     android: {
       priority: "high",
       notification: {
-        channelId: "task_notifications",
+        channelId: "task_notifications_channel",
         priority: "high",
         defaultSound: true,
       },
@@ -123,12 +124,35 @@ async function resolveUidFromOdooUserId(odooUserId) {
   return null;
 }
 
+function memberOdooIds(data) {
+  const members = Array.isArray(data && data.assigned_members)
+    ? data.assigned_members
+    : [];
+  const ids = [];
+  for (const member of members) {
+    const parsed = Number(member && (member.user_id || member.odoo_user_id));
+    if (Number.isFinite(parsed) && parsed > 0) ids.push(parsed);
+  }
+  return ids;
+}
+
+async function odooUserIdForUid(uid) {
+  if (!uid) return null;
+  const doc = await db.collection("users").doc(String(uid)).get();
+  if (!doc.exists) return null;
+  const parsed = Number(doc.get("odoo_user_id"));
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
+}
+
 /**
  * When a todo is copied under an assignee path (owner_uid !== path uid),
  * notify that assignee via FCM.
  */
 exports.onAssignedTodoCreated = onDocumentCreated(
-  "users/{uid}/todos/{todoId}",
+  {
+    document: "users/{uid}/todos/{todoId}",
+    secrets: [ingestToken],
+  },
   async (event) => {
     const snap = event.data;
     if (!snap) return;
@@ -146,6 +170,17 @@ exports.onAssignedTodoCreated = onDocumentCreated(
     const assignedBy = data.created_by_name || data.owner_name || "Someone";
     const taskTitle = data.title || "New task";
     const body = `${assignedBy} assigned you: "${taskTitle}"`;
+
+    const routed = await emitViaOdoo({
+      type: "task.assigned",
+      recipientUids: [uid],
+      actorUid: ownerUid,
+      model: "firestore.todo",
+      resId: todoId,
+      values: { assigned_by: assignedBy, task_title: taskTitle },
+      eventKey: `assign:${todoId}:${uid}`,
+    });
+    if (routed.handled) return;
 
     await sendPushToUserUid({
       uid,
@@ -167,7 +202,10 @@ exports.onAssignedTodoCreated = onDocumentCreated(
  * FCM-notify the owner (assigner). Skips self-complete.
  */
 exports.onTodoCompleted = onDocumentUpdated(
-  "users/{uid}/todos/{todoId}",
+  {
+    document: "users/{uid}/todos/{todoId}",
+    secrets: [ingestToken],
+  },
   async (event) => {
     const change = event.data;
     if (!change) return;
@@ -194,13 +232,30 @@ exports.onTodoCompleted = onDocumentUpdated(
     }
 
     const completedByUid = (after.last_completed_by_uid || "").toString().trim();
-    if (!completedByUid || completedByUid === ownerUid) {
-      return;
-    }
-
     const completedBy =
       (after.last_completed_by_name || "").toString().trim() || "Someone";
     const taskTitle = after.title || "Task";
+    const actorOdooId = await odooUserIdForUid(completedByUid);
+    const recipientUids =
+      ownerUid && completedByUid && ownerUid !== completedByUid ? [ownerUid] : [];
+    const odooUserIds = memberOdooIds(after).filter((id) => id !== actorOdooId);
+    if (completedByUid && (recipientUids.length || odooUserIds.length)) {
+      const routed = await emitViaOdoo({
+        type: "task.completed",
+        recipientUids,
+        odooUserIds,
+        actorUid: completedByUid,
+        model: "firestore.todo",
+        resId: todoId,
+        values: { completed_by: completedBy, task_title: taskTitle },
+        eventKey: `complete:${todoId}:${completedByUid}`,
+      });
+      if (routed.handled) return;
+    }
+
+    if (!completedByUid || completedByUid === ownerUid) {
+      return;
+    }
 
     await sendPushToUserUid({
       uid: ownerUid,
@@ -222,7 +277,10 @@ exports.onTodoCompleted = onDocumentUpdated(
  * Fields assignee_* identify the *recipient* of the push.
  */
 exports.onAssignmentPushRequest = onDocumentCreated(
-  "assignment_push_requests/{requestId}",
+  {
+    document: "assignment_push_requests/{requestId}",
+    secrets: [ingestToken],
+  },
   async (event) => {
     const snap = event.data;
     if (!snap) return;
@@ -247,6 +305,35 @@ exports.onAssignmentPushRequest = onDocumentCreated(
     ).toString();
     const action = (data.action || "new_task").toString();
     const taskTitle = data.task_title || "New item";
+    const completed =
+      action === "task_completed" || action === "completed";
+    const notifyType = category === "ticket"
+      ? (completed ? "ticket.closed" : "ticket.assigned")
+      : (completed ? "task.completed" : "task.assigned");
+    const assignedBy = (data.assigned_by || "Someone").toString();
+    const completedBy = (
+      data.completed_by || data.assigned_by || "Someone"
+    ).toString();
+    const routed = await emitViaOdoo({
+      type: notifyType,
+      recipientUids: [uid],
+      model: category === "ticket" ? "firestore.ticket" : "firestore.todo",
+      resId: String(data.task_id || ""),
+      values: completed
+        ? {
+            completed_by: completedBy,
+            task_title: taskTitle,
+            ticket_title: taskTitle,
+          }
+        : {
+            assigned_by: assignedBy,
+            task_title: taskTitle,
+            ticket_title: taskTitle,
+            assignee: assignedBy,
+          },
+      eventKey: `${notifyType}:${data.task_id || ""}:${uid}`,
+    });
+    if (routed.handled) return;
 
     let title;
     let body;
@@ -280,6 +367,48 @@ exports.onAssignmentPushRequest = onDocumentCreated(
             : "new_task",
         is_firebase_task: isFirebase ? "true" : "false",
       },
+    });
+  }
+);
+
+/**
+ * Comment on the owner's todo. Assignee copies are ignored so one comment
+ * does not fan out twice.
+ */
+exports.onTodoCommentCreated = onDocumentCreated(
+  {
+    document: "users/{uid}/todos/{todoId}/comments/{commentId}",
+    secrets: [ingestToken],
+  },
+  async (event) => {
+    const snap = event.data;
+    if (!snap) return;
+    const comment = snap.data() || {};
+    const uid = event.params.uid;
+    const todoId = event.params.todoId;
+    const todoSnap = await db.collection("users").doc(uid).collection("todos").doc(todoId).get();
+    if (!todoSnap.exists) return;
+    const todo = todoSnap.data() || {};
+    const ownerUid = (todo.owner_uid || uid).toString();
+    if (ownerUid !== uid) return;
+
+    const authorUid = (comment.author_id || "").toString();
+    const authorOdooId = await odooUserIdForUid(authorUid);
+    const recipientUids = ownerUid && ownerUid !== authorUid ? [ownerUid] : [];
+    const odooUserIds = memberOdooIds(todo).filter((id) => id !== authorOdooId);
+    if (!recipientUids.length && !odooUserIds.length) return;
+
+    const sender = (comment.author_name || "Someone").toString();
+    const text = (comment.content || comment.body || "").toString().slice(0, 120);
+    await emitViaOdoo({
+      type: "task.comment",
+      recipientUids,
+      odooUserIds,
+      actorUid: authorUid,
+      model: "firestore.todo",
+      resId: todoId,
+      values: { sender, comment: text },
+      eventKey: `comment:${todoId}:${event.params.commentId}`,
     });
   }
 );
