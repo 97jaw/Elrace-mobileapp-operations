@@ -844,7 +844,6 @@ class FirebaseService {
         navKey.currentContext == null ||
         !_isHomeReady) {
       _pendingChatTapPayload = payload;
-      print('   - Notification tap queued until navigation is ready.');
       return;
     }
 

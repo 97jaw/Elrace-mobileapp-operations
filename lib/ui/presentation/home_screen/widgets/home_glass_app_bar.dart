@@ -24,8 +24,6 @@ import 'package:el_race/ui/presentation/home_screen/widgets/glass_tap_icon.dart'
 import 'package:el_race/ui/widgets/global_search_screen.dart';
 import 'package:el_race/utils/Util.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_screenutil/flutter_screenutil.dart';
-import 'package:provider/provider.dart';
 
 class HomeGlassAppBar extends StatefulWidget {
   const HomeGlassAppBar({

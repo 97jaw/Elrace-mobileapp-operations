@@ -4,6 +4,13 @@ import 'package:el_race/core/services/notification_api_service.dart';
 import 'package:el_race/core/utils/shared_pref.dart';
 import 'package:http/http.dart' as http;
 
+/// Shared reading of notification flags and legacy payload booleans.
+bool notificationTruthy(dynamic value) {
+  if (value is bool) return value;
+  final text = (value ?? '').toString().trim().toLowerCase();
+  return text == '1' || text == 'true' || text == 'yes' || text == 'y';
+}
+
 class NotificationFlags {
   const NotificationFlags({
     this.enabled = false,
@@ -34,19 +41,13 @@ class NotificationFlags {
 
   factory NotificationFlags.fromMap(Map<String, dynamic> map) {
     return NotificationFlags(
-      enabled: _bool(map['enabled']),
-      appInboxV2: _bool(map['app_inbox_v2']),
-      serverTaskNotifications: _bool(map['server_task_notifications']),
-      inboxSilentSync: _bool(map['inbox_silent_sync']),
-      prayerTextV2: _bool(map['prayer_text_v2']),
+      enabled: notificationTruthy(map['enabled']),
+      appInboxV2: notificationTruthy(map['app_inbox_v2']),
+      serverTaskNotifications: notificationTruthy(map['server_task_notifications']),
+      inboxSilentSync: notificationTruthy(map['inbox_silent_sync']),
+      prayerTextV2: notificationTruthy(map['prayer_text_v2']),
       retentionDays: int.tryParse('${map['retention_days']}') ?? 90,
     );
-  }
-
-  static bool _bool(dynamic value) {
-    if (value is bool) return value;
-    final text = (value ?? '').toString().trim().toLowerCase();
-    return text == '1' || text == 'true' || text == 'yes';
   }
 }
 

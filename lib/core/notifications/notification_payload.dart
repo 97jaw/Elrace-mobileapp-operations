@@ -1,5 +1,7 @@
 import 'dart:convert';
 
+import 'package:el_race/core/notifications/notification_config_service.dart';
+
 class NotificationPayload {
   const NotificationPayload({
     required this.raw,
@@ -26,8 +28,6 @@ class NotificationPayload {
   final String resId;
   final String screen;
   final Map<String, dynamic> params;
-
-  bool get isContract => nv.isNotEmpty;
 
   factory NotificationPayload.fromData(Map<String, dynamic> data) {
     final nv = _text(data['nv']);
@@ -76,7 +76,7 @@ class NotificationPayload {
         data.containsKey('taskId') ||
         data.containsKey('is_firebase_task')) {
       final taskId = _first(data, const ['task_id', 'taskId', 'res_id', 'record_id']);
-      if (_bool(data['is_firebase_task']) && taskId.isNotEmpty) {
+      if (notificationTruthy(data['is_firebase_task']) && taskId.isNotEmpty) {
         action = 'open_record';
         model = 'firestore.todo';
         resId = taskId;
@@ -112,12 +112,6 @@ class NotificationPayload {
       if (value.isNotEmpty) return value;
     }
     return '';
-  }
-
-  static bool _bool(dynamic value) {
-    if (value is bool) return value;
-    final text = _text(value).toLowerCase();
-    return text == '1' || text == 'true' || text == 'yes' || text == 'y';
   }
 
   static Map<String, dynamic> _params(dynamic value) {

@@ -22,7 +22,6 @@ class NotificationStorageService {
       'notification_categories_v1_fetched_at';
 
   static const Duration _muteSettingsCacheTtl = Duration(minutes: 5);
-  static const Duration _categoriesCacheTtl = Duration(minutes: 5);
   /// Avoid hammering /notifications when Odoo/proxy returns 5xx (home polls every 5s).
   static const Duration _badgeSyncFailureCooldown = Duration(seconds: 60);
 

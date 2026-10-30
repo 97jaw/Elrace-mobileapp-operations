@@ -68,7 +68,6 @@ class PrayerNotificationService {
     }
 
     _initialized = true;
-    // debugPrint('🔔 Prayer notification service initialized');
   }
 
   Future<void> showAdhanNotification(String prayerName) async {
@@ -109,8 +108,6 @@ class PrayerNotificationService {
       copy.$2,
       details,
     );
-
-    // debugPrint('🔔 Adhan notification shown for $prayerName');
   }
 
   Future<void> scheduleAdhanNotification(

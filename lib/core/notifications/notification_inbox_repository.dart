@@ -45,9 +45,9 @@ class NotificationInboxCategory {
       icon: '${map['icon'] ?? ''}',
       color: '${map['color'] ?? ''}',
       sequence: int.tryParse('${map['sequence']}') ?? 0,
-      mandatory: _bool(map['mandatory']),
-      localOnly: _bool(map['local_only']),
-      muted: _bool(map['muted']),
+      mandatory: notificationTruthy(map['mandatory']),
+      localOnly: notificationTruthy(map['local_only']),
+      muted: notificationTruthy(map['muted']),
     );
   }
 }
@@ -149,12 +149,6 @@ class NotificationInboxRepository {
     final local = DateTime(value.year, value.month, value.day);
     return local.toIso8601String().split('T').first;
   }
-}
-
-bool _bool(dynamic value) {
-  if (value is bool) return value;
-  final text = (value ?? '').toString().trim().toLowerCase();
-  return text == '1' || text == 'true' || text == 'yes';
 }
 
 bool get notificationInboxV2Enabled =>

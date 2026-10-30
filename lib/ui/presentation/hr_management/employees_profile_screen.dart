@@ -10,7 +10,6 @@ import 'package:el_race/ui/presentation/hr_management/widgets/employee_profile_m
 import 'package:el_race/ui/presentation/my_projects/presentation/utils/projects_dashboard_access.dart';
 import 'package:el_race/utils/di.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 abstract final class _ProfilePalette {
