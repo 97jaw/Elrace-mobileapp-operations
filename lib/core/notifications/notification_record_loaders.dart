@@ -2,8 +2,7 @@ import 'dart:convert';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:el_race/core/utils/shared_pref.dart';
-import 'package:el_race/ui/presentation/hr_management/data/employee_profile_models.dart';
-import 'package:el_race/ui/presentation/hr_management/data/employees_profile_repository.dart';
+import 'package:el_race/ui/presentation/hr_management/employees_profile_screen.dart';
 import 'package:el_race/ui/presentation/my_actions/data/models/signature_document.dart';
 import 'package:el_race/ui/presentation/my_actions/screens/signature/signature_document_viewer_screen.dart';
 import 'package:el_race/ui/presentation/my_documents/screens/document_details_screen.dart';
@@ -236,72 +235,21 @@ class _ProjectByIdLoaderState extends State<ProjectByIdLoader> {
   }
 }
 
-class EmployeeByIdLoader extends StatefulWidget {
+class EmployeeByIdLoader extends StatelessWidget {
   const EmployeeByIdLoader({super.key, required this.employeeId});
 
   final String employeeId;
 
   @override
-  State<EmployeeByIdLoader> createState() => _EmployeeByIdLoaderState();
-}
-
-class _EmployeeByIdLoaderState extends State<EmployeeByIdLoader> {
-  late Future<EmployeeProfileDetail?> _future;
-
-  @override
-  void initState() {
-    super.initState();
-    _future = _load();
-  }
-
-  Future<EmployeeProfileDetail?> _load() async {
-    final id = int.tryParse(widget.employeeId);
-    if (id == null || id <= 0) return null;
-    return EmployeesProfileRepository().fetchProfile(id);
-  }
-
-  @override
   Widget build(BuildContext context) {
-    return _LoaderShell<EmployeeProfileDetail?>(
-      future: _future,
-      title: 'Employee',
-      emptyMessage: 'This employee profile could not be opened.',
-      onRetry: () => setState(() => _future = _load()),
-      builder: (profile) => _EmployeeSummary(profile: profile!),
-    );
-  }
-}
-
-class _EmployeeSummary extends StatelessWidget {
-  const _EmployeeSummary({required this.profile});
-
-  final EmployeeProfileDetail profile;
-
-  @override
-  Widget build(BuildContext context) {
-    final rows = <(String, String)>[
-      ('Job', profile.jobTitle ?? ''),
-      ('Department', profile.department ?? ''),
-      ('Section', profile.section ?? ''),
-      ('Phone', profile.mobilePhone ?? ''),
-      ('Email', profile.workEmail ?? ''),
-    ].where((row) => row.$2.trim().isNotEmpty).toList();
-    return Scaffold(
-      appBar: AppBar(title: Text(profile.name)),
-      body: ListView(
-        padding: const EdgeInsets.all(16),
-        children: [
-          Text(profile.empId, style: Theme.of(context).textTheme.titleMedium),
-          const SizedBox(height: 12),
-          for (final row in rows)
-            ListTile(
-              contentPadding: EdgeInsets.zero,
-              title: Text(row.$1),
-              subtitle: Text(row.$2),
-            ),
-        ],
-      ),
-    );
+    final id = int.tryParse(employeeId);
+    if (id == null || id <= 0) {
+      return const _MessagePage(
+        title: 'Employee',
+        message: 'This employee profile could not be opened.',
+      );
+    }
+    return EmployeesProfileScreen(initialEmployeeId: id);
   }
 }
 

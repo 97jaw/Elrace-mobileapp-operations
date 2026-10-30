@@ -173,7 +173,10 @@ bool _queryIsActive(String raw) {
 }
 
 class EmployeesProfileScreen extends StatefulWidget {
-  const EmployeesProfileScreen({super.key});
+  const EmployeesProfileScreen({super.key, this.initialEmployeeId});
+
+  /// When set, the detail view opens immediately for this Odoo employee id.
+  final int? initialEmployeeId;
 
   @override
   State<EmployeesProfileScreen> createState() => _EmployeesProfileScreenState();
@@ -207,6 +210,12 @@ class _EmployeesProfileScreenState extends State<EmployeesProfileScreen> {
         HomeNavigation.handleSystemBack(context);
       });
       return;
+    }
+    final initialId = widget.initialEmployeeId;
+    if (initialId != null && initialId > 0) {
+      _selected = _SearchIndex(Employee(employeeId: initialId));
+      _profileLoading = true;
+      _loadSelectedProfile(_selected!);
     }
     _loadEmployees();
   }
@@ -291,9 +300,13 @@ class _EmployeesProfileScreenState extends State<EmployeesProfileScreen> {
       _profileError = null;
       _profileLoading = true;
     });
+    await _loadSelectedProfile(item);
+  }
 
+  Future<void> _loadSelectedProfile(_SearchIndex item) async {
     final odooId = item.odooEmployeeId;
     if (odooId == null) {
+      if (!mounted) return;
       setState(() {
         _profileLoading = false;
         _profileError = 'Missing employee id for profile';
