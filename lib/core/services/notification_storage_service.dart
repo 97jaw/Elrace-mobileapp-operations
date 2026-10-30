@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:el_race/core/notifications/notification_config_service.dart';
 import 'package:el_race/core/services/app_icon_badge_service.dart';
 import 'package:el_race/core/services/notification_api_service.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -58,6 +59,8 @@ class NotificationStorageService {
       }
     }
   }
+
+  static Future<void> applyServerUnread(int count) => _persistBadgeCount(count);
 
   /// Fast badge count from local cache (no API call).
   /// Use this for real-time badge updates (e.g. after a push notification
@@ -640,6 +643,10 @@ class NotificationStorageService {
       final normalized = apiResult.notifications
           .map(_normalizeApiNotification)
           .toList(growable: true);
+
+      if (NotificationConfigService.current.appInboxV2) {
+        return _pageOf(normalized, limit: limit, offset: offset);
+      }
 
       final prefs = await SharedPreferences.getInstance();
       final storedBeforeFetch = await _getStoredNotifications();

@@ -4,6 +4,8 @@ import 'dart:async';
 
 import 'package:el_race/chat/chat.dart';
 import 'package:el_race/core/ui/adaptive_glass.dart';
+import 'package:el_race/core/notifications/notification_config_service.dart';
+import 'package:el_race/core/notifications/notification_inbox_repository.dart';
 import 'package:el_race/core/services/approval_count_service.dart';
 import 'package:el_race/core/services/approval_viewed_service.dart';
 import 'package:el_race/core/services/badge_refresh_service.dart';
@@ -97,9 +99,12 @@ class _HomeGlassAppBarState extends State<HomeGlassAppBar> {
 
     // Poll notification counter every 5 seconds (iOS often misses FCM Dart wake).
     _notificationPollTimer = Timer.periodic(
-      const Duration(seconds: 5),
+      Duration(seconds: NotificationConfigService.current.appInboxV2 ? 60 : 5),
       (_) => _loadNotificationCount(),
     );
+    if (NotificationConfigService.current.appInboxV2) {
+      _loadNotificationCount();
+    }
   }
 
   @override
@@ -121,6 +126,13 @@ class _HomeGlassAppBarState extends State<HomeGlassAppBar> {
   }
 
   Future<void> _loadNotificationCount() async {
+    if (NotificationConfigService.current.appInboxV2) {
+      try {
+        final count = await NotificationInboxRepository.refreshBadge();
+        if (mounted) setState(() => _notificationCount = count);
+      } catch (_) {}
+      return;
+    }
     // Sync from Odoo so iOS badge updates even when FCM did not wake Dart.
     final count = await NotificationStorageService.syncBadgeFromServer();
     if (mounted) setState(() => _notificationCount = count);

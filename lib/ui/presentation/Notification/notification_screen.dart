@@ -1,7 +1,9 @@
 import 'package:el_race/core/utils/responsive_breakpoints.dart';
+import 'package:el_race/core/notifications/notification_inbox_repository.dart';
 import 'package:el_race/core/services/notification_storage_service.dart';
 import 'package:el_race/ui/chat/widgets/chat_sub_app_glass_bar.dart';
 import 'package:el_race/ui/navigation/home_navigation.dart';
+import 'package:el_race/ui/presentation/Notification/notification_inbox_v2_screen.dart';
 import 'package:el_race/ui/presentation/Notification/notification_category_theme.dart';
 import 'package:el_race/ui/widgets/glass_sub_app_screen_header.dart';
 import 'package:el_race/utils/safe_insets.dart';
@@ -29,6 +31,7 @@ class _NotificationScreenState extends State<NotificationScreen> {
   @override
   void initState() {
     super.initState();
+    if (notificationInboxV2Enabled) return;
     NotificationStorageService.addCountListener(this, () {
       if (mounted && !_loading) {
         _loadNotifications(showLoader: false);
@@ -39,7 +42,9 @@ class _NotificationScreenState extends State<NotificationScreen> {
 
   @override
   void dispose() {
-    NotificationStorageService.removeCountListener(this);
+    if (!notificationInboxV2Enabled) {
+      NotificationStorageService.removeCountListener(this);
+    }
     super.dispose();
   }
 
@@ -198,6 +203,9 @@ class _NotificationScreenState extends State<NotificationScreen> {
 
   @override
   Widget build(BuildContext context) {
+    if (notificationInboxV2Enabled) {
+      return const NotificationInboxV2Screen();
+    }
     return PopScope(
       canPop: false,
       onPopInvokedWithResult: (didPop, _) {
