@@ -9,6 +9,9 @@ import 'package:el_race/core/services/notification_storage_service.dart';
 import 'package:el_race/core/utils/shared_pref.dart';
 import 'package:el_race/data/services/prayer_audio_service.dart';
 import 'package:el_race/ui/chat/chat_screen.dart';
+import 'package:el_race/core/timesheet/providers/labor_transfer_providers.dart';
+import 'package:el_race/core/timesheet/routing/timesheet_route_names.dart';
+import 'package:el_race/core/timesheet/services/labor_transfer_roster_refresh.dart';
 import 'package:el_race/ui/presentation/hr_management/hr_circular_announcements_screen.dart';
 import 'package:el_race/ui/presentation/tasks/tasks_screen.dart';
 import 'package:el_race/ui/presentation/tasks_dashboard/screens/task_details.dart'
@@ -20,6 +23,7 @@ import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:http/http.dart' as http;
 
 // Prevent device identifiers from reaching production logs while preserving
@@ -212,6 +216,7 @@ class FirebaseService {
         message,
         source: 'foreground',
       );
+      await _refreshLaborTransferFromPushIfNeeded(message);
     });
 
     // Handle background-tap messages (when app is resumed from notification)
@@ -732,6 +737,30 @@ class FirebaseService {
     );
   }
 
+  /// Labor-transfer push: refresh counts badge; on approve/reject also roster.
+  static Future<void> _refreshLaborTransferFromPushIfNeeded(
+    RemoteMessage message,
+  ) async {
+    final data = message.data;
+    final category =
+        (data['category'] ?? data['type'] ?? '').toString().trim().toLowerCase();
+    if (!_isLaborTransferPayload(data, category)) return;
+    final context = navKey.currentContext;
+    if (context == null) return;
+    try {
+      final container = ProviderScope.containerOf(context);
+      container.invalidate(laborTransferCountsProvider);
+      print('   - Labor transfer counts invalidated');
+      final state = (data['state'] ?? '').toString().trim().toLowerCase();
+      if (state == 'approved' || state == 'rejected') {
+        await LaborTransferRosterRefresh.afterTeamChange(container);
+        print('   - Labor transfer roster refreshed (state=$state)');
+      }
+    } catch (e) {
+      print('   - Labor transfer push refresh failed: $e');
+    }
+  }
+
   static bool _isAttendancePush(RemoteMessage message) {
     final data = message.data;
 
@@ -807,7 +836,62 @@ class FirebaseService {
       return;
     }
 
+    if (_isLaborTransferPayload(payloadData, category)) {
+      _handleLaborTransferTap(payload, payloadData);
+      return;
+    }
+
     print('   - View-only notification; no navigation.');
+  }
+
+  static bool _isLaborTransferPayload(
+    Map<String, dynamic> payloadData,
+    String category,
+  ) {
+    return category == 'labor_transfer' ||
+        payloadData['model']?.toString() == 'elrace.labor.transfer';
+  }
+
+  static void _handleLaborTransferTap(
+    String? rawPayload,
+    Map<String, dynamic> payloadData,
+  ) {
+    final navigator = navKey.currentState;
+    final context = navKey.currentContext;
+    if (navigator == null || context == null || !_isHomeReady) {
+      _pendingChatTapPayload = rawPayload;
+      print('   - Labor transfer tap queued until navigation is ready.');
+      return;
+    }
+
+    final transferId = int.tryParse(
+      (payloadData['id'] ?? payloadData['record_id'] ?? '').toString(),
+    );
+    if (transferId == null || transferId <= 0) {
+      print('   - Labor transfer tap missing id.');
+      return;
+    }
+
+    final state = (payloadData['state'] ?? '').toString().trim().toLowerCase();
+    try {
+      final container = ProviderScope.containerOf(context);
+      container.invalidate(laborTransferCountsProvider);
+      if (state == 'approved' || state == 'rejected') {
+        unawaited(LaborTransferRosterRefresh.afterTeamChange(container));
+      }
+    } catch (e) {
+      print('   - Labor transfer push refresh skipped: $e');
+    }
+
+    try {
+      navigator.pushNamed(
+        TimesheetRouteNames.laborTransferDetail,
+        arguments: transferId,
+      );
+      print('   - Opened labor transfer detail id=$transferId state=$state');
+    } catch (e) {
+      print('   - Failed to navigate for labor transfer tap: $e');
+    }
   }
 
   static bool _isCircularAnnouncementPayload(
