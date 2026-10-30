@@ -972,7 +972,6 @@ class FirebaseService {
     final taskId =
         (payloadData['task_id'] ?? payloadData['taskId'] ?? '').toString();
     final isFirebase = _parseBoolFlag(payloadData['is_firebase_task']);
-    final isTicket = category == 'ticket' || !isFirebase;
 
     try {
       if (isFirebase && taskId.isNotEmpty) {
