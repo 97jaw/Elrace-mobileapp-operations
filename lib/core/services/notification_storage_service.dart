@@ -520,6 +520,13 @@ class NotificationStorageService {
       }
     }
 
+    if (settings['chat_message'] == true || settings['chat'] == true) {
+      const chatKeys = {'chat', 'chat.direct', 'chat.group', 'chat_message'};
+      for (final key in normalized) {
+        if (chatKeys.contains(key)) return true;
+      }
+    }
+
     for (final key in normalized) {
       if (settings[key] == true) {
         return true;

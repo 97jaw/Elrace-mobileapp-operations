@@ -79,7 +79,8 @@ import 'ui/presentation/home_screen/provider/slider_provider.dart';
 Future<void> _markChatPushDelivered(Map<String, dynamic> data) async {
   final category = (data['category'] ?? data['type'] ?? '').toString();
   final chatId = (data['chat_id'] ?? data['chatId'] ?? '').toString().trim();
-  if (chatId.isEmpty || (category.isNotEmpty && category != 'chat_message')) {
+  const chatKeys = {'chat_message', 'chat', 'chat.direct', 'chat.group'};
+  if (chatId.isEmpty || (category.isNotEmpty && !chatKeys.contains(category))) {
     return;
   }
   try {
