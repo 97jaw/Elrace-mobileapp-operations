@@ -4,6 +4,7 @@ import 'dart:convert';
 import 'package:el_race/chat/models/models.dart';
 import 'package:el_race/core/app_globals.dart';
 import 'package:el_race/core/notifications/notification_config_service.dart';
+import 'package:el_race/core/notifications/notification_device_service.dart';
 import 'package:el_race/core/notifications/notification_payload.dart';
 import 'package:el_race/core/notifications/notification_router.dart';
 import 'package:el_race/core/services/attendance_status_sync_service.dart';
@@ -375,6 +376,8 @@ class FirebaseService {
         }
       }
       if (fcm.isEmpty) return false;
+
+      await NotificationDeviceService.register(fcmToken: fcm);
 
       _lastSyncedOdooToken ??=
           SharedPref().getPreferenceString(_lastSyncedOdooTokenKey);

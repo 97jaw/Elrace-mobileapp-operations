@@ -3,6 +3,7 @@ import 'dart:convert';
 
 import 'package:el_race/auth/uaepass_auth_cubit.dart';
 import 'package:el_race/chat/chat.dart';
+import 'package:el_race/core/notifications/notification_device_service.dart';
 import 'package:el_race/core/app_globals.dart';
 import 'package:el_race/core/timesheet/providers/timesheet_session_reset.dart';
 import 'package:el_race/core/utils/shared_pref.dart';
@@ -12,6 +13,7 @@ import 'package:el_race/services/api_client.dart';
 import 'package:el_race/ui/presentation/attendance_reports/attendance_reports_session.dart';
 import 'package:el_race/ui/presentation/home_screen/bloc/home_bloc.dart';
 import 'package:el_race/ui/presentation/home_screen/screens/home_screen.dart';
+import 'package:el_race/ui/presentation/linked_devices/linked_devices_repository.dart';
 import 'package:el_race/ui/presentation/my_actions/data/user_stamp_assets.dart';
 import 'package:el_race/ui/presentation/my_projects/presentation/utils/projects_group_list_cache.dart';
 import 'package:el_race/ui/presentation/signin/sign_in_screen.dart';
@@ -178,6 +180,17 @@ class ForceLogoutGuard {
   void goToSignIn() => _goToSignIn();
 
   Future<void> _clearLocalSession() async {
+    try {
+      await NotificationDeviceService.onLogout()
+          .timeout(const Duration(seconds: 8), onTimeout: () {});
+      final token = SharedPref.getLoginDataOrNull()?.result?.token?.trim() ?? '';
+      if (token.isNotEmpty) {
+        await const LinkedDevicesRepository()
+            .logoutCurrent(token)
+            .timeout(const Duration(seconds: 8));
+      }
+    } catch (_) {}
+
     final root = navKey.currentContext;
     try {
       if (sl.isRegistered<HomeBloc>()) {
