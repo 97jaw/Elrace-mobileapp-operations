@@ -8,8 +8,9 @@
  */
 const { setGlobalOptions } = require("firebase-functions/v2");
 const { onDocumentCreated, onDocumentUpdated } = require("firebase-functions/v2/firestore");
+const { onSchedule } = require("firebase-functions/v2/scheduler");
 const { initializeApp } = require("firebase-admin/app");
-const { getFirestore } = require("firebase-admin/firestore");
+const { getFirestore, Timestamp } = require("firebase-admin/firestore");
 const { getMessaging } = require("firebase-admin/messaging");
 const { emitViaOdoo, ingestToken } = require("./lib/odoo_notify");
 
@@ -410,5 +411,59 @@ exports.onTodoCommentCreated = onDocumentCreated(
       values: { sender, comment: text },
       eventKey: `comment:${todoId}:${event.params.commentId}`,
     });
+  }
+);
+
+exports.onTaskDeadlines = onSchedule(
+  {
+    schedule: "every 5 minutes",
+    secrets: [ingestToken],
+  },
+  async () => {
+    const now = Date.now();
+    const windows = [
+      {
+        code: "24h",
+        type: "task.deadline_24h",
+        start: now + (23 * 60 + 55) * 60 * 1000,
+        end: now + 24 * 60 * 60 * 1000,
+      },
+      {
+        code: "1h",
+        type: "task.deadline_1h",
+        start: now + 55 * 60 * 1000,
+        end: now + 60 * 60 * 1000,
+      },
+    ];
+    for (const window of windows) {
+      const snap = await db.collectionGroup("todos")
+        .where("is_completed", "==", false)
+        .where("due_date", ">", Timestamp.fromMillis(window.start))
+        .where("due_date", "<=", Timestamp.fromMillis(window.end))
+        .get();
+      for (const doc of snap.docs) {
+        const data = doc.data() || {};
+        const pathUid = doc.ref.parent.parent ? doc.ref.parent.parent.id : "";
+        const ownerUid = (data.owner_uid || pathUid).toString();
+        if (!ownerUid || pathUid !== ownerUid) continue;
+        const dueAt = data.due_date && data.due_date.toDate
+          ? data.due_date.toDate().toISOString()
+          : String(window.end);
+        const odooUserIds = memberOdooIds(data);
+        const recipientUids = odooUserIds.length ? [] : [ownerUid];
+        const routed = await emitViaOdoo({
+          type: window.type,
+          recipientUids,
+          odooUserIds,
+          model: "firestore.todo",
+          resId: doc.id,
+          values: { task_title: data.title || "Task" },
+          eventKey: `${doc.id}:${dueAt}:${window.code}`,
+        });
+        if (!routed.handled) {
+          console.log(`Deadline ${window.code} not taken over for ${doc.id}`);
+        }
+      }
+    }
   }
 );
