@@ -12,7 +12,7 @@ const { onSchedule } = require("firebase-functions/v2/scheduler");
 const { initializeApp } = require("firebase-admin/app");
 const { getFirestore, Timestamp } = require("firebase-admin/firestore");
 const { getMessaging } = require("firebase-admin/messaging");
-const { emitViaOdoo, ingestToken } = require("./lib/odoo_notify");
+const { emitViaOdoo, ingestToken, odooUserIdForUid } = require("./lib/odoo_notify");
 const ticketTriggers = require("./tickets");
 
 initializeApp();
@@ -140,14 +140,6 @@ function memberOdooIds(data) {
     if (Number.isFinite(parsed) && parsed > 0) ids.push(parsed);
   }
   return ids;
-}
-
-async function odooUserIdForUid(uid) {
-  if (!uid) return null;
-  const doc = await db.collection("users").doc(String(uid)).get();
-  if (!doc.exists) return null;
-  const parsed = Number(doc.get("odoo_user_id"));
-  return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
 }
 
 /**

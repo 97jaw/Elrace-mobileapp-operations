@@ -99,6 +99,7 @@ async function emitViaOdoo({
 
 module.exports = {
   emitViaOdoo,
+  odooUserIdForUid,
   odooBaseUrl,
   ingestToken,
 };
