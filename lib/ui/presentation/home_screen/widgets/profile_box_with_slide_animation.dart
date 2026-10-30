@@ -1,12 +1,12 @@
 import 'dart:convert';
 import 'dart:typed_data';
-import 'package:el_race/core/services/notification_api_service.dart';
 import 'package:el_race/core/services/notification_storage_service.dart';
 import 'package:el_race/core/utils/shared_pref.dart';
 import 'package:el_race/data/services/hive_service.dart';
 import 'package:el_race/data/services/prayer_audio_service.dart';
 import 'package:el_race/data/services/prayer_background_service.dart';
 import 'package:el_race/data/services/prayer_notification_service.dart';
+import 'package:el_race/ui/presentation/Notification/notification_mute_settings_screen.dart';
 import 'package:el_race/ui/presentation/home_screen/bloc/home_bloc.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:el_race/core/app_globals.dart';
@@ -153,19 +153,6 @@ class _ProfileBoxWithSlideAnimationState
     }
   }
 
-  String _pickExistingMuteKey(
-    Map<String, bool> settings,
-    List<String> candidates,
-  ) {
-    for (final candidate in candidates) {
-      final key = candidate.trim().toLowerCase();
-      if (settings.containsKey(key)) {
-        return key;
-      }
-    }
-    return candidates.first.trim().toLowerCase();
-  }
-
   /// Local-only categories that are not returned by the API.
   static const List<_MuteChannelConfig> _localOnlyChannels = [
     _MuteChannelConfig(label: 'Chat', key: 'chat_message'),
@@ -173,115 +160,13 @@ class _ProfileBoxWithSlideAnimationState
     _MuteChannelConfig(label: 'Tasks', key: 'task'),
   ];
 
-  static const Set<String> _waitingCoveredModels = {
-    'employee.requests',
-    'account.move',
-    'purchase.order',
-    'hr.expense.sheet',
-  };
-
-  static const List<String> _displayOrder = [
-    'waiting',
-    'alert',
-    'prayer',
-    'chat_message',
-    'share',
-    'cloud.folder',
-    'task',
-    'announcement',
-    'circular',
-  ];
-
-  int _muteSortIndex(String key) {
-    final idx = _displayOrder.indexOf(key);
-    return idx >= 0 ? idx : _displayOrder.length + 1;
-  }
-
   Future<void> _openMuteControlPopup() async {
-    final results = await Future.wait([
-      NotificationStorageService.getMuteSettings(forceRefresh: true),
-      NotificationStorageService.getNotificationCategories(forceRefresh: true),
-      HiveService.isPrayerSoundMuted(),
-    ]);
     if (!mounted) return;
-
-    final settings = results[0] as Map<String, bool>;
-    final apiCategories = results[1] as List<NotificationCategoryApiModel>;
-    // Hive is canonical for azan — do not force-mute from SharedPrefs/API.
-    final hiveMuted = results[2] as bool;
-    await NotificationStorageService.setLocalMuteSetting('prayer', hiveMuted);
-    await NotificationStorageService.setLocalMuteSetting('adhan', hiveMuted);
-
-    final apiChannels = apiCategories
-        .where((c) => c.model.trim().isNotEmpty)
-        .where((c) => c.model.trim().toLowerCase() != 'adhan')
-        .where((c) {
-          final key = c.model.trim().toLowerCase();
-          // Hide per-model approval rows when shared Waiting exists.
-          final hasWaiting = apiCategories.any(
-            (x) => x.model.trim().toLowerCase() == 'waiting',
-          );
-          if (hasWaiting && _waitingCoveredModels.contains(key)) {
-            return false;
-          }
-          return true;
-        })
-        .map(
-          (c) {
-            final key = c.model.trim().toLowerCase();
-            String label;
-            if (key == 'prayer') {
-              label = 'Prayer / Adhan';
-            } else if (key == 'waiting') {
-              label = c.title.trim().isNotEmpty
-                  ? c.title
-                  : 'Waiting / Approvals';
-            } else if (key == 'share' || key == 'cloud.folder') {
-              label = c.title.trim().isNotEmpty ? c.title : 'Share';
-            } else if (key == 'announcement') {
-              label = c.title.trim().isNotEmpty ? c.title : 'Announcements';
-            } else if (key == 'circular') {
-              label = c.title.trim().isNotEmpty ? c.title : 'Circulars';
-            } else {
-              label = c.title.trim().isNotEmpty ? c.title : c.model;
-            }
-            return _MuteChannelConfig(label: label, key: key);
-          },
-        )
-        .toList();
-
-    // Ensure Prayer / Adhan appears even if API omits it.
-    if (!apiChannels.any((c) => c.key == 'prayer')) {
-      apiChannels.add(
-        const _MuteChannelConfig(label: 'Prayer / Adhan', key: 'prayer'),
-      );
-    }
-
-    // Merge: add local-only channels that are not already in the API list
-    final existingKeys = apiChannels.map((c) => c.key).toSet();
-    for (final local in _localOnlyChannels) {
-      if (!existingKeys.contains(local.key)) {
-        apiChannels.add(local);
-      }
-    }
-
-    apiChannels.sort((a, b) {
-      final byOrder = _muteSortIndex(a.key).compareTo(_muteSortIndex(b.key));
-      if (byOrder != 0) return byOrder;
-      return a.label.compareTo(b.label);
-    });
-
-    setState(() {
-      _muteChannels = apiChannels;
-      _muteValueByKey = <String, bool>{
-        for (final channel in apiChannels)
-          channel.key: channel.key == 'prayer'
-              ? hiveMuted
-              : (settings[channel.key] == true),
-      };
-      _isMutePopupVisible = true;
-      _savingMuteKeys.clear();
-    });
+    await Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => const NotificationMuteSettingsScreen(),
+      ),
+    );
   }
 
   /// Whether this key is a local-only category (not synced to API).

@@ -1,10 +1,13 @@
 import 'package:el_race/core/utils/responsive_breakpoints.dart';
+import 'package:el_race/core/notifications/notification_config_service.dart';
+import 'package:el_race/core/notifications/notification_inbox_repository.dart';
 import 'package:el_race/core/services/notification_storage_service.dart';
 import 'package:el_race/data/services/hive_service.dart';
 import 'package:el_race/data/services/prayer_audio_service.dart';
 import 'package:el_race/data/services/prayer_background_service.dart';
 import 'package:el_race/data/services/prayer_notification_service.dart';
 import 'package:el_race/data/services/task_notification_service.dart';
+import 'package:el_race/ui/presentation/Notification/notification_category_theme.dart';
 import 'package:el_race/ui/presentation/Notification/model/notification_category_listview_model.dart';
 import 'package:el_race/ui/presentation/home_screen/bloc/home_bloc.dart';
 import 'package:el_race/ui/widgets/glass_sub_app_screen_header.dart';
@@ -144,6 +147,7 @@ class _NotificationMuteSettingsScreenState
   List<NotificationCategoryModel> _categories =
       const <NotificationCategoryModel>[];
   final Set<String> _savingModels = <String>{};
+  final Set<String> _mandatoryModels = <String>{};
   bool _isLoading = true;
   String? _error;
 
@@ -207,6 +211,66 @@ class _NotificationMuteSettingsScreenState
   }
 
   Future<void> _loadSettings({bool forceRefresh = false}) async {
+    if (NotificationConfigService.current.appInboxV2) {
+      await _loadServerCategories();
+      return;
+    }
+    await _loadSettingsLegacy(forceRefresh: forceRefresh);
+  }
+
+  Future<void> _loadServerCategories() async {
+    if (mounted) {
+      setState(() {
+        _isLoading = true;
+        _error = null;
+      });
+    }
+    try {
+      final rows = await NotificationInboxRepository.categories();
+      final hiveMuted = await HiveService.isPrayerSoundMuted();
+      final local = await NotificationStorageService.getMuteSettings();
+      final models = <NotificationCategoryModel>[];
+      final mandatory = <String>{};
+      for (final row in rows) {
+        final code = row.code.trim().toLowerCase();
+        if (code.isEmpty) continue;
+        if (row.mandatory) mandatory.add(code);
+        final visual = NotificationCategoryTheme.fromApi(
+          code: code,
+          name: row.name,
+          iconName: row.icon,
+          colorHex: row.color,
+        );
+        var muted = row.muted;
+        if (row.localOnly && (code == 'prayer' || code == 'chat')) {
+          muted = code == 'prayer' ? hiveMuted : (local['chat_message'] ?? local['chat'] ?? false);
+        }
+        models.add(NotificationCategoryModel(
+          model: code,
+          title: visual.title,
+          icon: visual.icon,
+          color: visual.color,
+          muted: muted,
+        ));
+      }
+      if (!mounted) return;
+      setState(() {
+        _categories = models;
+        _mandatoryModels
+          ..clear()
+          ..addAll(mandatory);
+        _isLoading = false;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _error = e.toString();
+        _isLoading = false;
+      });
+    }
+  }
+
+  Future<void> _loadSettingsLegacy({bool forceRefresh = false}) async {
     if (mounted) {
       setState(() {
         _isLoading = true;
@@ -335,6 +399,7 @@ class _NotificationMuteSettingsScreenState
     bool muted,
   ) async {
     final model = category.model;
+    if (_mandatoryModels.contains(model)) return;
     final previous = category.muted;
     final isLocalOnly = _isLocalOnlyCategory(model);
     final isPrayer = model == 'prayer' || model == 'adhan';
@@ -373,8 +438,14 @@ class _NotificationMuteSettingsScreenState
             context.read<HomeBloc>().add(const LoadPrayerMuteStateEvent());
           } catch (_) {}
         }
-      } else if (isLocalOnly) {
+      } else if (NotificationConfigService.current.appInboxV2 && model != 'chat') {
+        await NotificationInboxRepository.setMuted(model, muted);
+        await NotificationStorageService.setMuteSetting(model, muted);
+      } else if (isLocalOnly || model == 'chat') {
         await NotificationStorageService.setLocalMuteSetting(model, muted);
+        if (model == 'chat') {
+          await NotificationStorageService.setLocalMuteSetting('chat_message', muted);
+        }
         if (model == 'task' && muted) {
           await TaskNotificationService().cancelAllPendingTaskNotifications();
         }
@@ -433,15 +504,29 @@ class _NotificationMuteSettingsScreenState
           ),
           SizedBox(width: 10.tw),
           Expanded(
-            child: Text(
-              category.title,
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-              style: GoogleFonts.poppins(
-                fontSize: 13.tsp,
-                fontWeight: FontWeight.w700,
-                color: const Color(0xFF111D3A),
-              ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  category.title,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: GoogleFonts.poppins(
+                    fontSize: 13.tsp,
+                    fontWeight: FontWeight.w700,
+                    color: const Color(0xFF111D3A),
+                  ),
+                ),
+                if (_mandatoryModels.contains(category.model))
+                  Text(
+                    'Required',
+                    style: GoogleFonts.poppins(
+                      fontSize: 11.tsp,
+                      fontWeight: FontWeight.w500,
+                      color: const Color(0xFF6B7794),
+                    ),
+                  ),
+              ],
             ),
           ),
           if (isSaving)
@@ -460,7 +545,9 @@ class _NotificationMuteSettingsScreenState
               activeTrackColor: const Color(0xFFA5D6A7),
               inactiveThumbColor: const Color(0xFFE53935),
               inactiveTrackColor: const Color(0xFFEF9A9A),
-              onChanged: (value) => _toggleMute(category, !value),
+              onChanged: _mandatoryModels.contains(category.model)
+                  ? null
+                  : (value) => _toggleMute(category, !value),
             ),
         ],
       ),
