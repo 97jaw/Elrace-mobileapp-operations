@@ -1,4 +1,5 @@
 import 'package:el_race/core/notifications/notification_payload.dart';
+import 'package:el_race/core/notifications/notification_record_loaders.dart';
 import 'package:el_race/core/timesheet/providers/labor_transfer_providers.dart';
 import 'package:el_race/core/timesheet/services/labor_transfer_roster_refresh.dart';
 import 'package:el_race/ui/presentation/Email%20Approval/screens/invoice_details_screen.dart';
@@ -50,6 +51,31 @@ class NotificationRouteRegistry {
       case 'firestore.ticket':
         if (payload.resId.isEmpty) return null;
         return TicketDetailsScreen(ticketId: payload.resId);
+      case 'hr.employee.document':
+        if (payload.resId.isEmpty) return null;
+        return DocumentByIdLoader(documentId: payload.resId);
+      case 'firestore.note':
+        if (payload.resId.isEmpty) return null;
+        return NoteByIdLoader(
+          noteId: payload.resId,
+          ownerId: payload.params['owner_id']?.toString(),
+        );
+      case 'firestore.signature':
+        if (payload.resId.isEmpty) return null;
+        return SignatureByIdLoader(
+          documentId: payload.resId,
+          pdfUrl: payload.params['pdf_url']?.toString(),
+          title: payload.params['title']?.toString(),
+        );
+      case 'project.project':
+        if (payload.resId.isEmpty) return null;
+        return ProjectByIdLoader(
+          projectId: payload.resId,
+          name: (payload.params['name'] ?? payload.params['project_name'])?.toString(),
+        );
+      case 'hr.employee':
+        if (payload.resId.isEmpty) return null;
+        return EmployeeByIdLoader(employeeId: payload.resId);
       default:
         return null;
     }
