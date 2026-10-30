@@ -5,6 +5,7 @@ import 'package:el_race/chat/models/models.dart';
 import 'package:el_race/core/app_globals.dart';
 import 'package:el_race/core/notifications/notification_config_service.dart';
 import 'package:el_race/core/notifications/notification_device_service.dart';
+import 'package:el_race/core/notifications/notification_inbox_repository.dart';
 import 'package:el_race/core/notifications/notification_payload.dart';
 import 'package:el_race/core/notifications/notification_router.dart';
 import 'package:el_race/core/services/attendance_status_sync_service.dart';
@@ -171,6 +172,13 @@ class FirebaseService {
       print('   - Body: ${message.notification?.body}');
       print('   - Data: ${message.data}');
 
+      if ('${message.data['type'] ?? ''}' == 'inbox.sync') {
+        if (NotificationConfigService.current.appInboxV2) {
+          await NotificationInboxRepository.refreshBadge();
+        }
+        return;
+      }
+
       String category = 'notification';
       if (message.data.containsKey('category')) {
         category = message.data['category'].toString();
@@ -199,19 +207,19 @@ class FirebaseService {
       if (isChatMessage) {
         print(
             '💬 Foreground chat FCM skipped (ChatNotificationService owns UI)');
-        await _saveNotificationToStorage(message);
         return;
       }
 
-      // Android + iOS: local notification path (mute-aware).
-      await _showNotification(message);
-
-      // Save notification to storage (await to ensure badge count
-      // is persisted before the onCountChanged callback fires).
-      await _saveNotificationToStorage(message);
-      // iOS often delivers alert pushes without a reliable local bump — sync
-      // unread-since-open from Odoo so the home bell updates immediately.
-      await NotificationStorageService.syncBadgeFromServer();
+      if (NotificationConfigService.current.appInboxV2) {
+        if (message.notification != null) {
+          await _showNotification(message);
+        }
+        await NotificationInboxRepository.refreshBadge();
+      } else {
+        await _showNotification(message);
+        await _saveNotificationToStorage(message);
+        await NotificationStorageService.syncBadgeFromServer();
+      }
 
       await _refreshAttendanceFromPushIfNeeded(
         message,
@@ -778,6 +786,18 @@ class FirebaseService {
       message.notification?.title ?? '',
       message.notification?.body ?? '',
     ].join(' ').toLowerCase();
+
+    if (NotificationConfigService.current.enabled) {
+      final refreshFlag = data['refresh_attendance'] ??
+          data['attendance_refresh'] ??
+          data['refresh_today_status'];
+      if (refreshFlag == null) return false;
+      final normalizedFlag = refreshFlag.toString().trim().toLowerCase();
+      return normalizedFlag == '1' ||
+          normalizedFlag == 'true' ||
+          normalizedFlag == 'yes' ||
+          normalizedFlag == 'y';
+    }
 
     final hasAttendanceKeyword = searchSpace.contains('hr.attendance') ||
         searchSpace.contains('attendance') ||

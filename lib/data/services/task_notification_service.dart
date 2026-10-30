@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import 'package:el_race/core/notifications/notification_config_service.dart';
 import 'package:el_race/core/services/notification_storage_service.dart';
 import 'package:el_race/core/utils/shared_pref.dart';
 import 'package:flutter/foundation.dart';
@@ -23,6 +24,16 @@ class TaskNotificationService {
   final FlutterLocalNotificationsPlugin _notificationsPlugin =
       FlutterLocalNotificationsPlugin();
   bool _initialized = false;
+  bool _cancelledForServer = false;
+
+  Future<bool> _ownedByServer() async {
+    if (!NotificationConfigService.current.serverTaskNotifications) return false;
+    if (!_cancelledForServer) {
+      _cancelledForServer = true;
+      await cancelAllPendingTaskNotifications();
+    }
+    return true;
+  }
 
   // ── Notification channel ──
   static const String channelId = 'task_notifications_channel';
@@ -94,6 +105,7 @@ class TaskNotificationService {
     String category = categoryTask,
   }) async {
     await initialize();
+    if (await _ownedByServer()) return;
 
     final isTicket = category == categoryTicket;
     final title = isTicket ? '🎫 New Ticket Assigned' : '📋 New Task Assigned';
@@ -140,6 +152,7 @@ class TaskNotificationService {
     bool isFirebaseTask = true,
   }) async {
     await initialize();
+    if (await _ownedByServer()) return;
 
     final now = tz.TZDateTime.now(tz.local);
 
@@ -197,6 +210,7 @@ class TaskNotificationService {
     bool isFirebaseTask = true,
   }) async {
     await initialize();
+    if (await _ownedByServer()) return;
 
     final title = '✅ Task Completed';
     final body = completedBy != null && completedBy.isNotEmpty
@@ -234,6 +248,7 @@ class TaskNotificationService {
     bool isFirebaseTask = true,
   }) async {
     await initialize();
+    if (await _ownedByServer()) return;
 
     final title = '💬 New message in "$taskTitle"';
     final body = '$senderName: $messagePreview';
@@ -417,6 +432,7 @@ class TaskNotificationService {
     required String payload,
     String category = categoryTask,
   }) async {
+    if (await _ownedByServer()) return;
     try {
       Map<String, dynamic>? payloadMap;
       try {

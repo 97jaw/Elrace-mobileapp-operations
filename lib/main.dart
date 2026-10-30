@@ -7,13 +7,13 @@ import 'package:el_race/core/ui/device_ui_capability.dart';
 import 'package:el_race/core/services/notification_storage_service.dart';
 import 'package:el_race/core/timesheet/services/capture_queue_service.dart';
 import 'package:el_race/core/utils/app_orientations.dart';
+import 'package:el_race/core/notifications/notification_config_service.dart';
 import 'package:el_race/core/utils/shared_pref.dart';
 import 'package:el_race/core/security/device_security_service.dart';
 import 'package:el_race/core/security/signed_file_links.dart';
 import 'package:el_race/core/security/vpn_block_guard.dart';
 import 'package:el_race/core/security/vpn_security_monitor.dart';
 import 'package:el_race/core/services/incoming_share_service.dart';
-import 'package:el_race/core/notifications/notification_config_service.dart';
 import 'package:el_race/core/services/resume_coordinator.dart';
 import 'package:el_race/chat/chat.dart';
 import 'package:el_race/data/services/hive_service.dart';
@@ -112,6 +112,22 @@ Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
   print('📩 Message data: ${message.data}');
 
   await _markChatPushDelivered(message.data);
+
+  try {
+    await NotificationConfigService.loadCached();
+  } catch (_) {}
+
+  final dataType = '${message.data['type'] ?? ''}';
+  final dataCategory = '${message.data['category'] ?? ''}'.toLowerCase();
+  final isChat = dataCategory == 'chat' ||
+      dataCategory == 'chat_message' ||
+      message.data.containsKey('chat_id') ||
+      message.data.containsKey('chatId');
+  if (dataType == 'inbox.sync' ||
+      isChat ||
+      NotificationConfigService.current.appInboxV2) {
+    return;
+  }
 
   // Save notification to storage
   try {

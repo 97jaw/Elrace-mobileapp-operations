@@ -1,3 +1,4 @@
+import 'package:el_race/core/notifications/notification_config_service.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:el_race/core/firebase/firebase_session.dart';
 import 'package:flutter/foundation.dart';
@@ -28,6 +29,7 @@ class AssignmentPushService {
     String action = actionNewTask,
     String? completedBy,
   }) async {
+    if (NotificationConfigService.current.serverTaskNotifications) return;
     if ((assigneeOdooUserId == null || assigneeOdooUserId <= 0) &&
         (assigneeFirebaseUid == null || assigneeFirebaseUid.isEmpty)) {
       debugPrint('⚠️ AssignmentPushService: no recipient identity; skip');
