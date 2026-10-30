@@ -1,6 +1,7 @@
 const { onDocumentUpdated } = require("firebase-functions/v2/firestore");
 const { getFirestore } = require("firebase-admin/firestore");
 const { getMessaging } = require("firebase-admin/messaging");
+const { emitViaOdoo, ingestToken } = require("./lib/odoo_notify");
 
 /**
  * When a signable_doc message finishes signing (or advances), sync the
@@ -14,6 +15,7 @@ exports.onSignableDocumentUpdated = onDocumentUpdated(
   {
     document: "chats/{chatId}/messages/{messageId}",
     region: "us-central1",
+    secrets: [ingestToken],
   },
   async (event) => {
     const db = getFirestore();
@@ -39,7 +41,6 @@ exports.onSignableDocumentUpdated = onDocumentUpdated(
 
     if (!becameSigned && !advancedChain) return;
 
-    const chatId = event.params.chatId;
     const messageId = event.params.messageId;
     const ownerUid = after.sender_id;
     const signerUid = after.signed_by || "";
@@ -95,6 +96,22 @@ exports.onSignableDocumentUpdated = onDocumentUpdated(
       }
     }
 
+    const beforeSigner = (before.current_signer_uid || "").toString();
+    const afterSigner = (after.current_signer_uid || "").toString();
+    if (afterSigner && afterSigner !== beforeSigner) {
+      await emitViaOdoo({
+        type: "approval.waiting",
+        recipientUids: [afterSigner],
+        model: "firestore.signature",
+        resId: linkedDocId || messageId,
+        values: {
+          request_type: "Signature",
+          reference: after.file_name || "Document",
+        },
+        eventKey: `${linkedDocId || messageId}:${afterIndex}`,
+      });
+    }
+
     // ── Notify requester when fully signed ────────────────────
     if (!becameSigned) return;
     if (!ownerUid || ownerUid === signerUid) return;
@@ -115,6 +132,18 @@ exports.onSignableDocumentUpdated = onDocumentUpdated(
     const fileName = after.file_name || "Document";
     const title = "Document signed";
     const body = `${signerName} signed “${fileName}”`;
+
+    const routed = await emitViaOdoo({
+      type: "document.signed",
+      recipientUids: [ownerUid],
+      actorUid: signerUid,
+      model: "firestore.signature",
+      resId: linkedDocId || messageId,
+      values: { signer_name: signerName, file_name: fileName },
+      params: { title: fileName },
+      eventKey: `${linkedDocId || messageId}:signed`,
+    });
+    if (routed.handled) return;
 
     try {
       const userDoc = await db.collection("users").doc(ownerUid).get();
@@ -139,7 +168,6 @@ exports.onSignableDocumentUpdated = onDocumentUpdated(
         data: {
           type: "document_signed",
           category: "document_signed",
-          chat_id: chatId,
           message_id: messageId,
           sender_id: signerUid,
           sender_name: signerName,
