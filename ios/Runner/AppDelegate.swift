@@ -130,7 +130,17 @@ import UserNotifications
     willPresent notification: UNNotification,
     withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void
   ) {
-    completionHandler([])
+    // Remote pushes are shown by Dart. Local notifications (prayer and others)
+    // must still present, or iOS hides them while the app is open.
+    if notification.request.trigger is UNPushNotificationTrigger {
+      completionHandler([])
+      return
+    }
+    if #available(iOS 14.0, *) {
+      completionHandler([.banner, .sound, .badge, .list])
+    } else {
+      completionHandler([.alert, .sound, .badge])
+    }
   }
 
   override func userNotificationCenter(
