@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:flutter/foundation.dart' show kDebugMode;
 
 import 'package:el_race/core/keyboard/ios_numeric_done_bar.dart';
+import 'package:el_race/core/keyboard/unfocus_on_navigate.dart';
 import 'package:el_race/core/ui/device_ui_capability.dart';
 import 'package:el_race/core/services/notification_storage_service.dart';
 import 'package:el_race/core/timesheet/services/capture_queue_service.dart';
@@ -828,6 +829,10 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
         state == AppLifecycleState.paused ||
         state == AppLifecycleState.hidden ||
         state == AppLifecycleState.detached) {
+      if (state == AppLifecycleState.paused ||
+          state == AppLifecycleState.hidden) {
+        FocusManager.instance.primaryFocus?.unfocus();
+      }
       _backgroundedAt ??= DateTime.now();
 
       // Stop foreground timer and arm a single OS schedule per prayer.
@@ -967,7 +972,10 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
               splitScreenMode: true,
               child: MaterialApp(
                 debugShowCheckedModeBanner: false,
-                navigatorObservers: [AppOrientations.routeObserver],
+                navigatorObservers: [
+                  AppOrientations.routeObserver,
+                  UnfocusOnNavigate(),
+                ],
                 builder: (context, child) {
                   ScreenSizeUtil.context = context;
                   return IosNumericDoneBar(
