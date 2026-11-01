@@ -113,6 +113,7 @@ class _A2AssessmentFormScreenState extends ConsumerState<A2AssessmentFormScreen>
       body: Form(
         key: _formKey,
         child: ListView(
+          keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
           padding: EdgeInsets.all(HrModuleLayout.screenPaddingH.tw),
           children: [
             Text('Round / stage *', style: HrModuleTypography.caption()),

@@ -233,6 +233,7 @@ class _EmployeeShiftRequestPageState extends State<EmployeeShiftRequestPage> {
       backgroundColor: Colors.white,
       body: SafeArea(
         child: SingleChildScrollView(
+          keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
           physics: const BouncingScrollPhysics(),
           child: Padding(
             padding: const EdgeInsets.only(bottom: 20), // Extra space at the bottom

@@ -48,6 +48,7 @@ class _PmWorkerEnrolState extends ConsumerState<PmWorkerEnrol> {
     return TmScaffold(
       glassTitle: 'New Worker',
       body: SingleChildScrollView(
+        keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [

@@ -404,6 +404,7 @@ class _TmSiteReportComposerScreenState extends State<TmSiteReportComposerScreen>
         children: [
           Expanded(
             child: ListView(
+              keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
               padding: const EdgeInsets.only(
                 bottom: TimesheetModuleLayout.sectionGap,
               ),

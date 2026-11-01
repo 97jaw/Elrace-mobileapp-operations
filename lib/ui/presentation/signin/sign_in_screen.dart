@@ -342,6 +342,8 @@ class _SignInScreenState extends State<SignInScreen> {
                         children: [
                           Expanded(
                             child: SingleChildScrollView(
+                              keyboardDismissBehavior:
+                                  ScrollViewKeyboardDismissBehavior.onDrag,
                               physics: const BouncingScrollPhysics(),
                               child: ConstrainedBox(
                                 constraints: BoxConstraints(
