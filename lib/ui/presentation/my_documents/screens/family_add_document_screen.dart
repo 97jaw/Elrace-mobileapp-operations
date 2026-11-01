@@ -824,6 +824,8 @@ class _FamilyAddDocumentScreenState extends State<FamilyAddDocumentScreen> {
               ),
               Expanded(
                 child: ListView(
+                  keyboardDismissBehavior:
+                      ScrollViewKeyboardDismissBehavior.onDrag,
                   padding: EdgeInsets.fromLTRB(16.tw, 4.th, 16.tw, 16.th),
                   children: [
                     if (_draftRestored) ...[

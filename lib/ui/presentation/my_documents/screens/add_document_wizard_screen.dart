@@ -1059,6 +1059,7 @@ class _StepScroll extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return SingleChildScrollView(
+      keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
       padding: EdgeInsets.fromLTRB(16.tw, 8.th, 16.tw, 16.th),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,

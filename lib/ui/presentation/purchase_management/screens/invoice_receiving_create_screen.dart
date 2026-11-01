@@ -146,6 +146,7 @@ class _InvoiceReceivingCreateScreenState
           ),
           Expanded(
             child: ListView(
+              keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
               padding: EdgeInsets.all(16.tw),
               children: [
                   _field(

@@ -351,7 +351,6 @@ class _LpoListScreenState extends State<LpoListScreen> {
       ),
       child: TextField(
         controller: _searchController,
-        autofocus: true,
         decoration: const InputDecoration(
           hintText: 'Find LPO',
           prefixIcon: Padding(

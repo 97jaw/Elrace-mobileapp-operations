@@ -178,6 +178,7 @@ class _HrSimCardRequestScreenState extends ConsumerState<HrSimCardRequestScreen>
       body: Form(
         key: _formKey,
         child: ListView(
+          keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
           padding: EdgeInsets.all(HrModuleLayout.screenPaddingH.tw),
           children: [
             Text(
