@@ -203,8 +203,8 @@ exports.onNewChatMessage = onDocumentCreated(
       },
       data: {
         nv: "1",
-        type: chatType === "dm" ? "chat.direct" : "chat.group",
-        category: "chat",
+        type: "chat_message",
+        category: "chat_message",
         action: "open_chat",
         params: JSON.stringify({
           chat_id: chatId,
