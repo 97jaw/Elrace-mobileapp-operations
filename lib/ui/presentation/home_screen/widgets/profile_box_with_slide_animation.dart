@@ -1,14 +1,7 @@
 import 'dart:convert';
 import 'dart:typed_data';
-import 'package:el_race/core/services/notification_storage_service.dart';
 import 'package:el_race/core/utils/shared_pref.dart';
-import 'package:el_race/data/services/hive_service.dart';
-import 'package:el_race/data/services/prayer_audio_service.dart';
-import 'package:el_race/data/services/prayer_background_service.dart';
-import 'package:el_race/data/services/prayer_notification_service.dart';
 import 'package:el_race/ui/presentation/Notification/notification_mute_settings_screen.dart';
-import 'package:el_race/ui/presentation/home_screen/bloc/home_bloc.dart';
-import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:el_race/core/app_globals.dart';
 import 'package:el_race/providers/profile_box_provider.dart';
 import 'package:el_race/ui/presentation/home_screen/widgets/profile_widgets/app_settings_widget.dart';
@@ -36,10 +29,6 @@ class _ProfileBoxWithSlideAnimationState
   Uint8List? _qrCodeData;
   bool _isLoadingQr = true;
   String? _qrErrorMessage;
-  bool _isMutePopupVisible = false;
-  final Set<String> _savingMuteKeys = <String>{};
-  List<_MuteChannelConfig> _muteChannels = <_MuteChannelConfig>[];
-  Map<String, bool> _muteValueByKey = <String, bool>{};
 
   // Animation controller for moving numbers
   late AnimationController _numbersAnimationController;
@@ -153,13 +142,6 @@ class _ProfileBoxWithSlideAnimationState
     }
   }
 
-  /// Local-only categories that are not returned by the API.
-  static const List<_MuteChannelConfig> _localOnlyChannels = [
-    _MuteChannelConfig(label: 'Chat', key: 'chat_message'),
-    _MuteChannelConfig(label: 'Prayer / Adhan', key: 'prayer'),
-    _MuteChannelConfig(label: 'Tasks', key: 'task'),
-  ];
-
   Future<void> _openMuteControlPopup() async {
     if (!mounted) return;
     await Navigator.of(context).push(
@@ -167,79 +149,6 @@ class _ProfileBoxWithSlideAnimationState
         builder: (_) => const NotificationMuteSettingsScreen(),
       ),
     );
-  }
-
-  /// Whether this key is a local-only category (not synced to API).
-  static bool _isLocalOnlyKey(String key) {
-    return _localOnlyChannels.any((c) => c.key == key);
-  }
-
-  Future<void> _updateMuteChannel(_MuteChannelConfig item, bool value) async {
-    if (_savingMuteKeys.contains(item.key)) return;
-
-    final previous = _muteValueByKey[item.key] ?? false;
-    setState(() {
-      _muteValueByKey[item.key] = value;
-      _savingMuteKeys.add(item.key);
-    });
-
-    try {
-      final isPrayer = item.key == 'prayer' || item.key == 'adhan';
-      if (isPrayer) {
-        // Local-first: Hive + cancel/reschedule even if Odoo sync fails.
-        await HiveService.setPrayerSoundMuted(value);
-        if (value) {
-          await PrayerNotificationService().cancelAllPendingAdhan();
-          try {
-            await PrayerAudioService().stopAdhan();
-          } catch (_) {}
-        } else {
-          try {
-            await PrayerAudioService().rescheduleBackgroundNotifications();
-          } catch (_) {}
-          try {
-            await PrayerBackgroundService.reschedule();
-          } catch (_) {}
-        }
-        try {
-          await NotificationStorageService.setMuteSetting('prayer', value);
-        } catch (_) {
-          await NotificationStorageService.setLocalMuteSetting('prayer', value);
-        }
-        await NotificationStorageService.setLocalMuteSetting('adhan', value);
-        if (mounted) {
-          context.read<HomeBloc>().add(const LoadPrayerMuteStateEvent());
-        }
-      } else if (_isLocalOnlyKey(item.key)) {
-        await NotificationStorageService.setLocalMuteSetting(item.key, value);
-      } else {
-        await NotificationStorageService.setMuteSetting(item.key, value);
-      }
-    } catch (_) {
-      if (!mounted) return;
-      setState(() {
-        _muteValueByKey[item.key] = previous;
-      });
-      ScaffoldMessenger.maybeOf(context)?.showSnackBar(
-        const SnackBar(
-          content: Text('Failed to update mute setting'),
-          backgroundColor: Color(0xffBA1719),
-        ),
-      );
-    } finally {
-      if (!mounted) return;
-      setState(() {
-        _savingMuteKeys.remove(item.key);
-      });
-    }
-  }
-
-  void _closeMuteControlPopup() {
-    if (!mounted) return;
-    setState(() {
-      _isMutePopupVisible = false;
-      _savingMuteKeys.clear();
-    });
   }
 
   /// Get profile image - handles both base64 and URL formats
@@ -521,7 +430,7 @@ class _ProfileBoxWithSlideAnimationState
         if (isAuthenticated == false) return const SizedBox.shrink();
 
         // ── Fast path: skip ALL heavy work when the drawer is hidden ──
-        if (!profileBoxProvider.isProfileVisible && !_isMutePopupVisible) {
+        if (!profileBoxProvider.isProfileVisible) {
           // Stop animation when hidden to avoid 60fps repaints
           if (_numbersAnimationController.isAnimating) {
             _numbersAnimationController.stop();
@@ -897,139 +806,11 @@ class _ProfileBoxWithSlideAnimationState
                 ),
               ),
             ),
-            if (_isMutePopupVisible)
-              Positioned.fill(
-                child: Material(
-                  color: Colors.black54,
-                  child: GestureDetector(
-                    behavior: HitTestBehavior.opaque,
-                    onTap: _savingMuteKeys.isNotEmpty
-                        ? null
-                        : _closeMuteControlPopup,
-                    child: Center(
-                      child: GestureDetector(
-                        onTap: () {},
-                        child: Container(
-                          width: 304,
-                          padding: const EdgeInsets.fromLTRB(20, 22, 20, 16),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFFE7E7E7),
-                            borderRadius: BorderRadius.circular(20),
-                          ),
-                          child: Column(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              for (final item in _muteChannels)
-                                Padding(
-                                  padding: const EdgeInsets.only(bottom: 14),
-                                  child: Row(
-                                    children: [
-                                      Expanded(
-                                        child: Text(
-                                          item.label,
-                                          style: const TextStyle(
-                                            color: Color(0xFF1A1D55),
-                                            fontSize: 17,
-                                            fontWeight: FontWeight.w700,
-                                            height: 1,
-                                          ),
-                                        ),
-                                      ),
-                                      SizedBox(
-                                        width: 58,
-                                        child: Transform.scale(
-                                          scale: 0.86,
-                                          child: Directionality(
-                                            textDirection: TextDirection.ltr,
-                                            child: Switch(
-                                              materialTapTargetSize:
-                                                  MaterialTapTargetSize
-                                                      .shrinkWrap,
-                                              value:
-                                                  !(_muteValueByKey[item.key] ??
-                                                      false),
-                                              onChanged: _savingMuteKeys
-                                                      .contains(item.key)
-                                                  ? null
-                                                  : (value) =>
-                                                      _updateMuteChannel(
-                                                        item,
-                                                        !value,
-                                                      ),
-                                              activeThumbColor:
-                                                  const Color(0xFF43A047),
-                                              activeTrackColor:
-                                                  const Color(0xFFA5D6A7),
-                                              inactiveThumbColor:
-                                                  const Color(0xFFE53935),
-                                              inactiveTrackColor:
-                                                  const Color(0xFFEF9A9A),
-                                              trackOutlineColor:
-                                                  const WidgetStatePropertyAll(
-                                                Colors.transparent,
-                                              ),
-                                            ),
-                                          ),
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              const SizedBox(height: 4),
-                              SizedBox(
-                                height: 30,
-                                child: ElevatedButton.icon(
-                                  onPressed: _savingMuteKeys.isNotEmpty
-                                      ? null
-                                      : _closeMuteControlPopup,
-                                  style: ElevatedButton.styleFrom(
-                                    elevation: 0,
-                                    backgroundColor: const Color(0xFF0FA25E),
-                                    foregroundColor: Colors.white,
-                                    shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(20),
-                                    ),
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 20,
-                                    ),
-                                  ),
-                                  icon: const Icon(
-                                    Icons.check_circle_outline,
-                                    size: 17,
-                                  ),
-                                  label: const Text(
-                                    'DONE',
-                                    style: TextStyle(
-                                      fontWeight: FontWeight.w700,
-                                      fontSize: 14,
-                                      letterSpacing: 0.2,
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-              ),
           ],
         );
       },
     );
   }
-}
-
-class _MuteChannelConfig {
-  final String label;
-  final String key;
-
-  const _MuteChannelConfig({
-    required this.label,
-    required this.key,
-  });
 }
 
 
