@@ -987,6 +987,7 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
                       child: Stack(
                         children: [
                           GestureDetector(
+                            behavior: HitTestBehavior.translucent,
                             onTap: () {
                               final profileBoxProvider =
                                   Provider.of<ProfileBoxProvider>(context,
@@ -996,6 +997,7 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
 
                                 /// Close the profile box
                               }
+                              FocusManager.instance.primaryFocus?.unfocus();
                             },
                             child: child!,
                           ),
