@@ -3,6 +3,7 @@ import 'dart:io';
 
 import 'package:flutter/foundation.dart' show kDebugMode;
 
+import 'package:el_race/core/keyboard/ios_numeric_done_bar.dart';
 import 'package:el_race/core/ui/device_ui_capability.dart';
 import 'package:el_race/core/services/notification_storage_service.dart';
 import 'package:el_race/core/timesheet/services/capture_queue_service.dart';
@@ -969,56 +970,60 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
                 navigatorObservers: [AppOrientations.routeObserver],
                 builder: (context, child) {
                   ScreenSizeUtil.context = context;
-                  return NotificationListener<ScrollUpdateNotification>(
-                    onNotification: (notification) {
-                      if (notification.scrollDelta != null &&
-                          notification.scrollDelta! < -1) {
-                        _showAndroidSystemBarsTemporarily();
-                      }
-                      return false;
-                    },
-                    child: Listener(
-                      behavior: HitTestBehavior.translucent,
-                      onPointerMove: (event) {
-                        if (event.delta.dy < -4) {
+                  return IosNumericDoneBar(
+                    child: NotificationListener<ScrollUpdateNotification>(
+                      onNotification: (notification) {
+                        if (notification.scrollDelta != null &&
+                            notification.scrollDelta! < -1) {
                           _showAndroidSystemBarsTemporarily();
                         }
+                        return false;
                       },
-                      child: Stack(
-                        children: [
-                          GestureDetector(
-                            behavior: HitTestBehavior.translucent,
-                            onTap: () {
-                              final profileBoxProvider =
-                                  Provider.of<ProfileBoxProvider>(context,
-                                      listen: false);
-                              if (profileBoxProvider.isProfileVisible) {
-                                profileBoxProvider.hideProfileBox();
+                      child: Listener(
+                        behavior: HitTestBehavior.translucent,
+                        onPointerMove: (event) {
+                          if (event.delta.dy < -4) {
+                            _showAndroidSystemBarsTemporarily();
+                          }
+                        },
+                        child: Stack(
+                          children: [
+                            GestureDetector(
+                              behavior: HitTestBehavior.translucent,
+                              onTap: () {
+                                final profileBoxProvider =
+                                    Provider.of<ProfileBoxProvider>(context,
+                                        listen: false);
+                                if (profileBoxProvider.isProfileVisible) {
+                                  profileBoxProvider.hideProfileBox();
 
-                                /// Close the profile box
-                              }
-                              FocusManager.instance.primaryFocus?.unfocus();
-                            },
-                            child: child!,
-                          ),
-                          Theme(
-                            data: ThemeData(
-                              colorScheme: ColorScheme.fromSeed(
-                                  seedColor: Colors.deepPurple),
-                              useMaterial3: true,
-                              fontFamily: GoogleFonts.poppins().fontFamily,
-                              textTheme:
-                                  GoogleFonts.poppinsTextTheme(const TextTheme(
-                                displayLarge: TextStyle(
-                                    fontSize: 28, fontWeight: FontWeight.w700),
-                                titleMedium: TextStyle(
-                                    fontSize: 16, fontWeight: FontWeight.w600),
-                                bodyMedium: TextStyle(fontSize: 14),
-                              )),
+                                  /// Close the profile box
+                                }
+                                FocusManager.instance.primaryFocus?.unfocus();
+                              },
+                              child: child!,
                             ),
-                            child: const ProfileBoxWithSlideAnimation(),
-                          ),
-                        ],
+                            Theme(
+                              data: ThemeData(
+                                colorScheme: ColorScheme.fromSeed(
+                                    seedColor: Colors.deepPurple),
+                                useMaterial3: true,
+                                fontFamily: GoogleFonts.poppins().fontFamily,
+                                textTheme: GoogleFonts.poppinsTextTheme(
+                                    const TextTheme(
+                                  displayLarge: TextStyle(
+                                      fontSize: 28,
+                                      fontWeight: FontWeight.w700),
+                                  titleMedium: TextStyle(
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.w600),
+                                  bodyMedium: TextStyle(fontSize: 14),
+                                )),
+                              ),
+                              child: const ProfileBoxWithSlideAnimation(),
+                            ),
+                          ],
+                        ),
                       ),
                     ),
                   );
