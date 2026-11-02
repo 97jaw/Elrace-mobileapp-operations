@@ -23,8 +23,7 @@ service firebase.storage {
       return firestore.get(chatPath(chatId)).data;
     }
 
-    // Align with Firestore membership: member_ids, members/{uid}, or dm_pair.
-    // Hub/mobile sometimes have members/{uid} before member_ids is fully synced.
+    // Shared with firestore.rules isChatMember: member_ids, members/{uid}, or dm_pair.
     function isChatMember(chatId) {
       return isSignedIn()
         && firestore.exists(chatPath(chatId))

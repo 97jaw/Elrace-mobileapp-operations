@@ -26,10 +26,38 @@ service cloud.firestore {
       return /databases/$(database)/documents/chats/$(chatId)/members/$(memberId);
     }
 
+    // Same three proofs as storage.rules isChatMember:
+    // member_ids, members/{uid}, or dm_pair. Keep the two copies aligned.
+    function isChatMember(chatId) {
+      return isSignedIn()
+        && chatExists(chatId)
+        && (
+          (
+            chatData(chatId).keys().hasAny(['member_ids'])
+            && chatData(chatId).member_ids is list
+            && uid() in chatData(chatId).member_ids
+          )
+          || exists(memberPath(chatId, uid()))
+          || (
+            chatData(chatId).keys().hasAny(['dm_pair'])
+            && chatData(chatId).dm_pair is list
+            && uid() in chatData(chatId).dm_pair
+          )
+        );
+    }
+
     function isMemberOfChat(chatId) {
-      return chatExists(chatId)
-        && chatData(chatId).member_ids is list
-        && uid() in chatData(chatId).member_ids;
+      return isChatMember(chatId);
+    }
+
+    // Post-batch chat state. exists()/get() miss a chat created in the same
+    // batch as its member docs.
+    function chatExistsAfter(chatId) {
+      return existsAfter(chatPath(chatId));
+    }
+
+    function chatDataAfter(chatId) {
+      return getAfter(chatPath(chatId)).data;
     }
 
     function isMemberFromChatResource() {
@@ -184,17 +212,17 @@ service cloud.firestore {
     }
 
     function isDmPeerOfChat(chatId) {
-      return chatExists(chatId)
-        && chatData(chatId).type == 'dm'
-        && chatData(chatId).dm_pair is list
-        && uid() in chatData(chatId).dm_pair;
+      return chatExistsAfter(chatId)
+        && chatDataAfter(chatId).type == 'dm'
+        && chatDataAfter(chatId).dm_pair is list
+        && uid() in chatDataAfter(chatId).dm_pair;
     }
 
     function targetIsDmPeer(chatId, memberId) {
-      return chatExists(chatId)
-        && chatData(chatId).type == 'dm'
-        && chatData(chatId).dm_pair is list
-        && memberId in chatData(chatId).dm_pair;
+      return chatExistsAfter(chatId)
+        && chatDataAfter(chatId).type == 'dm'
+        && chatDataAfter(chatId).dm_pair is list
+        && memberId in chatDataAfter(chatId).dm_pair;
     }
 
     function notElevatingAdmin() {
