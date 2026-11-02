@@ -8,6 +8,7 @@ import 'package:el_race/ui/presentation/hr_management/data/employee_profile_mode
 import 'package:el_race/ui/presentation/hr_management/data/employees_profile_repository.dart';
 import 'package:el_race/ui/presentation/hr_management/widgets/employee_profile_more_info.dart';
 import 'package:el_race/ui/presentation/my_projects/presentation/utils/projects_dashboard_access.dart';
+import 'package:el_race/ui/widgets/marquee_text.dart';
 import 'package:el_race/utils/di.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -26,95 +27,6 @@ abstract final class _ProfilePalette {
 }
 
 /// Slow single-line marquee when text exceeds available width.
-class _MarqueeText extends StatefulWidget {
-  const _MarqueeText({
-    required this.text,
-    required this.style,
-    this.textDirection,
-  });
-
-  final String text;
-  final TextStyle style;
-  final TextDirection? textDirection;
-
-  @override
-  State<_MarqueeText> createState() => _MarqueeTextState();
-}
-
-class _MarqueeTextState extends State<_MarqueeText>
-    with SingleTickerProviderStateMixin {
-  late final AnimationController _controller;
-  double _overflow = 0;
-
-  @override
-  void initState() {
-    super.initState();
-    _controller = AnimationController(
-      vsync: this,
-      duration: const Duration(seconds: 8),
-    );
-  }
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  void _measure(BoxConstraints constraints) {
-    final painter = TextPainter(
-      text: TextSpan(text: widget.text, style: widget.style),
-      maxLines: 1,
-      textDirection: widget.textDirection ?? TextDirection.ltr,
-    )..layout();
-    final overflow = (painter.width - constraints.maxWidth).clamp(0.0, 9999.0);
-    if ((overflow - _overflow).abs() <= 0.5) return;
-    _overflow = overflow;
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted) return;
-      if (_overflow > 0) {
-        final secs = (6 + _overflow / 28).clamp(6, 16).toInt();
-        _controller.duration = Duration(seconds: secs);
-        if (!_controller.isAnimating) {
-          _controller.repeat(reverse: true);
-        }
-      } else {
-        _controller.stop();
-        _controller.value = 0;
-      }
-    });
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        _measure(constraints);
-        return ClipRect(
-          child: AnimatedBuilder(
-            animation: _controller,
-            builder: (context, child) {
-              final dx = _overflow <= 0 ? 0.0 : -_overflow * _controller.value;
-              return Transform.translate(
-                offset: Offset(dx, 0),
-                child: child,
-              );
-            },
-            child: Text(
-              widget.text,
-              maxLines: 1,
-              softWrap: false,
-              overflow: TextOverflow.visible,
-              textDirection: widget.textDirection,
-              style: widget.style,
-            ),
-          ),
-        );
-      },
-    );
-  }
-}
-
 class _SearchIndex {
   _SearchIndex(this.employee)
       : displayName = formatEmployeeDisplayName(employee.name ?? ''),
@@ -909,7 +821,7 @@ class _HeaderCard extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                _MarqueeText(
+                MarqueeText(
                   text: name,
                   style: GoogleFonts.poppins(
                     fontSize: 15.tsp,
@@ -920,7 +832,7 @@ class _HeaderCard extends StatelessWidget {
                 ),
                 if (arabicName != null && arabicName!.trim().isNotEmpty) ...[
                   SizedBox(height: 2.th),
-                  _MarqueeText(
+                  MarqueeText(
                     text: arabicName!.trim(),
                     textDirection: TextDirection.rtl,
                     style: GoogleFonts.poppins(

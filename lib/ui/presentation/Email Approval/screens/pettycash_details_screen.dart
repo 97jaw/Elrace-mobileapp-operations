@@ -12,6 +12,7 @@ import 'package:el_race/ui/presentation/Email%20Approval/widgets/approval_reject
 import 'package:el_race/ui/presentation/Email%20Approval/widgets/petty_cash_expense_lines_popup.dart';
 import 'package:el_race/ui/presentation/my_documents/utils/document_attachment_opener.dart';
 import 'package:el_race/ui/widgets/contextual_glass_chrome_header.dart';
+import 'package:el_race/ui/widgets/marquee_text.dart';
 import 'package:el_race/utils/safe_insets.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -824,10 +825,8 @@ class _PettyCashDetailsScreenState extends State<PettyCashDetailsScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisSize: MainAxisSize.min,
               children: [
-                Text(
-                  _displayOrNA(holderName),
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
+                MarqueeText(
+                  text: _displayOrNA(holderName),
                   style: GoogleFonts.poppins(
                     fontSize: 16.tsp,
                     fontWeight: FontWeight.w700,
@@ -1020,17 +1019,15 @@ class _PettyCashDetailsScreenState extends State<PettyCashDetailsScreen> {
 
   Widget _value(String text,
       {double? size, FontWeight? weight, Color? color, TextAlign? align}) {
-    return Text(
-      _displayOrNA(text),
-      textAlign: align,
+    return MarqueeText(
+      text: _displayOrNA(text),
+      textAlign: align ?? TextAlign.start,
       style: GoogleFonts.poppins(
         fontSize: size ?? 14.tsp,
         fontWeight: weight ?? FontWeight.w700,
         color: color ?? const Color(0xFF0E0E0E),
         letterSpacing: 0.1,
       ),
-      maxLines: 2,
-      overflow: TextOverflow.visible,
     );
   }
 
@@ -1496,17 +1493,15 @@ class PettyCashSeeMoreScreen extends StatelessWidget {
 
   Widget _value(String text,
       {double? size, FontWeight? weight, Color? color, TextAlign? align}) {
-    return Text(
-      _displayOrNA(text),
-      textAlign: align,
+    return MarqueeText(
+      text: _displayOrNA(text),
+      textAlign: align ?? TextAlign.start,
       style: GoogleFonts.poppins(
         fontSize: size ?? 14.tsp,
         fontWeight: weight ?? FontWeight.w700,
         color: color ?? const Color(0xFF0E0E0E),
         letterSpacing: 0.1,
       ),
-      maxLines: 2,
-      overflow: TextOverflow.visible,
     );
   }
 

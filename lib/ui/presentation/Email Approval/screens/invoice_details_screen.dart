@@ -11,6 +11,7 @@ import 'package:el_race/ui/presentation/Email%20Approval/widgets/approval_action
 import 'package:el_race/ui/presentation/Email%20Approval/widgets/approval_amount_bar.dart';
 import 'package:el_race/ui/presentation/Email%20Approval/widgets/approval_rejected_banner.dart';
 import 'package:el_race/ui/widgets/contextual_glass_chrome_header.dart';
+import 'package:el_race/ui/widgets/marquee_text.dart';
 import 'package:el_race/ui/presentation/purchase_management/widgets/invoice_print_menu_button.dart';
 import 'package:el_race/utils/Util.dart';
 import 'package:el_race/utils/safe_insets.dart';
@@ -704,6 +705,7 @@ class _InvoiceDetailsScreenState extends State<InvoiceDetailsScreen> {
     Color? iconColor,
     int maxLines = 2,
   }) {
+    assert(maxLines > 0);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -728,10 +730,8 @@ class _InvoiceDetailsScreenState extends State<InvoiceDetailsScreen> {
               SizedBox(width: 5.tw),
             ],
             Expanded(
-              child: Text(
-                _displayOrDash(value),
-                maxLines: maxLines,
-                overflow: TextOverflow.ellipsis,
+              child: MarqueeText(
+                text: _displayOrDash(value),
                 style: GoogleFonts.poppins(
                   fontSize: 12.tsp,
                   fontWeight: FontWeight.w700,
@@ -835,10 +835,8 @@ class _InvoiceDetailsScreenState extends State<InvoiceDetailsScreen> {
             ],
           ),
           SizedBox(height: 8.th),
-          Text(
-            _displayOrDash(value),
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
+          MarqueeText(
+            text: _displayOrDash(value),
             style: GoogleFonts.poppins(
               fontSize: 13.tsp,
               fontWeight: FontWeight.w700,

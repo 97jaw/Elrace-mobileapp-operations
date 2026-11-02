@@ -1,4 +1,5 @@
 import 'package:el_race/core/utils/responsive_breakpoints.dart';
+import 'package:el_race/ui/widgets/marquee_text.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
@@ -41,8 +42,8 @@ class ApprovalAmountBar extends StatelessWidget {
                   ),
                 ),
                 SizedBox(height: 2.th),
-                Text(
-                  amount,
+                MarqueeText(
+                  text: amount,
                   style: GoogleFonts.poppins(
                     fontSize: 18.tsp,
                     fontWeight: FontWeight.w800,

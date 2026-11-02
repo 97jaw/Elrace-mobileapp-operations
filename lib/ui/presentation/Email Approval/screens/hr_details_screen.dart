@@ -13,6 +13,7 @@ import 'package:el_race/ui/presentation/my_actions/data/my_actions_models.dart';
 import 'package:el_race/ui/presentation/my_actions/theme/my_actions_module_theme.dart';
 import 'package:el_race/ui/presentation/my_actions/utils/my_actions_detail_navigation.dart';
 import 'package:el_race/ui/widgets/contextual_glass_chrome_header.dart';
+import 'package:el_race/ui/widgets/marquee_text.dart';
 import 'package:el_race/utils/safe_insets.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -1611,6 +1612,7 @@ class _HrDetailsScreenState extends State<HrDetailsScreen> {
     bool padded = false,
     int valueMaxLines = 2,
   }) {
+    assert(valueMaxLines >= 1);
     return Container(
       width: double.infinity,
       padding: EdgeInsets.symmetric(
@@ -1638,11 +1640,8 @@ class _HrDetailsScreenState extends State<HrDetailsScreen> {
             ),
           ),
           SizedBox(height: padded ? 4.th : 2.th),
-          Text(
-            value,
-            maxLines: valueMaxLines,
-            overflow: TextOverflow.ellipsis,
-            softWrap: valueMaxLines > 1,
+          MarqueeText(
+            text: value,
             style: GoogleFonts.poppins(
               fontSize: padded ? 12.tsp : 11.tsp,
               fontWeight: FontWeight.w700,

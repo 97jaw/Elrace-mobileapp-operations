@@ -9,6 +9,7 @@ import 'package:el_race/ui/presentation/Email%20Approval/widgets/approval_amount
 import 'package:el_race/ui/presentation/Email%20Approval/widgets/approval_rejected_banner.dart';
 import 'package:el_race/ui/presentation/lpo/screens/lpo_pdf_viewer_screen.dart';
 import 'package:el_race/ui/widgets/contextual_glass_chrome_header.dart';
+import 'package:el_race/ui/widgets/marquee_text.dart';
 import 'package:el_race/utils/safe_insets.dart';
 import 'package:el_race/utils/Util.dart';
 import 'package:flutter/material.dart';
@@ -477,9 +478,8 @@ class _RfqDetailsScreenState extends State<RfqDetailsScreen> {
           ),
         ),
         SizedBox(height: 4.th),
-        Text(
-          _displayOrDash(value),
-          softWrap: true,
+        MarqueeText(
+          text: _displayOrDash(value),
           style: GoogleFonts.poppins(
             fontSize: 12.tsp,
             fontWeight: FontWeight.w700,
@@ -501,11 +501,8 @@ class _RfqDetailsScreenState extends State<RfqDetailsScreen> {
           color: background,
           borderRadius: BorderRadius.circular(16.tr),
         ),
-        child: Text(
-          _displayOrDash(text),
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-          textAlign: TextAlign.center,
+        child: MarqueeText(
+          text: _displayOrDash(text),
           style: GoogleFonts.poppins(
             fontSize: 10.tsp,
             fontWeight: FontWeight.w700,
