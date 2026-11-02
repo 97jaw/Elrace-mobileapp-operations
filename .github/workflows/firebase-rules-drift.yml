@@ -1,8 +1,6 @@
 name: firebase-rules-drift
 
 on:
-  schedule:
-    - cron: '0 4 * * *'
   workflow_dispatch:
 
 permissions:
@@ -22,7 +20,7 @@ jobs:
           FIREBASE_SERVICE_ACCOUNT_ELRACE_NEW: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_ELRACE_NEW }}
         run: |
           if [ -z "$FIREBASE_SERVICE_ACCOUNT_ELRACE_NEW" ]; then
-            echo "::error::Add the GitHub secret FIREBASE_SERVICE_ACCOUNT_ELRACE_NEW so the daily check can read live rules."
+            echo "::error::Add the GitHub secret FIREBASE_SERVICE_ACCOUNT_ELRACE_NEW before running this check."
             exit 1
           fi
 
