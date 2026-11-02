@@ -337,17 +337,26 @@ service cloud.firestore {
         'current_signer_index',
         'current_signer_uid',
         'expires_at',
+        'page_count',
+        'sign_expires_in_days',
         'signature_document_id',
         'updated_at'
       ]);
     }
 
+    // New builds write FieldValue.serverTimestamp(), which equals request.time.
+    // Older builds send the phone clock. A wrong clock used to deny every
+    // message, so those writes are accepted within a day of request.time.
     function createdAtIsFresh() {
-      return request.resource.data.created_at is timestamp
-        && request.resource.data.created_at
-          <= request.time + duration.value(1, 'm')
-        && request.resource.data.created_at
-          >= request.time - duration.value(5, 'm');
+      let created = request.resource.data.created_at;
+      return created is timestamp
+        && (
+          created == request.time
+          || (
+            created <= request.time + duration.value(24, 'h')
+            && created >= request.time - duration.value(24, 'h')
+          )
+        );
     }
 
     function isMessageCreateValid() {

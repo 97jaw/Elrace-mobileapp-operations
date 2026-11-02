@@ -943,6 +943,78 @@ describe('permission-denied reproductions', () => {
     );
   });
 
+  it('allows a signable_doc that includes page_count and sign_expires_in_days', async () => {
+    await assertSucceeds(
+      setDoc(doc(aliceFs(), 'chats', DM_AB, 'messages', 'sig_keys'), {
+        sender_id: ALICE,
+        type: 'signable_doc',
+        text: 'please sign',
+        created_at: Timestamp.now(),
+        client_msg_id: 'sig-1',
+        status: 'sent',
+        file_name: 'contract.pdf',
+        mime_type: 'application/pdf',
+        page_count: 3,
+        sign_expires_in_days: 7,
+        sign_status: 'pending',
+        signer_uids: [BOB],
+        current_signer_uid: BOB,
+      }),
+    );
+  });
+
+  it('allows a text message created 10 minutes off the server clock', async () => {
+    const past = Timestamp.fromMillis(Date.now() - 10 * 60 * 1000);
+    const future = Timestamp.fromMillis(Date.now() + 10 * 60 * 1000);
+    await assertSucceeds(
+      setDoc(doc(aliceFs(), 'chats', DM_AB, 'messages', 'skew_past'), {
+        sender_id: ALICE,
+        type: 'text',
+        text: 'past',
+        created_at: past,
+      }),
+    );
+    await assertSucceeds(
+      setDoc(doc(aliceFs(), 'chats', DM_AB, 'messages', 'skew_future'), {
+        sender_id: ALICE,
+        type: 'text',
+        text: 'future',
+        created_at: future,
+      }),
+    );
+  });
+
+  it('allows a text message whose created_at is the server timestamp', async () => {
+    await assertSucceeds(
+      setDoc(doc(aliceFs(), 'chats', DM_AB, 'messages', 'server_now'), {
+        sender_id: ALICE,
+        type: 'text',
+        text: 'now',
+        created_at: serverTimestamp(),
+      }),
+    );
+  });
+
+  it('still denies an unknown message key and a non-member write', async () => {
+    await assertFails(
+      setDoc(doc(aliceFs(), 'chats', DM_AB, 'messages', 'unknown_key'), {
+        sender_id: ALICE,
+        type: 'text',
+        text: 'no',
+        created_at: Timestamp.now(),
+        not_a_message_field: true,
+      }),
+    );
+    await assertFails(
+      setDoc(doc(eveFs(), 'chats', DM_AB, 'messages', 'outsider'), {
+        sender_id: EVE,
+        type: 'text',
+        text: 'no',
+        created_at: Timestamp.now(),
+      }),
+    );
+  });
+
   it('allows the owner to save a signature document and upload its PDF', async () => {
     const docRef = doc(aliceFs(), 'users', ALICE, 'signature_documents', DOC_ID);
     await assertSucceeds(
