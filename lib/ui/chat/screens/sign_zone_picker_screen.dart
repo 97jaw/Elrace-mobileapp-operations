@@ -12,7 +12,7 @@ import 'sign_document_screen.dart';
 import '../stamp_signature_on_zone.dart';
 
 /// Screen for the sender to pick sign zones on a PDF before sending.
-/// Zones are fixed-size (no resize). Max 2 signature + max 2 stamp zones.
+/// Zones are fixed-size (no resize). One signature zone and one stamp zone.
 class SignZonePickerScreen extends StatefulWidget {
   final File pdfFile;
   final String fileName;
@@ -33,8 +33,14 @@ class SignZonePickerScreen extends StatefulWidget {
 }
 
 class _SignZonePickerScreenState extends State<SignZonePickerScreen> {
-  static const int _maxSignatureZones = 2;
-  static const int _maxStampZones = 2;
+  static const int _maxSignatureZones = 1;
+  static const int _maxStampZones = 1;
+
+  /// Normal "+" flow: one signature and one stamp zone. Timesheet mode has its
+  /// own limits (4 boxes per labour sheet, stamps on owner cells only).
+  bool get _canAddSignature =>
+      widget.timesheetMode || _signatureCount < _maxSignatureZones;
+  bool get _canAddStamp => widget.timesheetMode || _stampCount < _maxStampZones;
 
   /// Fixed signature zone (relative to page).
   static const double _sigZoneW = 0.30;
@@ -156,13 +162,11 @@ class _SignZonePickerScreenState extends State<SignZonePickerScreen> {
 
     if (_activeTool == SignZoneType.signature &&
         _signatureCount >= _maxSignatureZones) {
-      _showLimitSnack(
-        'Maximum $_maxSignatureZones signature zones allowed',
-      );
+      _showLimitSnack('Only one signature zone is allowed');
       return;
     }
     if (_activeTool == SignZoneType.stamp && _stampCount >= _maxStampZones) {
-      _showLimitSnack('Maximum $_maxStampZones stamp zones allowed');
+      _showLimitSnack('Only one stamp zone is allowed');
       return;
     }
 
@@ -448,8 +452,8 @@ class _SignZonePickerScreenState extends State<SignZonePickerScreen> {
                           : 'Signed $_foremanSigned / $_foremanTotal. Tap Employee or Supervisor/Foreman to sign. Tap an empty cell to put a box back.')
                       : _isPlaceMode
                           ? (_activeTool == SignZoneType.stamp
-                              ? 'Stamp: tap to place (max $_maxStampZones). Drag to move.'
-                              : 'Sign: tap to place (max $_maxSignatureZones). Drag to move.')
+                              ? 'Stamp: tap to place one zone. Drag to move.'
+                              : 'Sign: tap to place one zone. Drag to move.')
                           : 'Scroll to browse pages. Switch back to edit zones.',
                   style: TextStyle(
                     fontSize: 13,
@@ -624,25 +628,43 @@ class _SignZonePickerScreenState extends State<SignZonePickerScreen> {
       child: Row(
         children: [
           _ToolChip(
-            selected: _activeTool == SignZoneType.signature && _isPlaceMode,
+            selected: _activeTool == SignZoneType.signature &&
+                _isPlaceMode &&
+                _canAddSignature,
+            enabled: _canAddSignature,
             icon: Icons.draw,
             label: 'Sign',
             color: const Color(0xFFD4A843),
-            onTap: () => setState(() {
-              _isPlaceMode = true;
-              _activeTool = SignZoneType.signature;
-            }),
+            onTap: () {
+              if (!_canAddSignature) {
+                _showLimitSnack('Only one signature zone is allowed');
+                return;
+              }
+              setState(() {
+                _isPlaceMode = true;
+                _activeTool = SignZoneType.signature;
+              });
+            },
           ),
           const SizedBox(width: 8),
           _ToolChip(
-            selected: _activeTool == SignZoneType.stamp && _isPlaceMode,
+            selected: _activeTool == SignZoneType.stamp &&
+                _isPlaceMode &&
+                _canAddStamp,
+            enabled: _canAddStamp,
             icon: Icons.approval,
             label: 'Stamp',
             color: const Color(0xFF2E7D6F),
-            onTap: () => setState(() {
-              _isPlaceMode = true;
-              _activeTool = SignZoneType.stamp;
-            }),
+            onTap: () {
+              if (!_canAddStamp) {
+                _showLimitSnack('Only one stamp zone is allowed');
+                return;
+              }
+              setState(() {
+                _isPlaceMode = true;
+                _activeTool = SignZoneType.stamp;
+              });
+            },
           ),
         ],
       ),
@@ -825,6 +847,7 @@ class _SignZonePickerScreenState extends State<SignZonePickerScreen> {
 
 class _ToolChip extends StatelessWidget {
   final bool selected;
+  final bool enabled;
   final IconData icon;
   final String label;
   final Color color;
@@ -832,6 +855,7 @@ class _ToolChip extends StatelessWidget {
 
   const _ToolChip({
     required this.selected,
+    this.enabled = true,
     required this.icon,
     required this.label,
     required this.color,
@@ -840,35 +864,39 @@ class _ToolChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Material(
-      color: selected ? color.withValues(alpha: 0.15) : Colors.grey[100],
-      borderRadius: BorderRadius.circular(20),
-      child: InkWell(
-        onTap: onTap,
+    final ink = enabled ? (selected ? color : Colors.grey[700]!) : Colors.grey;
+    return Opacity(
+      opacity: enabled ? 1 : 0.45,
+      child: Material(
+        color: selected && enabled ? color.withValues(alpha: 0.15) : Colors.grey[100],
         borderRadius: BorderRadius.circular(20),
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(20),
-            border: Border.all(
-              color: selected ? color : Colors.grey[300]!,
-              width: selected ? 1.5 : 1,
-            ),
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(icon, size: 18, color: selected ? color : Colors.grey[700]),
-              const SizedBox(width: 6),
-              Text(
-                label,
-                style: TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w700,
-                  color: selected ? color : Colors.grey[700],
-                ),
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(20),
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(
+                color: selected && enabled ? color : Colors.grey[300]!,
+                width: selected && enabled ? 1.5 : 1,
               ),
-            ],
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(icon, size: 18, color: ink),
+                const SizedBox(width: 6),
+                Text(
+                  label,
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w700,
+                    color: ink,
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       ),
