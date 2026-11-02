@@ -99,10 +99,12 @@ class _ApprovalsScreenState extends State<ApprovalsScreen> {
     _loadAllCategoriesInBackground();
     _fetchDelayedCount();
     _fetchRorData();
+    ApprovalCountService.addListener(this, _onExternalCountInvalidated);
   }
 
   @override
   void dispose() {
+    ApprovalCountService.removeListener(this);
     searchController.dispose();
     super.dispose();
   }
@@ -579,16 +581,60 @@ class _ApprovalsScreenState extends State<ApprovalsScreen> {
     _fetchRorData(month: month, year: year);
   }
 
-  Future<void> _refreshApprovalsAfterAction() async {
+  bool _selfRefresh = false;
+
+  List<dynamic> _withoutRecord(List<dynamic> items, String recordId) {
+    return items
+        .where((item) => item is! Map || item['id']?.toString() != recordId)
+        .toList();
+  }
+
+  void _dropWaitingItem(String recordId) {
+    if (!mounted || recordId.isEmpty) return;
+    setState(() {
+      hrItems = _withoutRecord(hrItems, recordId);
+      rfqItems = _withoutRecord(rfqItems, recordId);
+      invoiceItems = _withoutRecord(invoiceItems, recordId);
+      pettyCashItems = _withoutRecord(pettyCashItems, recordId);
+      allItems = [
+        ...hrItems,
+        ...rfqItems,
+        ...invoiceItems,
+        ...pettyCashItems,
+      ];
+      approvalItems = _getFilteredItems();
+      _countCache.hr = hrItems.length;
+      _countCache.rfq = rfqItems.length;
+      _countCache.invoice = invoiceItems.length;
+      _countCache.pettyCash = pettyCashItems.length;
+    });
+    _publishApprovalBadgeCount();
+  }
+
+  Future<void> _refreshApprovalsAfterAction([String? recordId]) async {
     debugPrint('🔁 [ApprovalsScreen] Refresh requested after approve/reject');
+    if (recordId != null && recordId.isNotEmpty) {
+      _dropWaitingItem(recordId);
+    }
+    _selfRefresh = true;
     // Clear badge cache immediately so headers refetch in parallel.
     ApprovalCountService.invalidateCache();
     ApprovalCountService.notifyListeners();
-    await _loadAllCategoriesInBackground(force: true);
-    if (!mounted) return;
-    _syncApprovalBadgeCountIfReady();
-    _fetchDelayedCount();
-    _fetchRorData();
+    try {
+      await _loadAllCategoriesInBackground(force: true);
+      if (!mounted) return;
+      _syncApprovalBadgeCountIfReady();
+      _fetchDelayedCount();
+      _fetchRorData();
+    } finally {
+      _selfRefresh = false;
+    }
+  }
+
+  void _onExternalCountInvalidated() {
+    if (_selfRefresh) return;
+    if (ApprovalCountService.cachedCount != null) return;
+    _refreshApprovalsAfterAction();
   }
 
   void _openHrManagementTestCases() {
@@ -886,7 +932,7 @@ class _ApprovalsScreenState extends State<ApprovalsScreen> {
     }
 
     if (result == true) {
-      await _refreshApprovalsAfterAction();
+      await _refreshApprovalsAfterAction(id);
     }
   }
 
@@ -1077,7 +1123,7 @@ class _ApprovalsScreenState extends State<ApprovalsScreen> {
       return _categoryListShell(
         HrAndPettycashCard(
           approvalItems: categoryItems,
-          onRefresh: _refreshApprovalsAfterAction,
+          onRefresh: (id) => _refreshApprovalsAfterAction(id),
         ),
       );
     } else if (selectedCategoryKey == _CategoryKeys.rfq ||
@@ -1085,7 +1131,7 @@ class _ApprovalsScreenState extends State<ApprovalsScreen> {
       return _categoryListShell(
         InvoiceAndRfqCard(
           approvalItems: categoryItems,
-          onRefresh: _refreshApprovalsAfterAction,
+          onRefresh: (id) => _refreshApprovalsAfterAction(id),
           categoryType: selectedCategoryKey,
         ),
       );
@@ -1095,11 +1141,14 @@ class _ApprovalsScreenState extends State<ApprovalsScreen> {
   }
 
   Widget _categoryListShell(Widget child) {
-    return ClipRRect(
-      borderRadius: BorderRadius.vertical(top: Radius.circular(26.tr)),
-      child: ColoredBox(
-        color: Colors.white,
-        child: child,
+    return RefreshIndicator(
+      onRefresh: () => _refreshApprovalsAfterAction(),
+      child: ClipRRect(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(26.tr)),
+        child: ColoredBox(
+          color: Colors.white,
+          child: child,
+        ),
       ),
     );
   }

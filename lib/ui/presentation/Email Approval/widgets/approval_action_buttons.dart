@@ -10,6 +10,9 @@ import '../bloc/approval_event.dart';
 import '../bloc/approval_state.dart';
 
 class ApprovalActionButtons extends StatelessWidget {
+  /// Approve and Reject both listen to the same bloc. Only the first success
+  /// may pop the loading dialog and then the detail route.
+  static final Set<String> _successNavKeys = {};
   final String requestId;
   final String type;
   final void Function(String result)? onResult;
@@ -66,6 +69,35 @@ class ApprovalActionButtons extends StatelessWidget {
       isSuccess: isSuccess,
       isWarning: isWarning,
     );
+  }
+
+  bool _beginSuccessNavigation() {
+    final key = '$type:$requestId';
+    if (!_successNavKeys.add(key)) return false;
+    Future<void>.microtask(() => _successNavKeys.remove(key));
+    return true;
+  }
+
+  void _closeAfterApprovalSuccess(BuildContext context, String message) {
+    if (!_beginSuccessNavigation()) return;
+    if (context.mounted && Navigator.canPop(context)) {
+      Navigator.pop(context);
+    }
+    if (onResult != null) {
+      onResult!(message);
+    }
+    if (context.mounted && Navigator.canPop(context)) {
+      Navigator.pop(context, true);
+      Future.delayed(const Duration(milliseconds: 100), () {
+        if (context.mounted) {
+          _showOutcomePopup(
+            context,
+            message: message,
+            isSuccess: true,
+          );
+        }
+      });
+    }
   }
 
   String _resolveProvidedComment() {
@@ -220,26 +252,7 @@ class ApprovalActionButtons extends StatelessWidget {
       },
       listener: (ctx, state) {
         if (state is ApprovalSuccess) {
-          if (context.mounted && Navigator.canPop(context)) {
-            Navigator.pop(context);
-          }
-
-          if (onResult != null) {
-            onResult!(state.message);
-          }
-
-          if (context.mounted && Navigator.canPop(context)) {
-            Navigator.pop(context, true);
-            Future.delayed(const Duration(milliseconds: 100), () {
-              if (context.mounted) {
-                _showOutcomePopup(
-                  context,
-                  message: state.message,
-                  isSuccess: true,
-                );
-              }
-            });
-          }
+          _closeAfterApprovalSuccess(context, state.message);
         } else if (state is ApprovalFailure) {
           if (context.mounted && Navigator.canPop(context)) {
             Navigator.pop(context);
@@ -382,26 +395,7 @@ class ApprovalActionButtons extends StatelessWidget {
       },
       listener: (ctx, state) {
         if (state is ApprovalSuccess) {
-          if (context.mounted && Navigator.canPop(context)) {
-            Navigator.pop(context);
-          }
-
-          if (onResult != null) {
-            onResult!(state.message);
-          }
-
-          if (context.mounted && Navigator.canPop(context)) {
-            Navigator.pop(context, true);
-            Future.delayed(const Duration(milliseconds: 100), () {
-              if (context.mounted) {
-                _showOutcomePopup(
-                  context,
-                  message: state.message,
-                  isSuccess: true,
-                );
-              }
-            });
-          }
+          _closeAfterApprovalSuccess(context, state.message);
         } else if (state is ApprovalFailure) {
           if (context.mounted && Navigator.canPop(context)) {
             Navigator.pop(context);
@@ -948,24 +942,7 @@ class ApprovalActionButtons extends StatelessWidget {
       },
       listener: (ctx, state) {
         if (state is ApprovalSuccess) {
-          if (context.mounted && Navigator.canPop(context)) {
-            Navigator.pop(context);
-          }
-          if (onResult != null) {
-            onResult!(state.message);
-          }
-          if (context.mounted && Navigator.canPop(context)) {
-            Navigator.pop(context, true);
-            Future.delayed(const Duration(milliseconds: 100), () {
-              if (context.mounted) {
-                _showOutcomePopup(
-                  context,
-                  message: state.message,
-                  isSuccess: true,
-                );
-              }
-            });
-          }
+          _closeAfterApprovalSuccess(context, state.message);
         } else if (state is ApprovalFailure) {
           if (context.mounted && Navigator.canPop(context)) {
             Navigator.pop(context);
@@ -1169,31 +1146,7 @@ class ApprovalActionButtons extends StatelessWidget {
       },
       listener: (ctx, state) {
         if (state is ApprovalSuccess) {
-          // Close loading overlay first
-          if (context.mounted && Navigator.canPop(context)) {
-            Navigator.pop(context); // Close loading overlay
-          }
-
-          // Call the onResult callback if provided
-          if (onResult != null) {
-            onResult!(state.message);
-          }
-
-          // Close main dialog - parent screen will handle refresh and count update
-          if (context.mounted && Navigator.canPop(context)) {
-            Navigator.pop(context, true);
-
-            // Show success message after dialog closes
-            Future.delayed(const Duration(milliseconds: 100), () {
-              if (context.mounted) {
-                _showOutcomePopup(
-                  context,
-                  message: state.message,
-                  isSuccess: true,
-                );
-              }
-            });
-          }
+          _closeAfterApprovalSuccess(context, state.message);
         } else if (state is ApprovalFailure) {
           // Close loading overlay first
           if (context.mounted && Navigator.canPop(context)) {

@@ -438,7 +438,9 @@ class SignatureDocumentsTabState extends State<SignatureDocumentsTab> {
     }
   }
 
-  void _openSelfSignDraft(SignatureDocument doc) {
+  final Set<String> _dismissed = {};
+
+  Future<void> _openSelfSignDraft(SignatureDocument doc) async {
     final currentUid = FirebaseAuth.instance.currentUser?.uid ?? '';
     final message = Message(
       id: doc.id,
@@ -452,7 +454,7 @@ class SignatureDocumentsTabState extends State<SignatureDocumentsTab> {
       signStatus: SignStatus.pending,
       pageCount: doc.pageCount,
     );
-    Navigator.push(
+    final signed = await Navigator.push<bool>(
       context,
       MaterialPageRoute(
         builder: (_) => SignDocumentScreen(
@@ -464,9 +466,12 @@ class SignatureDocumentsTabState extends State<SignatureDocumentsTab> {
         ),
       ),
     );
+    if (signed == true && mounted) {
+      setState(() => _dismissed.add(doc.id));
+    }
   }
 
-  void _openRow(_DocRow row) {
+  Future<void> _openRow(_DocRow row) async {
     final needsSign = row.status == SignatureDocumentStatus.pendingSelf ||
         row.action?.bucket == SignatureItemBucket.needsSignature;
 
@@ -474,7 +479,7 @@ class SignatureDocumentsTabState extends State<SignatureDocumentsTab> {
       final item = row.action!;
       final personal = row.personal ?? item.personalDoc;
       final useChatPipeline = item.chatId.isNotEmpty;
-      Navigator.push(
+      final signed = await Navigator.push<bool>(
         context,
         MaterialPageRoute(
           builder: (_) => SignDocumentScreen(
@@ -493,6 +498,9 @@ class SignatureDocumentsTabState extends State<SignatureDocumentsTab> {
           ),
         ),
       );
+      if (signed == true && mounted) {
+        setState(() => _dismissed.add(row.id));
+      }
       return;
     }
 
@@ -632,8 +640,10 @@ class SignatureDocumentsTabState extends State<SignatureDocumentsTab> {
 
   @override
   Widget build(BuildContext context) {
-    final visible = _allRows.take(_visibleCount).toList();
-    final hasMore = _visibleCount < _allRows.length;
+    final rows =
+        _allRows.where((row) => !_dismissed.contains(row.id)).toList();
+    final visible = rows.take(_visibleCount).toList();
+    final hasMore = _visibleCount < rows.length;
 
     return Column(
       children: [
@@ -646,7 +656,7 @@ class SignatureDocumentsTabState extends State<SignatureDocumentsTab> {
                   child:
                       CircularProgressIndicator(color: SignatureTheme.brown),
                 )
-              else if (_allRows.isEmpty)
+              else if (rows.isEmpty)
                 Center(
                   child: Padding(
                     padding: EdgeInsets.all(24.tr),
