@@ -27,7 +27,10 @@ class _HrIncrementRequestScreenState
   final _suggest = TextEditingController();
   final _description = TextEditingController();
   String? _salaryRange;
+  double _currentSalary = 0;
   bool _submitting = false;
+
+  bool get _isCar => _incrementType == 'car';
 
   @override
   void initState() {
@@ -48,6 +51,8 @@ class _HrIncrementRequestScreenState
             (readonly['salary_min'] != null && readonly['salary_max'] != null
                 ? '${readonly['salary_min']} - ${readonly['salary_max']}'
                 : null);
+        _currentSalary =
+            double.tryParse('${readonly['current_salary'] ?? ''}') ?? 0;
       });
     }
   }
@@ -92,8 +97,9 @@ class _HrIncrementRequestScreenState
       fields: {
         'increment_effective_date': HrRequestFormUi.isoDate(_effective!),
         'increment_type': _incrementType,
-        'suggested_salary_by_employee':
-            double.tryParse(_suggest.text.trim()) ?? 0,
+        if (!_isCar)
+          'suggested_salary_by_employee':
+              double.tryParse(_suggest.text.trim()) ?? 0,
       },
       description: _description.text.trim(),
     );
@@ -103,6 +109,11 @@ class _HrIncrementRequestScreenState
       await SharedPref().removePreference(HrIncrementRequestScreen.draftKey);
       if (mounted) Navigator.of(context).pop();
     }
+  }
+
+  String _money(double value) {
+    if (value == value.roundToDouble()) return value.toStringAsFixed(0);
+    return value.toStringAsFixed(2);
   }
 
   @override
@@ -141,21 +152,31 @@ class _HrIncrementRequestScreenState
             DropdownMenuItem(value: 'amount', child: Text('Amount')),
             DropdownMenuItem(value: 'car', child: Text('Car')),
           ],
-          onChanged: (v) => setState(() => _incrementType = v),
+          onChanged: (v) => setState(() {
+            _incrementType = v;
+            if (v == 'car') _suggest.clear();
+          }),
         ),
-        SizedBox(height: 14.h),
-        HrRequestFormUi.label('Suggest by Employee *'),
-        TextFormField(
-          controller: _suggest,
-          keyboardType: const TextInputType.numberWithOptions(decimal: true),
-          inputFormatters: [
-            FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d{0,2}')),
-          ],
-          decoration: HrRequestFormUi.fieldDecoration('0'),
-          validator: (v) =>
-              (v ?? '').trim().isEmpty ? 'Required' : null,
-        ),
-        SizedBox(height: 14.h),
+        if (!_isCar) ...[
+          SizedBox(height: 14.h),
+          HrRequestFormUi.label('Suggest by Employee *'),
+          TextFormField(
+            controller: _suggest,
+            keyboardType: const TextInputType.numberWithOptions(decimal: true),
+            inputFormatters: [
+              FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d{0,2}')),
+            ],
+            decoration: HrRequestFormUi.fieldDecoration('0'),
+            onChanged: (_) => setState(() {}),
+            validator: (v) =>
+                (v ?? '').trim().isEmpty ? 'Required' : null,
+          ),
+          SizedBox(height: 14.h),
+          HrRequestFormUi.readonlyRow(
+            'New Salary',
+            _money(_currentSalary + (double.tryParse(_suggest.text.trim()) ?? 0)),
+          ),
+        ],
         HrRequestFormUi.label('Description'),
         TextFormField(
           controller: _description,
