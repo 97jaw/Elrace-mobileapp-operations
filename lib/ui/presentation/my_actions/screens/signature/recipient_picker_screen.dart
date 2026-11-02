@@ -11,8 +11,9 @@ import '../../../../../chat/repositories/user_repository.dart';
 import '../../data/user_stamp_assets.dart';
 import '../../theme/signature_theme.dart';
 
-/// Multi-select user search for the "Request signatures" upload flow.
-/// Returns a [List<ChatUser>] in the order selected (signing order).
+/// Single-select user search for the "Request signatures" upload flow.
+/// Returns a [List<ChatUser>] of one person. Timesheet mode ([maxSignees] 2)
+/// returns up to two people in signing order: Site Engineer, Projects Manager.
 ///
 /// When [stampNeeded] is true, loads **all** stamp users immediately (no
 /// search required). Search only filters that list. The logged-in stamp user
@@ -20,7 +21,7 @@ import '../../theme/signature_theme.dart';
 class RecipientPickerScreen extends StatefulWidget {
   final bool stampNeeded;
 
-  /// Timesheet mode caps the list at 2. Null keeps the normal multi-select.
+  /// Timesheet mode caps the list at 2. Null keeps the normal single select.
   final int? maxSignees;
 
   /// When true, Done with exactly one person is refused.
@@ -50,17 +51,23 @@ class _RecipientPickerScreenState extends State<RecipientPickerScreen> {
 
   String? get _currentUid => FirebaseAuth.instance.currentUser?.uid;
 
+  /// Only timesheet mode picks more than one signee.
+  bool get _multiSelect => (widget.maxSignees ?? 1) > 1;
+
+  String get _searchHint => _multiSelect
+      ? 'First signee is Site Engineer, second is Projects Manager'
+      : 'Search and select one signee';
+
   @override
   void initState() {
     super.initState();
     if (widget.stampNeeded) {
-      _message = 'Select stamp users (order = signing order)';
+      _message = _multiSelect
+          ? 'Select stamp users: Site Engineer, then Projects Manager'
+          : 'Select one stamp user';
       _loadAllStampUsers();
-    } else if (widget.maxSignees == 2) {
-      _message =
-          'First signee is Site Engineer, second is Projects Manager';
     } else {
-      _message = 'Search and select signees in signing order';
+      _message = _searchHint;
     }
   }
 
@@ -143,7 +150,7 @@ class _RecipientPickerScreenState extends State<RecipientPickerScreen> {
     if (trimmed.isEmpty) {
       setState(() {
         _results = [];
-        _message = 'Search and select signees in signing order';
+        _message = _searchHint;
       });
       return;
     }
@@ -185,7 +192,11 @@ class _RecipientPickerScreenState extends State<RecipientPickerScreen> {
       }
     }
     setState(() {
-      if (idx >= 0) {
+      if (!_multiSelect) {
+        // Normal "+" flow: one signee. Tapping another person replaces them.
+        _selected.clear();
+        if (idx < 0) _selected.add(user);
+      } else if (idx >= 0) {
         _selected.removeAt(idx);
       } else {
         _selected.add(user);
@@ -234,7 +245,9 @@ class _RecipientPickerScreenState extends State<RecipientPickerScreen> {
         elevation: 0,
         systemOverlayStyle: SignatureTheme.lightStatusBar,
         title: Text(
-          widget.stampNeeded ? 'Select Stamp Signees' : 'Select Signees',
+          widget.stampNeeded
+              ? (_multiSelect ? 'Select Stamp Signees' : 'Select Stamp Signee')
+              : (_multiSelect ? 'Select Signees' : 'Select Signee'),
           style: SignatureTheme.appBarTitle,
         ),
         actions: [
@@ -279,11 +292,11 @@ class _RecipientPickerScreenState extends State<RecipientPickerScreen> {
                 fillColor: SignatureTheme.surface,
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(14.tr),
-                  borderSide: BorderSide(color: SignatureTheme.divider),
+                  borderSide: const BorderSide(color: SignatureTheme.divider),
                 ),
                 enabledBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(14.tr),
-                  borderSide: BorderSide(color: SignatureTheme.divider),
+                  borderSide: const BorderSide(color: SignatureTheme.divider),
                 ),
               ),
             ),
@@ -300,7 +313,8 @@ class _RecipientPickerScreenState extends State<RecipientPickerScreen> {
                   final user = _selected[index];
                   return Chip(
                     label: Text(
-                      '${index + 1}. ${_isMe(user) ? '${user.name} (You)' : user.name}',
+                      '${_multiSelect ? '${index + 1}. ' : ''}'
+                      '${_isMe(user) ? '${user.name} (You)' : user.name}',
                     ),
                     onDeleted: () => _toggle(user),
                     backgroundColor: SignatureTheme.khakiLight,
@@ -335,7 +349,7 @@ class _RecipientPickerScreenState extends State<RecipientPickerScreen> {
                                 user.name.isNotEmpty
                                     ? user.name[0].toUpperCase()
                                     : '?',
-                                style: TextStyle(
+                                style: const TextStyle(
                                     color: SignatureTheme.brownDeep,
                                     fontWeight: FontWeight.w700),
                               ),

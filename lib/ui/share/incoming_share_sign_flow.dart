@@ -69,7 +69,7 @@ class IncomingShareSignFlow {
     return showModalBottomSheet<_UploadPurpose>(
       context: context,
       backgroundColor: SignatureTheme.surface,
-      shape: RoundedRectangleBorder(
+      shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(22)),
       ),
       builder: (sheetContext) {
@@ -111,8 +111,8 @@ class IncomingShareSignFlow {
                   title: const Text('Request signatures'),
                   subtitle: Text(
                     stampNeeded
-                        ? 'Pick stamp-authorized signees — they sign and stamp one by one.'
-                        : 'Pick one or more signees — they sign one by one with chat notifications.',
+                        ? 'Pick one stamp-authorized signee. They sign and stamp.'
+                        : 'Pick one signee. They sign with a chat notification.',
                   ),
                   onTap: () => Navigator.pop(
                     sheetContext,

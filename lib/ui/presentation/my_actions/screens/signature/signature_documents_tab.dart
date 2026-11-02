@@ -364,8 +364,8 @@ class SignatureDocumentsTabState extends State<SignatureDocumentsTab> {
                   icon: Icons.send_rounded,
                   title: 'Request signatures',
                   subtitle: stampNeeded
-                      ? 'Pick stamp-authorized signees — they sign and stamp one by one.'
-                      : 'Pick one or more signees — they sign one by one with chat notifications.',
+                      ? 'Pick one stamp-authorized signee. They sign and stamp.'
+                      : 'Pick one signee. They sign with a chat notification.',
                   onTap: () => Navigator.pop(
                       sheetContext, _UploadPurpose.requestSignature),
                 ),
