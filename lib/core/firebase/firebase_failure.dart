@@ -25,8 +25,36 @@ class FirebaseFailure implements Exception {
   final bool tokenRefreshed;
   final Object cause;
 
+  /// Which rules file area rejected the call. Used to group Crashlytics.
+  String get ruleArea => FirebaseFailure.ruleAreaFor(path);
+
   String get detail =>
-      'step=$step path=$path uid=$uid tokenRefreshed=$tokenRefreshed';
+      'step=$step path=$path uid=$uid ruleArea=$ruleArea tokenRefreshed=$tokenRefreshed';
+
+  /// Map a Firestore, Storage, or Realtime Database path to a rules area.
+  static String ruleAreaFor(String path) {
+    final normalized = path.replaceAll('\\', '/').toLowerCase();
+    if (normalized.contains('signature_document') ||
+        normalized.contains('signature_docs')) {
+      return 'signature_documents';
+    }
+    if (normalized.contains('userchats')) return 'userChats';
+    if (normalized.contains('/notes') || normalized.endsWith('/notes')) {
+      return 'notes';
+    }
+    if (normalized.contains('/members/') || normalized.endsWith('/members')) {
+      return 'members';
+    }
+    if (normalized.contains('/messages') || normalized.endsWith('/messages')) {
+      return 'messages';
+    }
+    if (normalized.contains('typing')) return 'rtdb_typing';
+    if (normalized.contains('presence')) return 'rtdb_presence';
+    if (normalized.startsWith('chats/') || normalized.contains('/chats/')) {
+      return 'chats';
+    }
+    return 'other';
+  }
 
   @override
   String toString() => 'Firebase failure $detail';
@@ -46,6 +74,14 @@ class FirebaseFailure implements Exception {
       if (Firebase.apps.isEmpty) return;
       final crashlytics = FirebaseCrashlytics.instance;
       if (!crashlytics.isCrashlyticsCollectionEnabled) return;
+      crashlytics.setCustomKey('firebase_step', step);
+      crashlytics.setCustomKey('firebase_path', path);
+      crashlytics.setCustomKey('firebase_uid', uid);
+      crashlytics.setCustomKey('firebase_rule_area', ruleArea);
+      crashlytics.setCustomKey(
+        'firebase_token_refreshed',
+        tokenRefreshed.toString(),
+      );
       crashlytics.log(line);
       crashlytics.recordError(
         cause,

@@ -1,0 +1,39 @@
+name: firebase-rules-drift
+
+on:
+  schedule:
+    - cron: '0 4 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  drift:
+    name: live rules match main
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+
+      - name: Require drift credentials
+        env:
+          FIREBASE_SERVICE_ACCOUNT_ELRACE_NEW: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_ELRACE_NEW }}
+        run: |
+          if [ -z "$FIREBASE_SERVICE_ACCOUNT_ELRACE_NEW" ]; then
+            echo "::error::Add the GitHub secret FIREBASE_SERVICE_ACCOUNT_ELRACE_NEW so the daily check can read live rules."
+            exit 1
+          fi
+
+      - uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_ELRACE_NEW }}
+
+      - uses: google-github-actions/setup-gcloud@v2
+
+      - name: Compare live rules to main
+        run: |
+          set -euo pipefail
+          token="$(gcloud auth print-access-token)"
+          printf '%s' "$token" | node firebase/rules-tests/scripts/check_live_rules.mjs
