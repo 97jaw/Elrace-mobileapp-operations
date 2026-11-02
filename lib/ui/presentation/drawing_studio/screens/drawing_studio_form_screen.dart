@@ -256,6 +256,7 @@ class _DrawingStudioFormScreenState extends State<DrawingStudioFormScreen> {
     }
 
     return ListView(
+      keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
       padding: EdgeInsets.fromLTRB(16.w, 0, 16.w, 16.uh),
       children: [
         if (_submitError != null)

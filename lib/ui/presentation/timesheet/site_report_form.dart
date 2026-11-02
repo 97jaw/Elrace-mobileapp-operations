@@ -38,6 +38,7 @@ class _SiteReportFormState extends State<SiteReportForm> {
     return TmScaffold(
       glassTitle: 'Daily Site Report',
       body: SingleChildScrollView(
+        keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [

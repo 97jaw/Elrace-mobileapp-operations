@@ -1,6 +1,8 @@
 import 'package:cloud_functions/cloud_functions.dart';
 import 'package:firebase_core/firebase_core.dart';
 
+import 'firebase_failure.dart';
+
 /// Turns a Firebase error into one short sentence for a SnackBar or dialog.
 ///
 /// Firebase errors carry a full async stack trace in `toString()`. Showing that
@@ -10,6 +12,10 @@ String firebaseErrorMessage(
   Object error, {
   String fallback = 'Something went wrong. Please try again.',
 }) {
+  if (error is FirebaseFailure) return '$fallback (${error.detail})';
+  final raw = error.toString();
+  if (raw.contains('step=')) return raw;
+
   if (error is FirebaseFunctionsException) {
     switch (error.code) {
       case 'unavailable':

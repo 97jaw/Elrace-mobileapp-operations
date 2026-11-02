@@ -202,15 +202,21 @@ exports.onNewChatMessage = onDocumentCreated(
         body: body,
       },
       data: {
+        nv: "1",
         type: "chat_message",
         category: "chat_message",
+        action: "open_chat",
+        params: JSON.stringify({
+          chat_id: chatId,
+          chat_type: chatType,
+          title: chatTitle,
+        }),
         chat_id: chatId,
         chat_title: chatTitle,
         chat_type: chatType,
         sender_id: senderId,
         sender_name: senderName,
         message_id: event.params.messageId || "",
-        // FCM reserves `message_type` (and `from`, `google.*`, `gcm.*`) in data.
         chat_message_type: messageData.type || "text",
         click_action: "FLUTTER_NOTIFICATION_CLICK",
       },

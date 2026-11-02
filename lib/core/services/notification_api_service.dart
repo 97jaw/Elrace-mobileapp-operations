@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:el_race/core/utils/shared_pref.dart';
+import 'package:el_race/utils/urll_utils.dart';
 import 'package:http/http.dart' as http;
 
 class NotificationApiResult {
@@ -38,7 +39,12 @@ class NotificationCategoryApiModel {
 }
 
 class NotificationApiService {
-  static const String _baseUrl = 'https://erp.elrace.com/api';
+  static String get baseUrl {
+    const raw = UrlUtil.baseUrl;
+    return raw.endsWith('/') ? raw.substring(0, raw.length - 1) : raw;
+  }
+
+  static Map<String, String> headers() => _headers();
 
   static Map<String, String> _headers() {
     final token = SharedPref.getLoginData().result?.token ?? '';
@@ -199,7 +205,7 @@ class NotificationApiService {
   }
 
   static Future<Map<String, bool>> getNotificationPreferences() async {
-    final uri = Uri.parse('$_baseUrl/mobile/notification/preferences');
+    final uri = Uri.parse('$baseUrl/mobile/notification/preferences');
     final response = await http.post(
       uri,
       headers: _headers(),
@@ -254,7 +260,7 @@ class NotificationApiService {
 
   static Future<List<NotificationCategoryApiModel>>
       getNotificationCategories() async {
-    final uri = Uri.parse('$_baseUrl/mobile/notification/categories');
+    final uri = Uri.parse('$baseUrl/mobile/notification/categories');
     final response = await http.post(
       uri,
       headers: _headers(),
@@ -308,7 +314,7 @@ class NotificationApiService {
       throw Exception('Notification model cannot be empty');
     }
 
-    final uri = Uri.parse('$_baseUrl/mobile/notification/update');
+    final uri = Uri.parse('$baseUrl/mobile/notification/update');
     final response = await http.post(
       uri,
       headers: _headers(),
@@ -365,7 +371,7 @@ class NotificationApiService {
     int limit = 500,
     int offset = 0,
   }) async {
-    final uri = Uri.parse('$_baseUrl/notifications');
+    final uri = Uri.parse('$baseUrl/notifications');
 
     final response = await http.post(
       uri,
@@ -451,7 +457,7 @@ class NotificationApiService {
   static Future<int?> getUnreadCount() async {
     // Dedicated unread-count route is optional; list payload always includes it.
     try {
-      final uri = Uri.parse('$_baseUrl/notifications/unread-count');
+      final uri = Uri.parse('$baseUrl/notifications/unread-count');
       final response = await http.get(uri, headers: _headers());
 
       if (response.statusCode >= 200 &&
@@ -486,7 +492,7 @@ class NotificationApiService {
 
     try {
       final response = await http.post(
-        Uri.parse('$_baseUrl/notifications/read'),
+        Uri.parse('$baseUrl/notifications/read'),
         headers: _headers(),
         body: jsonEncode({
           'jsonrpc': '2.0',
@@ -504,11 +510,11 @@ class NotificationApiService {
   static Future<bool> markAllAsRead() async {
     final attempts = <Future<http.Response>>[
       http.put(
-        Uri.parse('$_baseUrl/notifications/read-all'),
+        Uri.parse('$baseUrl/notifications/read-all'),
         headers: _headers(),
       ),
       http.put(
-        Uri.parse('$_baseUrl/notifications/read'),
+        Uri.parse('$baseUrl/notifications/read'),
         headers: _headers(),
         body: jsonEncode({'all': true}),
       ),
@@ -535,7 +541,7 @@ class NotificationApiService {
     final numericId = int.tryParse(id);
     try {
       final response = await http.post(
-        Uri.parse('$_baseUrl/notifications/delete'),
+        Uri.parse('$baseUrl/notifications/delete'),
         headers: _headers(),
         body: jsonEncode({
           'jsonrpc': '2.0',
@@ -553,7 +559,7 @@ class NotificationApiService {
   static Future<bool> clearAllNotifications() async {
     try {
       final response = await http.post(
-        Uri.parse('$_baseUrl/notifications/clear'),
+        Uri.parse('$baseUrl/notifications/clear'),
         headers: _headers(),
         body: jsonEncode({
           'jsonrpc': '2.0',

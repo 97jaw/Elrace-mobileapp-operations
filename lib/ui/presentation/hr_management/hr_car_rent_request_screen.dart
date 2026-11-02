@@ -213,6 +213,7 @@ class _HrCarRentRequestScreenState extends ConsumerState<HrCarRentRequestScreen>
       body: Form(
         key: _formKey,
         child: ListView(
+          keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
           padding: EdgeInsets.all(HrModuleLayout.screenPaddingH.tw),
           children: [
             Text(

@@ -1,4 +1,7 @@
 import 'package:el_race/core/utils/responsive_breakpoints.dart';
+import 'package:el_race/core/notifications/notification_inbox_repository.dart';
+import 'package:el_race/core/notifications/notification_payload.dart';
+import 'package:el_race/core/notifications/notification_router.dart';
 import 'package:el_race/core/services/notification_storage_service.dart';
 import 'package:el_race/ui/chat/widgets/chat_sub_app_glass_bar.dart';
 import 'package:el_race/ui/navigation/home_navigation.dart';
@@ -29,27 +32,38 @@ class _NotificationScreenState extends State<NotificationScreen> {
   @override
   void initState() {
     super.initState();
-    NotificationStorageService.addCountListener(this, () {
-      if (mounted && !_loading) {
-        _loadNotifications(showLoader: false);
-      }
-    });
+    if (!notificationInboxV2Enabled) {
+      NotificationStorageService.addCountListener(this, () {
+        if (mounted && !_loading) {
+          _loadNotifications(showLoader: false);
+        }
+      });
+    }
     _bootstrap();
   }
 
   @override
   void dispose() {
-    NotificationStorageService.removeCountListener(this);
+    if (!notificationInboxV2Enabled) {
+      NotificationStorageService.removeCountListener(this);
+    }
     super.dispose();
   }
 
   Future<void> _bootstrap() async {
     // Load list, then snapshot unread baseline so only newer items bump the bell.
     await _loadNotifications();
-    await NotificationStorageService.acknowledgeBadge(
-      knownIds: _notifications.map((n) => '${n['id'] ?? ''}'),
-    );
-    await NotificationStorageService.markAllAsRead();
+    if (notificationInboxV2Enabled) {
+      try {
+        await NotificationInboxRepository.markAllRead();
+        await NotificationInboxRepository.refreshBadge();
+      } catch (_) {}
+    } else {
+      await NotificationStorageService.acknowledgeBadge(
+        knownIds: _notifications.map((n) => '${n['id'] ?? ''}'),
+      );
+      await NotificationStorageService.markAllAsRead();
+    }
     if (!mounted) return;
     setState(() {
       for (final n in _notifications) {
@@ -59,15 +73,23 @@ class _NotificationScreenState extends State<NotificationScreen> {
     });
   }
 
+  Future<List<Map<String, dynamic>>> _fetchNotifications() async {
+    if (!notificationInboxV2Enabled) {
+      return NotificationStorageService.getNotifications(
+        limit: _maxRecords,
+        offset: 0,
+      );
+    }
+    final rows = await NotificationInboxRepository.list();
+    return rows.map((row) => Map<String, dynamic>.from(row.data)).toList();
+  }
+
   Future<void> _loadNotifications({bool showLoader = true}) async {
     if (showLoader && mounted) {
       setState(() => _loading = true);
     }
     try {
-      final batch = await NotificationStorageService.getNotifications(
-        limit: _maxRecords,
-        offset: 0,
-      );
+      final batch = await _fetchNotifications();
       if (!mounted) return;
       final filtered = List<Map<String, dynamic>>.from(batch).where((n) {
         final cat = (n['category'] ?? '').toString().toLowerCase().trim();
@@ -144,6 +166,24 @@ class _NotificationScreenState extends State<NotificationScreen> {
   void _onTapNotification(Map<String, dynamic> item) {
     // No popup — tap only closes open swipe / Clear all chrome.
     _collapseChrome();
+    if (!notificationInboxV2Enabled) return;
+    NotificationRouter.open(_payloadFor(item));
+  }
+
+  NotificationPayload _payloadFor(Map<String, dynamic> item) {
+    final action = '${item['action'] ?? ''}'.trim();
+    if (action.isEmpty) return NotificationPayload.fromData(item);
+    final params = item['params'];
+    return NotificationPayload(
+      raw: item,
+      type: '${item['type'] ?? ''}',
+      category: '${item['category'] ?? ''}',
+      action: action,
+      model: '${item['model'] ?? ''}',
+      resId: '${item['res_id'] ?? ''}',
+      screen: '${item['screen'] ?? ''}',
+      params: params is Map ? Map<String, dynamic>.from(params) : const {},
+    );
   }
 
   Future<void> _deleteNotification(Map<String, dynamic> item) async {
@@ -156,6 +196,10 @@ class _NotificationScreenState extends State<NotificationScreen> {
       if (_openSwipeId == id) _openSwipeId = null;
       if (_notifications.isEmpty) _clearAllVisible = false;
     });
+    if (notificationInboxV2Enabled) {
+      await NotificationInboxRepository.hide(id);
+      return;
+    }
     await NotificationStorageService.deleteNotification(id);
   }
 
@@ -176,8 +220,13 @@ class _NotificationScreenState extends State<NotificationScreen> {
       _openSwipeId = null;
     });
     try {
-      await NotificationStorageService.clearAll();
-      await NotificationStorageService.acknowledgeBadge();
+      if (notificationInboxV2Enabled) {
+        await NotificationInboxRepository.hideAll();
+        await NotificationInboxRepository.refreshBadge();
+      } else {
+        await NotificationStorageService.clearAll();
+        await NotificationStorageService.acknowledgeBadge();
+      }
     } finally {
       if (mounted) {
         setState(() {

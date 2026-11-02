@@ -136,6 +136,46 @@ abstract final class NotificationCategoryTheme {
     );
   }
 
+  /// API icon name and hex color when they map; otherwise [forKey].
+  static NotificationCategoryVisual fromApi({
+    required String code,
+    String? name,
+    String? iconName,
+    String? colorHex,
+  }) {
+    final fallback = forKey(code, fallbackTitle: name);
+    return NotificationCategoryVisual(
+      icon: _icons[iconName?.trim()] ?? fallback.icon,
+      color: _parseColor(colorHex) ?? fallback.color,
+      title: (name ?? '').trim().isNotEmpty ? name!.trim() : fallback.title,
+    );
+  }
+
+  static Color? _parseColor(String? value) {
+    final raw = (value ?? '').trim();
+    if (!raw.startsWith('#') || (raw.length != 7 && raw.length != 9)) {
+      return null;
+    }
+    final hex = raw.substring(1);
+    final parsed = int.tryParse(hex, radix: 16);
+    if (parsed == null) return null;
+    return Color(hex.length == 6 ? 0xFF000000 | parsed : parsed);
+  }
+
+  static const Map<String, IconData> _icons = {
+    'hourglass_empty': Icons.hourglass_empty_rounded,
+    'badge': Icons.badge_rounded,
+    'shopping_cart': Icons.shopping_cart_rounded,
+    'account_balance_wallet': Icons.account_balance_wallet_rounded,
+    'folder': Icons.folder_rounded,
+    'description': Icons.description_rounded,
+    'campaign': Icons.campaign_rounded,
+    'task_alt': Icons.task_alt_rounded,
+    'confirmation_number': Icons.confirmation_number_rounded,
+    'chat': Icons.chat_bubble_rounded,
+    'schedule': Icons.schedule_rounded,
+  };
+
   static String _humanize(String value) {
     final parts = value
         .split(RegExp(r'[._-]+'))

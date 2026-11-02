@@ -1,6 +1,7 @@
 const { onDocumentCreated } = require("firebase-functions/v2/firestore");
 const { getFirestore } = require("firebase-admin/firestore");
 const { getMessaging } = require("firebase-admin/messaging");
+const { emitViaOdoo, ingestToken } = require("./lib/odoo_notify");
 
 /**
  * Notify the recipient when a note is shared with them
@@ -10,6 +11,7 @@ exports.onNoteShared = onDocumentCreated(
   {
     document: "users/{uid}/shared_note_refs/{noteId}",
     region: "us-central1",
+    secrets: [ingestToken],
   },
   async (event) => {
     const snap = event.data;
@@ -41,6 +43,18 @@ exports.onNoteShared = onDocumentCreated(
 
     const title = "Note shared with you";
     const body = `${ownerName} shared “${noteTitle}”`;
+
+    const routed = await emitViaOdoo({
+      type: "share.note",
+      recipientUids: [recipientUid],
+      actorUid: ownerId,
+      model: "firestore.note",
+      resId: noteId,
+      values: { sender_name: ownerName },
+      params: { owner_id: ownerId, title: noteTitle },
+      eventKey: `note:${noteId}:${recipientUid}`,
+    });
+    if (routed.handled) return;
 
     try {
       const userDoc = await db.collection("users").doc(recipientUid).get();

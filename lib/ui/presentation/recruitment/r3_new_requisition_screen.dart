@@ -179,6 +179,7 @@ class _R3NewRequisitionScreenState extends ConsumerState<R3NewRequisitionScreen>
       body: Form(
         key: _formKey,
         child: ListView(
+          keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
           padding: EdgeInsets.all(HrModuleLayout.screenPaddingH.tw),
           children: [
             _section('POSITION'),

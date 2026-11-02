@@ -18,8 +18,8 @@
     },
     "typing": {
       "$chatId": {
+        ".read": "auth != null",
         "$uid": {
-          ".read": "auth != null",
           ".write": "auth != null && auth.uid == $uid && ((!newData.exists()) || newData.isBoolean() && newData.val() === true)"
         }
       }

@@ -706,6 +706,8 @@ class _PettyCashAddExpenseState extends State<PettyCashAddExpense> {
               child: GestureDetector(
                 onTap: () => FocusScope.of(context).unfocus(),
                 child: SingleChildScrollView(
+                  keyboardDismissBehavior:
+                      ScrollViewKeyboardDismissBehavior.onDrag,
                   padding:
                       const EdgeInsets.symmetric(horizontal: 16, vertical: 18),
                   child: ConstrainedBox(

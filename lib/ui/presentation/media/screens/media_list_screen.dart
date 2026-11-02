@@ -763,7 +763,6 @@ class _MediaListScreenState extends State<MediaListScreen> {
       ),
       child: TextField(
         controller: _searchController,
-        autofocus: true,
         decoration: InputDecoration(
           hintText: 'Find media',
           hintStyle: GoogleFonts.poppins(

@@ -26,6 +26,10 @@ class FirebaseSession {
   /// once triggers a single token refresh.
   Future<User>? _inFlight;
 
+  /// True when the latest [run] rebuilt the session from a fresh custom token
+  /// before retrying. Diagnostics read this; it is not a PII field.
+  bool lastTokenRefreshed = false;
+
   static const Duration _bootstrapTimeout = Duration(seconds: 8);
 
   User? get currentUser => FirebaseAuth.instance.currentUser;
@@ -68,6 +72,7 @@ class FirebaseSession {
   ///
   /// [action] must be safe to run twice.
   Future<T> run<T>(Future<T> Function() action) async {
+    lastTokenRefreshed = false;
     await ensureSignedIn();
     try {
       return await action();
@@ -75,6 +80,7 @@ class FirebaseSession {
       if (!isAuthDenied(error)) rethrow;
       debugPrint('⚠️ FirebaseSession: auth denied, refreshing and retrying…');
       await forceRefresh();
+      lastTokenRefreshed = true;
       // Brief yield so the Auth, Firestore and Storage clients pick up the
       // new ID token before the retry.
       await Future<void>.delayed(const Duration(milliseconds: 250));

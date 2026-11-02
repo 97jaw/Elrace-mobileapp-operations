@@ -1,6 +1,9 @@
 import 'package:bloc/bloc.dart';
 import 'package:el_race/config/uaepass_config.dart';
+import 'package:el_race/core/notifications/notification_device_service.dart';
+import 'package:el_race/core/utils/shared_pref.dart';
 import 'package:el_race/services/uaepass_auth_service.dart';
+import 'package:el_race/ui/presentation/linked_devices/linked_devices_repository.dart';
 import 'package:el_race/ui/auth/error_dialog.dart';
 import 'package:el_race/utils/uaepass_logger.dart';
 import 'package:equatable/equatable.dart';
@@ -94,6 +97,16 @@ class UaepassAuthCubit extends Cubit<UaepassAuthState> {
 
   Future<void> logout() async {
     UaepassLogger.log('Cubit: logout called');
+    try {
+      await NotificationDeviceService.onLogout()
+          .timeout(const Duration(seconds: 4), onTimeout: () {});
+      final token = SharedPref.getLoginDataOrNull()?.result?.token?.trim() ?? '';
+      if (token.isNotEmpty) {
+        await const LinkedDevicesRepository()
+            .logoutCurrent(token)
+            .timeout(const Duration(seconds: 4));
+      }
+    } catch (_) {}
     await authService.logout();
     UaepassLogger.log('Cubit: Emitting idle state after logout');
     emit(const UaepassAuthState.idle());

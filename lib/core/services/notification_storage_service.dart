@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:el_race/core/notifications/notification_config_service.dart';
 import 'package:el_race/core/services/app_icon_badge_service.dart';
 import 'package:el_race/core/services/notification_api_service.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -21,7 +22,6 @@ class NotificationStorageService {
       'notification_categories_v1_fetched_at';
 
   static const Duration _muteSettingsCacheTtl = Duration(minutes: 5);
-  static const Duration _categoriesCacheTtl = Duration(minutes: 5);
   /// Avoid hammering /notifications when Odoo/proxy returns 5xx (home polls every 5s).
   static const Duration _badgeSyncFailureCooldown = Duration(seconds: 60);
 
@@ -58,6 +58,8 @@ class NotificationStorageService {
       }
     }
   }
+
+  static Future<void> applyServerUnread(int count) => _persistBadgeCount(count);
 
   /// Fast badge count from local cache (no API call).
   /// Use this for real-time badge updates (e.g. after a push notification
@@ -517,6 +519,13 @@ class NotificationStorageService {
       }
     }
 
+    if (settings['chat_message'] == true || settings['chat'] == true) {
+      const chatKeys = {'chat', 'chat.direct', 'chat.group', 'chat_message'};
+      for (final key in normalized) {
+        if (chatKeys.contains(key)) return true;
+      }
+    }
+
     for (final key in normalized) {
       if (settings[key] == true) {
         return true;
@@ -640,6 +649,10 @@ class NotificationStorageService {
       final normalized = apiResult.notifications
           .map(_normalizeApiNotification)
           .toList(growable: true);
+
+      if (NotificationConfigService.current.appInboxV2) {
+        return _pageOf(normalized, limit: limit, offset: offset);
+      }
 
       final prefs = await SharedPreferences.getInstance();
       final storedBeforeFetch = await _getStoredNotifications();

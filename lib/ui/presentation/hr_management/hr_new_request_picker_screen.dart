@@ -10,6 +10,8 @@ import 'package:el_race/core/widgets/hr_management/hr_module_glass_header.dart';
 import 'package:el_race/core/widgets/hr_management/hr_requests_gradient_scaffold.dart';
 import 'package:el_race/ui/presentation/my_request/RequestEffectiveDate.dart';
 import 'package:el_race/ui/presentation/my_request/RequestJobMissionPage.dart';
+import 'package:el_race/core/hr_management/special_leave_rules.dart';
+import 'package:el_race/ui/presentation/hr_management/hr_special_leave_request_screen.dart';
 import 'package:el_race/ui/presentation/my_request/RequestLeavePageNew.dart';
 import 'package:el_race/ui/presentation/my_request/RequestPermission.dart';
 import 'package:flutter/foundation.dart';
@@ -62,6 +64,15 @@ class _HrNewRequestPickerScreenState
         setState(() => _loadingEligibility = false);
       }
     }
+  }
+
+  void _openSpecialLeave(BuildContext context, SpecialLeaveKind kind) {
+    Navigator.push<void>(
+      context,
+      MaterialPageRoute<void>(
+        builder: (_) => HrSpecialLeaveRequestScreen(kind: kind),
+      ),
+    );
   }
 
   void _openLeave(BuildContext context, String leaveType) {
@@ -126,6 +137,24 @@ class _HrNewRequestPickerScreenState
         icon: Icons.beach_access_outlined,
         iconColor: const Color(0xFF00897B),
         onTap: () => _openLeave(context, 'ANNUAL'),
+      ),
+      _RequestTypeSpec(
+        label: 'Maternity',
+        icon: Icons.pregnant_woman_outlined,
+        iconColor: const Color(0xFFAD1457),
+        onTap: () => _openSpecialLeave(context, SpecialLeaveKind.maternity),
+      ),
+      _RequestTypeSpec(
+        label: 'Parental',
+        icon: Icons.family_restroom_outlined,
+        iconColor: const Color(0xFF00695C),
+        onTap: () => _openSpecialLeave(context, SpecialLeaveKind.parental),
+      ),
+      _RequestTypeSpec(
+        label: 'Death',
+        icon: Icons.favorite_border,
+        iconColor: const Color(0xFF455A64),
+        onTap: () => _openSpecialLeave(context, SpecialLeaveKind.death),
       ),
       _RequestTypeSpec(
         label: 'Job mission',

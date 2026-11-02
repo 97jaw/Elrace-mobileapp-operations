@@ -3,10 +3,13 @@ import 'dart:io';
 
 import 'package:flutter/foundation.dart' show kDebugMode;
 
+import 'package:el_race/core/keyboard/ios_numeric_done_bar.dart';
+import 'package:el_race/core/keyboard/unfocus_on_navigate.dart';
 import 'package:el_race/core/ui/device_ui_capability.dart';
 import 'package:el_race/core/services/notification_storage_service.dart';
 import 'package:el_race/core/timesheet/services/capture_queue_service.dart';
 import 'package:el_race/core/utils/app_orientations.dart';
+import 'package:el_race/core/notifications/notification_config_service.dart';
 import 'package:el_race/core/utils/shared_pref.dart';
 import 'package:el_race/core/security/device_security_service.dart';
 import 'package:el_race/core/security/signed_file_links.dart';
@@ -78,7 +81,8 @@ import 'ui/presentation/home_screen/provider/slider_provider.dart';
 Future<void> _markChatPushDelivered(Map<String, dynamic> data) async {
   final category = (data['category'] ?? data['type'] ?? '').toString();
   final chatId = (data['chat_id'] ?? data['chatId'] ?? '').toString().trim();
-  if (chatId.isEmpty || (category.isNotEmpty && category != 'chat_message')) {
+  const chatKeys = {'chat_message', 'chat', 'chat.direct', 'chat.group'};
+  if (chatId.isEmpty || (category.isNotEmpty && !chatKeys.contains(category))) {
     return;
   }
   try {
@@ -111,6 +115,22 @@ Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
   print('📩 Message data: ${message.data}');
 
   await _markChatPushDelivered(message.data);
+
+  try {
+    await NotificationConfigService.loadCached();
+  } catch (_) {}
+
+  final dataType = '${message.data['type'] ?? ''}';
+  final dataCategory = '${message.data['category'] ?? ''}'.toLowerCase();
+  final isChat = dataCategory == 'chat' ||
+      dataCategory == 'chat_message' ||
+      message.data.containsKey('chat_id') ||
+      message.data.containsKey('chatId');
+  if (dataType == 'inbox.sync' ||
+      isChat ||
+      NotificationConfigService.current.appInboxV2) {
+    return;
+  }
 
   // Save notification to storage
   try {
@@ -819,6 +839,7 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
       // Tiered resume work (prayer foreground handover, badge refresh,
       // attendance sync) — single owner, never blocks the UI.
       ResumeCoordinator.instance.onResumed();
+      unawaited(NotificationConfigService.refresh());
 
       _backgroundedAt = null;
       return;
@@ -828,6 +849,10 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
         state == AppLifecycleState.paused ||
         state == AppLifecycleState.hidden ||
         state == AppLifecycleState.detached) {
+      if (state == AppLifecycleState.paused ||
+          state == AppLifecycleState.hidden) {
+        FocusManager.instance.primaryFocus?.unfocus();
+      }
       _backgroundedAt ??= DateTime.now();
 
       // Stop foreground timer and arm a single OS schedule per prayer.
@@ -967,57 +992,66 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
               splitScreenMode: true,
               child: MaterialApp(
                 debugShowCheckedModeBanner: false,
-                navigatorObservers: [AppOrientations.routeObserver],
+                navigatorObservers: [
+                  AppOrientations.routeObserver,
+                  UnfocusOnNavigate(),
+                ],
                 builder: (context, child) {
                   ScreenSizeUtil.context = context;
-                  return NotificationListener<ScrollUpdateNotification>(
-                    onNotification: (notification) {
-                      if (notification.scrollDelta != null &&
-                          notification.scrollDelta! < -1) {
-                        _showAndroidSystemBarsTemporarily();
-                      }
-                      return false;
-                    },
-                    child: Listener(
-                      behavior: HitTestBehavior.translucent,
-                      onPointerMove: (event) {
-                        if (event.delta.dy < -4) {
+                  return IosNumericDoneBar(
+                    child: NotificationListener<ScrollUpdateNotification>(
+                      onNotification: (notification) {
+                        if (notification.scrollDelta != null &&
+                            notification.scrollDelta! < -1) {
                           _showAndroidSystemBarsTemporarily();
                         }
+                        return false;
                       },
-                      child: Stack(
-                        children: [
-                          GestureDetector(
-                            onTap: () {
-                              final profileBoxProvider =
-                                  Provider.of<ProfileBoxProvider>(context,
-                                      listen: false);
-                              if (profileBoxProvider.isProfileVisible) {
-                                profileBoxProvider.hideProfileBox();
+                      child: Listener(
+                        behavior: HitTestBehavior.translucent,
+                        onPointerMove: (event) {
+                          if (event.delta.dy < -4) {
+                            _showAndroidSystemBarsTemporarily();
+                          }
+                        },
+                        child: Stack(
+                          children: [
+                            GestureDetector(
+                              behavior: HitTestBehavior.translucent,
+                              onTap: () {
+                                final profileBoxProvider =
+                                    Provider.of<ProfileBoxProvider>(context,
+                                        listen: false);
+                                if (profileBoxProvider.isProfileVisible) {
+                                  profileBoxProvider.hideProfileBox();
 
-                                /// Close the profile box
-                              }
-                            },
-                            child: child!,
-                          ),
-                          Theme(
-                            data: ThemeData(
-                              colorScheme: ColorScheme.fromSeed(
-                                  seedColor: Colors.deepPurple),
-                              useMaterial3: true,
-                              fontFamily: GoogleFonts.poppins().fontFamily,
-                              textTheme:
-                                  GoogleFonts.poppinsTextTheme(const TextTheme(
-                                displayLarge: TextStyle(
-                                    fontSize: 28, fontWeight: FontWeight.w700),
-                                titleMedium: TextStyle(
-                                    fontSize: 16, fontWeight: FontWeight.w600),
-                                bodyMedium: TextStyle(fontSize: 14),
-                              )),
+                                  /// Close the profile box
+                                }
+                                FocusManager.instance.primaryFocus?.unfocus();
+                              },
+                              child: child!,
                             ),
-                            child: const ProfileBoxWithSlideAnimation(),
-                          ),
-                        ],
+                            Theme(
+                              data: ThemeData(
+                                colorScheme: ColorScheme.fromSeed(
+                                    seedColor: Colors.deepPurple),
+                                useMaterial3: true,
+                                fontFamily: GoogleFonts.poppins().fontFamily,
+                                textTheme: GoogleFonts.poppinsTextTheme(
+                                    const TextTheme(
+                                  displayLarge: TextStyle(
+                                      fontSize: 28,
+                                      fontWeight: FontWeight.w700),
+                                  titleMedium: TextStyle(
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.w600),
+                                  bodyMedium: TextStyle(fontSize: 14),
+                                )),
+                              ),
+                              child: const ProfileBoxWithSlideAnimation(),
+                            ),
+                          ],
+                        ),
                       ),
                     ),
                   );

@@ -224,6 +224,7 @@ class _AddTaskSheetState extends State<AddTaskSheet> {
       backgroundColor: Colors.white,
       body: SafeArea(
         child: SingleChildScrollView(
+          keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
           physics: const BouncingScrollPhysics(),
           child: Padding(
             padding:

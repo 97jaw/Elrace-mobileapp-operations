@@ -11,6 +11,7 @@ import 'package:uuid/uuid.dart';
 import '../../../../../chat/models/chat_user.dart';
 import '../../../../../chat/models/message.dart';
 import '../../../../../chat/repositories/chat_repository.dart';
+import '../../../../../core/firebase/firebase_failure.dart';
 import '../../../../../core/firebase/firebase_session.dart';
 import '../models/signature_document.dart';
 
@@ -249,6 +250,14 @@ class SignatureDocumentsRepository {
         return doc;
       });
     } on FirebaseException catch (e) {
+      if (e.code == 'permission-denied' || _isAuthDenied(e)) {
+        FirebaseFailure(
+          step: 'signature_document',
+          path: 'users/{uid}/signature_documents',
+          tokenRefreshed: FirebaseSession.instance.lastTokenRefreshed,
+          cause: e,
+        );
+      }
       if (_isAuthDenied(e)) {
         throw Exception(
           'Firebase permission denied while sending via chat '

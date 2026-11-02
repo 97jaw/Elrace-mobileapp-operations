@@ -4,6 +4,7 @@ import 'package:el_race/auth/uaepass_auth_cubit.dart';
 import 'package:el_race/chat/chat.dart';
 import 'package:el_race/core/app_globals.dart';
 import 'package:el_race/core/timesheet/providers/timesheet_session_reset.dart';
+import 'package:el_race/core/notifications/notification_device_service.dart';
 import 'package:el_race/core/utils/shared_pref.dart';
 import 'package:el_race/data/services/checkin_reminder_notification_service.dart';
 import 'package:el_race/data/services/hive_service.dart';
@@ -73,13 +74,14 @@ class ProfileLogoutHelper {
     if (nav == null) return;
 
     final token = SharedPref.getLoginDataOrNull()?.result?.token?.trim();
+    await NotificationDeviceService.onLogout()
+        .timeout(const Duration(seconds: 8), onTimeout: () {});
     if (token != null && token.isNotEmpty) {
-      unawaited(
-        const LinkedDevicesRepository()
+      try {
+        await const LinkedDevicesRepository()
             .logoutCurrent(token)
-            .timeout(const Duration(seconds: 8))
-            .catchError((Object _) {}),
-      );
+            .timeout(const Duration(seconds: 8));
+      } catch (_) {}
     }
 
     // 1) Reset in-memory session state before navigating away.
@@ -87,13 +89,17 @@ class ProfileLogoutHelper {
       sl<HomeBloc>().add(const ChangeCurrentIndex(index: 1));
     } catch (_) {
       try {
-        root.read<HomeBloc>().add(const ChangeCurrentIndex(index: 1));
+        if (root.mounted) {
+          root.read<HomeBloc>().add(const ChangeCurrentIndex(index: 1));
+        }
       } catch (_) {}
     }
     try {
-      final c = ProviderScope.containerOf(root, listen: false);
-      resetTimesheetSession(c);
-      c.invalidate(attendanceSessionProvider);
+      if (root.mounted) {
+        final c = ProviderScope.containerOf(root, listen: false);
+        resetTimesheetSession(c);
+        c.invalidate(attendanceSessionProvider);
+      }
     } catch (_) {}
     HomeScreenPage.resetAuthSession();
     try {
