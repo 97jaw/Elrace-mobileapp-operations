@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:el_race/core/utils/responsive_breakpoints.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -9,16 +11,38 @@ import '../theme/signature_theme.dart';
 
 /// Entry point for Home -> My Actions -> Signature.
 class SignaturesScreen extends StatefulWidget {
-  const SignaturesScreen({super.key});
+  const SignaturesScreen({
+    super.key,
+    this.initialPdf,
+    this.initialFileName,
+  });
+
+  /// Skips the file picker and opens zone placement for this PDF.
+  /// The Signature "+" button does not set these.
+  final File? initialPdf;
+  final String? initialFileName;
 
   @override
   State<SignaturesScreen> createState() => _SignaturesScreenState();
 }
 
 class _SignaturesScreenState extends State<SignaturesScreen> {
-  int _tabIndex = 0;
+  late int _tabIndex;
   final GlobalKey<SignatureDocumentsTabState> _documentsKey =
       GlobalKey<SignatureDocumentsTabState>();
+
+  @override
+  void initState() {
+    super.initState();
+    final file = widget.initialPdf;
+    final name = widget.initialFileName?.trim();
+    _tabIndex = file == null ? 0 : 1;
+    if (file != null && name != null && name.isNotEmpty) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _documentsKey.currentState?.startUploadWithFile(file, name);
+      });
+    }
+  }
 
   void _onFabPressed() {
     if (_tabIndex != 1) {
