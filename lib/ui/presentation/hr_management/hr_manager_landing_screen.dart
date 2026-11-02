@@ -21,8 +21,6 @@ import 'package:el_race/core/hr_management/hr_request_navigation.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:flutter_screenutil/flutter_screenutil.dart';
-import 'package:skeletonizer/skeletonizer.dart';
 
 enum _TeamSort { newest, oldest, byStatus, byType }
 
@@ -411,28 +409,26 @@ class _HrManagerLandingScreenState
     final teamAsync = ref.watch(hrTeamRequestListProvider);
 
     return HrRequestsGradientScaffold(
-      floatingActionButton: _tabController.index == 1
-          ? FloatingActionButton.extended(
-              onPressed: () {
-                Navigator.push<void>(
-                  context,
-                  MaterialPageRoute<void>(
-                    builder: (_) => const HrNewRequestPickerScreen(),
-                  ),
-                );
-              },
-              backgroundColor: HrModuleColors.primary,
-              foregroundColor: Colors.white,
-              icon: const Icon(Icons.add, color: Colors.white),
-              label: Text(
-                'New request',
-                style: HrModuleTypography.button().copyWith(
-                      fontSize: 14.tsp,
-                      color: Colors.white,
-                    ),
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: () {
+          Navigator.push<void>(
+            context,
+            MaterialPageRoute<void>(
+              builder: (_) => const HrNewRequestPickerScreen(),
+            ),
+          );
+        },
+        backgroundColor: HrModuleColors.primary,
+        foregroundColor: Colors.white,
+        icon: const Icon(Icons.add, color: Colors.white),
+        label: Text(
+          'New request',
+          style: HrModuleTypography.button().copyWith(
+                fontSize: 14.tsp,
+                color: Colors.white,
               ),
-            )
-          : null,
+        ),
+      ),
       body: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -659,7 +655,7 @@ class _HrManagerLandingScreenState
                       height: 24.tw,
                       child: const CircularProgressIndicator(strokeWidth: 2),
                     )
-                  : Icon(Icons.expand_more, color: HrModuleColors.primary),
+                  : const Icon(Icons.expand_more, color: HrModuleColors.primary),
               title: Text(
                 _queueLoadingMore ? 'Loading…' : 'See more',
                 style: HrModuleTypography.body().copyWith(
