@@ -7,6 +7,7 @@ import 'package:el_race/ui/presentation/Email%20Approval/bloc/approval_bloc.dart
 import 'package:el_race/ui/presentation/Email%20Approval/theme/approvals_overview_theme.dart';
 import 'package:el_race/ui/presentation/Email%20Approval/utils/hr_approval_display.dart';
 import 'package:el_race/ui/presentation/Email%20Approval/widgets/approval_action_buttons.dart';
+import 'package:el_race/ui/presentation/Email%20Approval/widgets/approval_amount_bar.dart';
 import 'package:el_race/ui/presentation/Email%20Approval/widgets/approval_rejected_banner.dart';
 import 'package:el_race/ui/presentation/my_actions/data/my_actions_models.dart';
 import 'package:el_race/ui/presentation/my_actions/theme/my_actions_module_theme.dart';
@@ -1575,14 +1576,24 @@ class _HrDetailsScreenState extends State<HrDetailsScreen> {
                   children: [
                     for (final item in visible)
                       SizedBox(
-                        width: item.fullWidth ? constraints.maxWidth : cellW,
-                        child: _themeDetailCell(
-                          item.label,
-                          item.value,
-                          highlight: _isDurationFieldLabel(item.label),
-                          padded: paddedCells,
-                          valueMaxLines: paddedCells ? 1 : (item.multiline ? 4 : 2),
-                        ),
+                        width: item.fullWidth ||
+                                approvalLabelIsAmount(item.label)
+                            ? constraints.maxWidth
+                            : cellW,
+                        child: approvalLabelIsAmount(item.label)
+                            ? ApprovalAmountBar(
+                                label: item.label,
+                                amount: item.value,
+                              )
+                            : _themeDetailCell(
+                                item.label,
+                                item.value,
+                                highlight: _isDurationFieldLabel(item.label),
+                                padded: paddedCells,
+                                valueMaxLines: paddedCells
+                                    ? 1
+                                    : (item.multiline ? 4 : 2),
+                              ),
                       ),
                   ],
                 );

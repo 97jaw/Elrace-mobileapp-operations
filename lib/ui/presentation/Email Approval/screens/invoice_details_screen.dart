@@ -8,6 +8,7 @@ import 'package:el_race/ui/presentation/Email%20Approval/theme/approvals_overvie
 import 'package:el_race/ui/presentation/Email%20Approval/utils/approval_display_helpers.dart';
 import 'package:el_race/ui/presentation/Email%20Approval/utils/invoice_approval_display.dart';
 import 'package:el_race/ui/presentation/Email%20Approval/widgets/approval_action_buttons.dart';
+import 'package:el_race/ui/presentation/Email%20Approval/widgets/approval_amount_bar.dart';
 import 'package:el_race/ui/presentation/Email%20Approval/widgets/approval_rejected_banner.dart';
 import 'package:el_race/ui/widgets/contextual_glass_chrome_header.dart';
 import 'package:el_race/ui/presentation/purchase_management/widgets/invoice_print_menu_button.dart';
@@ -849,52 +850,6 @@ class _InvoiceDetailsScreenState extends State<InvoiceDetailsScreen> {
     );
   }
 
-  Widget _invoiceAmountBar({
-    required String amount,
-    VoidCallback? onTapDoc,
-  }) {
-    return Container(
-      width: double.infinity,
-      padding: EdgeInsets.symmetric(horizontal: 12.tw, vertical: 12.th),
-      decoration: BoxDecoration(
-        color: const Color(0xFFFFE8E6),
-        borderRadius: BorderRadius.circular(14.tr),
-      ),
-      child: Row(
-        children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Invoice Amount',
-                  style: GoogleFonts.poppins(
-                    fontSize: 10.tsp,
-                    fontWeight: FontWeight.w500,
-                    color: const Color(0xFFB4534A),
-                  ),
-                ),
-                SizedBox(height: 2.th),
-                Text(
-                  _displayOrDash(amount),
-                  style: GoogleFonts.poppins(
-                    fontSize: 18.tsp,
-                    fontWeight: FontWeight.w800,
-                    color: const Color(0xFFD32F2F),
-                  ),
-                ),
-              ],
-            ),
-          ),
-          _docIconButton(
-            onTap: onTapDoc,
-            color: const Color(0xFFD32F2F),
-          ),
-        ],
-      ),
-    );
-  }
-
   Widget _invoiceRequestHeader({
     required String imageUrl,
     required String projectName,
@@ -1095,7 +1050,14 @@ class _InvoiceDetailsScreenState extends State<InvoiceDetailsScreen> {
             ],
           ),
           SizedBox(height: 10.th),
-          _invoiceAmountBar(amount: invoiceAmount, onTapDoc: onOpenDoc),
+          ApprovalAmountBar(
+            label: 'Invoice Amount',
+            amount: _displayOrDash(invoiceAmount),
+            trailing: _docIconButton(
+              onTap: onOpenDoc,
+              color: const Color(0xFFD32F2F),
+            ),
+          ),
         ],
       ),
     );

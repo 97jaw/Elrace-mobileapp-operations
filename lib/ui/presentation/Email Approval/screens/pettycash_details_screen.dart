@@ -7,6 +7,7 @@ import 'package:el_race/ui/presentation/Email%20Approval/theme/approvals_overvie
 import 'package:el_race/ui/presentation/Email%20Approval/utils/approval_display_helpers.dart';
 import 'package:el_race/ui/presentation/Email%20Approval/utils/petty_cash_expense_line_groups.dart';
 import 'package:el_race/ui/presentation/Email%20Approval/widgets/approval_action_buttons.dart';
+import 'package:el_race/ui/presentation/Email%20Approval/widgets/approval_amount_bar.dart';
 import 'package:el_race/ui/presentation/Email%20Approval/widgets/approval_rejected_banner.dart';
 import 'package:el_race/ui/presentation/Email%20Approval/widgets/petty_cash_expense_lines_popup.dart';
 import 'package:el_race/ui/presentation/my_documents/utils/document_attachment_opener.dart';
@@ -777,37 +778,9 @@ class _PettyCashDetailsScreenState extends State<PettyCashDetailsScreen> {
   }
 
   Widget _totalAmountCell({required String amount}) {
-    return Container(
-      width: double.infinity,
-      padding: EdgeInsets.symmetric(horizontal: 12.tw, vertical: 12.th),
-      decoration: BoxDecoration(
-        color: const Color(0xFFE8F5EE),
-        borderRadius: BorderRadius.circular(12.tr),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.85)),
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.center,
-        children: [
-          Expanded(
-            child: Text(
-              'Total Amount',
-              style: GoogleFonts.poppins(
-                fontSize: 10.tsp,
-                fontWeight: FontWeight.w500,
-                color: ApprovalsOverviewTheme.textSoft,
-              ),
-            ),
-          ),
-          Text(
-            _formatAmount(amount),
-            style: GoogleFonts.poppins(
-              fontSize: 13.tsp,
-              fontWeight: FontWeight.w700,
-              color: const Color(0xFF1B8A4B),
-            ),
-          ),
-        ],
-      ),
+    return ApprovalAmountBar(
+      label: 'Total Amount',
+      amount: _formatAmount(amount),
     );
   }
 
