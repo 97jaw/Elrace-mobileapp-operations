@@ -120,6 +120,11 @@ class SignatureDocumentsTabState extends State<SignatureDocumentsTab> {
 
   void startUpload() => _pickPdf();
 
+  /// Same screens as [startUpload] after the PDF is already chosen.
+  void startUploadWithFile(File file, String fileName) {
+    _showZonePickerThenChoose(file, fileName);
+  }
+
   void _onScroll() {
     if (!_scrollController.hasClients) return;
     final pos = _scrollController.position;
