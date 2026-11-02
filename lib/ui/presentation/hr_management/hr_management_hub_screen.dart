@@ -7,6 +7,8 @@ import 'package:el_race/core/theme/hr_module_layout.dart';
 import 'package:el_race/core/theme/hr_module_typography.dart';
 import 'package:el_race/core/widgets/hr_management/hr_module_glass_header.dart';
 import 'package:el_race/ui/presentation/circular_announcement/data/circular_announcement_api_service.dart';
+import 'package:el_race/core/utils/shared_pref.dart';
+import 'package:el_race/ui/presentation/hr_management/employees_profile_screen.dart';
 import 'package:el_race/ui/presentation/my_projects/presentation/utils/projects_dashboard_access.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -24,6 +26,25 @@ final hrCircularYearCountProvider =
   // Server without current_year_counters: count from the full list.
   return (await api.fetchCircularAnnouncements()).currentYearTotal;
 });
+
+void _openEmployeesProfile(BuildContext context, bool directory) {
+  if (directory) {
+    Navigator.of(context).pushNamed(HrRouteNames.employeesProfile);
+    return;
+  }
+  final id = SharedPref.getLoginData().result?.data?.employee_id;
+  if (id == null || id <= 0) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Your employee profile is not available.')),
+    );
+    return;
+  }
+  Navigator.of(context).push(
+    MaterialPageRoute<void>(
+      builder: (_) => EmployeesProfileScreen(initialEmployeeId: id),
+    ),
+  );
+}
 
 /// First screen inside HR Management — pick a service (hub pattern).
 class HrManagementHubScreen extends ConsumerWidget {
@@ -111,30 +132,28 @@ class HrManagementHubScreen extends ConsumerWidget {
                       Navigator.of(context).pushNamed(HrRouteNames.requests),
                 ),
               ),
-              if (canSeeEmployeesProfile) ...[
-                SizedBox(height: 8.th),
-                SizedBox(
-                  height: 110.th,
-                  child: _HubServiceTile(
-                    icon: Icons.badge_outlined,
-                    title: 'Employees Profile',
-                    subtitle:
-                        'Search staff by name or file id — instant results',
-                    bgGradient: const [
-                      Color(0xFF6E2A38),
-                      Color(0xFF8B2635),
-                      Color(0xFFA53D4C),
-                    ],
-                    titleGradient: const [
-                      Color(0xFFFFD6DD),
-                      Color(0xFFFFFFFF),
-                      Color(0xFFF5C2CC),
-                    ],
-                    onTap: () => Navigator.of(context)
-                        .pushNamed(HrRouteNames.employeesProfile),
-                  ),
+              SizedBox(height: 8.th),
+              SizedBox(
+                height: 110.th,
+                child: _HubServiceTile(
+                  icon: Icons.badge_outlined,
+                  title: 'Employees Profile',
+                  subtitle: canSeeEmployeesProfile
+                      ? 'Search staff by name or file id — instant results'
+                      : 'Your employee profile',
+                  bgGradient: const [
+                    Color(0xFF6E2A38),
+                    Color(0xFF8B2635),
+                    Color(0xFFA53D4C),
+                  ],
+                  titleGradient: const [
+                    Color(0xFFFFD6DD),
+                    Color(0xFFFFFFFF),
+                    Color(0xFFF5C2CC),
+                  ],
+                  onTap: () => _openEmployeesProfile(context, canSeeEmployeesProfile),
                 ),
-              ],
+              ),
               SizedBox(height: 8.th),
               SizedBox(
                 height: 110.th,

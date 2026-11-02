@@ -197,20 +197,32 @@ class _EmployeesProfileScreenState extends State<EmployeesProfileScreen> {
   String? _profileError;
   String _query = '';
 
+  /// Logged-in employee opened their own profile. No directory search.
+  bool _ownProfileOnly = false;
+
   static const int _maxSuggestions = 40;
 
   @override
   void initState() {
     super.initState();
     _searchController.addListener(_onQueryChanged);
-    if (!ProjectsDashboardAccess.canAccessEmployeesProfile()) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (!mounted) return;
-        HomeNavigation.handleSystemBack(context);
-      });
+    final directory = ProjectsDashboardAccess.canAccessEmployeesProfile();
+    final initialId = widget.initialEmployeeId;
+    if (!directory) {
+      if (initialId == null || initialId <= 0) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (!mounted) return;
+          HomeNavigation.handleSystemBack(context);
+        });
+        return;
+      }
+      _ownProfileOnly = true;
+      _selected = _SearchIndex(Employee(employeeId: initialId));
+      _profileLoading = true;
+      _loading = false;
+      _loadSelectedProfile(_selected!);
       return;
     }
-    final initialId = widget.initialEmployeeId;
     if (initialId != null && initialId > 0) {
       _selected = _SearchIndex(Employee(employeeId: initialId));
       _profileLoading = true;
@@ -343,7 +355,7 @@ class _EmployeesProfileScreenState extends State<EmployeesProfileScreen> {
 
   @override
   Widget build(BuildContext context) {
-    if (!ProjectsDashboardAccess.canAccessEmployeesProfile()) {
+    if (!ProjectsDashboardAccess.canAccessEmployeesProfile() && !_ownProfileOnly) {
       return HrModuleGlassShell(
         title: 'Employees Profile',
         accentTint: HrModuleHeaderTints.employeesProfile,
@@ -367,9 +379,9 @@ class _EmployeesProfileScreenState extends State<EmployeesProfileScreen> {
     return HrModuleGlassShell(
       title: 'Employees Profile',
       accentTint: HrModuleHeaderTints.employeesProfile,
-      onBack: _selected != null
-          ? _backToSearch
-          : () => HomeNavigation.handleSystemBack(context),
+      onBack: _ownProfileOnly || _selected == null
+          ? () => HomeNavigation.handleSystemBack(context)
+          : _backToSearch,
       background: const BoxDecoration(color: Colors.white),
       body: Material(
         color: Colors.white,
