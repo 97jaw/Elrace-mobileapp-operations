@@ -1,4 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:el_race/core/firebase/firebase_failure.dart';
 import 'package:el_race/core/firebase/firebase_session.dart';
 import 'package:el_race/core/utils/shared_pref.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -34,6 +35,15 @@ class FirebaseNotesRepository implements INotesRepository {
 
   Future<void> _ensureSignedIn() => FirebaseSession.instance.ensureSignedIn();
 
+  Exception _notesFailure(String fallback, Object error) {
+    return Exception(FirebaseFailure.surface(
+      fallback: fallback,
+      error: error,
+      step: 'notes',
+      path: 'users/${_auth.currentUser?.uid ?? ''}/notes',
+    ));
+  }
+
   CollectionReference<Map<String, dynamic>> get _notesCollection =>
       _firestore.collection('users').doc(_userId).collection('notes');
 
@@ -65,7 +75,7 @@ class FirebaseNotesRepository implements INotesRepository {
           snapshot.docs.map((doc) => NoteModel.fromFirestore(doc)).toList();
       return _applyClientFilter(notes, filter);
     } catch (e) {
-      throw Exception('Failed to fetch notes: $e');
+      throw _notesFailure('Failed to fetch notes', e);
     }
   }
 
@@ -122,7 +132,7 @@ class FirebaseNotesRepository implements INotesRepository {
       debugPrint('✅ FirebaseNotesRepository: note saved successfully');
     } catch (e) {
       debugPrint('❌ FirebaseNotesRepository: addNote failed: $e');
-      throw Exception('Failed to add note: $e');
+      throw _notesFailure('Failed to add note', e);
     }
   }
 
@@ -143,7 +153,7 @@ class FirebaseNotesRepository implements INotesRepository {
       await ref.update(toSave.toFirestore());
     } catch (e) {
       debugPrint('❌ FirebaseNotesRepository: updateNote failed: $e');
-      throw Exception('Failed to update note: $e');
+      throw _notesFailure('Failed to update note', e);
     }
   }
 

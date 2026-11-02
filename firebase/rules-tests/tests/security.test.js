@@ -14,12 +14,18 @@ import { readFileSync } from 'fs';
 import { dirname, resolve } from 'path';
 import { fileURLToPath } from 'url';
 import {
+  collection,
   doc,
   getDoc,
+  getDocs,
+  orderBy,
+  query,
   setDoc,
   updateDoc,
   deleteDoc,
+  serverTimestamp,
   Timestamp,
+  writeBatch,
 } from 'firebase/firestore';
 import {
   ref as dbRef,
@@ -56,17 +62,17 @@ before(async () => {
     firestore: {
       rules: readFileSync(resolve(root, 'firestore.rules'), 'utf8'),
       host: '127.0.0.1',
-      port: 8080,
+      port: Number(process.env.FIRESTORE_EMULATOR_PORT || 8080),
     },
     database: {
       rules: readFileSync(resolve(root, 'database.rules.json'), 'utf8'),
       host: '127.0.0.1',
-      port: 9000,
+      port: Number(process.env.DATABASE_EMULATOR_PORT || 9000),
     },
     storage: {
       rules: readFileSync(resolve(root, 'storage.rules'), 'utf8'),
       host: '127.0.0.1',
-      port: 9199,
+      port: Number(process.env.STORAGE_EMULATOR_PORT || 9199),
     },
   });
 });
@@ -458,7 +464,7 @@ describe('Firestore chat security', () => {
         media_url: null,
         media_path: null,
         thumb_url: null,
-        deleted_at: Timestamp.now(),
+        deleted_at: serverTimestamp(),
       }),
     );
   });
@@ -484,8 +490,8 @@ describe('Firestore chat security', () => {
   it('allows self member receipt timestamps and denies forged peer receipts', async () => {
     await assertSucceeds(
       updateDoc(doc(aliceFs(), 'chats', DM_AB, 'members', ALICE), {
-        last_read_at: Timestamp.now(),
-        last_delivered_at: Timestamp.now(),
+        last_read_at: serverTimestamp(),
+        last_delivered_at: serverTimestamp(),
       }),
     );
     await assertFails(
@@ -796,6 +802,243 @@ describe('Storage feature media security', () => {
         audioBytes,
         { contentType: 'audio/mp4' },
       ),
+    );
+  });
+});
+
+describe('permission-denied reproductions', () => {
+  const CAROL = 'odoo_300';
+  const NEW_DM = 'dm_odoo_100_odoo_300';
+  const NOTE_ID = 'note_owner_1';
+  const DOC_ID = 'sig_owner_1';
+
+  function messagePayload() {
+    return {
+      sender_id: ALICE,
+      type: 'text',
+      text: 'hi',
+      created_at: Timestamp.now(),
+    };
+  }
+
+  it('allows a new DM chat and both member docs in one batch', async () => {
+    const db = aliceFs();
+    const batch = writeBatch(db);
+    batch.set(doc(db, 'chats', NEW_DM), {
+      type: 'dm',
+      dm_pair: [ALICE, CAROL],
+      member_ids: [ALICE, CAROL],
+      created_at: Timestamp.now(),
+      updated_at: Timestamp.now(),
+    });
+    batch.set(doc(db, 'chats', NEW_DM, 'members', ALICE), {
+      joined_at: Timestamp.now(),
+    });
+    batch.set(doc(db, 'chats', NEW_DM, 'members', CAROL), {
+      joined_at: Timestamp.now(),
+    });
+    await assertSucceeds(batch.commit());
+  });
+
+  it('denies a new-DM batch that elevates admin or names a non-peer', async () => {
+    const elevatedDb = aliceFs();
+    const elevated = writeBatch(elevatedDb);
+    elevated.set(doc(elevatedDb, 'chats', NEW_DM), {
+      type: 'dm',
+      dm_pair: [ALICE, CAROL],
+      member_ids: [ALICE, CAROL],
+    });
+    elevated.set(doc(elevatedDb, 'chats', NEW_DM, 'members', ALICE), {
+      joined_at: Timestamp.now(),
+      is_admin: true,
+    });
+    await assertFails(elevated.commit());
+
+    const stranger = 'dm_odoo_100_odoo_999';
+    const outsiderDb = aliceFs();
+    const outsider = writeBatch(outsiderDb);
+    outsider.set(doc(outsiderDb, 'chats', stranger), {
+      type: 'dm',
+      dm_pair: [ALICE, EVE],
+      member_ids: [ALICE, EVE],
+    });
+    outsider.set(doc(outsiderDb, 'chats', stranger, 'members', CAROL), {
+      joined_at: Timestamp.now(),
+    });
+    await assertFails(outsider.commit());
+  });
+
+  it('allows a message when the sender is in dm_pair but not member_ids', async () => {
+    const chatId = 'dm_odoo_100_odoo_400';
+    await testEnv.withSecurityRulesDisabled(async (ctx) => {
+      await setDoc(doc(ctx.firestore(), 'chats', chatId), {
+        type: 'dm',
+        dm_pair: [ALICE, 'odoo_400'],
+        member_ids: ['odoo_400'],
+      });
+    });
+    await assertSucceeds(
+      setDoc(doc(aliceFs(), 'chats', chatId, 'messages', 'm_pair'), messagePayload()),
+    );
+    await assertFails(
+      setDoc(doc(eveFs(), 'chats', chatId, 'messages', 'm_eve'), {
+        ...messagePayload(),
+        sender_id: EVE,
+      }),
+    );
+  });
+
+  it('allows a message when members/{uid} exists but member_ids omits the sender', async () => {
+    const chatId = 'dm_odoo_200_odoo_100';
+    await testEnv.withSecurityRulesDisabled(async (ctx) => {
+      const db = ctx.firestore();
+      await setDoc(doc(db, 'chats', chatId), {
+        type: 'dm',
+        dm_pair: [BOB, CAROL],
+        member_ids: [BOB],
+      });
+      await setDoc(doc(db, 'chats', chatId, 'members', ALICE), {
+        joined_at: Timestamp.now(),
+      });
+    });
+    await assertSucceeds(
+      setDoc(doc(aliceFs(), 'chats', chatId, 'messages', 'm_mem'), messagePayload()),
+    );
+  });
+
+  it('allows the owner to write and read notes in Firestore and Storage', async () => {
+    const noteRef = doc(aliceFs(), 'users', ALICE, 'notes', NOTE_ID);
+    await assertSucceeds(
+      setDoc(noteRef, {
+        ownerId: ALICE,
+        text: 'site note',
+        updatedAt: Timestamp.now(),
+      }),
+    );
+    await assertSucceeds(getDoc(noteRef));
+    await assertSucceeds(
+      getDocs(
+        query(
+          collection(aliceFs(), 'users', ALICE, 'notes'),
+          orderBy('updatedAt', 'desc'),
+        ),
+      ),
+    );
+
+    const audioPath = `chat_media/notes/${ALICE}/${NOTE_ID}/audio.m4a`;
+    const alice = testEnv.authenticatedContext(ALICE, ALICE_CLAIMS).storage();
+    await assertSucceeds(
+      uploadBytes(storageRef(alice, audioPath), Buffer.from('m4a'), {
+        contentType: 'audio/mp4',
+      }),
+    );
+    await assertSucceeds(getBytes(storageRef(alice, audioPath)));
+    await assertFails(
+      getBytes(
+        storageRef(
+          testEnv.authenticatedContext(BOB, BOB_CLAIMS).storage(),
+          audioPath,
+        ),
+      ),
+    );
+  });
+
+  it('allows a signable_doc that includes page_count and sign_expires_in_days', async () => {
+    await assertSucceeds(
+      setDoc(doc(aliceFs(), 'chats', DM_AB, 'messages', 'sig_keys'), {
+        sender_id: ALICE,
+        type: 'signable_doc',
+        text: 'please sign',
+        created_at: Timestamp.now(),
+        client_msg_id: 'sig-1',
+        status: 'sent',
+        file_name: 'contract.pdf',
+        mime_type: 'application/pdf',
+        page_count: 3,
+        sign_expires_in_days: 7,
+        sign_status: 'pending',
+        signer_uids: [BOB],
+        current_signer_uid: BOB,
+      }),
+    );
+  });
+
+  it('allows a text message created 10 minutes off the server clock', async () => {
+    const past = Timestamp.fromMillis(Date.now() - 10 * 60 * 1000);
+    const future = Timestamp.fromMillis(Date.now() + 10 * 60 * 1000);
+    await assertSucceeds(
+      setDoc(doc(aliceFs(), 'chats', DM_AB, 'messages', 'skew_past'), {
+        sender_id: ALICE,
+        type: 'text',
+        text: 'past',
+        created_at: past,
+      }),
+    );
+    await assertSucceeds(
+      setDoc(doc(aliceFs(), 'chats', DM_AB, 'messages', 'skew_future'), {
+        sender_id: ALICE,
+        type: 'text',
+        text: 'future',
+        created_at: future,
+      }),
+    );
+  });
+
+  it('allows a text message whose created_at is the server timestamp', async () => {
+    await assertSucceeds(
+      setDoc(doc(aliceFs(), 'chats', DM_AB, 'messages', 'server_now'), {
+        sender_id: ALICE,
+        type: 'text',
+        text: 'now',
+        created_at: serverTimestamp(),
+      }),
+    );
+  });
+
+  it('still denies an unknown message key and a non-member write', async () => {
+    await assertFails(
+      setDoc(doc(aliceFs(), 'chats', DM_AB, 'messages', 'unknown_key'), {
+        sender_id: ALICE,
+        type: 'text',
+        text: 'no',
+        created_at: Timestamp.now(),
+        not_a_message_field: true,
+      }),
+    );
+    await assertFails(
+      setDoc(doc(eveFs(), 'chats', DM_AB, 'messages', 'outsider'), {
+        sender_id: EVE,
+        type: 'text',
+        text: 'no',
+        created_at: Timestamp.now(),
+      }),
+    );
+  });
+
+  it('allows the owner to save a signature document and upload its PDF', async () => {
+    const docRef = doc(aliceFs(), 'users', ALICE, 'signature_documents', DOC_ID);
+    await assertSucceeds(
+      setDoc(docRef, {
+        owner_uid: ALICE,
+        file_name: 'contract.pdf',
+        status: 'pending_self',
+        created_at: Timestamp.now(),
+      }),
+    );
+    await assertSucceeds(getDoc(docRef));
+
+    const path = `chat_media/signature_docs/${ALICE}/${DOC_ID}/original_contract.pdf`;
+    const alice = testEnv.authenticatedContext(ALICE, ALICE_CLAIMS).storage();
+    await assertSucceeds(
+      uploadBytes(storageRef(alice, path), Buffer.from('%PDF-1.4'), {
+        contentType: 'application/pdf',
+      }),
+    );
+    await assertFails(
+      setDoc(doc(bobFs(), 'users', ALICE, 'signature_documents', 'stolen'), {
+        owner_uid: BOB,
+        file_name: 'stolen.pdf',
+      }),
     );
   });
 });

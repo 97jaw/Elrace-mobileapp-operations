@@ -8,6 +8,7 @@ import 'package:firebase_storage/firebase_storage.dart';
 import 'package:path/path.dart' as p;
 import 'package:uuid/uuid.dart';
 
+import '../../core/firebase/firebase_failure.dart';
 import '../../core/firebase/firebase_session.dart';
 import '../models/models.dart';
 import '../services/chat_notification_service.dart';
@@ -55,6 +56,21 @@ class ChatRepository {
 
   /// Create or get an existing DM chat between two users.
   /// Returns the chat ID.
+  /// `null` when the doc is missing or the read is denied.
+  ///
+  /// Rules reject `get` on a document that does not exist, because `resource`
+  /// is null. That denial is the "create" case, not a failure.
+  Future<DocumentSnapshot<Map<String, dynamic>>?> _readIfAllowed(
+    DocumentReference<Map<String, dynamic>> ref,
+  ) async {
+    try {
+      return await ref.get();
+    } on FirebaseException catch (e) {
+      if (e.code == 'permission-denied') return null;
+      rethrow;
+    }
+  }
+
   Future<String> createOrGetDmChat({
     required String otherUid,
     required String otherName,
@@ -78,47 +94,42 @@ class ChatRepository {
 
     try {
       final batch = _firestore.batch();
-
-      // Create/update chat document
       final chatRef = _chatsCollection.doc(chatId);
-      batch.set(
-          chatRef,
-          {
-            'type': 'dm',
-            'dm_pair': isSelfChat ? [currentUid, currentUid] : dmPair,
-            'member_ids': FieldValue.arrayUnion(
-                isSelfChat ? [currentUid] : dmPair.toSet().toList()),
-            'created_at': FieldValue.serverTimestamp(),
-            'updated_at': FieldValue.serverTimestamp(),
-          },
-          SetOptions(merge: true));
+      final chatSnap = await _readIfAllowed(chatRef);
+      var pendingWrites = false;
 
-      // Create member documents for both users (one write for self-chat)
-      final currentMemberRef = chatRef.collection('members').doc(currentUid);
-      batch.set(
-          currentMemberRef,
-          {
-            'joined_at': FieldValue.serverTimestamp(),
-            'role_id_snapshot': currentUserRoleId,
-            'branch_id_snapshot': currentUserBranchId,
-            'company_id_snapshot': currentUserCompanyId,
-            'muted': false,
-          },
-          SetOptions(merge: true));
-
-      if (!isSelfChat) {
-        final otherMemberRef = chatRef.collection('members').doc(otherUid);
-        batch.set(
-            otherMemberRef,
-            {
-              'joined_at': FieldValue.serverTimestamp(),
-              'role_id_snapshot': otherRoleId,
-              'branch_id_snapshot': otherBranchId,
-              'company_id_snapshot': otherCompanyId,
-              'muted': false,
-            },
-            SetOptions(merge: true));
+      // created_at is set only when the chat doc is first created.
+      // A missing doc cannot be read (resource is null), so a denied get
+      // means "not visible yet" and is treated as create.
+      if (chatSnap == null || !chatSnap.exists) {
+        pendingWrites = true;
+        batch.set(chatRef, {
+          'type': 'dm',
+          'dm_pair': isSelfChat ? [currentUid, currentUid] : dmPair,
+          'member_ids': isSelfChat ? [currentUid] : dmPair.toSet().toList(),
+          'created_at': FieldValue.serverTimestamp(),
+          'updated_at': FieldValue.serverTimestamp(),
+        });
       }
+
+      // Member docs are created only when missing, and only with joined_at.
+      // Never write the other user's muted (or any mute flag) here.
+      Future<void> createMemberIfMissing(String memberUid) async {
+        final memberRef = chatRef.collection('members').doc(memberUid);
+        final memberSnap = await _readIfAllowed(memberRef);
+        if (memberSnap != null && memberSnap.exists) return;
+        pendingWrites = true;
+        batch.set(memberRef, {
+          'joined_at': FieldValue.serverTimestamp(),
+        });
+      }
+
+      await createMemberIfMissing(currentUid);
+      if (!isSelfChat) {
+        await createMemberIfMissing(otherUid);
+      }
+
+      if (!pendingWrites) return chatId;
 
       // NOTE: userChats entries are NOT created here.
       // They will be created when the first message is sent
@@ -131,7 +142,13 @@ class ChatRepository {
       return chatId;
     } catch (e) {
       print('❌ ChatRepository: Error creating DM chat: $e');
-      rethrow;
+      if (e is FirebaseFailure) rethrow;
+      throw FirebaseFailure(
+        step: 'chat create',
+        path: 'chats/$chatId',
+        tokenRefreshed: FirebaseSession.instance.lastTokenRefreshed,
+        cause: e,
+      );
     }
   }
 
@@ -1108,7 +1125,13 @@ class ChatRepository {
       return message.copyWith(status: MessageStatus.sent);
     } catch (e) {
       print('❌ ChatRepository: Error sending text message: $e');
-      rethrow;
+      if (e is FirebaseFailure) rethrow;
+      throw FirebaseFailure(
+        step: 'message',
+        path: 'chats/$chatId/messages',
+        tokenRefreshed: FirebaseSession.instance.lastTokenRefreshed,
+        cause: e,
+      );
     }
   }
 
@@ -1881,10 +1904,22 @@ class ChatRepository {
       print('   Plugin: ${e.plugin}');
       print('   Storage bucket: ${_storage.bucket}');
       print('   Path attempted: $storagePath');
-      rethrow;
+      final storage = e.plugin == 'firebase_storage';
+      throw FirebaseFailure(
+        step: storage ? 'storage upload' : 'message',
+        path: storage ? storagePath : 'chats/$chatId/messages',
+        tokenRefreshed: FirebaseSession.instance.lastTokenRefreshed,
+        cause: e,
+      );
     } catch (e) {
       print('❌ ChatRepository: Error sending media: $e');
-      rethrow;
+      if (e is FirebaseFailure) rethrow;
+      throw FirebaseFailure(
+        step: 'message',
+        path: 'chats/$chatId/messages',
+        tokenRefreshed: FirebaseSession.instance.lastTokenRefreshed,
+        cause: e,
+      );
     }
   }
 
