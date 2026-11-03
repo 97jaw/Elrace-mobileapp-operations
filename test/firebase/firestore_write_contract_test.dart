@@ -132,6 +132,7 @@ Message _fullMessage(MessageType type, DateTime now) {
     currentSignerIndex: 0,
     currentSignerUid: 'odoo_200',
     signatureDocumentId: 'doc-1',
+    timesheetMode: true,
   );
 }
 
@@ -157,6 +158,7 @@ SignatureDocument _fullSignature(DateTime now) {
     signedAt: now,
     signedBy: 'odoo_200',
     stampNeeded: true,
+    timesheetMode: true,
   );
 }
 
