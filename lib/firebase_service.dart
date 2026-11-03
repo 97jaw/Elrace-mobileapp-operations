@@ -8,7 +8,9 @@ import 'package:el_race/core/notifications/notification_device_service.dart';
 import 'package:el_race/core/notifications/notification_inbox_repository.dart';
 import 'package:el_race/core/notifications/notification_payload.dart';
 import 'package:el_race/core/notifications/notification_router.dart';
+import 'package:el_race/core/services/approval_count_service.dart';
 import 'package:el_race/core/services/attendance_status_sync_service.dart';
+import 'package:el_race/core/services/badge_refresh_service.dart';
 import 'package:el_race/core/services/incoming_share_service.dart';
 import 'package:el_race/core/services/notification_storage_service.dart';
 import 'package:el_race/core/utils/shared_pref.dart';
@@ -187,6 +189,13 @@ class FirebaseService {
       } else if (message.data.containsKey('model')) {
         category = message.data['model'].toString();
       }
+
+      // Waiting / timesheet approval: refresh home counters even if muted
+      // (banner may be suppressed; badges still need to move).
+      await _refreshApprovalBadgesFromPushIfNeeded(
+        message,
+        category: category,
+      );
 
       final muted = await NotificationStorageService.shouldMuteNotification(
         category: category,
@@ -752,6 +761,24 @@ class FirebaseService {
 
     await AttendanceStatusSyncService.refreshFromServer(
       reason: 'push_$source',
+    );
+  }
+
+  /// Odoo waiting + timesheet approval pushes: invalidate Odoo cache and
+  /// refresh waiting/bell (throttled).
+  static Future<void> _refreshApprovalBadgesFromPushIfNeeded(
+    RemoteMessage message, {
+    required String category,
+  }) async {
+    if (!BadgeRefreshService.isApprovalBadgePush(
+      category: category,
+      data: message.data,
+    )) {
+      return;
+    }
+    ApprovalCountService.invalidateCache();
+    await BadgeRefreshService.refreshWaitingAndBellThrottled(
+      reason: 'approval_push',
     );
   }
 
