@@ -202,6 +202,31 @@
       "timesheet_mode",
       "updated_at"
     ],
+    "timesheet_approvals": [
+      "approver_uids",
+      "approvers",
+      "cells",
+      "created_at",
+      "file_name",
+      "owner_name",
+      "owner_uid",
+      "page_count",
+      "pdf_path",
+      "pending_uids",
+      "project_id",
+      "project_name",
+      "status",
+      "updated_at"
+    ],
+    "timesheet_approvals_update": [
+      "approvers",
+      "pending_uids",
+      "status",
+      "updated_at"
+    ],
+    "app_notifications_update": [
+      "read"
+    ],
     "notes": [
       "actionItems",
       "aiBulletPoints",

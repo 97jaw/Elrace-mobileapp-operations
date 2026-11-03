@@ -5,6 +5,7 @@ import 'package:el_race/chat/models/chat.dart';
 import 'package:el_race/chat/models/chat_member.dart';
 import 'package:el_race/chat/models/message.dart';
 import 'package:el_race/chat/models/user_chat.dart';
+import 'package:el_race/core/timesheet/models/timesheet_approval.dart';
 import 'package:el_race/ui/presentation/my_actions/data/models/signature_document.dart';
 import 'package:el_race/ui/presentation/my_notes/data/note_model.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -84,6 +85,14 @@ Map<String, dynamic> _contractKeys() {
   return {
     'messages': messages,
     'signature_documents': _keys(_fullSignature(now).toFirestore()),
+    'timesheet_approvals': _keys(_fullTimesheetApproval(now).toFirestore()),
+    'timesheet_approvals_update': const [
+      'approvers',
+      'pending_uids',
+      'status',
+      'updated_at',
+    ],
+    'app_notifications_update': const ['read'],
     'notes': _keys(_fullNote(now).toFirestore()),
     'userChats': _keys(_fullUserChat(now).toFirestore()),
     'members': _keys(_fullMember(now).toFirestore()),
@@ -133,6 +142,54 @@ Message _fullMessage(MessageType type, DateTime now) {
     currentSignerUid: 'odoo_200',
     signatureDocumentId: 'doc-1',
     timesheetMode: true,
+  );
+}
+
+TimesheetApproval _fullTimesheetApproval(DateTime now) {
+  return TimesheetApproval(
+    id: 'ta-1',
+    ownerUid: 'odoo_100',
+    ownerName: 'Alice',
+    fileName: 'timesheet.pdf',
+    projectId: '42',
+    projectName: 'Site A',
+    pageCount: 3,
+    pdfPath: 'timesheet_approvals/odoo_100/ta-1/original.pdf',
+    approvers: {
+      'odoo_200': const TimesheetApproverEntry(
+        role: TimesheetApproverRole.siteEngineer,
+        name: 'Bob',
+        status: TimesheetApproverStatus.pending,
+      ),
+      'odoo_300': const TimesheetApproverEntry(
+        role: TimesheetApproverRole.projectsManager,
+        name: 'Carol',
+        status: TimesheetApproverStatus.pending,
+      ),
+    },
+    approverUids: const ['odoo_200', 'odoo_300'],
+    pendingUids: const ['odoo_200', 'odoo_300'],
+    status: TimesheetApprovalStatus.pending,
+    cells: const [
+      TimesheetApprovalCell(
+        page: 0,
+        role: TimesheetApproverRole.siteEngineer,
+        x: 0.1,
+        y: 0.7,
+        width: 0.3,
+        height: 0.08,
+      ),
+      TimesheetApprovalCell(
+        page: 0,
+        role: TimesheetApproverRole.projectsManager,
+        x: 0.5,
+        y: 0.7,
+        width: 0.3,
+        height: 0.08,
+      ),
+    ],
+    createdAt: now,
+    updatedAt: now,
   );
 }
 
