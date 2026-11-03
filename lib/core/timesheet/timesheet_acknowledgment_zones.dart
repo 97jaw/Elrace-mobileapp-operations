@@ -22,18 +22,6 @@ class TimesheetAckCell {
   final SignZone zone;
 }
 
-/// Blocks Send when one signee is chosen and a Projects Manager box is still
-/// on the sheet. Returns null when sending is allowed.
-String? timesheetOneSigneeBlock({
-  required int recipientCount,
-  required bool projectsManagerBoxRemains,
-}) {
-  if (recipientCount == 1 && projectsManagerBoxRemains) {
-    return 'Select Site Engineer and Projects Manager';
-  }
-  return null;
-}
-
 /// Finds the four acknowledgment cells on every page of a printed timesheet.
 ///
 /// Employee and Supervisor/Foreman are signer slot 0 (the foreman).

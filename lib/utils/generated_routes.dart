@@ -251,6 +251,7 @@ class OnGeneratedRoutes {
         );
       case TimesheetRouteNames.home:
         return CupertinoPageRoute(
+          settings: settings,
           builder: (_) => const TimesheetEntryModeScope(
             mode: TimesheetEntryMode.timesheet,
             child: TimesheetModuleHomeScreen(),

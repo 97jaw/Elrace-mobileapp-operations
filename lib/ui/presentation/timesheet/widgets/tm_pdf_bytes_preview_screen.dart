@@ -1,12 +1,22 @@
+import 'dart:io';
 import 'dart:typed_data';
 
+import 'package:el_race/chat/models/chat_user.dart';
+import 'package:el_race/chat/repositories/user_repository.dart';
 import 'package:el_race/core/theme/timesheet_module_theme.dart';
+import 'package:el_race/core/timesheet/models/timesheet_approval.dart';
+import 'package:el_race/core/timesheet/repositories/timesheet_approval_repository.dart';
+import 'package:el_race/core/timesheet/routing/timesheet_route_names.dart';
+import 'package:el_race/core/timesheet/services/timesheet_approval_feature.dart';
 import 'package:el_race/core/widgets/timesheet/tm_module_glass_header.dart';
-import 'package:el_race/ui/presentation/my_actions/screens/signatures_screen.dart';
+import 'package:el_race/ui/chat/screens/sign_zone_picker_screen.dart';
+import 'package:el_race/ui/presentation/my_actions/screens/signature/recipient_picker_screen.dart';
 import 'package:el_race/ui/presentation/timesheet/timesheet_async_state.dart';
 import 'package:el_race/ui/presentation/timesheet/widgets/tm_share_pdf_sheet.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_pdfview/flutter_pdfview.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:phosphor_flutter/phosphor_flutter.dart';
 
 /// Writes PDF bytes to a temp file and shows them with [PDFView] (stable on iOS).
@@ -122,13 +132,14 @@ class _TmPdfFileViewerState extends State<TmPdfFileViewer> {
 }
 
 /// Full-screen timesheet / generated PDF preview.
-class TmPdfBytesPreviewScreen extends StatefulWidget {
+class TmPdfBytesPreviewScreen extends ConsumerStatefulWidget {
   const TmPdfBytesPreviewScreen({
     super.key,
     required this.pdfBytes,
     required this.title,
     this.projectId,
     this.projectName,
+    this.allowSignTimesheet = true,
   });
 
   final Uint8List pdfBytes;
@@ -136,12 +147,16 @@ class TmPdfBytesPreviewScreen extends StatefulWidget {
   final String? projectId;
   final String? projectName;
 
+  /// When false (e.g. Timesheet documents viewer), hide Sign Timesheet.
+  final bool allowSignTimesheet;
+
   @override
-  State<TmPdfBytesPreviewScreen> createState() =>
+  ConsumerState<TmPdfBytesPreviewScreen> createState() =>
       _TmPdfBytesPreviewScreenState();
 }
 
-class _TmPdfBytesPreviewScreenState extends State<TmPdfBytesPreviewScreen> {
+class _TmPdfBytesPreviewScreenState
+    extends ConsumerState<TmPdfBytesPreviewScreen> {
   bool _openingSign = false;
 
   String get _fileName {
@@ -175,22 +190,107 @@ class _TmPdfBytesPreviewScreenState extends State<TmPdfBytesPreviewScreen> {
         _fileName,
       );
       if (!mounted) return;
-      await Navigator.of(context).push<void>(
+
+      final pickerResult = await Navigator.of(context).push<Map<String, dynamic>>(
         MaterialPageRoute(
-          builder: (_) => SignaturesScreen(
-            initialPdf: file,
-            initialFileName: _fileName,
+          builder: (_) => SignZonePickerScreen(
+            pdfFile: file,
+            fileName: _fileName,
             timesheetMode: true,
           ),
         ),
+      );
+      if (pickerResult == null || !mounted) return;
+
+      final signedBytes = pickerResult['pdfBytes'];
+      final approvalCells = pickerResult['approvalCells'];
+      final pageCount = pickerResult['pageCount'] as int? ?? 0;
+      if (signedBytes is! Uint8List) return;
+      final cells = approvalCells is List<TimesheetApprovalCell>
+          ? approvalCells
+          : const <TimesheetApprovalCell>[];
+
+      final recipients = await Navigator.of(context).push<List<ChatUser>>(
+        MaterialPageRoute(
+          builder: (_) => const RecipientPickerScreen(
+            stampNeeded: true,
+            maxSignees: 2,
+            blockCurrentUser: true,
+          ),
+        ),
+      );
+      if (recipients == null || recipients.isEmpty || !mounted) return;
+
+      await _uploadApproval(
+        signedBytes: signedBytes,
+        cells: cells,
+        pageCount: pageCount,
+        recipients: recipients,
       );
     } finally {
       if (mounted) setState(() => _openingSign = false);
     }
   }
 
+  Future<void> _uploadApproval({
+    required Uint8List signedBytes,
+    required List<TimesheetApprovalCell> cells,
+    required int pageCount,
+    required List<ChatUser> recipients,
+  }) async {
+    showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => const PopScope(
+        canPop: false,
+        child: Center(child: CircularProgressIndicator()),
+      ),
+    );
+
+    try {
+      final temp = await TmSharePdfSheet.writeTempFile(signedBytes, _fileName);
+      final uid = FirebaseAuth.instance.currentUser?.uid;
+      final me = uid != null ? await UserRepository.instance.getUser(uid) : null;
+      await TimesheetApprovalRepository.instance.create(
+        pdfFile: File(temp.path),
+        fileName: _fileName,
+        ownerName: me?.name ?? 'User',
+        projectId: widget.projectId ?? '',
+        projectName: widget.projectName ?? '',
+        pageCount: pageCount,
+        recipients: [
+          for (final user in recipients) (uid: user.uid, name: user.name),
+        ],
+        cells: cells,
+      );
+      if (!mounted) return;
+      Navigator.of(context).pop(); // progress
+
+      final names = recipients.map((u) => u.name).toList();
+      final snack = names.length >= 2
+          ? 'Sent to ${names[0]} & ${names[1]}'
+          : 'Sent to ${names.first}';
+      final messenger = ScaffoldMessenger.of(context);
+      Navigator.of(context).popUntil(
+        (route) =>
+            route.settings.name == TimesheetRouteNames.home || route.isFirst,
+      );
+      messenger.showSnackBar(SnackBar(content: Text(snack)));
+    } catch (e) {
+      if (!mounted) return;
+      Navigator.of(context).pop(); // progress
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Could not send: $e')),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
+    final flagAsync = ref.watch(timesheetApprovalEnabledProvider);
+    final showSign =
+        widget.allowSignTimesheet && (flagAsync.asData?.value ?? false);
+
     return Scaffold(
       backgroundColor: TimesheetModuleColors.bgGradientEnd,
       body: Column(
@@ -215,13 +315,14 @@ class _TmPdfBytesPreviewScreenState extends State<TmPdfBytesPreviewScreen> {
                     onTap: _download,
                   ),
                 ),
-                Expanded(
-                  child: _PdfActionButton(
-                    icon: PhosphorIcons.signature(),
-                    label: 'Sign Timesheet',
-                    onTap: _openingSign ? null : _signTimesheet,
+                if (showSign)
+                  Expanded(
+                    child: _PdfActionButton(
+                      icon: PhosphorIcons.signature(),
+                      label: 'Sign Timesheet',
+                      onTap: _openingSign ? null : _signTimesheet,
+                    ),
                   ),
-                ),
               ],
             ),
           ),

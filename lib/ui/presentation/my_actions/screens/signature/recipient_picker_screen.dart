@@ -5,7 +5,6 @@ import 'package:el_race/core/utils/shared_pref.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
-import '../../../../../core/timesheet/timesheet_acknowledgment_zones.dart';
 import '../../../../../chat/models/chat_user.dart';
 import '../../../../../chat/repositories/user_repository.dart';
 import '../../data/user_stamp_assets.dart';
@@ -24,14 +23,14 @@ class RecipientPickerScreen extends StatefulWidget {
   /// Timesheet mode caps the list at 2. Null keeps the normal single select.
   final int? maxSignees;
 
-  /// When true, Done with exactly one person is refused.
-  final bool requireProjectsManager;
+  /// When true (timesheet approval), the foreman cannot pick themself.
+  final bool blockCurrentUser;
 
   const RecipientPickerScreen({
     super.key,
     this.stampNeeded = false,
     this.maxSignees,
-    this.requireProjectsManager = false,
+    this.blockCurrentUser = false,
   });
 
   @override
@@ -183,6 +182,14 @@ class _RecipientPickerScreenState extends State<RecipientPickerScreen> {
   void _toggle(ChatUser user) {
     final idx = _selected.indexWhere((u) => u.uid == user.uid);
     if (idx < 0) {
+      if (widget.blockCurrentUser && _isMe(user)) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('You cannot pick yourself as an approver'),
+          ),
+        );
+        return;
+      }
       final max = widget.maxSignees;
       if (max != null && _selected.length >= max) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -205,14 +212,6 @@ class _RecipientPickerScreenState extends State<RecipientPickerScreen> {
   }
 
   void _done() {
-    final block = timesheetOneSigneeBlock(
-      recipientCount: _selected.length,
-      projectsManagerBoxRemains: widget.requireProjectsManager,
-    );
-    if (block != null) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(block)));
-      return;
-    }
     Navigator.pop(context, List<ChatUser>.from(_selected));
   }
 

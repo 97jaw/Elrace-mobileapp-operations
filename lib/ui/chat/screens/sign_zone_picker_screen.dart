@@ -6,6 +6,7 @@ import 'package:flutter_pdfview/flutter_pdfview.dart';
 import 'package:syncfusion_flutter_pdf/pdf.dart';
 
 import '../../../chat/models/message.dart';
+import '../../../core/timesheet/models/timesheet_approval.dart';
 import '../../../core/timesheet/timesheet_acknowledgment_zones.dart';
 import '../theme/chat_glass_theme.dart';
 import 'sign_document_screen.dart';
@@ -105,7 +106,12 @@ class _SignZonePickerScreenState extends State<SignZonePickerScreen> {
 
       if (widget.timesheetMode) {
         _cells = findTimesheetAcknowledgmentCells(bytes);
-        _signZones.addAll(_cells.map((cell) => cell.zone));
+        // Only Employee / Supervisor boxes are interactive; SE/PM stay as data.
+        _signZones.addAll(
+          _cells
+              .where((cell) => cell.zone.isForemanCell)
+              .map((cell) => cell.zone),
+        );
       }
 
       if (mounted) {
@@ -287,6 +293,8 @@ class _SignZonePickerScreenState extends State<SignZonePickerScreen> {
   TimesheetAckCell? _cellAt(Offset point, Rect pageRect) {
     for (final cell in _cells.reversed) {
       if (cell.page != _currentPage) continue;
+      // Timesheet mode: only Employee / Supervisor cells are snappable boxes.
+      if (widget.timesheetMode && !cell.zone.isForemanCell) continue;
       final zone = cell.zone;
       final rect = Rect.fromLTWH(
         pageRect.left + (zone.x * pageRect.width),
@@ -309,6 +317,15 @@ class _SignZonePickerScreenState extends State<SignZonePickerScreen> {
   }
 
   void _snapCell(TimesheetAckCell cell) {
+    if (widget.timesheetMode) {
+      if (!cell.zone.isForemanCell) return;
+      if (_cellOccupied(cell, SignZoneType.signature)) return;
+      setState(() {
+        _signZones.add(cell.zone);
+        _selectedZoneIndex = _signZones.length - 1;
+      });
+      return;
+    }
     if (_activeTool == SignZoneType.stamp && cell.zone.signerSlot == 0) {
       _showLimitSnack(
         'Place the stamp on a Site Engineer or Projects Manager cell',
@@ -331,6 +348,19 @@ class _SignZonePickerScreenState extends State<SignZonePickerScreen> {
       _selectedZoneIndex = _signZones.length - 1;
     });
   }
+
+  List<TimesheetApprovalCell> get _approvalCellsForReturn => [
+        for (final cell in _cells)
+          if (cell.role == 'site_engineer' || cell.role == 'projects_manager')
+            TimesheetApprovalCell(
+              page: cell.page,
+              role: TimesheetApproverRole.fromString(cell.role),
+              x: cell.zone.x,
+              y: cell.zone.y,
+              width: cell.zone.width,
+              height: cell.zone.height,
+            ),
+      ];
 
   Future<void> _signForemanZone(int index) async {
     if (index < 0 || index >= _signZones.length) return;
@@ -360,7 +390,8 @@ class _SignZonePickerScreenState extends State<SignZonePickerScreen> {
   }
 
   void _confirm() {
-    if (_signZones.isEmpty) {
+    // Timesheet Send is always enabled (no zone condition).
+    if (!widget.timesheetMode && _signZones.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Please add at least one sign or stamp zone'),
@@ -375,6 +406,7 @@ class _SignZonePickerScreenState extends State<SignZonePickerScreen> {
       'pageCount': _pageCount,
       'stampNeeded': _signZones.any((z) => z.isStamp),
       if (widget.timesheetMode) 'pdfBytes': _pdfBytes,
+      if (widget.timesheetMode) 'approvalCells': _approvalCellsForReturn,
       'timesheetMode': widget.timesheetMode,
     });
   }
@@ -407,7 +439,7 @@ class _SignZonePickerScreenState extends State<SignZonePickerScreen> {
             icon: const Icon(Icons.check, color: Colors.white),
             label: Text(
               widget.timesheetMode
-                  ? 'Send for signature'
+                  ? 'Send'
                   : 'Send (${_signZones.length})',
               style: const TextStyle(
                 color: Colors.white,
@@ -428,7 +460,7 @@ class _SignZonePickerScreenState extends State<SignZonePickerScreen> {
   Widget _buildBody() {
     return Column(
       children: [
-        _buildToolBar(),
+        if (!widget.timesheetMode) _buildToolBar(),
         Container(
           width: double.infinity,
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
