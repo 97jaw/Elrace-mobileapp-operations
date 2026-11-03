@@ -1,4 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:el_race/core/services/timesheet_badge_watcher.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -66,4 +67,5 @@ void refreshTimesheetApprovalFlag(ProviderContainer container) {
     container.read(timesheetApprovalFeatureProvider).clearCache();
   } catch (_) {}
   container.invalidate(timesheetApprovalEnabledProvider);
+  TimesheetBadgeWatcher.instance.start();
 }

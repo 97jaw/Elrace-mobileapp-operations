@@ -5,6 +5,7 @@ import 'package:el_race/core/app_notices/app_notice_gate.dart';
 import 'package:el_race/core/firebase/firebase_session.dart';
 import 'package:el_race/core/services/attendance_status_sync_service.dart';
 import 'package:el_race/core/services/badge_refresh_service.dart';
+import 'package:el_race/core/services/timesheet_badge_watcher.dart';
 import 'package:el_race/core/session/force_logout_guard.dart';
 import 'package:el_race/core/security/vpn_block_guard.dart';
 import 'package:el_race/core/timesheet/services/timesheet_approval_feature.dart';
@@ -114,6 +115,7 @@ class ResumeCoordinator {
     // Firebase ID tokens expire after an hour, so a resume from long
     // background leaves Firestore/Storage/Functions rejecting the first tap.
     unawaited(FirebaseSession.instance.refreshOnResume());
+    TimesheetBadgeWatcher.instance.start();
     _refreshTimesheetApprovalFlag();
   }
 

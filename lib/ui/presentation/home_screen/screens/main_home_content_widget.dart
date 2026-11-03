@@ -1,5 +1,9 @@
+import 'dart:async';
+
 import 'package:flutter_cache_manager/flutter_cache_manager.dart';
 import 'package:el_race/core/services/attendance_status_sync_service.dart';
+import 'package:el_race/core/services/badge_refresh_service.dart';
+import 'package:el_race/core/utils/app_orientations.dart';
 import 'package:el_race/core/utils/responsive_breakpoints.dart';
 import 'package:el_race/ui/presentation/home_screen/provider/slider_provider.dart';
 import 'package:el_race/ui/presentation/home_screen/widgets/home_city_helper.dart';
@@ -18,7 +22,6 @@ import 'package:el_race/ui/presentation/home_screen/providers/home_widget_visibi
 import 'package:el_race/utils/Util.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:provider/provider.dart';
 
 class MainHomeContentWidget extends StatefulWidget {
@@ -28,17 +31,38 @@ class MainHomeContentWidget extends StatefulWidget {
   State<MainHomeContentWidget> createState() => _MainHomeContentWidgetState();
 }
 
-class _MainHomeContentWidgetState extends State<MainHomeContentWidget> {
+class _MainHomeContentWidgetState extends State<MainHomeContentWidget>
+    with RouteAware {
   final ValueNotifier<double> _expandProgress = ValueNotifier(0);
   double _panelAnchorTop = 0;
   final ValueNotifier<bool> _midStripScrollLock = ValueNotifier(false);
   final GlobalKey _headerZoneKey = GlobalKey();
 
   @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final route = ModalRoute.of(context);
+    if (route is PageRoute) {
+      AppOrientations.routeObserver.subscribe(this, route);
+    }
+  }
+
+  @override
   void dispose() {
+    AppOrientations.routeObserver.unsubscribe(this);
     _expandProgress.dispose();
     _midStripScrollLock.dispose();
     super.dispose();
+  }
+
+  @override
+  void didPopNext() {
+    // Back to home from any pushed screen — refresh waiting + bell (throttled).
+    unawaited(
+      BadgeRefreshService.refreshWaitingAndBellThrottled(
+        reason: 'home_didPopNext',
+      ),
+    );
   }
 
   @override

@@ -34,6 +34,18 @@ class AppNotificationsRepository {
   final FirebaseAuth _auth;
   final TimesheetApprovalFeature _feature;
 
+  /// When non-null, [unreadCountOrZero] / [addUnreadTo] use this instead of
+  /// a Firestore `count()` (kept warm by [TimesheetBadgeWatcher]).
+  int? _liveUnreadCount;
+
+  void setLiveUnreadCount(int count) {
+    _liveUnreadCount = count < 0 ? 0 : count;
+  }
+
+  void clearLiveUnread() {
+    _liveUnreadCount = null;
+  }
+
   String? get _uid {
     final uid = _auth.currentUser?.uid;
     if (uid == null || uid.isEmpty) return null;
@@ -73,6 +85,8 @@ class AppNotificationsRepository {
 
   /// Unread count for the bell; 0 on any error or when flag is off.
   Future<int> unreadCountOrZero() async {
+    final live = _liveUnreadCount;
+    if (live != null) return live;
     if (!await _flagOn()) return 0;
     final col = _collection;
     if (col == null) return 0;

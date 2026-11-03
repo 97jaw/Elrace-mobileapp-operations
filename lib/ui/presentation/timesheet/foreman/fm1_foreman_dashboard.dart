@@ -336,9 +336,13 @@ class _Fm1ForemanDashboardState extends ConsumerState<Fm1ForemanDashboard> {
                               const SizedBox(
                                 height: TimesheetModuleLayout.sectionGap,
                               ),
-                              const TmTimesheetDocumentsSection(),
-                            ],
-                            const Spacer(),
+                              // Fills remaining height; list scrolls inside
+                              // (same pattern as the old Recent timesheets).
+                              const Expanded(
+                                child: TmTimesheetDocumentsSection(),
+                              ),
+                            ] else
+                              const Spacer(),
                             if (pendingCaptures.isNotEmpty)
                               const SizedBox(height: 72),
                           ],
