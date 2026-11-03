@@ -27,11 +27,6 @@ class AllApprovalsOverview extends StatefulWidget {
     this.categoryLoaded = const {},
     this.categoryErrors = const {},
     this.onCategoryRetry,
-    required this.delayedCount,
-    this.delayedHrCount = 0,
-    this.delayedRfqCount = 0,
-    this.delayedInvoiceCount = 0,
-    this.delayedPettyCashCount = 0,
     this.rorPercentage,
     this.rorHrRor,
     this.rorRfqRor,
@@ -41,7 +36,6 @@ class AllApprovalsOverview extends StatefulWidget {
     this.rorYear,
     this.rorLoading = false,
     this.onRorPeriodChanged,
-    this.onDelayedRecordTap,
     this.onCategoryRecordTap,
     this.onHrManagementTestCasesTap,
     this.onInvoicePrintTestTap,
@@ -59,11 +53,6 @@ class AllApprovalsOverview extends StatefulWidget {
   final Map<String, bool> categoryLoaded;
   final Map<String, String> categoryErrors;
   final ValueChanged<String>? onCategoryRetry;
-  final int delayedCount;
-  final int delayedHrCount;
-  final int delayedRfqCount;
-  final int delayedInvoiceCount;
-  final int delayedPettyCashCount;
   final int? rorPercentage;
   final int? rorHrRor;
   final int? rorRfqRor;
@@ -73,10 +62,6 @@ class AllApprovalsOverview extends StatefulWidget {
   final int? rorYear;
   final bool rorLoading;
   final void Function(int month, int year)? onRorPeriodChanged;
-  final Future<void> Function(
-    BuildContext sheetContext,
-    Map<String, dynamic> item,
-  )? onDelayedRecordTap;
   final Future<void> Function(
     BuildContext sheetContext,
     Map<String, dynamic> item,
@@ -148,15 +133,6 @@ class _AllApprovalsOverviewState extends State<AllApprovalsOverview> {
       onItemTap: (sheetContext, item, key) =>
           widget.onCategoryRecordTap?.call(sheetContext, item, key) ??
           Future.value(),
-    );
-  }
-
-  void _openDelayedSheet() {
-    ApprovalOverviewRecordsSheet.showDelayed(
-      context: context,
-      onItemTap: (sheetContext, item) async {
-        await widget.onDelayedRecordTap?.call(sheetContext, item);
-      },
     );
   }
 
@@ -275,15 +251,7 @@ class _AllApprovalsOverviewState extends State<AllApprovalsOverview> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                _DelayedGlassCard(
-                  total: widget.delayedCount,
-                  hrCount: widget.delayedHrCount,
-                  rfqCount: widget.delayedRfqCount,
-                  invoiceCount: widget.delayedInvoiceCount,
-                  onTap: _openDelayedSheet,
-                ),
                 if (widget.onHrManagementTestCasesTap != null) ...[
-                  SizedBox(height: 10.th),
                   _HrManagementTestCasesCard(
                     onTap: widget.onHrManagementTestCasesTap!,
                   ),
@@ -1076,139 +1044,6 @@ class _RorLegendItem extends StatelessWidget {
             fontWeight: FontWeight.w700,
             color: ApprovalsOverviewTheme.textDark,
             height: 1,
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-// ─── Section 3: Delayed ─────────────────────────────────────────────────────
-
-class _DelayedGlassCard extends StatelessWidget {
-  const _DelayedGlassCard({
-    required this.total,
-    required this.hrCount,
-    required this.rfqCount,
-    required this.invoiceCount,
-    this.onTap,
-  });
-
-  final int total;
-  final int hrCount;
-  final int rfqCount;
-  final int invoiceCount;
-  final VoidCallback? onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return OverviewGlassPanel(
-      fillAlpha: 0.84,
-      blurSigma: 6,
-      onTap: onTap,
-      padding: EdgeInsets.fromLTRB(14.tw, 14.th, 12.tw, 13.th),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Row(
-            children: [
-              Expanded(
-                child: Text(
-                  'Delayed Requests',
-                  style: GoogleFonts.poppins(
-                    fontSize: 13.tsp,
-                    fontWeight: FontWeight.w600,
-                    color: ApprovalsOverviewTheme.textDark,
-                  ),
-                ),
-              ),
-              OverviewArrowButton(onTap: onTap, size: 26),
-            ],
-          ),
-          SizedBox(height: 2.th),
-          Text(
-            total > 0
-                ? 'Beyond SLA · Action required'
-                : 'All requests on time',
-            style: GoogleFonts.poppins(
-              fontSize: 10.tsp,
-              fontWeight: FontWeight.w500,
-              color: ApprovalsOverviewTheme.textSoft,
-            ),
-          ),
-          SizedBox(height: 12.th),
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.baseline,
-            textBaseline: TextBaseline.alphabetic,
-            children: [
-              Text(
-                '$total',
-                style: GoogleFonts.poppins(
-                  fontSize: 28.tsp,
-                  fontWeight: FontWeight.w700,
-                  color: total > 0
-                      ? ApprovalsOverviewTheme.hr
-                      : ApprovalsOverviewTheme.textDark,
-                  height: 1,
-                ),
-              ),
-              SizedBox(width: 5.tw),
-              Text(
-                'Total',
-                style: GoogleFonts.poppins(
-                  fontSize: 12.tsp,
-                  fontWeight: FontWeight.w500,
-                  color: ApprovalsOverviewTheme.textSoft,
-                ),
-              ),
-              const Spacer(),
-              _DelayedInline(value: hrCount, label: 'HR'),
-              SizedBox(width: 12.tw),
-              _DelayedInline(value: rfqCount, label: 'RFQ'),
-              SizedBox(width: 12.tw),
-              _DelayedInline(value: invoiceCount, label: 'Inv'),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _DelayedInline extends StatelessWidget {
-  const _DelayedInline({required this.value, required this.label});
-
-  final int value;
-  final String label;
-
-  @override
-  Widget build(BuildContext context) {
-    final color = ApprovalsOverviewTheme.accentFor(
-      label == 'HR'
-          ? 'hr'
-          : label == 'RFQ'
-              ? 'rfq'
-              : 'invoice',
-    );
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.end,
-      children: [
-        Text(
-          '$value',
-          style: GoogleFonts.poppins(
-            fontSize: 16.tsp,
-            fontWeight: FontWeight.w700,
-            color: color,
-            height: 1,
-          ),
-        ),
-        Text(
-          label,
-          style: GoogleFonts.poppins(
-            fontSize: 9.tsp,
-            fontWeight: FontWeight.w500,
-            color: ApprovalsOverviewTheme.textSoft,
           ),
         ),
       ],

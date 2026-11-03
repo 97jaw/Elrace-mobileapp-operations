@@ -1,7 +1,6 @@
 import 'package:el_race/core/utils/responsive_breakpoints.dart';
 import 'dart:async';
 
-import 'package:el_race/ui/presentation/Email%20Approval/delayed/data/delayed_approvals_repository.dart';
 import 'package:el_race/ui/presentation/Email%20Approval/theme/approvals_overview_theme.dart';
 import 'package:el_race/ui/presentation/Email%20Approval/utils/approval_display_helpers.dart';
 import 'package:el_race/ui/presentation/Email%20Approval/utils/approval_photo_cache.dart';
@@ -16,7 +15,7 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 
-/// Bottom sheet listing approval / delayed records (reference card design).
+/// Bottom sheet listing approval records (reference card design).
 class ApprovalOverviewRecordsSheet {
   ApprovalOverviewRecordsSheet._();
 
@@ -53,25 +52,6 @@ class ApprovalOverviewRecordsSheet {
           onRequestReload: onRequestReload,
           onItemTap: onItemTap,
         ),
-      ),
-    );
-  }
-
-  static Future<void> showDelayed({
-    required BuildContext context,
-    required Future<void> Function(
-      BuildContext sheetContext,
-      Map<String, dynamic> item,
-    ) onItemTap,
-  }) {
-    return showModalBottomSheet<void>(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      useSafeArea: true,
-      builder: (ctx) => SizedBox(
-        height: _sheetHeight(ctx),
-        child: _DelayedRecordsSheetBody(onItemTap: onItemTap),
       ),
     );
   }
@@ -280,163 +260,6 @@ class _RecordsSheetBodyState extends State<_RecordsSheetBody> {
   }
 }
 
-class _DelayedRecordsSheetBody extends StatefulWidget {
-  const _DelayedRecordsSheetBody({required this.onItemTap});
-
-  final Future<void> Function(
-    BuildContext sheetContext,
-    Map<String, dynamic> item,
-  ) onItemTap;
-
-  @override
-  State<_DelayedRecordsSheetBody> createState() =>
-      _DelayedRecordsSheetBodyState();
-}
-
-class _DelayedRecordsSheetBodyState extends State<_DelayedRecordsSheetBody> {
-  final _repo = DelayedApprovalsRepository();
-  bool _loading = true;
-  String? _error;
-  List<Map<String, dynamic>> _items = [];
-
-  @override
-  void initState() {
-    super.initState();
-    _load();
-  }
-
-  Future<void> _load() async {
-    try {
-      final response = await _repo.fetchAll(limit: 50, offset: 0);
-      final items = response.toCardItems();
-      items.sort(
-        (a, b) => ((b['daysDelayed'] ?? 0) as num)
-            .compareTo((a['daysDelayed'] ?? 0) as num),
-      );
-      if (!mounted) return;
-      setState(() {
-        _items = items;
-        _loading = false;
-      });
-    } catch (e) {
-      if (!mounted) return;
-      setState(() {
-        _error = e.toString();
-        _loading = false;
-      });
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Material(
-      color: const Color(0xFFF4F6F9),
-      borderRadius: BorderRadius.vertical(top: Radius.circular(22.tr)),
-      clipBehavior: Clip.antiAlias,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          SizedBox(height: 10.th),
-          Center(
-            child: Container(
-              width: 40.tw,
-              height: 4.th,
-              decoration: BoxDecoration(
-                color: const Color(0xFFD1D5DB),
-                borderRadius: BorderRadius.circular(99),
-              ),
-            ),
-          ),
-          Padding(
-            padding: EdgeInsets.fromLTRB(18.tw, 14.th, 8.tw, 4.th),
-            child: Row(
-              children: [
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Delayed Requests',
-                        style: GoogleFonts.poppins(
-                          fontSize: 18.tsp,
-                          fontWeight: FontWeight.w700,
-                          color: ApprovalsOverviewTheme.textDark,
-                        ),
-                      ),
-                      if (!_loading && _error == null)
-                        Text(
-                          '${_items.length} record${_items.length == 1 ? '' : 's'}',
-                          style: GoogleFonts.poppins(
-                            fontSize: 11.tsp,
-                            fontWeight: FontWeight.w500,
-                            color: ApprovalsOverviewTheme.textMuted,
-                          ),
-                        ),
-                    ],
-                  ),
-                ),
-                IconButton(
-                  onPressed: () => Navigator.pop(context),
-                  icon: Icon(Icons.close_rounded, size: 22.tsp),
-                  color: ApprovalsOverviewTheme.textMuted,
-                ),
-              ],
-            ),
-          ),
-          Expanded(
-            child: _loading
-                ? const Center(child: CircularProgressIndicator())
-                : _error != null
-                    ? Center(
-                        child: Padding(
-                          padding: EdgeInsets.symmetric(horizontal: 24.tw),
-                          child: Text(
-                            _error!,
-                            textAlign: TextAlign.center,
-                            style: GoogleFonts.poppins(fontSize: 12.tsp),
-                          ),
-                        ),
-                      )
-                    : _items.isEmpty
-                        ? Center(
-                            child: Text(
-                              'No delayed records',
-                              style: GoogleFonts.poppins(
-                                fontSize: 13.tsp,
-                                color: ApprovalsOverviewTheme.textSoft,
-                              ),
-                            ),
-                          )
-                        : ListView.separated(
-                            padding: EdgeInsets.fromLTRB(
-                              14.tw,
-                              4.th,
-                              14.tw,
-                              context.systemBottomInset + 16.th,
-                            ),
-                            itemCount: _items.length,
-                            separatorBuilder: (_, __) => SizedBox(height: 8.th),
-                            itemBuilder: (context, index) {
-                              final item = _items[index];
-                              return _ApprovalRecordTile(
-                                item: item,
-                                categoryKey: 'delayed',
-                                statusLabel: 'DELAYED',
-                                onTap: () async {
-                                  await widget.onItemTap(context, item);
-                                  if (!mounted) return;
-                                  await _load();
-                                },
-                              );
-                            },
-                          ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
 class _ApprovalRecordTile extends StatelessWidget {
   const _ApprovalRecordTile({
     required this.item,
@@ -469,34 +292,13 @@ class _ApprovalRecordTile extends StatelessWidget {
         return 'INVOICE';
       case 'petty_cash':
         return 'PETTY CASH';
-      case 'delayed':
-        return _str(item['type'] ?? item['requestType'], fallback: 'DELAYED')
-            .toUpperCase();
       default:
         return categoryKey.toUpperCase();
     }
   }
 
   Color _accent() =>
-      accentColor ??
-      (categoryKey == 'delayed'
-          ? _delayedAccent()
-          : ApprovalsOverviewTheme.accentFor(categoryKey));
-
-  Color _delayedAccent() {
-    final delayedType = _str(item['type']).toUpperCase();
-    switch (delayedType) {
-      case 'RFQ':
-        return ApprovalsOverviewTheme.rfq;
-      case 'INVOICE':
-        return ApprovalsOverviewTheme.invoice;
-      case 'PETTY CASH':
-        return ApprovalsOverviewTheme.petty;
-      case 'HR':
-      default:
-        return ApprovalsOverviewTheme.hr;
-    }
-  }
+      accentColor ?? ApprovalsOverviewTheme.accentFor(categoryKey);
 
   String _rfqReference() {
     return _str(
@@ -547,16 +349,6 @@ class _ApprovalRecordTile extends StatelessWidget {
   }
 
   String _title() {
-    if (categoryKey == 'delayed') {
-      return _str(
-        item['name'] ??
-            item['reqNo'] ??
-            item['requestType'] ??
-            item['project'] ??
-            item['title'],
-        fallback: 'Request',
-      );
-    }
     if (categoryKey == 'hr') {
       final requestType = HrApprovalDisplay.requestTypeName(item);
       if (requestType.isNotEmpty) return requestType;
@@ -602,34 +394,6 @@ class _ApprovalRecordTile extends StatelessWidget {
   }
 
   String _requester() {
-    if (categoryKey == 'delayed') {
-      final name = _str(
-        item['employee_name'] ??
-            item['employeeName'] ??
-            item['requester_name'] ??
-            item['reviewer_name'] ??
-            item['validator_name'] ??
-            item['emp_name'] ??
-            item['requested_by'] ??
-            item['partner_name'],
-        fallback: '',
-      );
-      if (name.isNotEmpty && name.toUpperCase() != 'N/A') return name;
-      final code = _str(
-        item['emp_code'] ??
-            item['empCode'] ??
-            item['employee_code'] ??
-            item['reviewer_emp_id'] ??
-            item['validator_emp_id'],
-        fallback: '',
-      );
-      if (code.isNotEmpty && code.toUpperCase() != 'N/A') return code;
-      final ref = _str(
-        item['reqNo'] ?? item['name'] ?? item['reference'],
-        fallback: '',
-      );
-      return ref.isNotEmpty ? ref : 'Unknown';
-    }
     if (categoryKey == 'invoice') {
       return _partnerName();
     }
@@ -675,45 +439,11 @@ class _ApprovalRecordTile extends StatelessWidget {
     return switch (categoryKey) {
       'invoice' || 'rfq' => ApprovalAvatarKind.vendor,
       'petty_cash' => ApprovalAvatarKind.pettyCashHolder,
-      'delayed' => switch (_str(item['type']).toUpperCase()) {
-          'INVOICE' || 'RFQ' => ApprovalAvatarKind.vendor,
-          'PETTY CASH' => ApprovalAvatarKind.pettyCashHolder,
-          _ => ApprovalAvatarKind.employee,
-        },
       _ => ApprovalAvatarKind.employee,
     };
   }
 
   String _avatarInitials() {
-    if (categoryKey == 'delayed') {
-      final delayedType = _str(item['type']).toUpperCase();
-      if (delayedType == 'INVOICE' || delayedType == 'RFQ') {
-        return _str(
-          item['client_name'] ??
-              item['vendor_name'] ??
-              item['partner_name'] ??
-              item['vendor'] ??
-              item['employee_name'] ??
-              item['requester_name'],
-        );
-      }
-      if (delayedType == 'PETTY CASH') {
-        return _str(
-          item['pettycash_holder'] ??
-              item['holder_name'] ??
-              item['holder'] ??
-              item['employee_name'] ??
-              item['requester_name'],
-        );
-      }
-      return _str(
-        item['employee_name'] ??
-            item['requester_name'] ??
-            item['reviewer_name'] ??
-            item['validator_name'] ??
-            item['emp_name'],
-      );
-    }
     if (categoryKey == 'invoice' || categoryKey == 'rfq') {
       return _str(
         item['client_name'] ??
@@ -781,10 +511,6 @@ class _ApprovalRecordTile extends StatelessWidget {
   }
 
   String _timeLabel() {
-    if (categoryKey == 'delayed') {
-      final days = item['daysDelayed'];
-      if (days is num && days > 0) return '${days.toInt()}d';
-    }
     final raw =
         _str(item['date'] ?? item['request_date'] ?? item['requestDate']);
     if (raw.isEmpty) return '';

@@ -30,7 +30,6 @@ import '../ui/presentation/attendance_reports/attendance_reports_module_screen.d
 import '../ui/presentation/News Banner/news_screen.dart';
 import '../ui/presentation/tasks_dashboard/screens/task_details.dart';
 import '../ui/presentation/tasks/tasks_screen.dart';
-import '../ui/presentation/Email Approval/delayed/screens/delayed_requests_screen.dart';
 import '../ui/presentation/hr_management/hr_management_entry_screen.dart';
 import '../ui/presentation/recruitment/r1_recruitment_landing_screen.dart';
 import '../ui/presentation/performance/performance_evaluation_module_screen.dart';
@@ -156,9 +155,6 @@ class OnGeneratedRoutes {
         return CupertinoPageRoute(builder: (_) => const NewsScreen());
       case '/task-details':
         return CupertinoPageRoute(builder: (_) => const TaskDetailsScreen());
-      case '/delayed_requests':
-        return CupertinoPageRoute(
-            builder: (_) => const DelayedRequestsScreen());
       case HrRouteNames.hub:
       case HrRouteNames.employeeLanding:
         return CupertinoPageRoute(

@@ -6,8 +6,8 @@ import 'package:el_race/core/utils/shared_pref.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:el_race/ui/presentation/Email%20Approval/Approval_confirmation.dart';
-import 'package:el_race/ui/presentation/Email%20Approval/delayed/data/delayed_approvals_repository.dart';
-import 'package:el_race/ui/presentation/Email%20Approval/delayed/models/delayed_approval_model.dart';
+import 'package:el_race/ui/presentation/Email%20Approval/data/ror_repository.dart';
+import 'package:el_race/ui/presentation/Email%20Approval/models/ror_response.dart';
 import 'package:el_race/ui/presentation/Email%20Approval/utils/approval_display_helpers.dart';
 import 'package:el_race/ui/presentation/Email%20Approval/utils/approval_photo_cache.dart';
 import 'package:el_race/ui/presentation/Email%20Approval/theme/approvals_overview_theme.dart';
@@ -77,14 +77,11 @@ class _ApprovalsScreenState extends State<ApprovalsScreen> {
   final Map<String, int> _categoryFetchGeneration = {};
   Map<String, String> categoryErrors = {};
 
-  // Delayed requests count from API
-  int delayedCount = 0;
-  DelayedCountersResponse? _delayedCounters;
-  DelayedRorResponse? _rorData;
+  RorResponse? _rorData;
   bool _rorLoading = false;
   late int _rorMonth;
   late int _rorYear;
-  final DelayedApprovalsRepository _delayedRepo = DelayedApprovalsRepository();
+  final RorRepository _rorRepo = RorRepository();
 
   @override
   void initState() {
@@ -95,9 +92,7 @@ class _ApprovalsScreenState extends State<ApprovalsScreen> {
     selectedCategoryKey = categoryKeys.first;
     searchController.addListener(_onSearchChanged);
     // Show the screen immediately — load all categories in background in parallel.
-    // Delayed count is also fired in background.
     _loadAllCategoriesInBackground();
-    _fetchDelayedCount();
     _fetchRorData();
     ApprovalCountService.addListener(this, _onExternalCountInvalidated);
   }
@@ -524,31 +519,13 @@ class _ApprovalsScreenState extends State<ApprovalsScreen> {
     }
   }
 
-  Future<void> _fetchDelayedCount() async {
-    try {
-      final counters = await _delayedRepo.fetchCounters();
-      if (!mounted) return;
-      setState(() {
-        _delayedCounters = counters;
-        delayedCount = counters.totalCount;
-        _countCache.delayedTotal = counters.totalCount;
-        _countCache.delayedHr = counters.hrCount;
-        _countCache.delayedRfq = counters.rfqCount;
-        _countCache.delayedInvoice = counters.invoiceCount;
-        _countCache.delayedPettyCash = counters.pettyCashCount;
-      });
-    } catch (e) {
-      debugPrint('Failed to fetch delayed count: $e');
-    }
-  }
-
   Future<void> _fetchRorData({int? month, int? year}) async {
     final targetMonth = month ?? _rorMonth;
     final targetYear = year ?? _rorYear;
     if (!mounted) return;
     setState(() => _rorLoading = true);
     try {
-      final ror = await _delayedRepo.fetchRor(
+      final ror = await _rorRepo.fetchRor(
         month: targetMonth,
         year: targetYear,
       );
@@ -567,7 +544,7 @@ class _ApprovalsScreenState extends State<ApprovalsScreen> {
         _rorLoading = false;
       });
     } catch (e) {
-      debugPrint('Failed to fetch delayed ROR: $e');
+      debugPrint('Failed to fetch ROR: $e');
       debugPrint(
           '🟡 [ROR SOURCE] Fallback => local tab counts + local formula');
       if (mounted) {
@@ -624,7 +601,6 @@ class _ApprovalsScreenState extends State<ApprovalsScreen> {
       await _loadAllCategoriesInBackground(force: true);
       if (!mounted) return;
       _syncApprovalBadgeCountIfReady();
-      _fetchDelayedCount();
       _fetchRorData();
     } finally {
       _selfRefresh = false;
@@ -936,42 +912,6 @@ class _ApprovalsScreenState extends State<ApprovalsScreen> {
     }
   }
 
-  Future<void> _openDelayedRecordFromSheet(
-    BuildContext navigatorContext,
-    Map<String, dynamic> item,
-  ) async {
-    final type =
-        (item['requestType'] ?? item['type'] ?? '').toString().toLowerCase();
-    final id = item['id']?.toString() ?? '';
-    if (id.isEmpty) return;
-
-    if (type.contains('hr') || type.contains('employee')) {
-      await _openCategoryRecordFromSheet(
-        navigatorContext,
-        item,
-        _CategoryKeys.hr,
-      );
-    } else if (type.contains('rfq')) {
-      await _openCategoryRecordFromSheet(
-        navigatorContext,
-        item,
-        _CategoryKeys.rfq,
-      );
-    } else if (type.contains('invoice')) {
-      await _openCategoryRecordFromSheet(
-        navigatorContext,
-        item,
-        _CategoryKeys.invoice,
-      );
-    } else if (type.contains('petty') || type.contains('cash')) {
-      await _openCategoryRecordFromSheet(
-        navigatorContext,
-        item,
-        _CategoryKeys.pettyCash,
-      );
-    }
-  }
-
   String _categoryTitle(String categoryKey) {
     switch (categoryKey) {
       case _CategoryKeys.hr:
@@ -1059,15 +999,6 @@ class _ApprovalsScreenState extends State<ApprovalsScreen> {
         categoryLoaded: Map<String, bool>.from(_categoryLoaded),
         categoryErrors: Map<String, String>.from(categoryErrors),
         onCategoryRetry: (key) => _loadCategory(key, force: true),
-        delayedCount: _delayedCounters != null
-            ? delayedCount
-            : _countCache.delayedTotal,
-        delayedHrCount: _delayedCounters?.hrCount ?? _countCache.delayedHr,
-        delayedRfqCount: _delayedCounters?.rfqCount ?? _countCache.delayedRfq,
-        delayedInvoiceCount:
-            _delayedCounters?.invoiceCount ?? _countCache.delayedInvoice,
-        delayedPettyCashCount:
-            _delayedCounters?.pettyCashCount ?? _countCache.delayedPettyCash,
         rorPercentage: _rorData?.rorPercentage,
         rorHrRor: _rorData?.hrRor,
         rorRfqRor: _rorData?.rfqRor,
@@ -1078,7 +1009,6 @@ class _ApprovalsScreenState extends State<ApprovalsScreen> {
         rorLoading: _rorLoading,
         onRorPeriodChanged: _onRorPeriodChanged,
         onCategoryRecordTap: _openCategoryRecordFromSheet,
-        onDelayedRecordTap: _openDelayedRecordFromSheet,
         onHrManagementTestCasesTap:
             kDebugMode ? _openHrManagementTestCases : null,
         onInvoicePrintTestTap: kDebugMode ? _openInvoicePrintTest : null,
@@ -1183,11 +1113,6 @@ class _ApprovalsCountCache {
   int rfq = 0;
   int invoice = 0;
   int pettyCash = 0;
-  int delayedTotal = 0;
-  int delayedHr = 0;
-  int delayedRfq = 0;
-  int delayedInvoice = 0;
-  int delayedPettyCash = 0;
 
   int forKey(String categoryKey) {
     switch (categoryKey) {
