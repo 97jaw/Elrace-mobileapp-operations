@@ -69,6 +69,16 @@ service firebase.storage {
           == request.auth.uid;
     }
 
+    function timesheetApprovalPath(docId) {
+      return /databases/(default)/documents/timesheet_approvals/$(docId);
+    }
+
+    function isTimesheetApprovalApprover(docId) {
+      return firestore.exists(timesheetApprovalPath(docId))
+        && request.auth.uid in
+          firestore.get(timesheetApprovalPath(docId)).data.approver_uids;
+    }
+
     // Canonical chat message media: chat_media/{chatId}/{messageId}/{fileName}
     match /chat_media/{chatId}/{messageId}/{fileName} {
       allow read: if isChatMember(chatId);
@@ -96,6 +106,17 @@ service firebase.storage {
                    && request.auth.uid == userId
                    && request.resource.size < 50 * 1024 * 1024
                    && request.resource.contentType.matches('application/pdf|image/.*|application/octet-stream');
+    }
+
+    // Foreman-signed timesheet PDF for SE/PM approval.
+    match /timesheet_approvals/{ownerUid}/{docId}/{fileName} {
+      allow read: if isSignedIn()
+                  && (request.auth.uid == ownerUid
+                      || isTimesheetApprovalApprover(docId));
+      allow write: if isSignedIn()
+                   && request.auth.uid == ownerUid
+                   && request.resource.size < 50 * 1024 * 1024
+                   && request.resource.contentType == 'application/pdf';
     }
 
     // Task voice comments, keyed by task id — todos are readable by any signed-in user.

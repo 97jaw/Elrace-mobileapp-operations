@@ -632,6 +632,33 @@ service cloud.firestore {
       match /shared_note_refs/{noteId} {
         allow read, write: if isSignedIn() && request.auth.uid == userId;
       }
+
+      // Written by Cloud Functions (Task 5). Clients may only read, mark
+      // read, or delete their own inbox rows.
+      match /app_notifications/{id} {
+        allow read, delete: if isSignedIn() && request.auth.uid == userId;
+        allow create: if false;
+        allow update: if isSignedIn()
+          && request.auth.uid == userId
+          && request.resource.data.diff(resource.data).affectedKeys()
+            .hasOnly(['read']);
+      }
+    }
+
+    match /config/{docId} {
+      allow read: if isSignedIn();
+      allow write: if false;
+    }
+
+    match /timesheet_approvals/{docId} {
+      allow read: if isSignedIn() && (
+        resource.data.owner_uid == uid()
+        || uid() in resource.data.approver_uids
+        || uid() in resource.data.pending_uids
+      );
+      allow create: if isSignedIn() && isTimesheetApprovalCreateValid();
+      allow update: if isSignedIn() && isTimesheetApprovalApproverUpdate();
+      allow delete: if false;
     }
 
     match /chats/{chatId} {
@@ -693,6 +720,106 @@ service cloud.firestore {
       allow create, update: if isSignedIn();
       allow read: if isSignedIn();
       allow delete: if false;
+    }
+
+    function timesheetApprovalCreateKeysAllowed() {
+      return request.resource.data.keys().hasOnly([
+        'owner_uid',
+        'owner_name',
+        'file_name',
+        'project_id',
+        'project_name',
+        'page_count',
+        'pdf_path',
+        'approvers',
+        'approver_uids',
+        'pending_uids',
+        'status',
+        'cells',
+        'created_at',
+        'updated_at'
+      ]);
+    }
+
+    function timesheetApproverEntryPending(approverUid) {
+      return request.resource.data.approvers[approverUid] is map
+        && request.resource.data.approvers[approverUid].status == 'pending'
+        && request.resource.data.approvers[approverUid].role in [
+          'site_engineer',
+          'projects_manager'
+        ]
+        && request.resource.data.approvers[approverUid].keys()
+          .hasAll(['role', 'name', 'status']);
+    }
+
+    function timesheetApprovalApproversPendingOk() {
+      let uids = request.resource.data.approver_uids;
+      return uids is list
+        && uids.size() >= 1
+        && uids.size() <= 2
+        && request.resource.data.approvers is map
+        && request.resource.data.approvers.keys().hasOnly(uids)
+        && uids.hasOnly(request.resource.data.approvers.keys())
+        && !(uid() in uids)
+        && timesheetApproverEntryPending(uids[0])
+        && (
+          uids.size() == 1
+          || timesheetApproverEntryPending(uids[1])
+        );
+    }
+
+    function isTimesheetApprovalCreateValid() {
+      return request.resource.data.owner_uid == uid()
+        && timesheetApprovalCreateKeysAllowed()
+        && request.resource.data.status == 'pending'
+        && request.resource.data.pending_uids == request.resource.data.approver_uids
+        && request.resource.data.cells is list
+        && request.resource.data.pdf_path is string
+        && request.resource.data.page_count is int
+        && timesheetApprovalApproversPendingOk();
+    }
+
+    function timesheetApprovalMyEntryOnly() {
+      return request.resource.data.approvers.diff(resource.data.approvers)
+          .affectedKeys().hasOnly([uid()])
+        && request.resource.data.approvers[uid()].role
+          == resource.data.approvers[uid()].role
+        && request.resource.data.approvers[uid()].name
+          == resource.data.approvers[uid()].name
+        && request.resource.data.approvers[uid()].status in [
+          'approved',
+          'rejected'
+        ]
+        && request.resource.data.approvers[uid()].acted_at is timestamp;
+    }
+
+    function timesheetApprovalApprovePendingOk() {
+      let nextPending = resource.data.pending_uids.removeAll([uid()]);
+      return request.resource.data.approvers[uid()].status == 'approved'
+        && request.resource.data.pending_uids == nextPending
+        && (
+          nextPending.size() == 0
+            ? request.resource.data.status == 'approved'
+            : request.resource.data.status == 'pending'
+        );
+    }
+
+    function timesheetApprovalRejectOk() {
+      return request.resource.data.approvers[uid()].status == 'rejected'
+        && request.resource.data.pending_uids.size() == 0
+        && request.resource.data.status == 'rejected';
+    }
+
+    function isTimesheetApprovalApproverUpdate() {
+      return uid() in resource.data.pending_uids
+        && resource.data.status == 'pending'
+        && request.resource.data.diff(resource.data).affectedKeys()
+          .hasOnly(['approvers', 'pending_uids', 'status', 'updated_at'])
+        && timesheetApprovalMyEntryOnly()
+        && (
+          timesheetApprovalApprovePendingOk()
+          || timesheetApprovalRejectOk()
+        );
     }
   }
 }
