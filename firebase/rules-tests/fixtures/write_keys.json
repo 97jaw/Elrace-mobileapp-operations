@@ -28,6 +28,7 @@
         "status",
         "text",
         "thumb_url",
+        "timesheet_mode",
         "type"
       ],
       "image": [
@@ -57,6 +58,7 @@
         "status",
         "text",
         "thumb_url",
+        "timesheet_mode",
         "type"
       ],
       "file": [
@@ -86,6 +88,7 @@
         "status",
         "text",
         "thumb_url",
+        "timesheet_mode",
         "type"
       ],
       "audio": [
@@ -115,6 +118,7 @@
         "status",
         "text",
         "thumb_url",
+        "timesheet_mode",
         "type"
       ],
       "video": [
@@ -144,6 +148,7 @@
         "status",
         "text",
         "thumb_url",
+        "timesheet_mode",
         "type"
       ],
       "signable_doc": [
@@ -173,6 +178,7 @@
         "status",
         "text",
         "thumb_url",
+        "timesheet_mode",
         "type"
       ]
     },
@@ -193,6 +199,7 @@
       "stamp_needed",
       "status",
       "thumbnail_url",
+      "timesheet_mode",
       "updated_at"
     ],
     "notes": [

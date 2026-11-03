@@ -340,6 +340,7 @@ service cloud.firestore {
         'page_count',
         'sign_expires_in_days',
         'signature_document_id',
+        'timesheet_mode',
         'updated_at'
       ]);
     }
@@ -389,6 +390,7 @@ service cloud.firestore {
           'current_signer_uid',
           'media_url',
           'status',
+          'timesheet_signer_slot',
           'updated_at'
         ]);
     }
@@ -417,10 +419,25 @@ service cloud.firestore {
     function isAuthorizedSignerUpdate() {
       return signingKeysOnly()
         && validSignStatusTransition()
+        && timesheetSignAcknowledged()
         && resource.data.current_signer_uid == uid()
         && (
           !('signed_by' in request.resource.data.diff(resource.data).affectedKeys())
           || request.resource.data.signed_by == uid()
+        );
+    }
+
+    // A timesheet stores who owns each box. Builds that do not know owners
+    // omit timesheet_signer_slot, so this update is denied. Normal documents
+    // have no timesheet_mode and sign exactly as before.
+    function timesheetSignAcknowledged() {
+      return !('timesheet_mode' in resource.data)
+        || resource.data.timesheet_mode != true
+        || (
+          'timesheet_signer_slot' in request.resource.data
+          && request.resource.data.timesheet_signer_slot is int
+          && request.resource.data.timesheet_signer_slot
+              == resource.data.current_signer_index
         );
     }
 
@@ -584,6 +601,7 @@ service cloud.firestore {
           request.auth.uid == userId ||
           (
             resource.data.recipient_uid == request.auth.uid &&
+            timesheetSignAcknowledged() &&
             request.resource.data.diff(resource.data).affectedKeys()
               .hasOnly([
                 'status',
@@ -594,6 +612,7 @@ service cloud.firestore {
                 'recipient_uid',
                 'recipient_name',
                 'current_signer_index',
+                'timesheet_signer_slot',
                 'updated_at'
               ])
           )
