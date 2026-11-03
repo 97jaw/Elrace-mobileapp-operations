@@ -6,7 +6,10 @@ import 'package:flutter_pdfview/flutter_pdfview.dart';
 import 'package:syncfusion_flutter_pdf/pdf.dart';
 
 import '../../../chat/models/message.dart';
+import '../../../core/timesheet/timesheet_acknowledgment_zones.dart';
 import '../theme/chat_glass_theme.dart';
+import 'sign_document_screen.dart';
+import '../stamp_signature_on_zone.dart';
 
 /// Screen for the sender to pick sign zones on a PDF before sending.
 /// Zones are fixed-size (no resize). Max 2 signature + max 2 stamp zones.
@@ -14,10 +17,15 @@ class SignZonePickerScreen extends StatefulWidget {
   final File pdfFile;
   final String fileName;
 
+  /// Printed timesheet: cells are pre-placed, free placement is off, and the
+  /// foreman signs Employee and Supervisor/Foreman boxes before sending.
+  final bool timesheetMode;
+
   const SignZonePickerScreen({
     super.key,
     required this.pdfFile,
     required this.fileName,
+    this.timesheetMode = false,
   });
 
   @override
@@ -46,6 +54,9 @@ class _SignZonePickerScreenState extends State<SignZonePickerScreen> {
 
   final List<SignZone> _signZones = [];
   final List<Size> _pageSizes = [];
+  List<TimesheetAckCell> _cells = const [];
+  final Set<String> _signedZoneKeys = {};
+  final Map<String, Uint8List> _signatureInk = {};
 
   bool _isPlaceMode = true;
   SignZoneType _activeTool = SignZoneType.signature;
@@ -80,6 +91,11 @@ class _SignZonePickerScreenState extends State<SignZonePickerScreen> {
         _pageSizes
           ..clear()
           ..add(const Size(595, 842));
+      }
+
+      if (widget.timesheetMode) {
+        _cells = findTimesheetAcknowledgmentCells(bytes);
+        _signZones.addAll(_cells.map((cell) => cell.zone));
       }
 
       if (mounted) {
@@ -243,6 +259,97 @@ class _SignZonePickerScreenState extends State<SignZonePickerScreen> {
     });
   }
 
+  int get _foremanTotal =>
+      _signZones.where((z) => z.isForemanCell && !z.isStamp).length;
+
+  int get _foremanSigned => _signZones
+      .where((z) =>
+          z.isForemanCell &&
+          !z.isStamp &&
+          _signedZoneKeys.contains(_zoneKey(z)))
+      .length;
+
+  String _zoneKey(SignZone zone) =>
+      '${zone.page}|${zone.cellRole}|${zone.type.name}|'
+      '${zone.x.toStringAsFixed(4)}|${zone.y.toStringAsFixed(4)}';
+
+  bool _zoneSigned(SignZone zone) => _signedZoneKeys.contains(_zoneKey(zone));
+
+  TimesheetAckCell? _cellAt(Offset point, Rect pageRect) {
+    for (final cell in _cells.reversed) {
+      if (cell.page != _currentPage) continue;
+      final zone = cell.zone;
+      final rect = Rect.fromLTWH(
+        pageRect.left + (zone.x * pageRect.width),
+        pageRect.top + (zone.y * pageRect.height),
+        zone.width * pageRect.width,
+        zone.height * pageRect.height,
+      );
+      if (rect.contains(point)) return cell;
+    }
+    return null;
+  }
+
+  bool _cellOccupied(TimesheetAckCell cell, SignZoneType type) {
+    return _signZones.any((zone) =>
+        zone.page == cell.page &&
+        zone.type == type &&
+        zone.cellRole == cell.role &&
+        (zone.x - cell.zone.x).abs() < 0.02 &&
+        (zone.y - cell.zone.y).abs() < 0.02);
+  }
+
+  void _snapCell(TimesheetAckCell cell) {
+    if (_activeTool == SignZoneType.stamp && cell.zone.signerSlot == 0) {
+      _showLimitSnack(
+        'Place the stamp on a Site Engineer or Projects Manager cell',
+      );
+      return;
+    }
+    if (_cellOccupied(cell, _activeTool)) return;
+    final onPage = _signZones
+        .where((zone) =>
+            zone.page == cell.page &&
+            zone.type == SignZoneType.signature &&
+            (zone.y - cell.zone.y).abs() < 0.2)
+        .length;
+    if (_activeTool == SignZoneType.signature && onPage >= 4) {
+      _showLimitSnack('Maximum 4 signature boxes on one labour sheet');
+      return;
+    }
+    setState(() {
+      _signZones.add(cell.zone.copyWith(type: _activeTool));
+      _selectedZoneIndex = _signZones.length - 1;
+    });
+  }
+
+  Future<void> _signForemanZone(int index) async {
+    if (index < 0 || index >= _signZones.length) return;
+    final zone = _signZones[index];
+    if (!zone.isForemanCell || zone.isStamp || _zoneSigned(zone)) return;
+    final png = await showDocumentSignaturePad(context);
+    if (png == null || _pdfBytes == null || !mounted) return;
+    final Uint8List stamped;
+    try {
+      stamped = stampSignatureOntoZone(
+        pdfBytes: _pdfBytes!,
+        zone: zone,
+        signaturePng: png,
+      );
+    } catch (e) {
+      if (mounted) _showLimitSnack('Could not place that signature');
+      return;
+    }
+    if (!mounted) return;
+    final key = _zoneKey(zone);
+    setState(() {
+      _pdfBytes = stamped;
+      _signatureInk[key] = png;
+      _signedZoneKeys.add(key);
+      _selectedZoneIndex = null;
+    });
+  }
+
   void _confirm() {
     if (_signZones.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -258,6 +365,8 @@ class _SignZonePickerScreenState extends State<SignZonePickerScreen> {
       'signZones': _signZones,
       'pageCount': _pageCount,
       'stampNeeded': _signZones.any((z) => z.isStamp),
+      if (widget.timesheetMode) 'pdfBytes': _pdfBytes,
+      'timesheetMode': widget.timesheetMode,
     });
   }
 
@@ -271,9 +380,11 @@ class _SignZonePickerScreenState extends State<SignZonePickerScreen> {
         title: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text(
-              'Set Sign & Stamp Zones',
-              style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+            Text(
+              widget.timesheetMode
+                  ? 'Sign Timesheet'
+                  : 'Set Sign & Stamp Zones',
+              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
             ),
             Text(
               widget.fileName,
@@ -286,7 +397,9 @@ class _SignZonePickerScreenState extends State<SignZonePickerScreen> {
             onPressed: _confirm,
             icon: const Icon(Icons.check, color: Colors.white),
             label: Text(
-              'Send (${_signZones.length})',
+              widget.timesheetMode
+                  ? 'Send for signature'
+                  : 'Send (${_signZones.length})',
               style: const TextStyle(
                 color: Colors.white,
                 fontWeight: FontWeight.w600,
@@ -324,11 +437,15 @@ class _SignZonePickerScreenState extends State<SignZonePickerScreen> {
               const SizedBox(width: 8),
               Expanded(
                 child: Text(
-                  _isPlaceMode
-                      ? (_activeTool == SignZoneType.stamp
-                          ? 'Stamp: tap to place (max $_maxStampZones). Drag to move.'
-                          : 'Sign: tap to place (max $_maxSignatureZones). Drag to move.')
-                      : 'Scroll to browse pages. Switch back to edit zones.',
+                  widget.timesheetMode
+                      ? (_cells.isEmpty
+                          ? 'No approval cells were found on this PDF.'
+                          : 'Signed $_foremanSigned / $_foremanTotal. Tap Employee or Supervisor/Foreman to sign. Tap an empty cell to put a box back.')
+                      : _isPlaceMode
+                          ? (_activeTool == SignZoneType.stamp
+                              ? 'Stamp: tap to place (max $_maxStampZones). Drag to move.'
+                              : 'Sign: tap to place (max $_maxSignatureZones). Drag to move.')
+                          : 'Scroll to browse pages. Switch back to edit zones.',
                   style: TextStyle(
                     fontSize: 13,
                     color: _isPlaceMode
@@ -342,7 +459,9 @@ class _SignZonePickerScreenState extends State<SignZonePickerScreen> {
                 GestureDetector(
                   onTap: () {
                     setState(() {
-                      _signZones.removeWhere((z) => z.page == _currentPage);
+                      _signZones.removeWhere((zone) =>
+                          zone.page == _currentPage &&
+                          !(widget.timesheetMode && _zoneSigned(zone)));
                       _selectedZoneIndex = null;
                     });
                   },
@@ -379,7 +498,25 @@ class _SignZonePickerScreenState extends State<SignZonePickerScreen> {
                           final tappedZone =
                               _findZoneAt(details.localPosition, pageRect);
                           if (tappedZone != null) {
+                            final zone = _signZones[tappedZone];
+                            if (widget.timesheetMode &&
+                                zone.isForemanCell &&
+                                !zone.isStamp &&
+                                !_zoneSigned(zone)) {
+                              _signForemanZone(tappedZone);
+                              return;
+                            }
                             setState(() => _selectedZoneIndex = tappedZone);
+                            return;
+                          }
+                          if (widget.timesheetMode) {
+                            final cell =
+                                _cellAt(details.localPosition, pageRect);
+                            if (cell == null) {
+                              _showLimitSnack('Tap inside an approval cell');
+                              return;
+                            }
+                            _snapCell(cell);
                             return;
                           }
                           _addSignZone(details.localPosition);
@@ -388,6 +525,7 @@ class _SignZonePickerScreenState extends State<SignZonePickerScreen> {
                     ),
                   ),
                   if (_isPlaceMode) ..._buildSignZoneOverlays(),
+                  if (!widget.timesheetMode)
                   Positioned(
                     right: 16,
                     bottom: 16,
@@ -456,8 +594,10 @@ class _SignZonePickerScreenState extends State<SignZonePickerScreen> {
                   borderRadius: BorderRadius.circular(16),
                 ),
                 child: Text(
-                  '${_signatureCount} sign · ${_stampCount} stamp'
-                  '${_signZones.isEmpty ? ' · none yet' : ''}',
+                  widget.timesheetMode
+                      ? 'Signed $_foremanSigned / $_foremanTotal'
+                      : '$_signatureCount sign · $_stampCount stamp'
+                          '${_signZones.isEmpty ? ' · none yet' : ''}',
                   style: TextStyle(
                     fontSize: 12,
                     fontWeight: FontWeight.w600,
@@ -542,6 +682,7 @@ class _SignZonePickerScreenState extends State<SignZonePickerScreen> {
       final zone = entry.value;
       final idx = entry.key;
       final isSelected = _selectedZoneIndex == idx;
+      final signed = widget.timesheetMode && _zoneSigned(zone);
 
       final left = pageRect.left + (zone.x * pageRect.width);
       final top = pageRect.top + (zone.y * pageRect.height);
@@ -559,61 +700,90 @@ class _SignZonePickerScreenState extends State<SignZonePickerScreen> {
             Positioned.fill(
               child: GestureDetector(
                 behavior: HitTestBehavior.opaque,
-                onTap: () => setState(() => _selectedZoneIndex = idx),
-                onPanStart: (details) => _onZoneMoveStart(idx, details),
-                onPanUpdate: _onZoneMoveUpdate,
-                onPanEnd: _onZoneMoveEnd,
-                onPanCancel: _onZoneMoveEnd,
+                onTap: () {
+                  if (widget.timesheetMode &&
+                      zone.isForemanCell &&
+                      !zone.isStamp &&
+                      !signed) {
+                    _signForemanZone(idx);
+                    return;
+                  }
+                  setState(() => _selectedZoneIndex = idx);
+                },
+                onPanStart: widget.timesheetMode
+                    ? null
+                    : (details) => _onZoneMoveStart(idx, details),
+                onPanUpdate: widget.timesheetMode ? null : _onZoneMoveUpdate,
+                onPanEnd: widget.timesheetMode ? null : _onZoneMoveEnd,
+                onPanCancel: widget.timesheetMode ? null : _onZoneMoveEnd,
                 child: Container(
                   decoration: BoxDecoration(
-                    color: (zone.isStamp
-                            ? const Color(0xFF2E7D6F)
-                            : const Color(0xFFD4A843))
+                    color: (signed
+                            ? const Color(0xFF2E7D32)
+                            : zone.isStamp
+                                ? const Color(0xFF2E7D6F)
+                                : const Color(0xFFD4A843))
                         .withValues(alpha: isSelected ? 0.35 : 0.25),
                     border: Border.all(
-                      color: isSelected
-                          ? const Color(0xFF1D2449)
-                          : (zone.isStamp
-                              ? const Color(0xFF2E7D6F)
-                              : const Color(0xFFD4A843)),
+                      color: signed
+                          ? const Color(0xFF2E7D32)
+                          : isSelected
+                              ? const Color(0xFF1D2449)
+                              : (zone.isStamp
+                                  ? const Color(0xFF2E7D6F)
+                                  : const Color(0xFFD4A843)),
                       width: isSelected ? 2.5 : 2,
                     ),
                     borderRadius: BorderRadius.circular(6),
                   ),
-                  child: Center(
-                    child: FittedBox(
-                      fit: BoxFit.scaleDown,
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 4),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(
-                              zone.isStamp ? Icons.approval : Icons.draw,
-                              size: 12,
-                              color: zone.isStamp
-                                  ? const Color(0xFF1B5E50)
-                                  : const Color(0xFF856404),
-                            ),
-                            const SizedBox(width: 3),
-                            Text(
-                              zone.isStamp ? 'Stamp Here' : 'Sign Here',
-                              style: TextStyle(
-                                fontSize: 10,
-                                fontWeight: FontWeight.w700,
-                                color: zone.isStamp
-                                    ? const Color(0xFF1B5E50)
-                                    : const Color(0xFF856404),
+                  child: signed && _signatureInk[_zoneKey(zone)] != null
+                      ? Padding(
+                          padding: const EdgeInsets.all(4),
+                          child: Image.memory(
+                            _signatureInk[_zoneKey(zone)]!,
+                            fit: BoxFit.contain,
+                          ),
+                        )
+                      : Center(
+                          child: FittedBox(
+                            fit: BoxFit.scaleDown,
+                            child: Padding(
+                              padding:
+                                  const EdgeInsets.symmetric(horizontal: 4),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(
+                                    zone.isStamp ? Icons.approval : Icons.draw,
+                                    size: 12,
+                                    color: zone.isStamp
+                                        ? const Color(0xFF1B5E50)
+                                        : const Color(0xFF856404),
+                                  ),
+                                  const SizedBox(width: 3),
+                                  Text(
+                                    widget.timesheetMode
+                                        ? zone.timesheetLabel
+                                        : (zone.isStamp
+                                            ? 'Stamp Here'
+                                            : 'Sign Here'),
+                                    style: TextStyle(
+                                      fontSize: 10,
+                                      fontWeight: FontWeight.w700,
+                                      color: zone.isStamp
+                                          ? const Color(0xFF1B5E50)
+                                          : const Color(0xFF856404),
+                                    ),
+                                  ),
+                                ],
                               ),
                             ),
-                          ],
+                          ),
                         ),
-                      ),
-                    ),
-                  ),
                 ),
               ),
             ),
+            if (!signed)
             Positioned(
               top: -11,
               right: -11,
