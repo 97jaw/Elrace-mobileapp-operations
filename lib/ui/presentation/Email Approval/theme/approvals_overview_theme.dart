@@ -1,11 +1,8 @@
 import 'package:el_race/core/utils/responsive_breakpoints.dart';
-import 'dart:ui';
 
 import 'package:el_race/core/ui/adaptive_glass.dart';
-import 'package:el_race/core/ui/device_ui_capability.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:flutter_screenutil/flutter_screenutil.dart';
 
 /// Visual tokens for the Waiting Approval overview (All tab).
 class ApprovalsOverviewTheme {
@@ -30,6 +27,7 @@ class ApprovalsOverviewTheme {
   static const Color statCardHr = Color(0xFFA8C4F5);
   static const Color statCardPettyCash = Color(0xFF8FD4AA);
   static const Color statCardItRequest = Color(0xFFC9B6F0);
+  static const Color statCardSignDocument = Color(0xFFD4B896);
 
   static const Color rorChartLine = Color(0xFF3B7DD8);
   static const Color rorChartFill = Color(0xFF3B7DD8);
@@ -47,6 +45,8 @@ class ApprovalsOverviewTheme {
         return statCardHr;
       case 'it_request':
         return statCardItRequest;
+      case 'sign_document':
+        return statCardSignDocument;
       default:
         return statCardWarm;
     }
@@ -63,6 +63,7 @@ class ApprovalsOverviewTheme {
   static const Color petty = Color(0xFF1A5C3A);
   static const Color invoice = Color(0xFFD4562A);
   static const Color itRequest = Color(0xFF6B4FA3);
+  static const Color signDocument = Color(0xFF8B6914);
 
   static const LinearGradient screenGradient = LinearGradient(
     begin: Alignment.topCenter,
@@ -94,6 +95,8 @@ class ApprovalsOverviewTheme {
         return invoice;
       case 'it_request':
         return itRequest;
+      case 'sign_document':
+        return signDocument;
       default:
         return textMuted;
     }
@@ -140,6 +143,8 @@ class ApprovalsOverviewTheme {
         return 'HR';
       case 'it_request':
         return 'IT';
+      case 'sign_document':
+        return 'SD';
       default:
         return id.toUpperCase();
     }
@@ -176,6 +181,8 @@ class ApprovalsOverviewTheme {
         return hr;
       case 'it_request':
         return itRequest;
+      case 'sign_document':
+        return signDocument;
       default:
         return screenDeep;
     }

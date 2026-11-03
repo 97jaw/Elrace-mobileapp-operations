@@ -1,18 +1,24 @@
+import 'dart:async';
+
+import 'package:el_race/core/timesheet/models/timesheet_approval.dart';
+import 'package:el_race/core/timesheet/repositories/timesheet_approval_repository.dart';
+import 'package:el_race/core/timesheet/services/timesheet_approval_feature.dart';
 import 'package:el_race/core/utils/responsive_breakpoints.dart';
 import 'package:el_race/ui/presentation/Email%20Approval/theme/approvals_overview_theme.dart';
 import 'package:el_race/ui/presentation/Email%20Approval/widgets/approval_overview_records_sheet.dart';
 import 'package:el_race/ui/presentation/Email%20Approval/widgets/stat_counter_card.dart';
 import 'package:el_race/utils/safe_insets.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 /// Compact ROR tab panel height.
 const double _kRorTabHeight = 300;
 
 /// Full-screen Waiting Approval dashboard (All tab).
-class AllApprovalsOverview extends StatefulWidget {
+class AllApprovalsOverview extends ConsumerStatefulWidget {
   const AllApprovalsOverview({
     super.key,
     required this.invoiceCount,
@@ -71,11 +77,61 @@ class AllApprovalsOverview extends StatefulWidget {
   final VoidCallback? onInvoicePrintTestTap;
 
   @override
-  State<AllApprovalsOverview> createState() => _AllApprovalsOverviewState();
+  ConsumerState<AllApprovalsOverview> createState() =>
+      _AllApprovalsOverviewState();
 }
 
-class _AllApprovalsOverviewState extends State<AllApprovalsOverview> {
+class _AllApprovalsOverviewState extends ConsumerState<AllApprovalsOverview> {
   int _tabIndex = 0;
+
+  StreamSubscription<List<TimesheetApproval>>? _sdSub;
+  List<TimesheetApproval> _sdPending = const [];
+  bool _sdLoading = true;
+  bool _sdError = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _startSignDocumentStream();
+  }
+
+  @override
+  void dispose() {
+    _sdSub?.cancel();
+    super.dispose();
+  }
+
+  void _startSignDocumentStream() {
+    _sdSub?.cancel();
+    final uid = FirebaseAuth.instance.currentUser?.uid ?? '';
+    // Created once per overview mount (and on retry); not in build.
+    _sdSub = TimesheetApprovalRepository.instance.watchPendingFor(uid).listen(
+      (list) {
+        if (!mounted) return;
+        setState(() {
+          _sdPending = list;
+          _sdLoading = false;
+          _sdError = false;
+        });
+      },
+      onError: (e) {
+        debugPrint('AllApprovalsOverview Sign Document stream: $e');
+        if (!mounted) return;
+        setState(() {
+          _sdLoading = false;
+          _sdError = true;
+        });
+      },
+    );
+  }
+
+  void _retrySignDocumentStream() {
+    setState(() {
+      _sdLoading = true;
+      _sdError = false;
+    });
+    _startSignDocumentStream();
+  }
 
   bool _isLoading(String apiKey) =>
       widget.categoryLoading[apiKey] == true &&
@@ -203,8 +259,44 @@ class _AllApprovalsOverviewState extends State<AllApprovalsOverview> {
     ];
   }
 
+  List<StatCounterCardData> _waitingCardsWithOptionalSd(bool flagOn) {
+    final cards = _waitingCards();
+    if (!flagOn) return cards;
+    return [
+      ...cards,
+      StatCounterCardData(
+        id: 'sign_document',
+        title: 'Sign Document',
+        subtitle: ApprovalsOverviewTheme.statCardShortLabel('sign_document'),
+        value: _sdPending.length,
+        backgroundColor: ApprovalsOverviewTheme.statCardSignDocument,
+        route: 'sign_document',
+        isLoading: _sdLoading,
+        hasError: _sdError,
+        onTap: () => _openSignDocumentSheet(),
+        onRetry: _retrySignDocumentStream,
+      ),
+    ];
+  }
+
+  void _openSignDocumentSheet() {
+    // List wiring lands in Task 4 commit 4; count card opens empty for now.
+    ApprovalOverviewRecordsSheet.showCategory(
+      context: context,
+      title: 'Sign Document',
+      categoryKey: 'sign_document',
+      getItems: () => const [],
+      expectedCount: 0,
+      isCategoryLoading: () => false,
+      onItemTap: (_, __, ___) async {},
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
+    final flagOn =
+        ref.watch(timesheetApprovalEnabledProvider).asData?.value ?? false;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -229,7 +321,7 @@ class _AllApprovalsOverviewState extends State<AllApprovalsOverview> {
             child: _tabIndex == 0
                 ? StatCounterGrid(
                     key: const ValueKey('waiting'),
-                    cards: _waitingCards(),
+                    cards: _waitingCardsWithOptionalSd(flagOn),
                   )
                 : SizedBox(
                     key: const ValueKey('ror'),
