@@ -58,6 +58,10 @@ class _SignZonePickerScreenState extends State<SignZonePickerScreen> {
   final Set<String> _signedZoneKeys = {};
   final Map<String, Uint8List> _signatureInk = {};
 
+  /// Bytes the viewer was opened with. Stamping updates [_pdfBytes] only,
+  /// so the native viewer keeps its page and scroll position.
+  Uint8List? _viewPdfBytes;
+
   bool _isPlaceMode = true;
   SignZoneType _activeTool = SignZoneType.signature;
   Size _viewSize = Size.zero;
@@ -101,6 +105,7 @@ class _SignZonePickerScreenState extends State<SignZonePickerScreen> {
       if (mounted) {
         setState(() {
           _pdfBytes = bytes;
+          _viewPdfBytes = bytes;
           _loading = false;
         });
       }
@@ -646,7 +651,7 @@ class _SignZonePickerScreenState extends State<SignZonePickerScreen> {
 
   Widget _buildPdfView() {
     return PDFView(
-      pdfData: _pdfBytes,
+      pdfData: _viewPdfBytes,
       enableSwipe: true,
       swipeHorizontal: false,
       autoSpacing: true,
