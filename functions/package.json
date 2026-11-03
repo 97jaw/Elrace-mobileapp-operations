@@ -7,6 +7,7 @@
     "start": "npm run shell",
     "deploy": "firebase deploy --only functions",
     "logs": "firebase functions:log",
+    "test": "node --test timesheet_approval_notify.test.js",
     "sync:chat-users": "node scripts/sync_odoo_chat_users.js --dry-run",
     "sync:chat-users:firestore-audit": "node scripts/sync_odoo_chat_users.js --firestore-audit-only",
     "sync:chat-users:apply": "node scripts/sync_odoo_chat_users.js --apply",
