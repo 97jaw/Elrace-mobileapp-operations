@@ -75,9 +75,6 @@ class SignatureDocument {
   /// True when any [signZones] entry is a stamp zone.
   final bool stampNeeded;
 
-  /// Printed timesheet. Zone owners live on each [signZones] entry.
-  final bool timesheetMode;
-
   const SignatureDocument({
     required this.id,
     required this.ownerUid,
@@ -97,7 +94,6 @@ class SignatureDocument {
     this.signedAt,
     this.signedBy,
     this.stampNeeded = false,
-    this.timesheetMode = false,
   });
 
   bool get isSentToOther => chatId != null && messageId != null;
@@ -131,7 +127,6 @@ class SignatureDocument {
       signedAt: (data['signed_at'] as Timestamp?)?.toDate(),
       signedBy: data['signed_by'],
       stampNeeded: data['stamp_needed'] == true || zonesNeedStamp(zones),
-      timesheetMode: data['timesheet_mode'] == true,
     );
   }
 
@@ -157,7 +152,6 @@ class SignatureDocument {
     if (signedPdfUrl != null) map['signed_pdf_url'] = signedPdfUrl;
     if (signedAt != null) map['signed_at'] = Timestamp.fromDate(signedAt!);
     if (signedBy != null) map['signed_by'] = signedBy;
-    if (timesheetMode) map['timesheet_mode'] = true;
     return map;
   }
 
@@ -172,7 +166,6 @@ class SignatureDocument {
     DateTime? signedAt,
     String? signedBy,
     bool? stampNeeded,
-    bool? timesheetMode,
   }) {
     return SignatureDocument(
       id: id,
@@ -193,7 +186,6 @@ class SignatureDocument {
       signedAt: signedAt ?? this.signedAt,
       signedBy: signedBy ?? this.signedBy,
       stampNeeded: stampNeeded ?? this.stampNeeded,
-      timesheetMode: timesheetMode ?? this.timesheetMode,
     );
   }
 }

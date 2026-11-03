@@ -4,6 +4,7 @@ import 'dart:async';
 
 import 'package:el_race/chat/chat.dart';
 import 'package:el_race/core/ui/adaptive_glass.dart';
+import 'package:el_race/core/notifications/app_notifications_repository.dart';
 import 'package:el_race/core/notifications/notification_config_service.dart';
 import 'package:el_race/core/notifications/notification_inbox_repository.dart';
 import 'package:el_race/core/services/approval_count_service.dart';
@@ -132,12 +133,15 @@ class _HomeGlassAppBarState extends State<HomeGlassAppBar> {
       return;
     }
     // Sync from Odoo so iOS badge updates even when FCM did not wake Dart.
-    final count = await NotificationStorageService.syncBadgeFromServer();
+    final synced = await NotificationStorageService.syncBadgeFromServer();
+    final count =
+        await AppNotificationsRepository.instance.addUnreadTo(synced);
     if (mounted) setState(() => _notificationCount = count);
   }
 
   Future<void> _loadNotificationCountLocal() async {
-    final count = await NotificationStorageService.getBadgeCount();
+    final base = await NotificationStorageService.getBadgeCount();
+    final count = await AppNotificationsRepository.instance.addUnreadTo(base);
     if (mounted) setState(() => _notificationCount = count);
   }
 

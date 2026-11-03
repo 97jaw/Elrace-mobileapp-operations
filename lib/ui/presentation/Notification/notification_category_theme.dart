@@ -118,6 +118,16 @@ abstract final class NotificationCategoryTheme {
       color: Color(0xFF3949AB),
       title: 'Notifications',
     ),
+    'timesheet_approval': NotificationCategoryVisual(
+      icon: Icons.description_rounded,
+      color: Color(0xFF8B6914),
+      title: 'Sign Document',
+    ),
+    'timesheet_approval_waiting': NotificationCategoryVisual(
+      icon: Icons.description_rounded,
+      color: Color(0xFF8B6914),
+      title: 'Sign Document',
+    ),
   };
 
   static NotificationCategoryVisual forKey(

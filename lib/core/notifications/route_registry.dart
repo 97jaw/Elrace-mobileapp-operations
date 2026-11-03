@@ -11,6 +11,7 @@ import 'package:el_race/ui/presentation/tasks/tasks_screen.dart';
 import 'package:el_race/ui/presentation/tasks_dashboard/screens/task_details.dart'
     as firebase_task_details;
 import 'package:el_race/ui/presentation/tickets/screens/ticket_details_screen.dart';
+import 'package:el_race/ui/presentation/timesheet/widgets/tm_timesheet_approval_document_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -67,6 +68,9 @@ class NotificationRouteRegistry {
           pdfUrl: payload.params['pdf_url']?.toString(),
           title: payload.params['title']?.toString(),
         );
+      case 'firestore.timesheet_approval':
+        if (payload.resId.isEmpty) return null;
+        return TimesheetApprovalByIdLoader(id: payload.resId);
       case 'project.project':
         if (payload.resId.isEmpty) return null;
         return ProjectByIdLoader(projectId: payload.resId);

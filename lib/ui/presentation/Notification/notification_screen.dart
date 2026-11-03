@@ -1,5 +1,7 @@
 import 'package:el_race/core/utils/responsive_breakpoints.dart';
+import 'package:el_race/core/notifications/app_notifications_repository.dart';
 import 'package:el_race/core/notifications/notification_inbox_repository.dart';
+import 'package:el_race/core/notifications/notification_list_merge.dart';
 import 'package:el_race/core/notifications/notification_payload.dart';
 import 'package:el_race/core/notifications/notification_router.dart';
 import 'package:el_race/core/services/notification_storage_service.dart';
@@ -53,6 +55,8 @@ class _NotificationScreenState extends State<NotificationScreen> {
   Future<void> _bootstrap() async {
     // Load list, then snapshot unread baseline so only newer items bump the bell.
     await _loadNotifications();
+    // Firestore results: mark read when the center is opened.
+    await AppNotificationsRepository.instance.markAllUnreadRead();
     if (notificationInboxV2Enabled) {
       try {
         await NotificationInboxRepository.markAllRead();
@@ -60,7 +64,9 @@ class _NotificationScreenState extends State<NotificationScreen> {
       } catch (_) {}
     } else {
       await NotificationStorageService.acknowledgeBadge(
-        knownIds: _notifications.map((n) => '${n['id'] ?? ''}'),
+        knownIds: _notifications
+            .where((n) => !AppNotificationIds.isFirestore('${n['id'] ?? ''}'))
+            .map((n) => '${n['id'] ?? ''}'),
       );
       await NotificationStorageService.markAllAsRead();
     }
@@ -73,7 +79,7 @@ class _NotificationScreenState extends State<NotificationScreen> {
     });
   }
 
-  Future<List<Map<String, dynamic>>> _fetchNotifications() async {
+  Future<List<Map<String, dynamic>>> _fetchPrimaryNotifications() async {
     if (!notificationInboxV2Enabled) {
       return NotificationStorageService.getNotifications(
         limit: _maxRecords,
@@ -89,15 +95,22 @@ class _NotificationScreenState extends State<NotificationScreen> {
       setState(() => _loading = true);
     }
     try {
-      final batch = await _fetchNotifications();
+      final primary = await _fetchPrimaryNotifications();
+      // Firestore errors must not break the existing list.
+      final firestoreRows =
+          await AppNotificationsRepository.instance.listMine(limit: _maxRecords);
       if (!mounted) return;
-      final filtered = List<Map<String, dynamic>>.from(batch).where((n) {
+      final filtered = primary.where((n) {
         final cat = (n['category'] ?? '').toString().toLowerCase().trim();
         return cat != 'circular' && cat != 'announcement';
       }).toList();
-      filtered.sort(_compareNewestFirst);
+      final merged = NotificationListMerge.mergeAndSort(
+        primary: filtered,
+        firestoreRows: firestoreRows,
+        limit: _maxRecords,
+      );
       setState(() {
-        _notifications = filtered;
+        _notifications = merged;
         _loading = false;
         if (_notifications.isEmpty) {
           _clearAllVisible = false;
@@ -108,18 +121,6 @@ class _NotificationScreenState extends State<NotificationScreen> {
       if (!mounted) return;
       setState(() => _loading = false);
     }
-  }
-
-  int _compareNewestFirst(Map<String, dynamic> a, Map<String, dynamic> b) {
-    final aTime = DateTime.tryParse(
-          (a['timestamp'] ?? a['created_at'] ?? '').toString(),
-        ) ??
-        DateTime.fromMillisecondsSinceEpoch(0);
-    final bTime = DateTime.tryParse(
-          (b['timestamp'] ?? b['created_at'] ?? '').toString(),
-        ) ??
-        DateTime.fromMillisecondsSinceEpoch(0);
-    return bTime.compareTo(aTime);
   }
 
   bool _isRead(Map<String, dynamic> item) {
@@ -166,7 +167,19 @@ class _NotificationScreenState extends State<NotificationScreen> {
   void _onTapNotification(Map<String, dynamic> item) {
     // No popup — tap only closes open swipe / Clear all chrome.
     _collapseChrome();
-    if (!notificationInboxV2Enabled) return;
+    final id = '${item['id'] ?? ''}';
+    if (!NotificationListMerge.shouldOpenViaRouter(
+      id: id,
+      inboxV2Enabled: notificationInboxV2Enabled,
+    )) {
+      return;
+    }
+    if (AppNotificationIds.isFirestore(id) && !_isRead(item)) {
+      // ignore: discarded_futures
+      AppNotificationsRepository.instance.markRead(id);
+      item['isRead'] = true;
+      item['is_read'] = true;
+    }
     NotificationRouter.open(_payloadFor(item));
   }
 
@@ -196,11 +209,20 @@ class _NotificationScreenState extends State<NotificationScreen> {
       if (_openSwipeId == id) _openSwipeId = null;
       if (_notifications.isEmpty) _clearAllVisible = false;
     });
-    if (notificationInboxV2Enabled) {
-      await NotificationInboxRepository.hide(id);
-      return;
+    switch (NotificationListMerge.deleteTargetFor(
+      id: id,
+      inboxV2Enabled: notificationInboxV2Enabled,
+    )) {
+      case NotificationDeleteTarget.firestoreAppNotifications:
+        await AppNotificationsRepository.instance.delete(id);
+        break;
+      case NotificationDeleteTarget.inboxV2:
+        await NotificationInboxRepository.hide(id);
+        break;
+      case NotificationDeleteTarget.localStorage:
+        await NotificationStorageService.deleteNotification(id);
+        break;
     }
-    await NotificationStorageService.deleteNotification(id);
   }
 
   void _onCrossTap() {
@@ -220,6 +242,7 @@ class _NotificationScreenState extends State<NotificationScreen> {
       _openSwipeId = null;
     });
     try {
+      await AppNotificationsRepository.instance.deleteAll();
       if (notificationInboxV2Enabled) {
         await NotificationInboxRepository.hideAll();
         await NotificationInboxRepository.refreshBadge();
