@@ -113,7 +113,7 @@ class ApprovalCountService {
 
   static Future<bool> _isTimesheetApprovalEnabled() async {
     try {
-      return TimesheetApprovalFeature().isEnabled();
+      return TimesheetApprovalFeature.instance.isEnabled();
     } catch (e) {
       debugPrint('ApprovalCountService timesheet flag: $e');
       return false;

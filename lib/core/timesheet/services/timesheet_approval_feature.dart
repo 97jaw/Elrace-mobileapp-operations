@@ -6,9 +6,15 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 ///
 /// Missing doc/field or any error → false (feature stays off). Errors are not
 /// cached so a later call (after sign-in / resume) can succeed.
+///
+/// Use [instance] everywhere (badge, provider) so resume / sign-in refresh
+/// clears one shared cache instead of spawning a new reader each time.
 class TimesheetApprovalFeature {
   TimesheetApprovalFeature({FirebaseFirestore? firestore})
       : _firestore = firestore ?? FirebaseFirestore.instance;
+
+  /// Process-wide shared reader (same cache the Riverpod provider uses).
+  static final TimesheetApprovalFeature instance = TimesheetApprovalFeature();
 
   final FirebaseFirestore _firestore;
   bool? _cached;
@@ -46,7 +52,7 @@ class TimesheetApprovalFeature {
 }
 
 final timesheetApprovalFeatureProvider = Provider<TimesheetApprovalFeature>(
-  (ref) => TimesheetApprovalFeature(),
+  (ref) => TimesheetApprovalFeature.instance,
 );
 
 /// Cached bool; invalidate (resume / sign-in) to force a fresh Firestore read.
