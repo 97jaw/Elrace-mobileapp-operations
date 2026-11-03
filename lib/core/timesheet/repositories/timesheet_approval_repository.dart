@@ -129,6 +129,18 @@ class TimesheetApprovalRepository {
     return watchPendingFor(uid).map((list) => list.length);
   }
 
+  /// Aggregate count for the home badge (not a full document download).
+  Future<int> countPendingFor(String uid) {
+    if (uid.isEmpty) return Future.value(0);
+    return _withAuth(() async {
+      final snap = await _collection
+          .where('pending_uids', arrayContains: uid)
+          .count()
+          .get();
+      return snap.count ?? 0;
+    });
+  }
+
   Future<TimesheetApproval?> getById(String id) {
     return _withAuth(() async {
       final snap = await _collection.doc(id).get();

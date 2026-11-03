@@ -1,9 +1,13 @@
 import 'dart:convert';
+
+import 'package:el_race/core/timesheet/repositories/timesheet_approval_repository.dart';
+import 'package:el_race/core/timesheet/services/timesheet_approval_feature.dart';
 import 'package:el_race/core/utils/shared_pref.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 
-/// Waiting-approvals badge count (HR + RFQ + Invoice + Petty Cash pending).
+/// Waiting-approvals badge count (HR + RFQ + Invoice + Petty Cash [+ Sign Document]).
 ///
 /// Strategy:
 /// - Badge = total pending waiting items (not “unviewed”).
@@ -22,6 +26,21 @@ class ApprovalCountService {
 
   /// Null when never fetched / invalidated.
   static int? get cachedCount => _cachedCount < 0 ? null : _cachedCount;
+
+  /// Pure sum used by [getTotalApprovalCount] and unit tests.
+  static int sumApprovalCounts({
+    required int hr,
+    required int rfq,
+    required int invoice,
+    required int pettyCash,
+    required bool timesheetApprovalEnabled,
+    required int signDocumentCount,
+  }) {
+    final odoo = hr + rfq + invoice + pettyCash;
+    if (!timesheetApprovalEnabled) return odoo;
+    final sd = signDocumentCount < 0 ? 0 : signDocumentCount;
+    return odoo + sd;
+  }
 
   static void addListener(Object key, VoidCallback callback) {
     _listeners[key] = callback;
@@ -73,11 +92,42 @@ class ApprovalCountService {
         _fetchCategoryCount('petty_cash', token),
       ]);
 
-      final totalCount = results.reduce((a, b) => a + b);
+      final flagOn = await _isTimesheetApprovalEnabled();
+      final sdCount = flagOn ? await _fetchSignDocumentCount() : 0;
+
+      final totalCount = sumApprovalCounts(
+        hr: results[0],
+        rfq: results[1],
+        invoice: results[2],
+        pettyCash: results[3],
+        timesheetApprovalEnabled: flagOn,
+        signDocumentCount: sdCount,
+      );
       _cachedCount = totalCount;
       return totalCount;
     } catch (e) {
       debugPrint('ApprovalCountService.getTotalApprovalCount failed: $e');
+      return 0;
+    }
+  }
+
+  static Future<bool> _isTimesheetApprovalEnabled() async {
+    try {
+      return TimesheetApprovalFeature().isEnabled();
+    } catch (e) {
+      debugPrint('ApprovalCountService timesheet flag: $e');
+      return false;
+    }
+  }
+
+  /// SD errors never break the Odoo total (count as 0).
+  static Future<int> _fetchSignDocumentCount() async {
+    try {
+      final uid = FirebaseAuth.instance.currentUser?.uid ?? '';
+      if (uid.isEmpty) return 0;
+      return TimesheetApprovalRepository.instance.countPendingFor(uid);
+    } catch (e) {
+      debugPrint('ApprovalCountService Sign Document count: $e');
       return 0;
     }
   }
