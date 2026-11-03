@@ -1,3 +1,4 @@
+import 'package:el_race/core/notifications/app_notifications_repository.dart';
 import 'package:el_race/core/services/app_icon_badge_service.dart';
 import 'package:el_race/core/services/approval_count_service.dart';
 import 'package:el_race/core/services/notification_storage_service.dart';
@@ -49,9 +50,12 @@ class BadgeRefreshService {
             .then((_) {}),
       ]);
       // Align springboard badge even when local count did not change
-      // (clears stuck APNs badge:1 from older chat pushes).
+      // (clears stuck APNs badge:1 from older chat pushes). Include Firestore
+      // timesheet-approval result unread (0 when flag off / error).
       final local = await NotificationStorageService.getLocalStoredCount();
-      await AppIconBadgeService.setCount(local, force: true);
+      final total =
+          await AppNotificationsRepository.instance.addUnreadTo(local);
+      await AppIconBadgeService.setCount(total, force: true);
     } catch (e) {
       debugPrint('BadgeRefreshService.refreshOnResume failed: $e');
     } finally {

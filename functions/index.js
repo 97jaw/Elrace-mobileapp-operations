@@ -38,6 +38,10 @@ exports.onSignableDocumentUpdated = onSignableDocumentUpdated;
 const { onNoteShared } = require("./notes_share_notify");
 exports.onNoteShared = onNoteShared;
 
+// Timesheet approval — push SE/PM on create; store+push foreman on result
+const { onTimesheetApprovalWritten } = require("./timesheet_approval_notify");
+exports.onTimesheetApprovalWritten = onTimesheetApprovalWritten;
+
 // Circular / Announcement — Odoo Publish → Firestore job → batch FCM
 const { onOdooAnnouncementPushJob } = require("./odoo_announcement_push");
 exports.onOdooAnnouncementPushJob = onOdooAnnouncementPushJob;

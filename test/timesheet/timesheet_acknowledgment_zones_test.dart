@@ -42,29 +42,6 @@ void main() {
     expect(_pageCount(stamped), before);
   });
 
-  test('one signee is blocked only while a Projects Manager box remains', () {
-    expect(
-      timesheetOneSigneeBlock(
-        recipientCount: 1,
-        projectsManagerBoxRemains: true,
-      ),
-      'Select Site Engineer and Projects Manager',
-    );
-    expect(
-      timesheetOneSigneeBlock(
-        recipientCount: 1,
-        projectsManagerBoxRemains: false,
-      ),
-      isNull,
-    );
-    expect(
-      timesheetOneSigneeBlock(
-        recipientCount: 2,
-        projectsManagerBoxRemains: true,
-      ),
-      isNull,
-    );
-  });
 }
 
 Future<Uint8List> _threeLabourPdf() async {

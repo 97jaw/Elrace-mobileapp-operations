@@ -13,7 +13,6 @@ import 'package:el_race/core/timesheet/services/timesheet_offline_queue_service.
 import 'package:el_race/core/timesheet/models/timesheet_project_status.dart';
 import 'package:el_race/core/timesheet/models/timesheet_team_member.dart';
 import 'package:el_race/core/timesheet/network/timesheet_odoo_employee.dart';
-import 'package:el_race/core/timesheet/network/timesheet_odoo_mappers.dart';
 import 'package:el_race/core/timesheet/services/timesheet_capture_session_store.dart';
 import 'package:el_race/ui/presentation/timesheet/models/timesheet_capture_session_entry.dart';
 import 'package:el_race/core/utils/shared_pref.dart';
@@ -408,49 +407,6 @@ final timesheetForemanLaborsProvider =
   }
   members.sort((a, b) => a.name.compareTo(b.name));
   return members;
-});
-
-/// Recent submitted timesheet rows across the foreman's active sites.
-/// Aggregates over projects (per-project failures are ignored) and shows the
-/// latest submissions across a trailing window (not just today).
-final timesheetForemanRecentRowsProvider =
-    FutureProvider.autoDispose<List<Map<String, dynamic>>>((ref) async {
-  final buckets = await ref.watch(timesheetProjectBucketsProvider.future);
-  final projects = <Project>[
-    ...buckets.inProgress,
-    if (buckets.inProgress.isEmpty) ...buckets.completed,
-  ];
-  if (projects.isEmpty) return const [];
-  final client = ref.watch(timesheetApiClientProvider);
-  final today = DateTime.now();
-  final toDate = DateTime(today.year, today.month, today.day);
-  final fromDate = toDate.subtract(const Duration(days: 30));
-  final collected = <Map<String, dynamic>>[];
-  final seenIds = <String>{};
-  for (final project in projects.take(8)) {
-    try {
-      final rows = await client.fetchProjectTimesheetRowsForRange(
-        projectId: project.id,
-        fromDate: fromDate,
-        toDate: toDate,
-      );
-      for (final row in rows) {
-        final id = row['id']?.toString() ?? '';
-        if (id.isNotEmpty && !seenIds.add(id)) continue;
-        collected.add(row);
-      }
-    } catch (error, stack) {
-      // Skip projects that fail; keep collecting from the rest.
-      assert(() {
-        // ignore: avoid_print
-        print('timesheetForemanRecentRowsProvider ${project.id}: $error\n$stack');
-        return true;
-      }());
-    }
-  }
-  final sorted = TimesheetOdooMappers.sortTimesheetRowsByWorkDateDesc(collected);
-  if (sorted.length <= 5) return sorted;
-  return sorted.sublist(0, 5);
 });
 
 /// Pending (captured but not yet submitted) attendance held for up to 1 hour.

@@ -15,16 +15,12 @@ class SignaturesScreen extends StatefulWidget {
     super.key,
     this.initialPdf,
     this.initialFileName,
-    this.timesheetMode = false,
   });
 
   /// Skips the file picker and opens zone placement for this PDF.
   /// The Signature "+" button does not set these.
   final File? initialPdf;
   final String? initialFileName;
-
-  /// Set only by Sign Timesheet. "+" stays the normal signature flow.
-  final bool timesheetMode;
 
   @override
   State<SignaturesScreen> createState() => _SignaturesScreenState();
@@ -43,11 +39,7 @@ class _SignaturesScreenState extends State<SignaturesScreen> {
     _tabIndex = file == null ? 0 : 1;
     if (file != null && name != null && name.isNotEmpty) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        _documentsKey.currentState?.startUploadWithFile(
-          file,
-          name,
-          timesheetMode: widget.timesheetMode,
-        );
+        _documentsKey.currentState?.startUploadWithFile(file, name);
       });
     }
   }

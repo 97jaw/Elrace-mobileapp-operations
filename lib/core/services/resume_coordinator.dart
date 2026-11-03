@@ -7,10 +7,13 @@ import 'package:el_race/core/services/attendance_status_sync_service.dart';
 import 'package:el_race/core/services/badge_refresh_service.dart';
 import 'package:el_race/core/session/force_logout_guard.dart';
 import 'package:el_race/core/security/vpn_block_guard.dart';
+import 'package:el_race/core/timesheet/services/timesheet_approval_feature.dart';
 import 'package:el_race/core/utils/shared_pref.dart';
 import 'package:el_race/data/services/prayer_audio_service.dart';
 import 'package:el_race/firebase_service.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 /// Single owner of all app-resume work.
 ///
@@ -111,6 +114,19 @@ class ResumeCoordinator {
     // Firebase ID tokens expire after an hour, so a resume from long
     // background leaves Firestore/Storage/Functions rejecting the first tap.
     unawaited(FirebaseSession.instance.refreshOnResume());
+    _refreshTimesheetApprovalFlag();
+  }
+
+  void _refreshTimesheetApprovalFlag() {
+    try {
+      final ctx = navKey.currentContext;
+      if (ctx == null || !ctx.mounted) return;
+      refreshTimesheetApprovalFlag(
+        ProviderScope.containerOf(ctx, listen: false),
+      );
+    } catch (e) {
+      debugPrint('ResumeCoordinator timesheet flag refresh: $e');
+    }
   }
 
   Future<void> _runTier2AfterDelay() async {

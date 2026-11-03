@@ -16,11 +16,11 @@ import 'package:el_race/core/timesheet/providers/timesheet_hr_scope_provider.dar
 import 'package:el_race/core/timesheet/routing/timesheet_route_names.dart';
 import 'package:el_race/core/timesheet/providers/timesheet_acting_session_provider.dart';
 import 'package:el_race/core/timesheet/services/timesheet_acting_guard.dart';
+import 'package:el_race/core/timesheet/services/timesheet_approval_feature.dart';
 import 'package:el_race/core/timesheet/services/timesheet_capture_session_store.dart';
 import 'package:el_race/core/timesheet/timesheet_defaults.dart';
 import 'package:el_race/core/widgets/timesheet/timesheet_widgets.dart';
 import 'package:el_race/ui/presentation/timesheet/foreman/fm_timesheet_capture_submit_screen.dart';
-import 'package:el_race/ui/presentation/timesheet/foreman/fm_timesheet_submitted_list_screen.dart';
 import 'package:el_race/ui/presentation/timesheet/models/timesheet_capture_session_entry.dart';
 import 'package:el_race/ui/presentation/timesheet/site_reports/tm_site_reports_list_screen.dart';
 import 'package:el_race/ui/presentation/timesheet/timesheet_async_state.dart';
@@ -32,7 +32,7 @@ import 'package:el_race/ui/presentation/timesheet/widgets/tm_active_sites_sheet.
 import 'package:el_race/ui/presentation/timesheet/widgets/tm_foreman_site_location_card.dart';
 import 'package:el_race/ui/presentation/timesheet/widgets/tm_site_location_dialog.dart';
 import 'package:el_race/ui/presentation/timesheet/widgets/tm_team_members_sheet.dart';
-import 'package:el_race/ui/presentation/timesheet/widgets/tm_timesheet_entry_row.dart';
+import 'package:el_race/ui/presentation/timesheet/widgets/tm_timesheet_documents_section.dart';
 import 'package:el_race/ui/widgets/contextual_glass_chrome_header.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -51,7 +51,6 @@ abstract final class _FmHomeTheme {
   static const Color mutedGray = Color(0xFF9A8F7E);
   static const Color orange = Color(0xFFF97316);
   static const Color iconBadge = TimesheetModuleColors.iconSurface;
-  static const Color emptyPlot = Color(0xFFEFE7D6);
   static const double cardRadius = 12;
 }
 
@@ -142,7 +141,6 @@ class _Fm1ForemanDashboardState extends ConsumerState<Fm1ForemanDashboard> {
       }
     }
     final laborsAsync = ref.watch(timesheetForemanLaborsProvider);
-    final recentAsync = ref.watch(timesheetForemanRecentRowsProvider);
     final pendingCaptures =
         ref.watch(timesheetPendingCaptureProvider).maybeWhen(
               data: (value) => value,
@@ -330,16 +328,17 @@ class _Fm1ForemanDashboardState extends ConsumerState<Fm1ForemanDashboard> {
                                 TimesheetRouteNames.foremanTimesheetRecords,
                               ),
                             ),
-                            const SizedBox(
-                              height: TimesheetModuleLayout.sectionGap,
-                            ),
-                            // Recent list keeps its own internal scroll and fills
-                            // the remaining space instead of scrolling the page.
-                            Expanded(
-                              child: _RecentTimesheetsSection(
-                                recentAsync: recentAsync,
+                            if (ref
+                                    .watch(timesheetApprovalEnabledProvider)
+                                    .asData
+                                    ?.value ==
+                                true) ...[
+                              const SizedBox(
+                                height: TimesheetModuleLayout.sectionGap,
                               ),
-                            ),
+                              const TmTimesheetDocumentsSection(),
+                            ],
+                            const Spacer(),
                             if (pendingCaptures.isNotEmpty)
                               const SizedBox(height: 72),
                           ],
@@ -425,7 +424,6 @@ class _Fm1ForemanDashboardState extends ConsumerState<Fm1ForemanDashboard> {
 
     if (mounted) {
       ref.invalidate(timesheetForemanEnrollmentMapProvider);
-      ref.invalidate(timesheetForemanRecentRowsProvider);
       ref.invalidate(timesheetPendingCaptureProvider);
     }
   }
@@ -790,7 +788,6 @@ class _Fm1ForemanDashboardState extends ConsumerState<Fm1ForemanDashboard> {
       );
       if (success) {
         await TimesheetCaptureSessionStore.clear();
-        ref.invalidate(timesheetForemanRecentRowsProvider);
         ref.invalidate(timesheetPendingCaptureProvider);
       }
       return success;
@@ -1000,177 +997,6 @@ class _PrintTimesheetButton extends StatelessWidget {
                 ),
               ),
             ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _DashedRRectPainter extends CustomPainter {
-  const _DashedRRectPainter({
-    required this.color,
-    required this.radius,
-  });
-
-  final Color color;
-  final double radius;
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final rrect = RRect.fromRectAndRadius(
-      Rect.fromLTWH(0.5, 0.5, size.width - 1, size.height - 1),
-      Radius.circular(radius),
-    );
-    final path = Path()..addRRect(rrect);
-    final paint = Paint()
-      ..color = color
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 1;
-    for (final metric in path.computeMetrics()) {
-      var distance = 0.0;
-      const dash = 5.0;
-      const gap = 4.0;
-      while (distance < metric.length) {
-        final next = (distance + dash).clamp(0.0, metric.length);
-        canvas.drawPath(metric.extractPath(distance, next), paint);
-        distance = next + gap;
-      }
-    }
-  }
-
-  @override
-  bool shouldRepaint(covariant _DashedRRectPainter oldDelegate) =>
-      oldDelegate.color != color || oldDelegate.radius != radius;
-}
-
-class _RecentTimesheetsSection extends StatelessWidget {
-  const _RecentTimesheetsSection({required this.recentAsync});
-
-  final AsyncValue<List<Map<String, dynamic>>> recentAsync;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(
-        color: _FmHomeTheme.card,
-        borderRadius: BorderRadius.circular(_FmHomeTheme.cardRadius),
-        border: Border.all(color: _FmHomeTheme.cardBorder),
-      ),
-      padding: const EdgeInsets.fromLTRB(14, 14, 14, 14),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Row(
-            children: [
-              const Expanded(
-                child: Text(
-                  'Recent timesheets',
-                  style: TextStyle(
-                    color: _FmHomeTheme.ink,
-                    fontSize: 16,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-              ),
-              TextButton(
-                onPressed: () => Navigator.of(context).push(
-                  MaterialPageRoute<void>(
-                    builder: (_) => const FmTimesheetSubmittedListScreen(),
-                  ),
-                ),
-                style: TextButton.styleFrom(
-                  foregroundColor: _FmHomeTheme.orange,
-                  padding: const EdgeInsets.symmetric(horizontal: 8),
-                  minimumSize: Size.zero,
-                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                ),
-                child: const Text(
-                  'Show all',
-                  style: TextStyle(
-                    color: _FmHomeTheme.orange,
-                    fontWeight: FontWeight.w700,
-                    fontSize: 13,
-                  ),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          Expanded(
-            child: recentAsync.when(
-              data: (rows) {
-                if (rows.isEmpty) {
-                  return const Align(
-                    alignment: Alignment.topCenter,
-                    child: _RecentEmpty(
-                      message: 'No recent timesheet submissions',
-                    ),
-                  );
-                }
-                return ListView.builder(
-                  padding: EdgeInsets.zero,
-                  itemCount: rows.length,
-                  itemBuilder: (context, i) => TmTimesheetEntryRow(
-                    row: rows[i],
-                    index: i + 1,
-                    homeLight: true,
-                  ),
-                );
-              },
-              loading: () => const Padding(
-                padding: EdgeInsets.symmetric(vertical: 28),
-                child: Center(
-                  child: SizedBox(
-                    width: 26,
-                    height: 26,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2.5,
-                      color: _FmHomeTheme.orange,
-                    ),
-                  ),
-                ),
-              ),
-              error: (_, __) => const Align(
-                alignment: Alignment.topCenter,
-                child: _RecentEmpty(
-                  message: 'Could not load recent timesheets',
-                ),
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _RecentEmpty extends StatelessWidget {
-  const _RecentEmpty({required this.message});
-
-  final String message;
-
-  @override
-  Widget build(BuildContext context) {
-    return CustomPaint(
-      painter: const _DashedRRectPainter(
-        color: _FmHomeTheme.cardBorder,
-        radius: 10,
-      ),
-      child: Container(
-        width: double.infinity,
-        padding: const EdgeInsets.symmetric(vertical: 28, horizontal: 16),
-        decoration: BoxDecoration(
-          color: _FmHomeTheme.emptyPlot,
-          borderRadius: BorderRadius.circular(10),
-        ),
-        child: Text(
-          message,
-          textAlign: TextAlign.center,
-          style: const TextStyle(
-            color: _FmHomeTheme.mutedGray,
-            fontSize: 13,
-            fontWeight: FontWeight.w500,
           ),
         ),
       ),

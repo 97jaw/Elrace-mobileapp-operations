@@ -713,6 +713,13 @@ class FirebaseService {
         category = message.data['model'].toString();
       }
 
+      // Timesheet approval results live in Firestore app_notifications;
+      // waiting pushes are push-only. Never mirror either into local storage.
+      final cat = category.toLowerCase().trim();
+      if (cat == 'timesheet_approval' || cat == 'timesheet_approval_waiting') {
+        return;
+      }
+
       final data = Map<String, dynamic>.from(message.data);
       if (message.messageId != null && message.messageId!.isNotEmpty) {
         data.putIfAbsent('fcm_message_id', () => message.messageId);

@@ -1,6 +1,7 @@
 import 'dart:typed_data';
 import 'dart:ui';
 
+import 'package:flutter/foundation.dart';
 import 'package:syncfusion_flutter_pdf/pdf.dart';
 
 import '../../chat/models/message.dart';
@@ -20,18 +21,44 @@ class TimesheetAckCell {
   /// `employee`, `supervisor`, `site_engineer`, or `projects_manager`.
   final String role;
   final SignZone zone;
+
+  Map<String, dynamic> toMap() => {
+        'page': page,
+        'table_index': tableIndex,
+        'role': role,
+        'zone': zone.toMap(),
+      };
+
+  factory TimesheetAckCell.fromMap(Map<String, dynamic> data) {
+    final zoneRaw = data['zone'];
+    return TimesheetAckCell(
+      page: (data['page'] as num?)?.toInt() ?? 0,
+      tableIndex: (data['table_index'] as num?)?.toInt() ?? 0,
+      role: data['role']?.toString() ?? 'employee',
+      zone: zoneRaw is Map
+          ? SignZone.fromMap(Map<String, dynamic>.from(zoneRaw))
+          : const SignZone(page: 0, x: 0, y: 0, width: 0.3, height: 0.06),
+    );
+  }
 }
 
-/// Blocks Send when one signee is chosen and a Projects Manager box is still
-/// on the sheet. Returns null when sending is allowed.
-String? timesheetOneSigneeBlock({
-  required int recipientCount,
-  required bool projectsManagerBoxRemains,
-}) {
-  if (recipientCount == 1 && projectsManagerBoxRemains) {
-    return 'Select Site Engineer and Projects Manager';
-  }
-  return null;
+/// Isolate wrapper so multi-page zone detection stays off the UI thread.
+Future<List<TimesheetAckCell>> findTimesheetAcknowledgmentCellsCompute(
+  Uint8List pdfBytes,
+) async {
+  final maps = await compute(_findTimesheetAcknowledgmentCellsIsolate, pdfBytes);
+  return [
+    for (final item in maps)
+      TimesheetAckCell.fromMap(Map<String, dynamic>.from(item)),
+  ];
+}
+
+List<Map<String, dynamic>> _findTimesheetAcknowledgmentCellsIsolate(
+  Uint8List pdfBytes,
+) {
+  return [
+    for (final cell in findTimesheetAcknowledgmentCells(pdfBytes)) cell.toMap(),
+  ];
 }
 
 /// Finds the four acknowledgment cells on every page of a printed timesheet.

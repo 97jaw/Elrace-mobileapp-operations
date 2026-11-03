@@ -1,18 +1,25 @@
+import 'dart:async';
+
+import 'package:el_race/core/timesheet/models/timesheet_approval.dart';
+import 'package:el_race/core/timesheet/repositories/timesheet_approval_repository.dart';
+import 'package:el_race/core/timesheet/services/timesheet_approval_feature.dart';
 import 'package:el_race/core/utils/responsive_breakpoints.dart';
 import 'package:el_race/ui/presentation/Email%20Approval/theme/approvals_overview_theme.dart';
 import 'package:el_race/ui/presentation/Email%20Approval/widgets/approval_overview_records_sheet.dart';
 import 'package:el_race/ui/presentation/Email%20Approval/widgets/stat_counter_card.dart';
+import 'package:el_race/ui/presentation/timesheet/widgets/tm_timesheet_approval_document_screen.dart';
 import 'package:el_race/utils/safe_insets.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 /// Compact ROR tab panel height.
 const double _kRorTabHeight = 300;
 
 /// Full-screen Waiting Approval dashboard (All tab).
-class AllApprovalsOverview extends StatefulWidget {
+class AllApprovalsOverview extends ConsumerStatefulWidget {
   const AllApprovalsOverview({
     super.key,
     required this.invoiceCount,
@@ -27,11 +34,6 @@ class AllApprovalsOverview extends StatefulWidget {
     this.categoryLoaded = const {},
     this.categoryErrors = const {},
     this.onCategoryRetry,
-    required this.delayedCount,
-    this.delayedHrCount = 0,
-    this.delayedRfqCount = 0,
-    this.delayedInvoiceCount = 0,
-    this.delayedPettyCashCount = 0,
     this.rorPercentage,
     this.rorHrRor,
     this.rorRfqRor,
@@ -41,7 +43,6 @@ class AllApprovalsOverview extends StatefulWidget {
     this.rorYear,
     this.rorLoading = false,
     this.onRorPeriodChanged,
-    this.onDelayedRecordTap,
     this.onCategoryRecordTap,
     this.onHrManagementTestCasesTap,
     this.onInvoicePrintTestTap,
@@ -59,11 +60,6 @@ class AllApprovalsOverview extends StatefulWidget {
   final Map<String, bool> categoryLoaded;
   final Map<String, String> categoryErrors;
   final ValueChanged<String>? onCategoryRetry;
-  final int delayedCount;
-  final int delayedHrCount;
-  final int delayedRfqCount;
-  final int delayedInvoiceCount;
-  final int delayedPettyCashCount;
   final int? rorPercentage;
   final int? rorHrRor;
   final int? rorRfqRor;
@@ -76,21 +72,67 @@ class AllApprovalsOverview extends StatefulWidget {
   final Future<void> Function(
     BuildContext sheetContext,
     Map<String, dynamic> item,
-  )? onDelayedRecordTap;
-  final Future<void> Function(
-    BuildContext sheetContext,
-    Map<String, dynamic> item,
     String categoryKey,
   )? onCategoryRecordTap;
   final VoidCallback? onHrManagementTestCasesTap;
   final VoidCallback? onInvoicePrintTestTap;
 
   @override
-  State<AllApprovalsOverview> createState() => _AllApprovalsOverviewState();
+  ConsumerState<AllApprovalsOverview> createState() =>
+      _AllApprovalsOverviewState();
 }
 
-class _AllApprovalsOverviewState extends State<AllApprovalsOverview> {
+class _AllApprovalsOverviewState extends ConsumerState<AllApprovalsOverview> {
   int _tabIndex = 0;
+
+  StreamSubscription<List<TimesheetApproval>>? _sdSub;
+  List<TimesheetApproval> _sdPending = const [];
+  bool _sdLoading = true;
+  bool _sdError = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _startSignDocumentStream();
+  }
+
+  @override
+  void dispose() {
+    _sdSub?.cancel();
+    super.dispose();
+  }
+
+  void _startSignDocumentStream() {
+    _sdSub?.cancel();
+    final uid = FirebaseAuth.instance.currentUser?.uid ?? '';
+    // Created once per overview mount (and on retry); not in build.
+    _sdSub = TimesheetApprovalRepository.instance.watchPendingFor(uid).listen(
+      (list) {
+        if (!mounted) return;
+        setState(() {
+          _sdPending = list;
+          _sdLoading = false;
+          _sdError = false;
+        });
+      },
+      onError: (e) {
+        debugPrint('AllApprovalsOverview Sign Document stream: $e');
+        if (!mounted) return;
+        setState(() {
+          _sdLoading = false;
+          _sdError = true;
+        });
+      },
+    );
+  }
+
+  void _retrySignDocumentStream() {
+    setState(() {
+      _sdLoading = true;
+      _sdError = false;
+    });
+    _startSignDocumentStream();
+  }
 
   bool _isLoading(String apiKey) =>
       widget.categoryLoading[apiKey] == true &&
@@ -151,15 +193,6 @@ class _AllApprovalsOverviewState extends State<AllApprovalsOverview> {
     );
   }
 
-  void _openDelayedSheet() {
-    ApprovalOverviewRecordsSheet.showDelayed(
-      context: context,
-      onItemTap: (sheetContext, item) async {
-        await widget.onDelayedRecordTap?.call(sheetContext, item);
-      },
-    );
-  }
-
   List<StatCounterCardData> _waitingCards() {
     void retry(String apiKey) => widget.onCategoryRetry?.call(apiKey);
 
@@ -212,11 +245,95 @@ class _AllApprovalsOverviewState extends State<AllApprovalsOverview> {
         onTap: () => _openCategorySheet('hr', 'Employee Request'),
         onRetry: () => retry('hr'),
       ),
+      // Placeholder until Task 4+ wires IT Request data.
+      StatCounterCardData(
+        id: 'it_request',
+        title: 'IT Request',
+        subtitle: ApprovalsOverviewTheme.statCardShortLabel('it_request'),
+        value: 0,
+        backgroundColor: ApprovalsOverviewTheme.statCardItRequest,
+        route: 'it_request',
+        isLoading: false,
+        hasError: false,
+        onTap: () => _openCategorySheet('it_request', 'IT Request'),
+      ),
     ];
+  }
+
+  List<StatCounterCardData> _waitingCardsWithOptionalSd(bool flagOn) {
+    final cards = _waitingCards();
+    if (!flagOn) return cards;
+    return [
+      ...cards,
+      StatCounterCardData(
+        id: 'sign_document',
+        title: 'Sign Document',
+        subtitle: ApprovalsOverviewTheme.statCardShortLabel('sign_document'),
+        value: _sdPending.length,
+        backgroundColor: ApprovalsOverviewTheme.statCardSignDocument,
+        route: 'sign_document',
+        isLoading: _sdLoading,
+        hasError: _sdError,
+        onTap: () => _openSignDocumentSheet(),
+        onRetry: _retrySignDocumentStream,
+      ),
+    ];
+  }
+
+  List<Map<String, dynamic>> _signDocumentItems() {
+    final uid = FirebaseAuth.instance.currentUser?.uid ?? '';
+    return [
+      for (final doc in _sdPending)
+        {
+          'id': doc.id,
+          'name': doc.fileName,
+          'file_name': doc.fileName,
+          'project_title': doc.projectName,
+          'project': doc.projectName,
+          'owner_name': doc.ownerName,
+          'employee_name': doc.ownerName,
+          'my_role': doc.myRole(uid)?.displayLabel ?? '',
+          'role_label': doc.myRole(uid)?.shortLabel ?? '',
+          'date': doc.createdAt.toIso8601String(),
+          'created_at': doc.createdAt.toIso8601String(),
+          'status': doc.myRole(uid)?.displayLabel ?? '',
+        },
+    ];
+  }
+
+  void _openSignDocumentSheet() {
+    ApprovalOverviewRecordsSheet.showCategory(
+      context: context,
+      title: 'Sign Document',
+      categoryKey: 'sign_document',
+      getItems: _signDocumentItems,
+      expectedCount: _sdPending.length,
+      isCategoryLoading: () => _sdLoading,
+      onItemTap: (sheetContext, item, _) async {
+        final id = item['id']?.toString() ?? '';
+        TimesheetApproval? doc;
+        for (final candidate in _sdPending) {
+          if (candidate.id == id) {
+            doc = candidate;
+            break;
+          }
+        }
+        doc ??= await TimesheetApprovalRepository.instance.getById(id);
+        if (doc == null || !sheetContext.mounted) return;
+        await Navigator.of(sheetContext).push<bool>(
+          MaterialPageRoute(
+            builder: (_) => TimesheetApprovalDocumentScreen(approval: doc!),
+          ),
+        );
+      },
+    );
   }
 
   @override
   Widget build(BuildContext context) {
+    final flagOn =
+        ref.watch(timesheetApprovalEnabledProvider).asData?.value ?? false;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -241,7 +358,7 @@ class _AllApprovalsOverviewState extends State<AllApprovalsOverview> {
             child: _tabIndex == 0
                 ? StatCounterGrid(
                     key: const ValueKey('waiting'),
-                    cards: _waitingCards(),
+                    cards: _waitingCardsWithOptionalSd(flagOn),
                   )
                 : SizedBox(
                     key: const ValueKey('ror'),
@@ -275,15 +392,7 @@ class _AllApprovalsOverviewState extends State<AllApprovalsOverview> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                _DelayedGlassCard(
-                  total: widget.delayedCount,
-                  hrCount: widget.delayedHrCount,
-                  rfqCount: widget.delayedRfqCount,
-                  invoiceCount: widget.delayedInvoiceCount,
-                  onTap: _openDelayedSheet,
-                ),
                 if (widget.onHrManagementTestCasesTap != null) ...[
-                  SizedBox(height: 10.th),
                   _HrManagementTestCasesCard(
                     onTap: widget.onHrManagementTestCasesTap!,
                   ),
@@ -1076,139 +1185,6 @@ class _RorLegendItem extends StatelessWidget {
             fontWeight: FontWeight.w700,
             color: ApprovalsOverviewTheme.textDark,
             height: 1,
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-// ─── Section 3: Delayed ─────────────────────────────────────────────────────
-
-class _DelayedGlassCard extends StatelessWidget {
-  const _DelayedGlassCard({
-    required this.total,
-    required this.hrCount,
-    required this.rfqCount,
-    required this.invoiceCount,
-    this.onTap,
-  });
-
-  final int total;
-  final int hrCount;
-  final int rfqCount;
-  final int invoiceCount;
-  final VoidCallback? onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return OverviewGlassPanel(
-      fillAlpha: 0.84,
-      blurSigma: 6,
-      onTap: onTap,
-      padding: EdgeInsets.fromLTRB(14.tw, 14.th, 12.tw, 13.th),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Row(
-            children: [
-              Expanded(
-                child: Text(
-                  'Delayed Requests',
-                  style: GoogleFonts.poppins(
-                    fontSize: 13.tsp,
-                    fontWeight: FontWeight.w600,
-                    color: ApprovalsOverviewTheme.textDark,
-                  ),
-                ),
-              ),
-              OverviewArrowButton(onTap: onTap, size: 26),
-            ],
-          ),
-          SizedBox(height: 2.th),
-          Text(
-            total > 0
-                ? 'Beyond SLA · Action required'
-                : 'All requests on time',
-            style: GoogleFonts.poppins(
-              fontSize: 10.tsp,
-              fontWeight: FontWeight.w500,
-              color: ApprovalsOverviewTheme.textSoft,
-            ),
-          ),
-          SizedBox(height: 12.th),
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.baseline,
-            textBaseline: TextBaseline.alphabetic,
-            children: [
-              Text(
-                '$total',
-                style: GoogleFonts.poppins(
-                  fontSize: 28.tsp,
-                  fontWeight: FontWeight.w700,
-                  color: total > 0
-                      ? ApprovalsOverviewTheme.hr
-                      : ApprovalsOverviewTheme.textDark,
-                  height: 1,
-                ),
-              ),
-              SizedBox(width: 5.tw),
-              Text(
-                'Total',
-                style: GoogleFonts.poppins(
-                  fontSize: 12.tsp,
-                  fontWeight: FontWeight.w500,
-                  color: ApprovalsOverviewTheme.textSoft,
-                ),
-              ),
-              const Spacer(),
-              _DelayedInline(value: hrCount, label: 'HR'),
-              SizedBox(width: 12.tw),
-              _DelayedInline(value: rfqCount, label: 'RFQ'),
-              SizedBox(width: 12.tw),
-              _DelayedInline(value: invoiceCount, label: 'Inv'),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _DelayedInline extends StatelessWidget {
-  const _DelayedInline({required this.value, required this.label});
-
-  final int value;
-  final String label;
-
-  @override
-  Widget build(BuildContext context) {
-    final color = ApprovalsOverviewTheme.accentFor(
-      label == 'HR'
-          ? 'hr'
-          : label == 'RFQ'
-              ? 'rfq'
-              : 'invoice',
-    );
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.end,
-      children: [
-        Text(
-          '$value',
-          style: GoogleFonts.poppins(
-            fontSize: 16.tsp,
-            fontWeight: FontWeight.w700,
-            color: color,
-            height: 1,
-          ),
-        ),
-        Text(
-          label,
-          style: GoogleFonts.poppins(
-            fontSize: 9.tsp,
-            fontWeight: FontWeight.w500,
-            color: ApprovalsOverviewTheme.textSoft,
           ),
         ),
       ],
