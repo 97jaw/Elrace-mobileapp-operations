@@ -116,6 +116,13 @@ class SignZone {
   final double height; // relative height (0..1)
   final SignZoneType type;
 
+  /// Who signs this box on a timesheet. 0 = foreman, 1 = Site Engineer,
+  /// 2 = Projects Manager. Null on a normal signature document.
+  final int? signerSlot;
+
+  /// `employee`, `supervisor`, `site_engineer`, or `projects_manager`.
+  final String? cellRole;
+
   const SignZone({
     required this.page,
     required this.x,
@@ -123,11 +130,32 @@ class SignZone {
     this.width = 0.25,
     this.height = 0.08,
     this.type = SignZoneType.signature,
+    this.signerSlot,
+    this.cellRole,
   });
 
   bool get isStamp => type == SignZoneType.stamp;
 
+  bool get isForemanCell =>
+      cellRole == 'employee' || cellRole == 'supervisor';
+
+  String get timesheetLabel {
+    switch (cellRole) {
+      case 'employee':
+        return 'Employee';
+      case 'supervisor':
+        return 'Supervisor';
+      case 'site_engineer':
+        return 'Site Engineer';
+      case 'projects_manager':
+        return 'Projects Manager';
+      default:
+        return isStamp ? 'Stamp Here' : 'Sign Here';
+    }
+  }
+
   factory SignZone.fromMap(Map<String, dynamic> data) {
+    final rawSlot = data['signer_slot'];
     return SignZone(
       page: data['page'] ?? 0,
       x: (data['x'] ?? 0).toDouble(),
@@ -135,6 +163,8 @@ class SignZone {
       width: (data['width'] ?? 0.25).toDouble(),
       height: (data['height'] ?? 0.08).toDouble(),
       type: SignZoneType.fromString(data['type']?.toString()),
+      signerSlot: rawSlot is num ? rawSlot.toInt() : null,
+      cellRole: data['cell_role']?.toString(),
     );
   }
 
@@ -146,6 +176,8 @@ class SignZone {
       'width': width,
       'height': height,
       'type': type.toJson(),
+      if (signerSlot != null) 'signer_slot': signerSlot,
+      if (cellRole != null) 'cell_role': cellRole,
     };
   }
 
@@ -156,6 +188,8 @@ class SignZone {
     double? width,
     double? height,
     SignZoneType? type,
+    int? signerSlot,
+    String? cellRole,
   }) {
     return SignZone(
       page: page ?? this.page,
@@ -164,6 +198,8 @@ class SignZone {
       width: width ?? this.width,
       height: height ?? this.height,
       type: type ?? this.type,
+      signerSlot: signerSlot ?? this.signerSlot,
+      cellRole: cellRole ?? this.cellRole,
     );
   }
 }
@@ -248,6 +284,9 @@ class Message {
   /// Links multi-step signature chain back to the owner's Documents record.
   final String? signatureDocumentId;
 
+  /// Printed timesheet. Each zone has an owner; an old build must not sign it.
+  final bool timesheetMode;
+
   // Local state (not persisted)
   final bool isUploading;
   final double uploadProgress;
@@ -281,6 +320,7 @@ class Message {
     this.currentSignerIndex,
     this.currentSignerUid,
     this.signatureDocumentId,
+    this.timesheetMode = false,
     this.isUploading = false,
     this.uploadProgress = 0.0,
   });
@@ -326,6 +366,7 @@ class Message {
       currentSignerIndex: data['current_signer_index'],
       currentSignerUid: data['current_signer_uid'],
       signatureDocumentId: data['signature_document_id'],
+      timesheetMode: data['timesheet_mode'] == true,
     );
   }
 
@@ -364,6 +405,7 @@ class Message {
     if (signatureDocumentId != null) {
       map['signature_document_id'] = signatureDocumentId;
     }
+    if (timesheetMode) map['timesheet_mode'] = true;
 
     return map;
   }
@@ -469,6 +511,7 @@ class Message {
     int? currentSignerIndex,
     String? currentSignerUid,
     String? signatureDocumentId,
+    bool? timesheetMode,
     bool? isUploading,
     double? uploadProgress,
   }) {
@@ -501,6 +544,7 @@ class Message {
       currentSignerIndex: currentSignerIndex ?? this.currentSignerIndex,
       currentSignerUid: currentSignerUid ?? this.currentSignerUid,
       signatureDocumentId: signatureDocumentId ?? this.signatureDocumentId,
+      timesheetMode: timesheetMode ?? this.timesheetMode,
       isUploading: isUploading ?? this.isUploading,
       uploadProgress: uploadProgress ?? this.uploadProgress,
     );

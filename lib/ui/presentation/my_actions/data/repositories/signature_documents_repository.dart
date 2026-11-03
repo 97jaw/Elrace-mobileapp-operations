@@ -188,6 +188,7 @@ class SignatureDocumentsRepository {
     required List<ChatUser> recipients,
     required String currentUserName,
     int? pageCount,
+    bool timesheetMode = false,
   }) async {
     if (recipients.isEmpty) throw Exception('Select at least one signee');
 
@@ -218,6 +219,7 @@ class SignatureDocumentsRepository {
           signerNames: signerNames,
           currentSignerIndex: 0,
           signatureDocumentId: docId,
+          timesheetMode: timesheetMode,
         );
 
         final sendingToSelf = first.uid == uid;
@@ -239,6 +241,7 @@ class SignatureDocumentsRepository {
           chatId: chatId,
           messageId: message.id,
           stampNeeded: SignatureDocument.zonesNeedStamp(signZones),
+          timesheetMode: timesheetMode,
         );
 
         final payload = doc.toFirestore();

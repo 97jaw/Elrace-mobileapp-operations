@@ -5,6 +5,7 @@ import 'package:el_race/core/utils/shared_pref.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
+import '../../../../../core/timesheet/timesheet_acknowledgment_zones.dart';
 import '../../../../../chat/models/chat_user.dart';
 import '../../../../../chat/repositories/user_repository.dart';
 import '../../data/user_stamp_assets.dart';
@@ -19,7 +20,18 @@ import '../../theme/signature_theme.dart';
 class RecipientPickerScreen extends StatefulWidget {
   final bool stampNeeded;
 
-  const RecipientPickerScreen({super.key, this.stampNeeded = false});
+  /// Timesheet mode caps the list at 2. Null keeps the normal multi-select.
+  final int? maxSignees;
+
+  /// When true, Done with exactly one person is refused.
+  final bool requireProjectsManager;
+
+  const RecipientPickerScreen({
+    super.key,
+    this.stampNeeded = false,
+    this.maxSignees,
+    this.requireProjectsManager = false,
+  });
 
   @override
   State<RecipientPickerScreen> createState() => _RecipientPickerScreenState();
@@ -44,6 +56,9 @@ class _RecipientPickerScreenState extends State<RecipientPickerScreen> {
     if (widget.stampNeeded) {
       _message = 'Select stamp users (order = signing order)';
       _loadAllStampUsers();
+    } else if (widget.maxSignees == 2) {
+      _message =
+          'First signee is Site Engineer, second is Projects Manager';
     } else {
       _message = 'Search and select signees in signing order';
     }
@@ -159,14 +174,35 @@ class _RecipientPickerScreenState extends State<RecipientPickerScreen> {
   }
 
   void _toggle(ChatUser user) {
+    final idx = _selected.indexWhere((u) => u.uid == user.uid);
+    if (idx < 0) {
+      final max = widget.maxSignees;
+      if (max != null && _selected.length >= max) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Select at most $max signees')),
+        );
+        return;
+      }
+    }
     setState(() {
-      final idx = _selected.indexWhere((u) => u.uid == user.uid);
       if (idx >= 0) {
         _selected.removeAt(idx);
       } else {
         _selected.add(user);
       }
     });
+  }
+
+  void _done() {
+    final block = timesheetOneSigneeBlock(
+      recipientCount: _selected.length,
+      projectsManagerBoxRemains: widget.requireProjectsManager,
+    );
+    if (block != null) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(block)));
+      return;
+    }
+    Navigator.pop(context, List<ChatUser>.from(_selected));
   }
 
   bool _isSelected(ChatUser user) =>
@@ -203,9 +239,7 @@ class _RecipientPickerScreenState extends State<RecipientPickerScreen> {
         ),
         actions: [
           TextButton(
-            onPressed: _selected.isEmpty
-                ? null
-                : () => Navigator.pop(context, List<ChatUser>.from(_selected)),
+            onPressed: _selected.isEmpty ? null : _done,
             child: Text(
               'Done (${_selected.length})',
               style: TextStyle(

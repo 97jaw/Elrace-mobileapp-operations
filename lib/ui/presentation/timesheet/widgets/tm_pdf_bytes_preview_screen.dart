@@ -180,6 +180,7 @@ class _TmPdfBytesPreviewScreenState extends State<TmPdfBytesPreviewScreen> {
           builder: (_) => SignaturesScreen(
             initialPdf: file,
             initialFileName: _fileName,
+            timesheetMode: true,
           ),
         ),
       );

@@ -1452,6 +1452,7 @@ class ChatRepository {
     List<String>? signerNames,
     int currentSignerIndex = 0,
     String? signatureDocumentId,
+    bool timesheetMode = false,
   }) async {
     await _ensureFirebaseAuth();
     final currentUid = _currentUid;
@@ -1528,6 +1529,7 @@ class ChatRepository {
         currentSignerIndex: resolvedSignerUids != null ? currentSignerIndex : null,
         currentSignerUid: resolvedCurrentSigner,
         signatureDocumentId: signatureDocumentId,
+        timesheetMode: timesheetMode,
       );
 
       final batch = _firestore.batch();
@@ -1618,6 +1620,12 @@ class ChatRepository {
       final hasMore = signers != null &&
           signers.isNotEmpty &&
           index + 1 < signers.length;
+      final timesheet = existingMessage?.timesheetMode == true;
+      // Old builds omit this field. Rules reject the sign when timesheet_mode
+      // is set and the acknowledgment is missing.
+      final timesheetAck = timesheet
+          ? <String, dynamic>{'timesheet_signer_slot': index}
+          : const <String, dynamic>{};
 
       if (hasMore) {
         final nextIndex = index + 1;
@@ -1630,6 +1638,7 @@ class ChatRepository {
           'current_signer_index': nextIndex,
           'current_signer_uid': nextUid,
           'media_url': signedUrl,
+          ...timesheetAck,
         });
 
         // Drive next signer via DM — unread + push notifications follow
@@ -1661,6 +1670,7 @@ class ChatRepository {
           currentSignerIndex: nextIndex,
           signatureDocumentId: existingMessage?.signatureDocumentId,
           caption: 'Please sign: ${existingMessage?.fileName ?? originalFileName}',
+          timesheetMode: timesheet,
         );
 
         try {
@@ -1672,6 +1682,7 @@ class ChatRepository {
           'signed_pdf_url': signedUrl,
           'signed_at': FieldValue.serverTimestamp(),
           'signed_by': currentUid,
+          ...timesheetAck,
         });
       }
 
@@ -1700,6 +1711,7 @@ class ChatRepository {
               'recipient_name': nextName,
               'current_signer_index': nextIndex,
               'updated_at': FieldValue.serverTimestamp(),
+              ...timesheetAck,
             }, SetOptions(merge: true));
           } else {
             await personalRef.set({
@@ -1709,6 +1721,7 @@ class ChatRepository {
               'signed_at': FieldValue.serverTimestamp(),
               'signed_by': currentUid,
               'updated_at': FieldValue.serverTimestamp(),
+              ...timesheetAck,
             }, SetOptions(merge: true));
           }
         } catch (e) {

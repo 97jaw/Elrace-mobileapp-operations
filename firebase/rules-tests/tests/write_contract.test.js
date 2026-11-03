@@ -164,6 +164,7 @@ function sample(key, messageType) {
       return false;
     case 'has_messages':
     case 'stamp_needed':
+    case 'timesheet_mode':
       return true;
     case 'signer_uids':
     case 'sharedWithUids':
@@ -179,7 +180,16 @@ function sample(key, messageType) {
         type: 'text',
       };
     case 'sign_zones':
-      return [{ page: 0, x: 0.1, y: 0.1, width: 0.2, height: 0.08, type: 'signature' }];
+      return [{
+        page: 0,
+        x: 0.1,
+        y: 0.1,
+        width: 0.2,
+        height: 0.08,
+        type: 'signature',
+        signer_slot: 0,
+        cell_role: 'employee',
+      }];
     case 'actionItems':
       return [{ id: 'a1', description: 'Follow up', isDone: false }];
     case 'recording':

@@ -11,6 +11,7 @@ import 'dart:io';
 
 import '../../../chat/chat.dart';
 import '../../presentation/my_actions/data/user_stamp_assets.dart';
+import '../stamp_signature_on_zone.dart';
 import '../theme/chat_glass_theme.dart';
 
 /// Recipient signs / stamps a document zone-by-zone.
@@ -68,8 +69,43 @@ class _SignDocumentScreenState extends State<SignDocumentScreen> {
   Uint8List? _cachedSignatureBytes;
   final List<Size> _pageSizes = [];
 
-  bool get _allSigned =>
-      _allZones.isNotEmpty && _signedZoneIndices.length == _allZones.length;
+  bool get _timesheetMode => widget.message.timesheetMode;
+
+  /// Site Engineer is slot 1, Projects Manager is slot 2.
+  int? get _mySignerSlot => _timesheetMode
+      ? (widget.message.currentSignerIndex ?? 0) + 1
+      : null;
+
+  bool _zoneIsMine(int index) {
+    final slot = _mySignerSlot;
+    if (slot == null) return true;
+    return _allZones[index].signerSlot == slot;
+  }
+
+  int get _zonesToSign => _timesheetMode
+      ? _allZones.where((zone) => zone.signerSlot == _mySignerSlot).length
+      : _allZones.length;
+
+  int get _zonesSigned {
+    if (!_timesheetMode) return _signedZoneIndices.length;
+    var count = 0;
+    for (final index in _signedZoneIndices) {
+      if (index < _allZones.length &&
+          _allZones[index].signerSlot == _mySignerSlot) {
+        count++;
+      }
+    }
+    return count;
+  }
+
+  bool get _allSigned {
+    if (_timesheetMode) {
+      if (_zonesToSign == 0) return true;
+      return _zonesSigned == _zonesToSign;
+    }
+    return _allZones.isNotEmpty &&
+        _signedZoneIndices.length == _allZones.length;
+  }
 
   @override
   void initState() {
@@ -141,6 +177,7 @@ class _SignDocumentScreenState extends State<SignDocumentScreen> {
     final start = (_focusedZoneIndex ?? -1) + 1;
     for (int i = 0; i < _allZones.length; i++) {
       final idx = (start + i) % _allZones.length;
+      if (!_zoneIsMine(idx)) continue;
       if (!_signedZoneIndices.contains(idx)) return idx;
     }
     return null;
@@ -280,43 +317,11 @@ class _SignDocumentScreenState extends State<SignDocumentScreen> {
     SignZone zone,
     Uint8List sigImgBytes,
   ) {
-    final doc = PdfDocument(inputBytes: pdfBytes);
-    if (zone.page < doc.pages.count) {
-      final page = doc.pages[zone.page];
-      final ps = page.getClientSize();
-      final boxX = zone.x * ps.width;
-      final boxY = zone.y * ps.height;
-      final boxW = zone.width * ps.width;
-      final boxH = zone.height * ps.height;
-
-      final bitmap = PdfBitmap(sigImgBytes);
-      final imgW = bitmap.width.toDouble();
-      final imgH = bitmap.height.toDouble();
-
-      // Contain inside the zone — never stretch.
-      late final double drawW;
-      late final double drawH;
-      if (imgW <= 0 || imgH <= 0) {
-        drawW = boxW;
-        drawH = boxH;
-      } else if (imgW / imgH > boxW / boxH) {
-        drawW = boxW;
-        drawH = boxW * imgH / imgW;
-      } else {
-        drawH = boxH;
-        drawW = boxH * imgW / imgH;
-      }
-      final drawX = boxX + (boxW - drawW) / 2;
-      final drawY = boxY + (boxH - drawH) / 2;
-
-      page.graphics.drawImage(
-        bitmap,
-        Rect.fromLTWH(drawX, drawY, drawW, drawH),
-      );
-    }
-    final bytes = doc.saveSync();
-    doc.dispose();
-    return Uint8List.fromList(bytes);
+    return stampSignatureOntoZone(
+      pdfBytes: pdfBytes,
+      zone: zone,
+      signaturePng: sigImgBytes,
+    );
   }
 
   // ─── Send signed document ─────────────────────────────────
@@ -378,11 +383,7 @@ class _SignDocumentScreenState extends State<SignDocumentScreen> {
   // ─── Helpers ──────────────────────────────────────────────
 
   Future<Uint8List?> _showSignaturePad() {
-    return showDialog<Uint8List>(
-      context: context,
-      barrierDismissible: false,
-      builder: (_) => const _SignaturePadDialog(),
-    );
+    return showDocumentSignaturePad(context);
   }
 
   void _showError(String msg) {
@@ -430,7 +431,9 @@ class _SignDocumentScreenState extends State<SignDocumentScreen> {
               child: Padding(
                 padding: const EdgeInsets.only(right: 12),
                 child: Text(
-                  '${_signedZoneIndices.length}/${_allZones.length}',
+                  _timesheetMode
+                      ? '$_zonesSigned/$_zonesToSign'
+                      : '${_signedZoneIndices.length}/${_allZones.length}',
                   style: const TextStyle(
                     fontSize: 14,
                     fontWeight: FontWeight.w700,
@@ -549,10 +552,11 @@ class _SignDocumentScreenState extends State<SignDocumentScreen> {
     final focused = _focusedZoneIndex != null
         ? _allZones[_focusedZoneIndex!]
         : null;
+    final zoneTotal = _timesheetMode ? _zonesToSign : _allZones.length;
     final txt = focused != null
         ? (focused.isStamp
-            ? 'Stamp zone ${_focusedZoneIndex! + 1} of ${_allZones.length} — tap "Apply Stamp"'
-            : 'Sign zone ${_focusedZoneIndex! + 1} of ${_allZones.length} — tap "Sign"')
+            ? 'Stamp zone ${_focusedZoneIndex! + 1} of $zoneTotal — tap "Apply Stamp"'
+            : 'Sign zone ${_focusedZoneIndex! + 1} of $zoneTotal — tap "Sign"')
         : 'Tap "Next Zone" to go to the next unsigned zone';
     return _statusBar(
       color: const Color(0xFFFFF3CD),
@@ -752,6 +756,7 @@ class _SignDocumentScreenState extends State<SignDocumentScreen> {
     final widgets = <Widget>[];
     for (int i = 0; i < _allZones.length; i++) {
       final zone = _allZones[i];
+      if (!_zoneIsMine(i)) continue;
       if (zone.page != _currentPage) continue;
       if (_signedZoneIndices.contains(i)) continue; // baked into PDF
 
@@ -850,6 +855,15 @@ class _SignDocumentScreenState extends State<SignDocumentScreen> {
 // ═══════════════════════════════════════════════════════════════
 //  S I G N A T U R E   P A D
 // ═══════════════════════════════════════════════════════════════
+
+/// Same signature pad the sign screen uses.
+Future<Uint8List?> showDocumentSignaturePad(BuildContext context) {
+  return showDialog<Uint8List>(
+    context: context,
+    barrierDismissible: false,
+    builder: (_) => const _SignaturePadDialog(),
+  );
+}
 
 class _SignaturePadDialog extends StatefulWidget {
   const _SignaturePadDialog();

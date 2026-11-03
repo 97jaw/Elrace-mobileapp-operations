@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:el_race/core/utils/responsive_breakpoints.dart';
 import 'package:el_race/ui/chat/widgets/chat_sub_app_glass_bar.dart';
@@ -121,8 +122,13 @@ class SignatureDocumentsTabState extends State<SignatureDocumentsTab> {
   void startUpload() => _pickPdf();
 
   /// Same screens as [startUpload] after the PDF is already chosen.
-  void startUploadWithFile(File file, String fileName) {
-    _showZonePickerThenChoose(file, fileName);
+  /// [timesheetMode] is set only by Sign Timesheet, never by "+".
+  void startUploadWithFile(
+    File file,
+    String fileName, {
+    bool timesheetMode = false,
+  }) {
+    _showZonePickerThenChoose(file, fileName, timesheetMode: timesheetMode);
   }
 
   void _onScroll() {
@@ -267,11 +273,19 @@ class SignatureDocumentsTabState extends State<SignatureDocumentsTab> {
     await _showZonePickerThenChoose(file, fileName);
   }
 
-  Future<void> _showZonePickerThenChoose(File file, String fileName) async {
+  Future<void> _showZonePickerThenChoose(
+    File file,
+    String fileName, {
+    bool timesheetMode = false,
+  }) async {
     final pickerResult = await Navigator.push<Map<String, dynamic>>(
       context,
       MaterialPageRoute(
-        builder: (_) => SignZonePickerScreen(pdfFile: file, fileName: fileName),
+        builder: (_) => SignZonePickerScreen(
+          pdfFile: file,
+          fileName: fileName,
+          timesheetMode: timesheetMode,
+        ),
       ),
     );
     if (pickerResult == null || !mounted) return;
@@ -280,6 +294,23 @@ class SignatureDocumentsTabState extends State<SignatureDocumentsTab> {
     final pageCount = pickerResult['pageCount'] as int?;
     final stampNeeded = pickerResult['stampNeeded'] == true ||
         SignatureDocument.zonesNeedStamp(signZones);
+    final timesheet = pickerResult['timesheetMode'] == true || timesheetMode;
+
+    if (timesheet) {
+      final bytes = pickerResult['pdfBytes'];
+      if (bytes is Uint8List) {
+        await file.writeAsBytes(bytes, flush: true);
+      }
+      if (!mounted) return;
+      await _requestSignature(
+        file,
+        signZones,
+        pageCount,
+        stampNeeded: stampNeeded,
+        timesheetMode: true,
+      );
+      return;
+    }
 
     final choice = await _askUploadPurpose(stampNeeded: stampNeeded);
     if (choice == null) return;
@@ -368,11 +399,15 @@ class SignatureDocumentsTabState extends State<SignatureDocumentsTab> {
     List<SignZone> signZones,
     int? pageCount, {
     bool stampNeeded = false,
+    bool timesheetMode = false,
   }) async {
     final recipients = await Navigator.push<List<ChatUser>>(
       context,
       MaterialPageRoute(
-        builder: (_) => RecipientPickerScreen(stampNeeded: stampNeeded),
+        builder: (_) => RecipientPickerScreen(
+          stampNeeded: stampNeeded,
+          maxSignees: timesheetMode ? 2 : null,
+        ),
       ),
     );
     if (recipients == null || recipients.isEmpty || !mounted) return;
@@ -390,6 +425,7 @@ class SignatureDocumentsTabState extends State<SignatureDocumentsTab> {
         recipients: recipients,
         currentUserName: currentUser?.name ?? 'User',
         pageCount: pageCount,
+        timesheetMode: timesheetMode,
       );
       final label = recipients.length == 1
           ? recipients.first.name
