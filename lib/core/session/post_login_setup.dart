@@ -5,6 +5,7 @@ import 'package:el_race/core/firebase/firebase_session.dart';
 import 'package:el_race/core/hr_management/providers/hr_management_providers.dart';
 import 'package:el_race/core/services/attendance_status_sync_service.dart';
 import 'package:el_race/core/services/mobile_device_id_service.dart';
+import 'package:el_race/core/services/timesheet_badge_watcher.dart';
 import 'package:el_race/core/timesheet/providers/timesheet_session_reset.dart';
 import 'package:el_race/core/utils/shared_pref.dart';
 import 'package:el_race/data/services/hive_service.dart';
@@ -92,6 +93,7 @@ class PostLoginSetup {
     Util.fetchHomeScreenData(context);
     AttendanceStatusSyncService.refreshFromServer(reason: 'login')
         .catchError((_) => null);
+    TimesheetBadgeWatcher.instance.start();
   }
 
   /// Ensure UAE PASS / email payloads share the jsonrpc shape home widgets expect.

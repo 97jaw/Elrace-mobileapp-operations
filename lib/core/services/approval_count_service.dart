@@ -1,31 +1,35 @@
 import 'dart:convert';
 
-import 'package:el_race/core/timesheet/repositories/timesheet_approval_repository.dart';
-import 'package:el_race/core/timesheet/services/timesheet_approval_feature.dart';
 import 'package:el_race/core/utils/shared_pref.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 
 /// Waiting-approvals badge count (HR + RFQ + Invoice + Petty Cash [+ Sign Document]).
 ///
-/// Strategy:
-/// - Badge = total pending waiting items (not “unviewed”).
-/// - Warm cache is the source of truth between screens.
-/// - Multiple headers may listen; do **not** invalidate on every header mount.
+/// Odoo and Sign Document are cached separately so a live Firestore watcher can
+/// update SD without refetching Odoo, and an early "0" before Firebase sign-in
+/// cannot permanently wipe a later SD total.
 class ApprovalCountService {
   ApprovalCountService._();
 
   static final Map<Object, VoidCallback> _listeners = {};
 
-  /// -1 means no cache yet (will fetch from API).
-  static int _cachedCount = -1;
+  /// -1 means Odoo has not been fetched yet.
+  static int _cachedOdooCount = -1;
 
-  /// Last known count for instant header paint (0 if never loaded).
-  static int get cachedCountOrZero => _cachedCount < 0 ? 0 : _cachedCount;
+  static int _signDocumentCount = 0;
+  static bool _signDocumentFlagOn = false;
 
-  /// Null when never fetched / invalidated.
-  static int? get cachedCount => _cachedCount < 0 ? null : _cachedCount;
+  /// Last known total for instant header paint (0 if Odoo never loaded).
+  static int get cachedCountOrZero =>
+      _cachedOdooCount < 0 ? _sdPart : (_cachedOdooCount + _sdPart);
+
+  /// Null when Odoo has never been fetched / was invalidated.
+  static int? get cachedCount =>
+      _cachedOdooCount < 0 ? null : (_cachedOdooCount + _sdPart);
+
+  static int get _sdPart =>
+      _signDocumentFlagOn ? (_signDocumentCount < 0 ? 0 : _signDocumentCount) : 0;
 
   /// Pure sum used by [getTotalApprovalCount] and unit tests.
   static int sumApprovalCounts({
@@ -37,6 +41,18 @@ class ApprovalCountService {
     required int signDocumentCount,
   }) {
     final odoo = hr + rfq + invoice + pettyCash;
+    if (!timesheetApprovalEnabled) return odoo;
+    final sd = signDocumentCount < 0 ? 0 : signDocumentCount;
+    return odoo + sd;
+  }
+
+  /// Total from separately cached Odoo + SD parts (for tests / callers).
+  static int combineCachedParts({
+    required int odooCount,
+    required bool timesheetApprovalEnabled,
+    required int signDocumentCount,
+  }) {
+    final odoo = odooCount < 0 ? 0 : odooCount;
     if (!timesheetApprovalEnabled) return odoo;
     final sd = signDocumentCount < 0 ? 0 : signDocumentCount;
     return odoo + sd;
@@ -60,29 +76,45 @@ class ApprovalCountService {
     }
   }
 
-  /// Called by the Approval screen after it has loaded real list data.
-  static void updateCachedCount(int count) {
-    final next = count < 0 ? 0 : count;
-    final changed = _cachedCount != next;
-    _cachedCount = next;
+  /// Called by the Approval screen with the **Odoo** waiting total only.
+  static void updateCachedCount(int odooCount) {
+    final next = odooCount < 0 ? 0 : odooCount;
+    final changed = _cachedOdooCount != next;
+    _cachedOdooCount = next;
     if (changed) {
       notifyListeners();
     }
   }
 
-  /// Call on logout, resume refresh, or after approve/reject before refetch.
+  /// Live Sign Document pending count from Firestore (does not touch Odoo).
+  static void updateSignDocumentCount(int count, {bool flagOn = true}) {
+    final next = count < 0 ? 0 : count;
+    final changed =
+        _signDocumentCount != next || _signDocumentFlagOn != flagOn;
+    _signDocumentCount = next;
+    _signDocumentFlagOn = flagOn;
+    if (changed) {
+      notifyListeners();
+    }
+  }
+
+  static void clearSignDocumentPart() {
+    updateSignDocumentCount(0, flagOn: false);
+  }
+
+  /// Invalidates the Odoo cache only; SD stays until the watcher clears it.
   static void invalidateCache() {
-    _cachedCount = -1;
+    _cachedOdooCount = -1;
   }
 
   static Future<int> getTotalApprovalCount() async {
-    if (_cachedCount >= 0) {
-      return _cachedCount;
+    if (_cachedOdooCount >= 0) {
+      return _cachedOdooCount + _sdPart;
     }
     try {
       final token = SharedPref.getLoginData().result?.token;
       if (token == null || token.isEmpty) {
-        return 0;
+        return _sdPart;
       }
 
       final results = await Future.wait([
@@ -92,43 +124,13 @@ class ApprovalCountService {
         _fetchCategoryCount('petty_cash', token),
       ]);
 
-      final flagOn = await _isTimesheetApprovalEnabled();
-      final sdCount = flagOn ? await _fetchSignDocumentCount() : 0;
-
-      final totalCount = sumApprovalCounts(
-        hr: results[0],
-        rfq: results[1],
-        invoice: results[2],
-        pettyCash: results[3],
-        timesheetApprovalEnabled: flagOn,
-        signDocumentCount: sdCount,
-      );
-      _cachedCount = totalCount;
-      return totalCount;
+      final odoo = results.reduce((a, b) => a + b);
+      _cachedOdooCount = odoo;
+      // Sign Document comes from TimesheetBadgeWatcher (live), not a one-shot.
+      return odoo + _sdPart;
     } catch (e) {
       debugPrint('ApprovalCountService.getTotalApprovalCount failed: $e');
-      return 0;
-    }
-  }
-
-  static Future<bool> _isTimesheetApprovalEnabled() async {
-    try {
-      return TimesheetApprovalFeature.instance.isEnabled();
-    } catch (e) {
-      debugPrint('ApprovalCountService timesheet flag: $e');
-      return false;
-    }
-  }
-
-  /// SD errors never break the Odoo total (count as 0).
-  static Future<int> _fetchSignDocumentCount() async {
-    try {
-      final uid = FirebaseAuth.instance.currentUser?.uid ?? '';
-      if (uid.isEmpty) return 0;
-      return TimesheetApprovalRepository.instance.countPendingFor(uid);
-    } catch (e) {
-      debugPrint('ApprovalCountService Sign Document count: $e');
-      return 0;
+      return _cachedOdooCount >= 0 ? _cachedOdooCount + _sdPart : _sdPart;
     }
   }
 

@@ -17,6 +17,7 @@ import 'package:el_race/core/security/vpn_block_guard.dart';
 import 'package:el_race/core/security/vpn_security_monitor.dart';
 import 'package:el_race/core/services/incoming_share_service.dart';
 import 'package:el_race/core/services/resume_coordinator.dart';
+import 'package:el_race/core/services/timesheet_badge_watcher.dart';
 import 'package:el_race/chat/chat.dart';
 import 'package:el_race/data/services/hive_service.dart';
 import 'package:el_race/data/services/prayer_audio_service.dart';
@@ -590,6 +591,7 @@ Future<void> _initPrayerAndCheckoutServices() async {
   // Attendance sync only (check-in/out local reminders disabled).
   if (SharedPref.isUserAuthenticated()) {
     try {
+      TimesheetBadgeWatcher.instance.start();
       await Future.wait<void>([
         CheckInReminderNotificationService().cancelAllReminders().timeout(
               const Duration(seconds: 5),
