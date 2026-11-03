@@ -97,13 +97,20 @@ class TimesheetApprovalRepository {
     });
   }
 
-  Stream<List<TimesheetApproval>> watchMine(String ownerUid) {
+  Stream<List<TimesheetApproval>> watchMine(
+    String ownerUid, {
+    int? limit,
+  }) {
     if (ownerUid.isEmpty) {
       return Stream.value(const <TimesheetApproval>[]);
     }
-    return _collection
+    Query<Map<String, dynamic>> query = _collection
         .where('owner_uid', isEqualTo: ownerUid)
-        .orderBy('created_at', descending: true)
+        .orderBy('created_at', descending: true);
+    if (limit != null && limit > 0) {
+      query = query.limit(limit);
+    }
+    return query
         .snapshots()
         .map((snap) => snap.docs.map(TimesheetApproval.fromFirestore).toList())
         .handleError((error, _) {
