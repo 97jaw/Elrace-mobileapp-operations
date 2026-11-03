@@ -32,6 +32,10 @@ class ApprovalActionButtons extends StatelessWidget {
   final bool useProvidedComment;
   final String? Function()? commentProvider;
 
+  /// When set, glass buttons skip the Odoo [ApprovalBloc] and call this instead
+  /// (confirm dialog, then the callback). Used by timesheet Sign Document.
+  final Future<void> Function(bool approve)? onLocalAction;
+
   const ApprovalActionButtons({
     super.key,
     required this.requestId,
@@ -51,6 +55,7 @@ class ApprovalActionButtons extends StatelessWidget {
     this.enableFakeApproveDemo = false,
     this.useProvidedComment = false,
     this.commentProvider,
+    this.onLocalAction,
   });
 
   Future<void> _showOutcomePopup(
@@ -138,6 +143,31 @@ class ApprovalActionButtons extends StatelessWidget {
       );
     }
     if (variant == ApprovalActionButtonsVariant.glass) {
+      if (onLocalAction != null) {
+        return Row(
+          children: [
+            Expanded(
+              child: _buildLocalGlassActionButton(
+                context,
+                label: 'Reject',
+                approve: false,
+                color: const Color(0xFFC62828),
+                icon: Icons.close_rounded,
+              ),
+            ),
+            SizedBox(width: 10.tw),
+            Expanded(
+              child: _buildLocalGlassActionButton(
+                context,
+                label: 'Approve',
+                approve: true,
+                color: const Color(0xFF1B8A4E),
+                icon: Icons.check_rounded,
+              ),
+            ),
+          ],
+        );
+      }
       return Row(
         children: [
           Expanded(
@@ -1296,6 +1326,232 @@ class ApprovalActionButtons extends StatelessWidget {
         controller.dispose();
       });
     });
+  }
+
+  Widget _buildLocalGlassActionButton(
+    BuildContext context, {
+    required String label,
+    required bool approve,
+    required Color color,
+    required IconData icon,
+  }) {
+    final isButtonDisabled = disabled;
+
+    Future<void> handleTap() async {
+      final confirmed = await _showLocalConfirmDialog(
+        context,
+        approve: approve,
+      );
+      if (!context.mounted || confirmed != true) return;
+
+      showDialog<void>(
+        context: context,
+        barrierDismissible: false,
+        barrierColor: Colors.black54,
+        builder: (dialogContext) {
+          return const PopScope(
+            canPop: false,
+            child: Center(
+              child: Card(
+                child: Padding(
+                  padding: EdgeInsets.all(20),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      CircularProgressIndicator(),
+                      SizedBox(height: 16),
+                      Text(
+                        'Processing...',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          );
+        },
+      );
+
+      try {
+        await onLocalAction!(approve);
+      } finally {
+        if (context.mounted && Navigator.canPop(context)) {
+          Navigator.pop(context);
+        }
+      }
+    }
+
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: isButtonDisabled ? null : handleTap,
+        borderRadius: BorderRadius.circular(14.tr),
+        child: Ink(
+          height: 44.th,
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(14.tr),
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [
+                Colors.white.withValues(alpha: 0.62),
+                color.withValues(alpha: 0.16),
+              ],
+            ),
+            border: Border.all(
+              color: Colors.white.withValues(alpha: 0.72),
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: color.withValues(alpha: 0.1),
+                blurRadius: 10,
+                offset: const Offset(0, 3),
+              ),
+            ],
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Container(
+                width: 26.tw,
+                height: 26.tw,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: color.withValues(alpha: 0.18),
+                  border: Border.all(
+                    color: color.withValues(alpha: 0.25),
+                  ),
+                ),
+                child: Icon(icon, size: 15.tsp, color: color),
+              ),
+              SizedBox(width: 7.tw),
+              Text(
+                label,
+                style: GoogleFonts.poppins(
+                  fontSize: 13.tsp,
+                  fontWeight: FontWeight.w700,
+                  color: color,
+                  height: 1,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<bool?> _showLocalConfirmDialog(
+    BuildContext context, {
+    required bool approve,
+  }) {
+    final accent = approve
+        ? const Color(0xFF009859)
+        : ApprovalsOverviewTheme.hr;
+    final actionText = approve ? 'approve' : 'reject';
+
+    return showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      barrierColor: ApprovalsOverviewTheme.screenDeep.withValues(alpha: 0.35),
+      builder: (dialogContext) {
+        return Dialog(
+          backgroundColor: Colors.transparent,
+          insetPadding:
+              EdgeInsets.symmetric(horizontal: 22.tw, vertical: 24.th),
+          child: OverviewGlassPanel(
+            fillAlpha: 0.96,
+            blurSigma: 12,
+            radius: 22,
+            padding: EdgeInsets.fromLTRB(18.tw, 18.th, 18.tw, 16.th),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  width: 44.tw,
+                  height: 44.tw,
+                  decoration: BoxDecoration(
+                    color: accent.withValues(alpha: 0.12),
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(
+                    approve
+                        ? Icons.check_circle_outline_rounded
+                        : Icons.cancel_outlined,
+                    color: accent,
+                    size: 24.tsp,
+                  ),
+                ),
+                SizedBox(height: 12.th),
+                Text(
+                  approve ? 'Confirm Approval' : 'Confirm Rejection',
+                  textAlign: TextAlign.center,
+                  style: GoogleFonts.poppins(
+                    fontSize: 16.tsp,
+                    fontWeight: FontWeight.w700,
+                    color: ApprovalsOverviewTheme.textDark,
+                  ),
+                ),
+                SizedBox(height: 6.th),
+                Text(
+                  'Are you sure you want to $actionText this timesheet?',
+                  textAlign: TextAlign.center,
+                  style: GoogleFonts.poppins(
+                    fontSize: 12.tsp,
+                    fontWeight: FontWeight.w500,
+                    color: ApprovalsOverviewTheme.textMuted,
+                    height: 1.35,
+                  ),
+                ),
+                SizedBox(height: 18.th),
+                Row(
+                  children: [
+                    Expanded(
+                      child: TextButton(
+                        onPressed: () =>
+                            Navigator.of(dialogContext).pop(false),
+                        child: Text(
+                          'Cancel',
+                          style: GoogleFonts.poppins(
+                            fontWeight: FontWeight.w600,
+                            color: ApprovalsOverviewTheme.textMuted,
+                          ),
+                        ),
+                      ),
+                    ),
+                    SizedBox(width: 8.tw),
+                    Expanded(
+                      child: ElevatedButton(
+                        onPressed: () =>
+                            Navigator.of(dialogContext).pop(true),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: accent,
+                          foregroundColor: Colors.white,
+                          elevation: 0,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12.tr),
+                          ),
+                        ),
+                        child: Text(
+                          approve ? 'Approve' : 'Reject',
+                          style: GoogleFonts.poppins(
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
   }
 }
 

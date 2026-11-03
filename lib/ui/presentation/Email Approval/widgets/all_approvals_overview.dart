@@ -7,6 +7,7 @@ import 'package:el_race/core/utils/responsive_breakpoints.dart';
 import 'package:el_race/ui/presentation/Email%20Approval/theme/approvals_overview_theme.dart';
 import 'package:el_race/ui/presentation/Email%20Approval/widgets/approval_overview_records_sheet.dart';
 import 'package:el_race/ui/presentation/Email%20Approval/widgets/stat_counter_card.dart';
+import 'package:el_race/ui/presentation/timesheet/widgets/tm_timesheet_approval_document_screen.dart';
 import 'package:el_race/utils/safe_insets.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:fl_chart/fl_chart.dart';
@@ -279,16 +280,52 @@ class _AllApprovalsOverviewState extends ConsumerState<AllApprovalsOverview> {
     ];
   }
 
+  List<Map<String, dynamic>> _signDocumentItems() {
+    final uid = FirebaseAuth.instance.currentUser?.uid ?? '';
+    return [
+      for (final doc in _sdPending)
+        {
+          'id': doc.id,
+          'name': doc.fileName,
+          'file_name': doc.fileName,
+          'project_title': doc.projectName,
+          'project': doc.projectName,
+          'owner_name': doc.ownerName,
+          'employee_name': doc.ownerName,
+          'my_role': doc.myRole(uid)?.displayLabel ?? '',
+          'role_label': doc.myRole(uid)?.shortLabel ?? '',
+          'date': doc.createdAt.toIso8601String(),
+          'created_at': doc.createdAt.toIso8601String(),
+          'status': doc.myRole(uid)?.displayLabel ?? '',
+        },
+    ];
+  }
+
   void _openSignDocumentSheet() {
-    // List wiring lands in Task 4 commit 4; count card opens empty for now.
     ApprovalOverviewRecordsSheet.showCategory(
       context: context,
       title: 'Sign Document',
       categoryKey: 'sign_document',
-      getItems: () => const [],
-      expectedCount: 0,
-      isCategoryLoading: () => false,
-      onItemTap: (_, __, ___) async {},
+      getItems: _signDocumentItems,
+      expectedCount: _sdPending.length,
+      isCategoryLoading: () => _sdLoading,
+      onItemTap: (sheetContext, item, _) async {
+        final id = item['id']?.toString() ?? '';
+        TimesheetApproval? doc;
+        for (final candidate in _sdPending) {
+          if (candidate.id == id) {
+            doc = candidate;
+            break;
+          }
+        }
+        doc ??= await TimesheetApprovalRepository.instance.getById(id);
+        if (doc == null || !sheetContext.mounted) return;
+        await Navigator.of(sheetContext).push<bool>(
+          MaterialPageRoute(
+            builder: (_) => TimesheetApprovalDocumentScreen(approval: doc!),
+          ),
+        );
+      },
     );
   }
 

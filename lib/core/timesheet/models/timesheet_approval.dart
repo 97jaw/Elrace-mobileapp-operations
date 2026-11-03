@@ -209,6 +209,9 @@ class TimesheetApproval {
 
   TimesheetApproverRole? myRole(String uid) => approvers[uid]?.role;
 
+  /// Approver pending → Approve/Reject; otherwise read-only status view.
+  bool showsApproverActionsFor(String uid) => isPendingFor(uid);
+
   /// Foreman list label.
   String get statusLabel {
     switch (status) {

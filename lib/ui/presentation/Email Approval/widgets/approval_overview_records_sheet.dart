@@ -11,7 +11,6 @@ import 'package:el_race/ui/presentation/Email%20Approval/utils/rfq_approval_disp
 import 'package:el_race/ui/presentation/Email%20Approval/widgets/approval_list_avatar.dart';
 import 'package:el_race/utils/safe_insets.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 
@@ -87,6 +86,7 @@ class _RecordsSheetBody extends StatefulWidget {
 class _RecordsSheetBodyState extends State<_RecordsSheetBody> {
   Timer? _pollTimer;
   Timer? _postActionPollTimer;
+  Timer? _liveRefreshTimer;
   int _pollAttempts = 0;
 
   @override
@@ -99,6 +99,14 @@ class _RecordsSheetBodyState extends State<_RecordsSheetBody> {
       widget.onRequestReload?.call();
     }
     _startPollingIfNeeded();
+    // Sign Document list is backed by a Firestore stream on the parent; rebuild
+    // periodically so rows disappear as soon as they leave pending_uids.
+    if (widget.categoryKey == 'sign_document') {
+      _liveRefreshTimer =
+          Timer.periodic(const Duration(milliseconds: 500), (_) {
+        if (mounted) setState(() {});
+      });
+    }
   }
 
   void _startPollingIfNeeded() {
@@ -142,6 +150,7 @@ class _RecordsSheetBodyState extends State<_RecordsSheetBody> {
   void dispose() {
     _pollTimer?.cancel();
     _postActionPollTimer?.cancel();
+    _liveRefreshTimer?.cancel();
     super.dispose();
   }
 
@@ -288,6 +297,11 @@ class _ApprovalRecordTile extends StatelessWidget {
         return 'INVOICE';
       case 'petty_cash':
         return 'PETTY CASH';
+      case 'sign_document':
+        return _str(
+          item['my_role'] ?? item['role_label'],
+          fallback: 'SIGN DOCUMENT',
+        ).toUpperCase();
       default:
         return categoryKey.toUpperCase();
     }
@@ -375,6 +389,12 @@ class _ApprovalRecordTile extends StatelessWidget {
     if (categoryKey == 'petty_cash') {
       return PettyCashApprovalDisplay.holderName(item);
     }
+    if (categoryKey == 'sign_document') {
+      return _str(
+        item['file_name'] ?? item['name'],
+        fallback: 'Timesheet.pdf',
+      );
+    }
     return _str(
       item['project_title'] ??
           item['project'] ??
@@ -403,6 +423,12 @@ class _ApprovalRecordTile extends StatelessWidget {
             item['employee_name'] ??
             item['holder_name'] ??
             item['holder'],
+        fallback: 'Unknown',
+      );
+    }
+    if (categoryKey == 'sign_document') {
+      return _str(
+        item['owner_name'] ?? item['employee_name'] ?? item['requester_name'],
         fallback: 'Unknown',
       );
     }
@@ -469,6 +495,9 @@ class _ApprovalRecordTile extends StatelessWidget {
   }
 
   String _hrMidRowLabel() {
+    if (categoryKey == 'sign_document') {
+      return _str(item['project_title'] ?? item['project']);
+    }
     final leaveSubtype = HrApprovalDisplay.leaveSubtypeLabel(item);
     if (leaveSubtype.isNotEmpty) return leaveSubtype;
     return '';
@@ -487,10 +516,20 @@ class _ApprovalRecordTile extends StatelessWidget {
     if (categoryKey == 'invoice') {
       return InvoiceApprovalDisplay.formattedDate(item);
     }
+    if (categoryKey == 'sign_document') {
+      final raw = _str(item['date'] ?? item['created_at']);
+      if (raw.isEmpty) return '';
+      final dt = DateTime.tryParse(raw);
+      if (dt == null) return raw;
+      return DateFormat('d MMM yyyy').format(dt);
+    }
     return '';
   }
 
   String _status() {
+    if (categoryKey == 'sign_document') {
+      return _str(item['role_label'] ?? item['my_role']);
+    }
     final raw = _str(item['state'] ?? item['status'], fallback: 'open');
     final upper = raw.toUpperCase();
     if (categoryKey == 'invoice' && upper == 'DRAFT') return '';
@@ -790,7 +829,8 @@ class _ApprovalRecordTile extends StatelessWidget {
                             height: 1.25,
                           ),
                         ),
-                        if (categoryKey == 'hr' &&
+                        if ((categoryKey == 'hr' ||
+                                categoryKey == 'sign_document') &&
                             _hrMidRowLabel().isNotEmpty) ...[
                           SizedBox(height: 4.th),
                           Text(
@@ -800,7 +840,9 @@ class _ApprovalRecordTile extends StatelessWidget {
                             style: GoogleFonts.poppins(
                               fontSize: 11.tsp,
                               fontWeight: FontWeight.w600,
-                              color: ApprovalsOverviewTheme.hr,
+                              color: categoryKey == 'sign_document'
+                                  ? ApprovalsOverviewTheme.signDocument
+                                  : ApprovalsOverviewTheme.hr,
                             ),
                           ),
                         ],
@@ -820,7 +862,17 @@ class _ApprovalRecordTile extends StatelessWidget {
                                   ),
                                 ),
                               ),
-                              if (categoryKey != 'invoice' &&
+                              if (categoryKey == 'sign_document' &&
+                                  _fullDateLabel().isNotEmpty)
+                                Text(
+                                  _fullDateLabel(),
+                                  style: GoogleFonts.poppins(
+                                    fontSize: 10.tsp,
+                                    fontWeight: FontWeight.w500,
+                                    color: ApprovalsOverviewTheme.textSoft,
+                                  ),
+                                )
+                              else if (categoryKey != 'invoice' &&
                                   categoryKey != 'hr' &&
                                   categoryKey != 'rfq' &&
                                   _timeLabel().isNotEmpty) ...[
