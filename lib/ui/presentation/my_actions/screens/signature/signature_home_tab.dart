@@ -26,6 +26,7 @@ class SignatureHomeTab extends StatefulWidget {
 
 class SignatureHomeTabState extends State<SignatureHomeTab> {
   _HomeFilter _filter = _HomeFilter.all;
+  final Set<String> _dismissed = {};
 
   List<SignatureActionItem> _applyFilter(List<SignatureActionItem> items) {
     switch (_filter) {
@@ -46,12 +47,12 @@ class SignatureHomeTabState extends State<SignatureHomeTab> {
     }
   }
 
-  void _openItem(SignatureActionItem item) {
+  Future<void> _openItem(SignatureActionItem item) async {
     switch (item.bucket) {
       case SignatureItemBucket.needsSignature:
         final personal = item.personalDoc;
         final useChatPipeline = item.chatId.isNotEmpty;
-        Navigator.push(
+        final signed = await Navigator.push<bool>(
           context,
           MaterialPageRoute(
             builder: (_) => SignDocumentScreen(
@@ -68,6 +69,9 @@ class SignatureHomeTabState extends State<SignatureHomeTab> {
             ),
           ),
         );
+        if (signed == true && mounted) {
+          setState(() => _dismissed.add(item.message.id));
+        }
       case SignatureItemBucket.waitingForOthers:
         _openViewer(item,
             statusLabel: 'Waiting for ${item.waitingForDisplayName}',
@@ -120,7 +124,9 @@ class SignatureHomeTabState extends State<SignatureHomeTab> {
         final hasData = snapshot.hasData;
         final loading =
             snapshot.connectionState == ConnectionState.waiting && !hasData;
-        final items = snapshot.data ?? const <SignatureActionItem>[];
+        final items = (snapshot.data ?? const <SignatureActionItem>[])
+            .where((i) => !_dismissed.contains(i.message.id))
+            .toList();
 
         final needsSignature = items
             .where((i) => i.bucket == SignatureItemBucket.needsSignature)

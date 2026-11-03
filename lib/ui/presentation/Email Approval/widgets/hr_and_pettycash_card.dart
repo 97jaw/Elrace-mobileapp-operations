@@ -18,7 +18,7 @@ import 'package:google_fonts/google_fonts.dart';
 class HrAndPettycashCard extends StatelessWidget {
   final List<dynamic> approvalItems;
   /// Awaited after approve/reject so the Waiting list cannot race a second action.
-  final Future<void> Function()? onRefresh;
+  final Future<void> Function(String recordId)? onRefresh;
 
   const HrAndPettycashCard({
     super.key,
@@ -342,7 +342,9 @@ class HrAndPettycashCard extends StatelessWidget {
         kBottomNavigationBarHeight + context.systemBottomInset + 100.th;
 
     return ListView.separated(
-      physics: const BouncingScrollPhysics(),
+      physics: const AlwaysScrollableScrollPhysics(
+        parent: BouncingScrollPhysics(),
+      ),
       padding: const EdgeInsets.symmetric(horizontal: 5) +
           EdgeInsets.only(bottom: totalBottomPadding, top: 8.th),
       itemCount: displayItems.length,
@@ -471,7 +473,7 @@ class HrAndPettycashCard extends StatelessWidget {
             if (result == true) {
               ApprovalCountService.invalidateCache();
               ApprovalCountService.notifyListeners();
-              await onRefresh?.call();
+              await onRefresh?.call(id);
             }
           },
           child: isHr
