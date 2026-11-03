@@ -27,8 +27,9 @@ class TimesheetApprovalFeature {
       _cached = enabled;
       return enabled;
     } catch (e) {
+      // Do not cache errors (e.g. read before Firebase sign-in) so the next
+      // call can succeed once auth is ready.
       debugPrint('TimesheetApprovalFeature: $e');
-      _cached = false;
       return false;
     }
   }

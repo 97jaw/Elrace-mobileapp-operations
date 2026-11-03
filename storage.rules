@@ -109,12 +109,15 @@ service firebase.storage {
     }
 
     // Foreman-signed timesheet PDF for SE/PM approval.
+    // Upload only before the Firestore doc exists so the PDF cannot be swapped
+    // after SE/PM have acted.
     match /timesheet_approvals/{ownerUid}/{docId}/{fileName} {
       allow read: if isSignedIn()
                   && (request.auth.uid == ownerUid
                       || isTimesheetApprovalApprover(docId));
       allow write: if isSignedIn()
                    && request.auth.uid == ownerUid
+                   && !firestore.exists(timesheetApprovalPath(docId))
                    && request.resource.size < 50 * 1024 * 1024
                    && request.resource.contentType == 'application/pdf';
     }

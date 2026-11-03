@@ -174,14 +174,12 @@ class TimesheetApprovalRepository {
           throw Exception('You are not an approver on this timesheet');
         }
 
-        final nextApprovers = Map<String, TimesheetApproverEntry>.from(
-          current.approvers,
-        );
-        nextApprovers[uid] = mine.copyWith(
+        final actedAt = DateTime.now();
+        final nextMine = mine.copyWith(
           status: approve
               ? TimesheetApproverStatus.approved
               : TimesheetApproverStatus.rejected,
-          actedAt: DateTime.now(),
+          actedAt: actedAt,
         );
 
         final List<String> nextPending;
@@ -197,21 +195,23 @@ class TimesheetApprovalRepository {
           nextStatus = TimesheetApprovalStatus.rejected;
         }
 
+        // Write only this user's entry so the other approver's acted_at is
+        // untouched (rules require affectedKeys().hasOnly([uid()])).
         tx.update(ref, {
-          'approvers': {
-            for (final entry in nextApprovers.entries)
-              entry.key: {
-                'role': entry.value.role.toJson(),
-                'name': entry.value.name,
-                'status': entry.value.status.toJson(),
-                if (entry.value.actedAt != null)
-                  'acted_at': Timestamp.fromDate(entry.value.actedAt!),
-              },
+          FieldPath(['approvers', uid]): {
+            'role': nextMine.role.toJson(),
+            'name': nextMine.name,
+            'status': nextMine.status.toJson(),
+            'acted_at': Timestamp.fromDate(actedAt),
           },
           'pending_uids': nextPending,
           'status': nextStatus.toJson(),
           'updated_at': FieldValue.serverTimestamp(),
         });
+
+        final nextApprovers = Map<String, TimesheetApproverEntry>.from(
+          current.approvers,
+        )..[uid] = nextMine;
 
         return TimesheetApproval(
           id: current.id,

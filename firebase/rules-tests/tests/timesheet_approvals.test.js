@@ -30,6 +30,7 @@ import {
   ref as storageRef,
   uploadBytes,
   getBytes,
+  deleteObject,
 } from 'firebase/storage';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -381,18 +382,12 @@ describe('timesheet_approvals approve / reject', () => {
 describe('timesheet_approvals storage', () => {
   const pdfBytes = Buffer.from('%PDF-1.4 timesheet');
 
-  it('allows owner upload and approver read; denies stranger and non-PDF', async () => {
-    await testEnv.withSecurityRulesDisabled(async (ctx) => {
-      await setDoc(doc(ctx.firestore(), 'timesheet_approvals', DOC_ID), validCreate());
-    });
-
+  it('allows owner upload before create; denies overwrite/delete after; approver read ok', async () => {
     await assertSucceeds(
       uploadBytes(storageRef(aliceStorage(), PDF_PATH), pdfBytes, {
         contentType: 'application/pdf',
       }),
     );
-    await assertSucceeds(getBytes(storageRef(bobStorage(), PDF_PATH)));
-    await assertFails(getBytes(storageRef(eveStorage(), PDF_PATH)));
 
     await assertFails(
       uploadBytes(
@@ -401,6 +396,20 @@ describe('timesheet_approvals storage', () => {
         { contentType: 'image/png' },
       ),
     );
+
+    await testEnv.withSecurityRulesDisabled(async (ctx) => {
+      await setDoc(doc(ctx.firestore(), 'timesheet_approvals', DOC_ID), validCreate());
+    });
+
+    await assertSucceeds(getBytes(storageRef(bobStorage(), PDF_PATH)));
+    await assertFails(getBytes(storageRef(eveStorage(), PDF_PATH)));
+
+    await assertFails(
+      uploadBytes(storageRef(aliceStorage(), PDF_PATH), Buffer.from('%PDF-1.4 swapped'), {
+        contentType: 'application/pdf',
+      }),
+    );
+    await assertFails(deleteObject(storageRef(aliceStorage(), PDF_PATH)));
   });
 });
 
