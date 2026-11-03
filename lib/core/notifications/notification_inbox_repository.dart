@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import 'package:el_race/core/notifications/app_notifications_repository.dart';
 import 'package:el_race/core/notifications/notification_config_service.dart';
 import 'package:el_race/core/services/notification_api_service.dart';
 import 'package:el_race/core/services/notification_storage_service.dart';
@@ -114,10 +115,11 @@ class NotificationInboxRepository {
   }
 
   /// Bell badge from the server unread count. Used while inbox v2 is on.
+  /// Also adds Firestore timesheet-approval result unread when the flag is on.
   static Future<int> refreshBadge() async {
     final count = await unreadCount();
     await NotificationStorageService.applyServerUnread(count);
-    return count;
+    return AppNotificationsRepository.instance.addUnreadTo(count);
   }
 
   static Future<dynamic> _call(String path, Map<String, dynamic> params) async {

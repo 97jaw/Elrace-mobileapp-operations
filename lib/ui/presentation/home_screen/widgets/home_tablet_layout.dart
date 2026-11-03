@@ -1,6 +1,7 @@
 import 'dart:math' as math;
 
 import 'package:el_race/chat/chat.dart';
+import 'package:el_race/core/notifications/app_notifications_repository.dart';
 import 'package:el_race/core/services/approval_count_service.dart';
 import 'package:el_race/core/utils/app_orientations.dart';
 import 'package:el_race/core/services/notification_storage_service.dart';
@@ -218,7 +219,8 @@ class _TabletHomeHeaderState extends State<_TabletHomeHeader> {
   }
 
   Future<void> _loadNotificationCount() async {
-    final count = await NotificationStorageService.getBadgeCount();
+    final base = await NotificationStorageService.getBadgeCount();
+    final count = await AppNotificationsRepository.instance.addUnreadTo(base);
     if (mounted) setState(() => _notificationCount = count);
   }
 

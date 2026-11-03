@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import 'package:el_race/core/notifications/app_notifications_repository.dart';
 import 'package:el_race/core/services/approval_count_service.dart';
 import 'package:el_race/core/services/approval_viewed_service.dart';
 import 'package:el_race/core/services/badge_refresh_service.dart';
@@ -98,7 +99,8 @@ class _HeaderWidgetState extends State<HeaderWidget> {
   }
 
   Future<void> _loadNotificationCount() async {
-    final count = await NotificationStorageService.getTotalCount();
+    final base = await NotificationStorageService.getTotalCount();
+    final count = await AppNotificationsRepository.instance.addUnreadTo(base);
     if (mounted) {
       setState(() {
         _notificationCount = count;
@@ -111,7 +113,8 @@ class _HeaderWidgetState extends State<HeaderWidget> {
   /// without making an API call. Used by the [onCountChanged] callback
   /// so the badge updates instantly after a push notification is saved.
   Future<void> _loadNotificationCountLocal() async {
-    final count = await NotificationStorageService.getLocalStoredCount();
+    final base = await NotificationStorageService.getLocalStoredCount();
+    final count = await AppNotificationsRepository.instance.addUnreadTo(base);
     if (mounted) {
       setState(() {
         _notificationCount = count;
