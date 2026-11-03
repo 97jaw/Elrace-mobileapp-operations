@@ -2,9 +2,10 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-/// Reads `config/features.timesheet_approval` once per app session.
+/// Reads `config/features.timesheet_approval` once per successful load.
 ///
-/// Missing doc/field or any error → false (feature stays off).
+/// Missing doc/field or any error → false (feature stays off). Errors are not
+/// cached so a later call (after sign-in / resume) can succeed.
 class TimesheetApprovalFeature {
   TimesheetApprovalFeature({FirebaseFirestore? firestore})
       : _firestore = firestore ?? FirebaseFirestore.instance;
@@ -16,6 +17,10 @@ class TimesheetApprovalFeature {
   Future<bool> isEnabled({bool forceRefresh = false}) {
     if (!forceRefresh && _cached != null) {
       return Future.value(_cached);
+    }
+    if (forceRefresh) {
+      _cached = null;
+      _inFlight = null;
     }
     return _inFlight ??= _load().whenComplete(() => _inFlight = null);
   }
@@ -44,7 +49,15 @@ final timesheetApprovalFeatureProvider = Provider<TimesheetApprovalFeature>(
   (ref) => TimesheetApprovalFeature(),
 );
 
-/// Session-cached bool; false when the flag is missing or unreadable.
+/// Cached bool; invalidate (resume / sign-in) to force a fresh Firestore read.
 final timesheetApprovalEnabledProvider = FutureProvider<bool>((ref) {
   return ref.watch(timesheetApprovalFeatureProvider).isEnabled();
 });
+
+/// Clears the feature cache and invalidates the provider so watchers reload.
+void refreshTimesheetApprovalFlag(ProviderContainer container) {
+  try {
+    container.read(timesheetApprovalFeatureProvider).clearCache();
+  } catch (_) {}
+  container.invalidate(timesheetApprovalEnabledProvider);
+}

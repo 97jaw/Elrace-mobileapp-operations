@@ -1,6 +1,7 @@
 import 'dart:typed_data';
 import 'dart:ui';
 
+import 'package:flutter/foundation.dart';
 import 'package:syncfusion_flutter_pdf/pdf.dart';
 
 import '../../chat/models/message.dart';
@@ -119,4 +120,50 @@ PdfFont _fitApprovalFont(String text, Rect box) {
     }
   }
   return PdfStandardFont(PdfFontFamily.helvetica, 4);
+}
+
+/// Isolate-safe wrapper so large multi-labour PDFs do not freeze the UI.
+Future<Uint8List> stampTimesheetApprovalTextsCompute({
+  required Uint8List pdfBytes,
+  required List<TimesheetApprovalCell> cells,
+  required Map<String, TimesheetApproverEntry> approvers,
+}) {
+  return compute(_stampTimesheetApprovalTextsIsolate, <String, dynamic>{
+    'pdf': pdfBytes,
+    'cells': [for (final cell in cells) cell.toMap()],
+    'approvers': {
+      for (final entry in approvers.entries)
+        entry.key: {
+          'role': entry.value.role.toJson(),
+          'name': entry.value.name,
+          'status': entry.value.status.toJson(),
+        },
+    },
+  });
+}
+
+Uint8List _stampTimesheetApprovalTextsIsolate(Map<String, dynamic> raw) {
+  final pdf = raw['pdf'] as Uint8List;
+  final cells = <TimesheetApprovalCell>[
+    for (final item in (raw['cells'] as List))
+      if (item is Map)
+        TimesheetApprovalCell.fromMap(Map<String, dynamic>.from(item)),
+  ];
+  final approvers = <String, TimesheetApproverEntry>{};
+  final rawApprovers = raw['approvers'];
+  if (rawApprovers is Map) {
+    for (final entry in rawApprovers.entries) {
+      final value = entry.value;
+      if (value is Map) {
+        approvers[entry.key.toString()] = TimesheetApproverEntry.fromMap(
+          Map<String, dynamic>.from(value),
+        );
+      }
+    }
+  }
+  return stampTimesheetApprovalTexts(
+    pdfBytes: pdf,
+    cells: cells,
+    approvers: approvers,
+  );
 }

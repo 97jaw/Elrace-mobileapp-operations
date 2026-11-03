@@ -2,6 +2,7 @@ import 'package:el_race/core/hr_management/providers/hr_management_providers.dar
 import 'package:el_race/core/timesheet/providers/timesheet_data_providers.dart';
 import 'package:el_race/core/timesheet/providers/timesheet_hr_scope_provider.dart';
 import 'package:el_race/core/timesheet/providers/timesheet_role_provider.dart';
+import 'package:el_race/core/timesheet/services/timesheet_approval_feature.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 /// Clears timesheet caches and dev overrides after login / logout so the next
@@ -23,4 +24,5 @@ void resetTimesheetSession(ProviderContainer container) {
   container.invalidate(timesheetPmForemenProvider);
   container.invalidate(timesheetProjectBucketsProvider);
   container.invalidate(timesheetProjectsProvider);
+  refreshTimesheetApprovalFlag(container);
 }

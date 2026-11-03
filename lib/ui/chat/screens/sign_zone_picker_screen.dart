@@ -105,7 +105,7 @@ class _SignZonePickerScreenState extends State<SignZonePickerScreen> {
       }
 
       if (widget.timesheetMode) {
-        _cells = findTimesheetAcknowledgmentCells(bytes);
+        _cells = await findTimesheetAcknowledgmentCellsCompute(bytes);
         // Only Employee / Supervisor boxes are interactive; SE/PM stay as data.
         _signZones.addAll(
           _cells

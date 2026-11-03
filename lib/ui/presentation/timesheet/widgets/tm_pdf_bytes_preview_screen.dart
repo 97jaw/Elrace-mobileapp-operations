@@ -14,6 +14,7 @@ import 'package:el_race/ui/presentation/my_actions/screens/signature/recipient_p
 import 'package:el_race/ui/presentation/timesheet/timesheet_async_state.dart';
 import 'package:el_race/ui/presentation/timesheet/widgets/tm_share_pdf_sheet.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_pdfview/flutter_pdfview.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -213,7 +214,7 @@ class _TmPdfBytesPreviewScreenState
       final recipients = await Navigator.of(context).push<List<ChatUser>>(
         MaterialPageRoute(
           builder: (_) => const RecipientPickerScreen(
-            stampNeeded: true,
+            stampNeeded: false,
             maxSignees: 2,
             blockCurrentUser: true,
           ),
@@ -277,10 +278,11 @@ class _TmPdfBytesPreviewScreenState
       );
       messenger.showSnackBar(SnackBar(content: Text(snack)));
     } catch (e) {
+      debugPrint('TmPdfBytesPreviewScreen._uploadApproval: $e');
       if (!mounted) return;
       Navigator.of(context).pop(); // progress
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Could not send: $e')),
+        const SnackBar(content: Text('Could not send this timesheet')),
       );
     }
   }

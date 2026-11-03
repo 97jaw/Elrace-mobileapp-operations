@@ -7,6 +7,7 @@ import 'package:el_race/ui/presentation/my_actions/widgets/signature/signature_s
 import 'package:el_race/ui/presentation/timesheet/timesheet_async_state.dart';
 import 'package:el_race/ui/presentation/timesheet/widgets/tm_pdf_bytes_preview_screen.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
@@ -24,6 +25,14 @@ class _TmTimesheetDocumentsSectionState
   static const int _pageSize = 20;
   int _visibleCount = _pageSize;
   bool _opening = false;
+  late final Stream<List<TimesheetApproval>> _mineStream;
+
+  @override
+  void initState() {
+    super.initState();
+    final uid = FirebaseAuth.instance.currentUser?.uid ?? '';
+    _mineStream = TimesheetApprovalRepository.instance.watchMine(uid);
+  }
 
   Color _statusColor(TimesheetApproval doc) {
     switch (doc.status) {
@@ -42,7 +51,7 @@ class _TmTimesheetDocumentsSectionState
     try {
       final bytes =
           await TimesheetApprovalRepository.instance.downloadPdf(doc.pdfPath);
-      final stamped = stampTimesheetApprovalTexts(
+      final stamped = await stampTimesheetApprovalTextsCompute(
         pdfBytes: bytes,
         cells: doc.cells,
         approvers: doc.approvers,
@@ -60,9 +69,10 @@ class _TmTimesheetDocumentsSectionState
         ),
       );
     } catch (e) {
+      debugPrint('TmTimesheetDocumentsSection._open: $e');
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Could not open: $e')),
+        const SnackBar(content: Text('Could not open this timesheet')),
       );
     } finally {
       if (mounted) setState(() => _opening = false);
@@ -71,7 +81,6 @@ class _TmTimesheetDocumentsSectionState
 
   @override
   Widget build(BuildContext context) {
-    final uid = FirebaseAuth.instance.currentUser?.uid ?? '';
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -81,7 +90,7 @@ class _TmTimesheetDocumentsSectionState
         ),
         const SizedBox(height: 10),
         StreamBuilder<List<TimesheetApproval>>(
-          stream: TimesheetApprovalRepository.instance.watchMine(uid),
+          stream: _mineStream,
           builder: (context, snap) {
             if (snap.hasError) {
               return TimesheetErrorState(
