@@ -7,11 +7,13 @@ import 'package:el_race/ui/presentation/Email%20Approval/bloc/approval_bloc.dart
 import 'package:el_race/ui/presentation/Email%20Approval/theme/approvals_overview_theme.dart';
 import 'package:el_race/ui/presentation/Email%20Approval/utils/hr_approval_display.dart';
 import 'package:el_race/ui/presentation/Email%20Approval/widgets/approval_action_buttons.dart';
+import 'package:el_race/ui/presentation/Email%20Approval/widgets/approval_amount_bar.dart';
 import 'package:el_race/ui/presentation/Email%20Approval/widgets/approval_rejected_banner.dart';
 import 'package:el_race/ui/presentation/my_actions/data/my_actions_models.dart';
 import 'package:el_race/ui/presentation/my_actions/theme/my_actions_module_theme.dart';
 import 'package:el_race/ui/presentation/my_actions/utils/my_actions_detail_navigation.dart';
 import 'package:el_race/ui/widgets/contextual_glass_chrome_header.dart';
+import 'package:el_race/ui/widgets/marquee_text.dart';
 import 'package:el_race/utils/safe_insets.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -1575,14 +1577,24 @@ class _HrDetailsScreenState extends State<HrDetailsScreen> {
                   children: [
                     for (final item in visible)
                       SizedBox(
-                        width: item.fullWidth ? constraints.maxWidth : cellW,
-                        child: _themeDetailCell(
-                          item.label,
-                          item.value,
-                          highlight: _isDurationFieldLabel(item.label),
-                          padded: paddedCells,
-                          valueMaxLines: paddedCells ? 1 : (item.multiline ? 4 : 2),
-                        ),
+                        width: item.fullWidth ||
+                                approvalLabelIsAmount(item.label)
+                            ? constraints.maxWidth
+                            : cellW,
+                        child: approvalLabelIsAmount(item.label)
+                            ? ApprovalAmountBar(
+                                label: item.label,
+                                amount: item.value,
+                              )
+                            : _themeDetailCell(
+                                item.label,
+                                item.value,
+                                highlight: _isDurationFieldLabel(item.label),
+                                padded: paddedCells,
+                                valueMaxLines: paddedCells
+                                    ? 1
+                                    : (item.multiline ? 4 : 2),
+                              ),
                       ),
                   ],
                 );
@@ -1600,6 +1612,7 @@ class _HrDetailsScreenState extends State<HrDetailsScreen> {
     bool padded = false,
     int valueMaxLines = 2,
   }) {
+    assert(valueMaxLines >= 1);
     return Container(
       width: double.infinity,
       padding: EdgeInsets.symmetric(
@@ -1627,11 +1640,8 @@ class _HrDetailsScreenState extends State<HrDetailsScreen> {
             ),
           ),
           SizedBox(height: padded ? 4.th : 2.th),
-          Text(
-            value,
-            maxLines: valueMaxLines,
-            overflow: TextOverflow.ellipsis,
-            softWrap: valueMaxLines > 1,
+          MarqueeText(
+            text: value,
             style: GoogleFonts.poppins(
               fontSize: padded ? 12.tsp : 11.tsp,
               fontWeight: FontWeight.w700,
