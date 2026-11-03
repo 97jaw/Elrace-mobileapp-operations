@@ -29,6 +29,7 @@ class ApprovalsOverviewTheme {
   static const Color statCardInvoice = Color(0xFFFFB899);
   static const Color statCardHr = Color(0xFFA8C4F5);
   static const Color statCardPettyCash = Color(0xFF8FD4AA);
+  static const Color statCardItRequest = Color(0xFFC9B6F0);
 
   static const Color rorChartLine = Color(0xFF3B7DD8);
   static const Color rorChartFill = Color(0xFF3B7DD8);
@@ -44,6 +45,8 @@ class ApprovalsOverviewTheme {
       case 'hr':
       case 'hr_request':
         return statCardHr;
+      case 'it_request':
+        return statCardItRequest;
       default:
         return statCardWarm;
     }
@@ -59,6 +62,7 @@ class ApprovalsOverviewTheme {
   static const Color rfq = Color(0xFFBD9B2E);
   static const Color petty = Color(0xFF1A5C3A);
   static const Color invoice = Color(0xFFD4562A);
+  static const Color itRequest = Color(0xFF6B4FA3);
 
   static const LinearGradient screenGradient = LinearGradient(
     begin: Alignment.topCenter,
@@ -88,6 +92,8 @@ class ApprovalsOverviewTheme {
         return petty;
       case 'invoice':
         return invoice;
+      case 'it_request':
+        return itRequest;
       default:
         return textMuted;
     }
@@ -132,6 +138,8 @@ class ApprovalsOverviewTheme {
       case 'hr':
       case 'hr_request':
         return 'HR';
+      case 'it_request':
+        return 'IT';
       default:
         return id.toUpperCase();
     }
@@ -166,6 +174,8 @@ class ApprovalsOverviewTheme {
       case 'hr':
       case 'hr_request':
         return hr;
+      case 'it_request':
+        return itRequest;
       default:
         return screenDeep;
     }

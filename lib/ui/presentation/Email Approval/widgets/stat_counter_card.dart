@@ -279,7 +279,7 @@ class _StatCounterArrowButton extends StatelessWidget {
   }
 }
 
-/// 2×2 grid of stat counter cards.
+/// 2-column grid of stat counter cards (any count; odd last card full width).
 class StatCounterGrid extends StatelessWidget {
   const StatCounterGrid({
     super.key,
@@ -292,8 +292,17 @@ class StatCounterGrid extends StatelessWidget {
   static const double kTileHeight = StatCounterCard.defaultTileHeight;
   static const double kTileGap = 8;
 
-  static double gridHeight({double? tileHeight, double? gap}) =>
-      (tileHeight ?? kTileHeight).th * 2 + (gap ?? kTileGap).th;
+  static double gridHeight({
+    int cardCount = 4,
+    double? tileHeight,
+    double? gap,
+  }) {
+    final rows = cardCount <= 0 ? 0 : ((cardCount + 1) ~/ 2);
+    if (rows == 0) return 0;
+    final h = tileHeight ?? kTileHeight;
+    final g = gap ?? kTileGap;
+    return h.th * rows + g.th * (rows - 1);
+  }
 
   final List<StatCounterCardData> cards;
   final double horizontalPadding;
@@ -318,31 +327,39 @@ class StatCounterGrid extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    assert(cards.length == 4, 'StatCounterGrid expects exactly 4 cards');
+    final rows = <Widget>[];
+    for (var i = 0; i < cards.length; i += 2) {
+      if (i > 0) {
+        rows.add(SizedBox(height: gap.th));
+      }
+      final left = cards[i];
+      final hasRight = i + 1 < cards.length;
+      if (!hasRight) {
+        rows.add(
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [Expanded(child: _buildCard(left))],
+          ),
+        );
+      } else {
+        rows.add(
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(child: _buildCard(left)),
+              SizedBox(width: gap.tw),
+              Expanded(child: _buildCard(cards[i + 1])),
+            ],
+          ),
+        );
+      }
+    }
 
     return Padding(
       padding: EdgeInsets.symmetric(horizontal: horizontalPadding.tw),
       child: Column(
         mainAxisSize: MainAxisSize.min,
-        children: [
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Expanded(child: _buildCard(cards[0])),
-              SizedBox(width: gap.tw),
-              Expanded(child: _buildCard(cards[1])),
-            ],
-          ),
-          SizedBox(height: gap.th),
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Expanded(child: _buildCard(cards[2])),
-              SizedBox(width: gap.tw),
-              Expanded(child: _buildCard(cards[3])),
-            ],
-          ),
-        ],
+        children: rows,
       ),
     );
   }

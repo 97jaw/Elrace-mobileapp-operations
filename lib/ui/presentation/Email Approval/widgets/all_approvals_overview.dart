@@ -188,6 +188,18 @@ class _AllApprovalsOverviewState extends State<AllApprovalsOverview> {
         onTap: () => _openCategorySheet('hr', 'Employee Request'),
         onRetry: () => retry('hr'),
       ),
+      // Placeholder until Task 4+ wires IT Request data.
+      StatCounterCardData(
+        id: 'it_request',
+        title: 'IT Request',
+        subtitle: ApprovalsOverviewTheme.statCardShortLabel('it_request'),
+        value: 0,
+        backgroundColor: ApprovalsOverviewTheme.statCardItRequest,
+        route: 'it_request',
+        isLoading: false,
+        hasError: false,
+        onTap: () => _openCategorySheet('it_request', 'IT Request'),
+      ),
     ];
   }
 
