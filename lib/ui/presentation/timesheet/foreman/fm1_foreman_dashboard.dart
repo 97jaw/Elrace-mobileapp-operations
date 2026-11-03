@@ -16,6 +16,7 @@ import 'package:el_race/core/timesheet/providers/timesheet_hr_scope_provider.dar
 import 'package:el_race/core/timesheet/routing/timesheet_route_names.dart';
 import 'package:el_race/core/timesheet/providers/timesheet_acting_session_provider.dart';
 import 'package:el_race/core/timesheet/services/timesheet_acting_guard.dart';
+import 'package:el_race/core/timesheet/services/timesheet_approval_feature.dart';
 import 'package:el_race/core/timesheet/services/timesheet_capture_session_store.dart';
 import 'package:el_race/core/timesheet/timesheet_defaults.dart';
 import 'package:el_race/core/widgets/timesheet/timesheet_widgets.dart';
@@ -31,6 +32,7 @@ import 'package:el_race/ui/presentation/timesheet/widgets/tm_active_sites_sheet.
 import 'package:el_race/ui/presentation/timesheet/widgets/tm_foreman_site_location_card.dart';
 import 'package:el_race/ui/presentation/timesheet/widgets/tm_site_location_dialog.dart';
 import 'package:el_race/ui/presentation/timesheet/widgets/tm_team_members_sheet.dart';
+import 'package:el_race/ui/presentation/timesheet/widgets/tm_timesheet_documents_section.dart';
 import 'package:el_race/ui/widgets/contextual_glass_chrome_header.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -326,6 +328,16 @@ class _Fm1ForemanDashboardState extends ConsumerState<Fm1ForemanDashboard> {
                                 TimesheetRouteNames.foremanTimesheetRecords,
                               ),
                             ),
+                            if (ref
+                                    .watch(timesheetApprovalEnabledProvider)
+                                    .asData
+                                    ?.value ==
+                                true) ...[
+                              const SizedBox(
+                                height: TimesheetModuleLayout.sectionGap,
+                              ),
+                              const TmTimesheetDocumentsSection(),
+                            ],
                             const Spacer(),
                             if (pendingCaptures.isNotEmpty)
                               const SizedBox(height: 72),
