@@ -1,5 +1,4 @@
 import 'dart:io';
-import 'dart:typed_data';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -198,7 +197,7 @@ class TimesheetApprovalRepository {
         // Write only this user's entry so the other approver's acted_at is
         // untouched (rules require affectedKeys().hasOnly([uid()])).
         tx.update(ref, {
-          FieldPath(['approvers', uid]): {
+          'approvers.$uid': {
             'role': nextMine.role.toJson(),
             'name': nextMine.name,
             'status': nextMine.status.toJson(),

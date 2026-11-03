@@ -215,7 +215,6 @@ SignatureDocument _fullSignature(DateTime now) {
     signedAt: now,
     signedBy: 'odoo_200',
     stampNeeded: true,
-    timesheetMode: true,
   );
 }
 

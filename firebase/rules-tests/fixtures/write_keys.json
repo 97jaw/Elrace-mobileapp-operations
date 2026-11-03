@@ -199,7 +199,6 @@
       "stamp_needed",
       "status",
       "thumbnail_url",
-      "timesheet_mode",
       "updated_at"
     ],
     "timesheet_approvals": [
