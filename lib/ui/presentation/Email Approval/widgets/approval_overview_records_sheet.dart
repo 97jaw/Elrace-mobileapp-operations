@@ -265,15 +265,11 @@ class _ApprovalRecordTile extends StatelessWidget {
     required this.item,
     required this.categoryKey,
     required this.onTap,
-    this.accentColor,
-    this.statusLabel,
   });
 
   final Map<String, dynamic> item;
   final String categoryKey;
   final VoidCallback onTap;
-  final Color? accentColor;
-  final String? statusLabel;
 
   String _str(dynamic v, {String fallback = ''}) {
     if (v == null || v == false || v == true) return fallback;
@@ -297,8 +293,7 @@ class _ApprovalRecordTile extends StatelessWidget {
     }
   }
 
-  Color _accent() =>
-      accentColor ?? ApprovalsOverviewTheme.accentFor(categoryKey);
+  Color _accent() => ApprovalsOverviewTheme.accentFor(categoryKey);
 
   String _rfqReference() {
     return _str(
@@ -496,7 +491,6 @@ class _ApprovalRecordTile extends StatelessWidget {
   }
 
   String _status() {
-    if (statusLabel != null) return statusLabel!;
     final raw = _str(item['state'] ?? item['status'], fallback: 'open');
     final upper = raw.toUpperCase();
     if (categoryKey == 'invoice' && upper == 'DRAFT') return '';
