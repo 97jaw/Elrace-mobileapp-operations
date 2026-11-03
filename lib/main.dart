@@ -162,6 +162,12 @@ Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
       category = message.data['model'].toString();
     }
 
+    // Timesheet approval: results are in Firestore; waiting is push-only.
+    final cat = category.toLowerCase().trim();
+    if (cat == 'timesheet_approval' || cat == 'timesheet_approval_waiting') {
+      return;
+    }
+
     // Local cache only — no network from BG isolate (G4).
     final muted = await NotificationStorageService.shouldMuteNotification(
       category: category,
