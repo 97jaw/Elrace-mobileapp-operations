@@ -8,6 +8,7 @@ import 'package:el_race/core/notifications/notification_device_service.dart';
 import 'package:el_race/core/notifications/notification_inbox_repository.dart';
 import 'package:el_race/core/notifications/notification_payload.dart';
 import 'package:el_race/core/notifications/notification_router.dart';
+import 'package:el_race/core/notifications/push_only_approval.dart';
 import 'package:el_race/core/services/approval_count_service.dart';
 import 'package:el_race/core/services/attendance_status_sync_service.dart';
 import 'package:el_race/core/services/badge_refresh_service.dart';
@@ -726,6 +727,10 @@ class FirebaseService {
       // waiting pushes are push-only. Never mirror either into local storage.
       final cat = category.toLowerCase().trim();
       if (cat == 'timesheet_approval' || cat == 'timesheet_approval_waiting') {
+        return;
+      }
+      // Odoo waiting + progress: banner/tap only — never Notification Center.
+      if (isPushOnlyApproval(message.data)) {
         return;
       }
 

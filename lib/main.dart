@@ -10,6 +10,7 @@ import 'package:el_race/core/services/notification_storage_service.dart';
 import 'package:el_race/core/timesheet/services/capture_queue_service.dart';
 import 'package:el_race/core/utils/app_orientations.dart';
 import 'package:el_race/core/notifications/notification_config_service.dart';
+import 'package:el_race/core/notifications/push_only_approval.dart';
 import 'package:el_race/core/utils/shared_pref.dart';
 import 'package:el_race/core/security/device_security_service.dart';
 import 'package:el_race/core/security/signed_file_links.dart';
@@ -166,6 +167,10 @@ Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
     // Timesheet approval: results are in Firestore; waiting is push-only.
     final cat = category.toLowerCase().trim();
     if (cat == 'timesheet_approval' || cat == 'timesheet_approval_waiting') {
+      return;
+    }
+    // Odoo waiting + progress: banner/tap only — never Notification Center.
+    if (isPushOnlyApproval(message.data)) {
       return;
     }
 
