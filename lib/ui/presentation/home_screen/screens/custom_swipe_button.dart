@@ -18,7 +18,6 @@ import 'package:flutter_translate/flutter_translate.dart';
 import 'package:get/get.dart';
 import 'package:el_race/core/services/app_config_service.dart';
 import 'package:google_fonts/google_fonts.dart' show GoogleFonts;
-import 'package:el_race/core/biometric/unified_biometric_helper.dart';
 
 import '../widgets/timer_controller.dart';
 
@@ -52,7 +51,7 @@ class CustomSwipeButton extends StatefulWidget {
   /// Project selected on the check-in map activity (stored for display).
   final int? selectedProjectId;
 
-  /// Called before check-in biometric/API flow; return false to abort.
+  /// Called before check-in API flow; return false to abort.
   final Future<bool> Function()? onValidateBeforeCheckIn;
 
   @override
@@ -69,7 +68,6 @@ class CustomSwipeButtonState extends State<CustomSwipeButton>
   bool? matchResult; // null = no result, true = matched, false = not matched
   late AnimationController _checkmarkController;
   late AnimationController _bounceController;
-  bool isProcessingFace = false;
   bool _isApiLoading = false;
   Timer? _sliderClockTimer;
 
@@ -817,8 +815,6 @@ class CustomSwipeButtonState extends State<CustomSwipeButton>
   }
 
   void _startAttendanceAction() {
-    SharedPref()
-        .setPreferencesBoolean('wasCheckedInBeforeFaceAuth', isCheckedIn);
     SharedPref().setPreferencesBoolean('isCheckedIn', isCheckedIn);
     if (!isCheckedIn) SharedPref().setPreferenceInt('checkInRecordId', 0);
 
@@ -843,21 +839,8 @@ class CustomSwipeButtonState extends State<CustomSwipeButton>
           }
         }
 
-        if (AppConfigService.instance.shouldSkipFaceId) {
-          _performCheckInOut();
-          _resetPosition();
-          return;
-        }
-
-        final authenticated =
-            await UnifiedBiometricHelper.authenticateForAttendance(context);
-
-        if (authenticated) {
-          _performCheckInOut();
-          _resetPosition();
-        } else {
-          _resetPosition();
-        }
+        _performCheckInOut();
+        _resetPosition();
       },
       onCancelled: _resetPosition,
     );

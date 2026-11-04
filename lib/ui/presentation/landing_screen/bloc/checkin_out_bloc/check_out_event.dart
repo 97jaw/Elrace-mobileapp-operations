@@ -9,8 +9,7 @@ sealed class CheckOutEvent extends Equatable {
 
 final class CheckOutET extends CheckOutEvent {
   final int checkInRecordId;
-  final bool
-      isAutoCheckout; // true = auto checkout (no Face ID), false = manual (requires Face ID)
+  final bool isAutoCheckout; // true = scheduled auto checkout, false = manual
 
   const CheckOutET(this.checkInRecordId, {this.isAutoCheckout = false});
 
