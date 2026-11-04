@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:bloc/bloc.dart';
 import 'package:dio/dio.dart';
 import 'package:el_race/core/utils/shared_pref.dart';
+import 'package:el_race/core/services/attendance_server_time.dart';
 import 'package:el_race/core/services/attendance_status_sync_service.dart';
 import 'package:el_race/ui/presentation/Attendace_list/repository/attendance_repository.dart';
 import 'package:el_race/ui/presentation/landing_screen/repository/check_out_repo.dart';
@@ -96,10 +97,9 @@ class CheckOutBloc extends Bloc<CheckOutEvent, CheckOutState> {
         if (responseData == null) {
           emit(const CheckOutErrorST('Invalid response from server.'));
         } else if (responseData['status'] == 'success') {
-          // Save check-out time in UAE timezone (GMT+4) for display
-          final uaeTime = DateTime.now().toUtc().add(const Duration(hours: 4));
-          final displayTime =
-              '${uaeTime.hour.toString().padLeft(2, '0')}:${uaeTime.minute.toString().padLeft(2, '0')}:${uaeTime.second.toString().padLeft(2, '0')}';
+          final displayTime = AttendanceServerTime.displayOrLocalFallback(
+            responseData['check_out_time']?.toString(),
+          );
 
           print('\n🔴 ===== CHECK-OUT BLOC =====');
           print('🔴 checkOutDisplayTime = $displayTime');
@@ -135,10 +135,9 @@ class CheckOutBloc extends Bloc<CheckOutEvent, CheckOutState> {
           emit(
               CheckedOutST(_getMessage(responseData, 'Check-out successful.')));
         } else if (responseData['status'] == 'warning') {
-          // Save check-out time even on warning
-          final uaeTime = DateTime.now().toUtc().add(const Duration(hours: 4));
-          final displayTime =
-              '${uaeTime.hour.toString().padLeft(2, '0')}:${uaeTime.minute.toString().padLeft(2, '0')}:${uaeTime.second.toString().padLeft(2, '0')}';
+          final displayTime = AttendanceServerTime.displayOrLocalFallback(
+            responseData['check_out_time']?.toString(),
+          );
 
           print('\n🟡 ===== CHECK-OUT BLOC (WARNING) =====');
           print('🟡 checkOutDisplayTime = $displayTime');
