@@ -1,0 +1,434 @@
+# Expected elrace.notify.type rows. Templates match the inactive seed.
+# expected_title / expected_body are the exact preview() result for `sample`.
+types:
+  - code: approval.waiting
+    channel: push
+    category: waiting
+    action: open_record
+    title_template: "New {request_type} Waiting for Your Approval"
+    body_template: "{request_type} {reference} is waiting for your approval/action."
+    mandatory: false
+    exclude_labour: true
+    exclude_actor: true
+    active: false
+    takeover: false
+    shadow: false
+    sample: {request_type: "Annual Leave Request", reference: "HR/001"}
+    expected_title: "New Annual Leave Request Waiting for Your Approval"
+    expected_body: "Annual Leave Request HR/001 is waiting for your approval/action."
+
+  - code: hr.request.approved
+    channel: inbox
+    category: hr
+    action: open_record
+    title_template: "Request Approved"
+    body_template: "Your {request_type} request has been approved."
+    mandatory: false
+    exclude_labour: true
+    exclude_actor: true
+    active: false
+    takeover: false
+    shadow: false
+    sample: {request_type: "Annual Leave"}
+    expected_title: "Request Approved"
+    expected_body: "Your Annual Leave request has been approved."
+
+  - code: hr.request.rejected
+    channel: inbox
+    category: hr
+    action: open_record
+    title_template: "Request Rejected"
+    body_template: "Your {request_type} request has been rejected."
+    mandatory: false
+    exclude_labour: true
+    exclude_actor: true
+    active: false
+    takeover: false
+    shadow: false
+    sample: {request_type: "Annual Leave"}
+    expected_title: "Request Rejected"
+    expected_body: "Your Annual Leave request has been rejected."
+
+  - code: hr.employee.assigned
+    channel: inbox
+    category: hr
+    action: open_record
+    title_template: "New Employee Assigned"
+    body_template: "New employee assigned under your team."
+    mandatory: false
+    exclude_labour: true
+    exclude_actor: true
+    active: false
+    takeover: false
+    shadow: false
+    sample: {}
+    expected_title: "New Employee Assigned"
+    expected_body: "New employee assigned under your team."
+
+  - code: purchase.lpo.issued
+    channel: inbox
+    category: purchase
+    action: open_record
+    title_template: "LPO Issued"
+    body_template: "LPO for {vendor_name} has been issued."
+    mandatory: false
+    exclude_labour: true
+    exclude_actor: true
+    active: false
+    takeover: false
+    shadow: false
+    sample: {vendor_name: "Acme"}
+    expected_title: "LPO Issued"
+    expected_body: "LPO for Acme has been issued."
+
+  - code: account.vendor_invoice
+    channel: none
+    category: waiting
+    action: none
+    title_template: ""
+    body_template: ""
+    mandatory: false
+    exclude_labour: true
+    exclude_actor: true
+    active: false
+    takeover: false
+    shadow: false
+    sample: {}
+    expected_title: ""
+    expected_body: ""
+
+  - code: expense.petty_cash.paid
+    channel: inbox
+    category: petty_cash
+    action: open_record
+    title_template: "Petty Cash Paid"
+    body_template: "Your petty cash request no. {request_number} has been paid."
+    mandatory: false
+    exclude_labour: true
+    exclude_actor: true
+    active: false
+    takeover: false
+    shadow: false
+    sample: {request_number: "PC/12"}
+    expected_title: "Petty Cash Paid"
+    expected_body: "Your petty cash request no. PC/12 has been paid."
+
+  - code: project.manager.assigned
+    channel: inbox
+    category: project
+    action: open_record
+    title_template: "Project Manager Assigned"
+    body_template: "You are assigned as a project manager to {project_name}."
+    mandatory: false
+    exclude_labour: true
+    exclude_actor: true
+    active: false
+    takeover: false
+    shadow: false
+    sample: {project_name: "Tower A"}
+    expected_title: "Project Manager Assigned"
+    expected_body: "You are assigned as a project manager to Tower A."
+
+  - code: project.member.added
+    channel: inbox
+    category: project
+    action: open_record
+    title_template: "Added to Project"
+    body_template: "You have been added to {project_name}."
+    mandatory: false
+    exclude_labour: true
+    exclude_actor: true
+    active: false
+    takeover: false
+    shadow: false
+    sample: {project_name: "Tower A"}
+    expected_title: "Added to Project"
+    expected_body: "You have been added to Tower A."
+
+  - code: document.expiry
+    channel: inbox
+    category: document
+    action: open_record
+    title_template: "Document Expiring Soon"
+    body_template: "{document_type} expires on {expiry_date}. Please renew."
+    mandatory: false
+    exclude_labour: true
+    exclude_actor: true
+    active: false
+    takeover: false
+    shadow: false
+    sample: {document_type: "Passport", expiry_date: "01 Jan 2027"}
+    expected_title: "Document Expiring Soon"
+    expected_body: "Passport expires on 01 Jan 2027. Please renew."
+
+  - code: share.note
+    channel: inbox
+    category: document
+    action: open_record
+    title_template: "Note Shared"
+    body_template: "{sender_name} shared a new note with you."
+    mandatory: false
+    exclude_labour: true
+    exclude_actor: true
+    active: false
+    takeover: false
+    shadow: false
+    sample: {sender_name: "Sara"}
+    expected_title: "Note Shared"
+    expected_body: "Sara shared a new note with you."
+
+  - code: share.document
+    channel: inbox
+    category: document
+    action: open_record
+    title_template: "Document Shared"
+    body_template: "{sender_name} shared a new document with you."
+    mandatory: false
+    exclude_labour: true
+    exclude_actor: true
+    active: false
+    takeover: false
+    shadow: false
+    sample: {sender_name: "Sara"}
+    expected_title: "Document Shared"
+    expected_body: "Sara shared a new document with you."
+
+  - code: document.signed
+    channel: inbox
+    category: document
+    action: open_record
+    title_template: "Document Signed"
+    body_template: "{signer_name} signed {file_name}."
+    mandatory: false
+    exclude_labour: true
+    exclude_actor: true
+    active: false
+    takeover: false
+    shadow: false
+    sample: {signer_name: "Sara", file_name: "Contract.pdf"}
+    expected_title: "Document Signed"
+    expected_body: "Sara signed Contract.pdf."
+
+  - code: circular.published
+    channel: inbox
+    category: circular
+    action: open_screen
+    title_template: "New Circular"
+    body_template: "New circular for {circular_title} has been announced."
+    mandatory: false
+    exclude_labour: true
+    exclude_actor: true
+    active: false
+    takeover: false
+    shadow: false
+    sample: {circular_title: "Safety Week"}
+    expected_title: "New Circular"
+    expected_body: "New circular for Safety Week has been announced."
+
+  - code: attendance.checkin_reminder
+    channel: none
+    category: hr
+    action: none
+    title_template: ""
+    body_template: ""
+    mandatory: false
+    exclude_labour: true
+    exclude_actor: true
+    active: false
+    takeover: false
+    shadow: false
+    sample: {}
+    expected_title: ""
+    expected_body: ""
+
+  - code: attendance.biotime_sync
+    channel: none
+    category: hr
+    action: none
+    title_template: ""
+    body_template: ""
+    mandatory: false
+    exclude_labour: true
+    exclude_actor: true
+    active: false
+    takeover: false
+    shadow: false
+    sample: {}
+    expected_title: ""
+    expected_body: ""
+
+  - code: task.assigned
+    channel: push
+    category: task
+    action: open_record
+    title_template: "New Task Assigned"
+    body_template: "{assigned_by} assigned you: {task_title}."
+    mandatory: false
+    exclude_labour: true
+    exclude_actor: true
+    active: false
+    takeover: false
+    shadow: false
+    sample: {assigned_by: "Omar", task_title: "Inspect site"}
+    expected_title: "New Task Assigned"
+    expected_body: "Omar assigned you: Inspect site."
+
+  - code: task.comment
+    channel: inbox
+    category: task
+    action: open_record
+    title_template: "New Task Comment"
+    body_template: "{sender}: {comment}"
+    mandatory: false
+    exclude_labour: true
+    exclude_actor: true
+    active: false
+    takeover: false
+    shadow: false
+    sample: {sender: "Omar", comment: "Please check"}
+    expected_title: "New Task Comment"
+    expected_body: "Omar: Please check"
+
+  - code: task.completed
+    channel: inbox
+    category: task
+    action: open_record
+    title_template: "Task Completed"
+    body_template: "{completed_by} completed {task_title}."
+    mandatory: false
+    exclude_labour: true
+    exclude_actor: true
+    active: false
+    takeover: false
+    shadow: false
+    sample: {completed_by: "Omar", task_title: "Inspect site"}
+    expected_title: "Task Completed"
+    expected_body: "Omar completed Inspect site."
+
+  - code: task.deadline_24h
+    channel: push
+    category: task
+    action: open_record
+    title_template: "Task Deadline Tomorrow"
+    body_template: "{task_title} is due in 24 hours."
+    mandatory: false
+    exclude_labour: true
+    exclude_actor: true
+    active: false
+    takeover: false
+    shadow: false
+    sample: {task_title: "Inspect site"}
+    expected_title: "Task Deadline Tomorrow"
+    expected_body: "Inspect site is due in 24 hours."
+
+  - code: task.deadline_1h
+    channel: push
+    category: task
+    action: open_record
+    title_template: "Task Due Soon"
+    body_template: "{task_title} is due in 1 hour."
+    mandatory: false
+    exclude_labour: true
+    exclude_actor: true
+    active: false
+    takeover: false
+    shadow: false
+    sample: {task_title: "Inspect site"}
+    expected_title: "Task Due Soon"
+    expected_body: "Inspect site is due in 1 hour."
+
+  - code: ticket.assigned
+    channel: push
+    category: ticket
+    action: open_record
+    title_template: "Ticket Assigned"
+    body_template: "{ticket_title} has been assigned to {assignee}."
+    mandatory: false
+    exclude_labour: true
+    exclude_actor: true
+    active: false
+    takeover: false
+    shadow: false
+    sample: {ticket_title: "Door lock", assignee: "Lina"}
+    expected_title: "Ticket Assigned"
+    expected_body: "Door lock has been assigned to Lina."
+
+  - code: ticket.updated
+    channel: inbox
+    category: ticket
+    action: open_record
+    title_template: "Ticket Updated"
+    body_template: "{ticket_title}: {update_summary}"
+    mandatory: false
+    exclude_labour: true
+    exclude_actor: true
+    active: false
+    takeover: false
+    shadow: false
+    sample: {ticket_title: "Door lock", update_summary: "Status changed to Open"}
+    expected_title: "Ticket Updated"
+    expected_body: "Door lock: Status changed to Open"
+
+  - code: ticket.reassigned
+    channel: inbox
+    category: ticket
+    action: open_record
+    title_template: "Ticket Reassigned"
+    body_template: "{ticket_title} reassigned to {assignee}."
+    mandatory: false
+    exclude_labour: true
+    exclude_actor: true
+    active: false
+    takeover: false
+    shadow: false
+    sample: {ticket_title: "Door lock", assignee: "Lina"}
+    expected_title: "Ticket Reassigned"
+    expected_body: "Door lock reassigned to Lina."
+
+  - code: ticket.closed
+    channel: inbox
+    category: ticket
+    action: open_record
+    title_template: "Ticket Closed"
+    body_template: "{ticket_title} has been closed."
+    mandatory: false
+    exclude_labour: true
+    exclude_actor: true
+    active: false
+    takeover: false
+    shadow: false
+    sample: {ticket_title: "Door lock"}
+    expected_title: "Ticket Closed"
+    expected_body: "Door lock has been closed."
+
+  - code: chat.direct
+    channel: push
+    category: chat
+    action: open_chat
+    title_template: "{title}"
+    body_template: "{body}"
+    mandatory: false
+    exclude_labour: true
+    exclude_actor: true
+    active: false
+    takeover: false
+    shadow: false
+    sample: {title: "Ali", body: "Hello"}
+    expected_title: "Ali"
+    expected_body: "Hello"
+
+  - code: chat.group
+    channel: push
+    category: chat
+    action: open_chat
+    title_template: "{title}"
+    body_template: "{body}"
+    mandatory: false
+    exclude_labour: true
+    exclude_actor: true
+    active: false
+    takeover: false
+    shadow: false
+    sample: {title: "Site team", body: "Hello"}
+    expected_title: "Site team"
+    expected_body: "Hello"

@@ -61,3 +61,7 @@ assets/antispoof/*.onnx
 # Access audit exports (contain staff names/logins)
 docs/access_audit/output/
 __pycache__/
+
+# notify_check local env and reports
+tools/notify_check/.venv/
+tools/notify_check/out/
