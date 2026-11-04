@@ -132,6 +132,7 @@ class CheckinContextModel {
     required this.biotimeTerminals,
     required this.todayStatus,
     required this.defaultRadiusM,
+    this.locationRequired = true,
   });
 
   final bool mobileCheckinAllowed;
@@ -139,6 +140,9 @@ class CheckinContextModel {
   final List<CheckinBiotimeTerminal> biotimeTerminals;
   final CheckinTodayStatus todayStatus;
   final double defaultRadiusM;
+
+  /// When missing from an older server, default true (today's behaviour).
+  final bool locationRequired;
 
   bool get hasBiotimeAssignment =>
       biotimeOffices.isNotEmpty || biotimeTerminals.isNotEmpty;
@@ -165,6 +169,8 @@ class CheckinContextModel {
             )
           : CheckinTodayStatus.empty,
       defaultRadiusM: defaultRadius,
+      // Missing key → true so an old server stays as strict as today.
+      locationRequired: json['location_required'] != false,
     );
   }
 }

@@ -32,7 +32,11 @@ class CheckinEligibilitySection extends StatelessWidget {
     if (checkinWidgetDisabled || !contextModel.mobileCheckinAllowed) {
       return false;
     }
-    if (!contextModel.todayStatus.checkedIn && selectedProjectId == null) {
+    // When the server requires location, keep today's "pick a project" gate.
+    // When false, the slider works anywhere (map is information only).
+    if (contextModel.locationRequired &&
+        !contextModel.todayStatus.checkedIn &&
+        selectedProjectId == null) {
       return false;
     }
     return true;

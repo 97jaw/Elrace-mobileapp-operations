@@ -1210,7 +1210,7 @@ class CustomSwipeButtonState extends State<CustomSwipeButton>
               _setApiLoading(false);
               await _restoreAfterCheckInFailure();
               _showAttendanceApiMessage(
-                title: 'Invalid Project Location',
+                title: 'Check-In Failed',
                 message: state.errorMessage,
                 color: const Color(0xFFDC3545),
                 icon: Icons.error,
