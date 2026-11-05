@@ -11,6 +11,8 @@ CheckinContextModel _context({
   bool checkedIn = false,
   bool checkedOut = false,
   bool? canCheckOut,
+  CheckinCheckoutMode checkoutMode = CheckinCheckoutMode.open,
+  String? checkoutMessage,
 }) {
   return CheckinContextModel(
     mobileCheckinAllowed: mobile,
@@ -20,6 +22,8 @@ CheckinContextModel _context({
       checkedIn: checkedIn,
       checkedOut: checkedOut,
       canCheckOut: canCheckOut ?? (checkedIn || checkedOut),
+      checkoutMode: checkoutMode,
+      checkoutMessage: checkoutMessage,
       checkInTime: checkedIn ? '08:00:00' : null,
       checkOutTime: checkedOut ? '17:00:00' : null,
       checkInRecordId: checkedIn || checkedOut ? 1 : null,
@@ -225,6 +229,45 @@ void main() {
         isInsideGeofence: false,
       );
       expect(state, CheckinLocationCardState.anywhere);
+    });
+
+    test('blocked / not_required disables check-out', () {
+      for (final mode in [
+        CheckinCheckoutMode.blocked,
+        CheckinCheckoutMode.notRequired,
+      ]) {
+        final today = _context(
+          checkedIn: true,
+          canCheckOut: true,
+          checkoutMode: mode,
+          checkoutMessage: 'msg',
+        ).todayStatus;
+        expect(
+          CheckinSheetLogic.checkOutEnabled(
+            cardState: CheckinLocationCardState.inside,
+            today: today,
+            apiLoading: false,
+          ),
+          isFalse,
+        );
+      }
+    });
+
+    test('warn keeps check-out enabled', () {
+      final today = _context(
+        checkedIn: true,
+        canCheckOut: true,
+        checkoutMode: CheckinCheckoutMode.warn,
+        checkoutMessage: 'Leaving early?',
+      ).todayStatus;
+      expect(
+        CheckinSheetLogic.checkOutEnabled(
+          cardState: CheckinLocationCardState.inside,
+          today: today,
+          apiLoading: false,
+        ),
+        isTrue,
+      );
     });
 
     test('outside zone disables both', () {

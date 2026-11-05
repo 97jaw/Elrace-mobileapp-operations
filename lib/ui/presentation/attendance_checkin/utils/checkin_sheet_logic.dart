@@ -99,7 +99,12 @@ abstract final class CheckinSheetLogic {
   }) {
     if (apiLoading) return false;
     if (!actionsAvailable(cardState)) return false;
-    // Stay available after a mid-day gate exit (checkedOut informational only).
+    // Stay available after a mid-day gate exit (checkedOut informational only),
+    // but office-hours window can still disable (blocked / not_required).
+    if (today.checkoutMode == CheckinCheckoutMode.blocked ||
+        today.checkoutMode == CheckinCheckoutMode.notRequired) {
+      return false;
+    }
     return today.canCheckOut;
   }
 }

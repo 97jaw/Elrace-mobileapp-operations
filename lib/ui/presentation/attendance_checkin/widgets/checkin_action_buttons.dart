@@ -118,14 +118,71 @@ class _CheckinActionButtonsState extends State<CheckinActionButtons> {
       return;
     }
 
-    showLeftToRightPopupClean(
+    final today = widget.todayStatus;
+    final confirmed = today.checkoutMode == CheckinCheckoutMode.warn
+        ? await _confirmCheckoutDialog(
+            message: today.checkoutMessage ??
+                'Office hours end soon. Leaving early? Make sure a '
+                    'Temporary Permission is applied.',
+            confirmLabel: 'Check Out',
+          )
+        : await _confirmCheckoutDialog(
+            message: 'Check out at ${_nowHhMm()}?',
+            confirmLabel: 'Check Out',
+          );
+    if (confirmed != true || !mounted) return;
+    await _performCheckOut();
+  }
+
+  String _nowHhMm() {
+    final now = DateTime.now();
+    final h = now.hour.toString().padLeft(2, '0');
+    final m = now.minute.toString().padLeft(2, '0');
+    return '$h:$m';
+  }
+
+  Future<bool?> _confirmCheckoutDialog({
+    required String message,
+    required String confirmLabel,
+  }) {
+    return showDialog<bool>(
       context: context,
-      loginResponseModel: SharedPref.getLoginData(),
-      isCheckedIn: true,
-      onConfirmed: () async {
-        await _performCheckOut();
+      builder: (dialogContext) {
+        return AlertDialog(
+          backgroundColor: Colors.white,
+          surfaceTintColor: Colors.white,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(18),
+          ),
+          content: Text(
+            message,
+            style: GoogleFonts.poppins(
+              fontSize: 14.sp,
+              fontWeight: FontWeight.w500,
+              color: HomeGlassTheme.textPrimary,
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(false),
+              child: Text(
+                'Cancel',
+                style: GoogleFonts.poppins(fontWeight: FontWeight.w600),
+              ),
+            ),
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(true),
+              child: Text(
+                confirmLabel,
+                style: GoogleFonts.poppins(
+                  fontWeight: FontWeight.w700,
+                  color: HomeGlassTheme.bottleGreen,
+                ),
+              ),
+            ),
+          ],
+        );
       },
-      onCancelled: () {},
     );
   }
 
@@ -361,6 +418,18 @@ class _CheckinActionButtonsState extends State<CheckinActionButtons> {
                         ),
                       ),
                     ],
+                    if (_showCheckoutMessage(today)) ...[
+                      SizedBox(height: 4.h),
+                      Text(
+                        today.checkoutMessage!,
+                        textAlign: TextAlign.center,
+                        style: GoogleFonts.poppins(
+                          fontSize: 11.sp,
+                          fontWeight: FontWeight.w500,
+                          color: HomeGlassTheme.textSecondary,
+                        ),
+                      ),
+                    ],
                   ],
                 ),
               ),
@@ -369,6 +438,14 @@ class _CheckinActionButtonsState extends State<CheckinActionButtons> {
         ],
       ),
     );
+  }
+
+  static bool _showCheckoutMessage(CheckinTodayStatus today) {
+    if (today.checkoutMessage == null || today.checkoutMessage!.isEmpty) {
+      return false;
+    }
+    return today.checkoutMode == CheckinCheckoutMode.blocked ||
+        today.checkoutMode == CheckinCheckoutMode.notRequired;
   }
 
   static String? _formatLastOut(String? raw) {

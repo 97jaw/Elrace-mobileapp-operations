@@ -87,6 +87,28 @@ bool _hasValidCoordinates(double lat, double lng) {
   return lat >= -90 && lat <= 90 && lng >= -180 && lng <= 180;
 }
 
+/// Server check-out window: open | warn | blocked | not_required.
+enum CheckinCheckoutMode {
+  open,
+  warn,
+  blocked,
+  notRequired,
+}
+
+CheckinCheckoutMode _parseCheckoutMode(Object? raw) {
+  switch ((raw ?? '').toString().trim().toLowerCase()) {
+    case 'warn':
+      return CheckinCheckoutMode.warn;
+    case 'blocked':
+      return CheckinCheckoutMode.blocked;
+    case 'not_required':
+      return CheckinCheckoutMode.notRequired;
+    case 'open':
+    default:
+      return CheckinCheckoutMode.open;
+  }
+}
+
 class CheckinTodayStatus {
   const CheckinTodayStatus({
     required this.checkedIn,
@@ -96,11 +118,15 @@ class CheckinTodayStatus {
     required this.checkInRecordId,
     required this.isToday,
     this.canCheckOut = false,
+    this.checkoutMode = CheckinCheckoutMode.open,
+    this.checkoutMessage,
   });
 
   final bool checkedIn;
   final bool checkedOut;
   final bool canCheckOut;
+  final CheckinCheckoutMode checkoutMode;
+  final String? checkoutMessage;
   final String? checkInTime;
   final String? checkOutTime;
   final int? checkInRecordId;
@@ -109,13 +135,19 @@ class CheckinTodayStatus {
   factory CheckinTodayStatus.fromJson(Map<String, dynamic> json) {
     final checkedIn = json['checked_in'] == true;
     final recordId = _readIntOrNull(json['check_in_record_id']);
+    final mode = _parseCheckoutMode(json['checkout_mode']);
     final canCheckOut = json.containsKey('can_check_out')
         ? json['can_check_out'] == true
-        : (checkedIn || recordId != null);
+        : (checkedIn || recordId != null) &&
+            (mode == CheckinCheckoutMode.open ||
+                mode == CheckinCheckoutMode.warn);
+    final msg = json['checkout_message']?.toString().trim();
     return CheckinTodayStatus(
       checkedIn: checkedIn,
       checkedOut: json['checked_out'] == true,
       canCheckOut: canCheckOut,
+      checkoutMode: mode,
+      checkoutMessage: (msg == null || msg.isEmpty) ? null : msg,
       checkInTime: json['check_in_time']?.toString(),
       checkOutTime: json['check_out_time']?.toString(),
       checkInRecordId: recordId,
@@ -127,6 +159,8 @@ class CheckinTodayStatus {
     checkedIn: false,
     checkedOut: false,
     canCheckOut: false,
+    checkoutMode: CheckinCheckoutMode.open,
+    checkoutMessage: null,
     checkInTime: null,
     checkOutTime: null,
     checkInRecordId: null,

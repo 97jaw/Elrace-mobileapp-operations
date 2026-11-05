@@ -73,4 +73,35 @@ void main() {
       expect(model.requireLinkedLocation, isFalse);
     });
   });
+
+  group('CheckinTodayStatus.checkout_mode', () {
+    test('parses mode and message', () {
+      final today = CheckinTodayStatus.fromJson({
+        'checked_in': true,
+        'checked_out': false,
+        'can_check_out': false,
+        'checkout_mode': 'blocked',
+        'checkout_message': 'Apply for Temporary Permission',
+        'check_in_time': '08:00:00',
+        'check_out_time': null,
+        'check_in_record_id': 9,
+        'is_today': true,
+      });
+      expect(today.checkoutMode, CheckinCheckoutMode.blocked);
+      expect(today.checkoutMessage, 'Apply for Temporary Permission');
+      expect(today.canCheckOut, isFalse);
+    });
+
+    test('not_required mode', () {
+      final today = CheckinTodayStatus.fromJson({
+        'checked_in': true,
+        'can_check_out': false,
+        'checkout_mode': 'not_required',
+        'checkout_message': 'Job Mission – check-out not required',
+        'check_in_record_id': 1,
+        'is_today': true,
+      });
+      expect(today.checkoutMode, CheckinCheckoutMode.notRequired);
+    });
+  });
 }
