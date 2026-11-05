@@ -8,6 +8,8 @@ import 'package:el_race/core/timesheet/models/timesheet_submit_request.dart';
 import 'package:el_race/core/timesheet/models/timesheet_team_member.dart';
 import 'package:el_race/core/timesheet/providers/labor_transfer_providers.dart';
 import 'package:el_race/core/timesheet/providers/timesheet_data_providers.dart';
+import 'package:el_race/core/timesheet/providers/timesheet_shadow_pilot_provider.dart'
+    show TimesheetShadowPilotFlag;
 import 'package:el_race/core/timesheet/services/capture_queue_service.dart';
 import 'package:el_race/core/timesheet/services/tm_project_location_notify_service.dart';
 import 'package:el_race/ui/presentation/timesheet/widgets/tm_submit_geofence_dialog.dart';
@@ -874,6 +876,35 @@ class _FmHomeHeader extends ConsumerWidget {
                       ),
                     ),
                   ),
+                ),
+                ValueListenableBuilder<bool>(
+                  valueListenable: TimesheetShadowPilotFlag.active,
+                  builder: (context, pilot, _) {
+                    if (!pilot) return const SizedBox.shrink();
+                    return Padding(
+                      padding: const EdgeInsets.only(left: 8),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 3,
+                        ),
+                        decoration: BoxDecoration(
+                          color: _FmHomeTheme.orange.withValues(alpha: 0.15),
+                          borderRadius: BorderRadius.circular(6),
+                          border: Border.all(color: _FmHomeTheme.orange),
+                        ),
+                        child: const Text(
+                          'PILOT',
+                          style: TextStyle(
+                            color: _FmHomeTheme.orange,
+                            fontSize: 11,
+                            fontWeight: FontWeight.w700,
+                            letterSpacing: 0.6,
+                          ),
+                        ),
+                      ),
+                    );
+                  },
                 ),
               ],
             ),

@@ -37,6 +37,14 @@ class FeatureFlags {
     ),
   );
 
+  /// Send `X-Elrace-Ts-Mode: shadow` on timesheet API calls (pilot build).
+  /// Server ignores the header when `elrace.timesheet_shadow_enabled` is off.
+  /// Disable with `--dart-define=TS_SHADOW=false`.
+  static const bool tsShadow = bool.fromEnvironment(
+    'TS_SHADOW',
+    defaultValue: true,
+  );
+
   /// Backwards-compatibility getter.
   static bool get useBankGradeBiometrics => useRemoteAttendanceBiometrics;
 
