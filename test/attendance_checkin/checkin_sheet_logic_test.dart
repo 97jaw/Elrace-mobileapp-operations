@@ -231,14 +231,16 @@ void main() {
       expect(state, CheckinLocationCardState.anywhere);
     });
 
-    test('blocked / not_required disables check-out', () {
+    test('checkout_mode does not disable check-out button', () {
       for (final mode in [
         CheckinCheckoutMode.blocked,
         CheckinCheckoutMode.notRequired,
+        CheckinCheckoutMode.warn,
+        CheckinCheckoutMode.open,
       ]) {
         final today = _context(
           checkedIn: true,
-          canCheckOut: true,
+          canCheckOut: false,
           checkoutMode: mode,
           checkoutMessage: 'msg',
         ).todayStatus;
@@ -248,25 +250,42 @@ void main() {
             today: today,
             apiLoading: false,
           ),
-          isFalse,
+          isTrue,
+          reason: 'mode=$mode should still enable when checked in',
         );
       }
     });
 
-    test('warn keeps check-out enabled', () {
-      final today = _context(
-        checkedIn: true,
-        canCheckOut: true,
-        checkoutMode: CheckinCheckoutMode.warn,
-        checkoutMessage: 'Leaving early?',
-      ).todayStatus;
+    test('checkoutTapKind maps each mode', () {
       expect(
-        CheckinSheetLogic.checkOutEnabled(
-          cardState: CheckinLocationCardState.inside,
-          today: today,
-          apiLoading: false,
+        CheckinSheetLogic.checkoutTapKind(
+          _context(checkedIn: true, checkoutMode: CheckinCheckoutMode.blocked)
+              .todayStatus,
         ),
-        isTrue,
+        CheckinCheckoutTapKind.blockedInfo,
+      );
+      expect(
+        CheckinSheetLogic.checkoutTapKind(
+          _context(
+            checkedIn: true,
+            checkoutMode: CheckinCheckoutMode.notRequired,
+          ).todayStatus,
+        ),
+        CheckinCheckoutTapKind.notRequiredInfo,
+      );
+      expect(
+        CheckinSheetLogic.checkoutTapKind(
+          _context(checkedIn: true, checkoutMode: CheckinCheckoutMode.warn)
+              .todayStatus,
+        ),
+        CheckinCheckoutTapKind.warnConfirm,
+      );
+      expect(
+        CheckinSheetLogic.checkoutTapKind(
+          _context(checkedIn: true, checkoutMode: CheckinCheckoutMode.open)
+              .todayStatus,
+        ),
+        CheckinCheckoutTapKind.openConfirm,
       );
     });
 

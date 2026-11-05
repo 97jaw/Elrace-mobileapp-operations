@@ -10,6 +10,21 @@ enum CheckinLocationCardState {
   mobileDisabled,
 }
 
+/// What the Check Out tap should do (dialog only — never disables the button).
+enum CheckinCheckoutTapKind {
+  /// Info dialog, no API.
+  blockedInfo,
+
+  /// Info dialog, no API.
+  notRequiredInfo,
+
+  /// Confirm dialog; on Check Out → API.
+  warnConfirm,
+
+  /// Confirm dialog; on Check Out → API.
+  openConfirm,
+}
+
 /// Pure enable / card rules for the check-in bottom sheet (testable).
 abstract final class CheckinSheetLogic {
   static bool hasLinkedCoordinates(List<CheckinAllowedProject> projects) {
@@ -99,12 +114,21 @@ abstract final class CheckinSheetLogic {
   }) {
     if (apiLoading) return false;
     if (!actionsAvailable(cardState)) return false;
-    // Stay available after a mid-day gate exit (checkedOut informational only),
-    // but office-hours window can still disable (blocked / not_required).
-    if (today.checkoutMode == CheckinCheckoutMode.blocked ||
-        today.checkoutMode == CheckinCheckoutMode.notRequired) {
-      return false;
+    // Has a check-in today (incl. mid-day gate exit). checkout_mode only
+    // changes the tap dialog — never disables the button.
+    return today.checkedIn || today.checkInRecordId != null;
+  }
+
+  static CheckinCheckoutTapKind checkoutTapKind(CheckinTodayStatus today) {
+    switch (today.checkoutMode) {
+      case CheckinCheckoutMode.blocked:
+        return CheckinCheckoutTapKind.blockedInfo;
+      case CheckinCheckoutMode.notRequired:
+        return CheckinCheckoutTapKind.notRequiredInfo;
+      case CheckinCheckoutMode.warn:
+        return CheckinCheckoutTapKind.warnConfirm;
+      case CheckinCheckoutMode.open:
+        return CheckinCheckoutTapKind.openConfirm;
     }
-    return today.canCheckOut;
   }
 }

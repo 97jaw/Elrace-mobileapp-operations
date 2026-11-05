@@ -119,19 +119,38 @@ class _CheckinActionButtonsState extends State<CheckinActionButtons> {
     }
 
     final today = widget.todayStatus;
-    final confirmed = today.checkoutMode == CheckinCheckoutMode.warn
-        ? await _confirmCheckoutDialog(
-            message: today.checkoutMessage ??
-                'Office hours end soon. Leaving early? Make sure a '
-                    'Temporary Permission is applied.',
-            confirmLabel: 'Check Out',
-          )
-        : await _confirmCheckoutDialog(
-            message: 'Check out at ${_nowHhMm()}?',
-            confirmLabel: 'Check Out',
-          );
-    if (confirmed != true || !mounted) return;
-    await _performCheckOut();
+    switch (CheckinSheetLogic.checkoutTapKind(today)) {
+      case CheckinCheckoutTapKind.blockedInfo:
+        await _showCheckoutInfoDialog(
+          title: 'Early check-out',
+          message: today.checkoutMessage ??
+              'Apply for Temporary Permission or Job Mission to leave early.',
+        );
+        return;
+      case CheckinCheckoutTapKind.notRequiredInfo:
+        await _showCheckoutInfoDialog(
+          title: 'Job Mission',
+          message: today.checkoutMessage ??
+              'Job Mission – check-out not required',
+        );
+        return;
+      case CheckinCheckoutTapKind.warnConfirm:
+        final confirmed = await _confirmCheckoutDialog(
+          message: today.checkoutMessage ??
+              'Office hours end soon. Leaving early? Make sure a '
+                  'Temporary Permission is applied.',
+        );
+        if (confirmed != true || !mounted) return;
+        await _performCheckOut();
+        return;
+      case CheckinCheckoutTapKind.openConfirm:
+        final confirmed = await _confirmCheckoutDialog(
+          message: 'Check out at ${_nowHhMm()}?',
+        );
+        if (confirmed != true || !mounted) return;
+        await _performCheckOut();
+        return;
+    }
   }
 
   String _nowHhMm() {
@@ -141,10 +160,52 @@ class _CheckinActionButtonsState extends State<CheckinActionButtons> {
     return '$h:$m';
   }
 
-  Future<bool?> _confirmCheckoutDialog({
+  TextStyle get _dialogBodyStyle => GoogleFonts.poppins(
+        fontSize: 14.sp,
+        fontWeight: FontWeight.w500,
+        color: HomeGlassTheme.textPrimary,
+      );
+
+  Future<void> _showCheckoutInfoDialog({
+    required String title,
     required String message,
-    required String confirmLabel,
   }) {
+    return showDialog<void>(
+      context: context,
+      builder: (dialogContext) {
+        return AlertDialog(
+          backgroundColor: Colors.white,
+          surfaceTintColor: Colors.white,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(18),
+          ),
+          title: Text(
+            title,
+            style: GoogleFonts.poppins(
+              fontSize: 16.sp,
+              fontWeight: FontWeight.w700,
+              color: HomeGlassTheme.textPrimary,
+            ),
+          ),
+          content: Text(message, style: _dialogBodyStyle),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(),
+              child: Text(
+                'OK',
+                style: GoogleFonts.poppins(
+                  fontWeight: FontWeight.w700,
+                  color: HomeGlassTheme.bottleGreen,
+                ),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Future<bool?> _confirmCheckoutDialog({required String message}) {
     return showDialog<bool>(
       context: context,
       builder: (dialogContext) {
@@ -154,14 +215,7 @@ class _CheckinActionButtonsState extends State<CheckinActionButtons> {
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(18),
           ),
-          content: Text(
-            message,
-            style: GoogleFonts.poppins(
-              fontSize: 14.sp,
-              fontWeight: FontWeight.w500,
-              color: HomeGlassTheme.textPrimary,
-            ),
-          ),
+          content: Text(message, style: _dialogBodyStyle),
           actions: [
             TextButton(
               onPressed: () => Navigator.of(dialogContext).pop(false),
@@ -173,7 +227,7 @@ class _CheckinActionButtonsState extends State<CheckinActionButtons> {
             TextButton(
               onPressed: () => Navigator.of(dialogContext).pop(true),
               child: Text(
-                confirmLabel,
+                'Check Out',
                 style: GoogleFonts.poppins(
                   fontWeight: FontWeight.w700,
                   color: HomeGlassTheme.bottleGreen,
@@ -368,11 +422,10 @@ class _CheckinActionButtonsState extends State<CheckinActionButtons> {
               _setLoading(false);
               await _restoreAfterCheckOutFailure();
               widget.onContextRefresh?.call();
-              _showMessage(
+              if (!mounted) return;
+              await _showCheckoutInfoDialog(
                 title: 'Check-Out Error',
                 message: state.errorMessage,
-                color: const Color(0xFFDC3545),
-                icon: Icons.error,
               );
             }
           },
@@ -403,25 +456,13 @@ class _CheckinActionButtonsState extends State<CheckinActionButtons> {
                       icon: Icons.logout,
                       background: const Color(0xFF1B2A4A),
                       enabled: checkOutOn,
-                      loading: _apiLoading && today.canCheckOut,
+                      loading: _apiLoading && checkOutOn,
                       onTap: _onCheckOut,
                     ),
                     if (today.checkedOut && lastOutLabel != null) ...[
                       SizedBox(height: 4.h),
                       Text(
                         'Last out $lastOutLabel',
-                        textAlign: TextAlign.center,
-                        style: GoogleFonts.poppins(
-                          fontSize: 11.sp,
-                          fontWeight: FontWeight.w500,
-                          color: HomeGlassTheme.textSecondary,
-                        ),
-                      ),
-                    ],
-                    if (_showCheckoutMessage(today)) ...[
-                      SizedBox(height: 4.h),
-                      Text(
-                        today.checkoutMessage!,
                         textAlign: TextAlign.center,
                         style: GoogleFonts.poppins(
                           fontSize: 11.sp,
@@ -438,14 +479,6 @@ class _CheckinActionButtonsState extends State<CheckinActionButtons> {
         ],
       ),
     );
-  }
-
-  static bool _showCheckoutMessage(CheckinTodayStatus today) {
-    if (today.checkoutMessage == null || today.checkoutMessage!.isEmpty) {
-      return false;
-    }
-    return today.checkoutMode == CheckinCheckoutMode.blocked ||
-        today.checkoutMode == CheckinCheckoutMode.notRequired;
   }
 
   static String? _formatLastOut(String? raw) {
