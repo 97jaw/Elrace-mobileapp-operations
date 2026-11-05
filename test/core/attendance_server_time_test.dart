@@ -39,4 +39,38 @@ void main() {
       expect(model.locationRequired, isFalse);
     });
   });
+
+  group('CheckinContextModel.requireLinkedLocation', () {
+    test('missing key defaults to false', () {
+      final model = CheckinContextModel.fromJson({
+        'mobile_checkin_allowed': true,
+        'location_required': false,
+        'biotime_offices': const [],
+        'biotime_terminals': const [],
+      });
+      expect(model.requireLinkedLocation, isFalse);
+    });
+
+    test('explicit true is respected', () {
+      final model = CheckinContextModel.fromJson({
+        'mobile_checkin_allowed': true,
+        'location_required': false,
+        'require_linked_location': true,
+        'biotime_offices': const [],
+        'biotime_terminals': const [],
+      });
+      expect(model.requireLinkedLocation, isTrue);
+    });
+
+    test('explicit false is respected', () {
+      final model = CheckinContextModel.fromJson({
+        'mobile_checkin_allowed': true,
+        'location_required': false,
+        'require_linked_location': false,
+        'biotime_offices': const [],
+        'biotime_terminals': const [],
+      });
+      expect(model.requireLinkedLocation, isFalse);
+    });
+  });
 }

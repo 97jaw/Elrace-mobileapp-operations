@@ -95,22 +95,30 @@ class CheckinTodayStatus {
     required this.checkOutTime,
     required this.checkInRecordId,
     required this.isToday,
+    this.canCheckOut = false,
   });
 
   final bool checkedIn;
   final bool checkedOut;
+  final bool canCheckOut;
   final String? checkInTime;
   final String? checkOutTime;
   final int? checkInRecordId;
   final bool isToday;
 
   factory CheckinTodayStatus.fromJson(Map<String, dynamic> json) {
+    final checkedIn = json['checked_in'] == true;
+    final recordId = _readIntOrNull(json['check_in_record_id']);
+    final canCheckOut = json.containsKey('can_check_out')
+        ? json['can_check_out'] == true
+        : (checkedIn || recordId != null);
     return CheckinTodayStatus(
-      checkedIn: json['checked_in'] == true,
+      checkedIn: checkedIn,
       checkedOut: json['checked_out'] == true,
+      canCheckOut: canCheckOut,
       checkInTime: json['check_in_time']?.toString(),
       checkOutTime: json['check_out_time']?.toString(),
-      checkInRecordId: _readIntOrNull(json['check_in_record_id']),
+      checkInRecordId: recordId,
       isToday: json['is_today'] == true,
     );
   }
@@ -118,6 +126,7 @@ class CheckinTodayStatus {
   static const empty = CheckinTodayStatus(
     checkedIn: false,
     checkedOut: false,
+    canCheckOut: false,
     checkInTime: null,
     checkOutTime: null,
     checkInRecordId: null,
@@ -133,6 +142,8 @@ class CheckinContextModel {
     required this.todayStatus,
     required this.defaultRadiusM,
     this.locationRequired = true,
+    this.requireLinkedLocation = false,
+    this.remote = false,
   });
 
   final bool mobileCheckinAllowed;
@@ -143,6 +154,13 @@ class CheckinContextModel {
 
   /// When missing from an older server, default true (today's behaviour).
   final bool locationRequired;
+
+  /// When `location_required` is false: if true, still block when no linked
+  /// project has coordinates. Missing/old server → false (anywhere check-in).
+  final bool requireLinkedLocation;
+
+  /// Server `remote` / employee.checkin_remote — no location gates.
+  final bool remote;
 
   bool get hasBiotimeAssignment =>
       biotimeOffices.isNotEmpty || biotimeTerminals.isNotEmpty;
@@ -171,6 +189,9 @@ class CheckinContextModel {
       defaultRadiusM: defaultRadius,
       // Missing key → true so an old server stays as strict as today.
       locationRequired: json['location_required'] != false,
+      // Missing key → false so an old server keeps anywhere check-in.
+      requireLinkedLocation: json['require_linked_location'] == true,
+      remote: json['remote'] == true,
     );
   }
 }
