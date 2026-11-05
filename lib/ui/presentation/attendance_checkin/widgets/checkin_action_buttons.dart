@@ -4,6 +4,10 @@ import 'package:el_race/core/services/attendance_status_sync_service.dart';
 import 'package:el_race/core/utils/shared_pref.dart';
 import 'package:el_race/data/services/auto_checkout_service.dart';
 import 'package:el_race/data/services/checkin_reminder_notification_service.dart';
+import 'package:el_race/ui/presentation/attendance_checkin/face/checkin_face_flow.dart';
+import 'package:el_race/ui/presentation/attendance_checkin/face/checkin_success_screen.dart';
+import 'package:el_race/ui/presentation/attendance_checkin/face/self_face_verify_result.dart';
+import 'package:el_race/ui/presentation/attendance_checkin/face/self_face_verify_screen.dart';
 import 'package:el_race/ui/presentation/attendance_checkin/models/checkin_context_model.dart';
 import 'package:el_race/ui/presentation/attendance_checkin/utils/checkin_sheet_logic.dart';
 import 'package:el_race/ui/presentation/home_screen/widgets/home_glass_theme.dart';
@@ -26,6 +30,9 @@ class CheckinActionButtons extends StatefulWidget {
     required this.todayStatus,
     required this.selectedProjectId,
     required this.onValidateBeforeCheckIn,
+    required this.contextModel,
+    required this.locationTitle,
+    this.locationSubtitle,
     this.onActionComplete,
     this.onContextRefresh,
   });
@@ -34,6 +41,9 @@ class CheckinActionButtons extends StatefulWidget {
   final CheckinTodayStatus todayStatus;
   final int? selectedProjectId;
   final Future<bool> Function() onValidateBeforeCheckIn;
+  final CheckinContextModel contextModel;
+  final String locationTitle;
+  final String? locationSubtitle;
   final VoidCallback? onActionComplete;
 
   /// Re-fetch checkin_context after an API error so live flags take effect.
@@ -103,10 +113,42 @@ class _CheckinActionButtonsState extends State<CheckinActionButtons> {
         }
         final ok = await widget.onValidateBeforeCheckIn();
         if (!ok) return;
-        await _performCheckIn();
+        final face = await _runFaceIfRequired(isCheckIn: true);
+        if (face == null) return;
+        if (CheckinFaceFlow.shouldVerify(widget.contextModel) &&
+            !face.verified) {
+          if (!mounted) return;
+          await _showCheckoutInfoDialog(
+            title: 'Face check',
+            message: face.message ??
+                'Face not matched. Please try again or contact HR.',
+          );
+          return;
+        }
+        await _performCheckIn(face: face);
       },
       onCancelled: () {},
     );
+  }
+
+  /// null = user cancelled face screen; non-null may be failed verify.
+  Future<SelfFaceVerifyResult?> _runFaceIfRequired({
+    required bool isCheckIn,
+  }) async {
+    if (!CheckinFaceFlow.shouldVerify(widget.contextModel)) {
+      return const SelfFaceVerifyResult(
+        verified: true,
+        score: 0,
+        livenessOk: true,
+      );
+    }
+    if (!mounted) return null;
+    final result = await Navigator.of(context).push<SelfFaceVerifyResult>(
+      MaterialPageRoute(
+        builder: (_) => SelfFaceVerifyScreen(isCheckIn: isCheckIn),
+      ),
+    );
+    return result;
   }
 
   Future<void> _onCheckOut() async {
@@ -141,16 +183,27 @@ class _CheckinActionButtonsState extends State<CheckinActionButtons> {
                   'Temporary Permission is applied.',
         );
         if (confirmed != true || !mounted) return;
-        await _performCheckOut();
-        return;
+        break;
       case CheckinCheckoutTapKind.openConfirm:
         final confirmed = await _confirmCheckoutDialog(
           message: 'Check out at ${_nowHhMm()}?',
         );
         if (confirmed != true || !mounted) return;
-        await _performCheckOut();
-        return;
+        break;
     }
+
+    final face = await _runFaceIfRequired(isCheckIn: false);
+    if (face == null) return;
+    if (CheckinFaceFlow.shouldVerify(widget.contextModel) && !face.verified) {
+      if (!mounted) return;
+      await _showCheckoutInfoDialog(
+        title: 'Face check',
+        message: face.message ??
+            'Face not matched. Please try again or contact HR.',
+      );
+      return;
+    }
+    await _performCheckOut(face: face);
   }
 
   String _nowHhMm() {
@@ -240,10 +293,16 @@ class _CheckinActionButtonsState extends State<CheckinActionButtons> {
     );
   }
 
-  Future<void> _performCheckIn() async {
+  Future<void> _performCheckIn({SelfFaceVerifyResult? face}) async {
     SharedPref().setPreferencesBoolean('isCheckedIn', false);
     SharedPref().setPreferenceInt('checkInRecordId', 0);
-    sl.get<CheckInBloc>().add(CheckInET());
+    sl.get<CheckInBloc>().add(
+          CheckInET(
+            faceVerified: face?.verified,
+            faceScore: face?.score,
+            livenessOk: face?.livenessOk,
+          ),
+        );
     await Get.find<TimerController>().startTimer();
     await AutoCheckoutService.scheduleAutoCheckout();
     await CheckInReminderNotificationService().updateReminders();
@@ -252,10 +311,16 @@ class _CheckinActionButtonsState extends State<CheckinActionButtons> {
     SharedPref().setPreferencesBoolean('isCheckedIn', true);
   }
 
-  Future<void> _performCheckOut() async {
+  Future<void> _performCheckOut({SelfFaceVerifyResult? face}) async {
     final checkInRecordId = SharedPref().getPreferenceInt('checkInRecordId');
     sl.get<CheckOutBloc>().add(
-          CheckOutET(checkInRecordId, isAutoCheckout: false),
+          CheckOutET(
+            checkInRecordId,
+            isAutoCheckout: false,
+            faceVerified: face?.verified,
+            faceScore: face?.score,
+            livenessOk: face?.livenessOk,
+          ),
         );
     await Get.find<TimerController>().stopTimer();
     await AutoCheckoutService.cancelAutoCheckout();
@@ -266,6 +331,23 @@ class _CheckinActionButtonsState extends State<CheckinActionButtons> {
     if (!mounted) return;
     setState(() => _checkedIn = false);
     SharedPref().setPreferencesBoolean('isCheckedIn', false);
+  }
+
+  Future<void> _openSuccess({required bool isCheckIn}) async {
+    if (!mounted) return;
+    final timeKey = isCheckIn ? 'checkInDisplayTime' : 'checkOutDisplayTime';
+    final serverTime = SharedPref().getPreferenceString(timeKey);
+    await Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => CheckinSuccessScreen(
+          isCheckIn: isCheckIn,
+          serverTimeRaw: serverTime,
+          profilePhotoUrl: widget.contextModel.profilePhotoUrl,
+          locationTitle: widget.locationTitle,
+          locationSubtitle: widget.locationSubtitle,
+        ),
+      ),
+    );
   }
 
   Future<void> _restoreAfterCheckInFailure() async {
@@ -355,22 +437,10 @@ class _CheckinActionButtonsState extends State<CheckinActionButtons> {
               _setLoading(state.isLoading);
             } else if (state is CheckedInST) {
               _setLoading(false);
-              widget.onActionComplete?.call();
-              _showMessage(
-                title: 'Check-In Success',
-                message: state.message,
-                color: const Color(0xFF28A745),
-                icon: Icons.check_circle,
-              );
+              await _openSuccess(isCheckIn: true);
             } else if (state is CheckInWarningST) {
               _setLoading(false);
-              widget.onActionComplete?.call();
-              _showMessage(
-                title: 'Check-In Warning',
-                message: state.warningMessage,
-                color: const Color(0xFFFFA000),
-                icon: Icons.warning,
-              );
+              await _openSuccess(isCheckIn: true);
             } else if (state is CheckInErrorST) {
               _setLoading(false);
               await _restoreAfterCheckInFailure();
@@ -402,22 +472,10 @@ class _CheckinActionButtonsState extends State<CheckinActionButtons> {
               _setLoading(state.isLoading);
             } else if (state is CheckedOutST) {
               _setLoading(false);
-              widget.onActionComplete?.call();
-              _showMessage(
-                title: 'Check-Out Success',
-                message: state.message,
-                color: const Color(0xFF28A745),
-                icon: Icons.check_circle,
-              );
+              await _openSuccess(isCheckIn: false);
             } else if (state is CheckOutWarningST) {
               _setLoading(false);
-              widget.onActionComplete?.call();
-              _showMessage(
-                title: 'Check-Out Warning',
-                message: state.warningMessage,
-                color: const Color(0xFFFFA000),
-                icon: Icons.warning,
-              );
+              await _openSuccess(isCheckIn: false);
             } else if (state is CheckOutErrorST) {
               _setLoading(false);
               await _restoreAfterCheckOutFailure();

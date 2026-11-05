@@ -79,6 +79,9 @@ class CheckInBloc extends Bloc<CheckInEvent, CheckInState> {
       Response? response = await _checkInRepo.checkInUser(
         location.latitude.toString(),
         location.longitude.toString(),
+        faceVerified: event.faceVerified,
+        faceScore: event.faceScore,
+        livenessOk: event.livenessOk,
       );
 
       // Handle response and emit corresponding states

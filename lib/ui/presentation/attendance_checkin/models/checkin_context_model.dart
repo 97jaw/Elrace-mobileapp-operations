@@ -178,6 +178,8 @@ class CheckinContextModel {
     this.locationRequired = true,
     this.requireLinkedLocation = false,
     this.remote = false,
+    this.faceRequired = false,
+    this.profilePhotoUrl,
   });
 
   final bool mobileCheckinAllowed;
@@ -196,6 +198,12 @@ class CheckinContextModel {
   /// Server `remote` / employee.checkin_remote — no location gates.
   final bool remote;
 
+  /// Server `face_required` — run 1:1 face verify before check-in/out API.
+  final bool faceRequired;
+
+  /// Profile photo URL for the success card + self template warm.
+  final String? profilePhotoUrl;
+
   bool get hasBiotimeAssignment =>
       biotimeOffices.isNotEmpty || biotimeTerminals.isNotEmpty;
 
@@ -204,6 +212,7 @@ class CheckinContextModel {
     final defaultRadius = thresholds is Map
         ? _readDouble(thresholds['default_radius_m'], fallback: 100)
         : 100.0;
+    final photo = json['profile_photo_url']?.toString().trim();
 
     return CheckinContextModel(
       mobileCheckinAllowed: json['mobile_checkin_allowed'] == true,
@@ -226,6 +235,8 @@ class CheckinContextModel {
       // Missing key → false so an old server keeps anywhere check-in.
       requireLinkedLocation: json['require_linked_location'] == true,
       remote: json['remote'] == true,
+      faceRequired: json['face_required'] == true,
+      profilePhotoUrl: (photo == null || photo.isEmpty) ? null : photo,
     );
   }
 }

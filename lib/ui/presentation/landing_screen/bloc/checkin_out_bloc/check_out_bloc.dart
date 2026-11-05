@@ -89,6 +89,9 @@ class CheckOutBloc extends Bloc<CheckOutEvent, CheckOutState> {
         location.latitude.toString(),
         location.longitude.toString(),
         recordId, // Pass the check_in_record_id (possibly recovered from server)
+        faceVerified: event.faceVerified,
+        faceScore: event.faceScore,
+        livenessOk: event.livenessOk,
       );
 
       // Handle response and emit corresponding states

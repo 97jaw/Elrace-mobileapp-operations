@@ -33,6 +33,7 @@ CheckinContextModel _context({
     locationRequired: locationRequired,
     requireLinkedLocation: requireLinked,
     remote: remote,
+    faceRequired: false,
   );
 }
 

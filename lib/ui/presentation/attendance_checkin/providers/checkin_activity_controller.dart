@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:el_race/ui/presentation/attendance_checkin/data/checkin_context_repository.dart';
+import 'package:el_race/ui/presentation/attendance_checkin/face/self_face_template_service.dart';
 import 'package:el_race/ui/presentation/attendance_checkin/models/checkin_context_model.dart';
 import 'package:el_race/ui/presentation/attendance_checkin/services/checkin_geofence_service.dart';
 import 'package:el_race/ui/presentation/attendance_checkin/services/checkin_route_service.dart';
@@ -115,6 +116,7 @@ class CheckinActivityController extends ChangeNotifier {
       );
       _autoSelectProject();
       notifyListeners();
+      _warmFaceTemplate(context);
     } catch (e) {
       _state = _state.copyWith(
         loading: false,
@@ -140,10 +142,20 @@ class CheckinActivityController extends ChangeNotifier {
       );
       _autoSelectProject();
       notifyListeners();
+      _warmFaceTemplate(context);
     } catch (e) {
       _state = _state.copyWith(error: e.toString());
       notifyListeners();
     }
+  }
+
+  void _warmFaceTemplate(CheckinContextModel context) {
+    if (!context.faceRequired) return;
+    unawaited(
+      SelfFaceTemplateService.instance.warm(
+        profilePhotoUrl: context.profilePhotoUrl,
+      ),
+    );
   }
 
   Future<void> _startLocationUpdates() async {

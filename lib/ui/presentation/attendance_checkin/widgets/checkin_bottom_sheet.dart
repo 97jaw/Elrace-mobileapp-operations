@@ -112,6 +112,11 @@ class CheckinBottomSheet extends StatelessWidget {
                   todayStatus: contextModel.todayStatus,
                   selectedProjectId: selectedProject?.projectId,
                   onValidateBeforeCheckIn: onValidateBeforeCheckIn,
+                  contextModel: contextModel,
+                  locationTitle: contextModel.remote
+                      ? 'Remote'
+                      : (selectedProject?.name ?? 'Company Office'),
+                  locationSubtitle: selectedProject?.woRefNo,
                   onActionComplete: onActionComplete,
                   onContextRefresh: onContextRefresh,
                 ),
