@@ -1,8 +1,10 @@
 import 'dart:convert';
 
 import 'package:dio/dio.dart';
+import 'package:el_race/core/config/feature_flags.dart';
 import 'package:el_race/core/timesheet/network/timesheet_odoo_api_catalog.dart';
 import 'package:el_race/core/timesheet/network/timesheet_odoo_employee.dart';
+import 'package:el_race/core/timesheet/providers/timesheet_shadow_pilot_provider.dart';
 import 'package:el_race/core/utils/shared_pref.dart';
 import 'package:el_race/services/api_client.dart'
     show AuthErrorInterceptor, RetryInterceptor;
@@ -50,7 +52,16 @@ class TimesheetOdooTransport {
       'Accept': 'application/json',
       if (withAuth && authToken != null && authToken!.isNotEmpty)
         'Authorization': 'Bearer $authToken',
+      // Harmless when server param is OFF; required for the shadow pilot.
+      if (FeatureFlags.tsShadow) 'X-Elrace-Ts-Mode': 'shadow',
     };
+  }
+
+  void _noteShadowFlag(Map<String, dynamic> body) {
+    final result = body['result'];
+    if (result is Map && result['shadow'] == true) {
+      TimesheetShadowPilotFlag.markActive();
+    }
   }
 
   Future<Map<String, dynamic>> postJsonRpc(
@@ -70,7 +81,11 @@ class TimesheetOdooTransport {
       return _normalizeBody(response.data);
     }
 
-    if (legacyPath == null) return post(path);
+    if (legacyPath == null) {
+      final body = await post(path);
+      _noteShadowFlag(body);
+      return body;
+    }
 
     Map<String, dynamic> body;
     try {
@@ -85,9 +100,12 @@ class TimesheetOdooTransport {
       debugPrint(
         'TimesheetOdooTransport: $path not deployed, using $legacyPath',
       );
-      return post(legacyPath);
+      body = await post(legacyPath);
+      _noteShadowFlag(body);
+      return body;
     }
     _throwOnAuthError(body, path);
+    _noteShadowFlag(body);
     return body;
   }
 
@@ -120,7 +138,9 @@ class TimesheetOdooTransport {
       options: Options(headers: _headers(withAuth: withAuth)),
       cancelToken: cancelToken,
     );
-    return _normalizeBody(response.data);
+    final body = _normalizeBody(response.data);
+    _noteShadowFlag(body);
+    return body;
   }
 
   Map<String, dynamic> _normalizeBody(dynamic body) {

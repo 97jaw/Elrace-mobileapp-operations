@@ -7,4 +7,14 @@ sealed class CheckInEvent extends Equatable {
 }
 
 /// Event to trigger check-in (authentication already handled by UI layer)
-final class CheckInET extends CheckInEvent {}
+final class CheckInET extends CheckInEvent {
+  const CheckInET({
+    this.faceVerified,
+    this.faceScore,
+    this.livenessOk,
+  });
+
+  final bool? faceVerified;
+  final double? faceScore;
+  final bool? livenessOk;
+}

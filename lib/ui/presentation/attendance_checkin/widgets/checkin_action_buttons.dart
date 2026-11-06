@@ -1,0 +1,627 @@
+import 'dart:async';
+
+import 'package:el_race/core/services/attendance_status_sync_service.dart';
+import 'package:el_race/core/utils/shared_pref.dart';
+import 'package:el_race/data/services/auto_checkout_service.dart';
+import 'package:el_race/data/services/checkin_reminder_notification_service.dart';
+import 'package:el_race/ui/presentation/attendance_checkin/face/checkin_face_flow.dart';
+import 'package:el_race/ui/presentation/attendance_checkin/face/checkin_success_screen.dart';
+import 'package:el_race/ui/presentation/attendance_checkin/face/self_face_verify_result.dart';
+import 'package:el_race/ui/presentation/attendance_checkin/face/self_face_verify_screen.dart';
+import 'package:el_race/ui/presentation/attendance_checkin/models/checkin_context_model.dart';
+import 'package:el_race/ui/presentation/attendance_checkin/utils/checkin_sheet_logic.dart';
+import 'package:el_race/ui/presentation/home_screen/widgets/home_glass_theme.dart';
+import 'package:el_race/ui/presentation/home_screen/widgets/project_list_dialog.dart';
+import 'package:el_race/ui/presentation/home_screen/widgets/timer_controller.dart';
+import 'package:el_race/ui/presentation/landing_screen/bloc/checkin_in_bloc/check_in_bloc.dart';
+import 'package:el_race/ui/presentation/landing_screen/bloc/checkin_out_bloc/check_out_bloc.dart';
+import 'package:el_race/utils/di.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:get/get.dart';
+import 'package:google_fonts/google_fonts.dart';
+
+/// Check In / Check Out buttons — same API flow as [CustomSwipeButton].
+class CheckinActionButtons extends StatefulWidget {
+  const CheckinActionButtons({
+    super.key,
+    required this.cardState,
+    required this.todayStatus,
+    required this.selectedProjectId,
+    required this.onValidateBeforeCheckIn,
+    required this.contextModel,
+    required this.locationTitle,
+    this.locationSubtitle,
+    this.onActionComplete,
+    this.onContextRefresh,
+  });
+
+  final CheckinLocationCardState cardState;
+  final CheckinTodayStatus todayStatus;
+  final int? selectedProjectId;
+  final Future<bool> Function() onValidateBeforeCheckIn;
+  final CheckinContextModel contextModel;
+  final String locationTitle;
+  final String? locationSubtitle;
+  final VoidCallback? onActionComplete;
+
+  /// Re-fetch checkin_context after an API error so live flags take effect.
+  final VoidCallback? onContextRefresh;
+
+  @override
+  State<CheckinActionButtons> createState() => _CheckinActionButtonsState();
+}
+
+class _CheckinActionButtonsState extends State<CheckinActionButtons> {
+  bool _apiLoading = false;
+  bool _checkedIn = false;
+  StreamSubscription<AttendanceStatusSnapshot>? _syncSub;
+
+  @override
+  void initState() {
+    super.initState();
+    _checkedIn = SharedPref().getPreferenceBoolean('isCheckedIn') &&
+        !widget.todayStatus.checkedOut;
+    _syncSub = AttendanceStatusSyncService.updates.listen((snapshot) {
+      if (!mounted) return;
+      setState(() {
+        _checkedIn = snapshot.checkedIn && !snapshot.checkedOut;
+      });
+    });
+  }
+
+  @override
+  void didUpdateWidget(covariant CheckinActionButtons oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.todayStatus != widget.todayStatus) {
+      _checkedIn =
+          widget.todayStatus.checkedIn && !widget.todayStatus.checkedOut;
+    }
+  }
+
+  @override
+  void dispose() {
+    _syncSub?.cancel();
+    super.dispose();
+  }
+
+  void _setLoading(bool value) {
+    if (!mounted || _apiLoading == value) return;
+    setState(() => _apiLoading = value);
+  }
+
+  Future<void> _onCheckIn() async {
+    if (!CheckinSheetLogic.checkInEnabled(
+      cardState: widget.cardState,
+      today: widget.todayStatus,
+      apiLoading: _apiLoading,
+    )) {
+      return;
+    }
+
+    showLeftToRightPopupClean(
+      context: context,
+      loginResponseModel: SharedPref.getLoginData(),
+      isCheckedIn: false,
+      onConfirmed: () async {
+        if (widget.selectedProjectId != null) {
+          await SharedPref().setPreferenceInt(
+            'checkInProjectId',
+            widget.selectedProjectId!,
+          );
+        }
+        final ok = await widget.onValidateBeforeCheckIn();
+        if (!ok) return;
+        final face = await _runFaceIfRequired(isCheckIn: true);
+        if (face == null) return;
+        if (CheckinFaceFlow.shouldVerify(widget.contextModel) &&
+            !face.verified) {
+          if (!mounted) return;
+          await _showCheckoutInfoDialog(
+            title: 'Face check',
+            message: face.message ??
+                'Face not matched. Please try again or contact HR.',
+          );
+          return;
+        }
+        await _performCheckIn(face: face);
+      },
+      onCancelled: () {},
+    );
+  }
+
+  /// null = user cancelled face screen; non-null may be failed verify.
+  Future<SelfFaceVerifyResult?> _runFaceIfRequired({
+    required bool isCheckIn,
+  }) async {
+    if (!CheckinFaceFlow.shouldVerify(widget.contextModel)) {
+      return const SelfFaceVerifyResult(
+        verified: true,
+        score: 0,
+        livenessOk: true,
+      );
+    }
+    if (!mounted) return null;
+    final result = await Navigator.of(context).push<SelfFaceVerifyResult>(
+      MaterialPageRoute(
+        builder: (_) => SelfFaceVerifyScreen(isCheckIn: isCheckIn),
+      ),
+    );
+    return result;
+  }
+
+  Future<void> _onCheckOut() async {
+    if (!CheckinSheetLogic.checkOutEnabled(
+      cardState: widget.cardState,
+      today: widget.todayStatus,
+      apiLoading: _apiLoading,
+    )) {
+      return;
+    }
+
+    final today = widget.todayStatus;
+    switch (CheckinSheetLogic.checkoutTapKind(today)) {
+      case CheckinCheckoutTapKind.blockedInfo:
+        await _showCheckoutInfoDialog(
+          title: 'Early check-out',
+          message: today.checkoutMessage ??
+              'Apply for Temporary Permission or Job Mission to leave early.',
+        );
+        return;
+      case CheckinCheckoutTapKind.notRequiredInfo:
+        await _showCheckoutInfoDialog(
+          title: 'Job Mission',
+          message: today.checkoutMessage ??
+              'Job Mission – check-out not required',
+        );
+        return;
+      case CheckinCheckoutTapKind.warnConfirm:
+        final confirmed = await _confirmCheckoutDialog(
+          message: today.checkoutMessage ??
+              'Office hours end soon. Leaving early? Make sure a '
+                  'Temporary Permission is applied.',
+        );
+        if (confirmed != true || !mounted) return;
+        break;
+      case CheckinCheckoutTapKind.openConfirm:
+        final confirmed = await _confirmCheckoutDialog(
+          message: 'Check out at ${_nowHhMm()}?',
+        );
+        if (confirmed != true || !mounted) return;
+        break;
+    }
+
+    final face = await _runFaceIfRequired(isCheckIn: false);
+    if (face == null) return;
+    if (CheckinFaceFlow.shouldVerify(widget.contextModel) && !face.verified) {
+      if (!mounted) return;
+      await _showCheckoutInfoDialog(
+        title: 'Face check',
+        message: face.message ??
+            'Face not matched. Please try again or contact HR.',
+      );
+      return;
+    }
+    await _performCheckOut(face: face);
+  }
+
+  String _nowHhMm() {
+    final now = DateTime.now();
+    final h = now.hour.toString().padLeft(2, '0');
+    final m = now.minute.toString().padLeft(2, '0');
+    return '$h:$m';
+  }
+
+  TextStyle get _dialogBodyStyle => GoogleFonts.poppins(
+        fontSize: 14.sp,
+        fontWeight: FontWeight.w500,
+        color: HomeGlassTheme.textPrimary,
+      );
+
+  Future<void> _showCheckoutInfoDialog({
+    required String title,
+    required String message,
+  }) {
+    return showDialog<void>(
+      context: context,
+      builder: (dialogContext) {
+        return AlertDialog(
+          backgroundColor: Colors.white,
+          surfaceTintColor: Colors.white,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(18),
+          ),
+          title: Text(
+            title,
+            style: GoogleFonts.poppins(
+              fontSize: 16.sp,
+              fontWeight: FontWeight.w700,
+              color: HomeGlassTheme.textPrimary,
+            ),
+          ),
+          content: Text(message, style: _dialogBodyStyle),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(),
+              child: Text(
+                'OK',
+                style: GoogleFonts.poppins(
+                  fontWeight: FontWeight.w700,
+                  color: HomeGlassTheme.bottleGreen,
+                ),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Future<bool?> _confirmCheckoutDialog({required String message}) {
+    return showDialog<bool>(
+      context: context,
+      builder: (dialogContext) {
+        return AlertDialog(
+          backgroundColor: Colors.white,
+          surfaceTintColor: Colors.white,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(18),
+          ),
+          content: Text(message, style: _dialogBodyStyle),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(false),
+              child: Text(
+                'Cancel',
+                style: GoogleFonts.poppins(fontWeight: FontWeight.w600),
+              ),
+            ),
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(true),
+              child: Text(
+                'Check Out',
+                style: GoogleFonts.poppins(
+                  fontWeight: FontWeight.w700,
+                  color: HomeGlassTheme.bottleGreen,
+                ),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Future<void> _performCheckIn({SelfFaceVerifyResult? face}) async {
+    SharedPref().setPreferencesBoolean('isCheckedIn', false);
+    SharedPref().setPreferenceInt('checkInRecordId', 0);
+    sl.get<CheckInBloc>().add(
+          CheckInET(
+            faceVerified: face?.verified,
+            faceScore: face?.score,
+            livenessOk: face?.livenessOk,
+          ),
+        );
+    await Get.find<TimerController>().startTimer();
+    await AutoCheckoutService.scheduleAutoCheckout();
+    await CheckInReminderNotificationService().updateReminders();
+    if (!mounted) return;
+    setState(() => _checkedIn = true);
+    SharedPref().setPreferencesBoolean('isCheckedIn', true);
+  }
+
+  Future<void> _performCheckOut({SelfFaceVerifyResult? face}) async {
+    final checkInRecordId = SharedPref().getPreferenceInt('checkInRecordId');
+    sl.get<CheckOutBloc>().add(
+          CheckOutET(
+            checkInRecordId,
+            isAutoCheckout: false,
+            faceVerified: face?.verified,
+            faceScore: face?.score,
+            livenessOk: face?.livenessOk,
+          ),
+        );
+    await Get.find<TimerController>().stopTimer();
+    await AutoCheckoutService.cancelAutoCheckout();
+    SharedPref().removePreference('checkInProjectId');
+    SharedPref().removePreference('checkInBranchId');
+    SharedPref().removePreference('checkInAuthMethod');
+    await CheckInReminderNotificationService().updateReminders();
+    if (!mounted) return;
+    setState(() => _checkedIn = false);
+    SharedPref().setPreferencesBoolean('isCheckedIn', false);
+  }
+
+  Future<void> _openSuccess({required bool isCheckIn}) async {
+    if (!mounted) return;
+    final timeKey = isCheckIn ? 'checkInDisplayTime' : 'checkOutDisplayTime';
+    final serverTime = SharedPref().getPreferenceString(timeKey);
+    await Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => CheckinSuccessScreen(
+          isCheckIn: isCheckIn,
+          serverTimeRaw: serverTime,
+          profilePhotoUrl: widget.contextModel.profilePhotoUrl,
+          locationTitle: widget.locationTitle,
+          locationSubtitle: widget.locationSubtitle,
+        ),
+      ),
+    );
+  }
+
+  Future<void> _restoreAfterCheckInFailure() async {
+    await SharedPref().setPreferencesBoolean('isCheckedIn', false);
+    await SharedPref().setPreferenceInt('checkInRecordId', 0);
+    await SharedPref().setPreferencesString('checkInDisplayTime', '00:00:00');
+    await CheckInReminderNotificationService().updateReminders();
+    if (!mounted) return;
+    setState(() => _checkedIn = false);
+  }
+
+  Future<void> _restoreAfterCheckOutFailure() async {
+    await SharedPref().setPreferencesBoolean('isCheckedIn', true);
+    await CheckInReminderNotificationService().updateReminders();
+    if (!mounted) return;
+    setState(() => _checkedIn = true);
+  }
+
+  void _showMessage({
+    required String title,
+    required String message,
+    required Color color,
+    required IconData icon,
+  }) {
+    if (!mounted || message.trim().isEmpty) return;
+    showDialog(
+      context: context,
+      builder: (dialogContext) {
+        return AlertDialog(
+          backgroundColor: Colors.white,
+          surfaceTintColor: Colors.white,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(18),
+          ),
+          title: Row(
+            children: [
+              Icon(icon, color: color),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  title,
+                  style: TextStyle(
+                    color: color,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          content: Text(message),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext),
+              child: Text(
+                'OK',
+                style: TextStyle(color: color, fontWeight: FontWeight.w700),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final today = widget.todayStatus;
+    final checkInOn = CheckinSheetLogic.checkInEnabled(
+      cardState: widget.cardState,
+      today: today,
+      apiLoading: _apiLoading,
+    );
+    final checkOutOn = CheckinSheetLogic.checkOutEnabled(
+      cardState: widget.cardState,
+      today: today,
+      apiLoading: _apiLoading,
+    );
+
+    final lastOutLabel = _formatLastOut(today.checkOutTime);
+
+    return MultiBlocListener(
+      listeners: [
+        BlocListener<CheckInBloc, CheckInState>(
+          bloc: sl.get<CheckInBloc>(),
+          listener: (context, state) async {
+            if (state is CheckInLoadingST) {
+              _setLoading(state.isLoading);
+            } else if (state is CheckedInST) {
+              _setLoading(false);
+              await _openSuccess(isCheckIn: true);
+            } else if (state is CheckInWarningST) {
+              _setLoading(false);
+              await _openSuccess(isCheckIn: true);
+            } else if (state is CheckInErrorST) {
+              _setLoading(false);
+              await _restoreAfterCheckInFailure();
+              widget.onContextRefresh?.call();
+              _showMessage(
+                title: 'Check-In Failed',
+                message: state.errorMessage,
+                color: const Color(0xFFDC3545),
+                icon: Icons.error,
+              );
+            } else if (state is CheckInBlockedST) {
+              _setLoading(false);
+              widget.onContextRefresh?.call();
+              final timeStr =
+                  '${state.currentDubaiTime.hour.toString().padLeft(2, '0')}:${state.currentDubaiTime.minute.toString().padLeft(2, '0')}';
+              _showMessage(
+                title: 'ACTION BLOCKED',
+                message: 'check in is not available\nCurrent time: $timeStr',
+                color: const Color(0xFFD32F2F),
+                icon: Icons.block,
+              );
+            }
+          },
+        ),
+        BlocListener<CheckOutBloc, CheckOutState>(
+          bloc: sl.get<CheckOutBloc>(),
+          listener: (context, state) async {
+            if (state is CheckOutLoadingST) {
+              _setLoading(state.isLoading);
+            } else if (state is CheckedOutST) {
+              _setLoading(false);
+              await _openSuccess(isCheckIn: false);
+            } else if (state is CheckOutWarningST) {
+              _setLoading(false);
+              await _openSuccess(isCheckIn: false);
+            } else if (state is CheckOutErrorST) {
+              _setLoading(false);
+              await _restoreAfterCheckOutFailure();
+              widget.onContextRefresh?.call();
+              if (!mounted) return;
+              await _showCheckoutInfoDialog(
+                title: 'Check-Out Error',
+                message: state.errorMessage,
+              );
+            }
+          },
+        ),
+      ],
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: _ActionButton(
+                  label: 'Check In',
+                  icon: Icons.login,
+                  background: HomeGlassTheme.bottleGreen,
+                  enabled: checkInOn,
+                  loading: _apiLoading && !_checkedIn,
+                  onTap: _onCheckIn,
+                ),
+              ),
+              SizedBox(width: 10.w),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    _ActionButton(
+                      label: 'Check Out',
+                      icon: Icons.logout,
+                      background: const Color(0xFF1B2A4A),
+                      enabled: checkOutOn,
+                      loading: _apiLoading && checkOutOn,
+                      onTap: _onCheckOut,
+                    ),
+                    if (today.checkedOut && lastOutLabel != null) ...[
+                      SizedBox(height: 4.h),
+                      Text(
+                        'Last out $lastOutLabel',
+                        textAlign: TextAlign.center,
+                        style: GoogleFonts.poppins(
+                          fontSize: 11.sp,
+                          fontWeight: FontWeight.w500,
+                          color: HomeGlassTheme.textSecondary,
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  static String? _formatLastOut(String? raw) {
+    if (raw == null || raw.isEmpty || raw == '00:00:00' || raw == '--:--') {
+      return null;
+    }
+    final parts = raw.split(':');
+    if (parts.length >= 2) {
+      return '${parts[0].padLeft(2, '0')}:${parts[1].padLeft(2, '0')}';
+    }
+    return raw;
+  }
+}
+
+class _ActionButton extends StatelessWidget {
+  const _ActionButton({
+    required this.label,
+    required this.icon,
+    required this.background,
+    required this.enabled,
+    required this.loading,
+    required this.onTap,
+  });
+
+  final String label;
+  final IconData icon;
+  final Color background;
+  final bool enabled;
+  final bool loading;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final radius = BorderRadius.circular(12.r);
+    final opacity = enabled ? 1.0 : 0.40;
+    return Opacity(
+      opacity: opacity,
+      child: Material(
+        color: Colors.transparent,
+        borderRadius: radius,
+        child: InkWell(
+          onTap: enabled && !loading ? onTap : null,
+          borderRadius: radius,
+          child: Ink(
+            height: 50.h,
+            decoration: BoxDecoration(
+              borderRadius: radius,
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [
+                  background,
+                  Color.lerp(background, Colors.black, 0.12)!,
+                ],
+              ),
+            ),
+            child: Center(
+              child: loading
+                  ? SizedBox(
+                      width: 20.w,
+                      height: 20.w,
+                      child: const CircularProgressIndicator(
+                        strokeWidth: 2.2,
+                        color: Colors.white,
+                      ),
+                    )
+                  : Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(icon, color: Colors.white, size: 22.sp),
+                        SizedBox(width: 6.w),
+                        Text(
+                          label,
+                          style: GoogleFonts.poppins(
+                            fontSize: 17.sp,
+                            fontWeight: FontWeight.w600,
+                            color: Colors.white,
+                          ),
+                        ),
+                      ],
+                    ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}

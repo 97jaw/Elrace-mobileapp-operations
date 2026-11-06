@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:bloc/bloc.dart';
 import 'package:dio/dio.dart';
 import 'package:el_race/core/utils/shared_pref.dart';
+import 'package:el_race/core/services/attendance_server_time.dart';
 import 'package:el_race/core/services/attendance_status_sync_service.dart';
 import 'package:el_race/ui/presentation/landing_screen/repository/check_in_repo.dart';
 import 'package:equatable/equatable.dart';
@@ -78,6 +79,9 @@ class CheckInBloc extends Bloc<CheckInEvent, CheckInState> {
       Response? response = await _checkInRepo.checkInUser(
         location.latitude.toString(),
         location.longitude.toString(),
+        faceVerified: event.faceVerified,
+        faceScore: event.faceScore,
+        livenessOk: event.livenessOk,
       );
 
       // Handle response and emit corresponding states
@@ -91,10 +95,10 @@ class CheckInBloc extends Bloc<CheckInEvent, CheckInState> {
           await SharedPref()
               .setPreferenceInt('checkInRecordId', checkInRecordId);
 
-          // Save check-in time in UAE timezone (GMT+4) for display
-          final uaeTime = DateTime.now().toUtc().add(const Duration(hours: 4));
-          final displayTime =
-              '${uaeTime.hour.toString().padLeft(2, '0')}:${uaeTime.minute.toString().padLeft(2, '0')}:${uaeTime.second.toString().padLeft(2, '0')}';
+          // Prefer server check_in_time; fall back to phone clock if missing.
+          final displayTime = AttendanceServerTime.displayOrLocalFallback(
+            responseData['check_in_time']?.toString(),
+          );
 
           print('\n🟢 ===== CHECK-IN BLOC =====');
           print('🟢 checkInDisplayTime = $displayTime');
@@ -105,7 +109,9 @@ class CheckInBloc extends Bloc<CheckInEvent, CheckInState> {
               .setPreferencesString('checkInDisplayTime', displayTime);
 
           // Save check-in timestamp for 16-hour reset logic
-          final checkInMs = DateTime.now().millisecondsSinceEpoch;
+          final checkInMs = AttendanceServerTime.millisOrNow(
+            responseData['check_in_time']?.toString(),
+          );
           await SharedPref().setPreferenceInt('checkInTime', checkInMs);
 
           // Reset check-out time
@@ -135,16 +141,16 @@ class CheckInBloc extends Bloc<CheckInEvent, CheckInState> {
           await SharedPref()
               .setPreferenceInt('checkInRecordId', checkInRecordId);
 
-          // Save check-in time in UAE timezone (GMT+4) for display
-          final uaeTime = DateTime.now().toUtc().add(const Duration(hours: 4));
-          final displayTime =
-              '${uaeTime.hour.toString().padLeft(2, '0')}:${uaeTime.minute.toString().padLeft(2, '0')}:${uaeTime.second.toString().padLeft(2, '0')}';
+          final displayTime = AttendanceServerTime.displayOrLocalFallback(
+            responseData['check_in_time']?.toString(),
+          );
           await SharedPref()
               .setPreferencesString('checkInDisplayTime', displayTime);
           print('🟢 Check-in time saved (warning): $displayTime');
 
-          // Save check-in timestamp for 16-hour reset logic
-          final checkInMs2 = DateTime.now().millisecondsSinceEpoch;
+          final checkInMs2 = AttendanceServerTime.millisOrNow(
+            responseData['check_in_time']?.toString(),
+          );
           await SharedPref().setPreferenceInt('checkInTime', checkInMs2);
 
           // Reset check-out time

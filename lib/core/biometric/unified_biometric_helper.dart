@@ -13,11 +13,6 @@ class UnifiedBiometricHelper {
 
   // ─────────────────────── public API ───────────────────────
 
-  /// Authenticate for check-in / check-out.
-  static Future<bool> authenticateForAttendance(BuildContext context) async {
-    return _authenticate(context, reason: 'تحقق من هويتك لتسجيل الحضور');
-  }
-
   /// Authenticate for sensitive data access.
   static Future<bool> authenticateForSensitiveData(BuildContext context) async {
     return _authenticate(context, reason: 'تحقق من هويتك لعرض البيانات');
