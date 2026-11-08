@@ -68,7 +68,6 @@ import 'package:flutter_translate/flutter_translate.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import 'package:app_links/app_links.dart';
-import 'package:permission_handler/permission_handler.dart';
 import 'package:screen_protector/screen_protector.dart';
 import 'package:el_race/core/app_globals.dart';
 import 'core/services/app_config_service.dart';
@@ -529,10 +528,8 @@ Future<void> _initializeNonCriticalServices() async {
 
   print('✅ All background services initialized');
 
-  // PHASE 4: Permissions + System UI (after everything else)
-  try {
-    await _requestEssentialPermissions();
-  } catch (_) {}
+  // PHASE 4: System UI. Sensitive permissions are requested only when the
+  // user opens the feature that needs them.
   try {
     await _configureAppSystemUi();
   } catch (_) {}
@@ -735,26 +732,6 @@ Future<void> _showAndroidSystemBarsTemporarily() async {
   _androidSystemBarsTimer = Timer(const Duration(seconds: 2), () {
     _enableAndroidImmersiveMode();
   });
-}
-
-/// Request Camera and Location permissions at app start
-/// This prevents lag when opening face registration or check-in screens
-Future<void> _requestEssentialPermissions() async {
-  try {
-    print('📍 Requesting essential permissions...');
-
-    // Request Camera permission
-    final cameraStatus = await Permission.camera.request();
-    print('📷 Camera permission: $cameraStatus');
-
-    // Request Location permission
-    final locationStatus = await Permission.location.request();
-    print('📍 Location permission: $locationStatus');
-
-    print('✅ Essential permissions requested');
-  } catch (e) {
-    print('⚠️ Error requesting permissions: $e');
-  }
 }
 
 /// Sync today's attendance status if the user is logged in.
