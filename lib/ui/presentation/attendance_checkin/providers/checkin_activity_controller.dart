@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:el_race/ui/presentation/attendance_checkin/data/checkin_context_repository.dart';
+import 'package:el_race/ui/presentation/attendance_checkin/face/self_face_template_service.dart';
 import 'package:el_race/ui/presentation/attendance_checkin/models/checkin_context_model.dart';
 import 'package:el_race/ui/presentation/attendance_checkin/services/checkin_geofence_service.dart';
 import 'package:el_race/ui/presentation/attendance_checkin/services/checkin_route_service.dart';
@@ -115,6 +116,7 @@ class CheckinActivityController extends ChangeNotifier {
       );
       _autoSelectProject();
       notifyListeners();
+      _warmFaceTemplate(context);
     } catch (e) {
       _state = _state.copyWith(
         loading: false,
@@ -140,10 +142,20 @@ class CheckinActivityController extends ChangeNotifier {
       );
       _autoSelectProject();
       notifyListeners();
+      _warmFaceTemplate(context);
     } catch (e) {
       _state = _state.copyWith(error: e.toString());
       notifyListeners();
     }
+  }
+
+  void _warmFaceTemplate(CheckinContextModel context) {
+    if (!context.faceRequired) return;
+    unawaited(
+      SelfFaceTemplateService.instance.warm(
+        profilePhotoUrl: context.profilePhotoUrl,
+      ),
+    );
   }
 
   Future<void> _startLocationUpdates() async {
@@ -300,42 +312,26 @@ class CheckinActivityController extends ChangeNotifier {
     return TimesheetGeoPoint(lat: pos.latitude, lon: pos.longitude);
   }
 
+  /// Pre-check before the swipe confirm. `/api/check_in/` is the authority for
+  /// geofencing — do not call `validate_user_location` here.
   Future<bool> validateSelectedProjectLocation() async {
+    final locationRequired = _state.context?.locationRequired ?? true;
+    if (!locationRequired) {
+      _state = _state.copyWith(clearError: true);
+      notifyListeners();
+      return true;
+    }
+
     final project = _state.selectedProject;
-    final pos = _state.userPosition;
     if (project == null) {
       _state = _state.copyWith(error: 'Select a project before check-in.');
       notifyListeners();
       return false;
     }
-    if (pos == null) {
-      _state = _state.copyWith(error: 'Waiting for GPS location.');
-      notifyListeners();
-      return false;
-    }
 
-    try {
-      final result = await _repository.validateUserLocation(
-        projectId: project.projectId,
-        latitude: pos.latitude,
-        longitude: pos.longitude,
-      );
-      if (result['status'] == 'success') {
-        _state = _state.copyWith(clearError: true);
-        notifyListeners();
-        return true;
-      }
-      _state = _state.copyWith(
-        error: result['message']?.toString() ??
-            'You are not within the project location.',
-      );
-      notifyListeners();
-      return false;
-    } catch (e) {
-      _state = _state.copyWith(error: e.toString());
-      notifyListeners();
-      return false;
-    }
+    _state = _state.copyWith(clearError: true);
+    notifyListeners();
+    return true;
   }
 
   @override

@@ -24,7 +24,13 @@ ApiQuery _apiQuery = ApiQuery();
 ///       Switching projects does NOT reset or create a new timer.
 class CheckOutRepo {
   Future<Response?> checkOutUser(
-      String lat, String long, int checkInRecordId) async {
+    String lat,
+    String long,
+    int checkInRecordId, {
+    bool? faceVerified,
+    double? faceScore,
+    bool? livenessOk,
+  }) async {
     final loginResponse = await _userRepo.getLoginResponse();
 
     var token = loginResponse!.result!.token!;
@@ -44,16 +50,20 @@ class CheckOutRepo {
           DateFormat('yyyy-MM-dd HH:mm:ss').format(DateTime.now());
       final parsedDeviceId = int.tryParse(deviceInfo ?? '');
 
+      final params = <String, dynamic>{
+        "user_id": int.tryParse(userID.toString()) ?? 0,
+        "device_id": parsedDeviceId ?? deviceInfo,
+        "checkout_date_time": formattedDate,
+        "check_out_long": double.tryParse(long) ?? long,
+        "check_out_lat": double.tryParse(lat) ?? lat,
+        "check_in_record_id": checkInRecordId,
+      };
+      if (faceVerified != null) params['face_verified'] = faceVerified;
+      if (faceScore != null) params['face_score'] = faceScore;
+      if (livenessOk != null) params['liveness_ok'] = livenessOk;
       Map<String, dynamic> data = {
         "jsonrpc": "2.0",
-        "params": {
-          "user_id": int.tryParse(userID.toString()) ?? 0,
-          "device_id": parsedDeviceId ?? deviceInfo,
-          "checkout_date_time": formattedDate,
-          "check_out_long": double.tryParse(long) ?? long,
-          "check_out_lat": double.tryParse(lat) ?? lat,
-          "check_in_record_id": checkInRecordId,
-        }
+        "params": params,
       };
 
       log(data.toString());

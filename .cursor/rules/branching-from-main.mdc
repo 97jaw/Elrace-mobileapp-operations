@@ -1,0 +1,57 @@
+---
+description: Branching and git safety — every branch starts from main, only with the user's approval
+alwaysApply: true
+---
+
+# Branching: main only, with approval
+
+`main` is production and the only base branch. There is no `develop`,
+`release/*` or `hotfix/*` flow in this repo any more.
+
+## Before any task (mandatory)
+
+1. Run `git status` and `git branch --show-current`.
+2. If there are uncommitted or untracked changes you did not make, **stop and
+   tell the user**. Do not stash, reset, checkout over them, or delete them.
+3. Do not write code on `main`.
+
+## New branch — only with the user's approval
+
+1. Propose a name and **wait for the user to approve it**:
+   `feat/<short-name>`, `fix/<short-name>`, `chore/<short-name>`,
+   `docs/<short-name>` (lowercase, kebab-case).
+2. After approval, always branch from an up-to-date `main`:
+   ```
+   git switch main
+   git pull --ff-only origin main
+   git switch -c <approved-name>
+   ```
+3. Never branch from another feature branch or an old commit unless the
+   user says so.
+
+## Working on the branch
+
+- One commit per item, clear message (`feat(...)`, `fix(...)`, `chore(...)`).
+- Run `flutter analyze` and the related `flutter test` before saying it is done.
+  New Firestore field → `firestore.rules` + `firebase/rules-tests/fixtures/write_keys.json`
+  + contract tests in the same branch.
+- Push the branch and open a PR to `main`. **The user merges.**
+
+## Never without the user's explicit approval
+
+- Commit, merge or push to `main`; force-push anything.
+- `git reset --hard`, `git stash drop`, `git rebase`, deleting branches or tags.
+- Deploy Firebase rules or functions, or anything to Odoo production.
+  (Rules: by hand from `main` only. Functions: one by one, never a whole
+  codebase, never `--force`.)
+- Change the app version in `pubspec.yaml`.
+
+## Never commit
+
+Build outputs, logs or `.txt` reports, `xcuserdata` / Xcode user files,
+`.venv`, `out/`, secrets or API keys.
+
+## Also
+
+- New behaviour ships behind a server flag, OFF by default.
+- Reuse existing screens; no new UI without approval.

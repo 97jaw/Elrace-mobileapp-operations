@@ -87,6 +87,28 @@ bool _hasValidCoordinates(double lat, double lng) {
   return lat >= -90 && lat <= 90 && lng >= -180 && lng <= 180;
 }
 
+/// Server check-out window: open | warn | blocked | not_required.
+enum CheckinCheckoutMode {
+  open,
+  warn,
+  blocked,
+  notRequired,
+}
+
+CheckinCheckoutMode _parseCheckoutMode(Object? raw) {
+  switch ((raw ?? '').toString().trim().toLowerCase()) {
+    case 'warn':
+      return CheckinCheckoutMode.warn;
+    case 'blocked':
+      return CheckinCheckoutMode.blocked;
+    case 'not_required':
+      return CheckinCheckoutMode.notRequired;
+    case 'open':
+    default:
+      return CheckinCheckoutMode.open;
+  }
+}
+
 class CheckinTodayStatus {
   const CheckinTodayStatus({
     required this.checkedIn,
@@ -95,22 +117,40 @@ class CheckinTodayStatus {
     required this.checkOutTime,
     required this.checkInRecordId,
     required this.isToday,
+    this.canCheckOut = false,
+    this.checkoutMode = CheckinCheckoutMode.open,
+    this.checkoutMessage,
   });
 
   final bool checkedIn;
   final bool checkedOut;
+  final bool canCheckOut;
+  final CheckinCheckoutMode checkoutMode;
+  final String? checkoutMessage;
   final String? checkInTime;
   final String? checkOutTime;
   final int? checkInRecordId;
   final bool isToday;
 
   factory CheckinTodayStatus.fromJson(Map<String, dynamic> json) {
+    final checkedIn = json['checked_in'] == true;
+    final recordId = _readIntOrNull(json['check_in_record_id']);
+    final mode = _parseCheckoutMode(json['checkout_mode']);
+    final canCheckOut = json.containsKey('can_check_out')
+        ? json['can_check_out'] == true
+        : (checkedIn || recordId != null) &&
+            (mode == CheckinCheckoutMode.open ||
+                mode == CheckinCheckoutMode.warn);
+    final msg = json['checkout_message']?.toString().trim();
     return CheckinTodayStatus(
-      checkedIn: json['checked_in'] == true,
+      checkedIn: checkedIn,
       checkedOut: json['checked_out'] == true,
+      canCheckOut: canCheckOut,
+      checkoutMode: mode,
+      checkoutMessage: (msg == null || msg.isEmpty) ? null : msg,
       checkInTime: json['check_in_time']?.toString(),
       checkOutTime: json['check_out_time']?.toString(),
-      checkInRecordId: _readIntOrNull(json['check_in_record_id']),
+      checkInRecordId: recordId,
       isToday: json['is_today'] == true,
     );
   }
@@ -118,6 +158,9 @@ class CheckinTodayStatus {
   static const empty = CheckinTodayStatus(
     checkedIn: false,
     checkedOut: false,
+    canCheckOut: false,
+    checkoutMode: CheckinCheckoutMode.open,
+    checkoutMessage: null,
     checkInTime: null,
     checkOutTime: null,
     checkInRecordId: null,
@@ -132,6 +175,11 @@ class CheckinContextModel {
     required this.biotimeTerminals,
     required this.todayStatus,
     required this.defaultRadiusM,
+    this.locationRequired = true,
+    this.requireLinkedLocation = false,
+    this.remote = false,
+    this.faceRequired = false,
+    this.profilePhotoUrl,
   });
 
   final bool mobileCheckinAllowed;
@@ -139,6 +187,22 @@ class CheckinContextModel {
   final List<CheckinBiotimeTerminal> biotimeTerminals;
   final CheckinTodayStatus todayStatus;
   final double defaultRadiusM;
+
+  /// When missing from an older server, default true (today's behaviour).
+  final bool locationRequired;
+
+  /// When `location_required` is false: if true, still block when no linked
+  /// project has coordinates. Missing/old server → false (anywhere check-in).
+  final bool requireLinkedLocation;
+
+  /// Server `remote` / employee.checkin_remote — no location gates.
+  final bool remote;
+
+  /// Server `face_required` — run 1:1 face verify before check-in/out API.
+  final bool faceRequired;
+
+  /// Profile photo URL for the success card + self template warm.
+  final String? profilePhotoUrl;
 
   bool get hasBiotimeAssignment =>
       biotimeOffices.isNotEmpty || biotimeTerminals.isNotEmpty;
@@ -148,6 +212,7 @@ class CheckinContextModel {
     final defaultRadius = thresholds is Map
         ? _readDouble(thresholds['default_radius_m'], fallback: 100)
         : 100.0;
+    final photo = json['profile_photo_url']?.toString().trim();
 
     return CheckinContextModel(
       mobileCheckinAllowed: json['mobile_checkin_allowed'] == true,
@@ -165,6 +230,13 @@ class CheckinContextModel {
             )
           : CheckinTodayStatus.empty,
       defaultRadiusM: defaultRadius,
+      // Missing key → true so an old server stays as strict as today.
+      locationRequired: json['location_required'] != false,
+      // Missing key → false so an old server keeps anywhere check-in.
+      requireLinkedLocation: json['require_linked_location'] == true,
+      remote: json['remote'] == true,
+      faceRequired: json['face_required'] == true,
+      profilePhotoUrl: (photo == null || photo.isEmpty) ? null : photo,
     );
   }
 }

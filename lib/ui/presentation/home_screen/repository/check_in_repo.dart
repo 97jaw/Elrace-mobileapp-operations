@@ -41,11 +41,6 @@ class CheckInREpo {
       final parsedDeviceId = int.tryParse(deviceInfo ?? '');
       final parsedLat = double.tryParse(lat);
       final parsedLong = double.tryParse(long);
-      final normalizedLat =
-          parsedLat != null ? double.parse(parsedLat.toStringAsFixed(2)) : null;
-      final normalizedLong = parsedLong != null
-          ? double.parse(parsedLong.toStringAsFixed(2))
-          : null;
 
       Map<String, dynamic> data = {
         "jsonrpc": "2.0",
@@ -53,8 +48,9 @@ class CheckInREpo {
           "user_id": resolvedUserId,
           "device_id": parsedDeviceId ?? deviceInfo,
           "checkin_date_time": formattedDate,
-          "check_in_long": normalizedLong ?? long,
-          "check_in_lat": normalizedLat ?? lat,
+          // Full-precision GPS (do not round — 2 decimals ≈ 800 m).
+          "check_in_long": parsedLong ?? long,
+          "check_in_lat": parsedLat ?? lat,
         }
       };
 

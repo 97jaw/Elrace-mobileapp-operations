@@ -23,7 +23,13 @@ ApiQuery _apiQuery = ApiQuery();
 /// NOTE: The 8 working hours are global and shared across all projects.
 ///       Switching projects does NOT reset or create a new timer.
 class CheckInREpo {
-  Future<Response?> checkInUser(String lat, String long) async {
+  Future<Response?> checkInUser(
+    String lat,
+    String long, {
+    bool? faceVerified,
+    double? faceScore,
+    bool? livenessOk,
+  }) async {
     final loginResponse = await _userRepo.getLoginResponse();
 
     var token = loginResponse!.result!.token!;
@@ -49,21 +55,21 @@ class CheckInREpo {
       final parsedDeviceId = int.tryParse(deviceInfo ?? '');
       final parsedLat = double.tryParse(lat);
       final parsedLong = double.tryParse(long);
-      final normalizedLat =
-          parsedLat != null ? double.parse(parsedLat.toStringAsFixed(2)) : null;
-      final normalizedLong = parsedLong != null
-          ? double.parse(parsedLong.toStringAsFixed(2))
-          : null;
 
+      final params = <String, dynamic>{
+        "user_id": resolvedUserId,
+        "device_id": parsedDeviceId ?? deviceInfo,
+        "checkin_date_time": formattedDate,
+        // Full-precision GPS (do not round — 2 decimals ≈ 800 m).
+        "check_in_long": parsedLong ?? long,
+        "check_in_lat": parsedLat ?? lat,
+      };
+      if (faceVerified != null) params['face_verified'] = faceVerified;
+      if (faceScore != null) params['face_score'] = faceScore;
+      if (livenessOk != null) params['liveness_ok'] = livenessOk;
       Map<String, dynamic> data = {
         "jsonrpc": "2.0",
-        "params": {
-          "user_id": resolvedUserId,
-          "device_id": parsedDeviceId ?? deviceInfo,
-          "checkin_date_time": formattedDate,
-          "check_in_long": normalizedLong ?? long,
-          "check_in_lat": normalizedLat ?? lat,
-        }
+        "params": params,
       };
 
       final checkInUrl = UrlUtil.baseUrl + UrlUtil.checkInApi;

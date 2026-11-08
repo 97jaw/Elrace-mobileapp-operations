@@ -31,15 +31,24 @@ class FaceRecognitionService {
     FacePreprocessor? preprocessor,
     FaceEmbedder? embedder,
     FaceMatcher? matcher,
+    ProfilePhotoFaceDb? profileDb,
   })  : _repository = repository ?? FaceDbRepository(),
         _preprocessor = preprocessor ?? const FacePreprocessor(),
         _embedder = embedder ?? FaceEmbedder.instance,
-        _matcher = matcher ?? FaceMatcher();
+        _matcher = matcher ?? FaceMatcher(),
+        _profileDb = profileDb;
 
   final FaceDbRepository _repository;
   final FacePreprocessor _preprocessor;
   final FaceEmbedder _embedder;
   final FaceMatcher _matcher;
+
+  /// When set (self check-in), verify against this DB instead of
+  /// [ProfilePhotoFaceDb.instance]. Timesheet keeps the default (null → instance).
+  final ProfilePhotoFaceDb? _profileDb;
+
+  ProfilePhotoFaceDb get _activeProfileDb =>
+      _profileDb ?? ProfilePhotoFaceDb.instance;
 
   bool _syncReady = false;
   bool _engineReady = false;
@@ -68,7 +77,9 @@ class FaceRecognitionService {
   }
 
   Future<FaceSyncResult> syncFaceDb() async {
-    if (ProfilePhotoMatchTest.enabled) return _profilePhotoSync();
+    if (_profileDb != null || ProfilePhotoMatchTest.enabled) {
+      return _profilePhotoSync();
+    }
     final result = await _repository.syncIfNeeded();
     _lastSync = result;
     _syncReady = result.status == FaceSyncStatus.upToDate ||
@@ -596,11 +607,12 @@ class FaceRecognitionService {
         List<List<double>> target,
         List<({int employeeId, List<double> embedding, bool lowRes})> cohort,
       })> _verifyTemplates(int targetEmployeeId) async {
-    if (ProfilePhotoMatchTest.enabled) {
-      final db = ProfilePhotoFaceDb.instance;
+    if (_profileDb != null || ProfilePhotoMatchTest.enabled) {
+      final db = _activeProfileDb;
       final target = await db.templateFor(targetEmployeeId);
-      final cohort =
-          await db.cohortCandidates(excludeEmployeeId: targetEmployeeId);
+      final cohort = _profileDb != null
+          ? const <({FaceEmbeddingRecord row, bool lowRes})>[]
+          : await db.cohortCandidates(excludeEmployeeId: targetEmployeeId);
       return (
         target: [if (target != null) target.embedding],
         cohort: [

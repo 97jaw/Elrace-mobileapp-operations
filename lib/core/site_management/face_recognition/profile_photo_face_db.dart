@@ -33,9 +33,19 @@ enum ProfileTemplateState { pending, ready, failed }
 /// (one queue, Your Team order, tapped labour jumps the queue) and saved on
 /// the phone so later app starts only rebuild new or stale entries.
 class ProfilePhotoFaceDb {
-  ProfilePhotoFaceDb._();
+  ProfilePhotoFaceDb._({required String cacheFileName})
+      : _cacheFileName = cacheFileName;
 
-  static final ProfilePhotoFaceDb instance = ProfilePhotoFaceDb._();
+  /// Foreman labour roster (timesheet). Cache and roster must stay untouched
+  /// by self check-in.
+  static final ProfilePhotoFaceDb instance = ProfilePhotoFaceDb._(
+    cacheFileName: 'profile_photo_templates.json',
+  );
+
+  /// Logged-in employee only (attendance check-in/out). Separate cache file.
+  static final ProfilePhotoFaceDb self = ProfilePhotoFaceDb._(
+    cacheFileName: 'self_checkin_template.json',
+  );
 
   static const int _parallelDownloads = 4;
 
@@ -49,7 +59,7 @@ class ProfilePhotoFaceDb {
 
   /// Most members (targets + cohort) held for one capture screen.
   static const int maxMembers = 80;
-  static const String _cacheFileName = 'profile_photo_templates.json';
+  final String _cacheFileName;
 
   /// The photo URL has no change marker, so saved templates are refreshed
   /// periodically to pick up replaced photos.
