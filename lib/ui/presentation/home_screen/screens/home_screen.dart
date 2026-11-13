@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:el_race/core/app_globals.dart';
 import 'package:el_race/core/biometric/device_auth_service.dart';
 import 'package:el_race/core/biometric/unified_biometric_helper.dart';
@@ -15,6 +16,8 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:get/get.dart';
 import 'package:el_race/core/services/app_config_service.dart';
 import 'package:el_race/core/config/feature_flags.dart';
+import 'package:el_race/core/session/session_expiry_service.dart';
+import 'package:el_race/ui/presentation/home_screen/widgets/profile_widgets/profile_logout_helper.dart';
 
 class HomeScreen extends StatelessWidget {
   const HomeScreen({super.key});
@@ -35,8 +38,10 @@ class HomeScreenPage extends StatefulWidget {
   /// True while Face ID / fingerprint gate must block the UI.
   static bool _sessionUiLocked = false;
 
-  /// Match long-idle splash / security window in [MyApp] — re-lock biometrics.
-  static const Duration biometricRelockIdle = Duration(minutes: 10);
+  /// Background time before the biometric gate re-locks
+  /// (Odoo param `elrace.mobile_biometric_relock_minutes`, default 5 min).
+  static Duration get biometricRelockIdle =>
+      AppConfigService.instance.biometricRelockIdle;
 
   /// Whether the shell should absorb taps (used by [MainScreen] too).
   static bool get isSessionUiLocked => _sessionUiLocked;
@@ -75,9 +80,13 @@ class _HomeScreenState extends State<HomeScreenPage>
   //   });
   // }
 
-  bool get _skipBiometricGate =>
-      !FeatureFlags.enableBiometricSignInGate ||
-      AppConfigService.instance.shouldSkipFaceId;
+  /// Gate on/off: Odoo param `elrace.mobile_biometric_gate_enabled` when set,
+  /// otherwise the build flag ENABLE_BIOMETRIC_SIGN_IN_GATE.
+  bool get _skipBiometricGate {
+    final enabled = AppConfigService.instance.biometricGateRemote ??
+        FeatureFlags.enableBiometricSignInGate;
+    return !enabled || AppConfigService.instance.shouldSkipFaceId;
+  }
 
   void _setBiometricLocked(bool locked) {
     HomeScreenPage._sessionUiLocked = locked;
@@ -136,6 +145,7 @@ class _HomeScreenState extends State<HomeScreenPage>
       _backgroundedAt = null;
       return;
     }
+    unawaited(_signOutIfSessionExpired());
     if (_skipBiometricGate) {
       _backgroundedAt = null;
       return;
@@ -151,6 +161,15 @@ class _HomeScreenState extends State<HomeScreenPage>
     // Long background (same window as splash / security idle): require
     // biometric again via gate button — session stays logged in.
     _presentBiometricGate();
+  }
+
+  /// Session older than `elrace.mobile_session_max_hours` → silent sign-out
+  /// straight to the Sign In screen (no expiry message).
+  Future<void> _signOutIfSessionExpired() async {
+    if (!await SessionExpiryService.isExpired()) return;
+    if (!mounted) return;
+    _backgroundedAt = null;
+    await ProfileLogoutHelper.logoutNow(context);
   }
 
   /// Device biometrics only (no PIN/passcode). Triggered from gate button.

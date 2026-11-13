@@ -130,6 +130,35 @@ class AppConfigService {
   Set<int> _faceDeviceCheckExemptUserIds = {};
   Set<int> get faceDeviceCheckExemptUserIds => _faceDeviceCheckExemptUserIds;
 
+  // ── Mobile session + UAE PASS (Odoo ir.config_parameter) ──────────────
+  static const mobileSessionMaxHoursKey = 'mobile_session_max_hours';
+  static const mobileBiometricGateEnabledKey = 'mobile_biometric_gate_enabled';
+  static const mobileBiometricRelockMinutesKey =
+      'mobile_biometric_relock_minutes';
+  static const uaepassKey = 'uaepass';
+  static const _cacheKeySessionMaxHours = 'app_config_mobile_session_max_hours';
+  static const _cacheKeyBiometricGate = 'app_config_mobile_biometric_gate';
+  static const _cacheKeyBiometricRelock = 'app_config_mobile_biometric_relock';
+  static const _cacheKeyUaepass = 'app_config_uaepass_json';
+  static const double biometricRelockMinutesDefault = 5;
+
+  /// Sign-out after this many hours from login. Null / <= 0 = off.
+  double? _sessionMaxHours;
+  double? get sessionMaxHours => _sessionMaxHours;
+
+  /// Server switch for the biometric sign-in gate (null = not set).
+  bool? _biometricGateRemote;
+  bool? get biometricGateRemote => _biometricGateRemote;
+
+  double _biometricRelockMinutes = biometricRelockMinutesDefault;
+  Duration get biometricRelockIdle => Duration(
+        seconds: (_biometricRelockMinutes * 60).round().clamp(30, 86400),
+      );
+
+  /// UAE PASS public settings from the server (client_id, base url, …).
+  Map<String, dynamic>? _uaepass;
+  Map<String, dynamic>? get uaepass => _uaepass;
+
   /// Load config from remote API and cache locally
   Future<void> load() async {
     // Try read cached values first
@@ -174,6 +203,19 @@ class AppConfigService {
       _faceDeviceCheckExemptUserIds = parseExemptUserIds(
         prefs.getString(_cacheKeyFaceDeviceCheckExemptUsers),
       );
+      final cachedHours = prefs.getDouble(_cacheKeySessionMaxHours);
+      _sessionMaxHours =
+          (cachedHours != null && cachedHours > 0) ? cachedHours : null;
+      if (prefs.containsKey(_cacheKeyBiometricGate)) {
+        _biometricGateRemote = prefs.getBool(_cacheKeyBiometricGate);
+      }
+      _biometricRelockMinutes = prefs.getDouble(_cacheKeyBiometricRelock) ??
+          biometricRelockMinutesDefault;
+      final uaepassJson = prefs.getString(_cacheKeyUaepass);
+      if (uaepassJson != null && uaepassJson.isNotEmpty) {
+        final decoded = jsonDecode(uaepassJson);
+        if (decoded is Map<String, dynamic>) _uaepass = decoded;
+      }
     } catch (_) {}
 
     try {
@@ -261,6 +303,7 @@ class AppConfigService {
             payload.containsKey(faceDeviceCheckExemptUsersKey)) {
           await _applyAndCacheFaceMinDevice(payload);
         }
+        await _applyAndCacheSession(payload);
       }
 
       if (remoteIsTest != null) {
@@ -289,6 +332,46 @@ class AppConfigService {
       SplashVideoCache.instance.onConfigUnavailable();
       // Keep cached value
     }
+  }
+
+  /// Session expiry hours, biometric gate and UAE PASS block. A key that is
+  /// missing from the response keeps the cached value; null resets it.
+  Future<void> _applyAndCacheSession(Map<String, dynamic> payload) async {
+    double? toDouble(Object? v) =>
+        v is num ? v.toDouble() : double.tryParse('${v ?? ''}');
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      if (payload.containsKey(mobileSessionMaxHoursKey)) {
+        final h = toDouble(payload[mobileSessionMaxHoursKey]);
+        _sessionMaxHours = (h != null && h > 0) ? h : null;
+        await prefs.setDouble(_cacheKeySessionMaxHours, _sessionMaxHours ?? 0);
+      }
+      if (payload.containsKey(mobileBiometricGateEnabledKey)) {
+        final v = payload[mobileBiometricGateEnabledKey];
+        _biometricGateRemote = v is bool ? v : null;
+        if (_biometricGateRemote == null) {
+          await prefs.remove(_cacheKeyBiometricGate);
+        } else {
+          await prefs.setBool(_cacheKeyBiometricGate, _biometricGateRemote!);
+        }
+      }
+      if (payload.containsKey(mobileBiometricRelockMinutesKey)) {
+        final m = toDouble(payload[mobileBiometricRelockMinutesKey]);
+        _biometricRelockMinutes =
+            (m != null && m > 0) ? m : biometricRelockMinutesDefault;
+        await prefs.setDouble(
+            _cacheKeyBiometricRelock, _biometricRelockMinutes);
+      }
+      if (payload.containsKey(uaepassKey)) {
+        final v = payload[uaepassKey];
+        _uaepass = v is Map<String, dynamic> ? v : null;
+        if (_uaepass == null) {
+          await prefs.remove(_cacheKeyUaepass);
+        } else {
+          await prefs.setString(_cacheKeyUaepass, jsonEncode(_uaepass));
+        }
+      }
+    } catch (_) {}
   }
 
   /// Null (parameter unset) restores the default match bar.
@@ -415,8 +498,7 @@ class AppConfigService {
 
   Future<void> _applyAndCacheFaceBestFrameMinLiveFrames(Object? raw) async {
     final parsed = parseFaceBestFrameMinLiveFrames(raw);
-    _faceBestFrameMinLiveFrames =
-        parsed ?? faceBestFrameMinLiveFramesDefault;
+    _faceBestFrameMinLiveFrames = parsed ?? faceBestFrameMinLiveFramesDefault;
     debugPrint(
       'AppConfigService: face_best_frame_min_live_frames='
       '${parsed == null ? 'null→$faceBestFrameMinLiveFramesDefault' : parsed} '
@@ -538,8 +620,7 @@ class AppConfigService {
 
     _faceMinEmbMs = toInt(payload[faceMinEmbMsKey]) ?? faceMinEmbMsDefault;
     _faceMinPadMs = toInt(payload[faceMinPadMsKey]) ?? faceMinPadMsDefault;
-    _faceMinRamGb =
-        toDouble(payload[faceMinRamGbKey]) ?? faceMinRamGbDefault;
+    _faceMinRamGb = toDouble(payload[faceMinRamGbKey]) ?? faceMinRamGbDefault;
     if (payload.containsKey(faceDeviceCheckExemptUsersKey)) {
       _faceDeviceCheckExemptUserIds =
           parseExemptUserIds(payload[faceDeviceCheckExemptUsersKey]);

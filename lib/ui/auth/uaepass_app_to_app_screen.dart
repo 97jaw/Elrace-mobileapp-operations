@@ -153,19 +153,44 @@ class _UaepassAppToAppRelayState extends State<UaepassAppToAppRelay>
         'UAE PASS app returned', success ? 'success' : 'failure');
 
     widget.onReturned?.call();
-    if (!success || target == null) {
+    if (!success) {
       _finish(null);
       return;
     }
     widget.onApproved?.call();
     _startTimer(_callbackTimeout, 'UAE PASS callback did not return');
-    _controller?.loadUrl(urlRequest: URLRequest(url: WebUri.uri(target)));
+    // Continue in the web view: the success URL UAE PASS gave us, or — when
+    // it is missing/empty — the authorize URL again (the approved UAE PASS
+    // session then redirects straight to our backend callback with the code).
+    final next = (target != null && target.hasScheme && target.host.isNotEmpty)
+        ? target
+        : widget.authorizationUrl;
+    UaepassLogger.logKV('Continuing in web view', next.toString());
+    _controller?.loadUrl(urlRequest: URLRequest(url: WebUri.uri(next)));
   }
 
   Future<void> _openUaepassApp(Uri uaepassLink) async {
+    UaepassLogger.logKV('UAE PASS link from web', uaepassLink.toString());
     final params = Map<String, String>.from(uaepassLink.queryParameters);
-    _pendingSuccessUrl = Uri.tryParse(params['successurl'] ?? '');
-    _pendingFailureUrl = Uri.tryParse(params['failureurl'] ?? '');
+    // Keys may differ in case between UAE PASS environments (successurl /
+    // successURL). Read them case-insensitively and send back lowercase.
+    String? take(String name) {
+      final key = params.keys.firstWhere(
+        (k) => k.toLowerCase() == name,
+        orElse: () => '',
+      );
+      if (key.isEmpty) return null;
+      return params.remove(key);
+    }
+
+    final rawSuccess = take('successurl');
+    final rawFailure = take('failureurl');
+    _pendingSuccessUrl = (rawSuccess == null || rawSuccess.isEmpty)
+        ? null
+        : Uri.tryParse(rawSuccess);
+    _pendingFailureUrl = (rawFailure == null || rawFailure.isEmpty)
+        ? null
+        : Uri.tryParse(rawFailure);
     final nonce = DateTime.now().microsecondsSinceEpoch.toString();
     _nonce = nonce;
 
@@ -200,6 +225,8 @@ class _UaepassAppToAppRelayState extends State<UaepassAppToAppRelay>
   ) async {
     final uri = action.request.url?.uriValue;
     if (uri == null) return NavigationActionPolicy.ALLOW;
+    UaepassLogger.logKV(
+        'Web view navigation', '${uri.scheme}://${uri.host}${uri.path}');
     final scheme = uri.scheme.toLowerCase();
 
     if (scheme == 'uaepass' || scheme == _config.appScheme) {
