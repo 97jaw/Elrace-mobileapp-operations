@@ -342,10 +342,49 @@ class ChatModuleHelper {
     return _isInitialized && isChatEnabled;
   }
 
+  /// Full reset, then setup again with a fresh Firebase token from the
+  /// backend. Used by the chat screen's Retry (and one automatic retry), so a
+  /// stale Firebase session or cached chat session cannot keep chat broken.
+  /// The stored Odoo login is kept — the user stays signed in.
+  Future<ChatSetupResult?> forceReinitialize() async {
+    print('🔷 ChatModuleHelper: Force re-initialize (fresh token)...');
+    try {
+      ChatLifecycleObserver.instance.dispose();
+      await ChatUnreadBadgeService.instance.stop();
+      await FirebaseChatAuthService.instance.signOut();
+    } catch (e) {
+      print('⚠️ ChatModuleHelper: reset before re-init failed: $e');
+    }
+    _isInitialized = false;
+    chatEnabledNotifier.value = false;
+    _lastResult = null;
+    final result = await restoreFromStoredSession();
+    if (result == null) {
+      _lastResult = ChatSetupResult.failed(
+        'No saved login found. Please logout and login again.',
+      );
+    }
+    return result ?? _lastResult;
+  }
+
   /// Get status message for UI display.
   String getStatusMessage() {
     if (!_isInitialized) {
-      return 'Chat not initialized';
+      // Show the real reason instead of a generic "not initialized".
+      final error = _lastResult?.error;
+      if (error == null || error.isEmpty) {
+        return 'Chat is starting. Tap Retry if it does not open.';
+      }
+      if (_isTokenError(error) ||
+          error.contains('expired') ||
+          error.contains('login again') ||
+          error.toLowerCase().contains('logged out')) {
+        return 'Chat session expired. Please logout and login again.';
+      }
+      if (error.contains('custom token not provided')) {
+        return 'Chat not configured on server. Contact IT support.';
+      }
+      return error;
     }
     if (!isChatEnabled) {
       final error = _lastResult?.error ?? 'Chat not available';

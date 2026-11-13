@@ -125,14 +125,23 @@ class _ChatListScreenState extends State<ChatListScreen> {
         final result =
             await ChatModuleHelper.instance.restoreFromStoredSession();
 
-        if (result != null && result.chatEnabled) {
+        var ok = result != null && result.chatEnabled;
+        if (!ok) {
+          // One automatic hard retry: drop stale Firebase/chat session and
+          // set up again with a fresh token from the backend.
+          print(
+              '⚠️ ChatListScreen: restore failed (${result?.error}) — hard retry');
+          final retry = await ChatModuleHelper.instance.forceReinitialize();
+          ok = retry != null && retry.chatEnabled;
+        }
+        if (ok) {
           _currentUid = FirebaseAuth.instance.currentUser?.uid;
           _isChatAvailable = true;
           _loadCurrentUser();
           print('✅ ChatListScreen: Chat session restored successfully');
         } else {
-          print(
-              '⚠️ ChatListScreen: Failed to restore chat session: ${result?.error}');
+          print('⚠️ ChatListScreen: chat still unavailable: '
+              '${ChatModuleHelper.instance.getStatusMessage()}');
         }
       } catch (e) {
         print('❌ ChatListScreen: Error restoring chat session: $e');
