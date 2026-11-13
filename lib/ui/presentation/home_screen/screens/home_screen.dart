@@ -46,6 +46,14 @@ class HomeScreenPage extends StatefulWidget {
   /// Whether the shell should absorb taps (used by [MainScreen] too).
   static bool get isSessionUiLocked => _sessionUiLocked;
 
+  /// Fresh login (password / UAE PASS) or a short break: open Home without
+  /// the biometric gate.
+  static void markAuthenticated() {
+    _didAuthenticateThisSession = true;
+    _isAuthenticating = false;
+    _sessionUiLocked = false;
+  }
+
   /// Reset the biometric gate so the next home entry requires it again.
   static void resetAuthSession() {
     _didAuthenticateThisSession = false;
@@ -137,6 +145,7 @@ class _HomeScreenState extends State<HomeScreenPage>
     if (state == AppLifecycleState.paused ||
         state == AppLifecycleState.hidden) {
       _backgroundedAt ??= DateTime.now();
+      unawaited(SessionExpiryService.markActive());
       return;
     }
 

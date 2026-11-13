@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Labour Bus Attendance to Timesheet – Flow Design Proposal</title>
+<style>
+  :root { --ink:#1d2433; --muted:#5b6476; --line:#d9dee8; --bg:#f6f7fb; --accent:#2f3a8f; --ok:#1f7a4d; --warn:#a15c00; --bad:#b42318; }
+  * { box-sizing:border-box; }
+  body { margin:0; font:15px/1.55 -apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif; color:var(--ink); background:var(--bg); }
+  main { max-width:1000px; margin:0 auto; padding:32px 20px 64px; }
+  header h1 { margin:0 0 4px; font-size:27px; }
+  header p { margin:0; color:var(--muted); }
+  nav { margin-top:14px; display:flex; flex-wrap:wrap; gap:8px; }
+  nav a { font-size:13px; color:var(--accent); text-decoration:none; border:1px solid var(--line); background:#fff; padding:4px 10px; border-radius:999px; }
+  section { background:#fff; border:1px solid var(--line); border-radius:10px; padding:20px 22px; margin-top:20px; }
+  h2 { margin:0 0 12px; font-size:19px; color:var(--accent); }
+  h3 { margin:14px 0 8px; font-size:16px; }
+  p { margin:0 0 10px; } ul,ol { margin:0 0 10px; padding-left:20px; } li { margin-bottom:4px; }
+  table { width:100%; border-collapse:collapse; font-size:14px; }
+  th, td { text-align:left; padding:8px 10px; border-bottom:1px solid var(--line); vertical-align:top; }
+  th { background:#f0f2f8; font-weight:600; }
+  .note { background:#f6f7fb; border-left:3px solid var(--accent); padding:10px 14px; margin:10px 0; }
+  .pill { display:inline-block; padding:2px 9px; border-radius:999px; font-size:12px; font-weight:600; white-space:nowrap; }
+  .bus { background:#e1f5ee; color:#085041; } .cam { background:#eeedfe; color:#3c3489; }
+  .fm { background:#faeeda; color:#633806; } .it { background:#fcebeb; color:#791f1f; } .sys { background:#eef0f4; color:#444441; }
+  .grid3 { display:grid; grid-template-columns:repeat(3,1fr); gap:12px; }
+  .card { border:1px solid var(--line); border-radius:8px; padding:12px 14px; }
+  .card b { display:block; margin-bottom:4px; }
+  .legend { display:flex; flex-wrap:wrap; gap:14px; font-size:13px; color:var(--muted); margin:6px 0 10px; }
+  .legend span { display:inline-flex; align-items:center; gap:6px; }
+  .sw { width:14px; height:14px; border-radius:3px; display:inline-block; border:1px solid #999; }
+  svg text { font-family:inherit; }
+  svg .t { font-size:14px; font-weight:600; fill:#1d2433; }
+  svg .s { font-size:12px; fill:#5b6476; }
+  svg .y { font-size:12px; font-weight:700; fill:#1f7a4d; }
+  svg .n { font-size:12px; font-weight:700; fill:#b42318; }
+  svg .ln { stroke:#8a93a6; stroke-width:1.4; fill:none; }
+  @media (max-width:760px){ .grid3{ grid-template-columns:1fr; } }
+</style>
+</head>
+<body>
+<main>
+<header>
+  <h1>Labour Bus Attendance → Timesheet</h1>
+  <p>Flow design proposal · Prepared by M Jawad · 10 Nov 2026</p>
+  <nav>
+    <a href="#summary">Summary</a><a href="#parts">Who does what</a><a href="#flowA">Flow A – bus scan</a>
+    <a href="#flowB">Flow B – foreman review</a><a href="#rules">Rules</a><a href="#cases">Cases handled</a>
+    <a href="#prereq">Prerequisites</a><a href="#open">Open points</a>
+  </nav>
+</header>
+
+<section id="summary">
+  <h2>Summary</h2>
+  <p>Labour travel by company bus from the accommodation to the project site. The bus has a face device (our own bus app). Today its records stay in a separate database. This proposal brings those records into the foreman's timesheet in the El Race app:</p>
+  <ul>
+    <li><b>Work starts</b> when the labour scans getting off the bus <b>at the site</b>. <b>Work ends</b> when they scan getting on the bus <b>leaving the site</b>. A scan at the accommodation is travel only.</li>
+    <li>The site is the Odoo project whose coordinates contain the bus location.</li>
+    <li>The foreman sees his team <b>prefilled with bus hours</b> before submitting. Rare cases (came late by own car, left by another vehicle) use the existing <b>1:1 timesheet camera</b>.</li>
+    <li><b>No manual hours.</b> If neither the bus nor the camera has a record, the foreman contacts support / IT.</li>
+    <li>Data is <b>real time</b>. Final submission stays in our app, daily, within 5 days (existing Odoo rule).</li>
+  </ul>
+</section>
+
+<section id="parts">
+  <h2>Who does what</h2>
+  <div class="grid3">
+    <div class="card"><b>Bus face device</b>Records face scans with time and location. The company driver checks the device works every day.</div>
+    <div class="card"><b>Bus app (our team)</b>Sends every scan in real time: to Odoo (recommended) or directly to the app. Same labour IDs and foremen as Odoo.</div>
+    <div class="card"><b>Odoo</b>Matches the labour, finds the project from the coordinates, works out site start / end / hours per day.</div>
+    <div class="card"><b>Foreman (mobile app)</b>Reviews his team, fixes rare cases with the 1:1 camera, adds break / overtime / leave, submits.</div>
+    <div class="card"><b>1:1 timesheet camera</b>Already live. Used only when the bus has no record for that labour (or no out).</div>
+    <div class="card"><b>Support / IT</b>The only route when neither the bus nor the camera has the hours. No manual edits by the foreman.</div>
+  </div>
+  <div class="note"><b>Real-time options:</b> (1) Bus → Odoo → App (recommended: one source of truth, payroll and audit in Odoo), or (2) Bus → App, with the app sending the result to Odoo. Both work with the flows below.</div>
+</section>
+
+<section id="flowA">
+  <h2>Flow A – What happens when a labour scans on the bus</h2>
+  <div class="legend">
+    <span><i class="sw" style="background:#e1f5ee"></i>Counted (bus record)</span>
+    <span><i class="sw" style="background:#fcebeb"></i>Not counted</span>
+    <span><i class="sw" style="background:#f1efe8"></i>Step / check</span>
+  </div>
+  <svg width="100%" viewBox="0 0 900 760" role="img" aria-label="Bus scan decision flow">
+    <defs><marker id="ah" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M2 1L8 5L2 9" fill="none" stroke="#8a93a6" stroke-width="1.6"/></marker></defs>
+
+    <rect x="180" y="20" width="300" height="50" rx="8" fill="#f1efe8" stroke="#888780" stroke-width="0.8"/>
+    <text class="t" x="330" y="41" text-anchor="middle">Labour scans face on bus</text>
+    <text class="s" x="330" y="59" text-anchor="middle">Time + bus location captured</text>
+    <line class="ln" x1="330" y1="70" x2="330" y2="100" marker-end="url(#ah)"/>
+
+    <polygon points="330,102 480,150 330,198 180,150" fill="#fff" stroke="#888780" stroke-width="0.8"/>
+    <text class="t" x="330" y="146" text-anchor="middle">Face matched to an</text>
+    <text class="t" x="330" y="164" text-anchor="middle">Odoo labour?</text>
+    <line class="ln" x1="480" y1="150" x2="598" y2="150" marker-end="url(#ah)"/><text class="n" x="530" y="142">No</text>
+    <rect x="600" y="125" width="270" height="50" rx="8" fill="#fcebeb" stroke="#a32d2d" stroke-width="0.8"/>
+    <text class="t" x="735" y="146" text-anchor="middle">Not counted</text>
+    <text class="s" x="735" y="164" text-anchor="middle">Flagged to IT (face / ID mapping)</text>
+    <line class="ln" x1="330" y1="198" x2="330" y2="228" marker-end="url(#ah)"/><text class="y" x="340" y="218">Yes</text>
+
+    <polygon points="330,230 480,278 330,326 180,278" fill="#fff" stroke="#888780" stroke-width="0.8"/>
+    <text class="t" x="330" y="274" text-anchor="middle">Bus is at a</text>
+    <text class="t" x="330" y="292" text-anchor="middle">project site?</text>
+    <line class="ln" x1="480" y1="278" x2="598" y2="278" marker-end="url(#ah)"/><text class="n" x="530" y="270">No</text>
+    <rect x="600" y="253" width="270" height="50" rx="8" fill="#f1efe8" stroke="#888780" stroke-width="0.8"/>
+    <text class="t" x="735" y="274" text-anchor="middle">Accommodation / on the way</text>
+    <text class="s" x="735" y="292" text-anchor="middle">Travel log only, no work hours</text>
+    <line class="ln" x1="330" y1="326" x2="330" y2="356" marker-end="url(#ah)"/><text class="y" x="340" y="346">Yes</text>
+
+    <polygon points="330,358 480,406 330,454 180,406" fill="#fff" stroke="#888780" stroke-width="0.8"/>
+    <text class="t" x="330" y="402" text-anchor="middle">Inside the project</text>
+    <text class="t" x="330" y="420" text-anchor="middle">radius (coordinates)?</text>
+    <line class="ln" x1="480" y1="406" x2="598" y2="406" marker-end="url(#ah)"/><text class="n" x="530" y="398">No</text>
+    <rect x="600" y="381" width="270" height="50" rx="8" fill="#fcebeb" stroke="#a32d2d" stroke-width="0.8"/>
+    <text class="t" x="735" y="402" text-anchor="middle">Not counted</text>
+    <text class="s" x="735" y="420" text-anchor="middle">Foreman: 1:1 camera or support</text>
+    <line class="ln" x1="330" y1="454" x2="330" y2="484" marker-end="url(#ah)"/><text class="y" x="340" y="474">Yes</text>
+
+    <polygon points="330,486 480,534 330,582 180,534" fill="#fff" stroke="#888780" stroke-width="0.8"/>
+    <text class="t" x="330" y="530" text-anchor="middle">Getting off or</text>
+    <text class="t" x="330" y="548" text-anchor="middle">getting on the bus?</text>
+    <path class="ln" d="M180 534 L120 534 L120 612" marker-end="url(#ah)"/><text class="s" x="40" y="526">Getting off</text>
+    <path class="ln" d="M480 534 L540 534 L540 612" marker-end="url(#ah)"/><text class="s" x="552" y="526">Getting on (leaving)</text>
+    <rect x="30" y="614" width="200" height="50" rx="8" fill="#e1f5ee" stroke="#0f6e56" stroke-width="0.8"/>
+    <text class="t" x="130" y="635" text-anchor="middle">Site start</text>
+    <text class="s" x="130" y="653" text-anchor="middle">Work begins at this project</text>
+    <rect x="440" y="614" width="200" height="50" rx="8" fill="#e1f5ee" stroke="#0f6e56" stroke-width="0.8"/>
+    <text class="t" x="540" y="635" text-anchor="middle">Site end</text>
+    <text class="s" x="540" y="653" text-anchor="middle">Work ends at this project</text>
+    <path class="ln" d="M130 664 L130 694 L330 694 L330 708" marker-end="url(#ah)"/>
+    <path class="ln" d="M540 664 L540 694 L330 694"/>
+    <rect x="180" y="710" width="300" height="40" rx="8" fill="#f1efe8" stroke="#888780" stroke-width="0.8"/>
+    <text class="t" x="330" y="735" text-anchor="middle">Saved in Odoo, shown in foreman app</text>
+  </svg>
+</section>
+
+<section id="flowB">
+  <h2>Flow B – Foreman review and submission (per labour)</h2>
+  <div class="legend">
+    <span><i class="sw" style="background:#e1f5ee"></i>Ready (bus)</span>
+    <span><i class="sw" style="background:#eeedfe"></i>1:1 camera</span>
+    <span><i class="sw" style="background:#faeeda"></i>Foreman action</span>
+    <span><i class="sw" style="background:#fcebeb"></i>Support / blocked</span>
+  </div>
+  <svg width="100%" viewBox="0 0 900 1060" role="img" aria-label="Foreman review decision flow">
+    <defs><marker id="ah2" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M2 1L8 5L2 9" fill="none" stroke="#8a93a6" stroke-width="1.6"/></marker></defs>
+
+    <rect x="180" y="20" width="300" height="50" rx="8" fill="#faeeda" stroke="#854f0b" stroke-width="0.8"/>
+    <text class="t" x="330" y="41" text-anchor="middle">Foreman opens timesheet</text>
+    <text class="s" x="330" y="59" text-anchor="middle">Date and project</text>
+    <line class="ln" x1="330" y1="70" x2="330" y2="98" marker-end="url(#ah2)"/>
+
+    <rect x="180" y="100" width="300" height="50" rx="8" fill="#f1efe8" stroke="#888780" stroke-width="0.8"/>
+    <text class="t" x="330" y="121" text-anchor="middle">Team list loads (real time)</text>
+    <text class="s" x="330" y="139" text-anchor="middle">Includes anyone who attended this site</text>
+    <line class="ln" x1="330" y1="150" x2="330" y2="180" marker-end="url(#ah2)"/>
+
+    <polygon points="330,182 480,230 330,278 180,230" fill="#fff" stroke="#888780" stroke-width="0.8"/>
+    <text class="t" x="330" y="226" text-anchor="middle">Bus has site start</text>
+    <text class="t" x="330" y="244" text-anchor="middle">AND site end?</text>
+    <line class="ln" x1="480" y1="230" x2="598" y2="230" marker-end="url(#ah2)"/><text class="y" x="528" y="222">Yes</text>
+    <rect x="600" y="205" width="260" height="50" rx="8" fill="#e1f5ee" stroke="#0f6e56" stroke-width="0.8"/>
+    <text class="t" x="730" y="226" text-anchor="middle">Ready</text>
+    <text class="s" x="730" y="244" text-anchor="middle">Hours from bus, prefilled</text>
+    <line class="ln" x1="330" y1="278" x2="330" y2="316" marker-end="url(#ah2)"/><text class="n" x="340" y="300">No</text>
+
+    <polygon points="330,318 480,366 330,414 180,366" fill="#fff" stroke="#888780" stroke-width="0.8"/>
+    <text class="t" x="330" y="362" text-anchor="middle">Was the labour</text>
+    <text class="t" x="330" y="380" text-anchor="middle">at site today?</text>
+    <line class="ln" x1="480" y1="366" x2="598" y2="366" marker-end="url(#ah2)"/><text class="n" x="530" y="358">No</text>
+    <rect x="600" y="341" width="260" height="50" rx="8" fill="#faeeda" stroke="#854f0b" stroke-width="0.8"/>
+    <text class="t" x="730" y="362" text-anchor="middle">Absent or leave</text>
+    <text class="s" x="730" y="380" text-anchor="middle">Foreman marks it</text>
+    <line class="ln" x1="330" y1="414" x2="330" y2="452" marker-end="url(#ah2)"/><text class="y" x="340" y="436">Yes</text>
+
+    <rect x="180" y="454" width="300" height="50" rx="8" fill="#eeedfe" stroke="#534ab7" stroke-width="0.8"/>
+    <text class="t" x="330" y="475" text-anchor="middle">1:1 camera capture</text>
+    <text class="s" x="330" y="493" text-anchor="middle">Only the missing in and/or out</text>
+    <line class="ln" x1="330" y1="504" x2="330" y2="532" marker-end="url(#ah2)"/>
+
+    <polygon points="330,534 480,582 330,630 180,582" fill="#fff" stroke="#888780" stroke-width="0.8"/>
+    <text class="t" x="330" y="578" text-anchor="middle">Capture</text>
+    <text class="t" x="330" y="596" text-anchor="middle">successful?</text>
+    <line class="ln" x1="480" y1="582" x2="598" y2="582" marker-end="url(#ah2)"/><text class="n" x="530" y="574">No</text>
+    <rect x="600" y="557" width="260" height="50" rx="8" fill="#fcebeb" stroke="#a32d2d" stroke-width="0.8"/>
+    <text class="t" x="730" y="578" text-anchor="middle">Contact support / IT</text>
+    <text class="s" x="730" y="596" text-anchor="middle">No manual hours by foreman</text>
+    <line class="ln" x1="330" y1="630" x2="330" y2="668" marker-end="url(#ah2)"/><text class="y" x="340" y="652">Yes</text>
+
+    <rect x="180" y="670" width="300" height="50" rx="8" fill="#eeedfe" stroke="#534ab7" stroke-width="0.8"/>
+    <text class="t" x="330" y="691" text-anchor="middle">Ready</text>
+    <text class="s" x="330" y="709" text-anchor="middle">Hours from bus + camera</text>
+    <line class="ln" x1="330" y1="720" x2="330" y2="758" marker-end="url(#ah2)"/>
+
+    <path class="ln" d="M860 230 L885 230 L885 785 L482 785" marker-end="url(#ah2)"/>
+    <path class="ln" d="M860 366 L885 366"/>
+
+    <rect x="180" y="760" width="300" height="50" rx="8" fill="#faeeda" stroke="#854f0b" stroke-width="0.8"/>
+    <text class="t" x="330" y="781" text-anchor="middle">Foreman adds break, OT, leave</text>
+    <text class="s" x="330" y="799" text-anchor="middle">Main timesheet rules (unchanged)</text>
+    <line class="ln" x1="330" y1="810" x2="330" y2="848" marker-end="url(#ah2)"/>
+
+    <polygon points="330,850 480,898 330,946 180,898" fill="#fff" stroke="#888780" stroke-width="0.8"/>
+    <text class="t" x="330" y="894" text-anchor="middle">All labour lines</text>
+    <text class="t" x="330" y="912" text-anchor="middle">complete?</text>
+    <line class="ln" x1="480" y1="898" x2="598" y2="898" marker-end="url(#ah2)"/><text class="n" x="530" y="890">No</text>
+    <rect x="600" y="873" width="260" height="50" rx="8" fill="#fcebeb" stroke="#a32d2d" stroke-width="0.8"/>
+    <text class="t" x="730" y="894" text-anchor="middle">Submission waits</text>
+    <text class="s" x="730" y="912" text-anchor="middle">Fix by 1:1 camera or support</text>
+    <line class="ln" x1="330" y1="946" x2="330" y2="984" marker-end="url(#ah2)"/><text class="y" x="340" y="968">Yes</text>
+
+    <rect x="180" y="986" width="300" height="50" rx="8" fill="#e1f5ee" stroke="#0f6e56" stroke-width="0.8"/>
+    <text class="t" x="330" y="1007" text-anchor="middle">Submit timesheet</text>
+    <text class="s" x="330" y="1025" text-anchor="middle">Daily, within 5 days → payroll</text>
+  </svg>
+</section>
+
+<section id="rules">
+  <h2>Rules</h2>
+  <table>
+    <tr><th style="width:30%">Rule</th><th>Decision</th></tr>
+    <tr><td>Source of hours</td><td><span class="pill bus">Bus</span> first. <span class="pill cam">1:1 camera</span> only for what the bus does not have. Manual hours: <span class="pill it">not allowed</span> (support / IT only).</td></tr>
+    <tr><td>Work start / end</td><td>Start = getting off the bus at the site. End = getting on the bus leaving the site. Accommodation scans are travel only.</td></tr>
+    <tr><td>Which project</td><td>The Odoo project whose coordinates (radius) contain the bus location at the scan.</td></tr>
+    <tr><td>Team list</td><td>The foreman's team, plus any labour whose bus record is at his site. Permanent team changes use the existing labour transfer feature.</td></tr>
+    <tr><td>Incomplete hours</td><td>Not submitted. Salary depends on it, so it is fixed first by 1:1 camera or support.</td></tr>
+    <tr><td>Break, overtime, leave</td><td>Entered by the foreman in the main timesheet as today.</td></tr>
+    <tr><td>Submission</td><td>Daily, within 5 days (existing Odoo validation).</td></tr>
+    <tr><td>Data timing</td><td>Real time (bus → Odoo → app recommended).</td></tr>
+  </table>
+</section>
+
+<section id="cases">
+  <h2>Cases handled</h2>
+  <table>
+    <tr><th style="width:4%">#</th><th style="width:34%">Case</th><th>What happens</th><th style="width:14%">Who</th></tr>
+    <tr><td>1</td><td>Normal day: bus to site and back</td><td>Start and end from bus scans, hours prefilled. Foreman adds break / OT / leave and submits.</td><td><span class="pill bus">Bus</span> <span class="pill fm">Foreman</span></td></tr>
+    <tr><td>2</td><td>Labour came late by own car or another vehicle</td><td>No bus start. Foreman captures "in" with the 1:1 camera at the site.</td><td><span class="pill cam">Camera</span></td></tr>
+    <tr><td>3</td><td>Labour left by another vehicle or forgot to scan when leaving</td><td>Bus start only. Foreman captures "out" with the 1:1 camera. If not possible: support.</td><td><span class="pill cam">Camera</span> <span class="pill it">Support</span></td></tr>
+    <tr><td>4</td><td>Foreman reaches the site separately</td><td>Labour are recorded by the bus as usual. The foreman's own attendance is through his own check-in.</td><td><span class="pill bus">Bus</span></td></tr>
+    <tr><td>5</td><td>Labour from another team attends this site</td><td>Appears in this site's foreman list from the bus record. That foreman handles the day. Permanent move through labour transfer.</td><td><span class="pill fm">Foreman</span></td></tr>
+    <tr><td>6</td><td>Scan at the accommodation</td><td>Travel log only, no work hours.</td><td><span class="pill sys">System</span></td></tr>
+    <tr><td>7</td><td>Bus parked outside the project radius</td><td>Scan not counted. Prevented by fixing bus parking inside each project radius. Fallback: 1:1 camera or support.</td><td><span class="pill sys">System</span> <span class="pill cam">Camera</span></td></tr>
+    <tr><td>8</td><td>Face not recognised / not linked to an Odoo labour</td><td>Not counted, flagged to IT to fix the mapping. Foreman uses the 1:1 camera for the day.</td><td><span class="pill it">IT</span> <span class="pill cam">Camera</span></td></tr>
+    <tr><td>9</td><td>Labour absent or on leave</td><td>No records. Foreman marks absent / leave in the timesheet.</td><td><span class="pill fm">Foreman</span></td></tr>
+    <tr><td>10</td><td>Both bus and camera have a record</td><td>The bus record is used. The camera fills only the missing part.</td><td><span class="pill sys">System</span></td></tr>
+    <tr><td>11</td><td>Neither bus nor camera has the hours</td><td>No manual entry. Foreman contacts support / IT.</td><td><span class="pill it">Support</span></td></tr>
+    <tr><td>12</td><td>Hours incomplete at submission time</td><td>That line is not submitted until it is fixed (salary impact).</td><td><span class="pill fm">Foreman</span></td></tr>
+    <tr><td>13</td><td>Bus device not working / not syncing</td><td>The driver checks the device daily and reports. Until fixed: 1:1 camera.</td><td><span class="pill sys">Driver</span> <span class="pill cam">Camera</span></td></tr>
+    <tr><td>14</td><td>Late submission</td><td>Existing rule: daily submission, within 5 days.</td><td><span class="pill sys">System</span></td></tr>
+  </table>
+</section>
+
+<section id="prereq">
+  <h2>Prerequisites before go-live</h2>
+  <ol>
+    <li><b>Bus parking inside the project radius</b> at every site (decided with operations).</li>
+    <li><b>Review the coordinates and radius of every active project</b> in Odoo.</li>
+    <li>Bus app uses the <b>same labour IDs and foremen as Odoo</b> (confirmed). Face enrolment checked for all active labour.</li>
+    <li><b>Real-time integration</b> from the bus app (bus → Odoo recommended).</li>
+    <li>Bus devices send <b>time and GPS location</b> with every scan, and their clocks are synced.</li>
+    <li>Driver daily check of the device.</li>
+  </ol>
+</section>
+
+<section id="open">
+  <h2>Open points</h2>
+  <ul>
+    <li>Bus app technical stack and integration method (API push to Odoo or direct to the app).</li>
+    <li>Project radius for bus scans: use the existing project radius, or a separate one for bus parking?</li>
+    <li>Pilot: run in parallel with the current process for a few foremen before switching.</li>
+  </ul>
+</section>
+</main>
+</body>
+</html>

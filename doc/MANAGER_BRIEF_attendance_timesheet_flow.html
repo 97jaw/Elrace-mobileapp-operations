@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Attendance &amp; Timesheet – Functional Flow and Controls</title>
+<style>
+  :root { --ink:#1d2433; --muted:#5b6476; --line:#d9dee8; --bg:#f6f7fb; --accent:#2f3a8f; --ok:#1f7a4d; --warn:#a15c00; --bad:#b42318; --green:#1f6b4a; }
+  * { box-sizing: border-box; }
+  body { margin:0; font:15px/1.55 -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; color:var(--ink); background:var(--bg); }
+  main { max-width: 1000px; margin: 0 auto; padding: 32px 20px 64px; }
+  header h1 { margin:0 0 4px; font-size: 28px; }
+  header p { margin:0; color:var(--muted); }
+  nav { margin-top:14px; display:flex; flex-wrap:wrap; gap:8px; }
+  nav a { font-size:13px; color:var(--accent); text-decoration:none; border:1px solid var(--line); background:#fff; padding:4px 10px; border-radius:999px; }
+  section { background:#fff; border:1px solid var(--line); border-radius:10px; padding:20px 22px; margin-top:20px; }
+  h2 { margin:0 0 12px; font-size:19px; color:var(--accent); }
+  h3 { margin:16px 0 8px; font-size:16px; }
+  p { margin: 0 0 10px; }
+  ul, ol { margin:0 0 10px; padding-left:20px; }
+  li { margin-bottom:4px; }
+  table { width:100%; border-collapse:collapse; font-size:14px; }
+  th, td { text-align:left; padding:8px 10px; border-bottom:1px solid var(--line); vertical-align:top; }
+  th { background:#f0f2f8; font-weight:600; }
+  .pill { display:inline-block; padding:2px 9px; border-radius:999px; font-size:12px; font-weight:600; white-space:nowrap; }
+  .done { background:#e3f4ea; color:var(--ok); } .live { background:#e6ebff; color:var(--accent); }
+  .wait { background:#fff3e0; color:var(--warn); } .next { background:#eef0f4; color:var(--muted); }
+  .on { background:#e3f4ea; color:var(--ok); } .off { background:#f3e8e8; color:var(--bad); }
+  .note { background:#f6f7fb; border-left:3px solid var(--accent); padding:10px 14px; border-radius:6px; margin:10px 0; color:var(--ink); }
+  .grid2 { display:grid; grid-template-columns:1fr 1fr; gap:14px; }
+  .card { border:1px solid var(--line); border-radius:8px; padding:12px 14px; }
+  .card b { display:block; margin-bottom:4px; }
+  .muted { color:var(--muted); }
+  svg text { font-family: inherit; }
+  @media (max-width:760px){ .grid2{ grid-template-columns:1fr; } }
+</style>
+</head>
+<body>
+<main>
+<header>
+  <h1>Attendance &amp; Timesheet – Functional Flow and Controls</h1>
+  <p>Mobile check-in / check-out, face verification, timesheet pilot and the switches that control them · Prepared by M Jawad · 6 Nov 2026</p>
+  <nav>
+    <a href="#big">Big picture</a><a href="#who">Who can check in</a><a href="#out">Check-out rules</a>
+    <a href="#face">Face verification</a><a href="#ts">Timesheet pilot</a><a href="#flags">Switches</a>
+    <a href="#status">Status</a><a href="#decide">Decisions</a>
+  </nav>
+</header>
+
+<section>
+  <h2>Purpose</h2>
+  <p>Two things are moving to Odoo and the new mobile app:</p>
+  <ul>
+    <li><b>Staff attendance</b>: one trusted record per employee per day, built from the gate (BioTime), the mobile app and approved requests, so staff payroll can run from Odoo instead of the BioTime report.</li>
+    <li><b>Site timesheets</b>: foremen will submit from the new app. Before the old app is switched off, both run side by side, and the new app's entries go to a separate pilot table so payroll is never affected.</li>
+  </ul>
+  <p>Every rule below can be switched on or off from Odoo, without releasing a new app version.</p>
+</section>
+
+<section id="big">
+  <h2>Big picture</h2>
+  <svg viewBox="0 0 960 420" width="100%" role="img" aria-label="Attendance and timesheet flow">
+    <defs><marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="#8a93a6"/></marker></defs>
+    <text x="10" y="18" font-size="13" font-weight="700" fill="#2f3a8f">ATTENDANCE</text>
+    <g fill="#fff" stroke="#c4cbd9" stroke-width="1.2">
+      <rect x="10" y="30" width="190" height="48" rx="8"/>
+      <rect x="10" y="88" width="190" height="48" rx="8"/>
+      <rect x="10" y="146" width="190" height="48" rx="8"/>
+      <rect x="250" y="80" width="170" height="64" rx="8"/>
+      <rect x="470" y="80" width="170" height="64" rx="8"/>
+      <rect x="690" y="80" width="140" height="64" rx="8" fill="#e6ebff" stroke="#2f3a8f" stroke-width="2"/>
+      <rect x="860" y="80" width="90" height="64" rx="8" fill="#e3f4ea" stroke="#1f7a4d"/>
+    </g>
+    <g font-size="13" fill="#1d2433">
+      <text x="22" y="52" font-weight="600">Gate devices (BioTime)</text><text x="22" y="69" fill="#5b6476" font-size="12">synced every few minutes</text>
+      <text x="22" y="110" font-weight="600">Mobile check-in / out</text><text x="22" y="127" fill="#5b6476" font-size="12">location + face checked</text>
+      <text x="22" y="168" font-weight="600">Approved requests</text><text x="22" y="185" fill="#5b6476" font-size="12">leave, TP, job mission</text>
+      <text x="262" y="106" font-weight="600">Punch ledger</text><text x="262" y="124" fill="#5b6476" font-size="12">every raw punch kept</text>
+      <text x="482" y="106" font-weight="600">Daily check</text><text x="482" y="124" fill="#5b6476" font-size="12">one result per person/day</text>
+      <text x="702" y="106" font-weight="600">Odoo attendance</text><text x="702" y="124" fill="#5b6476" font-size="12">trusted record</text>
+      <text x="872" y="116" font-weight="600">Payroll</text>
+    </g>
+    <g stroke="#8a93a6" stroke-width="1.4" fill="none" marker-end="url(#a)">
+      <path d="M200 54 C 225 54, 225 100, 248 104"/><path d="M200 112 L248 112"/><path d="M200 170 C 225 170, 225 124, 248 120"/>
+      <path d="M420 112 L468 112"/><path d="M640 112 L688 112"/><path d="M830 112 L858 112"/>
+    </g>
+
+    <line x1="10" y1="225" x2="950" y2="225" stroke="#e3e7ef"/>
+    <text x="10" y="252" font-size="13" font-weight="700" fill="#2f3a8f">TIMESHEET (pilot period)</text>
+    <g fill="#fff" stroke="#c4cbd9" stroke-width="1.2">
+      <rect x="10" y="266" width="190" height="52" rx="8"/>
+      <rect x="10" y="346" width="190" height="52" rx="8"/>
+      <rect x="250" y="266" width="200" height="52" rx="8" fill="#fff3e0" stroke="#a15c00"/>
+      <rect x="250" y="346" width="200" height="52" rx="8" fill="#e3f4ea" stroke="#1f7a4d"/>
+      <rect x="520" y="306" width="190" height="52" rx="8" fill="#e6ebff" stroke="#2f3a8f" stroke-width="2"/>
+      <rect x="760" y="346" width="190" height="52" rx="8"/>
+    </g>
+    <g font-size="13" fill="#1d2433">
+      <text x="22" y="288" font-weight="600">New app (pilot foremen)</text><text x="22" y="306" fill="#5b6476" font-size="12">same screens, same rules</text>
+      <text x="22" y="368" font-weight="600">Old app (all foremen)</text><text x="22" y="386" fill="#5b6476" font-size="12">unchanged</text>
+      <text x="262" y="288" font-weight="600">Pilot timesheet table</text><text x="262" y="306" fill="#5b6476" font-size="12">not used by payroll</text>
+      <text x="262" y="368" font-weight="600">Real timesheet table</text><text x="262" y="386" fill="#5b6476" font-size="12">payroll source</text>
+      <text x="532" y="328" font-weight="600">Pilot vs Real report</text><text x="532" y="346" fill="#5b6476" font-size="12">differences per day</text>
+      <text x="772" y="368" font-weight="600">Labour payroll</text><text x="772" y="386" fill="#5b6476" font-size="12">reads real table only</text>
+    </g>
+    <g stroke="#8a93a6" stroke-width="1.4" fill="none" marker-end="url(#a)">
+      <path d="M200 292 L248 292"/><path d="M200 372 L248 372"/>
+      <path d="M450 292 C 485 292, 485 326, 518 328"/><path d="M450 372 C 485 372, 485 338, 518 336"/>
+      <path d="M450 380 L758 380"/>
+    </g>
+  </svg>
+</section>
+
+<section id="who">
+  <h2>Mobile check-in / check-out: who can, and from where</h2>
+  <p>The app asks the server every time the check-in screen opens or comes back to the front, so any change in Odoo applies straight away (no logout or app update). The server checks the same rules again when the button is pressed.</p>
+  <table>
+    <tr><th style="width:26%">Check (in order)</th><th>Rule</th></tr>
+    <tr><td>1. Mobile access</td><td>Must be ON for the employee (Mobile App Admin → Employee Configuration). OFF = no mobile attendance at all.</td></tr>
+    <tr><td>2. Remote employee</td><td>If "Remote Check-in" is ticked: <b>no location rule, no device rule</b>. Check-in from anywhere. Time and face rules still apply. Used for online / remote staff (12 employees set today).</td></tr>
+    <tr><td>3. Gate (BioTime) staff</td><td>Switch "Block mobile for BioTime staff". <b>Currently OFF</b>: staff assigned to a gate device can still use mobile.</td></tr>
+    <tr><td>4. Location – foremen</td><td>Always: must be inside the zone of one of their in-progress projects (radius 100 m).</td></tr>
+    <tr><td>5. Location – other staff</td><td>When "Staff location check" is ON (<b>currently ON</b>): must be inside the zone of an in-progress project where they are on the staff list. If they are not linked to any project with a location, the app shows "No linked location – contact HR".</td></tr>
+    <tr><td>6. Face verification</td><td>If switched on for the person's role: a 1:1 face check against their own Odoo profile photo (see below).</td></tr>
+  </table>
+  <div class="note">One record per day: if the employee already entered through the gate, Check In is closed for the day and only Check Out is offered. Gate staff go in and out during the day, so a mid-day gate exit is <b>not</b> treated as the final check-out. The <b>latest</b> check-out of the day always wins, whether it comes from the gate or the mobile app. A record's check-out time is never moved earlier.</div>
+</section>
+
+<section id="out">
+  <h2>Check-out rules (office hours 08:00 – 17:00)</h2>
+  <p>Leaving early needs an approved <b>Temporary Permission</b> (hours based, a short leave) or a <b>Job Mission</b> (half or full day). The Check Out button always stays visible. The rule is explained in a pop-up when it is pressed.</p>
+  <table>
+    <tr><th style="width:24%">When the button is pressed</th><th>What happens</th></tr>
+    <tr><td>Before 16:30</td><td>Allowed only if there is an approved Temporary Permission that has started. Otherwise a pop-up: "Office hours end at 17:00. Apply for Temporary Permission or Job Mission to leave early." Nothing is recorded.</td></tr>
+    <tr><td>Job Mission (afternoon / full day)</td><td>Pop-up: "Job Mission – check-out not required". The system records the job-mission times itself.</td></tr>
+    <tr><td>16:30 – 17:00</td><td>Pop-up reminder that office ends at 17:00 and a Temporary Permission is needed for leaving early. The employee can confirm and check out.</td></tr>
+    <tr><td>After 17:00</td><td>Normal check-out with a simple "Check out at HH:mm?" confirmation. No limit, so overtime is recorded as is.</td></tr>
+  </table>
+  <p class="muted">Times come from the employee's working schedule in Odoo. 17:00 and 16:30 are the defaults and can be changed from the switches.</p>
+</section>
+
+<section id="face">
+  <h2>Face verification (1:1) for attendance</h2>
+  <div class="grid2">
+    <div class="card"><b>What it checks</b>The live face in front of the camera must be the same person as the employee's <b>Odoo profile photo</b>, and must be a real live face (not a photo or a screen).</div>
+    <div class="card"><b>Same engine as timesheet</b>It reuses the face model, settings and scoring already used for foreman timesheets. App size does not grow. The timesheet face feature is not changed.</div>
+  </div>
+  <h3>Flow</h3>
+  <ol>
+    <li>Employee presses Check In or Check Out. All rules above pass.</li>
+    <li>Camera opens. The face is checked and captured automatically. A shutter button is there as a backup.</li>
+    <li>Match: attendance is saved. Success screen shows a green tick, date, time, the <b>profile photo</b> and the location name. <b>Done</b> returns to the home screen.</li>
+    <li>No match: try again. After 3 failures it stops with "Face not matched – try again or contact HR".</li>
+    <li>No usable profile photo: blocked, "contact HR". Phone too weak to run the check: blocked, "contact your admin".</li>
+  </ol>
+  <p>The match score and a verified flag are stored on the attendance record for audit.</p>
+  <h3>Who gets it</h3>
+  <p>Two switches, and both must be ON: a <b>master switch</b> (system setting) and a <b>role feature</b> "Attendance: Face verification (1:1)", ticked per role in Role Templates (or added for a single user). This applies to attendance only. Timesheet face rules stay as they are.</p>
+</section>
+
+<section id="ts">
+  <h2>Timesheet pilot: running the new app alongside the old one</h2>
+  <ol>
+    <li><b>Old app keeps working as today.</b> Its entries go to the real timesheet table, which labour payroll uses.</li>
+    <li><b>Pilot foremen also submit from the new app.</b> Those entries go to a separate <b>pilot table</b>. Same screens, same checks, same messages. Payroll, penalties and costing never see the pilot table.</li>
+    <li>The same foreman can use both apps on the same day. The "one entry per worker per day" rule is checked inside each table separately, so the two apps do not block each other.</li>
+    <li><b>Pilot vs Real report</b> in Odoo (Timesheets → Pilot): for each day, project and worker it shows matching entries, different hours, different start/end times, different leave type, and entries missing on one side. This is how we find difficulties before switching.</li>
+    <li><b>Go-live = one switch.</b> Turn the pilot switch OFF and the new app writes straight to the real table. No app update needed. The old app can then be retired.</li>
+  </ol>
+  <p class="muted">Who is in the pilot: role feature "Timesheet: Pilot (pilot table)", ticked only for the selected foremen.</p>
+</section>
+
+<section id="flags">
+  <h2>Switches and where they are managed</h2>
+  <table>
+    <tr><th>Switch</th><th>Where</th><th>Now</th><th>ON means</th><th>OFF means</th></tr>
+    <tr><td>Mobile access</td><td>Employee Configuration (per employee)</td><td><span class="pill on">ON</span></td><td>Employee can use mobile attendance</td><td>No mobile attendance</td></tr>
+    <tr><td>Remote check-in</td><td>Employee Configuration (per employee)</td><td><span class="pill live">12 staff</span></td><td>No location / device rule</td><td>Normal rules</td></tr>
+    <tr><td>Block mobile for BioTime staff</td><td>System setting</td><td><span class="pill off">OFF</span></td><td>Staff assigned to a gate device cannot use mobile</td><td>Gate staff may also use mobile</td></tr>
+    <tr><td>Staff location check</td><td>System setting</td><td><span class="pill on">ON</span></td><td>Non-foreman staff must be inside their project zone</td><td>Staff can check in from anywhere</td></tr>
+    <tr><td>Linked location required</td><td>System setting</td><td><span class="pill on">ON</span></td><td>Staff without a project location are told to contact HR</td><td>No such requirement</td></tr>
+    <tr><td>Office end time / early-leave reminder</td><td>System setting</td><td><span class="pill live">17:00 / 16:30</span></td><td colspan="2">Used by the check-out rules (the employee's working schedule takes priority)</td></tr>
+    <tr><td>Face verification – master</td><td>System setting</td><td><span class="pill on">ON</span></td><td>Face check for roles that have the feature</td><td>No face check for anyone</td></tr>
+    <tr><td>Face verification – who</td><td>Role Templates → App Features</td><td><span class="pill wait">to assign</span></td><td colspan="2">Choose which roles / users must pass the face check</td></tr>
+    <tr><td>Timesheet pilot – master</td><td>System setting</td><td><span class="pill off">OFF</span></td><td>New-app entries of pilot foremen go to the pilot table</td><td>New app writes to the real table (go-live)</td></tr>
+    <tr><td>Timesheet pilot – who</td><td>Role Templates / Role User Features</td><td><span class="pill wait">to assign</span></td><td colspan="2">Choose the pilot foremen</td></tr>
+    <tr><td>Punch ledger</td><td>System setting</td><td><span class="pill on">ON</span></td><td>Every gate and mobile punch is stored for audit</td><td>Not stored</td></tr>
+  </table>
+  <p class="muted">All switches take effect on the next screen open or button press. No app release, logout or restart is needed.</p>
+</section>
+
+<section id="status">
+  <h2>Status</h2>
+  <table>
+    <tr><th style="width:40%">Item</th><th>Status</th><th>Notes</th></tr>
+    <tr><td>Gate sync, punch ledger, daily check (in test mode)</td><td><span class="pill done">Live</span></td><td>Running every day, compared against Odoo attendance</td></tr>
+    <tr><td>Mobile check-in screen (new design), location rules, remote staff</td><td><span class="pill done">Built</span></td><td>Being tested on mobile</td></tr>
+    <tr><td>Check-out rules (gate exit, office hours, TP / JM)</td><td><span class="pill done">Built</span></td><td>Pop-up messages being finalised</td></tr>
+    <tr><td>Face verification for attendance</td><td><span class="pill live">In testing</span></td><td>Needs roles to be assigned</td></tr>
+    <tr><td>BioTime employee list cleanup</td><td><span class="pill wait">With IT</span></td><td>Wrong codes, duplicates, ex-employees. Real sync after IT confirms, final sync Sunday</td></tr>
+    <tr><td>Correct Odoo attendance from 1 Oct</td><td><span class="pill next">Next</span></td><td>After the employee list is final: rebuild, HR review, then apply</td></tr>
+    <tr><td>Timesheet pilot table and report</td><td><span class="pill next">In development</span></td><td>Then pilot with selected foremen</td></tr>
+  </table>
+</section>
+
+<section id="decide">
+  <h2>Decisions needed</h2>
+  <ol>
+    <li><b>Office staff without a project</b>: they are not on any project staff list, so with the location check ON they see "No linked location". Options: add office / branch locations to check in against, or mark them as Remote.</li>
+    <li><b>Early check-out policy</b>: confirm the strict rule (before 16:30 only with an approved TP or Job Mission) and the 16:30–17:00 reminder window.</li>
+    <li><b>Face verification</b>: which roles must use it from day one.</li>
+    <li><b>Timesheet pilot</b>: names of the pilot foremen and the pilot period (suggested 2–4 weeks).</li>
+    <li><b>IT</b>: date for completing the BioTime employee cleanup. <b>HR</b>: fix duplicate employee records in Odoo (same code on two people).</li>
+  </ol>
+</section>
+</main>
+</body>
+</html>
