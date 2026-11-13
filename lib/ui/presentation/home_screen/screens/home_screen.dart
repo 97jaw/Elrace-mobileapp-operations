@@ -67,6 +67,7 @@ class _HomeScreenState extends State<HomeScreenPage>
   /// Blocks home UI until biometrics succeed (covers cancel → gate screen).
   bool _isBiometricLocked = false;
 
+  /// Shown only after the automatic biometric prompt is cancelled or fails.
   bool _showBiometricGateScreen = false;
 
   /// Set on [AppLifecycleState.paused]/[hidden] — not inactive (Face ID UI).
@@ -95,15 +96,28 @@ class _HomeScreenState extends State<HomeScreenPage>
     setState(() => _isBiometricLocked = locked);
   }
 
-  /// Show gate with button — no automatic OS biometric prompt.
-  void _presentBiometricGate() {
+  void _scheduleBiometricPrompt() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted ||
+          _skipBiometricGate ||
+          HomeScreenPage._didAuthenticateThisSession ||
+          HomeScreenPage._isAuthenticating) {
+        return;
+      }
+      unawaited(_authenticateAfterLogin());
+    });
+  }
+
+  /// Lock Home and open the OS biometric prompt immediately.
+  void _presentBiometricPrompt() {
     if (_skipBiometricGate) return;
     HomeScreenPage._didAuthenticateThisSession = false;
     HomeScreenPage._isAuthenticating = false;
-    _isBiometricLocked = true;
-    HomeScreenPage._sessionUiLocked = true;
-    if (!mounted) return;
-    setState(() => _showBiometricGateScreen = true);
+    _setBiometricLocked(true);
+    if (mounted && _showBiometricGateScreen) {
+      setState(() => _showBiometricGateScreen = false);
+    }
+    _scheduleBiometricPrompt();
   }
 
   @override
@@ -117,12 +131,12 @@ class _HomeScreenState extends State<HomeScreenPage>
     // One GPS prime per Home mount (post-login); resumes no longer re-fetch.
     _locationBloc.add(GetCurrentLocationET());
 
-    // After splash / login: show biometric gate with button (not auto Face ID).
-    // Cancel/miss and cold reopen all use the same screen.
+    // After splash / login: prompt automatically. The dedicated gate screen is
+    // only the fallback after the user cancels or biometric verification fails.
     if (!_skipBiometricGate && !HomeScreenPage._didAuthenticateThisSession) {
       _isBiometricLocked = true;
       HomeScreenPage._sessionUiLocked = true;
-      _showBiometricGateScreen = true;
+      _scheduleBiometricPrompt();
     }
   }
 
@@ -158,9 +172,9 @@ class _HomeScreenState extends State<HomeScreenPage>
     final inactiveFor = DateTime.now().difference(backgroundedAt);
     if (inactiveFor < HomeScreenPage.biometricRelockIdle) return;
 
-    // Long background (same window as splash / security idle): require
-    // biometric again via gate button — session stays logged in.
-    _presentBiometricGate();
+    // Long background (same window as splash / security idle): open the
+    // biometric prompt again. Cancel/failure falls back to the gate screen.
+    _presentBiometricPrompt();
   }
 
   /// Session older than `elrace.mobile_session_max_hours` → silent sign-out
@@ -172,11 +186,11 @@ class _HomeScreenState extends State<HomeScreenPage>
     await ProfileLogoutHelper.logoutNow(context);
   }
 
-  /// Device biometrics only (no PIN/passcode). Triggered from gate button.
-  /// On cancel/miss, keep the gate screen visible.
-  Future<void> _authenticateAfterLogin({bool fromButton = false}) async {
+  /// Device biometrics only (no PIN/passcode). Starts automatically after
+  /// splash/re-lock and can be retried from the fallback gate button.
+  Future<void> _authenticateAfterLogin() async {
     if (HomeScreenPage._didAuthenticateThisSession) return;
-    if (HomeScreenPage._isAuthenticating && !fromButton) return;
+    if (HomeScreenPage._isAuthenticating) return;
 
     HomeScreenPage._isAuthenticating = true;
     _setBiometricLocked(true);
@@ -328,8 +342,7 @@ class _HomeScreenState extends State<HomeScreenPage>
           if (gateLocked && _showBiometricGateScreen)
             Positioned.fill(
               child: BiometricSignInGateScreen(
-                onSignInWithBiometric: () =>
-                    _authenticateAfterLogin(fromButton: true),
+                onSignInWithBiometric: _authenticateAfterLogin,
               ),
             )
           else if (gateLocked)
