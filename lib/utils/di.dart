@@ -66,15 +66,19 @@ Future<void> initDI() async {
     _registerSingletonIfNeeded<AttendanceRepo>(AttendanceRepo());
     _registerSingletonIfNeeded<LoginResponseModel>(LoginResponseModel());
 
-    _registerSingletonIfNeeded<UaepassConfig>(UaepassConfig.forCurrentEnvironment());
+    // Lazy: built on first use, after AppConfigService has loaded the
+    // server UAE PASS settings (elrace.uaepass.* params).
+    _registerLazySingletonIfNeeded<UaepassConfig>(
+      UaepassConfig.forCurrentEnvironment,
+    );
     _registerSingletonIfNeeded<FlutterSecureStorage>(
       const FlutterSecureStorage(),
     );
     _registerSingletonIfNeeded<ApiClient>(
-      ApiClient(baseUrl: sl<UaepassConfig>().baseApiUrl),
+      ApiClient(baseUrl: UaepassConfig.apiBaseUrl),
     );
-    _registerSingletonIfNeeded<UaepassAuthService>(
-      UaepassAuthService(
+    _registerLazySingletonIfNeeded<UaepassAuthService>(
+      () => UaepassAuthService(
         config: sl<UaepassConfig>(),
         apiClient: sl<ApiClient>(),
         secureStorage: sl<FlutterSecureStorage>(),

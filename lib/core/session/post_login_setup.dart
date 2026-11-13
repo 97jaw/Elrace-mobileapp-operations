@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:el_race/chat/chat.dart';
@@ -23,6 +24,7 @@ import 'package:el_race/utils/di.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:el_race/core/session/session_expiry_service.dart';
 
 /// Shared post-login steps for email/password and UAE PASS — must stay in sync.
 class PostLoginSetup {
@@ -70,6 +72,9 @@ class PostLoginSetup {
 
   /// Run UI/session side effects after login (widgets, attendance, home data).
   static Future<void> applyAfterLogin(BuildContext context) async {
+    // Start the session clock (elrace.mobile_session_max_hours). Not awaited
+    // so the context below is used before any async gap.
+    unawaited(SessionExpiryService.markLogin().catchError((_) {}));
     try {
       ProviderScope.containerOf(context, listen: false)
           .read(hrDevViewOverrideProvider.notifier)

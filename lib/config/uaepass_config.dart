@@ -1,3 +1,4 @@
+import 'package:el_race/core/services/app_config_service.dart';
 import 'package:flutter/foundation.dart';
 
 /// UI Messages for UAE PASS authentication errors
@@ -222,10 +223,74 @@ class UaepassConfig {
 
   /// Returns the active UAE PASS config.
   ///
-  /// Temporary behavior: release also uses staging until the production
-  /// client_id is configured.
+  /// Built from the server (Odoo elrace.uaepass.* params via /api/app/config).
+  /// Without server values (first launch offline) staging is used.
   static UaepassConfig forCurrentEnvironment() {
-    return staging();
+    final remote = AppConfigService.instance.uaepass;
+    if (remote == null) return staging();
+
+    String pick(String key, String fallback) {
+      final v = remote[key];
+      return (v is String && v.trim().isNotEmpty) ? v.trim() : fallback;
+    }
+
+    // The server base URL decides the environment; the matching compiled
+    // config supplies every value the server does not send.
+    final base = pick('authorization_base_url', 'https://stg-id.uaepass.ae');
+    final shape = base.contains('stg-') ? staging() : production();
+    return shape._withServerValues(
+      clientId: pick('client_id', shape.clientId),
+      redirectUrl: pick('redirect_url', shape.redirectUrl),
+      authorizationBaseUrl: base,
+      scope: pick('scope', shape.scope),
+      acrValues: pick('acr_values', shape.acrValues),
+      appToAppAcrValues: pick('app_to_app_acr_values', shape.appToAppAcrValues),
+      appScheme: pick('app_scheme', shape.appScheme),
+      androidPackage: pick('android_package', shape.androidPackage),
+    );
+  }
+
+  /// Backend API base for UAE PASS session exchange (same for both envs).
+  static const String apiBaseUrl = 'https://erp.elrace.com/api/';
+
+  UaepassConfig _withServerValues({
+    required String clientId,
+    required String redirectUrl,
+    required String authorizationBaseUrl,
+    required String scope,
+    required String acrValues,
+    required String appToAppAcrValues,
+    required String appScheme,
+    required String androidPackage,
+  }) {
+    return UaepassConfig(
+      clientId: clientId,
+      redirectUrl: redirectUrl,
+      authorizationBaseUrl: authorizationBaseUrl,
+      authorizationPath: authorizationPath,
+      scope: scope,
+      responseType: responseType,
+      acrValues: acrValues,
+      appToAppAcrValues: appToAppAcrValues,
+      appScheme: appScheme,
+      androidPackage: androidPackage,
+      baseApiUrl: baseApiUrl,
+      sessionExchangePath: sessionExchangePath,
+      resultPollingPath: resultPollingPath,
+      useBackendRedirectDeepLink: useBackendRedirectDeepLink,
+      enablePollingFallback: enablePollingFallback,
+      deepLinkScheme: deepLinkScheme,
+      deepLinkHost: deepLinkHost,
+      deepLinkSuccessPath: deepLinkSuccessPath,
+      deepLinkErrorPath: deepLinkErrorPath,
+      extraAuthParams: extraAuthParams,
+      uiMessages: uiMessages,
+      buttonAssetPath: buttonAssetPath,
+      loadingMessage: loadingMessage,
+      pollingInterval: pollingInterval,
+      pollingTimeout: pollingTimeout,
+      enableDebugLog: enableDebugLog,
+    );
   }
 
   /// Staging configuration (stg-id.uaepass.ae)

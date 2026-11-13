@@ -68,7 +68,15 @@ class ProfileLogoutHelper {
       ),
     );
 
-    if (shouldLogout != true) return;
+    if (shouldLogout != true || !root.mounted) return;
+    await logoutNow(root);
+  }
+
+  /// Logs out without asking (used by session expiry). Same steps as the
+  /// confirmed logout: server logout, reset state, Sign In screen, cleanup.
+  static Future<void> logoutNow(BuildContext context) async {
+    final root = _rootContext(context);
+    if (root == null) return;
 
     final nav = navKey.currentState;
     if (nav == null) return;

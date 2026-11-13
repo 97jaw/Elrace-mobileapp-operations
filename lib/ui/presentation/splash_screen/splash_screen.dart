@@ -21,6 +21,8 @@ import 'package:provider/provider.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:el_race/ui/presentation/qr_survey/providers/qr_survey_data_provider.dart';
 import 'package:video_player/video_player.dart';
+import 'package:el_race/core/session/session_expiry_service.dart';
+import 'package:el_race/ui/presentation/home_screen/widgets/profile_widgets/profile_logout_helper.dart';
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
@@ -370,6 +372,14 @@ class _SplashScreenState extends State<SplashScreen> {
       Util.fetchHomeScreenData(context);
 
       if (isAuthenticated) {
+        // Session older than elrace.mobile_session_max_hours → Sign In,
+        // silently (no "session expired" message).
+        if (await SessionExpiryService.isExpired()) {
+          if (!mounted) return;
+          await ProfileLogoutHelper.logoutNow(context);
+          return;
+        }
+
         // Admin force-logout: block home until user re-logins.
         final forced = await ForceLogoutGuard.instance.isForceLoggedOut();
         if (!mounted) return;
