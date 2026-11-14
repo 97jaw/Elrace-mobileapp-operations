@@ -416,17 +416,9 @@ class _SplashScreenState extends State<SplashScreen> {
           return;
         }
 
-        // Biometric gate only when the app was away longer than
-        // elrace.mobile_biometric_relock_minutes (default 5); a quick reopen
-        // goes straight to Home.
-        if (await SessionExpiryService.idleLongerThan(
-          HomeScreenPage.biometricRelockIdle,
-        )) {
-          HomeScreenPage.resetAuthSession();
-        } else {
-          HomeScreenPage.markAuthenticated();
-        }
-        if (!mounted) return;
+        // Every splash -> Home transition starts with the biometric prompt.
+        // Cancel/failure falls back to the dedicated authentication screen.
+        HomeScreenPage.resetAuthSession();
 
         // Check if face registration is in progress or pending
         final isRegistrationInProgress =

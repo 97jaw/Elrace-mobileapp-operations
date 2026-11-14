@@ -7,11 +7,11 @@ import 'package:flutter/foundation.dart';
 class FeatureFlags {
   /// Show "Sign in with UAE PASS" on the login screen.
   ///
-  /// Hidden by default in production / TestFlight builds.
-  /// Show if needed: `--dart-define=SHOW_UAEPASS_BUTTON=true`
+  /// Default `true` so production / TestFlight builds show the button.
+  /// Hide if needed: `--dart-define=SHOW_UAEPASS_BUTTON=false`
   static const bool showUaepassButton = bool.fromEnvironment(
     'SHOW_UAEPASS_BUTTON',
-    defaultValue: false,
+    defaultValue: true,
   );
 
   /// "Sign in with biometric" gate over Home after login / long idle.

@@ -25,7 +25,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:el_race/core/session/session_expiry_service.dart';
-import 'package:el_race/ui/presentation/home_screen/screens/home_screen.dart';
 
 /// Shared post-login steps for email/password and UAE PASS — must stay in sync.
 class PostLoginSetup {
@@ -77,8 +76,6 @@ class PostLoginSetup {
     // so the context below is used before any async gap.
     unawaited(SessionExpiryService.markLogin().catchError((_) {}));
     unawaited(SessionExpiryService.markActive().catchError((_) {}));
-    // Just signed in: no biometric gate on this Home entry.
-    HomeScreenPage.markAuthenticated();
     try {
       ProviderScope.containerOf(context, listen: false)
           .read(hrDevViewOverrideProvider.notifier)
