@@ -7,6 +7,8 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:el_race/ui/presentation/Email%20Approval/Approval_confirmation.dart';
 import 'package:el_race/ui/presentation/Email%20Approval/data/ror_repository.dart';
+import 'package:el_race/ui/presentation/Email%20Approval/data/it_hardware_request_demo_data.dart';
+import 'package:el_race/ui/presentation/Email%20Approval/models/it_hardware_request.dart';
 import 'package:el_race/ui/presentation/Email%20Approval/models/ror_response.dart';
 import 'package:el_race/ui/presentation/Email%20Approval/utils/approval_display_helpers.dart';
 import 'package:el_race/ui/presentation/Email%20Approval/utils/approval_photo_cache.dart';
@@ -14,6 +16,7 @@ import 'package:el_race/ui/presentation/Email%20Approval/theme/approvals_overvie
 import 'package:el_race/ui/widgets/contextual_glass_chrome_header.dart';
 import 'package:el_race/ui/presentation/Email%20Approval/screens/hr_details_screen.dart';
 import 'package:el_race/ui/presentation/Email%20Approval/screens/invoice_details_screen.dart';
+import 'package:el_race/ui/presentation/Email%20Approval/screens/it_hardware_request_details_screen.dart';
 import 'package:el_race/ui/presentation/Email%20Approval/screens/pettycash_details_screen.dart';
 import 'package:el_race/ui/presentation/Email%20Approval/screens/rfq_details_screen.dart';
 import 'package:el_race/ui/presentation/Email%20Approval/widgets/all_approvals_overview.dart';
@@ -21,7 +24,6 @@ import 'package:el_race/ui/presentation/Email%20Approval/widgets/hr_and_pettycas
 import 'package:el_race/ui/presentation/Email%20Approval/widgets/invoice_and_rfq_card.dart';
 import 'package:el_race/ui/presentation/purchase_management/data/purchase_repository.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:http/http.dart' as http;
 import 'package:el_race/ui/navigation/home_navigation.dart';
@@ -65,6 +67,7 @@ class _ApprovalsScreenState extends State<ApprovalsScreen> {
   List<dynamic> rfqItems = [];
   List<dynamic> invoiceItems = [];
   List<dynamic> pettyCashItems = [];
+  List<dynamic> itRequestItems = ItHardwareRequestDemoData.waitingItems;
   List<dynamic> allItems = [];
   List<dynamic> approvalItems = [];
   String error = '';
@@ -835,6 +838,8 @@ class _ApprovalsScreenState extends State<ApprovalsScreen> {
         return 'RFQ';
       case _CategoryKeys.invoice:
         return 'INVOICE';
+      case _CategoryKeys.itRequest:
+        return 'IT HARDWARE REQUEST';
       default:
         return item['category']?.toString() ??
             item['type']?.toString() ??
@@ -895,6 +900,15 @@ class _ApprovalsScreenState extends State<ApprovalsScreen> {
           navigatorContext,
           MaterialPageRoute(
             builder: (_) => InvoiceDetailsScreen(requestId: id, type: type),
+          ),
+        );
+      case _CategoryKeys.itRequest:
+        result = await Navigator.push(
+          navigatorContext,
+          MaterialPageRoute(
+            builder: (_) => ItHardwareRequestDetailsScreen(
+              request: ItHardwareRequest.fromMap(item),
+            ),
           ),
         );
       default:
@@ -991,10 +1005,12 @@ class _ApprovalsScreenState extends State<ApprovalsScreen> {
         pettyCashCount: _displayCategoryCount('petty_cash', pettyCashItems),
         rfqCount: _displayCategoryCount('rfq', rfqItems),
         hrCount: _displayCategoryCount('hr', hrItems),
+        itRequestCount: itRequestItems.length,
         hrItems: _castItemMaps(hrItems),
         rfqItems: _castItemMaps(rfqItems),
         invoiceItems: _castItemMaps(invoiceItems),
         pettyCashItems: _castItemMaps(pettyCashItems),
+        itRequestItems: _castItemMaps(itRequestItems),
         categoryLoading: Map<String, bool>.from(_categoryLoading),
         categoryLoaded: Map<String, bool>.from(_categoryLoaded),
         categoryErrors: Map<String, String>.from(categoryErrors),
@@ -1106,6 +1122,7 @@ class _CategoryKeys {
   static const String rfq = 'rfq';
   static const String invoice = 'invoice';
   static const String pettyCash = 'petty_cash';
+  static const String itRequest = 'it_request';
 }
 
 class _ApprovalsCountCache {

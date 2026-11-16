@@ -26,10 +26,12 @@ class AllApprovalsOverview extends ConsumerStatefulWidget {
     required this.pettyCashCount,
     required this.rfqCount,
     required this.hrCount,
+    required this.itRequestCount,
     required this.hrItems,
     required this.rfqItems,
     required this.invoiceItems,
     required this.pettyCashItems,
+    required this.itRequestItems,
     this.categoryLoading = const {},
     this.categoryLoaded = const {},
     this.categoryErrors = const {},
@@ -52,10 +54,12 @@ class AllApprovalsOverview extends ConsumerStatefulWidget {
   final int pettyCashCount;
   final int rfqCount;
   final int hrCount;
+  final int itRequestCount;
   final List<Map<String, dynamic>> hrItems;
   final List<Map<String, dynamic>> rfqItems;
   final List<Map<String, dynamic>> invoiceItems;
   final List<Map<String, dynamic>> pettyCashItems;
+  final List<Map<String, dynamic>> itRequestItems;
   final Map<String, bool> categoryLoading;
   final Map<String, bool> categoryLoaded;
   final Map<String, String> categoryErrors;
@@ -150,6 +154,8 @@ class _AllApprovalsOverviewState extends ConsumerState<AllApprovalsOverview> {
         return widget.invoiceItems;
       case 'petty_cash':
         return widget.pettyCashItems;
+      case 'it_request':
+        return widget.itRequestItems;
       default:
         return const [];
     }
@@ -165,6 +171,8 @@ class _AllApprovalsOverviewState extends ConsumerState<AllApprovalsOverview> {
         return widget.invoiceCount;
       case 'petty_cash':
         return widget.pettyCashCount;
+      case 'it_request':
+        return widget.itRequestCount;
       default:
         return 0;
     }
@@ -245,12 +253,11 @@ class _AllApprovalsOverviewState extends ConsumerState<AllApprovalsOverview> {
         onTap: () => _openCategorySheet('hr', 'Employee Request'),
         onRetry: () => retry('hr'),
       ),
-      // Placeholder until Task 4+ wires IT Request data.
       StatCounterCardData(
         id: 'it_request',
         title: 'IT Request',
         subtitle: ApprovalsOverviewTheme.statCardShortLabel('it_request'),
-        value: 0,
+        value: widget.itRequestCount,
         backgroundColor: ApprovalsOverviewTheme.statCardItRequest,
         route: 'it_request',
         isLoading: false,

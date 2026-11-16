@@ -297,6 +297,9 @@ class _ApprovalRecordTile extends StatelessWidget {
         return 'INVOICE';
       case 'petty_cash':
         return 'PETTY CASH';
+      case 'it_request':
+        final prefix = item['is_debug'] == true ? '[DEBUG] ' : '';
+        return '${prefix}HARDWARE REQUEST';
       case 'sign_document':
         return _str(
           item['my_role'] ?? item['role_label'],
@@ -395,6 +398,12 @@ class _ApprovalRecordTile extends StatelessWidget {
         fallback: 'Timesheet.pdf',
       );
     }
+    if (categoryKey == 'it_request') {
+      return _str(
+        item['request_no'] ?? item['name'] ?? item['reference'],
+        fallback: 'Hardware Request',
+      );
+    }
     return _str(
       item['project_title'] ??
           item['project'] ??
@@ -429,6 +438,16 @@ class _ApprovalRecordTile extends StatelessWidget {
     if (categoryKey == 'sign_document') {
       return _str(
         item['owner_name'] ?? item['employee_name'] ?? item['requester_name'],
+        fallback: 'Unknown',
+      );
+    }
+    if (categoryKey == 'it_request') {
+      return _str(
+        item['hardware_user_name'] ??
+            item['hardware_user'] ??
+            item['requester_name'] ??
+            item['requester'] ??
+            item['employee_name'],
         fallback: 'Unknown',
       );
     }
@@ -497,6 +516,12 @@ class _ApprovalRecordTile extends StatelessWidget {
   String _hrMidRowLabel() {
     if (categoryKey == 'sign_document') {
       return _str(item['project_title'] ?? item['project']);
+    }
+    if (categoryKey == 'it_request') {
+      return _str(
+        item['requester_department'] ?? item['department'],
+        fallback: 'IT',
+      );
     }
     final leaveSubtype = HrApprovalDisplay.leaveSubtypeLabel(item);
     if (leaveSubtype.isNotEmpty) return leaveSubtype;
@@ -830,7 +855,8 @@ class _ApprovalRecordTile extends StatelessWidget {
                           ),
                         ),
                         if ((categoryKey == 'hr' ||
-                                categoryKey == 'sign_document') &&
+                                categoryKey == 'sign_document' ||
+                                categoryKey == 'it_request') &&
                             _hrMidRowLabel().isNotEmpty) ...[
                           SizedBox(height: 4.th),
                           Text(
@@ -842,7 +868,9 @@ class _ApprovalRecordTile extends StatelessWidget {
                               fontWeight: FontWeight.w600,
                               color: categoryKey == 'sign_document'
                                   ? ApprovalsOverviewTheme.signDocument
-                                  : ApprovalsOverviewTheme.hr,
+                                  : categoryKey == 'it_request'
+                                      ? ApprovalsOverviewTheme.itRequest
+                                      : ApprovalsOverviewTheme.hr,
                             ),
                           ),
                         ],
