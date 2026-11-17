@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
+import 'package:el_race/core/diagnostics/counter_refresh_trace.dart';
 
 /// Keeps the **outside** app-icon badge in sync with the in-app bell count.
 ///
@@ -18,6 +19,11 @@ class AppIconBadgeService {
   /// Pass [force] to re-apply the same count (clears a stuck APNs badge after
   /// the OS set it outside this channel).
   static Future<void> setCount(int count, {bool force = false}) async {
+    CounterRefreshTrace.trigger(
+      'launcher_badge',
+      'set_count',
+      fields: <String, Object?>{'count': count, 'force': force},
+    );
     final next = count < 0 ? 0 : count;
     if (!force && _lastApplied == next) return;
     try {

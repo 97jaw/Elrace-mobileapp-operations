@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:el_race/core/diagnostics/counter_refresh_trace.dart';
 import 'package:el_race/core/notifications/app_notifications_repository.dart';
 import 'package:el_race/core/services/app_icon_badge_service.dart';
 import 'package:el_race/core/services/approval_count_service.dart';
@@ -27,6 +28,10 @@ class TimesheetBadgeWatcher {
 
   /// Idempotent — safe to call from bootstrap and after login.
   void start() {
+    CounterRefreshTrace.trigger(
+      'timesheet_badges',
+      _started ? 'start_existing' : 'start_initial',
+    );
     if (_started) {
       unawaited(restart());
       return;
@@ -43,6 +48,7 @@ class TimesheetBadgeWatcher {
 
   /// Re-read the flag and (re)subscribe. Called after resume / sign-in flag refresh.
   Future<void> restart() async {
+    CounterRefreshTrace.trigger('timesheet_badges', 'subscriptions_restart');
     final gen = ++_restartGen;
     await _cancelDataSubs();
 
@@ -75,6 +81,11 @@ class TimesheetBadgeWatcher {
         .watchPendingCountFor(uid)
         .listen(
       (pendingCount) {
+        CounterRefreshTrace.trigger(
+          'waiting_sign_document',
+          'firestore_snapshot',
+          fields: <String, Object?>{'count': pendingCount},
+        );
         ApprovalCountService.updateSignDocumentCount(pendingCount);
         BadgeRefreshService.notifyListeners();
       },
@@ -93,6 +104,11 @@ class TimesheetBadgeWatcher {
         .snapshots()
         .listen(
       (snap) async {
+        CounterRefreshTrace.trigger(
+          'notification_bell_firestore',
+          'firestore_snapshot',
+          fields: <String, Object?>{'count': snap.size},
+        );
         AppNotificationsRepository.instance.setLiveUnreadCount(snap.size);
         await _publishBellBadge();
         BadgeRefreshService.notifyListeners();

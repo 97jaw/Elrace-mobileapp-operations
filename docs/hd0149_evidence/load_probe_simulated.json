@@ -1,0 +1,21 @@
+Running build hooks...Running build hooks...{
+  "probe": "HD-0149 current refresh policy stress model",
+  "input_events": {
+    "resume": 20,
+    "approval_push": 20,
+    "approve_reject": 10
+  },
+  "assumed_io_ms": {
+    "global_refresh": 1200,
+    "approval_list_reload": 900
+  },
+  "observed_policy_result": {
+    "global_refreshes_started": 4,
+    "resume_events_coalesced": 16,
+    "approval_pushes_throttled": 19,
+    "approval_reconciliations": 10,
+    "waiting_endpoint_calls": 56,
+    "notification_endpoint_calls": 4
+  },
+  "note": "This deterministic probe exercises the current gates; device traces provide real network timings."
+}

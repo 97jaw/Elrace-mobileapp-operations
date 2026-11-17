@@ -1,0 +1,40 @@
+{"seq":1,"elapsed_ms":0,"kind":"trigger","domain":"timesheet_badges","name":"start_initial"}
+{"seq":2,"elapsed_ms":4,"kind":"trigger","domain":"timesheet_badges","name":"subscriptions_restart"}
+{"seq":3,"elapsed_ms":36,"kind":"trigger","domain":"timesheet_badges","name":"subscriptions_restart"}
+{"seq":4,"elapsed_ms":1292,"kind":"trigger","domain":"waiting_sign_document","name":"firestore_snapshot","count":0}
+{"seq":5,"elapsed_ms":1292,"kind":"trigger","domain":"waiting_sign_document","name":"firestore_snapshot","count":0,"enabled":true}
+{"seq":6,"elapsed_ms":1299,"kind":"trigger","domain":"notification_bell_firestore","name":"firestore_snapshot","count":0}
+{"seq":7,"elapsed_ms":1303,"kind":"trigger","domain":"launcher_badge","name":"set_count","count":2,"force":true}
+{"seq":8,"elapsed_ms":3985,"kind":"trigger","domain":"chat_unread","name":"ensure_listening"}
+{"seq":9,"elapsed_ms":5587,"kind":"trigger","domain":"chat_unread","name":"firestore_snapshot","count":0}
+{"seq":10,"elapsed_ms":9046,"kind":"trigger","domain":"waiting","name":"header_read","cache_hit":false}
+{"seq":11,"elapsed_ms":9049,"kind":"io_start","domain":"waiting","name":"GET /api/my_approvals_grouped","trigger":"count_refresh","call":1,"category":"hr"}
+{"seq":12,"elapsed_ms":9051,"kind":"io_start","domain":"waiting","name":"GET /api/my_approvals_grouped","trigger":"count_refresh","call":2,"category":"rfq"}
+{"seq":13,"elapsed_ms":9052,"kind":"io_start","domain":"waiting","name":"GET /api/my_approvals_grouped","trigger":"count_refresh","call":3,"category":"invoice"}
+{"seq":14,"elapsed_ms":9053,"kind":"io_start","domain":"waiting","name":"GET /api/my_approvals_grouped","trigger":"count_refresh","call":4,"category":"petty_cash"}
+{"seq":15,"elapsed_ms":9054,"kind":"trigger","domain":"chat_unread","name":"ensure_listening"}
+{"seq":16,"elapsed_ms":9058,"kind":"trigger","domain":"notification_bell","name":"header_mount"}
+{"seq":17,"elapsed_ms":9059,"kind":"io_start","domain":"notification_bell_v2","name":"GET /v2/notifications/unread_count","trigger":"header_mount","call":1}
+{"seq":18,"elapsed_ms":10498,"kind":"trigger","domain":"waiting","name":"header_read","cache_hit":false}
+{"seq":19,"elapsed_ms":10499,"kind":"io_start","domain":"waiting","name":"GET /api/my_approvals_grouped","trigger":"count_refresh","call":5,"category":"hr"}
+{"seq":20,"elapsed_ms":10499,"kind":"io_start","domain":"waiting","name":"GET /api/my_approvals_grouped","trigger":"count_refresh","call":6,"category":"rfq"}
+{"seq":21,"elapsed_ms":10500,"kind":"io_start","domain":"waiting","name":"GET /api/my_approvals_grouped","trigger":"count_refresh","call":7,"category":"invoice"}
+{"seq":22,"elapsed_ms":10500,"kind":"io_start","domain":"waiting","name":"GET /api/my_approvals_grouped","trigger":"count_refresh","call":8,"category":"petty_cash"}
+{"seq":23,"elapsed_ms":10501,"kind":"trigger","domain":"chat_unread","name":"ensure_listening"}
+{"seq":24,"elapsed_ms":10503,"kind":"trigger","domain":"notification_bell","name":"header_mount"}
+{"seq":25,"elapsed_ms":10503,"kind":"io_start","domain":"notification_bell_v2","name":"GET /v2/notifications/unread_count","trigger":"header_mount","call":2}
+{"seq":26,"elapsed_ms":12511,"kind":"trigger","domain":"launcher_badge","name":"set_count","count":2,"force":false}
+{"seq":27,"elapsed_ms":12511,"kind":"io_end","domain":"notification_bell_v2","name":"GET /v2/notifications/unread_count","trigger":"header_mount","call":1,"status":"success","duration_ms":3452}
+{"seq":28,"elapsed_ms":12570,"kind":"io_end","domain":"waiting","name":"GET /api/my_approvals_grouped","trigger":"count_refresh","call":4,"status":"success","duration_ms":3517,"category":"petty_cash"}
+{"seq":29,"elapsed_ms":12573,"kind":"io_end","domain":"waiting","name":"GET /api/my_approvals_grouped","trigger":"count_refresh","call":1,"status":"success","duration_ms":3523,"category":"hr"}
+{"seq":30,"elapsed_ms":12599,"kind":"io_end","domain":"waiting","name":"GET /api/my_approvals_grouped","trigger":"count_refresh","call":5,"status":"success","duration_ms":2100,"category":"hr"}
+{"seq":31,"elapsed_ms":12850,"kind":"io_end","domain":"waiting","name":"GET /api/my_approvals_grouped","trigger":"count_refresh","call":8,"status":"success","duration_ms":2349,"category":"petty_cash"}
+{"seq":32,"elapsed_ms":12859,"kind":"io_end","domain":"waiting","name":"GET /api/my_approvals_grouped","trigger":"count_refresh","call":2,"status":"success","duration_ms":3807,"category":"rfq"}
+{"seq":33,"elapsed_ms":12884,"kind":"trigger","domain":"launcher_badge","name":"set_count","count":2,"force":false}
+{"seq":34,"elapsed_ms":12885,"kind":"io_end","domain":"notification_bell_v2","name":"GET /v2/notifications/unread_count","trigger":"header_mount","call":2,"status":"success","duration_ms":2381}
+{"seq":35,"elapsed_ms":13261,"kind":"io_end","domain":"waiting","name":"GET /api/my_approvals_grouped","trigger":"count_refresh","call":6,"status":"success","duration_ms":2761,"category":"rfq"}
+{"seq":36,"elapsed_ms":13716,"kind":"io_end","domain":"waiting","name":"GET /api/my_approvals_grouped","trigger":"count_refresh","call":7,"status":"success","duration_ms":3216,"category":"invoice"}
+{"seq":37,"elapsed_ms":13718,"kind":"state","domain":"waiting","name":"refresh_complete","odoo_count":0,"sign_document_count":0,"total":0}
+{"seq":38,"elapsed_ms":13846,"kind":"io_end","domain":"waiting","name":"GET /api/my_approvals_grouped","trigger":"count_refresh","call":3,"status":"success","duration_ms":4793,"category":"invoice"}
+{"seq":39,"elapsed_ms":13846,"kind":"state","domain":"waiting","name":"refresh_complete","odoo_count":0,"sign_document_count":0,"total":0}
+{"seq":40,"elapsed_ms":15467,"kind":"trigger","domain":"chat_unread","name":"firestore_snapshot","count":0}

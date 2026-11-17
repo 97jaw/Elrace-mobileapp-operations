@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:el_race/core/diagnostics/counter_refresh_trace.dart';
 import 'package:el_race/core/notifications/notification_config_service.dart';
 import 'package:el_race/core/services/app_icon_badge_service.dart';
 import 'package:el_race/core/services/notification_api_service.dart';
@@ -743,20 +744,28 @@ class NotificationStorageService {
   /// Failures (e.g. HTTP 502) are non-fatal: returns the local badge and
   /// cools down so periodic home polls do not spam the API/logs.
   static Future<int> syncBadgeFromServer() async {
+    CounterRefreshTrace.trigger('notification_bell', 'server_sync_requested');
     final now = DateTime.now();
     final cooldownUntil = _badgeSyncCooldownUntil;
     if (cooldownUntil != null && now.isBefore(cooldownUntil)) {
+      CounterRefreshTrace.state('notification_bell', 'skipped_cooldown');
       return getLocalStoredCount();
     }
     if (_badgeSyncInFlight) {
+      CounterRefreshTrace.state('notification_bell', 'coalesced_in_flight');
       return getLocalStoredCount();
     }
 
     _badgeSyncInFlight = true;
     try {
-      final result = await NotificationApiService.getNotifications(
-        limit: 1,
-        offset: 0,
+      final result = await CounterRefreshTrace.io(
+        domain: 'notification_bell',
+        operation: 'GET /notifications',
+        trigger: 'server_sync',
+        call: () => NotificationApiService.getNotifications(
+          limit: 1,
+          offset: 0,
+        ),
       );
       _badgeSyncCooldownUntil = null;
       _lastBadgeSyncFailureLoggedAt = null;
@@ -775,6 +784,16 @@ class NotificationStorageService {
       // Raise to server-computed "new since open". Keep a higher local value
       // briefly so a foreground FCM bump is not wiped before Odoo indexes.
       final next = remoteBadge > previous ? remoteBadge : previous;
+      CounterRefreshTrace.state(
+        'notification_bell',
+        'server_sync_complete',
+        fields: <String, Object?>{
+          'server_unread': unread,
+          'baseline': baseline,
+          'previous': previous,
+          'displayed': next,
+        },
+      );
       if (next != previous) {
         await _persistBadgeCount(next);
       } else {
@@ -1081,6 +1100,7 @@ class NotificationStorageService {
   /// Clears the home badge and snapshots server unread as the baseline.
   /// New bell count = serverUnread - baseline (only notifications after open).
   static Future<void> acknowledgeBadge({Iterable<String>? knownIds}) async {
+    CounterRefreshTrace.trigger('notification_bell', 'inbox_open_acknowledge');
     try {
       final prefs = await SharedPreferences.getInstance();
 
@@ -1157,6 +1177,7 @@ class NotificationStorageService {
 
   /// Mark all notifications as read — local update is immediate; API runs after.
   static Future<void> markAllAsRead() async {
+    CounterRefreshTrace.trigger('notification_bell', 'mark_all_read');
     try {
       final prefs = await SharedPreferences.getInstance();
       final notifications = await _getStoredNotifications();
@@ -1260,6 +1281,7 @@ class NotificationStorageService {
 
   /// Clear all local notifications and sync delete-all to API.
   static Future<void> clearAll() async {
+    CounterRefreshTrace.trigger('notification_bell', 'clear_all');
     try {
       try {
         final cleared = await NotificationApiService.clearAllNotifications();

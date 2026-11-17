@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:async';
 
 import 'package:el_race/chat/chat.dart';
+import 'package:el_race/core/diagnostics/counter_refresh_trace.dart';
 import 'package:el_race/core/ui/adaptive_glass.dart';
 import 'package:el_race/core/notifications/app_notifications_repository.dart';
 import 'package:el_race/core/notifications/notification_config_service.dart';
@@ -99,10 +100,10 @@ class _HomeGlassAppBarState extends State<HomeGlassAppBar> {
     // Poll notification counter every 5 seconds (iOS often misses FCM Dart wake).
     _notificationPollTimer = Timer.periodic(
       Duration(seconds: NotificationConfigService.current.appInboxV2 ? 60 : 5),
-      (_) => _loadNotificationCount(),
+      (_) => _loadNotificationCount(trigger: 'header_poll'),
     );
     if (NotificationConfigService.current.appInboxV2) {
-      _loadNotificationCount();
+      _loadNotificationCount(trigger: 'header_mount');
     }
   }
 
@@ -124,10 +125,16 @@ class _HomeGlassAppBarState extends State<HomeGlassAppBar> {
     }
   }
 
-  Future<void> _loadNotificationCount() async {
+  Future<void> _loadNotificationCount({String trigger = 'direct'}) async {
+    CounterRefreshTrace.trigger('notification_bell', trigger);
     if (NotificationConfigService.current.appInboxV2) {
       try {
-        final count = await NotificationInboxRepository.refreshBadge();
+        final count = await CounterRefreshTrace.io<int>(
+          domain: 'notification_bell_v2',
+          operation: 'GET /v2/notifications/unread_count',
+          trigger: trigger,
+          call: NotificationInboxRepository.refreshBadge,
+        );
         if (mounted) setState(() => _notificationCount = count);
       } catch (_) {}
       return;
@@ -146,7 +153,9 @@ class _HomeGlassAppBarState extends State<HomeGlassAppBar> {
   }
 
   Future<void> _loadApprovalCount() async {
-    final count = await ApprovalCountService.getTotalApprovalCount();
+    final count = await ApprovalCountService.getTotalApprovalCount(
+      trigger: 'header_read',
+    );
     if (mounted) setState(() => _approvalCount = count);
   }
 

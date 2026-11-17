@@ -2,6 +2,7 @@ import 'package:el_race/core/utils/responsive_breakpoints.dart';
 import 'dart:convert';
 
 import 'package:el_race/core/services/approval_count_service.dart';
+import 'package:el_race/core/diagnostics/counter_refresh_trace.dart';
 import 'package:el_race/core/utils/shared_pref.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
@@ -354,6 +355,11 @@ class _ApprovalsScreenState extends State<ApprovalsScreen> {
 
   /// Loads a single category in the background and updates state when done.
   Future<void> _loadCategory(String categoryKey, {bool force = false}) async {
+    CounterRefreshTrace.trigger(
+      'waiting_list',
+      force ? 'forced_reload' : 'screen_load',
+      fields: <String, Object?>{'category': categoryKey},
+    );
     // Never skip a forced refresh while a previous load is in flight — that
     // caused employee-request (and other) lists to stay stale after approve/reject.
     if (!force && _categoryLoading[categoryKey] == true) {
@@ -385,7 +391,13 @@ class _ApprovalsScreenState extends State<ApprovalsScreen> {
     });
 
     try {
-      final items = await _fetchCategoryData(categoryKey);
+      final items = await CounterRefreshTrace.io<List<dynamic>>(
+        domain: 'waiting_list',
+        operation: 'GET /api/my_approvals_grouped',
+        trigger: force ? 'forced_reload' : 'screen_load',
+        fields: <String, Object?>{'category': categoryKey},
+        call: () => _fetchCategoryData(categoryKey),
+      );
       if (!mounted) return;
       // Drop stale responses from an older force-refresh that finished late.
       if ((_categoryFetchGeneration[categoryKey] ?? 0) != fetchGeneration) {
@@ -437,6 +449,14 @@ class _ApprovalsScreenState extends State<ApprovalsScreen> {
         '✅ [ApprovalsScreen] Loaded $categoryKey with ${items.length} items',
       );
       _syncApprovalBadgeCountIfReady();
+      CounterRefreshTrace.state(
+        'waiting_list',
+        'category_loaded',
+        fields: <String, Object?>{
+          'category': categoryKey,
+          'records': items.length,
+        },
+      );
       _warmCategoryPhotos(categoryKey, items);
       if (kDebugMode && categoryKey == 'invoice') {
         _upgradeDebugWaitingInvoiceIfNeeded();
@@ -589,6 +609,16 @@ class _ApprovalsScreenState extends State<ApprovalsScreen> {
   }
 
   Future<void> _refreshApprovalsAfterAction([String? recordId]) async {
+    CounterRefreshTrace.trigger(
+      'waiting_list',
+      recordId == null
+          ? 'manual_or_external_refresh'
+          : 'approve_reject_success',
+      fields: <String, Object?>{
+        'records_before': allItems.length,
+        'counter_before': ApprovalCountService.cachedCountOrZero,
+      },
+    );
     debugPrint('🔁 [ApprovalsScreen] Refresh requested after approve/reject');
     if (recordId != null && recordId.isNotEmpty) {
       _dropWaitingItem(recordId);
@@ -601,6 +631,14 @@ class _ApprovalsScreenState extends State<ApprovalsScreen> {
       await _loadAllCategoriesInBackground(force: true);
       if (!mounted) return;
       _syncApprovalBadgeCountIfReady();
+      CounterRefreshTrace.state(
+        'waiting_list',
+        'action_reconciled',
+        fields: <String, Object?>{
+          'records_after': allItems.length,
+          'counter_after': ApprovalCountService.cachedCountOrZero,
+        },
+      );
       _fetchRorData();
     } finally {
       _selfRefresh = false;

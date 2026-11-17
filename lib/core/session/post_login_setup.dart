@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:el_race/chat/chat.dart';
+import 'package:el_race/core/diagnostics/counter_refresh_trace.dart';
 import 'package:el_race/core/firebase/firebase_session.dart';
 import 'package:el_race/core/hr_management/providers/hr_management_providers.dart';
 import 'package:el_race/core/services/attendance_status_sync_service.dart';
@@ -73,6 +74,7 @@ class PostLoginSetup {
 
   /// Run UI/session side effects after login (widgets, attendance, home data).
   static Future<void> applyAfterLogin(BuildContext context) async {
+    CounterRefreshTrace.trigger('lifecycle', 'login_success');
     // Start the session clock (elrace.mobile_session_max_hours). Not awaited
     // so the context below is used before any async gap.
     unawaited(SessionExpiryService.markLogin().catchError((_) {}));

@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:el_race/core/app_globals.dart';
+import 'package:el_race/core/diagnostics/counter_refresh_trace.dart';
 import 'package:el_race/core/app_notices/app_notice_gate.dart';
 import 'package:el_race/core/firebase/firebase_session.dart';
 import 'package:el_race/core/services/attendance_status_sync_service.dart';
@@ -76,13 +77,16 @@ class ResumeCoordinator {
   /// Entry point — called from `main.dart`'s lifecycle observer on
   /// `AppLifecycleState.resumed`. Returns immediately; all work is deferred.
   void onResumed() {
+    CounterRefreshTrace.trigger('lifecycle', 'app_resume');
     // A splash restart tears down the route stack and re-primes everything
     // on the way back in — resume work would race the new splash for CPU.
     if (isRestartingFromSplashTimeout.value) {
+      CounterRefreshTrace.state('lifecycle', 'resume_skipped_splash_restart');
       debugPrint('⏱️ [resume] skipped — splash restart in flight');
       return;
     }
     if (_inFlight) {
+      CounterRefreshTrace.state('lifecycle', 'resume_coalesced_in_flight');
       debugPrint('⏱️ [resume] skipped — previous resume still in flight');
       return;
     }
@@ -97,7 +101,10 @@ class ResumeCoordinator {
       // App update and maintenance (signed in or not).
       unawaited(AppNoticeGate.onResume());
       if (SharedPref.isUserAuthenticated()) {
+        CounterRefreshTrace.state('lifecycle', 'resume_authenticated_tier1');
         unawaited(_runAuthenticatedTier1());
+      } else {
+        CounterRefreshTrace.state('lifecycle', 'resume_unauthenticated');
       }
     });
 
@@ -106,10 +113,13 @@ class ResumeCoordinator {
   }
 
   Future<void> _runAuthenticatedTier1() async {
+    CounterRefreshTrace.trigger('global_badges', 'authenticated_resume');
     // Admin force-logout first — skip resume APIs if session was killed.
     await ForceLogoutGuard.instance.checkOnForeground();
     if (!SharedPref.isUserAuthenticated()) return;
-    unawaited(BadgeRefreshService.refreshOnResume());
+    unawaited(
+      BadgeRefreshService.refreshOnResume(trigger: 'authenticated_resume'),
+    );
     // Keep Odoo expo_token fresh after long sessions / token rotation.
     unawaited(FirebaseService.syncFcmTokenToOdoo());
     // Firebase ID tokens expire after an hour, so a resume from long

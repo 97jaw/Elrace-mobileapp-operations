@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:el_race/core/diagnostics/counter_refresh_trace.dart';
 import 'package:flutter/foundation.dart';
 
 import '../repositories/chat_repository.dart';
@@ -18,6 +19,7 @@ class ChatUnreadBadgeService {
 
   /// Start (or retry) the Firebase unread subscription. Safe to call often.
   void ensureListening() {
+    CounterRefreshTrace.trigger('chat_unread', 'ensure_listening');
     if (_trySubscribe()) return;
     _attachRetries();
   }
@@ -45,6 +47,11 @@ class ChatUnreadBadgeService {
     _unreadSub?.cancel();
     _unreadSub = ChatRepository.instance.subscribeToTotalUnreadCount().listen(
       (value) {
+        CounterRefreshTrace.trigger(
+          'chat_unread',
+          'firestore_snapshot',
+          fields: <String, Object?>{'count': value},
+        );
         if (count.value != value) {
           count.value = value;
         }

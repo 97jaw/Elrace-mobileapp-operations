@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import 'package:el_race/core/diagnostics/counter_refresh_trace.dart';
 import 'package:el_race/core/utils/shared_pref.dart';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
@@ -81,6 +82,11 @@ class ApprovalCountService {
     final next = odooCount < 0 ? 0 : odooCount;
     final changed = _cachedOdooCount != next;
     _cachedOdooCount = next;
+    CounterRefreshTrace.state(
+      'waiting',
+      'cache_updated',
+      fields: <String, Object?>{'odoo_count': next, 'changed': changed},
+    );
     if (changed) {
       notifyListeners();
     }
@@ -93,6 +99,11 @@ class ApprovalCountService {
         _signDocumentCount != next || _signDocumentFlagOn != flagOn;
     _signDocumentCount = next;
     _signDocumentFlagOn = flagOn;
+    CounterRefreshTrace.trigger(
+      'waiting_sign_document',
+      'firestore_snapshot',
+      fields: <String, Object?>{'count': next, 'enabled': flagOn},
+    );
     if (changed) {
       notifyListeners();
     }
@@ -105,15 +116,22 @@ class ApprovalCountService {
   /// Invalidates the Odoo cache only; SD stays until the watcher clears it.
   static void invalidateCache() {
     _cachedOdooCount = -1;
+    CounterRefreshTrace.state('waiting', 'cache_invalidated');
   }
 
-  static Future<int> getTotalApprovalCount() async {
+  static Future<int> getTotalApprovalCount({String trigger = 'direct'}) async {
+    CounterRefreshTrace.trigger(
+      'waiting',
+      trigger,
+      fields: <String, Object?>{'cache_hit': _cachedOdooCount >= 0},
+    );
     if (_cachedOdooCount >= 0) {
       return _cachedOdooCount + _sdPart;
     }
     try {
       final token = SharedPref.getLoginData().result?.token;
       if (token == null || token.isEmpty) {
+        CounterRefreshTrace.state('waiting', 'skipped_no_auth');
         return _sdPart;
       }
 
@@ -126,6 +144,15 @@ class ApprovalCountService {
 
       final odoo = results.reduce((a, b) => a + b);
       _cachedOdooCount = odoo;
+      CounterRefreshTrace.state(
+        'waiting',
+        'refresh_complete',
+        fields: <String, Object?>{
+          'odoo_count': odoo,
+          'sign_document_count': _sdPart,
+          'total': odoo + _sdPart,
+        },
+      );
       // Sign Document comes from TimesheetBadgeWatcher (live), not a one-shot.
       return odoo + _sdPart;
     } catch (e) {
@@ -135,55 +162,64 @@ class ApprovalCountService {
   }
 
   static Future<int> _fetchCategoryCount(String category, String token) async {
-    try {
-      final headers = {
-        'Content-Type': 'application/json',
-        'Accept': 'application/json',
-        'Authorization': 'Bearer $token',
-      };
-
-      final url = Uri.parse('https://erp.elrace.com/api/my_approvals_grouped');
-
-      final body = jsonEncode({
-        'jsonrpc': '2.0',
-        'params': {
-          'group_type': category,
-        },
-      });
-
-      final request = http.Request('GET', url)
-        ..headers.addAll(headers)
-        ..body = body;
-
-      final response = await request.send().timeout(
-            const Duration(seconds: 10),
-          );
-
-      if (response.statusCode == 200) {
-        final responseBody = await response.stream.bytesToString();
-        final Map<String, dynamic> jsonData = json.decode(responseBody);
-        final result = jsonData['result'];
-
-        if (result != null && result['data'] != null) {
-          const Map<String, String> responseKeys = {
-            'hr': 'human_resources',
-            'rfq': 'rfq',
-            'invoice': 'invoices',
-            'petty_cash': 'petty_cash',
+    return CounterRefreshTrace.io<int>(
+      domain: 'waiting',
+      operation: 'GET /api/my_approvals_grouped',
+      trigger: 'count_refresh',
+      fields: <String, Object?>{'category': category},
+      call: () async {
+        try {
+          final headers = {
+            'Content-Type': 'application/json',
+            'Accept': 'application/json',
+            'Authorization': 'Bearer $token',
           };
 
-          final actualKey = responseKeys[category] ?? category;
-          final data = result['data'][actualKey];
+          final url =
+              Uri.parse('https://erp.elrace.com/api/my_approvals_grouped');
 
-          if (data is List) {
-            return data.length;
+          final body = jsonEncode({
+            'jsonrpc': '2.0',
+            'params': {
+              'group_type': category,
+            },
+          });
+
+          final request = http.Request('GET', url)
+            ..headers.addAll(headers)
+            ..body = body;
+
+          final response = await request.send().timeout(
+                const Duration(seconds: 10),
+              );
+
+          if (response.statusCode == 200) {
+            final responseBody = await response.stream.bytesToString();
+            final Map<String, dynamic> jsonData = json.decode(responseBody);
+            final result = jsonData['result'];
+
+            if (result != null && result['data'] != null) {
+              const Map<String, String> responseKeys = {
+                'hr': 'human_resources',
+                'rfq': 'rfq',
+                'invoice': 'invoices',
+                'petty_cash': 'petty_cash',
+              };
+
+              final actualKey = responseKeys[category] ?? category;
+              final data = result['data'][actualKey];
+
+              if (data is List) {
+                return data.length;
+              }
+            }
           }
+          return 0;
+        } catch (e) {
+          debugPrint('ApprovalCountService._fetchCategoryCount($category): $e');
+          return 0;
         }
-      }
-      return 0;
-    } catch (e) {
-      debugPrint('ApprovalCountService._fetchCategoryCount($category): $e');
-      return 0;
-    }
+      },
+    );
   }
 }

@@ -1,0 +1,33 @@
+{"seq":617,"elapsed_ms":1157629,"kind":"trigger","domain":"waiting_list","name":"screen_load","category":"invoice"}
+{"seq":618,"elapsed_ms":1157630,"kind":"io_start","domain":"waiting_list","name":"GET /api/my_approvals_grouped","trigger":"screen_load","call":1,"category":"invoice"}
+{"seq":619,"elapsed_ms":1157632,"kind":"trigger","domain":"waiting_list","name":"screen_load","category":"hr"}
+{"seq":620,"elapsed_ms":1157633,"kind":"io_start","domain":"waiting_list","name":"GET /api/my_approvals_grouped","trigger":"screen_load","call":2,"category":"hr"}
+{"seq":621,"elapsed_ms":1157633,"kind":"trigger","domain":"waiting_list","name":"screen_load","category":"rfq"}
+{"seq":622,"elapsed_ms":1157633,"kind":"io_start","domain":"waiting_list","name":"GET /api/my_approvals_grouped","trigger":"screen_load","call":3,"category":"rfq"}
+{"seq":623,"elapsed_ms":1157634,"kind":"trigger","domain":"waiting_list","name":"screen_load","category":"petty_cash"}
+{"seq":624,"elapsed_ms":1157634,"kind":"io_start","domain":"waiting_list","name":"GET /api/my_approvals_grouped","trigger":"screen_load","call":4,"category":"petty_cash"}
+{"seq":625,"elapsed_ms":1157687,"kind":"trigger","domain":"waiting","name":"header_read","cache_hit":true}
+{"seq":626,"elapsed_ms":1157688,"kind":"trigger","domain":"chat_unread","name":"ensure_listening"}
+{"seq":627,"elapsed_ms":1157690,"kind":"trigger","domain":"notification_bell","name":"header_mount"}
+{"seq":628,"elapsed_ms":1157691,"kind":"io_start","domain":"notification_bell_v2","name":"GET /v2/notifications/unread_count","trigger":"header_mount","call":41}
+{"seq":629,"elapsed_ms":1158449,"kind":"trigger","domain":"launcher_badge","name":"set_count","count":2,"force":false}
+{"seq":630,"elapsed_ms":1158449,"kind":"io_end","domain":"notification_bell_v2","name":"GET /v2/notifications/unread_count","trigger":"header_mount","call":41,"status":"success","duration_ms":758}
+{"seq":631,"elapsed_ms":1158477,"kind":"io_end","domain":"waiting_list","name":"GET /api/my_approvals_grouped","trigger":"screen_load","call":2,"status":"success","duration_ms":843,"category":"hr"}
+{"seq":632,"elapsed_ms":1158485,"kind":"state","domain":"waiting","name":"cache_updated","odoo_count":24,"changed":true}
+{"seq":633,"elapsed_ms":1158485,"kind":"trigger","domain":"waiting","name":"header_read","cache_hit":true}
+{"seq":634,"elapsed_ms":1158485,"kind":"trigger","domain":"waiting","name":"header_read","cache_hit":true}
+{"seq":635,"elapsed_ms":1158486,"kind":"trigger","domain":"waiting","name":"header_read","cache_hit":true}
+{"seq":636,"elapsed_ms":1158486,"kind":"state","domain":"waiting_list","name":"category_loaded","category":"hr","records":0}
+{"seq":637,"elapsed_ms":1158554,"kind":"io_end","domain":"waiting_list","name":"GET /api/my_approvals_grouped","trigger":"screen_load","call":4,"status":"success","duration_ms":919,"category":"petty_cash"}
+{"seq":638,"elapsed_ms":1158555,"kind":"state","domain":"waiting","name":"cache_updated","odoo_count":24,"changed":false}
+{"seq":639,"elapsed_ms":1158555,"kind":"state","domain":"waiting_list","name":"category_loaded","category":"petty_cash","records":0}
+{"seq":640,"elapsed_ms":1158611,"kind":"io_end","domain":"waiting_list","name":"GET /api/my_approvals_grouped","trigger":"screen_load","call":3,"status":"success","duration_ms":977,"category":"rfq"}
+{"seq":641,"elapsed_ms":1158612,"kind":"state","domain":"waiting","name":"cache_updated","odoo_count":24,"changed":false}
+{"seq":642,"elapsed_ms":1158612,"kind":"state","domain":"waiting_list","name":"category_loaded","category":"rfq","records":0}
+{"seq":643,"elapsed_ms":1159436,"kind":"io_end","domain":"waiting_list","name":"GET /api/my_approvals_grouped","trigger":"screen_load","call":1,"status":"success","duration_ms":1806,"category":"invoice"}
+{"seq":644,"elapsed_ms":1159438,"kind":"state","domain":"waiting","name":"cache_updated","odoo_count":25,"changed":true}
+{"seq":645,"elapsed_ms":1159438,"kind":"trigger","domain":"waiting","name":"header_read","cache_hit":true}
+{"seq":646,"elapsed_ms":1159439,"kind":"trigger","domain":"waiting","name":"header_read","cache_hit":true}
+{"seq":647,"elapsed_ms":1159439,"kind":"trigger","domain":"waiting","name":"header_read","cache_hit":true}
+{"seq":648,"elapsed_ms":1159439,"kind":"state","domain":"waiting_list","name":"category_loaded","category":"invoice","records":0}
+{"seq":649,"elapsed_ms":1159451,"kind":"trigger","domain":"chat_unread","name":"firestore_snapshot","count":0}

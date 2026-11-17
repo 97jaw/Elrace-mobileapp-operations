@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:flutter/foundation.dart' show kDebugMode;
 
 import 'package:el_race/core/keyboard/ios_numeric_done_bar.dart';
+import 'package:el_race/core/diagnostics/counter_refresh_trace.dart';
 import 'package:el_race/core/keyboard/unfocus_on_navigate.dart';
 import 'package:el_race/core/ui/device_ui_capability.dart';
 import 'package:el_race/core/services/notification_storage_service.dart';
@@ -106,6 +107,13 @@ Future<void> _markChatPushDelivered(Map<String, dynamic> data) async {
 // Background message handler - يجب أن يكون خارج main()
 @pragma('vm:entry-point')
 Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
+  CounterRefreshTrace.trigger(
+    'push',
+    'background_received',
+    fields: <String, Object?>{
+      'category': '${message.data['category'] ?? message.data['type'] ?? ''}',
+    },
+  );
   // Initialize Firebase if not already initialized
   await Firebase.initializeApp();
   // Mute prefs live in SharedPreferences — must init in this isolate.
@@ -827,6 +835,11 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
+    CounterRefreshTrace.trigger(
+      'lifecycle',
+      'state_changed',
+      fields: <String, Object?>{'state': state.name},
+    );
     if (state == AppLifecycleState.resumed) {
       // T0 — synchronous UI chrome only; everything else is deferred.
       _enableAndroidImmersiveMode();

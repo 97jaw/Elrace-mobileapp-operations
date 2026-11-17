@@ -3,6 +3,7 @@ import 'dart:convert';
 
 import 'package:el_race/chat/models/models.dart';
 import 'package:el_race/core/app_globals.dart';
+import 'package:el_race/core/diagnostics/counter_refresh_trace.dart';
 import 'package:el_race/core/notifications/notification_config_service.dart';
 import 'package:el_race/core/notifications/notification_device_service.dart';
 import 'package:el_race/core/notifications/notification_inbox_repository.dart';
@@ -190,6 +191,11 @@ class FirebaseService {
       } else if (message.data.containsKey('model')) {
         category = message.data['model'].toString();
       }
+      CounterRefreshTrace.trigger(
+        'push',
+        'foreground_received',
+        fields: <String, Object?>{'category': category},
+      );
 
       // Waiting / timesheet approval: refresh home counters even if muted
       // (banner may be suppressed; badges still need to move).
@@ -240,6 +246,7 @@ class FirebaseService {
 
     // Handle background-tap messages (when app is resumed from notification)
     FirebaseMessaging.onMessageOpenedApp.listen((RemoteMessage message) async {
+      CounterRefreshTrace.trigger('push', 'background_tap');
       final messageId = message.messageId ?? message.data.toString();
       print('📲 [BACKGROUND TAP] App opened from notification!');
       print('   - Message ID: $messageId');
@@ -270,6 +277,7 @@ class FirebaseService {
         .getInitialMessage()
         .then((RemoteMessage? message) async {
       if (message != null) {
+        CounterRefreshTrace.trigger('push', 'terminated_tap');
         final messageId = message.messageId ?? message.data.toString();
         print('📲 [TERMINATED TAP] App opened from notification!');
         print('   - Message ID: $messageId');
@@ -781,6 +789,11 @@ class FirebaseService {
     )) {
       return;
     }
+    CounterRefreshTrace.trigger(
+      'waiting',
+      'approval_push',
+      fields: <String, Object?>{'category': category},
+    );
     ApprovalCountService.invalidateCache();
     await BadgeRefreshService.refreshWaitingAndBellThrottled(
       reason: 'approval_push',

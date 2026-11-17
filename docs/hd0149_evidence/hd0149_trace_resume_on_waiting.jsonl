@@ -1,0 +1,102 @@
+{"seq":650,"elapsed_ms":1194282,"kind":"trigger","domain":"lifecycle","name":"state_changed","state":"inactive"}
+{"seq":651,"elapsed_ms":1195675,"kind":"trigger","domain":"lifecycle","name":"state_changed","state":"hidden"}
+{"seq":652,"elapsed_ms":1195682,"kind":"trigger","domain":"lifecycle","name":"state_changed","state":"paused"}
+{"seq":653,"elapsed_ms":1199384,"kind":"trigger","domain":"lifecycle","name":"state_changed","state":"hidden"}
+{"seq":654,"elapsed_ms":1199385,"kind":"trigger","domain":"lifecycle","name":"state_changed","state":"inactive"}
+{"seq":655,"elapsed_ms":1199590,"kind":"trigger","domain":"lifecycle","name":"state_changed","state":"resumed"}
+{"seq":656,"elapsed_ms":1199594,"kind":"trigger","domain":"lifecycle","name":"app_resume"}
+{"seq":657,"elapsed_ms":1199618,"kind":"state","domain":"lifecycle","name":"resume_authenticated_tier1"}
+{"seq":658,"elapsed_ms":1199618,"kind":"trigger","domain":"global_badges","name":"authenticated_resume"}
+{"seq":659,"elapsed_ms":1200160,"kind":"trigger","domain":"global_badges","name":"authenticated_resume"}
+{"seq":660,"elapsed_ms":1200160,"kind":"state","domain":"waiting","name":"cache_invalidated"}
+{"seq":661,"elapsed_ms":1200160,"kind":"io_start","domain":"notification_bell","name":"syncBadgeFromServer","trigger":"authenticated_resume","call":6}
+{"seq":662,"elapsed_ms":1200161,"kind":"trigger","domain":"notification_bell","name":"server_sync_requested"}
+{"seq":663,"elapsed_ms":1200161,"kind":"io_start","domain":"notification_bell","name":"GET /notifications","trigger":"server_sync","call":6}
+{"seq":664,"elapsed_ms":1200162,"kind":"trigger","domain":"waiting","name":"authenticated_resume","cache_hit":false}
+{"seq":665,"elapsed_ms":1200163,"kind":"io_start","domain":"waiting","name":"GET /api/my_approvals_grouped","trigger":"count_refresh","call":109,"category":"hr"}
+{"seq":666,"elapsed_ms":1200163,"kind":"io_start","domain":"waiting","name":"GET /api/my_approvals_grouped","trigger":"count_refresh","call":110,"category":"rfq"}
+{"seq":667,"elapsed_ms":1200164,"kind":"io_start","domain":"waiting","name":"GET /api/my_approvals_grouped","trigger":"count_refresh","call":111,"category":"invoice"}
+{"seq":668,"elapsed_ms":1200164,"kind":"io_start","domain":"waiting","name":"GET /api/my_approvals_grouped","trigger":"count_refresh","call":112,"category":"petty_cash"}
+{"seq":669,"elapsed_ms":1200167,"kind":"trigger","domain":"timesheet_badges","name":"start_existing"}
+{"seq":670,"elapsed_ms":1200167,"kind":"trigger","domain":"timesheet_badges","name":"subscriptions_restart"}
+{"seq":671,"elapsed_ms":1200170,"kind":"trigger","domain":"timesheet_badges","name":"start_existing"}
+{"seq":672,"elapsed_ms":1200170,"kind":"trigger","domain":"timesheet_badges","name":"subscriptions_restart"}
+{"seq":673,"elapsed_ms":1200600,"kind":"io_end","domain":"notification_bell","name":"GET /notifications","trigger":"server_sync","call":6,"status":"success","duration_ms":439}
+{"seq":674,"elapsed_ms":1200600,"kind":"state","domain":"notification_bell","name":"server_sync_complete","server_unread":2,"baseline":null,"previous":2,"displayed":2}
+{"seq":675,"elapsed_ms":1200600,"kind":"trigger","domain":"launcher_badge","name":"set_count","count":2,"force":true}
+{"seq":676,"elapsed_ms":1200603,"kind":"io_end","domain":"notification_bell","name":"syncBadgeFromServer","trigger":"authenticated_resume","call":6,"status":"success","duration_ms":442}
+{"seq":677,"elapsed_ms":1200639,"kind":"io_end","domain":"waiting","name":"GET /api/my_approvals_grouped","trigger":"count_refresh","call":112,"status":"success","duration_ms":474,"category":"petty_cash"}
+{"seq":678,"elapsed_ms":1200649,"kind":"io_end","domain":"waiting","name":"GET /api/my_approvals_grouped","trigger":"count_refresh","call":109,"status":"success","duration_ms":485,"category":"hr"}
+{"seq":679,"elapsed_ms":1200718,"kind":"io_end","domain":"waiting","name":"GET /api/my_approvals_grouped","trigger":"count_refresh","call":110,"status":"success","duration_ms":554,"category":"rfq"}
+{"seq":680,"elapsed_ms":1200960,"kind":"trigger","domain":"waiting_sign_document","name":"firestore_snapshot","count":0}
+{"seq":681,"elapsed_ms":1200960,"kind":"trigger","domain":"waiting_sign_document","name":"firestore_snapshot","count":0,"enabled":true}
+{"seq":682,"elapsed_ms":1200960,"kind":"trigger","domain":"waiting","name":"header_read","cache_hit":false}
+{"seq":683,"elapsed_ms":1200961,"kind":"io_start","domain":"waiting","name":"GET /api/my_approvals_grouped","trigger":"count_refresh","call":113,"category":"hr"}
+{"seq":684,"elapsed_ms":1200962,"kind":"io_start","domain":"waiting","name":"GET /api/my_approvals_grouped","trigger":"count_refresh","call":114,"category":"rfq"}
+{"seq":685,"elapsed_ms":1200962,"kind":"io_start","domain":"waiting","name":"GET /api/my_approvals_grouped","trigger":"count_refresh","call":115,"category":"invoice"}
+{"seq":686,"elapsed_ms":1200963,"kind":"io_start","domain":"waiting","name":"GET /api/my_approvals_grouped","trigger":"count_refresh","call":116,"category":"petty_cash"}
+{"seq":687,"elapsed_ms":1200963,"kind":"trigger","domain":"waiting","name":"header_read","cache_hit":false}
+{"seq":688,"elapsed_ms":1200964,"kind":"io_start","domain":"waiting","name":"GET /api/my_approvals_grouped","trigger":"count_refresh","call":117,"category":"hr"}
+{"seq":689,"elapsed_ms":1200964,"kind":"io_start","domain":"waiting","name":"GET /api/my_approvals_grouped","trigger":"count_refresh","call":118,"category":"rfq"}
+{"seq":690,"elapsed_ms":1200964,"kind":"io_start","domain":"waiting","name":"GET /api/my_approvals_grouped","trigger":"count_refresh","call":119,"category":"invoice"}
+{"seq":691,"elapsed_ms":1200965,"kind":"io_start","domain":"waiting","name":"GET /api/my_approvals_grouped","trigger":"count_refresh","call":120,"category":"petty_cash"}
+{"seq":692,"elapsed_ms":1200965,"kind":"trigger","domain":"waiting","name":"header_read","cache_hit":false}
+{"seq":693,"elapsed_ms":1200966,"kind":"io_start","domain":"waiting","name":"GET /api/my_approvals_grouped","trigger":"count_refresh","call":121,"category":"hr"}
+{"seq":694,"elapsed_ms":1200966,"kind":"io_start","domain":"waiting","name":"GET /api/my_approvals_grouped","trigger":"count_refresh","call":122,"category":"rfq"}
+{"seq":695,"elapsed_ms":1200966,"kind":"io_start","domain":"waiting","name":"GET /api/my_approvals_grouped","trigger":"count_refresh","call":123,"category":"invoice"}
+{"seq":696,"elapsed_ms":1200966,"kind":"io_start","domain":"waiting","name":"GET /api/my_approvals_grouped","trigger":"count_refresh","call":124,"category":"petty_cash"}
+{"seq":697,"elapsed_ms":1200973,"kind":"trigger","domain":"notification_bell_firestore","name":"firestore_snapshot","count":0}
+{"seq":698,"elapsed_ms":1200973,"kind":"trigger","domain":"launcher_badge","name":"set_count","count":2,"force":true}
+{"seq":699,"elapsed_ms":1200990,"kind":"trigger","domain":"waiting","name":"header_read","cache_hit":false}
+{"seq":700,"elapsed_ms":1200991,"kind":"io_start","domain":"waiting","name":"GET /api/my_approvals_grouped","trigger":"count_refresh","call":125,"category":"hr"}
+{"seq":701,"elapsed_ms":1200992,"kind":"io_start","domain":"waiting","name":"GET /api/my_approvals_grouped","trigger":"count_refresh","call":126,"category":"rfq"}
+{"seq":702,"elapsed_ms":1200993,"kind":"io_start","domain":"waiting","name":"GET /api/my_approvals_grouped","trigger":"count_refresh","call":127,"category":"invoice"}
+{"seq":703,"elapsed_ms":1200993,"kind":"io_start","domain":"waiting","name":"GET /api/my_approvals_grouped","trigger":"count_refresh","call":128,"category":"petty_cash"}
+{"seq":704,"elapsed_ms":1200993,"kind":"trigger","domain":"waiting","name":"header_read","cache_hit":false}
+{"seq":705,"elapsed_ms":1200994,"kind":"io_start","domain":"waiting","name":"GET /api/my_approvals_grouped","trigger":"count_refresh","call":129,"category":"hr"}
+{"seq":706,"elapsed_ms":1200994,"kind":"io_start","domain":"waiting","name":"GET /api/my_approvals_grouped","trigger":"count_refresh","call":130,"category":"rfq"}
+{"seq":707,"elapsed_ms":1200995,"kind":"io_start","domain":"waiting","name":"GET /api/my_approvals_grouped","trigger":"count_refresh","call":131,"category":"invoice"}
+{"seq":708,"elapsed_ms":1200995,"kind":"io_start","domain":"waiting","name":"GET /api/my_approvals_grouped","trigger":"count_refresh","call":132,"category":"petty_cash"}
+{"seq":709,"elapsed_ms":1200995,"kind":"trigger","domain":"waiting","name":"header_read","cache_hit":false}
+{"seq":710,"elapsed_ms":1200996,"kind":"io_start","domain":"waiting","name":"GET /api/my_approvals_grouped","trigger":"count_refresh","call":133,"category":"hr"}
+{"seq":711,"elapsed_ms":1200997,"kind":"io_start","domain":"waiting","name":"GET /api/my_approvals_grouped","trigger":"count_refresh","call":134,"category":"rfq"}
+{"seq":712,"elapsed_ms":1200997,"kind":"io_start","domain":"waiting","name":"GET /api/my_approvals_grouped","trigger":"count_refresh","call":135,"category":"invoice"}
+{"seq":713,"elapsed_ms":1200997,"kind":"io_start","domain":"waiting","name":"GET /api/my_approvals_grouped","trigger":"count_refresh","call":136,"category":"petty_cash"}
+{"seq":714,"elapsed_ms":1201459,"kind":"io_end","domain":"waiting","name":"GET /api/my_approvals_grouped","trigger":"count_refresh","call":116,"status":"success","duration_ms":496,"category":"petty_cash"}
+{"seq":715,"elapsed_ms":1201473,"kind":"io_end","domain":"waiting","name":"GET /api/my_approvals_grouped","trigger":"count_refresh","call":113,"status":"success","duration_ms":511,"category":"hr"}
+{"seq":716,"elapsed_ms":1201475,"kind":"io_end","domain":"waiting","name":"GET /api/my_approvals_grouped","trigger":"count_refresh","call":117,"status":"success","duration_ms":511,"category":"hr"}
+{"seq":717,"elapsed_ms":1201478,"kind":"io_end","domain":"waiting","name":"GET /api/my_approvals_grouped","trigger":"count_refresh","call":111,"status":"success","duration_ms":1314,"category":"invoice"}
+{"seq":718,"elapsed_ms":1201478,"kind":"state","domain":"waiting","name":"refresh_complete","odoo_count":0,"sign_document_count":0,"total":0}
+{"seq":719,"elapsed_ms":1201479,"kind":"trigger","domain":"launcher_badge","name":"set_count","count":2,"force":true}
+{"seq":720,"elapsed_ms":1201480,"kind":"state","domain":"launcher_badge","name":"set_after_global_refresh","count":2,"trigger":"authenticated_resume"}
+{"seq":721,"elapsed_ms":1201481,"kind":"state","domain":"global_badges","name":"refresh_finished","trigger":"authenticated_resume"}
+{"seq":722,"elapsed_ms":1201481,"kind":"trigger","domain":"waiting","name":"header_read","cache_hit":true}
+{"seq":723,"elapsed_ms":1201481,"kind":"trigger","domain":"waiting","name":"header_read","cache_hit":true}
+{"seq":724,"elapsed_ms":1201481,"kind":"trigger","domain":"waiting","name":"header_read","cache_hit":true}
+{"seq":725,"elapsed_ms":1201483,"kind":"io_end","domain":"waiting","name":"GET /api/my_approvals_grouped","trigger":"count_refresh","call":124,"status":"success","duration_ms":516,"category":"petty_cash"}
+{"seq":726,"elapsed_ms":1201515,"kind":"io_end","domain":"waiting","name":"GET /api/my_approvals_grouped","trigger":"count_refresh","call":121,"status":"success","duration_ms":549,"category":"hr"}
+{"seq":727,"elapsed_ms":1201566,"kind":"io_end","domain":"waiting","name":"GET /api/my_approvals_grouped","trigger":"count_refresh","call":120,"status":"success","duration_ms":601,"category":"petty_cash"}
+{"seq":728,"elapsed_ms":1201577,"kind":"io_end","domain":"waiting","name":"GET /api/my_approvals_grouped","trigger":"count_refresh","call":133,"status":"success","duration_ms":580,"category":"hr"}
+{"seq":729,"elapsed_ms":1201580,"kind":"io_end","domain":"waiting","name":"GET /api/my_approvals_grouped","trigger":"count_refresh","call":129,"status":"success","duration_ms":585,"category":"hr"}
+{"seq":730,"elapsed_ms":1201585,"kind":"io_end","domain":"waiting","name":"GET /api/my_approvals_grouped","trigger":"count_refresh","call":128,"status":"success","duration_ms":592,"category":"petty_cash"}
+{"seq":731,"elapsed_ms":1201596,"kind":"io_end","domain":"waiting","name":"GET /api/my_approvals_grouped","trigger":"count_refresh","call":136,"status":"success","duration_ms":598,"category":"petty_cash"}
+{"seq":732,"elapsed_ms":1201637,"kind":"io_end","domain":"waiting","name":"GET /api/my_approvals_grouped","trigger":"count_refresh","call":132,"status":"success","duration_ms":642,"category":"petty_cash"}
+{"seq":733,"elapsed_ms":1201655,"kind":"io_end","domain":"waiting","name":"GET /api/my_approvals_grouped","trigger":"count_refresh","call":114,"status":"success","duration_ms":692,"category":"rfq"}
+{"seq":734,"elapsed_ms":1201667,"kind":"io_end","domain":"waiting","name":"GET /api/my_approvals_grouped","trigger":"count_refresh","call":125,"status":"success","duration_ms":676,"category":"hr"}
+{"seq":735,"elapsed_ms":1201671,"kind":"io_end","domain":"waiting","name":"GET /api/my_approvals_grouped","trigger":"count_refresh","call":118,"status":"success","duration_ms":706,"category":"rfq"}
+{"seq":736,"elapsed_ms":1201679,"kind":"io_end","domain":"waiting","name":"GET /api/my_approvals_grouped","trigger":"count_refresh","call":122,"status":"success","duration_ms":712,"category":"rfq"}
+{"seq":737,"elapsed_ms":1201704,"kind":"io_end","domain":"waiting","name":"GET /api/my_approvals_grouped","trigger":"count_refresh","call":130,"status":"success","duration_ms":709,"category":"rfq"}
+{"seq":738,"elapsed_ms":1201736,"kind":"io_end","domain":"waiting","name":"GET /api/my_approvals_grouped","trigger":"count_refresh","call":134,"status":"success","duration_ms":739,"category":"rfq"}
+{"seq":739,"elapsed_ms":1201762,"kind":"io_end","domain":"waiting","name":"GET /api/my_approvals_grouped","trigger":"count_refresh","call":126,"status":"success","duration_ms":770,"category":"rfq"}
+{"seq":740,"elapsed_ms":1202539,"kind":"io_end","domain":"waiting","name":"GET /api/my_approvals_grouped","trigger":"count_refresh","call":115,"status":"success","duration_ms":1577,"category":"invoice"}
+{"seq":741,"elapsed_ms":1202540,"kind":"state","domain":"waiting","name":"refresh_complete","odoo_count":0,"sign_document_count":0,"total":0}
+{"seq":742,"elapsed_ms":1202544,"kind":"io_end","domain":"waiting","name":"GET /api/my_approvals_grouped","trigger":"count_refresh","call":119,"status":"success","duration_ms":1579,"category":"invoice"}
+{"seq":743,"elapsed_ms":1202544,"kind":"state","domain":"waiting","name":"refresh_complete","odoo_count":0,"sign_document_count":0,"total":0}
+{"seq":744,"elapsed_ms":1202546,"kind":"io_end","domain":"waiting","name":"GET /api/my_approvals_grouped","trigger":"count_refresh","call":131,"status":"success","duration_ms":1551,"category":"invoice"}
+{"seq":745,"elapsed_ms":1202546,"kind":"state","domain":"waiting","name":"refresh_complete","odoo_count":0,"sign_document_count":0,"total":0}
+{"seq":746,"elapsed_ms":1202577,"kind":"io_end","domain":"waiting","name":"GET /api/my_approvals_grouped","trigger":"count_refresh","call":123,"status":"success","duration_ms":1610,"category":"invoice"}
+{"seq":747,"elapsed_ms":1202577,"kind":"state","domain":"waiting","name":"refresh_complete","odoo_count":0,"sign_document_count":0,"total":0}
+{"seq":748,"elapsed_ms":1202625,"kind":"io_end","domain":"waiting","name":"GET /api/my_approvals_grouped","trigger":"count_refresh","call":135,"status":"success","duration_ms":1627,"category":"invoice"}
+{"seq":749,"elapsed_ms":1202626,"kind":"state","domain":"waiting","name":"refresh_complete","odoo_count":0,"sign_document_count":0,"total":0}
+{"seq":750,"elapsed_ms":1202633,"kind":"io_end","domain":"waiting","name":"GET /api/my_approvals_grouped","trigger":"count_refresh","call":127,"status":"success","duration_ms":1640,"category":"invoice"}
+{"seq":751,"elapsed_ms":1202634,"kind":"state","domain":"waiting","name":"refresh_complete","odoo_count":0,"sign_document_count":0,"total":0}

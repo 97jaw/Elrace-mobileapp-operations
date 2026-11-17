@@ -1,4 +1,5 @@
 import 'package:el_race/core/notifications/app_notifications_repository.dart';
+import 'package:el_race/core/diagnostics/counter_refresh_trace.dart';
 import 'package:el_race/core/services/app_icon_badge_service.dart';
 import 'package:el_race/core/services/approval_count_service.dart';
 import 'package:el_race/core/services/notification_storage_service.dart';
@@ -52,6 +53,13 @@ class BadgeRefreshService {
     Duration minInterval = homeReturnThrottle,
     String reason = '',
   }) async {
+    CounterRefreshTrace.trigger(
+      'global_badges',
+      reason.isEmpty ? 'throttled_request' : reason,
+      fields: <String, Object?>{
+        'minimum_interval_ms': minInterval.inMilliseconds,
+      },
+    );
     final now = DateTime.now();
     if (!shouldRunThrottled(
       lastRun: _lastThrottledRefresh,
@@ -59,11 +67,17 @@ class BadgeRefreshService {
       minInterval: minInterval,
     )) {
       debugPrint('BadgeRefreshService throttled ($reason)');
+      CounterRefreshTrace.state(
+        'global_badges',
+        'throttled',
+        fields: <String, Object?>{'trigger': reason},
+      );
       notifyListeners();
       return;
     }
     _lastThrottledRefresh = now;
-    await refreshOnResume();
+    await refreshOnResume(
+        trigger: reason.isEmpty ? 'throttled_request' : reason);
   }
 
   /// One shared server sync for all mounted badge widgets.
@@ -71,16 +85,27 @@ class BadgeRefreshService {
   /// After this completes, `NotificationStorageService.getLocalStoredCount()`
   /// and `ApprovalCountService.getTotalApprovalCount()` return fresh values
   /// from local storage / warm cache, so listener callbacks are cheap.
-  static Future<void> refreshOnResume() async {
-    if (_inFlight) return;
+  static Future<void> refreshOnResume({String trigger = 'app_resume'}) async {
+    CounterRefreshTrace.trigger('global_badges', trigger);
+    if (_inFlight) {
+      CounterRefreshTrace.state(
+        'global_badges',
+        'coalesced_in_flight',
+        fields: <String, Object?>{'trigger': trigger},
+      );
+      return;
+    }
     _inFlight = true;
     try {
       ApprovalCountService.invalidateCache();
       await Future.wait<void>([
-        NotificationStorageService.syncBadgeFromServer()
-            .timeout(const Duration(seconds: 10), onTimeout: () => 0)
-            .then((_) {}),
-        ApprovalCountService.getTotalApprovalCount()
+        CounterRefreshTrace.io<int>(
+          domain: 'notification_bell',
+          operation: 'syncBadgeFromServer',
+          trigger: trigger,
+          call: NotificationStorageService.syncBadgeFromServer,
+        ).timeout(const Duration(seconds: 10), onTimeout: () => 0).then((_) {}),
+        ApprovalCountService.getTotalApprovalCount(trigger: trigger)
             .timeout(const Duration(seconds: 15), onTimeout: () => 0)
             .then((_) {}),
       ]);
@@ -91,10 +116,20 @@ class BadgeRefreshService {
       final total =
           await AppNotificationsRepository.instance.addUnreadTo(local);
       await AppIconBadgeService.setCount(total, force: true);
+      CounterRefreshTrace.state(
+        'launcher_badge',
+        'set_after_global_refresh',
+        fields: <String, Object?>{'count': total, 'trigger': trigger},
+      );
     } catch (e) {
       debugPrint('BadgeRefreshService.refreshOnResume failed: $e');
     } finally {
       _inFlight = false;
+      CounterRefreshTrace.state(
+        'global_badges',
+        'refresh_finished',
+        fields: <String, Object?>{'trigger': trigger},
+      );
     }
     notifyListeners();
   }

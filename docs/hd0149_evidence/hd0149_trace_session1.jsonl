@@ -1,0 +1,217 @@
+{"seq":118,"elapsed_ms":28266,"kind":"trigger","domain":"lifecycle","name":"state_changed","state":"inactive"}
+{"seq":119,"elapsed_ms":30408,"kind":"trigger","domain":"lifecycle","name":"state_changed","state":"hidden"}
+{"seq":120,"elapsed_ms":30423,"kind":"trigger","domain":"lifecycle","name":"state_changed","state":"paused"}
+{"seq":121,"elapsed_ms":36539,"kind":"trigger","domain":"lifecycle","name":"state_changed","state":"hidden"}
+{"seq":122,"elapsed_ms":36540,"kind":"trigger","domain":"lifecycle","name":"state_changed","state":"inactive"}
+{"seq":123,"elapsed_ms":36982,"kind":"trigger","domain":"lifecycle","name":"state_changed","state":"resumed"}
+{"seq":124,"elapsed_ms":36983,"kind":"trigger","domain":"lifecycle","name":"app_resume"}
+{"seq":125,"elapsed_ms":37044,"kind":"state","domain":"lifecycle","name":"resume_authenticated_tier1"}
+{"seq":126,"elapsed_ms":37045,"kind":"trigger","domain":"global_badges","name":"authenticated_resume"}
+{"seq":127,"elapsed_ms":37994,"kind":"trigger","domain":"global_badges","name":"authenticated_resume"}
+{"seq":128,"elapsed_ms":37994,"kind":"state","domain":"waiting","name":"cache_invalidated"}
+{"seq":129,"elapsed_ms":37994,"kind":"io_start","domain":"notification_bell","name":"syncBadgeFromServer","trigger":"authenticated_resume","call":2}
+{"seq":130,"elapsed_ms":37994,"kind":"trigger","domain":"notification_bell","name":"server_sync_requested"}
+{"seq":131,"elapsed_ms":37995,"kind":"io_start","domain":"notification_bell","name":"GET /notifications","trigger":"server_sync","call":2}
+{"seq":132,"elapsed_ms":37996,"kind":"trigger","domain":"waiting","name":"authenticated_resume","cache_hit":false}
+{"seq":133,"elapsed_ms":37996,"kind":"io_start","domain":"waiting","name":"GET /api/my_approvals_grouped","trigger":"count_refresh","call":29,"category":"hr"}
+{"seq":134,"elapsed_ms":37997,"kind":"io_start","domain":"waiting","name":"GET /api/my_approvals_grouped","trigger":"count_refresh","call":30,"category":"rfq"}
+{"seq":135,"elapsed_ms":37997,"kind":"io_start","domain":"waiting","name":"GET /api/my_approvals_grouped","trigger":"count_refresh","call":31,"category":"invoice"}
+{"seq":136,"elapsed_ms":37998,"kind":"io_start","domain":"waiting","name":"GET /api/my_approvals_grouped","trigger":"count_refresh","call":32,"category":"petty_cash"}
+{"seq":137,"elapsed_ms":38000,"kind":"trigger","domain":"timesheet_badges","name":"start_existing"}
+{"seq":138,"elapsed_ms":38000,"kind":"trigger","domain":"timesheet_badges","name":"subscriptions_restart"}
+{"seq":139,"elapsed_ms":38001,"kind":"trigger","domain":"timesheet_badges","name":"start_existing"}
+{"seq":140,"elapsed_ms":38001,"kind":"trigger","domain":"timesheet_badges","name":"subscriptions_restart"}
+{"seq":141,"elapsed_ms":38148,"kind":"trigger","domain":"waiting_sign_document","name":"firestore_snapshot","count":0}
+{"seq":142,"elapsed_ms":38149,"kind":"trigger","domain":"waiting_sign_document","name":"firestore_snapshot","count":0,"enabled":true}
+{"seq":143,"elapsed_ms":38149,"kind":"trigger","domain":"waiting","name":"header_read","cache_hit":false}
+{"seq":144,"elapsed_ms":38150,"kind":"io_start","domain":"waiting","name":"GET /api/my_approvals_grouped","trigger":"count_refresh","call":33,"category":"hr"}
+{"seq":145,"elapsed_ms":38151,"kind":"io_start","domain":"waiting","name":"GET /api/my_approvals_grouped","trigger":"count_refresh","call":34,"category":"rfq"}
+{"seq":146,"elapsed_ms":38151,"kind":"io_start","domain":"waiting","name":"GET /api/my_approvals_grouped","trigger":"count_refresh","call":35,"category":"invoice"}
+{"seq":147,"elapsed_ms":38151,"kind":"io_start","domain":"waiting","name":"GET /api/my_approvals_grouped","trigger":"count_refresh","call":36,"category":"petty_cash"}
+{"seq":148,"elapsed_ms":38152,"kind":"trigger","domain":"waiting","name":"header_read","cache_hit":false}
+{"seq":149,"elapsed_ms":38152,"kind":"io_start","domain":"waiting","name":"GET /api/my_approvals_grouped","trigger":"count_refresh","call":37,"category":"hr"}
+{"seq":150,"elapsed_ms":38153,"kind":"io_start","domain":"waiting","name":"GET /api/my_approvals_grouped","trigger":"count_refresh","call":38,"category":"rfq"}
+{"seq":151,"elapsed_ms":38153,"kind":"io_start","domain":"waiting","name":"GET /api/my_approvals_grouped","trigger":"count_refresh","call":39,"category":"invoice"}
+{"seq":152,"elapsed_ms":38155,"kind":"io_start","domain":"waiting","name":"GET /api/my_approvals_grouped","trigger":"count_refresh","call":40,"category":"petty_cash"}
+{"seq":153,"elapsed_ms":38161,"kind":"trigger","domain":"notification_bell_firestore","name":"firestore_snapshot","count":0}
+{"seq":154,"elapsed_ms":38161,"kind":"trigger","domain":"launcher_badge","name":"set_count","count":2,"force":true}
+{"seq":155,"elapsed_ms":38163,"kind":"trigger","domain":"waiting","name":"header_read","cache_hit":false}
+{"seq":156,"elapsed_ms":38164,"kind":"io_start","domain":"waiting","name":"GET /api/my_approvals_grouped","trigger":"count_refresh","call":41,"category":"hr"}
+{"seq":157,"elapsed_ms":38164,"kind":"io_start","domain":"waiting","name":"GET /api/my_approvals_grouped","trigger":"count_refresh","call":42,"category":"rfq"}
+{"seq":158,"elapsed_ms":38165,"kind":"io_start","domain":"waiting","name":"GET /api/my_approvals_grouped","trigger":"count_refresh","call":43,"category":"invoice"}
+{"seq":159,"elapsed_ms":38165,"kind":"io_start","domain":"waiting","name":"GET /api/my_approvals_grouped","trigger":"count_refresh","call":44,"category":"petty_cash"}
+{"seq":160,"elapsed_ms":38166,"kind":"trigger","domain":"waiting","name":"header_read","cache_hit":false}
+{"seq":161,"elapsed_ms":38167,"kind":"io_start","domain":"waiting","name":"GET /api/my_approvals_grouped","trigger":"count_refresh","call":45,"category":"hr"}
+{"seq":162,"elapsed_ms":38167,"kind":"io_start","domain":"waiting","name":"GET /api/my_approvals_grouped","trigger":"count_refresh","call":46,"category":"rfq"}
+{"seq":163,"elapsed_ms":38168,"kind":"io_start","domain":"waiting","name":"GET /api/my_approvals_grouped","trigger":"count_refresh","call":47,"category":"invoice"}
+{"seq":164,"elapsed_ms":38168,"kind":"io_start","domain":"waiting","name":"GET /api/my_approvals_grouped","trigger":"count_refresh","call":48,"category":"petty_cash"}
+{"seq":165,"elapsed_ms":38764,"kind":"io_end","domain":"waiting","name":"GET /api/my_approvals_grouped","trigger":"count_refresh","call":32,"status":"success","duration_ms":766,"category":"petty_cash"}
+{"seq":166,"elapsed_ms":38768,"kind":"io_end","domain":"notification_bell","name":"GET /notifications","trigger":"server_sync","call":2,"status":"success","duration_ms":773}
+{"seq":167,"elapsed_ms":38769,"kind":"state","domain":"notification_bell","name":"server_sync_complete","server_unread":2,"baseline":null,"previous":2,"displayed":2}
+{"seq":168,"elapsed_ms":38769,"kind":"trigger","domain":"launcher_badge","name":"set_count","count":2,"force":true}
+{"seq":169,"elapsed_ms":38771,"kind":"io_end","domain":"waiting","name":"GET /api/my_approvals_grouped","trigger":"count_refresh","call":29,"status":"success","duration_ms":774,"category":"hr"}
+{"seq":170,"elapsed_ms":38775,"kind":"io_end","domain":"notification_bell","name":"syncBadgeFromServer","trigger":"authenticated_resume","call":2,"status":"success","duration_ms":780}
+{"seq":171,"elapsed_ms":38780,"kind":"io_end","domain":"waiting","name":"GET /api/my_approvals_grouped","trigger":"count_refresh","call":36,"status":"success","duration_ms":628,"category":"petty_cash"}
+{"seq":172,"elapsed_ms":38848,"kind":"io_end","domain":"waiting","name":"GET /api/my_approvals_grouped","trigger":"count_refresh","call":30,"status":"success","duration_ms":850,"category":"rfq"}
+{"seq":173,"elapsed_ms":38907,"kind":"io_end","domain":"waiting","name":"GET /api/my_approvals_grouped","trigger":"count_refresh","call":33,"status":"success","duration_ms":757,"category":"hr"}
+{"seq":174,"elapsed_ms":38943,"kind":"io_end","domain":"waiting","name":"GET /api/my_approvals_grouped","trigger":"count_refresh","call":48,"status":"success","duration_ms":775,"category":"petty_cash"}
+{"seq":175,"elapsed_ms":39014,"kind":"io_end","domain":"waiting","name":"GET /api/my_approvals_grouped","trigger":"count_refresh","call":37,"status":"success","duration_ms":861,"category":"hr"}
+{"seq":176,"elapsed_ms":39019,"kind":"io_end","domain":"waiting","name":"GET /api/my_approvals_grouped","trigger":"count_refresh","call":40,"status":"success","duration_ms":864,"category":"petty_cash"}
+{"seq":177,"elapsed_ms":39022,"kind":"io_end","domain":"waiting","name":"GET /api/my_approvals_grouped","trigger":"count_refresh","call":44,"status":"success","duration_ms":856,"category":"petty_cash"}
+{"seq":178,"elapsed_ms":39024,"kind":"io_end","domain":"waiting","name":"GET /api/my_approvals_grouped","trigger":"count_refresh","call":41,"status":"success","duration_ms":860,"category":"hr"}
+{"seq":179,"elapsed_ms":39026,"kind":"io_end","domain":"waiting","name":"GET /api/my_approvals_grouped","trigger":"count_refresh","call":45,"status":"success","duration_ms":859,"category":"hr"}
+{"seq":180,"elapsed_ms":39030,"kind":"io_end","domain":"waiting","name":"GET /api/my_approvals_grouped","trigger":"count_refresh","call":42,"status":"success","duration_ms":865,"category":"rfq"}
+{"seq":181,"elapsed_ms":39101,"kind":"io_end","domain":"waiting","name":"GET /api/my_approvals_grouped","trigger":"count_refresh","call":46,"status":"success","duration_ms":934,"category":"rfq"}
+{"seq":182,"elapsed_ms":39148,"kind":"io_end","domain":"waiting","name":"GET /api/my_approvals_grouped","trigger":"count_refresh","call":34,"status":"success","duration_ms":997,"category":"rfq"}
+{"seq":183,"elapsed_ms":39165,"kind":"io_end","domain":"waiting","name":"GET /api/my_approvals_grouped","trigger":"count_refresh","call":38,"status":"success","duration_ms":1011,"category":"rfq"}
+{"seq":184,"elapsed_ms":39759,"kind":"io_end","domain":"waiting","name":"GET /api/my_approvals_grouped","trigger":"count_refresh","call":31,"status":"success","duration_ms":1761,"category":"invoice"}
+{"seq":185,"elapsed_ms":39759,"kind":"state","domain":"waiting","name":"refresh_complete","odoo_count":0,"sign_document_count":0,"total":0}
+{"seq":186,"elapsed_ms":39760,"kind":"trigger","domain":"launcher_badge","name":"set_count","count":2,"force":true}
+{"seq":187,"elapsed_ms":39761,"kind":"state","domain":"launcher_badge","name":"set_after_global_refresh","count":2,"trigger":"authenticated_resume"}
+{"seq":188,"elapsed_ms":39762,"kind":"state","domain":"global_badges","name":"refresh_finished","trigger":"authenticated_resume"}
+{"seq":189,"elapsed_ms":39762,"kind":"trigger","domain":"waiting","name":"header_read","cache_hit":true}
+{"seq":190,"elapsed_ms":39762,"kind":"trigger","domain":"waiting","name":"header_read","cache_hit":true}
+{"seq":191,"elapsed_ms":40051,"kind":"io_end","domain":"waiting","name":"GET /api/my_approvals_grouped","trigger":"count_refresh","call":39,"status":"success","duration_ms":1897,"category":"invoice"}
+{"seq":192,"elapsed_ms":40052,"kind":"state","domain":"waiting","name":"refresh_complete","odoo_count":0,"sign_document_count":0,"total":0}
+{"seq":193,"elapsed_ms":40054,"kind":"io_end","domain":"waiting","name":"GET /api/my_approvals_grouped","trigger":"count_refresh","call":43,"status":"success","duration_ms":1889,"category":"invoice"}
+{"seq":194,"elapsed_ms":40054,"kind":"state","domain":"waiting","name":"refresh_complete","odoo_count":0,"sign_document_count":0,"total":0}
+{"seq":195,"elapsed_ms":40056,"kind":"io_end","domain":"waiting","name":"GET /api/my_approvals_grouped","trigger":"count_refresh","call":35,"status":"success","duration_ms":1905,"category":"invoice"}
+{"seq":196,"elapsed_ms":40056,"kind":"state","domain":"waiting","name":"refresh_complete","odoo_count":0,"sign_document_count":0,"total":0}
+{"seq":197,"elapsed_ms":40083,"kind":"io_end","domain":"waiting","name":"GET /api/my_approvals_grouped","trigger":"count_refresh","call":47,"status":"success","duration_ms":1915,"category":"invoice"}
+{"seq":198,"elapsed_ms":40083,"kind":"state","domain":"waiting","name":"refresh_complete","odoo_count":0,"sign_document_count":0,"total":0}
+{"seq":199,"elapsed_ms":69753,"kind":"trigger","domain":"notification_bell","name":"header_poll"}
+{"seq":200,"elapsed_ms":69754,"kind":"io_start","domain":"notification_bell_v2","name":"GET /v2/notifications/unread_count","trigger":"header_poll","call":3}
+{"seq":201,"elapsed_ms":70628,"kind":"trigger","domain":"launcher_badge","name":"set_count","count":2,"force":false}
+{"seq":202,"elapsed_ms":70629,"kind":"io_end","domain":"notification_bell_v2","name":"GET /v2/notifications/unread_count","trigger":"header_poll","call":3,"status":"success","duration_ms":874}
+{"seq":203,"elapsed_ms":71036,"kind":"trigger","domain":"notification_bell","name":"header_poll"}
+{"seq":204,"elapsed_ms":71036,"kind":"io_start","domain":"notification_bell_v2","name":"GET /v2/notifications/unread_count","trigger":"header_poll","call":4}
+{"seq":205,"elapsed_ms":71622,"kind":"trigger","domain":"launcher_badge","name":"set_count","count":2,"force":false}
+{"seq":206,"elapsed_ms":71622,"kind":"io_end","domain":"notification_bell_v2","name":"GET /v2/notifications/unread_count","trigger":"header_poll","call":4,"status":"success","duration_ms":586}
+{"seq":207,"elapsed_ms":129753,"kind":"trigger","domain":"notification_bell","name":"header_poll"}
+{"seq":208,"elapsed_ms":129754,"kind":"io_start","domain":"notification_bell_v2","name":"GET /v2/notifications/unread_count","trigger":"header_poll","call":5}
+{"seq":209,"elapsed_ms":131036,"kind":"trigger","domain":"notification_bell","name":"header_poll"}
+{"seq":210,"elapsed_ms":131037,"kind":"io_start","domain":"notification_bell_v2","name":"GET /v2/notifications/unread_count","trigger":"header_poll","call":6}
+{"seq":211,"elapsed_ms":131345,"kind":"trigger","domain":"launcher_badge","name":"set_count","count":2,"force":false}
+{"seq":212,"elapsed_ms":131345,"kind":"io_end","domain":"notification_bell_v2","name":"GET /v2/notifications/unread_count","trigger":"header_poll","call":5,"status":"success","duration_ms":1591}
+{"seq":213,"elapsed_ms":131523,"kind":"trigger","domain":"launcher_badge","name":"set_count","count":2,"force":false}
+{"seq":214,"elapsed_ms":131524,"kind":"io_end","domain":"notification_bell_v2","name":"GET /v2/notifications/unread_count","trigger":"header_poll","call":6,"status":"success","duration_ms":487}
+{"seq":215,"elapsed_ms":189753,"kind":"trigger","domain":"notification_bell","name":"header_poll"}
+{"seq":216,"elapsed_ms":189753,"kind":"io_start","domain":"notification_bell_v2","name":"GET /v2/notifications/unread_count","trigger":"header_poll","call":7}
+{"seq":217,"elapsed_ms":190234,"kind":"trigger","domain":"launcher_badge","name":"set_count","count":2,"force":false}
+{"seq":218,"elapsed_ms":190234,"kind":"io_end","domain":"notification_bell_v2","name":"GET /v2/notifications/unread_count","trigger":"header_poll","call":7,"status":"success","duration_ms":481}
+{"seq":219,"elapsed_ms":191036,"kind":"trigger","domain":"notification_bell","name":"header_poll"}
+{"seq":220,"elapsed_ms":191036,"kind":"io_start","domain":"notification_bell_v2","name":"GET /v2/notifications/unread_count","trigger":"header_poll","call":8}
+{"seq":221,"elapsed_ms":191506,"kind":"trigger","domain":"launcher_badge","name":"set_count","count":2,"force":false}
+{"seq":222,"elapsed_ms":191506,"kind":"io_end","domain":"notification_bell_v2","name":"GET /v2/notifications/unread_count","trigger":"header_poll","call":8,"status":"success","duration_ms":470}
+{"seq":223,"elapsed_ms":249753,"kind":"trigger","domain":"notification_bell","name":"header_poll"}
+{"seq":224,"elapsed_ms":249753,"kind":"io_start","domain":"notification_bell_v2","name":"GET /v2/notifications/unread_count","trigger":"header_poll","call":9}
+{"seq":225,"elapsed_ms":250218,"kind":"trigger","domain":"launcher_badge","name":"set_count","count":2,"force":false}
+{"seq":226,"elapsed_ms":250218,"kind":"io_end","domain":"notification_bell_v2","name":"GET /v2/notifications/unread_count","trigger":"header_poll","call":9,"status":"success","duration_ms":464}
+{"seq":227,"elapsed_ms":251049,"kind":"trigger","domain":"notification_bell","name":"header_poll"}
+{"seq":228,"elapsed_ms":251049,"kind":"io_start","domain":"notification_bell_v2","name":"GET /v2/notifications/unread_count","trigger":"header_poll","call":10}
+{"seq":229,"elapsed_ms":251485,"kind":"trigger","domain":"launcher_badge","name":"set_count","count":2,"force":false}
+{"seq":230,"elapsed_ms":251485,"kind":"io_end","domain":"notification_bell_v2","name":"GET /v2/notifications/unread_count","trigger":"header_poll","call":10,"status":"success","duration_ms":436}
+{"seq":231,"elapsed_ms":309761,"kind":"trigger","domain":"notification_bell","name":"header_poll"}
+{"seq":232,"elapsed_ms":309761,"kind":"io_start","domain":"notification_bell_v2","name":"GET /v2/notifications/unread_count","trigger":"header_poll","call":11}
+{"seq":233,"elapsed_ms":310364,"kind":"trigger","domain":"launcher_badge","name":"set_count","count":2,"force":false}
+{"seq":234,"elapsed_ms":310364,"kind":"io_end","domain":"notification_bell_v2","name":"GET /v2/notifications/unread_count","trigger":"header_poll","call":11,"status":"success","duration_ms":603}
+{"seq":235,"elapsed_ms":311036,"kind":"trigger","domain":"notification_bell","name":"header_poll"}
+{"seq":236,"elapsed_ms":311036,"kind":"io_start","domain":"notification_bell_v2","name":"GET /v2/notifications/unread_count","trigger":"header_poll","call":12}
+{"seq":237,"elapsed_ms":311653,"kind":"trigger","domain":"launcher_badge","name":"set_count","count":2,"force":false}
+{"seq":238,"elapsed_ms":311653,"kind":"io_end","domain":"notification_bell_v2","name":"GET /v2/notifications/unread_count","trigger":"header_poll","call":12,"status":"success","duration_ms":617}
+{"seq":239,"elapsed_ms":369753,"kind":"trigger","domain":"notification_bell","name":"header_poll"}
+{"seq":240,"elapsed_ms":369753,"kind":"io_start","domain":"notification_bell_v2","name":"GET /v2/notifications/unread_count","trigger":"header_poll","call":13}
+{"seq":241,"elapsed_ms":370253,"kind":"trigger","domain":"launcher_badge","name":"set_count","count":2,"force":false}
+{"seq":242,"elapsed_ms":370253,"kind":"io_end","domain":"notification_bell_v2","name":"GET /v2/notifications/unread_count","trigger":"header_poll","call":13,"status":"success","duration_ms":499}
+{"seq":243,"elapsed_ms":371038,"kind":"trigger","domain":"notification_bell","name":"header_poll"}
+{"seq":244,"elapsed_ms":371039,"kind":"io_start","domain":"notification_bell_v2","name":"GET /v2/notifications/unread_count","trigger":"header_poll","call":14}
+{"seq":245,"elapsed_ms":371480,"kind":"trigger","domain":"launcher_badge","name":"set_count","count":2,"force":false}
+{"seq":246,"elapsed_ms":371481,"kind":"io_end","domain":"notification_bell_v2","name":"GET /v2/notifications/unread_count","trigger":"header_poll","call":14,"status":"success","duration_ms":441}
+{"seq":247,"elapsed_ms":429753,"kind":"trigger","domain":"notification_bell","name":"header_poll"}
+{"seq":248,"elapsed_ms":429753,"kind":"io_start","domain":"notification_bell_v2","name":"GET /v2/notifications/unread_count","trigger":"header_poll","call":15}
+{"seq":249,"elapsed_ms":430431,"kind":"trigger","domain":"launcher_badge","name":"set_count","count":2,"force":false}
+{"seq":250,"elapsed_ms":430431,"kind":"io_end","domain":"notification_bell_v2","name":"GET /v2/notifications/unread_count","trigger":"header_poll","call":15,"status":"success","duration_ms":678}
+{"seq":251,"elapsed_ms":431036,"kind":"trigger","domain":"notification_bell","name":"header_poll"}
+{"seq":252,"elapsed_ms":431036,"kind":"io_start","domain":"notification_bell_v2","name":"GET /v2/notifications/unread_count","trigger":"header_poll","call":16}
+{"seq":253,"elapsed_ms":431559,"kind":"trigger","domain":"launcher_badge","name":"set_count","count":2,"force":false}
+{"seq":254,"elapsed_ms":431559,"kind":"io_end","domain":"notification_bell_v2","name":"GET /v2/notifications/unread_count","trigger":"header_poll","call":16,"status":"success","duration_ms":522}
+{"seq":255,"elapsed_ms":489753,"kind":"trigger","domain":"notification_bell","name":"header_poll"}
+{"seq":256,"elapsed_ms":489753,"kind":"io_start","domain":"notification_bell_v2","name":"GET /v2/notifications/unread_count","trigger":"header_poll","call":17}
+{"seq":257,"elapsed_ms":490289,"kind":"trigger","domain":"launcher_badge","name":"set_count","count":2,"force":false}
+{"seq":258,"elapsed_ms":490289,"kind":"io_end","domain":"notification_bell_v2","name":"GET /v2/notifications/unread_count","trigger":"header_poll","call":17,"status":"success","duration_ms":536}
+{"seq":259,"elapsed_ms":491036,"kind":"trigger","domain":"notification_bell","name":"header_poll"}
+{"seq":260,"elapsed_ms":491036,"kind":"io_start","domain":"notification_bell_v2","name":"GET /v2/notifications/unread_count","trigger":"header_poll","call":18}
+{"seq":261,"elapsed_ms":491667,"kind":"trigger","domain":"launcher_badge","name":"set_count","count":2,"force":false}
+{"seq":262,"elapsed_ms":491667,"kind":"io_end","domain":"notification_bell_v2","name":"GET /v2/notifications/unread_count","trigger":"header_poll","call":18,"status":"success","duration_ms":630}
+{"seq":263,"elapsed_ms":549753,"kind":"trigger","domain":"notification_bell","name":"header_poll"}
+{"seq":264,"elapsed_ms":549754,"kind":"io_start","domain":"notification_bell_v2","name":"GET /v2/notifications/unread_count","trigger":"header_poll","call":19}
+{"seq":265,"elapsed_ms":551036,"kind":"trigger","domain":"notification_bell","name":"header_poll"}
+{"seq":266,"elapsed_ms":551037,"kind":"io_start","domain":"notification_bell_v2","name":"GET /v2/notifications/unread_count","trigger":"header_poll","call":20}
+{"seq":267,"elapsed_ms":551226,"kind":"trigger","domain":"launcher_badge","name":"set_count","count":2,"force":false}
+{"seq":268,"elapsed_ms":551226,"kind":"io_end","domain":"notification_bell_v2","name":"GET /v2/notifications/unread_count","trigger":"header_poll","call":19,"status":"success","duration_ms":1472}
+{"seq":269,"elapsed_ms":551489,"kind":"trigger","domain":"launcher_badge","name":"set_count","count":2,"force":false}
+{"seq":270,"elapsed_ms":551489,"kind":"io_end","domain":"notification_bell_v2","name":"GET /v2/notifications/unread_count","trigger":"header_poll","call":20,"status":"success","duration_ms":452}
+{"seq":271,"elapsed_ms":609753,"kind":"trigger","domain":"notification_bell","name":"header_poll"}
+{"seq":272,"elapsed_ms":609753,"kind":"io_start","domain":"notification_bell_v2","name":"GET /v2/notifications/unread_count","trigger":"header_poll","call":21}
+{"seq":273,"elapsed_ms":610255,"kind":"trigger","domain":"launcher_badge","name":"set_count","count":2,"force":false}
+{"seq":274,"elapsed_ms":610255,"kind":"io_end","domain":"notification_bell_v2","name":"GET /v2/notifications/unread_count","trigger":"header_poll","call":21,"status":"success","duration_ms":501}
+{"seq":275,"elapsed_ms":611036,"kind":"trigger","domain":"notification_bell","name":"header_poll"}
+{"seq":276,"elapsed_ms":611036,"kind":"io_start","domain":"notification_bell_v2","name":"GET /v2/notifications/unread_count","trigger":"header_poll","call":22}
+{"seq":277,"elapsed_ms":611488,"kind":"trigger","domain":"launcher_badge","name":"set_count","count":2,"force":false}
+{"seq":278,"elapsed_ms":611488,"kind":"io_end","domain":"notification_bell_v2","name":"GET /v2/notifications/unread_count","trigger":"header_poll","call":22,"status":"success","duration_ms":451}
+{"seq":279,"elapsed_ms":669754,"kind":"trigger","domain":"notification_bell","name":"header_poll"}
+{"seq":280,"elapsed_ms":669755,"kind":"io_start","domain":"notification_bell_v2","name":"GET /v2/notifications/unread_count","trigger":"header_poll","call":23}
+{"seq":281,"elapsed_ms":670223,"kind":"trigger","domain":"launcher_badge","name":"set_count","count":2,"force":false}
+{"seq":282,"elapsed_ms":670224,"kind":"io_end","domain":"notification_bell_v2","name":"GET /v2/notifications/unread_count","trigger":"header_poll","call":23,"status":"success","duration_ms":468}
+{"seq":283,"elapsed_ms":671036,"kind":"trigger","domain":"notification_bell","name":"header_poll"}
+{"seq":284,"elapsed_ms":671036,"kind":"io_start","domain":"notification_bell_v2","name":"GET /v2/notifications/unread_count","trigger":"header_poll","call":24}
+{"seq":285,"elapsed_ms":671466,"kind":"trigger","domain":"launcher_badge","name":"set_count","count":2,"force":false}
+{"seq":286,"elapsed_ms":671466,"kind":"io_end","domain":"notification_bell_v2","name":"GET /v2/notifications/unread_count","trigger":"header_poll","call":24,"status":"success","duration_ms":430}
+{"seq":287,"elapsed_ms":729768,"kind":"trigger","domain":"notification_bell","name":"header_poll"}
+{"seq":288,"elapsed_ms":729768,"kind":"io_start","domain":"notification_bell_v2","name":"GET /v2/notifications/unread_count","trigger":"header_poll","call":25}
+{"seq":289,"elapsed_ms":730269,"kind":"trigger","domain":"launcher_badge","name":"set_count","count":2,"force":false}
+{"seq":290,"elapsed_ms":730269,"kind":"io_end","domain":"notification_bell_v2","name":"GET /v2/notifications/unread_count","trigger":"header_poll","call":25,"status":"success","duration_ms":500}
+{"seq":291,"elapsed_ms":731036,"kind":"trigger","domain":"notification_bell","name":"header_poll"}
+{"seq":292,"elapsed_ms":731036,"kind":"io_start","domain":"notification_bell_v2","name":"GET /v2/notifications/unread_count","trigger":"header_poll","call":26}
+{"seq":293,"elapsed_ms":731467,"kind":"trigger","domain":"launcher_badge","name":"set_count","count":2,"force":false}
+{"seq":294,"elapsed_ms":731467,"kind":"io_end","domain":"notification_bell_v2","name":"GET /v2/notifications/unread_count","trigger":"header_poll","call":26,"status":"success","duration_ms":431}
+{"seq":295,"elapsed_ms":789753,"kind":"trigger","domain":"notification_bell","name":"header_poll"}
+{"seq":296,"elapsed_ms":789753,"kind":"io_start","domain":"notification_bell_v2","name":"GET /v2/notifications/unread_count","trigger":"header_poll","call":27}
+{"seq":297,"elapsed_ms":790371,"kind":"trigger","domain":"launcher_badge","name":"set_count","count":2,"force":false}
+{"seq":298,"elapsed_ms":790371,"kind":"io_end","domain":"notification_bell_v2","name":"GET /v2/notifications/unread_count","trigger":"header_poll","call":27,"status":"success","duration_ms":618}
+{"seq":299,"elapsed_ms":791036,"kind":"trigger","domain":"notification_bell","name":"header_poll"}
+{"seq":300,"elapsed_ms":791036,"kind":"io_start","domain":"notification_bell_v2","name":"GET /v2/notifications/unread_count","trigger":"header_poll","call":28}
+{"seq":301,"elapsed_ms":791708,"kind":"trigger","domain":"launcher_badge","name":"set_count","count":2,"force":false}
+{"seq":302,"elapsed_ms":791708,"kind":"io_end","domain":"notification_bell_v2","name":"GET /v2/notifications/unread_count","trigger":"header_poll","call":28,"status":"success","duration_ms":671}
+{"seq":303,"elapsed_ms":849763,"kind":"trigger","domain":"notification_bell","name":"header_poll"}
+{"seq":304,"elapsed_ms":849764,"kind":"io_start","domain":"notification_bell_v2","name":"GET /v2/notifications/unread_count","trigger":"header_poll","call":29}
+{"seq":305,"elapsed_ms":850355,"kind":"trigger","domain":"launcher_badge","name":"set_count","count":2,"force":false}
+{"seq":306,"elapsed_ms":850355,"kind":"io_end","domain":"notification_bell_v2","name":"GET /v2/notifications/unread_count","trigger":"header_poll","call":29,"status":"success","duration_ms":591}
+{"seq":307,"elapsed_ms":851036,"kind":"trigger","domain":"notification_bell","name":"header_poll"}
+{"seq":308,"elapsed_ms":851036,"kind":"io_start","domain":"notification_bell_v2","name":"GET /v2/notifications/unread_count","trigger":"header_poll","call":30}
+{"seq":309,"elapsed_ms":851614,"kind":"trigger","domain":"launcher_badge","name":"set_count","count":2,"force":false}
+{"seq":310,"elapsed_ms":851614,"kind":"io_end","domain":"notification_bell_v2","name":"GET /v2/notifications/unread_count","trigger":"header_poll","call":30,"status":"success","duration_ms":578}
+{"seq":311,"elapsed_ms":909753,"kind":"trigger","domain":"notification_bell","name":"header_poll"}
+{"seq":312,"elapsed_ms":909753,"kind":"io_start","domain":"notification_bell_v2","name":"GET /v2/notifications/unread_count","trigger":"header_poll","call":31}
+{"seq":313,"elapsed_ms":910256,"kind":"trigger","domain":"launcher_badge","name":"set_count","count":2,"force":false}
+{"seq":314,"elapsed_ms":910257,"kind":"io_end","domain":"notification_bell_v2","name":"GET /v2/notifications/unread_count","trigger":"header_poll","call":31,"status":"success","duration_ms":503}
+{"seq":315,"elapsed_ms":911036,"kind":"trigger","domain":"notification_bell","name":"header_poll"}
+{"seq":316,"elapsed_ms":911036,"kind":"io_start","domain":"notification_bell_v2","name":"GET /v2/notifications/unread_count","trigger":"header_poll","call":32}
+{"seq":317,"elapsed_ms":911667,"kind":"trigger","domain":"launcher_badge","name":"set_count","count":2,"force":false}
+{"seq":318,"elapsed_ms":911667,"kind":"io_end","domain":"notification_bell_v2","name":"GET /v2/notifications/unread_count","trigger":"header_poll","call":32,"status":"success","duration_ms":630}
+{"seq":319,"elapsed_ms":969753,"kind":"trigger","domain":"notification_bell","name":"header_poll"}
+{"seq":320,"elapsed_ms":969753,"kind":"io_start","domain":"notification_bell_v2","name":"GET /v2/notifications/unread_count","trigger":"header_poll","call":33}
+{"seq":321,"elapsed_ms":970494,"kind":"trigger","domain":"launcher_badge","name":"set_count","count":2,"force":false}
+{"seq":322,"elapsed_ms":970494,"kind":"io_end","domain":"notification_bell_v2","name":"GET /v2/notifications/unread_count","trigger":"header_poll","call":33,"status":"success","duration_ms":740}
+{"seq":323,"elapsed_ms":971036,"kind":"trigger","domain":"notification_bell","name":"header_poll"}
+{"seq":324,"elapsed_ms":971036,"kind":"io_start","domain":"notification_bell_v2","name":"GET /v2/notifications/unread_count","trigger":"header_poll","call":34}
+{"seq":325,"elapsed_ms":971725,"kind":"trigger","domain":"launcher_badge","name":"set_count","count":2,"force":false}
+{"seq":326,"elapsed_ms":971726,"kind":"io_end","domain":"notification_bell_v2","name":"GET /v2/notifications/unread_count","trigger":"header_poll","call":34,"status":"success","duration_ms":689}
+{"seq":327,"elapsed_ms":1029753,"kind":"trigger","domain":"notification_bell","name":"header_poll"}
+{"seq":328,"elapsed_ms":1029753,"kind":"io_start","domain":"notification_bell_v2","name":"GET /v2/notifications/unread_count","trigger":"header_poll","call":35}
+{"seq":329,"elapsed_ms":1030398,"kind":"trigger","domain":"launcher_badge","name":"set_count","count":2,"force":false}
+{"seq":330,"elapsed_ms":1030399,"kind":"io_end","domain":"notification_bell_v2","name":"GET /v2/notifications/unread_count","trigger":"header_poll","call":35,"status":"success","duration_ms":645}
+{"seq":331,"elapsed_ms":1031036,"kind":"trigger","domain":"notification_bell","name":"header_poll"}
+{"seq":332,"elapsed_ms":1031036,"kind":"io_start","domain":"notification_bell_v2","name":"GET /v2/notifications/unread_count","trigger":"header_poll","call":36}
+{"seq":333,"elapsed_ms":1031626,"kind":"trigger","domain":"launcher_badge","name":"set_count","count":2,"force":false}
+{"seq":334,"elapsed_ms":1031626,"kind":"io_end","domain":"notification_bell_v2","name":"GET /v2/notifications/unread_count","trigger":"header_poll","call":36,"status":"success","duration_ms":589}
