@@ -1,4 +1,5 @@
 import 'package:el_race/core/utils/responsive_breakpoints.dart';
+import 'package:el_race/ui/presentation/Email%20Approval/data/it_hardware_request_repository.dart';
 import 'package:el_race/ui/presentation/Email%20Approval/models/it_hardware_request.dart';
 import 'package:el_race/ui/presentation/Email%20Approval/theme/approvals_overview_theme.dart';
 import 'package:el_race/ui/presentation/Email%20Approval/utils/approval_display_helpers.dart';
@@ -8,21 +9,15 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 
-typedef ItHardwareRequestAction = Future<bool> Function(
-  ItHardwareRequest request,
-);
-
 class ItHardwareRequestDetailsScreen extends StatefulWidget {
   const ItHardwareRequestDetailsScreen({
     super.key,
-    required this.request,
-    this.onApprove,
-    this.onReject,
+    required this.requestId,
+    required this.repository,
   });
 
-  final ItHardwareRequest request;
-  final ItHardwareRequestAction? onApprove;
-  final ItHardwareRequestAction? onReject;
+  final String requestId;
+  final ItHardwareRequestRepository repository;
 
   @override
   State<ItHardwareRequestDetailsScreen> createState() =>
@@ -31,26 +26,86 @@ class ItHardwareRequestDetailsScreen extends StatefulWidget {
 
 class _ItHardwareRequestDetailsScreenState
     extends State<ItHardwareRequestDetailsScreen> {
+  late final ItHardwareRequestFlow _flow;
+  late Future<ItHardwareRequest> _requestFuture;
   bool _submitting = false;
 
+  @override
+  void initState() {
+    super.initState();
+    _flow = ItHardwareRequestFlow(widget.repository);
+    _requestFuture = _flow.load(widget.requestId);
+  }
+
+  void _retry() {
+    setState(() {
+      _requestFuture = _flow.load(widget.requestId);
+    });
+  }
+
+  Future<String?> _requestRejectComment() async {
+    final controller = TextEditingController();
+    final comment = await showDialog<String>(
+      context: context,
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (context, setDialogState) {
+          final value = controller.text.trim();
+          return AlertDialog(
+            title: const Text('Reject Comment'),
+            content: TextField(
+              controller: controller,
+              autofocus: true,
+              maxLength: 50,
+              minLines: 3,
+              maxLines: 4,
+              onChanged: (_) => setDialogState(() {}),
+              decoration: const InputDecoration(
+                hintText: 'Enter the reason for rejection...',
+                border: OutlineInputBorder(),
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(dialogContext).pop(),
+                child: const Text('Cancel'),
+              ),
+              FilledButton(
+                onPressed: value.isEmpty
+                    ? null
+                    : () => Navigator.of(dialogContext).pop(value),
+                child: const Text('Reject'),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+    controller.dispose();
+    return comment;
+  }
+
   Future<void> _runAction({required bool approve}) async {
-    final action = approve ? widget.onApprove : widget.onReject;
-    if (action == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            '${approve ? 'Approve' : 'Reject'} API will be connected when the endpoint is available.',
-          ),
-        ),
-      );
-      return;
+    String? rejectComment;
+    if (!approve) {
+      rejectComment = await _requestRejectComment();
+      if (rejectComment == null || rejectComment.trim().isEmpty) return;
     }
 
     setState(() => _submitting = true);
     try {
-      final completed = await action(widget.request);
+      final completed = approve
+          ? await _flow.approve(widget.requestId)
+          : await _flow.reject(
+              widget.requestId,
+              comment: rejectComment!.trim(),
+            );
       if (!mounted) return;
       if (completed) Navigator.of(context).pop(true);
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(error.toString())),
+      );
     } finally {
       if (mounted) setState(() => _submitting = false);
     }
@@ -58,7 +113,65 @@ class _ItHardwareRequestDetailsScreenState
 
   @override
   Widget build(BuildContext context) {
-    final request = widget.request;
+    return FutureBuilder<ItHardwareRequest>(
+      future: _requestFuture,
+      builder: (context, snapshot) {
+        if (snapshot.connectionState != ConnectionState.done) {
+          return _buildShell(
+            title: 'IT Hardware Request',
+            child: const Center(child: CircularProgressIndicator()),
+          );
+        }
+
+        if (snapshot.hasError || !snapshot.hasData) {
+          return _buildShell(
+            title: 'IT Hardware Request',
+            child: _LoadError(
+              message: snapshot.error?.toString() ??
+                  'Unable to load the IT hardware request.',
+              onRetry: _retry,
+            ),
+          );
+        }
+
+        return _buildRequest(snapshot.requireData);
+      },
+    );
+  }
+
+  Widget _buildShell({required String title, required Widget child}) {
+    return AnnotatedRegion<SystemUiOverlayStyle>(
+      value: ApprovalsOverviewTheme.overlay,
+      child: Scaffold(
+        backgroundColor: ApprovalsOverviewTheme.screenBase,
+        body: Stack(
+          fit: StackFit.expand,
+          children: [
+            const DecoratedBox(
+              decoration: BoxDecoration(
+                gradient: ApprovalsOverviewTheme.screenGradient,
+              ),
+            ),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                ContextualGlassChromeHeader(
+                  title: title,
+                  showBack: true,
+                  onLightSurface: true,
+                  transparentGlassBar: false,
+                  scrimTopOpacity: 0,
+                ),
+                Expanded(child: child),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildRequest(ItHardwareRequest request) {
     final employeeInformation = [
       _ItDetailItem('Request Type', request.requestType),
       _ItDetailItem('Request Date', request.requestDate),
@@ -121,6 +234,8 @@ class _ItHardwareRequestDetailsScreenState
                           title: 'Hardware User',
                           items: hardwareUser,
                         ),
+                        SizedBox(height: 8.th),
+                        _HardwareLinesSection(lines: request.lines),
                       ],
                     ),
                   ),
@@ -136,6 +251,47 @@ class _ItHardwareRequestDetailsScreenState
                 onReject: () => _runAction(approve: false),
                 onApprove: () => _runAction(approve: true),
               ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _LoadError extends StatelessWidget {
+  const _LoadError({required this.message, required this.onRetry});
+
+  final String message;
+  final VoidCallback onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Padding(
+        padding: EdgeInsets.all(24.tw),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              Icons.error_outline_rounded,
+              size: 40.tsp,
+              color: ApprovalsOverviewTheme.itRequest,
+            ),
+            SizedBox(height: 12.th),
+            Text(
+              message,
+              textAlign: TextAlign.center,
+              style: GoogleFonts.poppins(
+                fontSize: 12.tsp,
+                color: ApprovalsOverviewTheme.textSoft,
+              ),
+            ),
+            SizedBox(height: 14.th),
+            FilledButton.icon(
+              onPressed: onRetry,
+              icon: const Icon(Icons.refresh_rounded),
+              label: const Text('Retry'),
             ),
           ],
         ),
@@ -236,15 +392,7 @@ class _ItDetailsSection extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            title.toUpperCase(),
-            style: GoogleFonts.poppins(
-              fontSize: 10.tsp,
-              fontWeight: FontWeight.w700,
-              letterSpacing: 0.7,
-              color: ApprovalsOverviewTheme.screenDeep,
-            ),
-          ),
+          _SectionTitle(title),
           SizedBox(height: 10.th),
           LayoutBuilder(
             builder: (context, constraints) {
@@ -264,6 +412,158 @@ class _ItDetailsSection extends StatelessWidget {
             },
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _HardwareLinesSection extends StatelessWidget {
+  const _HardwareLinesSection({required this.lines});
+
+  final List<ItHardwareRequestLine> lines;
+
+  String _quantity(num value) {
+    if (value == value.roundToDouble()) return value.toInt().toString();
+    return value.toString();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return OverviewGlassPanel(
+      fillAlpha: 0.9,
+      blurSigma: 8,
+      radius: 16,
+      padding: EdgeInsets.fromLTRB(14.tw, 12.th, 14.tw, 12.th),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const _SectionTitle('Requested Hardware Items'),
+          SizedBox(height: 10.th),
+          if (lines.isEmpty)
+            Text(
+              'No requested hardware items.',
+              style: GoogleFonts.poppins(
+                fontSize: 11.tsp,
+                color: ApprovalsOverviewTheme.textSoft,
+              ),
+            )
+          else
+            for (var index = 0; index < lines.length; index++) ...[
+              _HardwareLineCard(
+                index: index + 1,
+                line: lines[index],
+                quantity: _quantity(lines[index].quantity),
+              ),
+              if (index != lines.length - 1) SizedBox(height: 8.th),
+            ],
+        ],
+      ),
+    );
+  }
+}
+
+class _HardwareLineCard extends StatelessWidget {
+  const _HardwareLineCard({
+    required this.index,
+    required this.line,
+    required this.quantity,
+  });
+
+  final int index;
+  final ItHardwareRequestLine line;
+  final String quantity;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: EdgeInsets.all(10.tw),
+      decoration: BoxDecoration(
+        color: ApprovalsOverviewTheme.screenTintLight.withValues(alpha: 0.65),
+        borderRadius: BorderRadius.circular(12.tr),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.85)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Item $index',
+            style: GoogleFonts.poppins(
+              fontSize: 9.tsp,
+              fontWeight: FontWeight.w700,
+              color: ApprovalsOverviewTheme.itRequest,
+            ),
+          ),
+          SizedBox(height: 8.th),
+          _LineValue(label: 'Item', value: line.item),
+          _LineValue(label: 'Quantity', value: quantity),
+          _LineValue(label: 'Specifications', value: line.specifications),
+          _LineValue(label: 'Reason', value: line.reason, last: true),
+        ],
+      ),
+    );
+  }
+}
+
+class _LineValue extends StatelessWidget {
+  const _LineValue({
+    required this.label,
+    required this.value,
+    this.last = false,
+  });
+
+  final String label;
+  final String value;
+  final bool last;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: EdgeInsets.only(bottom: last ? 0 : 6.th),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: 92.tw,
+            child: Text(
+              label,
+              style: GoogleFonts.poppins(
+                fontSize: 9.tsp,
+                fontWeight: FontWeight.w500,
+                color: ApprovalsOverviewTheme.textSoft,
+              ),
+            ),
+          ),
+          Expanded(
+            child: Text(
+              value.trim().isEmpty ? '-' : value,
+              style: GoogleFonts.poppins(
+                fontSize: 10.tsp,
+                fontWeight: FontWeight.w600,
+                color: ApprovalsOverviewTheme.textDark,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _SectionTitle extends StatelessWidget {
+  const _SectionTitle(this.title);
+
+  final String title;
+
+  @override
+  Widget build(BuildContext context) {
+    return Text(
+      title.toUpperCase(),
+      style: GoogleFonts.poppins(
+        fontSize: 10.tsp,
+        fontWeight: FontWeight.w700,
+        letterSpacing: 0.7,
+        color: ApprovalsOverviewTheme.screenDeep,
       ),
     );
   }

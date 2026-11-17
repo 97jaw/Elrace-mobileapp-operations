@@ -260,9 +260,10 @@ class _AllApprovalsOverviewState extends ConsumerState<AllApprovalsOverview> {
         value: widget.itRequestCount,
         backgroundColor: ApprovalsOverviewTheme.statCardItRequest,
         route: 'it_request',
-        isLoading: false,
-        hasError: false,
+        isLoading: _isLoading('it_request'),
+        hasError: _hasError('it_request'),
         onTap: () => _openCategorySheet('it_request', 'IT Request'),
+        onRetry: () => retry('it_request'),
       ),
     ];
   }

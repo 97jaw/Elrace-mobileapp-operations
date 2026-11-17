@@ -7,8 +7,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:el_race/ui/presentation/Email%20Approval/Approval_confirmation.dart';
 import 'package:el_race/ui/presentation/Email%20Approval/data/ror_repository.dart';
-import 'package:el_race/ui/presentation/Email%20Approval/data/it_hardware_request_demo_data.dart';
-import 'package:el_race/ui/presentation/Email%20Approval/models/it_hardware_request.dart';
+import 'package:el_race/ui/presentation/Email%20Approval/data/it_hardware_request_repository.dart';
 import 'package:el_race/ui/presentation/Email%20Approval/models/ror_response.dart';
 import 'package:el_race/ui/presentation/Email%20Approval/utils/approval_display_helpers.dart';
 import 'package:el_race/ui/presentation/Email%20Approval/utils/approval_photo_cache.dart';
@@ -67,7 +66,7 @@ class _ApprovalsScreenState extends State<ApprovalsScreen> {
   List<dynamic> rfqItems = [];
   List<dynamic> invoiceItems = [];
   List<dynamic> pettyCashItems = [];
-  List<dynamic> itRequestItems = ItHardwareRequestDemoData.waitingItems;
+  List<dynamic> itRequestItems = [];
   List<dynamic> allItems = [];
   List<dynamic> approvalItems = [];
   String error = '';
@@ -75,6 +74,7 @@ class _ApprovalsScreenState extends State<ApprovalsScreen> {
   // Per-category loading/loaded/error state — no full-screen blocking loader
   final Map<String, bool> _categoryLoading = {};
   final Map<String, bool> _categoryLoaded = {};
+
   /// Monotonic fetch id per category so overlapping force-refreshes cannot
   /// apply a stale response after a newer approve/reject reload.
   final Map<String, int> _categoryFetchGeneration = {};
@@ -85,6 +85,8 @@ class _ApprovalsScreenState extends State<ApprovalsScreen> {
   late int _rorMonth;
   late int _rorYear;
   final RorRepository _rorRepo = RorRepository();
+  final ItHardwareRequestRepository _itRequestRepository =
+      const PendingItHardwareRequestRepository();
 
   @override
   void initState() {
@@ -282,6 +284,10 @@ class _ApprovalsScreenState extends State<ApprovalsScreen> {
   }
 
   Future<List<dynamic>> _fetchCategoryData(String groupType) async {
+    if (groupType == _CategoryKeys.itRequest) {
+      return _itRequestRepository.fetchWaiting();
+    }
+
     final token = SharedPref.getLoginData().result?.token;
 
     final headers = {
@@ -425,12 +431,17 @@ class _ApprovalsScreenState extends State<ApprovalsScreen> {
             pettyCashItems =
                 _normalizeCategoryItems(items, categoryLabel: 'PETTY CASH');
             _countCache.pettyCash = pettyCashItems.length;
+          case 'it_request':
+            itRequestItems =
+                _normalizeCategoryItems(items, categoryLabel: 'IT');
+            _countCache.itRequest = itRequestItems.length;
         }
         allItems = [
           ...hrItems,
           ...rfqItems,
           ...invoiceItems,
-          ...pettyCashItems
+          ...pettyCashItems,
+          ...itRequestItems,
         ];
         approvalItems = _getFilteredItems();
         _categoryLoading[categoryKey] = false;
@@ -466,7 +477,8 @@ class _ApprovalsScreenState extends State<ApprovalsScreen> {
     final cacheTotal = _countCache.hr +
         _countCache.rfq +
         _countCache.invoice +
-        _countCache.pettyCash;
+        _countCache.pettyCash +
+        _countCache.itRequest;
     // Don't stomp a warm home badge with zeros before the first category lands.
     if (!anyLoaded && cacheTotal <= 0) return;
 
@@ -480,7 +492,12 @@ class _ApprovalsScreenState extends State<ApprovalsScreen> {
     final petty = _categoryLoaded['petty_cash'] == true
         ? pettyCashItems.length
         : _countCache.pettyCash;
-    ApprovalCountService.updateCachedCount(hr + rfq + invoice + petty);
+    final itRequest = _categoryLoaded['it_request'] == true
+        ? itRequestItems.length
+        : _countCache.itRequest;
+    ApprovalCountService.updateCachedCount(
+      hr + rfq + invoice + petty + itRequest,
+    );
   }
 
   void _syncApprovalBadgeCountIfReady() {
@@ -495,6 +512,7 @@ class _ApprovalsScreenState extends State<ApprovalsScreen> {
       _loadCategory('hr', force: force),
       _loadCategory('rfq', force: force),
       _loadCategory('petty_cash', force: force),
+      _loadCategory('it_request', force: force),
     ]);
   }
 
@@ -576,17 +594,20 @@ class _ApprovalsScreenState extends State<ApprovalsScreen> {
       rfqItems = _withoutRecord(rfqItems, recordId);
       invoiceItems = _withoutRecord(invoiceItems, recordId);
       pettyCashItems = _withoutRecord(pettyCashItems, recordId);
+      itRequestItems = _withoutRecord(itRequestItems, recordId);
       allItems = [
         ...hrItems,
         ...rfqItems,
         ...invoiceItems,
         ...pettyCashItems,
+        ...itRequestItems,
       ];
       approvalItems = _getFilteredItems();
       _countCache.hr = hrItems.length;
       _countCache.rfq = rfqItems.length;
       _countCache.invoice = invoiceItems.length;
       _countCache.pettyCash = pettyCashItems.length;
+      _countCache.itRequest = itRequestItems.length;
     });
     _publishApprovalBadgeCount();
   }
@@ -644,6 +665,7 @@ class _ApprovalsScreenState extends State<ApprovalsScreen> {
             ...rfqItems,
             ...invoiceItems,
             ...pettyCashItems,
+            ...itRequestItems,
           ];
           approvalItems = _getFilteredItems();
           _categoryLoaded['invoice'] = true;
@@ -772,6 +794,7 @@ class _ApprovalsScreenState extends State<ApprovalsScreen> {
         ...rfqItems,
         ...invoiceItems,
         ...pettyCashItems,
+        ...itRequestItems,
       ];
       approvalItems = _getFilteredItems();
     });
@@ -907,7 +930,8 @@ class _ApprovalsScreenState extends State<ApprovalsScreen> {
           navigatorContext,
           MaterialPageRoute(
             builder: (_) => ItHardwareRequestDetailsScreen(
-              request: ItHardwareRequest.fromMap(item),
+              requestId: id,
+              repository: _itRequestRepository,
             ),
           ),
         );
@@ -1005,7 +1029,7 @@ class _ApprovalsScreenState extends State<ApprovalsScreen> {
         pettyCashCount: _displayCategoryCount('petty_cash', pettyCashItems),
         rfqCount: _displayCategoryCount('rfq', rfqItems),
         hrCount: _displayCategoryCount('hr', hrItems),
-        itRequestCount: itRequestItems.length,
+        itRequestCount: _displayCategoryCount('it_request', itRequestItems),
         hrItems: _castItemMaps(hrItems),
         rfqItems: _castItemMaps(rfqItems),
         invoiceItems: _castItemMaps(invoiceItems),
@@ -1130,6 +1154,7 @@ class _ApprovalsCountCache {
   int rfq = 0;
   int invoice = 0;
   int pettyCash = 0;
+  int itRequest = 0;
 
   int forKey(String categoryKey) {
     switch (categoryKey) {
@@ -1141,6 +1166,8 @@ class _ApprovalsCountCache {
         return invoice;
       case 'petty_cash':
         return pettyCash;
+      case 'it_request':
+        return itRequest;
       default:
         return 0;
     }

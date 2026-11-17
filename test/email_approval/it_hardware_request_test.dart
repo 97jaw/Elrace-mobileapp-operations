@@ -1,48 +1,103 @@
+import 'package:el_race/ui/presentation/Email%20Approval/Approval.dart';
+import 'package:el_race/ui/presentation/Email%20Approval/data/it_hardware_request_repository.dart';
 import 'package:el_race/ui/presentation/Email%20Approval/models/it_hardware_request.dart';
+import 'package:el_race/ui/presentation/Email%20Approval/screens/it_hardware_request_details_screen.dart';
 import 'package:flutter_test/flutter_test.dart';
+
+import '../fixtures/it_hardware_request_fixture.dart';
 
 void main() {
   group('ItHardwareRequest', () {
-    test('parses the confirmed hardware request fields', () {
-      final request = ItHardwareRequest.fromMap({
-        'id': 14665,
-        'name': 'REQ/2026/14665',
-        'request_type': 'IT Hardware Request',
-        'request_date': '16/11/2026',
-        'requester_name': 'Qossay Naji Ali Bahlool',
-        'requester_department': 'IT',
-        'hardware_user': [3377, 'Qossay Naji Ali Bahlool'],
-        'employee_id': 3377,
-        'department': 'IT',
-        'current_approver': [12, 'IT Manager'],
-        'project': [50, 'Head Office'],
-        'project_manager': {'name': 'Mohammed Jawad'},
-      });
+    test('keeps request identity and hardware lines typed', () {
+      final request = neutralItHardwareRequestFixture;
 
-      expect(request.id, '14665');
-      expect(request.requestNumber, 'REQ/2026/14665');
-      expect(request.requestType, 'IT Hardware Request');
-      expect(request.requester, 'Qossay Naji Ali Bahlool');
-      expect(request.hardwareUser, 'Qossay Naji Ali Bahlool');
-      expect(request.employeeId, '3377');
-      expect(request.currentApprover, 'IT Manager');
-      expect(request.project, 'Head Office');
-      expect(request.projectManager, 'Mohammed Jawad');
+      expect(request.id, 'request-101');
+      expect(request.requestNumber, 'REQ/TEST/101');
+      expect(request.lines, hasLength(1));
+      expect(request.lines.single.item, 'Laptop');
+      expect(request.lines.single.quantity, 1);
+      expect(request.lines.single.specifications, isNotEmpty);
+      expect(request.lines.single.reason, isNotEmpty);
     });
 
-    test('keeps unavailable optional fields empty', () {
-      final request = ItHardwareRequest.fromMap({
-        'id': 'LOCAL_FAKE_IT_1',
-        'request_no': 'REQ/2026/1',
-        'hardware_user_name': 'Test User',
-        'project': false,
-        'project_manager': null,
-      });
+    test('pending repository fails explicitly instead of returning demo data',
+        () async {
+      const repository = PendingItHardwareRequestRepository();
 
-      expect(request.currentApprover, isEmpty);
-      expect(request.project, isEmpty);
-      expect(request.projectManager, isEmpty);
-      expect(request.isDebug, isTrue);
+      expect(await repository.fetchWaiting(), isEmpty);
+      await expectLater(
+        repository.fetchById('request-101'),
+        throwsA(isA<ItHardwareRequestApiUnavailable>()),
+      );
     });
   });
+
+  group('ItHardwareRequestFlow', () {
+    test('loads details by requestId', () async {
+      final repository = _FakeItHardwareRequestRepository();
+      final flow = ItHardwareRequestFlow(repository);
+
+      final request = await flow.load('request-101');
+
+      expect(repository.fetchedRequestId, 'request-101');
+      expect(request.lines.single.item, 'Laptop');
+    });
+
+    test('requires and forwards a reject comment', () async {
+      final repository = _FakeItHardwareRequestRepository();
+      final flow = ItHardwareRequestFlow(repository);
+
+      expect(
+        () => flow.reject('request-101', comment: '  '),
+        throwsArgumentError,
+      );
+
+      await flow.reject(
+        'request-101',
+        comment: '  Missing required specifications  ',
+      );
+
+      expect(repository.rejectedRequestId, 'request-101');
+      expect(repository.rejectComment, 'Missing required specifications');
+    });
+  });
+
+  test('details screen is configured with requestId and repository', () {
+    const screen = ItHardwareRequestDetailsScreen(
+      requestId: 'request-101',
+      repository: PendingItHardwareRequestRepository(),
+    );
+
+    expect(screen.requestId, 'request-101');
+    expect(screen.repository, isA<PendingItHardwareRequestRepository>());
+  });
+
+  test('waiting approvals screen remains constructible', () {
+    expect(const ApprovalsScreen(), isA<ApprovalsScreen>());
+  });
+}
+
+class _FakeItHardwareRequestRepository implements ItHardwareRequestRepository {
+  String? fetchedRequestId;
+  String? rejectedRequestId;
+  String? rejectComment;
+
+  @override
+  Future<List<Map<String, dynamic>>> fetchWaiting() async => const [];
+
+  @override
+  Future<ItHardwareRequest> fetchById(String requestId) async {
+    fetchedRequestId = requestId;
+    return neutralItHardwareRequestFixture;
+  }
+
+  @override
+  Future<bool> approve(String requestId) async => false;
+
+  @override
+  Future<bool> reject(String requestId, {required String comment}) async {
+    rejectedRequestId = requestId;
+    rejectComment = comment;
+    return false;
+  }
 }

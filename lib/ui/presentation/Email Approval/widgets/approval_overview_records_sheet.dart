@@ -298,8 +298,7 @@ class _ApprovalRecordTile extends StatelessWidget {
       case 'petty_cash':
         return 'PETTY CASH';
       case 'it_request':
-        final prefix = item['is_debug'] == true ? '[DEBUG] ' : '';
-        return '${prefix}HARDWARE REQUEST';
+        return 'HARDWARE REQUEST';
       case 'sign_document':
         return _str(
           item['my_role'] ?? item['role_label'],
