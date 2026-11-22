@@ -525,15 +525,16 @@ class _MidDualSummaryLayout extends StatelessWidget {
                   height: 1.1,
                 ),
               ),
-              Text(
-                subtitle,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: GoogleFonts.poppins(
-                  fontSize: subSp,
-                  color: HomeGlassTheme.textSecondary,
+              if (subtitle.trim().isNotEmpty)
+                Text(
+                  subtitle,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: GoogleFonts.poppins(
+                    fontSize: subSp,
+                    color: HomeGlassTheme.textSecondary,
+                  ),
                 ),
-              ),
             ],
           ),
         ),
@@ -550,7 +551,6 @@ class _CheckInSummary extends StatefulWidget {
 }
 
 class _CheckInSummaryState extends State<_CheckInSummary> {
-  Timer? _tickTimer;
   StreamSubscription<AttendanceStatusSnapshot>? _syncSub;
   String _lastTime = '';
   String _lastSub = '';
@@ -564,10 +564,6 @@ class _CheckInSummaryState extends State<_CheckInSummary> {
     _lastSub = initial.sub;
     _lastCheckedIn = initial.checkedIn;
     _syncSub = AttendanceStatusSyncService.updates.listen((_) {
-      if (!mounted) return;
-      _refreshIfChanged();
-    });
-    _tickTimer = Timer.periodic(const Duration(seconds: 1), (_) {
       if (!mounted) return;
       _refreshIfChanged();
     });
@@ -589,16 +585,8 @@ class _CheckInSummaryState extends State<_CheckInSummary> {
 
   @override
   void dispose() {
-    _tickTimer?.cancel();
     _syncSub?.cancel();
     super.dispose();
-  }
-
-  String _formatDuration(Duration d) {
-    final totalMinutes = d.inMinutes.abs();
-    final h = (totalMinutes ~/ 60).toString().padLeft(2, '0');
-    final m = (totalMinutes % 60).toString().padLeft(2, '0');
-    return '$h:$m';
   }
 
   DateTime? _resolveCheckInAt() {
@@ -631,24 +619,20 @@ class _CheckInSummaryState extends State<_CheckInSummary> {
         outRaw != '--:--';
 
     if (checkInAt != null && (isCheckedIn || hasCheckOut)) {
-      final elapsed = DateTime.now().difference(checkInAt);
       if (isCheckedIn && !hasCheckOut) {
-        final remaining = const Duration(hours: 8) - elapsed;
-        final remainingLabel = remaining.isNegative
-            ? '00:00'
-            : _formatDuration(remaining);
         return (
           checkedIn: true,
           status: 'Checked in',
           time: DateFormat('HH:mm').format(checkInAt),
-          sub: 'In $remainingLabel',
+          // No 8h-remaining "In HH:MM" under the check-in clock.
+          sub: '',
         );
       }
       return (
         checkedIn: false,
         status: hasCheckOut ? 'Checked out' : 'Check In',
         time: DateFormat('HH:mm').format(checkInAt),
-        sub: hasCheckOut ? 'Out ${_formatClock(outRaw)}' : 'In --:--',
+        sub: hasCheckOut ? 'Out ${_formatClock(outRaw)}' : '',
       );
     }
 
@@ -656,7 +640,7 @@ class _CheckInSummaryState extends State<_CheckInSummary> {
       checkedIn: false,
       status: 'Check In',
       time: '--:--',
-      sub: 'In --:--',
+      sub: '',
     );
   }
 
