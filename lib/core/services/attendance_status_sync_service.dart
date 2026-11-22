@@ -74,18 +74,15 @@ class AttendanceStatusSyncService {
     final checkedInRaw = _asBool(data['checked_in']);
     final checkedOutRaw = _asBool(data['checked_out']);
     final isToday = _asBool(data['is_today']);
-    final isAbsent = _asBool(data['is_absent']);
 
     final checkInTime = _parseServerDateTime(data['check_in_time']?.toString());
     final checkOutTime =
         _parseServerDateTime(data['check_out_time']?.toString());
 
-    // Absent / auto-absent must never look checked-in, even if a dummy time exists.
-    final shouldBeCheckedIn =
-        isToday && !isAbsent && checkedInRaw && !checkedOutRaw;
+    final shouldBeCheckedIn = isToday && checkedInRaw && !checkedOutRaw;
 
     // Extract check_in_record_id if available from the server
-    final rawRecordId = data['check_in_record_id'] ?? data['attendance_id'];
+    final rawRecordId = data['check_in_record_id'];
     final checkInRecordId = (rawRecordId is int && rawRecordId > 0)
         ? rawRecordId
         : (rawRecordId is String ? int.tryParse(rawRecordId) : null);
@@ -94,13 +91,13 @@ class AttendanceStatusSyncService {
       checkedIn: shouldBeCheckedIn,
       checkedOut: isToday && checkedOutRaw,
       isToday: isToday,
-      checkInDisplayTime: (!isAbsent && isToday && checkInTime != null)
+      checkInDisplayTime: (isToday && checkInTime != null)
           ? _formatTime(checkInTime)
           : '00:00:00',
-      checkOutDisplayTime: (!isAbsent && isToday && checkOutTime != null)
+      checkOutDisplayTime: (isToday && checkOutTime != null)
           ? _formatTime(checkOutTime)
           : '00:00:00',
-      checkInRecordId: shouldBeCheckedIn ? checkInRecordId : null,
+      checkInRecordId: checkInRecordId,
       refreshedAt: DateTime.now(),
     );
   }
@@ -179,11 +176,7 @@ class AttendanceStatusSyncService {
     }
 
     final trimmed = raw.trim();
-    if (trimmed.isEmpty ||
-        trimmed == '-' ||
-        trimmed == '--:--' ||
-        trimmed.toLowerCase() == 'false' ||
-        trimmed.toLowerCase() == 'null') {
+    if (trimmed.isEmpty || trimmed.toLowerCase() == 'false') {
       return null;
     }
 

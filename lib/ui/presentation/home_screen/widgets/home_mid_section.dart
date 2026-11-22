@@ -2,7 +2,6 @@ import 'package:el_race/core/utils/responsive_breakpoints.dart';
 import 'dart:async';
 import 'dart:math' as math;
 import 'package:adhan/adhan.dart';
-import 'package:el_race/core/attendance/home_checkin_display.dart';
 import 'package:el_race/core/services/attendance_status_sync_service.dart';
 import 'package:el_race/core/utils/shared_pref.dart';
 import 'package:el_race/ui/presentation/attendance_checkin/attendance_checkin_activity.dart';
@@ -595,6 +594,13 @@ class _CheckInSummaryState extends State<_CheckInSummary> {
     super.dispose();
   }
 
+  String _formatDuration(Duration d) {
+    final totalMinutes = d.inMinutes.abs();
+    final h = (totalMinutes ~/ 60).toString().padLeft(2, '0');
+    final m = (totalMinutes % 60).toString().padLeft(2, '0');
+    return '$h:$m';
+  }
+
   DateTime? _resolveCheckInAt() {
     final checkInMillis = SharedPref().getPreferenceInt('checkInTime');
     if (checkInMillis > 0) {
@@ -603,7 +609,7 @@ class _CheckInSummaryState extends State<_CheckInSummary> {
 
     // Fallback: display string can exist when millis was not persisted.
     final display = SharedPref().getPreferenceString('checkInDisplayTime').trim();
-    if (HomeCheckInDisplay.isBlankClock(display)) {
+    if (display.isEmpty || display == '00:00:00' || display == '--:--') {
       return null;
     }
     final parts = display.split(':');
@@ -616,14 +622,50 @@ class _CheckInSummaryState extends State<_CheckInSummary> {
     return DateTime(now.year, now.month, now.day, hour, minute, second);
   }
 
-  HomeCheckInDisplay _checkInDisplay() {
-    return HomeCheckInDisplay.resolve(
-      isCheckedIn: SharedPref().getPreferenceBoolean('isCheckedIn'),
-      checkInAt: _resolveCheckInAt(),
-      checkOutDisplayTime:
-          SharedPref().getPreferenceString('checkOutDisplayTime'),
-      now: DateTime.now(),
+  ({bool checkedIn, String status, String time, String sub}) _checkInDisplay() {
+    final isCheckedIn = SharedPref().getPreferenceBoolean('isCheckedIn');
+    final checkInAt = _resolveCheckInAt();
+    final outRaw = SharedPref().getPreferenceString('checkOutDisplayTime').trim();
+    final hasCheckOut = outRaw.isNotEmpty &&
+        outRaw != '00:00:00' &&
+        outRaw != '--:--';
+
+    if (checkInAt != null && (isCheckedIn || hasCheckOut)) {
+      final elapsed = DateTime.now().difference(checkInAt);
+      if (isCheckedIn && !hasCheckOut) {
+        final remaining = const Duration(hours: 8) - elapsed;
+        final remainingLabel = remaining.isNegative
+            ? '00:00'
+            : _formatDuration(remaining);
+        return (
+          checkedIn: true,
+          status: 'Checked in',
+          time: DateFormat('HH:mm').format(checkInAt),
+          sub: 'In $remainingLabel',
+        );
+      }
+      return (
+        checkedIn: false,
+        status: hasCheckOut ? 'Checked out' : 'Check In',
+        time: DateFormat('HH:mm').format(checkInAt),
+        sub: hasCheckOut ? 'Out ${_formatClock(outRaw)}' : 'In --:--',
+      );
+    }
+
+    return (
+      checkedIn: false,
+      status: 'Check In',
+      time: '--:--',
+      sub: 'In --:--',
     );
+  }
+
+  String _formatClock(String raw) {
+    final parts = raw.split(':');
+    if (parts.length >= 2) {
+      return '${parts[0].padLeft(2, '0')}:${parts[1].padLeft(2, '0')}';
+    }
+    return raw;
   }
 
   @override
