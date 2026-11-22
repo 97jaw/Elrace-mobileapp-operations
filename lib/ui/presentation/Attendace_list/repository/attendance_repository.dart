@@ -247,7 +247,9 @@ class AttendanceRepo {
         'check_in_time': rawData['check_in_time']?.toString(),
         'check_out_time': rawData['check_out_time']?.toString(),
         'is_today': _toBool(rawData['is_today']),
-        'check_in_record_id': rawData['attendance_id'] ?? rawData['check_in_record_id'],
+        'is_absent': _toBool(rawData['is_absent']),
+        'check_in_record_id':
+            rawData['attendance_id'] ?? rawData['check_in_record_id'],
       };
     } catch (e) {
       log("Error in getTodayStatus: $e");
